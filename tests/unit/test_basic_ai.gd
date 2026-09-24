@@ -45,7 +45,7 @@ func _state() -> GameState:
 
 ## Advance state so it is the AI's turn (player index 1).
 func _ai_turn_state() -> GameState:
-	var gs = _state()
+	var gs: GameState = _state()
 	gs.end_turn()  # player 0 ends → player 1 (AI) acts
 	return gs
 
@@ -68,15 +68,15 @@ func _place_on_board(player: PlayerState, card: CardInstance) -> void:
 # ---------------------------------------------------------------------------
 
 func test_decide_turn_returns_array() -> void:
-	var gs = _ai_turn_state()
-	var actions = BasicAI.decide_turn(gs)
+	var gs: GameState = _ai_turn_state()
+	var actions: Array[Callable] = BasicAI.decide_turn(gs)
 	assert_true(actions is Array)
 
 
 func test_decide_turn_with_empty_hand_and_board_returns_empty_array() -> void:
-	var gs = _ai_turn_state()
+	var gs: GameState = _ai_turn_state()
 	gs.current_player().hand.clear()
-	var actions = BasicAI.decide_turn(gs)
+	var actions: Array[Callable] = BasicAI.decide_turn(gs)
 	assert_eq(actions.size(), 0)
 
 
@@ -85,13 +85,13 @@ func test_decide_turn_with_empty_hand_and_board_returns_empty_array() -> void:
 # ---------------------------------------------------------------------------
 
 func test_ai_queues_action_to_play_affordable_card() -> void:
-	var gs = _ai_turn_state()
-	var ai_player = gs.current_player()
+	var gs: GameState = _ai_turn_state()
+	var ai_player: PlayerState = gs.current_player()
 	ai_player.hero.gain_mana_for_turn(10)
 	var affordable_card = _card(1)
 	_set_hand(ai_player, [affordable_card])
 
-	var actions = BasicAI.decide_turn(gs)
+	var actions: Array[Callable] = BasicAI.decide_turn(gs)
 	# Execute all queued actions
 	for a in actions:
 		a.call()
@@ -100,13 +100,13 @@ func test_ai_queues_action_to_play_affordable_card() -> void:
 
 
 func test_ai_does_not_play_cards_that_cost_more_than_mana() -> void:
-	var gs = _ai_turn_state()
-	var ai_player = gs.current_player()
+	var gs: GameState = _ai_turn_state()
+	var ai_player: PlayerState = gs.current_player()
 	ai_player.hero.gain_mana_for_turn(1)
 	var expensive_card = _card(5)
 	_set_hand(ai_player, [expensive_card])
 
-	var actions = BasicAI.decide_turn(gs)
+	var actions: Array[Callable] = BasicAI.decide_turn(gs)
 	for a in actions:
 		a.call()
 
@@ -114,15 +114,15 @@ func test_ai_does_not_play_cards_that_cost_more_than_mana() -> void:
 
 
 func test_ai_plays_multiple_affordable_cards() -> void:
-	var gs = _ai_turn_state()
-	var ai_player = gs.current_player()
+	var gs: GameState = _ai_turn_state()
+	var ai_player: PlayerState = gs.current_player()
 	ai_player.hero.gain_mana_for_turn(10)
 	var cards: Array[CardInstance] = []
 	for _i in range(3):
 		cards.append(_card(1))
 	_set_hand(ai_player, cards)
 
-	var actions = BasicAI.decide_turn(gs)
+	var actions: Array[Callable] = BasicAI.decide_turn(gs)
 	for a in actions:
 		a.call()
 
@@ -134,9 +134,9 @@ func test_ai_plays_multiple_affordable_cards() -> void:
 # ---------------------------------------------------------------------------
 
 func test_ai_attacks_hero_when_opponent_board_empty() -> void:
-	var gs = _ai_turn_state()
-	var ai_player = gs.current_player()
-	var opponent = gs.opponent()
+	var gs: GameState = _ai_turn_state()
+	var ai_player: PlayerState = gs.current_player()
+	var opponent: PlayerState = gs.opponent()
 	_set_hand(ai_player, [])
 	opponent.board.slots.fill(null)  # ensure opponent board empty
 
@@ -144,7 +144,7 @@ func test_ai_attacks_hero_when_opponent_board_empty() -> void:
 	_place_on_board(ai_player, attacker)
 
 	var hero_hp_before: int = opponent.hero.health
-	var actions = BasicAI.decide_turn(gs)
+	var actions: Array[Callable] = BasicAI.decide_turn(gs)
 	for a in actions:
 		a.call()
 
@@ -152,16 +152,16 @@ func test_ai_attacks_hero_when_opponent_board_empty() -> void:
 
 
 func test_ai_hero_attack_deals_correct_damage() -> void:
-	var gs = _ai_turn_state()
-	var ai_player = gs.current_player()
-	var opponent = gs.opponent()
+	var gs: GameState = _ai_turn_state()
+	var ai_player: PlayerState = gs.current_player()
+	var opponent: PlayerState = gs.opponent()
 	_set_hand(ai_player, [])
 	opponent.board.slots.fill(null)
 
 	var attacker = _card(1, 5, 2)  # 5 attack
 	_place_on_board(ai_player, attacker)
 
-	var actions = BasicAI.decide_turn(gs)
+	var actions: Array[Callable] = BasicAI.decide_turn(gs)
 	for a in actions:
 		a.call()
 
@@ -173,8 +173,8 @@ func test_ai_hero_attack_deals_correct_damage() -> void:
 # ---------------------------------------------------------------------------
 
 func test_ai_attacks_opponent_minion_when_present() -> void:
-	var gs = _ai_turn_state()
-	var ai_player = gs.current_player()
+	var gs: GameState = _ai_turn_state()
+	var ai_player: PlayerState = gs.current_player()
 	_set_hand(ai_player, [])
 
 	var attacker = _card(1, 2, 4)
@@ -185,7 +185,7 @@ func test_ai_attacks_opponent_minion_when_present() -> void:
 	gs.opponent().board.add_card(target)
 
 	var target_hp_before: int = target.health
-	var actions = BasicAI.decide_turn(gs)
+	var actions: Array[Callable] = BasicAI.decide_turn(gs)
 	for a in actions:
 		a.call()
 
@@ -193,8 +193,8 @@ func test_ai_attacks_opponent_minion_when_present() -> void:
 
 
 func test_ai_minion_takes_return_damage_when_attacking() -> void:
-	var gs = _ai_turn_state()
-	var ai_player = gs.current_player()
+	var gs: GameState = _ai_turn_state()
+	var ai_player: PlayerState = gs.current_player()
 	_set_hand(ai_player, [])
 
 	var attacker = _card(1, 1, 5)  # 1 attack, 5 health
@@ -204,7 +204,7 @@ func test_ai_minion_takes_return_damage_when_attacking() -> void:
 	target.summoning_sick = false
 	gs.opponent().board.add_card(target)
 
-	var actions = BasicAI.decide_turn(gs)
+	var actions: Array[Callable] = BasicAI.decide_turn(gs)
 	for a in actions:
 		a.call()
 
@@ -213,8 +213,8 @@ func test_ai_minion_takes_return_damage_when_attacking() -> void:
 
 
 func test_ai_removes_killed_target_from_board() -> void:
-	var gs = _ai_turn_state()
-	var ai_player = gs.current_player()
+	var gs: GameState = _ai_turn_state()
+	var ai_player: PlayerState = gs.current_player()
 	_set_hand(ai_player, [])
 
 	var attacker = _card(1, 10, 5)  # lethal attacker
@@ -224,7 +224,7 @@ func test_ai_removes_killed_target_from_board() -> void:
 	target.summoning_sick = false
 	gs.opponent().board.add_card(target)
 
-	var actions = BasicAI.decide_turn(gs)
+	var actions: Array[Callable] = BasicAI.decide_turn(gs)
 	for a in actions:
 		a.call()
 
@@ -232,8 +232,8 @@ func test_ai_removes_killed_target_from_board() -> void:
 
 
 func test_ai_removes_killed_attacker_from_board() -> void:
-	var gs = _ai_turn_state()
-	var ai_player = gs.current_player()
+	var gs: GameState = _ai_turn_state()
+	var ai_player: PlayerState = gs.current_player()
 	_set_hand(ai_player, [])
 
 	var attacker = _card(1, 1, 1)  # 1 health — dies to return damage
@@ -243,7 +243,7 @@ func test_ai_removes_killed_attacker_from_board() -> void:
 	target.summoning_sick = false
 	gs.opponent().board.add_card(target)
 
-	var actions = BasicAI.decide_turn(gs)
+	var actions: Array[Callable] = BasicAI.decide_turn(gs)
 	for a in actions:
 		a.call()
 
@@ -255,17 +255,17 @@ func test_ai_removes_killed_attacker_from_board() -> void:
 # ---------------------------------------------------------------------------
 
 func test_newly_played_card_does_not_attack_same_turn() -> void:
-	var gs = _ai_turn_state()
-	var ai_player = gs.current_player()
+	var gs: GameState = _ai_turn_state()
+	var ai_player: PlayerState = gs.current_player()
 	ai_player.hero.gain_mana_for_turn(10)
-	var opponent = gs.opponent()
+	var opponent: PlayerState = gs.opponent()
 	opponent.board.slots.fill(null)
 
 	var new_card = _card(1, 5, 2)  # 5 attack — would hurt if it attacked
 	_set_hand(ai_player, [new_card])
 
 	var hero_hp_before: int = opponent.hero.health
-	var actions = BasicAI.decide_turn(gs)
+	var actions: Array[Callable] = BasicAI.decide_turn(gs)
 	for a in actions:
 		a.call()
 

@@ -119,7 +119,7 @@ func _process(delta: float) -> void:
 			position.z = net_pos.z
 			_set_moving(net_dist_sq > _MOVE_EPS_SQ, to_net)
 		if world_scene != null and world_scene.has_method("get_terrain_height"):
-			position.y = world_scene.get_terrain_height(position.x, position.z)
+			position.y = world_scene.call("get_terrain_height", position.x, position.z)
 		return
 	if not is_instance_valid(_player_ref):
 		return
@@ -137,7 +137,7 @@ func _process(delta: float) -> void:
 		position.z = new_pos.z
 		_set_moving(target_dist_sq > _MOVE_EPS_SQ, to_target)
 	if world_scene != null and world_scene.has_method("get_terrain_height"):
-		position.y = world_scene.get_terrain_height(position.x, position.z)
+		position.y = world_scene.call("get_terrain_height", position.x, position.z)
 
 ## Switches the walk/idle animation and flip_h based on this frame's movement
 ## toward the target. No-op when running on the static-Sprite3D fallback path.

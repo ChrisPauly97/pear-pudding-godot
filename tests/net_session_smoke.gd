@@ -18,6 +18,8 @@ extends SceneTree
 
 const _NetSync = preload("res://scenes/world/NetSync.gd")
 const _Harness = preload("res://tests/net_harness.gd")
+const _SessionStore = preload("res://autoloads/SessionStore.gd")
+const _SessionState = preload("res://game_logic/net/SessionState.gd")
 
 const _PORT: int = 24571
 const _SESSION_ID: String = "smoke_session_pptcg"
@@ -27,7 +29,7 @@ const _TOKEN_A: String = "smoke_token_aaaa"
 # Stash so _run can read the stub built inside _socket_handshake.
 var _last_client_stub: _ClientStub = null
 # The SessionStore autoload node, fetched in _run and reused by the host stub.
-var _store: Node = null
+var _store: _SessionStore = null
 
 
 # Host-side stand-in for WorldScene's authority handlers. On a client's identity it
@@ -37,12 +39,12 @@ var _store: Node = null
 class _HostStub:
 	extends Node
 	var net_sync: Node = null
-	var store: Node = null
+	var store: _SessionStore = null
 	func _on_identity_received(sender: int, payload: Array, _is_reply: bool) -> void:
 		var token: String = str(payload[0]) if payload.size() > 0 else ""
 		if token == "" or not store.is_open():
 			return
-		var st = store.get_state()
+		var st: _SessionState = store.get_state()
 		var resume: bool = st != null and st.has_member(token)
 		var rec: Dictionary = store.ensure_member(token, "Saimtar")
 		net_sync.rpc_id(sender, "recv_character", rec, resume)
@@ -74,7 +76,7 @@ func _go() -> void:
 func _run() -> bool:
 	# Fetch the real autoload nodes by path (autoload globals aren't resolvable at
 	# compile time in the bare `-s` main script).
-	var store: Node = root.get_node_or_null("SessionStore")
+	var store: _SessionStore = root.get_node_or_null("SessionStore")
 	if store == null:
 		print("  [FAIL] SessionStore autoload not found under /root")
 		return false
@@ -90,7 +92,7 @@ func _run() -> bool:
 		print("  [FAIL] SessionStore did not open")
 		return false
 	# Seed shared world progress the way the host does on co-op entry.
-	var st = store.get_state()
+	var st: _SessionState = store.get_state()
 	st.current_map = "madrian"
 	st.world_seed = 4242
 
@@ -128,7 +130,7 @@ func _run() -> bool:
 
 	# --- Phase 2: reconnect → resume the SAME character + world from disk ---
 	store.open(_SESSION_ID, "Smoke World")
-	var st2 = store.get_state()
+	var st2: _SessionState = store.get_state()
 	if not st2.has_member(_TOKEN_A):
 		print("  [FAIL] reopened session lost token A's member")
 		return false
@@ -173,7 +175,7 @@ func _socket_handshake(_is_reconnect: bool) -> bool:
 	var host_world := Node.new()
 	host_world.name = "WorldScene"
 	server_root.add_child(host_world)
-	var host_netsync: Node = _NetSync.new()
+	var host_netsync := _NetSync.new()
 	host_netsync.name = "NetSync"
 	host_world.add_child(host_netsync)
 	var host_stub := _HostStub.new()
@@ -192,7 +194,7 @@ func _socket_handshake(_is_reconnect: bool) -> bool:
 	var client_world := Node.new()
 	client_world.name = "WorldScene"
 	client_root.add_child(client_world)
-	var client_netsync: Node = _NetSync.new()
+	var client_netsync := _NetSync.new()
 	client_netsync.name = "NetSync"
 	client_world.add_child(client_netsync)
 	var client_stub := _ClientStub.new()

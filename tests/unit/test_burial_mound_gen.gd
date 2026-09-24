@@ -2,6 +2,7 @@
 extends "res://tests/framework/test_case.gd"
 
 const InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
+const ChunkData = preload("res://game_logic/world/ChunkData.gd")
 
 
 # ---------------------------------------------------------------------------
@@ -13,7 +14,7 @@ func test_mound_spawn_density_roughly_10_percent() -> void:
 	var mound_count: int = 0
 	var total: int = 200
 	for cx in range(total):
-		var chunk: RefCounted = InfiniteWorldGen.generate_chunk(cx, 0, world_seed)
+		var chunk: ChunkData = InfiniteWorldGen.generate_chunk(cx, 0, world_seed)
 		if chunk.burial_mounds.size() > 0:
 			mound_count += 1
 	# Expect roughly 10-30% given 200 samples; exact value is seed-dependent
@@ -27,8 +28,8 @@ func test_mound_spawn_density_roughly_10_percent() -> void:
 
 func test_mound_deterministic_same_coords() -> void:
 	var world_seed: int = 999
-	var a: RefCounted = InfiniteWorldGen.generate_chunk(5, 7, world_seed)
-	var b: RefCounted = InfiniteWorldGen.generate_chunk(5, 7, world_seed)
+	var a: ChunkData = InfiniteWorldGen.generate_chunk(5, 7, world_seed)
+	var b: ChunkData = InfiniteWorldGen.generate_chunk(5, 7, world_seed)
 	assert_eq(a.burial_mounds.size(), b.burial_mounds.size(),
 		"same coords and seed must produce same mound count")
 	if a.burial_mounds.size() > 0:
@@ -44,7 +45,7 @@ func test_mound_id_format() -> void:
 	var world_seed: int = 42
 	for cx in range(20):
 		for cz in range(20):
-			var chunk: RefCounted = InfiniteWorldGen.generate_chunk(cx, cz, world_seed)
+			var chunk: ChunkData = InfiniteWorldGen.generate_chunk(cx, cz, world_seed)
 			for m: Dictionary in chunk.burial_mounds:
 				var mid: String = str(m.get("id", ""))
 				assert_true(mid.begins_with("mound_"), "mound id should start with 'mound_'")
@@ -58,7 +59,7 @@ func test_mound_position_within_chunk_bounds() -> void:
 	var world_seed: int = 77
 	var found: bool = false
 	for cx in range(30):
-		var chunk: RefCounted = InfiniteWorldGen.generate_chunk(cx, 0, world_seed)
+		var chunk: ChunkData = InfiniteWorldGen.generate_chunk(cx, 0, world_seed)
 		for m: Dictionary in chunk.burial_mounds:
 			found = true
 			var wx: float = float(m.get("x", 0.0))
@@ -80,7 +81,7 @@ func test_different_coords_different_mounds() -> void:
 	# Find two chunks that each have a mound and compare IDs
 	var mound_ids: Array[String] = []
 	for cx in range(50):
-		var chunk: RefCounted = InfiniteWorldGen.generate_chunk(cx, 0, world_seed)
+		var chunk: ChunkData = InfiniteWorldGen.generate_chunk(cx, 0, world_seed)
 		for m: Dictionary in chunk.burial_mounds:
 			mound_ids.append(str(m.get("id", "")))
 	if mound_ids.size() >= 2:

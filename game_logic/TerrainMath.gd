@@ -549,9 +549,9 @@ static func spawn_entity(scene: PackedScene, data: Dictionary, y_offset: float,
 	var node: Node3D = scene.instantiate()
 	var ey: float = y_offset
 	if world_scene.has_method("get_terrain_height"):
-		ey += world_scene.get_terrain_height(float(data["x"]), float(data["z"]))
+		ey += float(world_scene.call("get_terrain_height", float(data["x"]), float(data["z"])))
 	node.position = Vector3(data["x"], ey, data["z"])
 	if node.has_method("init_from_data"):
-		node.init_from_data(data)
+		node.call("init_from_data", data)
 	entity_root.add_child(node)
 	return node

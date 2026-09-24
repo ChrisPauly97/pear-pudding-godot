@@ -49,9 +49,11 @@ func _ready() -> void:
 	vbox.add_child(_auto_skip_check)
 
 func _unhandled_key_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-		_pick("")
-		get_viewport().set_input_as_handled()
+	if event is InputEventKey:
+		var key_event := event as InputEventKey
+		if key_event.pressed and key_event.keycode == KEY_ESCAPE:
+			_pick("")
+			get_viewport().set_input_as_handled()
 
 func _pick(gambit_id: String) -> void:
 	if _auto_skip_check != null and _auto_skip_check.button_pressed:

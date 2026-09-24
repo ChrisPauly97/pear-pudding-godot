@@ -10,6 +10,7 @@
 ## lived in WorldScene itself. Everything world-side is reached via `_world`.
 extends Node
 
+const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const UiFx = preload("res://scenes/ui/UiFx.gd")
 const WorldHUD          = preload("res://scenes/world/WorldHUD.gd")
 const _ChallengeTimeout = preload("res://game_logic/net/ChallengeTimeout.gd")
@@ -17,13 +18,14 @@ const _DraftDuelGen = preload("res://game_logic/net/DraftDuelGen.gd")
 const _DraftDuelPickScene = preload("res://scenes/ui/DraftDuelPickScene.gd")
 const _LeaderboardOverlay = preload("res://scenes/ui/LeaderboardOverlay.gd")
 const _RatingMath        = preload("res://game_logic/net/RatingMath.gd")
+const _SessionState      = preload("res://game_logic/net/SessionState.gd")
 const _TournamentSync    = preload("res://game_logic/net/TournamentSync.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 ## The WorldScene that owns this module. Everything the module needs from
 ## the world itself — the player node, the HUD, the entity tables — is
 ## reached through it. Sibling modules are reached as _world.<accessor>.
-var _world: Node = null
+var _world: _WorldScene = null
 
 var _active_team_duel_peer_ids: Array[int] = []
 var _active_team_duel_teams: Array = []
@@ -256,16 +258,18 @@ func _team_deck_for_peer(pid: int) -> Array:
 	var token: String = str(_world._session_token_by_peer.get(pid, ""))
 	if token == "" or not SessionStore.is_open():
 		return []
-	var st = SessionStore.get_state()
+	var st: _SessionState = SessionStore.get_state()
 	if st == null:
 		return []
 	var rec: Dictionary = st.get_member(token)
 	if rec.is_empty():
 		return []
 	var by_uid: Dictionary = {}
-	for inst in rec.get("owned_cards", []):
+	var owned_cards: Array = rec.get("owned_cards", []) as Array
+	for inst: Variant in owned_cards:
 		if inst is Dictionary:
-			by_uid[str(inst.get("uid", ""))] = inst
+			var inst_dict: Dictionary = inst as Dictionary
+			by_uid[str(inst_dict.get("uid", ""))] = inst
 	var out: Array = []
 	for uid in rec.get("player_deck", []):
 		if by_uid.has(str(uid)):
@@ -655,7 +659,7 @@ func _on_pvp_battle_ended_coop(did_win: bool) -> void:
 	# session record (host only — the host is the authority for both records).
 	if NetworkManager.is_host() and SessionStore.is_open():
 		var token: String = MpProfile.get_token()
-		var st = SessionStore.get_state()
+		var st: _SessionState = SessionStore.get_state()
 		if st != null:
 			_apply_champion_result(st, token, did_win)
 			# BID-025: the opponent (client combatant) gets the symmetric result —
@@ -688,7 +692,7 @@ func _on_pvp_battle_ended_coop(did_win: bool) -> void:
 ## token). Caller is responsible for `st.update_member`/`SessionStore.mark_dirty()`
 ## — kept out of this helper so `_on_pvp_battle_ended_coop` can apply it to both
 ## combatants and persist once, not twice.
-func _apply_champion_result(st, token: String, won: bool) -> void:
+func _apply_champion_result(st: _SessionState, token: String, won: bool) -> void:
 	var rec: Dictionary = st.get_member(token)
 	if rec.is_empty():
 		return
@@ -726,7 +730,7 @@ func _apply_champion_result(st, token: String, won: bool) -> void:
 ## unicast via a tiny dedicated RPC (recv_rating_delta) right after this update, reusing the
 ## existing low-risk end-of-action toast pattern (hud_message_requested).
 
-func _update_pvp_ratings(st, host_token: String, host_won: bool) -> void:
+func _update_pvp_ratings(st: _SessionState, host_token: String, host_won: bool) -> void:
 	var opp_peer: int = _world._pvp_ante_peer1
 	if opp_peer <= 0:
 		return
@@ -791,7 +795,7 @@ func _on_team_battle_ended_coop(did_win: bool) -> void:
 	_active_team_duel_teams = []
 	if not SessionStore.is_open():
 		return
-	var st = SessionStore.get_state()
+	var st: _SessionState = SessionStore.get_state()
 	if st == null:
 		return
 	var host_id: int = multiplayer.get_unique_id()
@@ -844,7 +848,7 @@ func _on_team_battle_ended_coop(did_win: bool) -> void:
 func _broadcast_leaderboard(target_peer: int = 0) -> void:
 	if not NetworkManager.is_host() or _world._net_sync == null or not SessionStore.is_open():
 		return
-	var st = SessionStore.get_state()
+	var st: _SessionState = SessionStore.get_state()
 	if st == null:
 		return
 	var rows: Array = st.get_leaderboard(20)
@@ -857,7 +861,8 @@ func _broadcast_leaderboard(target_peer: int = 0) -> void:
 	_world.coop_session._refresh_coop_roster()
 	if _world._leaderboard_overlay != null and is_instance_valid(_world._leaderboard_overlay) \
 			and _world._leaderboard_overlay.has_method("refresh_rows"):
-		_world._leaderboard_overlay.refresh_rows(_world._leaderboard_rows)
+		var lb1: _LeaderboardOverlay = _world._leaderboard_overlay as _LeaderboardOverlay
+		lb1.refresh_rows(_world._leaderboard_rows)
 
 
 ## Any peer: receive a leaderboard snapshot (initial push, post-duel update, or an
@@ -868,7 +873,8 @@ func _on_leaderboard_received(rows: Array) -> void:
 	_world.coop_session._refresh_coop_roster()
 	if _world._leaderboard_overlay != null and is_instance_valid(_world._leaderboard_overlay) \
 			and _world._leaderboard_overlay.has_method("refresh_rows"):
-		_world._leaderboard_overlay.refresh_rows(_world._leaderboard_rows)
+		var lb2: _LeaderboardOverlay = _world._leaderboard_overlay as _LeaderboardOverlay
+		lb2.refresh_rows(_world._leaderboard_rows)
 
 
 ## Host: a client asked for a fresh leaderboard snapshot (e.g. opening the panel).
@@ -907,16 +913,17 @@ func _toggle_leaderboard_overlay() -> void:
 		_world._leaderboard_overlay.queue_free()
 		_world._leaderboard_overlay = null
 		return
-	_world._leaderboard_overlay = _LeaderboardOverlay.new()
-	_world.add_child(_world._leaderboard_overlay)
-	_world._leaderboard_overlay.closed.connect(func() -> void: _world._leaderboard_overlay = null)
-	_world._leaderboard_overlay.refresh_rows(_world._leaderboard_rows)
+	var new_overlay: _LeaderboardOverlay = _LeaderboardOverlay.new()
+	_world._leaderboard_overlay = new_overlay
+	_world.add_child(new_overlay)
+	new_overlay.closed.connect(func() -> void: _world._leaderboard_overlay = null)
+	new_overlay.refresh_rows(_world._leaderboard_rows)
 	if NetworkManager.is_host():
 		_broadcast_leaderboard()
 	elif _world._net_sync != null:
 		_world._net_sync.rpc_id(1, "submit_leaderboard_request")
-	if _world._leaderboard_overlay.has_method("refresh_pve_rows"):
-		_world._leaderboard_overlay.refresh_pve_rows(_world._pve_leaderboards)
+	if new_overlay.has_method("refresh_pve_rows"):
+		new_overlay.refresh_pve_rows(_world._pve_leaderboards)
 	if NetworkManager.is_host():
 		_world.coop_activities._broadcast_pve_leaderboards()
 	elif _world._net_sync != null:
@@ -1463,7 +1470,7 @@ func _finish_tournament() -> void:
 		if token == MpProfile.get_token():
 			SceneManager.save_manager.add_coins(pot)
 		elif SessionStore.is_open():
-			var st = SessionStore.get_state()
+			var st: _SessionState = SessionStore.get_state()
 			if st != null:
 				var rec: Dictionary = st.get_member(token)
 				if not rec.is_empty():
@@ -1492,7 +1499,7 @@ func _refund_tournament_antes() -> void:
 	if payouts.is_empty():
 		return
 	var host_token: String = MpProfile.get_token()
-	var st = SessionStore.get_state() if SessionStore.is_open() else null
+	var st: _SessionState = SessionStore.get_state() if SessionStore.is_open() else null
 	var refunded_any: bool = false
 	for token: String in payouts.keys():
 		var amount: int = int(payouts[token])

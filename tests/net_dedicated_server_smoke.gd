@@ -213,7 +213,7 @@ func _build_world(parent: Node, stub: Node, stub_name: String) -> Node:
 	var world := Node.new()
 	world.name = "WorldScene"
 	parent.add_child(world)
-	var netsync: Node = _NetSync.new()
+	var netsync := _NetSync.new()
 	netsync.name = "NetSync"
 	world.add_child(netsync)
 	stub.name = stub_name

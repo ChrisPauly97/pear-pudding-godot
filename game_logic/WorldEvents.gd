@@ -55,7 +55,7 @@ const _MERCHANT_CARD_POOL: Array[String] = [
 ## The active save's world seed, resolved through the tree so this stays usable
 ## from static context. Falls back to the default seed before a save is loaded.
 static func _active_world_seed() -> int:
-	var sm_node: Node = Engine.get_main_loop().get_root().get_node_or_null("SceneManager")
+	var sm_node: Node = (Engine.get_main_loop() as SceneTree).get_root().get_node_or_null("SceneManager")
 	if sm_node != null:
 		var save_mgr: Variant = sm_node.get("save_manager")
 		if save_mgr is Node:
@@ -63,7 +63,7 @@ static func _active_world_seed() -> int:
 	return 42
 
 static func register_all(world_scene: Node) -> void:
-	var wem: Node = Engine.get_main_loop().get_root().get_node_or_null("WorldEventManager")
+	var wem: Node = (Engine.get_main_loop() as SceneTree).get_root().get_node_or_null("WorldEventManager")
 	if wem == null:
 		return
 	wem.call("register_event", _BOSS_ID, _BOSS_MIN_INTERVAL, _BOSS_MAX_INTERVAL,
@@ -114,7 +114,7 @@ static func _spawn_roaming_boss(world_scene: Node, wem: Node) -> void:
 	wem.call("set_event_position", _BOSS_ID, spawn_pos)
 	world_scene.set("_roaming_boss_timer", 0.0)
 
-	var game_bus: Node = Engine.get_main_loop().get_root().get_node_or_null("GameBus")
+	var game_bus: Node = (Engine.get_main_loop() as SceneTree).get_root().get_node_or_null("GameBus")
 	if game_bus != null:
 		game_bus.emit_signal("hud_message_requested", "A powerful presence approaches...")
 
@@ -182,7 +182,7 @@ static func _spawn_traveling_merchant(world_scene: Node, wem: Node) -> void:
 	world_scene.call("register_npc", _MERCHANT_ID, merchant, npc_data)
 	world_scene.set("_traveling_merchant_timer", 0.0)
 
-	var game_bus: Node = Engine.get_main_loop().get_root().get_node_or_null("GameBus")
+	var game_bus: Node = (Engine.get_main_loop() as SceneTree).get_root().get_node_or_null("GameBus")
 	if game_bus != null:
 		game_bus.emit_signal("hud_message_requested", "You hear distant wagon wheels...")
 
@@ -254,11 +254,11 @@ static func _spawn_card_shower(world_scene: Node, wem: Node) -> void:
 
 	_spawn_sparkle_burst(player.position, entity_root)
 
-	var audio_mgr: Node = Engine.get_main_loop().get_root().get_node_or_null("AudioManager")
+	var audio_mgr: Node = (Engine.get_main_loop() as SceneTree).get_root().get_node_or_null("AudioManager")
 	if audio_mgr != null:
 		audio_mgr.call("play_sfx", "chest_open")
 
-	var game_bus: Node = Engine.get_main_loop().get_root().get_node_or_null("GameBus")
+	var game_bus: Node = (Engine.get_main_loop() as SceneTree).get_root().get_node_or_null("GameBus")
 	if game_bus != null:
 		game_bus.emit_signal("hud_message_requested", "Cards are falling from the sky!")
 

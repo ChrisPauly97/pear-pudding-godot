@@ -484,7 +484,7 @@ func update_keyword_badges(hbox: HBoxContainer, card: CardInstance) -> void:
 
 ## hand_count: opponent hand size shown on the enemy panel (GID-119 / TID-448 —
 ## replaces the face-down enemy hand row). -1 hides the line (player panel).
-func refresh_hero(hero_node: Node, hero: HeroState, is_enemy: bool, hand_count: int = -1) -> void:
+func refresh_hero(hero_node: PanelContainer, hero: HeroState, is_enemy: bool, hand_count: int = -1) -> void:
 	var vbox: VBoxContainer = hero_node.get_child(0) as VBoxContainer if hero_node.get_child_count() > 0 else null
 	if not vbox:
 		vbox = _UiUtil.make_vbox(int(_vh * 0.004))

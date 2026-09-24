@@ -54,9 +54,10 @@ func setup(puzzle_id: String, player_node: Node3D) -> void:
 func _dim_solved() -> void:
 	if _sprite != null:
 		_sprite.modulate = Color(0.5, 0.5, 0.55)
-		for child in get_children():
-			if child is OmniLight3D:
-				child.light_energy = 0.2
+		for child: Node in get_children():
+			var light: OmniLight3D = child as OmniLight3D
+			if light != null:
+				light.light_energy = 0.2
 		return
 	if _shrine_mat == null:
 		return
@@ -64,11 +65,14 @@ func _dim_solved() -> void:
 	mat.albedo_color = Color(0.4, 0.4, 0.5)
 	mat.emission = Color(0.1, 0.1, 0.15)
 	mat.emission_energy_multiplier = 0.3
-	for child in get_children():
-		if child is MeshInstance3D:
-			child.material_override = mat
-		elif child is OmniLight3D:
-			child.light_energy = 0.2
+	for child: Node in get_children():
+		var mesh_inst: MeshInstance3D = child as MeshInstance3D
+		if mesh_inst != null:
+			mesh_inst.material_override = mat
+			continue
+		var light2: OmniLight3D = child as OmniLight3D
+		if light2 != null:
+			light2.light_energy = 0.2
 
 func interact() -> void:
 	if _puzzle_id.is_empty():

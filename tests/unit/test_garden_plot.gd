@@ -13,7 +13,7 @@ const GardenDefs        = preload("res://game_logic/GardenDefs.gd")
 const GardenPlotScript  = preload("res://scenes/world/entities/GardenPlot.gd")
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 
-var _sm: Node
+var _sm: SaveManagerScript
 
 func before_each() -> void:
 	_sm = SaveManagerScript.new()
@@ -32,19 +32,19 @@ func after_each() -> void:
 # ---------------------------------------------------------------------------
 
 func test_init_from_data_sets_plot_idx() -> void:
-	var plot: Node = GardenPlotScript.new()
+	var plot: GardenPlotScript = GardenPlotScript.new()
 	plot.init_from_data({"plot_idx": 2})
 	assert_eq(plot.plot_idx, 2)
 	plot.free()
 
 func test_init_from_data_defaults_plot_idx_to_zero() -> void:
-	var plot: Node = GardenPlotScript.new()
+	var plot: GardenPlotScript = GardenPlotScript.new()
 	plot.init_from_data({})
 	assert_eq(plot.plot_idx, 0)
 	plot.free()
 
 func test_init_from_data_plot_idx_1() -> void:
-	var plot: Node = GardenPlotScript.new()
+	var plot: GardenPlotScript = GardenPlotScript.new()
 	plot.init_from_data({"plot_idx": 1})
 	assert_eq(plot.plot_idx, 1)
 	plot.free()

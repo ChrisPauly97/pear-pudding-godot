@@ -49,12 +49,14 @@ func test_all_gambits_have_non_empty_desc() -> void:
 
 func test_all_gambits_have_multiplier_at_least_one() -> void:
 	for gid: String in Gambits.ALL.keys():
-		var mult: float = float(Gambits.ALL[gid].get("multiplier", 0.0))
+		var g: Dictionary = Gambits.ALL[gid]
+		var mult: float = float(g.get("multiplier", 0.0))
 		assert_true(mult >= 1.0)
 
 func test_all_gambits_have_non_negative_rarity_bonus() -> void:
 	for gid: String in Gambits.ALL.keys():
-		var bonus: int = int(Gambits.ALL[gid].get("rarity_tier_bonus", -1))
+		var g: Dictionary = Gambits.ALL[gid]
+		var bonus: int = int(g.get("rarity_tier_bonus", -1))
 		assert_true(bonus >= 0)
 
 func test_wounded_pride_exists() -> void:
@@ -122,7 +124,8 @@ func test_emboldened_foe_minion_attack_bonus_applied_in_build_deck() -> void:
 	p.build_deck(deck)
 	for c: CardInstance in p.draw_deck:
 		if c.card_class == "minion":
-			var base: int = int(Gambits.ALL.get("emboldened_foe", {}).get("multiplier", 1))
+			var g: Dictionary = Gambits.ALL.get("emboldened_foe", {})
+			var base: int = int(g.get("multiplier", 1))
 			assert_true(c.attack >= 1)
 
 func test_emboldened_foe_only_boosts_minions() -> void:

@@ -1,6 +1,7 @@
 extends Node
 
 const CompanionData = preload("res://data/CompanionData.gd")
+const _SaveManager = preload("res://autoloads/SaveManager.gd")
 
 # Explicit preloads keep the .tres files in the Android APK dependency chain.
 const _C_MAITELN := preload("res://data/companions/maiteln.tres")
@@ -47,7 +48,7 @@ static func is_unlocked(id: String) -> bool:
 	var tree: SceneTree = Engine.get_main_loop() as SceneTree
 	if tree == null:
 		return false
-	var sm: Node = tree.root.get_node_or_null("SaveManager")
+	var sm: _SaveManager = tree.root.get_node_or_null("SaveManager") as _SaveManager
 	if sm == null:
 		return false
 	return bool(sm.get_story_flag(c.unlock_story_flag))

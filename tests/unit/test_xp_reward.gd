@@ -4,7 +4,7 @@ extends "res://tests/framework/test_case.gd"
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 
-var _sm: Node
+var _sm: SaveManagerScript
 
 func before_each() -> void:
 	_sm = SaveManagerScript.new()

@@ -15,9 +15,10 @@
 
 static func build_id_dict(all: Array, registry_name: String) -> Dictionary:
 	var out: Dictionary = {}
-	for res in all:
-		if res == null:
+	for res_variant in all:
+		if res_variant == null:
 			continue
+		var res: Object = res_variant as Object
 		var id_val = res.get("id") if res.has_method("get") else null
 		var id_str: String = str(id_val) if id_val != null else ""
 		if id_str.is_empty():

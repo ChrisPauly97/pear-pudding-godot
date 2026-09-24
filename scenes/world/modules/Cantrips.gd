@@ -5,13 +5,14 @@
 ## the in-world effect. Reached from WorldHUD's buttons and WorldScene's G/D keys.
 extends Node
 
+const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const CantripManager = preload("res://game_logic/world/CantripManager.gd")
 
 const _PHASE_DURATION: float = 0.3
 const _PHASE_ALPHA: float = 0.5
 const _CARDINALS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
 
-var _world: Node = null
+var _world: _WorldScene = null
 
 var _phase_active: bool = false    # true while the phase tween runs
 var _phase_tween: Tween = null
@@ -19,7 +20,7 @@ var _phase_tween: Tween = null
 func activate_ghost_phase() -> void:
 	if _world._player == null or _phase_active:
 		return
-	var sm: Node = SceneManager.save_manager
+	var sm := SceneManager.save_manager
 	if not CantripManager.is_available("ghost_phase", sm.get_deck_template_ids()):
 		GameBus.hud_message_requested.emit("Ghost Phase requires 4+ Ghost-family cards in your deck.")
 		return
@@ -49,7 +50,7 @@ func activate_skeleton_dig(quiet: bool = false) -> void:
 			GameBus.hud_message_requested.emit("No burial mound nearby to dig.")
 		return
 	if mound.has_method("interact"):
-		mound.interact()
+		mound.call("interact")
 
 ## Where a phase would land: two tiles away through a single wall tile, trying
 ## the facing direction first and then every cardinal. Null when none qualifies.
@@ -72,7 +73,7 @@ func _phase_target() -> Variant:
 ## Cardinal directions, the one the player last moved in first.
 func _phase_directions() -> Array[Vector2i]:
 	var dirs: Array[Vector2i] = []
-	var csm: Node = _world._csm
+	var csm := _world._csm
 	var move: Vector2 = csm.get_last_move_dir() if csm != null else Vector2.ZERO
 	if move.length_squared() > 0.01:
 		if absf(move.x) >= absf(move.y):

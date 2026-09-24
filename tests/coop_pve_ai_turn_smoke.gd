@@ -33,6 +33,7 @@ extends SceneTree
 # identifiers yet while this script itself is still being compiled. Mirrors
 # world_scene_smoke.gd's `load(_WORLD_SCENE_PATH)` inside `_run()` for the same reason.
 const _BATTLE_SCENE_PATH: String = "res://scenes/battle/BattleScene.tscn"
+const _GameState = preload("res://game_logic/battle/GameState.gd")
 
 const _ALLY_DECK: Array[String] = ["ghost", "skeleton", "zombie", "ghoul",
 	"ghost", "skeleton", "zombie", "ghoul", "ghost", "skeleton", "zombie", "ghoul"]
@@ -79,17 +80,17 @@ func _run() -> bool:
 	battle.set("_coop_pve", true)
 	battle.set("_local_player_idx", 0)
 	battle.set("_coop_ally_decks", [_ALLY_DECK.duplicate(), _ALLY_DECK.duplicate()])
-	battle.enemy_data = {
+	battle.set("enemy_data", {
 		"enemy_type": "undead_basic",
 		"is_boss": false,
 		"boss_hp": 30,
 		"enemy_deck": _BOSS_DECK,
-	}
+	})
 	root.add_child(battle)
 	await process_frame
 	await process_frame
 
-	var state = battle.get("_state")
+	var state: _GameState = battle.get("_state")
 	if state == null:
 		print("  [FAIL] co-op battle state did not initialize")
 		return false

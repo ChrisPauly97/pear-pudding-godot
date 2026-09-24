@@ -62,14 +62,15 @@ static func encode_start(roll_id: String, item: Dictionary, participant_tokens: 
 static func decode_start(payload: Variant) -> Dictionary:
 	if not (payload is Dictionary):
 		return {"roll_id": "", "item": {}, "participants": []}
-	var item: Variant = payload.get("item", {})
-	var participants: Variant = payload.get("participants", [])
+	var payload_dict: Dictionary = payload
+	var item: Variant = payload_dict.get("item", {})
+	var participants: Variant = payload_dict.get("participants", [])
 	var parts: Array = []
 	if participants is Array:
 		for t in participants:
 			parts.append(str(t))
 	return {
-		"roll_id": str(payload.get("roll_id", "")),
+		"roll_id": str(payload_dict.get("roll_id", "")),
 		"item": (item as Dictionary).duplicate(true) if item is Dictionary else {},
 		"participants": parts,
 	}
@@ -86,11 +87,14 @@ static func encode_choice(roll_id: String, choice: String) -> Array:
 ## Unpack a choice intent. Garbage/short payload -> {roll_id:"", choice:"pass"} (ignored
 ## by callers when roll_id is blank).
 static func decode_choice(payload: Variant) -> Dictionary:
-	if not (payload is Array) or payload.size() < 2:
+	if not (payload is Array):
+		return {"roll_id": "", "choice": CHOICE_PASS}
+	var payload_arr: Array = payload
+	if payload_arr.size() < 2:
 		return {"roll_id": "", "choice": CHOICE_PASS}
 	return {
-		"roll_id": str(payload[0]),
-		"choice": normalize_choice(str(payload[1])),
+		"roll_id": str(payload_arr[0]),
+		"choice": normalize_choice(str(payload_arr[1])),
 	}
 
 
@@ -114,14 +118,15 @@ static func encode_result(roll_id: String, winner_token: String, rolls: Dictiona
 static func decode_result(payload: Variant) -> Dictionary:
 	if not (payload is Dictionary):
 		return {"roll_id": "", "winner_token": "", "rolls": {}}
-	var rolls: Variant = payload.get("rolls", {})
+	var payload_dict: Dictionary = payload
+	var rolls: Variant = payload_dict.get("rolls", {})
 	var out_rolls: Dictionary = {}
 	if rolls is Dictionary:
 		for k in (rolls as Dictionary).keys():
 			out_rolls[str(k)] = int((rolls as Dictionary)[k])
 	return {
-		"roll_id": str(payload.get("roll_id", "")),
-		"winner_token": str(payload.get("winner_token", "")),
+		"roll_id": str(payload_dict.get("roll_id", "")),
+		"winner_token": str(payload_dict.get("winner_token", "")),
 		"rolls": out_rolls,
 	}
 

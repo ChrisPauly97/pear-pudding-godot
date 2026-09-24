@@ -3,7 +3,7 @@ extends "res://tests/framework/test_case.gd"
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 
 func test_scrap_decreases_slot_count() -> void:
-	var sm = SaveManagerScript.new()
+	var sm := SaveManagerScript.new()
 	sm.new_game()
 	var base: int = sm.get_slot_count()
 	var uid1: String = sm.add_card_instance("bat", "common")
@@ -15,7 +15,7 @@ func test_scrap_decreases_slot_count() -> void:
 	assert_eq(sm.get_slot_count(), base)
 
 func test_deck_membership_frees_slot() -> void:
-	var sm = SaveManagerScript.new()
+	var sm := SaveManagerScript.new()
 	sm.new_game()
 	var uid: String = sm.add_card_instance("bat", "common")
 	var before: int = sm.get_slot_count()
@@ -26,7 +26,7 @@ func test_deck_membership_frees_slot() -> void:
 	assert_eq(sm.get_slot_count(), before - 1)
 
 func test_same_rarity_instances_each_take_a_slot() -> void:
-	var sm = SaveManagerScript.new()
+	var sm := SaveManagerScript.new()
 	sm.new_game()
 	var base: int = sm.get_slot_count()
 	sm.add_card_instance("bat", "common")

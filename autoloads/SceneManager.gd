@@ -6,6 +6,7 @@ extends Node
 signal state_changed(from: State, to: State)
 
 const _SceneFlow = preload("res://game_logic/SceneFlow.gd")
+const _SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 const _BattleVictory = preload("res://autoloads/scene_manager/BattleVictory.gd")
 const _BattleDefeat = preload("res://autoloads/scene_manager/BattleDefeat.gd")
 const _NetBattles = preload("res://autoloads/scene_manager/NetBattles.gd")
@@ -26,6 +27,9 @@ const _CoopNightHunts = preload("res://game_logic/CoopNightHunts.gd")
 const Gambits = preload("res://game_logic/battle/Gambits.gd")
 const _GambitPickerOverlay = preload("res://scenes/battle/GambitPickerOverlay.gd")
 const _MenuHubScript = preload("res://scenes/ui/MenuHubScene.gd")
+const _BattleScene = preload("res://scenes/battle/BattleScene.gd")
+const _BaseOverlay = preload("res://scenes/ui/BaseOverlay.gd")
+const _SpireDraftScene = preload("res://scenes/ui/SpireDraftScene.gd")
 
 ## Rebindable keyboard actions exposed in the Keybindings settings section.
 ## Order is the display order in SettingsScene.
@@ -56,7 +60,7 @@ var session_stats: Dictionary = _fresh_session_stats(0)
 
 ## Points at the SaveManager autoload so all systems share one instance.
 ## The autoload is registered before SceneManager in project.godot.
-var save_manager: Node
+var save_manager: _SaveManagerScript
 ## Child modules (see autoloads/scene_manager/), created by `_ensure_modules()`.
 var victory: _BattleVictory
 var defeat: _BattleDefeat
@@ -77,11 +81,11 @@ var _state: State = State.MENU
 var _battle_overlay: Node = null
 var _overlays: Dictionary = {}  # State -> Node, for WORLD-state overlays
 var _achievements_overlay: Node = null
-var _spire_draft_overlay: Node = null
-var _pack_open_overlay: Node = null
+var _spire_draft_overlay: _SpireDraftScene = null
+var _pack_open_overlay: _PackOpenSceneScript = null
 var _saved_world_scene: Node = null
 
-var _toast: CanvasLayer = null
+var _toast: _AchievementToastScript = null
 var _menu_hub_layer: CanvasLayer = null
 
 # Blocks proximity engagement for 2 s after returning from battle so the
@@ -298,7 +302,7 @@ func go_to_menu() -> void:
 		NetworkManager.leave()
 	var scene := get_tree().current_scene
 	if scene and scene.has_method("flush_time_of_day"):
-		scene.flush_time_of_day()
+		scene.call("flush_time_of_day")
 	# Spire retreat: restore entry point, end run, show Spire summary.
 	if _state == State.WORLD and save_manager.spire.is_spire_active():
 		_restore_spire_entry_point()
@@ -341,7 +345,7 @@ func go_to_achievements() -> void:
 		return
 	_achievements_overlay = _achievements_scene_packed.instantiate()
 	get_tree().current_scene.add_child(_achievements_overlay)
-	_achievements_overlay.closed.connect(_on_achievements_closed)
+	(_achievements_overlay as _BaseOverlay).closed.connect(_on_achievements_closed)
 	_transition_to(State.ACHIEVEMENTS)
 
 func _on_achievements_closed() -> void:
@@ -521,7 +525,7 @@ func _exit_world_cleanup() -> void:
 func _flush_position_save() -> void:
 	var scene := get_tree().current_scene
 	if scene and scene.has_method("flush_save_position"):
-		scene.flush_save_position()
+		scene.call("flush_save_position")
 
 ## True when `enemy_data` identifies an enemy that a co-op session routes to a
 ## *joint* party battle (WorldScene._on_enemy_engaged_coop) rather than a solo
@@ -567,7 +571,7 @@ func _on_enemy_engaged(enemy_data: Dictionary) -> void:
 	if not enemy_data.has("battlefield_biome"):
 		var scene := get_tree().current_scene
 		if scene != null and scene.has_method("get_battlefield_context"):
-			var ctx: Dictionary = scene.get_battlefield_context()
+			var ctx: Dictionary = scene.call("get_battlefield_context")
 			enemy_data["battlefield_biome"] = ctx.get("biome", -1)
 			enemy_data["battlefield_is_night"] = ctx.get("is_night", false)
 			enemy_data["is_blighted"] = ctx.get("is_blighted", false)
@@ -602,7 +606,7 @@ func _start_battle(enemy_data: Dictionary) -> void:
 	save_manager.set_pending_battle(enemy_data)
 	save_manager.save()
 	var captured_enemy_data: Dictionary = enemy_data
-	_enter_battle(func(b: Node) -> void:
+	_enter_battle(func(b: _BattleScene) -> void:
 		b.enemy_data = captured_enemy_data)
 
 func _on_duel_requested(enemy_data: Dictionary, wager: int) -> void:
@@ -615,7 +619,7 @@ func _on_duel_requested(enemy_data: Dictionary, wager: int) -> void:
 	_current_champion_reward = str(enemy_data.get("champion_reward_card", ""))
 	var captured_duel_data: Dictionary = enemy_data
 	var captured_wager: int = wager
-	_enter_battle(func(b: Node) -> void:
+	_enter_battle(func(b: _BattleScene) -> void:
 		b.enemy_data = captured_duel_data
 		b.duel_wager = captured_wager)
 
@@ -720,7 +724,7 @@ func _on_puzzle_requested(puzzle_id: String) -> void:
 		return
 	_flush_position_save()
 	var captured_pdata: Resource = pdata
-	_enter_battle(func(b: Node) -> void:
+	_enter_battle(func(b: _BattleScene) -> void:
 		b.puzzle_data = captured_pdata)
 
 func _on_puzzle_solved(puzzle_id: String) -> void:
@@ -751,7 +755,7 @@ func _on_scripted_battle_requested(battle_id: String) -> void:
 		return
 	_flush_position_save()
 	var captured_sdata: Resource = sdata
-	_enter_battle(func(b: Node) -> void:
+	_enter_battle(func(b: _BattleScene) -> void:
 		b.scripted_data = captured_sdata)
 
 func _on_scripted_battle_ended(battle_id: String, did_win: bool) -> void:
@@ -792,7 +796,7 @@ func _open_overlay(packed_scene: PackedScene, overlay_state: State, setup: Calla
 	if setup.is_valid():
 		setup.call(overlay)
 	get_tree().current_scene.add_child(overlay)
-	overlay.closed.connect(_close_overlay.bind(overlay_state))
+	overlay.connect("closed", _close_overlay.bind(overlay_state))
 	_overlays[overlay_state] = overlay
 	_transition_to(overlay_state)
 
@@ -821,7 +825,7 @@ func open_menu_hub(tab: String = "deck") -> void:
 	_menu_hub_layer.layer = 10
 	_menu_hub_layer.name = "MenuHubLayer"
 	get_tree().current_scene.add_child(_menu_hub_layer)
-	var hub: Node = _MenuHubScript.new()
+	var hub: _MenuHubScript = _MenuHubScript.new()
 	hub.name = "MenuHub"
 	_menu_hub_layer.add_child(hub)
 	hub.show_tab(tab)
@@ -937,7 +941,7 @@ func _show_spire_draft(floor: int) -> void:
 	if host == null or not host.is_inside_tree():
 		push_warning("SceneManager: no live scene to host the Spire draft — skipping floor %d draft." % floor)
 		return
-	_spire_draft_overlay = _spire_draft_scene_packed.instantiate()
+	_spire_draft_overlay = _spire_draft_scene_packed.instantiate() as _SpireDraftScene
 	host.add_child(_spire_draft_overlay)
 	_spire_draft_overlay.setup(floor)
 	_spire_draft_overlay.picked.connect(_on_spire_draft_picked)

@@ -11,6 +11,7 @@
 ## lived in WorldScene itself. Everything world-side is reached via `_world`.
 extends Node
 
+const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const WorldHUD          = preload("res://scenes/world/WorldHUD.gd")
 const _AvatarSync        = preload("res://game_logic/net/AvatarSync.gd")
 const _CoopSiege         = preload("res://game_logic/CoopSiege.gd")
@@ -26,6 +27,7 @@ const _NetSyncScript     = preload("res://scenes/world/NetSync.gd")
 const _PartyPanel        = preload("res://scenes/ui/PartyPanel.gd")
 const _PlayerIdentity    = preload("res://game_logic/net/PlayerIdentity.gd")
 const _RemotePlayerScene = preload("res://scenes/world/entities/RemotePlayer.tscn")
+const _RemotePlayerScript = preload("res://scenes/world/entities/RemotePlayer.gd")
 const _SessionState      = preload("res://game_logic/net/SessionState.gd")
 const _SpireFloorGen     = preload("res://game_logic/spire/SpireFloorGen.gd")
 const _TournamentSync    = preload("res://game_logic/net/TournamentSync.gd")
@@ -43,7 +45,7 @@ const _GUILDHALL_STASH_TILE := Vector2i(50, 48)
 ## The WorldScene that owns this module. Everything the module needs from
 ## the world itself — the player node, the HUD, the entity tables — is
 ## reached through it. Sibling modules are reached as _world.<accessor>.
-var _world: Node = null
+var _world: _WorldScene = null
 
 var _coop_downed_peers: Dictionary = {}       # peer_id -> bool, mirrored via the avatar stream
 var _coop_enemy_targets: Dictionary = {}    # enemy id -> Vector2(x,z) interp target (clients)
@@ -62,7 +64,7 @@ var _guildhall_garden_cache: Dictionary = {"plots": [{}, {}, {}], "plants": {}}
 var _last_rally_time: float = -999.0
 var _maiteln_broadcast_accum: float = 0.0
 var _net_broadcast_accum: float = 0.0
-var _party_panel: Node = null              # Party panel overlay (GID-107); roster lives inside it
+var _party_panel: _PartyPanel = null       # Party panel overlay (GID-107); roster lives inside it
 var _party_roster_rows: Array = []         # cached roster row data fed into _party_panel
 var _remote_player_maps: Dictionary = {}   # peer_id -> last-known map name (TID-352)
 var _session_adopted: bool = false
@@ -160,7 +162,7 @@ func _spawn_remote_player(pid: int) -> void:
 	var off: Vector2 = _AvatarSync.spawn_offset(pid, IsoConst.TILE_SIZE)
 	var spawn_x: float = base_x + off.x
 	var spawn_z: float = base_z + off.y
-	var rp: Node3D = _RemotePlayerScene.instantiate() as Node3D
+	var rp: _RemotePlayerScript = _RemotePlayerScene.instantiate() as _RemotePlayerScript
 	rp.set("world_scene", _world)
 	rp.init_from_data({"peer_id": pid, "x": spawn_x, "z": spawn_z})
 	# Map-scoped sync (TID-352): hidden until the first packet confirms the peer is on
@@ -327,7 +329,7 @@ func _on_identity_received(sender: int, payload: Array, is_reply: bool) -> void:
 		# Co-op story mode (GID-098): if the party has already moved beyond the
 		# default lobby map, redirect the late joiner to the party's current map.
 		if SessionStore.is_open() and _world._net_sync != null:
-			var st = SessionStore.get_state()
+			var st: _SessionState = SessionStore.get_state()
 			if st != null and st.current_map != "" and st.current_map != _world.map_name:
 				_world._net_sync.rpc_id(sender, "recv_map_transition", st.current_map, "")
 	# Answer an initiator's broadcast exactly once so it learns our identity too.
@@ -343,7 +345,7 @@ func _apply_identity_to_avatar(pid: int) -> void:
 	var d: Dictionary = _world._remote_identities.get(pid, {})
 	var nm: String = str(d.get("name", "Player"))
 	var col: Color = d.get("color", Color.WHITE)
-	rp.set_player_identity(nm, col)
+	rp.call("set_player_identity", nm, col)
 
 # ── Persistent session character (GID-095 / TID-346) ──────────────────────────
 # The authority (host) owns SessionStore and the per-player character roster, keyed
@@ -360,7 +362,7 @@ func _setup_session() -> void:
 		return  # clients adopt later, in _on_character_received
 	SessionStore.open(MpProfile.get_host_session_id(),
 		"%s's world" % MpProfile.get_display_name())
-	var st = SessionStore.get_state()
+	var st: _SessionState = SessionStore.get_state()
 	if st != null:
 		st.current_map = _world.map_name
 		st.world_seed = SceneManager.save_manager.world_seed
@@ -437,7 +439,7 @@ func _send_character_to_peer(peer_id: int, token: String, member_name: String) -
 	if token == "" or not SessionStore.is_open():
 		return
 	_world._session_token_by_peer[peer_id] = token
-	var st = SessionStore.get_state()
+	var st: _SessionState = SessionStore.get_state()
 	var resume: bool = st != null and st.has_member(token)
 	var rec: Dictionary = SessionStore.ensure_member(token, member_name)
 	if rec.is_empty():
@@ -668,11 +670,11 @@ func _on_avatar_received(sender: int, payload: Array) -> void:
 		return
 	(rp as Node3D).visible = same_map
 	if rp.has_method("set_downed"):
-		rp.set_downed(sender_downed)
+		rp.call("set_downed", sender_downed)
 	# Only feed position while on the same map; otherwise the avatar holds its last
 	# same-map position so re-convergence resumes cleanly (no cross-map coordinates).
 	if same_map and rp.has_method("set_net_state"):
-		rp.set_net_state(d["x"], d["z"], d["flip_h"], d["moving"])
+		rp.call("set_net_state", d["x"], d["z"], d["flip_h"], d["moving"])
 
 # Broadcast the local avatar's state at 15 Hz. Called from _process.
 
@@ -724,7 +726,7 @@ func _on_maiteln_state_received(payload: Array) -> void:
 	var same_map: bool = sender_map == "" or sender_map == _world.map_name
 	_world._maiteln_node.visible = same_map
 	if same_map and _world._maiteln_node.has_method("set_net_state"):
-		_world._maiteln_node.set_net_state(float(payload[0]), float(payload[1]))
+		_world._maiteln_node.call("set_net_state", float(payload[0]), float(payload[1]))
 
 # ── Co-op world-object sync (GID-096) ─────────────────────────────────────────
 # The authority (host) owns the canonical lifecycle of shared world objects
@@ -811,7 +813,7 @@ func _coop_persist_enemy_defeat() -> void:
 
 func _coop_record_enemy_defeated(eid: String) -> void:
 	_world._coop_removed_enemies[eid] = true
-	var st = SessionStore.get_state()
+	var st: _SessionState = SessionStore.get_state()
 	if st != null and not st.defeated_enemies.has(eid):
 		st.defeated_enemies.append(eid)
 		SessionStore.mark_dirty()
@@ -835,7 +837,7 @@ func _on_chest_opened_coop(cid: String) -> void:
 
 func _coop_record_chest_opened(cid: String) -> void:
 	_coop_opened_objects[cid] = true
-	var st = SessionStore.get_state()
+	var st: _SessionState = SessionStore.get_state()
 	if st != null and not st.opened_chests.has(cid):
 		st.opened_chests.append(cid)
 		SessionStore.mark_dirty()
@@ -848,7 +850,7 @@ func _coop_remove_enemy_node(eid: String) -> void:
 	var node: Node3D = _world._valid_node3d(_world._enemy_nodes.get(eid))
 	if is_instance_valid(node):
 		if node.has_method("mark_defeated"):
-			node.mark_defeated()
+			node.call("mark_defeated")
 		else:
 			node.queue_free()
 	_world._enemy_nodes.erase(eid)
@@ -861,7 +863,7 @@ func _coop_mark_chest_opened_node(cid: String) -> void:
 		(_world._active_chest_data[cid] as Dictionary)["opened"] = true
 	var node: Node3D = _world._valid_node3d(_world._chest_nodes.get(cid))
 	if is_instance_valid(node) and node.has_method("mark_opened"):
-		node.mark_opened()
+		node.call("mark_opened")
 
 ## NetSync → peer: apply a discrete world event from the authority.
 
@@ -955,7 +957,7 @@ func _broadcast_scroll_collected_coop(scroll_id: String) -> void:
 
 func _coop_record_scroll_collected(scroll_id: String) -> void:
 	_world._coop_collected_scrolls[scroll_id] = true
-	var st = SessionStore.get_state()
+	var st: _SessionState = SessionStore.get_state()
 	if st != null and not st.collected_scrolls.has(scroll_id):
 		st.collected_scrolls.append(scroll_id)
 		SessionStore.mark_dirty()
@@ -1025,7 +1027,7 @@ func _broadcast_env_state() -> void:
 	var days: int = 0
 	var weather_id: String = ""
 	if SessionStore.is_open():
-		var st = SessionStore.get_state()
+		var st: _SessionState = SessionStore.get_state()
 		days = st.days_elapsed
 		weather_id = st.weather_id
 	_world._net_sync.rpc("recv_env_state", _EnvSync.encode(_world._dnc.get_time_of_day(), days, weather_id))
@@ -1068,7 +1070,7 @@ func _coop_current_days_elapsed() -> int:
 func _send_story_flags_snapshot_to_peer(peer_id: int) -> void:
 	if not _coop_world_authority() or _world._net_sync == null or not SessionStore.is_open():
 		return
-	var st = SessionStore.get_state()
+	var st: _SessionState = SessionStore.get_state()
 	if st == null:
 		return
 	_world._net_sync.rpc_id(peer_id, "recv_story_flags_snapshot", st.story_flags.duplicate())
@@ -1101,7 +1103,7 @@ func _on_local_story_flag_set(key: String) -> void:
 	if NetworkManager.is_host():
 		# Apply to session state and broadcast to all clients.
 		if SessionStore.is_open():
-			var st = SessionStore.get_state()
+			var st: _SessionState = SessionStore.get_state()
 			if st != null:
 				st.story_flags[key] = value
 				SessionStore.mark_dirty()
@@ -1122,7 +1124,7 @@ func _on_story_flag_received(key: String, value: bool) -> void:
 	if value:
 		GameBus.story_flag_set.emit(key)
 	if SessionStore.is_open():
-		var st = SessionStore.get_state()
+		var st: _SessionState = SessionStore.get_state()
 		if st != null:
 			st.story_flags[key] = value
 			SessionStore.mark_dirty()
@@ -1135,7 +1137,7 @@ func _on_story_flag_submitted(_sender: int, key: String, value: bool) -> void:
 		return
 	# Idempotency: if the flag is already this value, skip side-effects.
 	if SessionStore.is_open():
-		var st = SessionStore.get_state()
+		var st: _SessionState = SessionStore.get_state()
 		if st != null and st.story_flags.get(key, false) == value:
 			return
 		if st != null:
@@ -1274,7 +1276,8 @@ func _rally_to_peer(peer_id: int) -> void:
 	var target_map: String = str(_remote_player_maps.get(peer_id, ""))
 	if target_map == "":
 		return
-	var target_name: String = str(_world._remote_identities.get(peer_id, {}).get("name", "Player"))
+	var target_ident: Dictionary = _world._remote_identities.get(peer_id, {}) as Dictionary
+	var target_name: String = str(target_ident.get("name", "Player"))
 	_last_rally_time = now
 	GameBus.hud_message_requested.emit("Rallying to %s…" % target_name)
 	if _world._net_sync != null:
@@ -1401,7 +1404,7 @@ func _authority_apply_revive(peer_id: int) -> void:
 	else:
 		var rp: Node3D = _world._valid_node3d(_world._remote_player_nodes.get(peer_id))
 		if rp != null and is_instance_valid(rp) and rp.has_method("set_downed"):
-			rp.set_downed(false)
+			rp.call("set_downed", false)
 	GameBus.hud_message_requested.emit("Revived!")
 	if _world._net_sync != null:
 		_world._net_sync.rpc("recv_revive", peer_id)
@@ -1423,7 +1426,7 @@ func _on_revive_received(peer_id: int) -> void:
 	else:
 		var rp: Node3D = _world._valid_node3d(_world._remote_player_nodes.get(peer_id))
 		if rp != null and is_instance_valid(rp) and rp.has_method("set_downed"):
-			rp.set_downed(false)
+			rp.call("set_downed", false)
 
 # ── Shared dungeon crawl (GID-102 / TID-380) ──────────────────────────────────
 #
@@ -1445,7 +1448,7 @@ func _start_dungeon_crawl() -> void:
 		return
 	var seed_val: int = randi()
 	if SessionStore.is_open():
-		var st = SessionStore.get_state()
+		var st: _SessionState = SessionStore.get_state()
 		# world_seed + days_elapsed: reopening the crawl on the same in-game day
 		# reproduces the same dungeon; a new day yields a fresh one.
 		seed_val = hash(str(st.world_seed) + "_dungeon_" + str(st.days_elapsed))
@@ -1475,7 +1478,7 @@ func _start_guildhall() -> void:
 	# has_guildhall() is always true post-migration (auto-unlocked, no purchase
 	# flow) — this is a defensive guard, not a real gate.
 	if SessionStore.is_open():
-		var st = SessionStore.get_state()
+		var st: _SessionState = SessionStore.get_state()
 		if st != null and not st.has_guildhall():
 			return
 	_world._coop_map_transitioning = true
@@ -1492,7 +1495,7 @@ func _on_guildhall_garden_request_submitted(sender: int) -> void:
 func _broadcast_guildhall_garden(target_peer: int = 0) -> void:
 	if not NetworkManager.is_host() or _world._net_sync == null or not SessionStore.is_open():
 		return
-	var st = SessionStore.get_state()
+	var st: _SessionState = SessionStore.get_state()
 	if st == null:
 		return
 	var gh: Dictionary = st.guildhall_state
@@ -1529,7 +1532,7 @@ func _on_session_plant_submitted(_sender: int, plot_idx: int, seed_id: String) -
 		return
 	if not GardenDefs.SEEDS.has(seed_id):
 		return
-	var st = SessionStore.get_state()
+	var st: _SessionState = SessionStore.get_state()
 	if st == null:
 		return
 	var gh: Dictionary = st.guildhall_state
@@ -1558,7 +1561,7 @@ func _submit_session_harvest(plot_idx: int) -> void:
 func _on_session_harvest_submitted(_sender: int, plot_idx: int) -> void:
 	if not NetworkManager.is_host() or not SessionStore.is_open():
 		return
-	var st = SessionStore.get_state()
+	var st: _SessionState = SessionStore.get_state()
 	if st == null:
 		return
 	var gh: Dictionary = st.guildhall_state
@@ -1624,7 +1627,7 @@ func _spawn_guildhall_trophies() -> void:
 func _spawn_guildhall_garden() -> void:
 	_world._garden_plot_nodes.clear()
 	for i: int in range(_GUILDHALL_PLOT_TILES.size()):
-		var plot: Node3D = _GardenPlotScript.new()
+		var plot: _GardenPlotScript = _GardenPlotScript.new()
 		plot.init_from_data({"plot_idx": i})
 		plot.session_mode = true
 		plot.position = _tile_to_ground(_GUILDHALL_PLOT_TILES[i])
@@ -1634,7 +1637,7 @@ func _spawn_guildhall_garden() -> void:
 		if _world._net_sync != null:
 			_world._net_sync.rpc_id(1, "submit_guildhall_garden_request")
 		return
-	var st = SessionStore.get_state() if SessionStore.is_open() else null
+	var st: _SessionState = SessionStore.get_state() if SessionStore.is_open() else null
 	if st != null:
 		var gh: Dictionary = st.guildhall_state
 		_guildhall_garden_cache = {
@@ -1671,7 +1674,7 @@ func _refresh_guildhall_garden_visuals() -> void:
 		if plot == null or not plot.has_method("set_session_state"):
 			continue
 		var data: Dictionary = plots[i] if i < plots.size() and plots[i] is Dictionary else {}
-		plot.set_session_state(data, days)
+		plot.call("set_session_state", data, days)
 
 # ── Co-op Endless Spire (GID-106 / TID-390) ──────────────────────────────────
 #

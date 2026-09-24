@@ -294,8 +294,9 @@ static func _apply_migrations(data: Dictionary) -> void:
 		# v3: add pvp stats to each member character record.
 		var members: Variant = data.get("members", {})
 		if members is Dictionary:
-			for token in members.keys():
-				var rec: Variant = members[token]
+			var members_dict: Dictionary = members
+			for token in members_dict.keys():
+				var rec: Variant = members_dict[token]
 				if rec is Dictionary:
 					if not (rec as Dictionary).has("pvp_wins"):
 						(rec as Dictionary)["pvp_wins"] = 0
@@ -310,8 +311,9 @@ static func _apply_migrations(data: Dictionary) -> void:
 		# v4: add pvp_rating/pvp_games to each member character record.
 		var members_v4: Variant = data.get("members", {})
 		if members_v4 is Dictionary:
-			for token in members_v4.keys():
-				var rec: Variant = members_v4[token]
+			var members_v4_dict: Dictionary = members_v4
+			for token in members_v4_dict.keys():
+				var rec: Variant = members_v4_dict[token]
 				if rec is Dictionary:
 					if not (rec as Dictionary).has("pvp_rating"):
 						(rec as Dictionary)["pvp_rating"] = 1000

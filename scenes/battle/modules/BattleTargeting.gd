@@ -34,9 +34,12 @@ func _setup_board_drop_zone() -> void:
 	_battle._enemy_hero_view.set_drag_forwarding(
 		func(_pos: Vector2) -> Variant: return null,
 		func(_pos: Vector2, data: Variant) -> bool:
-			if not (data is Dictionary) or not data.has("attacker"):
+			if not (data is Dictionary):
 				return false
-			var attacker: CardInstance = data["attacker"] as CardInstance
+			var drag_data: Dictionary = data as Dictionary
+			if not drag_data.has("attacker"):
+				return false
+			var attacker: CardInstance = drag_data["attacker"] as CardInstance
 			if attacker == null or not attacker.can_attack():
 				return false
 			for ec: CardInstance in _battle._state.players[_battle._opp_idx()].board.get_cards():
@@ -44,18 +47,24 @@ func _setup_board_drop_zone() -> void:
 					return false
 			return true,
 		func(_pos: Vector2, data: Variant) -> void:
-			if not (data is Dictionary) or not data.has("attacker"):
+			if not (data is Dictionary):
 				return
-			var attacker: CardInstance = data["attacker"] as CardInstance
+			var drag_data: Dictionary = data as Dictionary
+			if not drag_data.has("attacker"):
+				return
+			var attacker: CardInstance = drag_data["attacker"] as CardInstance
 			if attacker != null:
 				_battle.card_input._attempt_attack(attacker, null)
 	)
 
 ## Called by Godot when the dragged card is released over _player_board_view.
 func _board_drop(local_pos: Vector2, data: Variant) -> void:
-	if not data is Dictionary or not data.has("card"):
+	if not (data is Dictionary):
 		return
-	var played_card: CardInstance = data["card"] as CardInstance
+	var drop_data: Dictionary = data as Dictionary
+	if not drop_data.has("card"):
+		return
+	var played_card: CardInstance = drop_data["card"] as CardInstance
 	if played_card == null:
 		return
 	_battle._hand_drag_card = null
@@ -124,9 +133,12 @@ func _board_drop(local_pos: Vector2, data: Variant) -> void:
 
 ## Returns true so Godot highlights the board zone when a hand-card drag is over it.
 func _board_can_drop(_pos: Vector2, data: Variant) -> bool:
-	if not data is Dictionary or not data.has("card"):
+	if not (data is Dictionary):
 		return false
-	var card: CardInstance = data["card"] as CardInstance
+	var drop_data: Dictionary = data as Dictionary
+	if not drop_data.has("card"):
+		return false
+	var card: CardInstance = drop_data["card"] as CardInstance
 	return card != null and _battle._can_local_act() and _battle._state.players[_battle._my_idx()].can_play(card)
 
 func _show_cancel_btn(label: String = "✕ Cancel", callback: Callable = Callable()) -> void:

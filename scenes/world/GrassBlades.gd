@@ -3,6 +3,7 @@ extends Node3D
 const _GrassShader   = preload("res://assets/shaders/grass_blade.gdshader")
 const _ClusterShader = preload("res://assets/shaders/grass_cluster.gdshader")
 const WorldMap       = preload("res://game_logic/world/WorldMap.gd")
+const _ChunkData     = preload("res://game_logic/world/ChunkData.gd")
 
 # Sliding trample window: 64x64 pixel image, player-centred, shifts when
 # the player moves more than TRAMPLE_SHIFT_TILES tiles from the window centre.
@@ -120,7 +121,7 @@ func _init_material() -> void:
 # ── Static helpers: pure math, safe on worker threads ─────────────────────
 
 # Compute grass tile centres from chunk data — no scene tree access.
-static func compute_centres(chunk_data: RefCounted, chunk_origin: Vector3) -> Array[Vector2]:
+static func compute_centres(chunk_data: _ChunkData, chunk_origin: Vector3) -> Array[Vector2]:
 	const TILE_GRASS_ID: int = 0  # IsoConst.TILE_GRASS — literal avoids autoload in static
 	const TILE_WALL_ID:  int = 1  # IsoConst.TILE_WALL
 	var ts: float = IsoConst.TILE_SIZE

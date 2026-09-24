@@ -66,6 +66,12 @@ jobs:
           fi
           echo "Import clean — no parse or compile errors."
 
+      # project.godot makes unsafe_method_access / unsafe_property_access errors,
+      # so a member the analyzer can't prove exists is a parse error. The editor
+      # import above doesn't compile every script, so load them all explicitly.
+      - name: Check unsafe member access
+        run: scripts/unsafe-hits.sh
+
       # GDScript has no exceptions: a runtime error aborts the test function
       # before its asserts run, and the runner still counts it as a pass. Any
       # SCRIPT ERROR in the log is therefore a test that silently tested nothing.

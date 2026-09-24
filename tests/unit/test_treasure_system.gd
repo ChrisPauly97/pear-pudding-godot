@@ -10,7 +10,7 @@ const _SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 const TreasureGen       = preload("res://game_logic/world/TreasureGen.gd")
 
-var _sm: Node
+var _sm: SaveManagerScript
 
 func before_each() -> void:
 	_sm = SaveManagerScript.new()
@@ -38,7 +38,8 @@ func test_migration_default_fragment_count_is_zero() -> void:
 func test_migration_default_active_treasure_is_empty() -> void:
 	var data: Dictionary = {"version": 19}
 	_SaveMigrations.apply(data, 20)
-	assert_true(data["active_treasure"].is_empty())
+	var active_treasure: Dictionary = data["active_treasure"]
+	assert_true(active_treasure.is_empty())
 
 func test_migration_bumps_version_to_20() -> void:
 	var data: Dictionary = {"version": 19}

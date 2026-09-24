@@ -75,7 +75,7 @@ func _two_tiers() -> Dictionary:
 func test_spire_draft_badges_come_from_spire_tiers() -> void:
 	var picks := _two_tiers()
 	assert_true(not picks.is_empty(), "card registry must expose at least two tiers")
-	var scene: Node = _mount(_SpireDraftScene.new())
+	var scene: _SpireDraftScene = _mount(_SpireDraftScene.new())
 	scene.setup_coop(1, [str(picks["low"]), str(picks["high"])] as Array[String], true, "Ally")
 
 	var texts: Array[String] = []
@@ -95,14 +95,14 @@ func test_spire_draft_disables_picks_when_not_your_turn() -> void:
 	assert_true(not picks.is_empty(), "card registry must expose at least two tiers")
 	var ids: Array[String] = [str(picks["low"]), str(picks["high"])]
 
-	var mine: Node = _mount(_SpireDraftScene.new())
+	var mine: _SpireDraftScene = _mount(_SpireDraftScene.new())
 	mine.setup_coop(1, ids, true, "Ally")
 	var my_buttons := _buttons(mine)
 	assert_gt(my_buttons.size(), 0, "active picker should get Pick buttons")
 	for b in my_buttons:
 		assert_false(b.disabled, "active picker's Pick buttons must be enabled")
 
-	var theirs: Node = _mount(_SpireDraftScene.new())
+	var theirs: _SpireDraftScene = _mount(_SpireDraftScene.new())
 	theirs.setup_coop(1, ids, false, "Ally")
 	var their_buttons := _buttons(theirs)
 	assert_eq(their_buttons.size(), my_buttons.size(), "both peers render the same cards")
@@ -111,7 +111,7 @@ func test_spire_draft_disables_picks_when_not_your_turn() -> void:
 
 
 func test_draft_duel_renders_a_round_and_finishes() -> void:
-	var scene: Node = _mount(_DraftDuelPickScene.new())
+	var scene: _DraftDuelPickScene = _mount(_DraftDuelPickScene.new())
 	var finished: Array = []
 	scene.draft_finished.connect(func(deck: Array) -> void: finished.append(deck))
 	scene.setup(12345, "tok")

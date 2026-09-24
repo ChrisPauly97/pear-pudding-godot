@@ -8,9 +8,12 @@
 ## Maiteln sync read them there.
 extends Node
 
+const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const RivalSystem = preload("res://game_logic/RivalSystem.gd")
 const _EnemyScene = preload("res://scenes/world/entities/EnemyNPC.tscn")
+const _EnemyNPC = preload("res://scenes/world/entities/EnemyNPC.gd")
+const WorldMap = preload("res://game_logic/world/WorldMap.gd")
 const _MaitelnFollowerScene = preload("res://scenes/world/entities/MaitelnFollower.tscn")
 const _ScoutAmbushScene = preload("res://scenes/world/entities/ScoutAmbush.tscn")
 const _WildernessCampScene = preload("res://scenes/world/entities/WildernessCamp.tscn")
@@ -21,12 +24,12 @@ const MAITELN_NAMED_MAPS: Array[String] = [
 	"madrian", "maykalene", "farsyth_mansion", "blancogov", "blancogov_temple",
 ]
 
-var _world: Node = null
+var _world: _WorldScene = null
 
 # ── Maiteln (GID-108 / TID-403) ──────────────────────────────────────────────
 
 func maiteln_should_be_present() -> bool:
-	var sm: Node = SceneManager.save_manager
+	var sm := SceneManager.save_manager
 	if not sm.get_story_flag("story_intro_complete") or sm.get_story_flag("chapter1_complete"):
 		return false
 	var map_name: String = _world.map_name
@@ -51,7 +54,7 @@ func refresh_maiteln_presence() -> void:
 	var node := _MaitelnFollowerScene.instantiate() as Node3D
 	_world._entity_root.add_child(node)
 	if node.has_method("setup"):
-		node.setup(_world._player, _world)
+		node.call("setup", _world._player, _world)
 	# Co-op (GID-108 / TID-408, design rule 4): exactly one Maiteln, position
 	# owned by the authority. A non-authority client's copy is a networked
 	# puppet — hidden until the first same-map packet arrives (mirrors the
@@ -59,7 +62,7 @@ func refresh_maiteln_presence() -> void:
 	# following its own local player.
 	if _world._coop_active and not _world.coop_session._coop_world_authority() \
 			and node.has_method("set_networked"):
-		node.set_networked(true)
+		node.call("set_networked", true)
 		node.visible = false
 	_world._maiteln_node = node
 
@@ -70,7 +73,7 @@ func refresh_maiteln_presence() -> void:
 ## First-night wilderness camp (GID-108 / TID-402). Gone for good once
 ## chapter1_learned_fire is set (the entity frees itself on that transition).
 func spawn_wilderness_camp() -> void:
-	var sm: Node = SceneManager.save_manager
+	var sm := SceneManager.save_manager
 	if not sm.get_story_flag("chapter1_left_madrian") or sm.get_story_flag("chapter1_learned_fire"):
 		return
 	if is_instance_valid(_world._wilderness_camp_node):
@@ -80,7 +83,7 @@ func spawn_wilderness_camp() -> void:
 ## Chapter 2 beat 3 scripted ambush (GID-108 / TID-407). One-shot: interacting
 ## starts the battle, and victory sets chapter2_ambush_survived.
 func spawn_scout_ambush() -> void:
-	var sm: Node = SceneManager.save_manager
+	var sm := SceneManager.save_manager
 	if not sm.get_story_flag("chapter2_found_letter") or sm.get_story_flag("chapter2_ambush_survived"):
 		return
 	if is_instance_valid(_world._scout_ambush_node):
@@ -106,7 +109,7 @@ func _spawn_near_player(scene: PackedScene, tile_offset: Vector2) -> Node3D:
 ## z centred on DH/2 ± jitter (DungeonGen._gen_sequential_rooms), so tile
 ## (70, 30) sits in the rightmost, deepest room. Not guaranteed carved floor for
 ## every seed, but this dungeon's seed is fixed (731906).
-func inject_warcamp_boss(wm: RefCounted) -> void:
+func inject_warcamp_boss(wm: WorldMap) -> void:
 	if wm == null:
 		return
 	wm.enemies.append({
@@ -125,7 +128,7 @@ func inject_warcamp_boss(wm: RefCounted) -> void:
 func spawn_named_map_rivals() -> void:
 	if _world.world_map == null:
 		return
-	var sm: Node = SceneManager.save_manager
+	var sm := SceneManager.save_manager
 	var map_name: String = _world.map_name
 	if map_name == "maykalene" and sm.get_story_flag("chapter1_left_madrian") and sm.rival_encounters_won == 0:
 		_spawn_rival_on_tile("rival_enc1", Vector2i(50, 40), "rival_isfig_1",
@@ -137,7 +140,7 @@ func spawn_named_map_rivals() -> void:
 
 ## Encounter 2 meets the player on the road, between Farsyth's warning and the letter.
 func spawn_open_world_rival() -> void:
-	var sm: Node = SceneManager.save_manager
+	var sm := SceneManager.save_manager
 	if not sm.get_story_flag("chapter1_warned_farsyth") or sm.get_story_flag("chapter1_received_letter"):
 		return
 	if sm.rival_encounters_won >= 2:
@@ -155,7 +158,7 @@ func _spawn_rival_on_tile(rival_id: String, tile: Vector2i, enemy_type: String, 
 func _spawn_rival_at(rival_id: String, wx: float, wz: float, enemy_type: String, dialogue: String) -> void:
 	if _world._enemy_nodes.has(rival_id):
 		return
-	var node := _EnemyScene.instantiate() as Node3D
+	var node := _EnemyScene.instantiate() as _EnemyNPC
 	_world._entity_root.add_child(node)
 	node.position = Vector3(wx, _world.get_terrain_height(wx, wz) + 0.5, wz)
 	node.init_from_data({

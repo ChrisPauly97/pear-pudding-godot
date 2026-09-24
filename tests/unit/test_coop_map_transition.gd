@@ -32,7 +32,7 @@ func test_dialogue_group_can_be_set() -> void:
 
 func test_npc_dict_has_dialogue_group_key() -> void:
 	# WorldMap.load_from_resource now includes dialogue_group in every NPC dict.
-	var wm: RefCounted = WorldMapScript.new("madrian")
+	var wm := WorldMapScript.new("madrian")
 	assert_true(wm.npcs.size() > 0, "madrian must have NPCs for this test to be meaningful")
 	for n in wm.npcs:
 		assert_true(n.has("dialogue_group"),
@@ -40,7 +40,7 @@ func test_npc_dict_has_dialogue_group_key() -> void:
 
 
 func test_npc_dict_dialogue_group_is_string() -> void:
-	var wm: RefCounted = WorldMapScript.new("madrian")
+	var wm := WorldMapScript.new("madrian")
 	for n in wm.npcs:
 		var dg: String = str(n.get("dialogue_group", ""))
 		assert_true(dg is String,

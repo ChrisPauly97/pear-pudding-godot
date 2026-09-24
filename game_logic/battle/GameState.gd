@@ -439,20 +439,22 @@ func from_dict(d: Dictionary) -> void:
 	is_night = bool(d.get("is_night", false))
 	ranked = bool(d.get("ranked", false))
 	players.clear()
-	for pd in d.get("players", []):
-		if pd is Dictionary:
+	for pd_variant in d.get("players", []):
+		if pd_variant is Dictionary:
+			var pd: Dictionary = pd_variant
 			var pid: int = int(pd.get("player_id", 0))
 			var ai: bool = bool(pd.get("is_ai", false))
 			var ps := PlayerState.new(pid, ai)
 			ps.from_dict(pd)
 			players.append(ps)
 	# Restore player_turn_numbers — supports legacy 2-entry saves and new N-entry saves.
-	var ptn = d.get("player_turn_numbers", null)
+	var ptn_variant = d.get("player_turn_numbers", null)
+	var ptn: Array = ptn_variant if ptn_variant is Array else []
 	player_turn_numbers.clear()
-	if ptn is Array and ptn.size() >= players.size():
+	if ptn.size() >= players.size():
 		for i in range(players.size()):
 			player_turn_numbers.append(int(ptn[i]))
-	elif ptn is Array and ptn.size() == 2 and players.size() >= 2:
+	elif ptn.size() == 2 and players.size() >= 2:
 		# Legacy 2-entry save: carry forward p0 and p1 values, zero the rest.
 		player_turn_numbers.append(int(ptn[0]))
 		player_turn_numbers.append(int(ptn[1]))

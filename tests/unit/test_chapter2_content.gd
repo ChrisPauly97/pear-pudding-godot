@@ -49,7 +49,7 @@ func test_marsax_hold_has_a_gate_position() -> void:
 # marsax_hold.tres door gating
 # ---------------------------------------------------------------------------
 
-func _door_by_id(wm: RefCounted, id: String) -> Dictionary:
+func _door_by_id(wm: WorldMapScript, id: String) -> Dictionary:
 	for d in wm.doors:
 		if str(d.get("id", "")) == id:
 			return d
@@ -57,7 +57,7 @@ func _door_by_id(wm: RefCounted, id: String) -> Dictionary:
 
 
 func test_warcamp_door_gated_on_traitor_seal() -> void:
-	var wm: RefCounted = WorldMapScript.new("marsax_hold")
+	var wm := WorldMapScript.new("marsax_hold")
 	var d: Dictionary = _door_by_id(wm, "door_2")
 	assert_eq(str(d.get("flag_key", "")), "chapter2_traitor_seal")
 	assert_true(str(d.get("target_map", "")).begins_with("dungeon_"))

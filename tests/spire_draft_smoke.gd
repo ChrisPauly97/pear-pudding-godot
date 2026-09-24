@@ -60,10 +60,13 @@ func _run() -> bool:
 	# previous run would be loaded instead of generated — and an old one still
 	# carries the pre-fix shared enemy id. Start from nothing.
 	_purge_generated_floors(RUN_SEED)
-	save.spire.call("start_spire_run", RUN_SEED)
-	sm.map_stack.push_back("madrian")
-	sm.door_stack.push_back("")
-	sm.current_map = "spire_floor_1_%d" % RUN_SEED
+	var spire: Object = save.get("spire")
+	spire.call("start_spire_run", RUN_SEED)
+	var map_stack: Array = sm.get("map_stack")
+	map_stack.push_back("madrian")
+	var door_stack: Array = sm.get("door_stack")
+	door_stack.push_back("")
+	sm.set("current_map", "spire_floor_1_%d" % RUN_SEED)
 
 	# Stand up what a battle leaves behind: the world detached into
 	# _saved_world_scene, a battle overlay sitting in current_scene.
@@ -85,7 +88,8 @@ func _run() -> bool:
 	# reproduce — the check would pass for the wrong reason.
 	sm.set("_current_battle_enemy_id", _SpireFloorGen.enemy_id_for(1, RUN_SEED))
 
-	sm.victory._on_battle_won({"hero_hp": 21})
+	var victory: Object = sm.get("victory")
+	victory.call("_on_battle_won", {"hero_hp": 21})
 	await create_timer(_TRANSITION_WAIT).timeout
 
 	var ok: bool = _check(save.call("get_story_flag", "spire_floor_1_%d_cleared" % RUN_SEED),
@@ -94,7 +98,7 @@ func _run() -> bool:
 		"floor 1's enemy recorded as defeated") and ok
 	ok = _check(current_scene == world, "world scene restored as current_scene") and ok
 
-	var overlay: Variant = sm.get("_spire_draft_overlay")
+	var overlay: Node = sm.get("_spire_draft_overlay")
 	ok = _check(is_instance_valid(overlay), "draft overlay survived the battle teardown") and ok
 	if not is_instance_valid(overlay):
 		# Everything below inspects the overlay; without it there is nothing left
@@ -107,11 +111,12 @@ func _run() -> bool:
 
 	# The overlay doesn't pause world input, so the exit door must hold the floor
 	# until the pick is made — otherwise walking out silently discards the card.
-	sm.exit_map()
+	sm.call("exit_map")
 	await create_timer(_TRANSITION_WAIT).timeout
-	ok = _check(sm.current_map == "spire_floor_1_%d" % RUN_SEED,
+	ok = _check(str(sm.get("current_map")) == "spire_floor_1_%d" % RUN_SEED,
 		"exit door does not advance the floor while a pick is owed") and ok
-	ok = _check(int(save.spire.call("get_spire_run").get("floor", 0)) == 1,
+	var run1: Dictionary = spire.call("get_spire_run")
+	ok = _check(int(run1.get("floor", 0)) == 1,
 		"run stays on floor 1 while a pick is owed") and ok
 
 	var picked_card: String = _first_pickable_card(overlay)
@@ -122,15 +127,16 @@ func _run() -> bool:
 	await create_timer(_TRANSITION_WAIT).timeout
 
 	ok = _check(not sm.call("is_spire_draft_open"), "draft closes once a card is picked") and ok
-	var run: Dictionary = save.spire.call("get_spire_run")
+	var run: Dictionary = spire.call("get_spire_run")
 	var deck: Array = run.get("draft_deck", [])
 	ok = _check(deck.has(picked_card), "picked card landed in the run's draft deck") and ok
 
 	# With the pick made, the door works and the run climbs.
-	sm.exit_map()
+	sm.call("exit_map")
 	await create_timer(_TRANSITION_WAIT).timeout
-	ok = _check(int(save.spire.call("get_spire_run").get("floor", 0)) == 2, "exit door advances to floor 2") and ok
-	ok = _check(sm.current_map == "spire_floor_2_%d" % RUN_SEED, "floor 2 map loaded") and ok
+	var run2: Dictionary = spire.call("get_spire_run")
+	ok = _check(int(run2.get("floor", 0)) == 2, "exit door advances to floor 2") and ok
+	ok = _check(str(sm.get("current_map")) == "spire_floor_2_%d" % RUN_SEED, "floor 2 map loaded") and ok
 
 	# Floor 2 must actually have an enemy. Every floor used to emit the literal id
 	# "spire_enemy", and defeated_enemies is a permanent, map-agnostic list — so
@@ -151,10 +157,11 @@ func _run() -> bool:
 ## carries the shared "spire_enemy" kill, and its user://maps/ floors still use
 ## that id. Loading an uncleared floor must clear it so the arena isn't empty.
 func _check_legacy_save_repair(save: Object) -> bool:
-	save.spire.call("start_spire_run", 999)
+	var spire: Object = save.get("spire")
+	spire.call("start_spire_run", 999)
 	save.call("mark_enemy_defeated", "spire_enemy")
 	save.call("mark_enemy_defeated", "map_some_real_enemy")
-	save.spire.call("prepare_spire_floor", 2, 999)
+	spire.call("prepare_spire_floor", 2, 999)
 	var ok: bool = _check(not save.call("is_enemy_defeated", "spire_enemy"),
 		"legacy shared 'spire_enemy' kill cleared when an uncleared floor loads")
 	ok = _check(save.call("is_enemy_defeated", "map_some_real_enemy"),
@@ -163,7 +170,7 @@ func _check_legacy_save_repair(save: Object) -> bool:
 	# A floor the player already beat and is standing on must not resurrect.
 	save.call("set_story_flag", "spire_floor_3_999_cleared")
 	save.call("mark_enemy_defeated", _SpireFloorGen.enemy_id_for(3, 999))
-	save.spire.call("prepare_spire_floor", 3, 999)
+	spire.call("prepare_spire_floor", 3, 999)
 	ok = _check(save.call("is_enemy_defeated", _SpireFloorGen.enemy_id_for(3, 999)),
 		"a cleared floor's enemy stays defeated") and ok
 	return ok

@@ -7,6 +7,7 @@ const InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
 const LandmarkNames    = preload("res://game_logic/world/LandmarkNames.gd")
 const LandmarkMesh     = preload("res://game_logic/world/LandmarkMesh.gd")
 const BiomeDef         = preload("res://game_logic/world/BiomeDef.gd")
+const ChunkData        = preload("res://game_logic/world/ChunkData.gd")
 
 const SEED: int = 12345
 
@@ -135,7 +136,7 @@ func test_generate_chunk_populates_landmarks_field() -> void:
 			var expected: Dictionary = InfiniteWorldGen.landmark_for_chunk(cx, cz, world_seed)
 			if expected.is_empty():
 				continue
-			var chunk := InfiniteWorldGen.generate_chunk(cx, cz, world_seed)
+			var chunk: ChunkData = InfiniteWorldGen.generate_chunk(cx, cz, world_seed)
 			assert_eq(chunk.landmarks.size(), 1,
 				"chunk (%d,%d) should have 1 landmark" % [cx, cz])
 			assert_eq(str(chunk.landmarks[0].get("id", "")), str(expected.get("id", "")),
@@ -158,7 +159,7 @@ func test_landmark_footprint_tiles_are_grass() -> void:
 			var d: Dictionary = InfiniteWorldGen.landmark_for_chunk(cx, cz, world_seed)
 			if d.is_empty():
 				continue
-			var chunk := InfiniteWorldGen.generate_chunk(cx, cz, world_seed)
+			var chunk: ChunkData = InfiniteWorldGen.generate_chunk(cx, cz, world_seed)
 			var tx: int = int(d.get("tx", 8))
 			var tz: int = int(d.get("tz", 8))
 			var fp: int = InfiniteWorldGen.LANDMARK_FP

@@ -3,6 +3,7 @@
 ## HomeGarden's. `make_trophy_pedestal` is shared with the co-op guildhall.
 extends Node
 
+const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const TrophyRegistry = preload("res://game_logic/TrophyRegistry.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
@@ -14,11 +15,11 @@ const TROPHY_IDS: Array[String] = ["champion", "spire_7", "first_boss"]
 const TROPHY_TILES: Array[Vector2i] = [Vector2i(44, 49), Vector2i(47, 49), Vector2i(50, 49)]
 const _PANEL_BG := Color(0.06, 0.04, 0.14, 0.96)
 
-var _world: Node = null
+var _world: _WorldScene = null
 
 ## The house door: walks straight in once owned, otherwise offers the purchase.
 func show_house_door_panel() -> void:
-	var sm: Node = SceneManager.save_manager
+	var sm := SceneManager.save_manager
 	if sm.home_owned:
 		_enter_home()
 		return
@@ -51,7 +52,7 @@ func _enter_home() -> void:
 
 ## Resting sets the respawn point to the bed and skips to morning.
 func use_bed() -> void:
-	var sm: Node = SceneManager.save_manager
+	var sm := SceneManager.save_manager
 	var ts: float = IsoConst.TILE_SIZE
 	sm.set_respawn_point("player_home", float(BED_TILE.x) * ts, float(BED_TILE.y) * ts)
 	sm.time_of_day = 0.25
@@ -59,7 +60,7 @@ func use_bed() -> void:
 
 ## One pedestal per trophy, gold when earned; registered as `trophy_pedestal` NPCs.
 func spawn_trophies() -> void:
-	var sm: Node = SceneManager.save_manager
+	var sm := SceneManager.save_manager
 	for i: int in range(TROPHY_IDS.size()):
 		var tid: String = TROPHY_IDS[i]
 		var trophy: Dictionary = TrophyRegistry.get_trophy(tid)

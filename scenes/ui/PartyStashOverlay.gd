@@ -101,7 +101,7 @@ func _build_coins_row(parent: VBoxContainer) -> void:
 			int(_vh * 0.020))
 	deposit_btn.pressed.connect(func() -> void:
 		if world_scene != null and world_scene.has_method("request_stash_deposit_coins"):
-			world_scene.request_stash_deposit_coins(_COIN_STEP)
+			world_scene.call("request_stash_deposit_coins", _COIN_STEP)
 	)
 	row.add_child(deposit_btn)
 
@@ -109,7 +109,7 @@ func _build_coins_row(parent: VBoxContainer) -> void:
 			int(_vh * 0.020))
 	withdraw_btn.pressed.connect(func() -> void:
 		if world_scene != null and world_scene.has_method("request_stash_withdraw_coins"):
-			world_scene.request_stash_withdraw_coins(_COIN_STEP)
+			world_scene.call("request_stash_withdraw_coins", _COIN_STEP)
 	)
 	row.add_child(withdraw_btn)
 
@@ -173,12 +173,12 @@ func _add_card_row(parent: VBoxContainer, inst: Dictionary, is_mine: bool) -> vo
 	if is_mine:
 		action_btn.pressed.connect(func() -> void:
 			if world_scene != null and world_scene.has_method("request_stash_deposit_card"):
-				world_scene.request_stash_deposit_card(uid)
+				world_scene.call("request_stash_deposit_card", uid)
 		)
 	else:
 		action_btn.pressed.connect(func() -> void:
 			if world_scene != null and world_scene.has_method("request_stash_withdraw_card"):
-				world_scene.request_stash_withdraw_card(uid)
+				world_scene.call("request_stash_withdraw_card", uid)
 		)
 	hb.add_child(action_btn)
 

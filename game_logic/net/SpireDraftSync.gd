@@ -34,16 +34,17 @@ static func encode_draft_start(
 static func decode_draft_start(payload: Variant) -> Dictionary:
 	if not (payload is Dictionary):
 		return {"floor": 0, "options": [], "active_picker_token": "", "active_picker_name": "Player"}
-	var options: Variant = payload.get("options", [])
+	var payload_dict: Dictionary = payload
+	var options: Variant = payload_dict.get("options", [])
 	var opts: Array = []
 	if options is Array:
 		for o in options:
 			opts.append(str(o))
 	return {
-		"floor": int(payload.get("floor", 0)),
+		"floor": int(payload_dict.get("floor", 0)),
 		"options": opts,
-		"active_picker_token": str(payload.get("active_picker_token", "")),
-		"active_picker_name": str(payload.get("active_picker_name", "Player")),
+		"active_picker_token": str(payload_dict.get("active_picker_token", "")),
+		"active_picker_name": str(payload_dict.get("active_picker_name", "Player")),
 	}
 
 
@@ -60,10 +61,13 @@ static func encode_draft_choice(
 ## Unpack a draft-choice broadcast. Garbage/short payload -> all-empty defaults
 ## (ignored by callers when card_id is blank).
 static func decode_draft_choice(payload: Variant) -> Dictionary:
-	if not (payload is Array) or payload.size() < 1:
+	if not (payload is Array):
+		return {"card_id": "", "next_active_picker_token": "", "next_active_picker_name": "Player"}
+	var payload_arr: Array = payload
+	if payload_arr.size() < 1:
 		return {"card_id": "", "next_active_picker_token": "", "next_active_picker_name": "Player"}
 	return {
-		"card_id": str(payload[0]),
-		"next_active_picker_token": str(payload[1]) if payload.size() > 1 else "",
-		"next_active_picker_name": str(payload[2]) if payload.size() > 2 else "Player",
+		"card_id": str(payload_arr[0]),
+		"next_active_picker_token": str(payload_arr[1]) if payload_arr.size() > 1 else "",
+		"next_active_picker_name": str(payload_arr[2]) if payload_arr.size() > 2 else "Player",
 	}

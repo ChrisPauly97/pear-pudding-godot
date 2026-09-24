@@ -18,12 +18,12 @@ const _MAPS_WITH_AUTHORED_CONTENT: Array[String] = [
 
 func test_story_maps_load_at_least_one_scroll() -> void:
 	for map_name: String in _MAPS_WITH_AUTHORED_CONTENT:
-		var wm: RefCounted = WorldMapScript.new(map_name)
+		var wm := WorldMapScript.new(map_name)
 		assert_gt(wm.scrolls.size(), 0, "%s should load at least one authored scroll" % map_name)
 
 func test_story_maps_load_at_least_one_shrine() -> void:
 	for map_name: String in _MAPS_WITH_AUTHORED_CONTENT:
-		var wm: RefCounted = WorldMapScript.new(map_name)
+		var wm := WorldMapScript.new(map_name)
 		assert_gt(wm.shrines.size(), 0, "%s should load at least one authored puzzle shrine" % map_name)
 
 func test_story_maps_load_non_empty_music_track() -> void:

@@ -27,8 +27,10 @@ func _build_backdrop(alpha: float = 0.78, close_on_tap: bool = false) -> ColorRe
 	add_child(bg)
 	if close_on_tap:
 		bg.gui_input.connect(func(ev: InputEvent) -> void:
-			if ev is InputEventMouseButton and ev.pressed:
-				_close()
+			if ev is InputEventMouseButton:
+				var mb: InputEventMouseButton = ev
+				if mb.pressed:
+					_close()
 		)
 	return bg
 
@@ -97,26 +99,29 @@ static func attach_drag_scroll(scroll: ScrollContainer) -> void:
 	var last_motion_ms := [0]
 
 	scroll.gui_input.connect(func(ev: InputEvent) -> void:
-		if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT:
-			if ev.pressed:
-				drag_start[0] = ev.position.y
-				scroll_start[0] = scroll.scroll_vertical
-				dragging[0] = false
-				last_motion_ms[0] = Time.get_ticks_msec()
-			else:
-				dragging[0] = false
+		if ev is InputEventMouseButton:
+			var mev: InputEventMouseButton = ev
+			if mev.button_index == MOUSE_BUTTON_LEFT:
+				if mev.pressed:
+					drag_start[0] = mev.position.y
+					scroll_start[0] = scroll.scroll_vertical
+					dragging[0] = false
+					last_motion_ms[0] = Time.get_ticks_msec()
+				else:
+					dragging[0] = false
 		elif ev is InputEventMouseMotion:
+			var mm: InputEventMouseMotion = ev
 			if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 				# A press consumed by a child button never reaches this handler —
 				# adopt such a gesture on its first motion instead of scrolling
 				# from the previous gesture's stale origin (GID-120 / TID-454).
 				var now: int = Time.get_ticks_msec()
 				if now - int(last_motion_ms[0]) > 150:
-					drag_start[0] = ev.position.y
+					drag_start[0] = mm.position.y
 					scroll_start[0] = scroll.scroll_vertical
 					dragging[0] = false
 				last_motion_ms[0] = now
-				var dy: float = ev.position.y - drag_start[0]
+				var dy: float = mm.position.y - drag_start[0]
 				if dragging[0] or absf(dy) > 8.0:
 					dragging[0] = true
 					scroll.scroll_vertical = scroll_start[0] - int(dy)

@@ -8,6 +8,7 @@
 ## lived in WorldScene itself. Everything world-side is reached via `_world`.
 extends Node
 
+const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const UiFx = preload("res://scenes/ui/UiFx.gd")
 const WorldHUD          = preload("res://scenes/world/WorldHUD.gd")
 const _AuctionHouseOverlay = preload("res://scenes/ui/AuctionHouseOverlay.gd")
@@ -16,6 +17,7 @@ const _AuctionTransfer = preload("res://game_logic/net/AuctionTransfer.gd")
 const _ChatSync = preload("res://game_logic/net/ChatSync.gd")
 const _GhostDuelOverlay  = preload("res://scenes/ui/GhostDuelOverlay.gd")
 const _PartyStashOverlay = preload("res://scenes/ui/PartyStashOverlay.gd")
+const _SessionState = preload("res://game_logic/net/SessionState.gd")
 const _SocialSync = preload("res://game_logic/net/SocialSync.gd")
 const _StashTransfer = preload("res://game_logic/net/StashTransfer.gd")
 const _TradeSync = preload("res://game_logic/net/TradeSync.gd")
@@ -24,10 +26,10 @@ const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 ## The WorldScene that owns this module. Everything the module needs from
 ## the world itself — the player node, the HUD, the entity tables — is
 ## reached through it. Sibling modules are reached as _world.<accessor>.
-var _world: Node = null
+var _world: _WorldScene = null
 
 var _auction_cache: Array = []            # last-known listings snapshot
-var _auction_overlay: Node = null         # AuctionHouseOverlay instance, nil when closed
+var _auction_overlay: _AuctionHouseOverlay = null   # AuctionHouseOverlay instance, nil when closed
 var _chat_lines: Array[Dictionary] = []    # retained {name, color, text} rows, capped
 var _chat_log_panel: Control = null        # outer panel (always visible while in co-op)
 var _chat_log_vbox: VBoxContainer = null   # scrolling log of chat lines
@@ -38,12 +40,12 @@ var _emote_btn: Button = null            # HUD button that opens the emote wheel
 var _emote_label_self: Label3D = null   # local avatar emote bubble
 var _emote_timer_self: float = 0.0      # local avatar emote bubble countdown
 var _emote_wheel_panel: Control = null   # the radial preset panel; nil when closed
-var _ghost_duel_overlay: Node = null
+var _ghost_duel_overlay: _GhostDuelOverlay = null
 var _pending_trade: Dictionary = {}      # active trade offer held by authority
 var _ping_btn: Button = null             # HUD toggle button for ping mode
 var _ping_markers: Array[Node3D] = []    # active world-space ping markers
 var _stash_cache: Dictionary = {"cards": [], "coins": 0}  # last-known stash snapshot
-var _stash_overlay: Node = null           # PartyStashOverlay instance, nil when closed
+var _stash_overlay: _PartyStashOverlay = null   # PartyStashOverlay instance, nil when closed
 var _trade_target_peer: int = -1         # peer we'd trade with (nearest in range)
 var _trade_window_mine: Button = null    # "Trade" HUD button (proximity-gated)
 
@@ -105,7 +107,7 @@ func _ensure_social_buttons() -> void:
 func _ghost_roster_rows(exclude_token: String) -> Array:
 	if not SessionStore.is_open():
 		return []
-	var st = SessionStore.get_state()
+	var st: _SessionState = SessionStore.get_state()
 	if st == null:
 		return []
 	var rows: Array = []
@@ -152,7 +154,7 @@ func _toggle_ghost_duel_overlay() -> void:
 ## and enters once recv_ghost_snapshot answers (see _on_ghost_snapshot_received).
 func _request_ghost_duel(token: String) -> void:
 	if _world.coop_session._coop_world_authority():
-		var st = SessionStore.get_state()
+		var st: _SessionState = SessionStore.get_state()
 		if st == null:
 			return
 		var snapshot: Dictionary = st.get_ghost_snapshot(token)
@@ -189,7 +191,7 @@ func _on_ghost_roster_received(rows: Array) -> void:
 func _on_ghost_snapshot_requested(sender: int, token: String) -> void:
 	if not _world.coop_session._coop_world_authority():
 		return
-	var st = SessionStore.get_state()
+	var st: _SessionState = SessionStore.get_state()
 	if st == null:
 		return
 	var snapshot: Dictionary = st.get_ghost_snapshot(token)
@@ -596,7 +598,7 @@ func _on_trade_offer_submitted(sender: int, payload: Dictionary) -> void:
 	var card_uid: String = str(offer.get("card_uid", ""))
 	var token_init: String = str(_world._session_token_by_peer.get(initiator_peer,
 		MpProfile.get_token() if initiator_peer == multiplayer.get_unique_id() else ""))
-	var st = SessionStore.get_state()
+	var st: _SessionState = SessionStore.get_state()
 	var valid: bool = false
 	if st != null and token_init != "":
 		var rec: Dictionary = st.get_member(token_init)
@@ -637,7 +639,7 @@ func _on_trade_confirm_submitted(_sender: int, trade_id: String, confirmed: bool
 			_world._net_sync.rpc_id(init_p, "recv_trade_update", cancel)
 		return
 	var card_uid: String = str(offer.get("card_uid", ""))
-	var st = SessionStore.get_state()
+	var st: _SessionState = SessionStore.get_state()
 	if st != null:
 		var token_i: String = str(_world._session_token_by_peer.get(init_p,
 			MpProfile.get_token() if init_p == multiplayer.get_unique_id() else ""))
@@ -655,7 +657,8 @@ func _on_trade_confirm_submitted(_sender: int, trade_id: String, confirmed: bool
 	elif _world._net_sync != null:
 		_world._net_sync.rpc_id(tgt_p, "recv_trade_update", complete)
 
-func _transfer_card_in_session(st: RefCounted, giver_token: String, target_token: String, card_uid: String) -> void:
+func _transfer_card_in_session(
+		st: _SessionState, giver_token: String, target_token: String, card_uid: String) -> void:
 	if giver_token == "" or target_token == "":
 		return
 	var g_rec: Dictionary = st.get_member(giver_token)
@@ -759,7 +762,7 @@ func _stash_token_for_peer(peer_id: int) -> String:
 func _session_actor(sender: int) -> Dictionary:
 	if not NetworkManager.is_host():
 		return {}
-	var st = SessionStore.get_state()
+	var st: _SessionState = SessionStore.get_state()
 	if st == null:
 		return {}
 	var token: String = _stash_token_for_peer(sender)
@@ -771,7 +774,7 @@ func _on_stash_deposit_submitted(sender: int, payload: Dictionary) -> void:
 	var actor: Dictionary = _session_actor(sender)
 	if actor.is_empty():
 		return
-	var st = actor["state"]
+	var st: _SessionState = actor["state"]
 	var token: String = actor["token"]
 	var member_rec: Dictionary = st.get_member(token)
 	var kind: String = str(payload.get("kind", "card"))
@@ -795,7 +798,7 @@ func _on_stash_withdraw_submitted(sender: int, payload: Dictionary) -> void:
 	var actor: Dictionary = _session_actor(sender)
 	if actor.is_empty():
 		return
-	var st = actor["state"]
+	var st: _SessionState = actor["state"]
 	var token: String = actor["token"]
 	var member_rec: Dictionary = st.get_member(token)
 	var kind: String = str(payload.get("kind", "card"))
@@ -835,7 +838,7 @@ func _apply_updated_member_to_actor(sender: int, updated_member: Dictionary) -> 
 func _broadcast_stash_update(target_peer: int = 0) -> void:
 	if not NetworkManager.is_host() or _world._net_sync == null or not SessionStore.is_open():
 		return
-	var st = SessionStore.get_state()
+	var st: _SessionState = SessionStore.get_state()
 	if st == null:
 		return
 	_stash_cache = st.stash
@@ -941,7 +944,7 @@ func _on_auction_list_submitted(sender: int, payload: Dictionary) -> void:
 	var actor: Dictionary = _session_actor(sender)
 	if actor.is_empty():
 		return
-	var st = actor["state"]
+	var st: _SessionState = actor["state"]
 	var token: String = actor["token"]
 	var intent: Dictionary = _AuctionSync.decode_list_intent(payload)
 	var member_rec: Dictionary = st.get_member(token)
@@ -964,7 +967,7 @@ func _on_auction_bid_submitted(sender: int, payload: Dictionary) -> void:
 	var actor: Dictionary = _session_actor(sender)
 	if actor.is_empty():
 		return
-	var st = actor["state"]
+	var st: _SessionState = actor["state"]
 	var token: String = actor["token"]
 	var intent: Dictionary = _AuctionSync.decode_bid_intent(payload)
 	var member_rec: Dictionary = st.get_member(token)
@@ -983,7 +986,7 @@ func _on_auction_buyout_submitted(sender: int, payload: Dictionary) -> void:
 	var actor: Dictionary = _session_actor(sender)
 	if actor.is_empty():
 		return
-	var st = actor["state"]
+	var st: _SessionState = actor["state"]
 	var buyer_token: String = actor["token"]
 	var intent: Dictionary = _AuctionSync.decode_id_intent(payload)
 	var buyout_auction_id: String = str(intent.get("auction_id", ""))
@@ -1013,7 +1016,7 @@ func _on_auction_cancel_submitted(sender: int, payload: Dictionary) -> void:
 	var actor: Dictionary = _session_actor(sender)
 	if actor.is_empty():
 		return
-	var st = actor["state"]
+	var st: _SessionState = actor["state"]
 	var token: String = actor["token"]
 	var intent: Dictionary = _AuctionSync.decode_id_intent(payload)
 	var member_rec: Dictionary = st.get_member(token)
@@ -1037,7 +1040,7 @@ func _on_auction_cancel_submitted(sender: int, payload: Dictionary) -> void:
 ## currently connected so their local collection stays in sync.
 
 func _sweep_expired_auctions() -> void:
-	var st = SessionStore.get_state()
+	var st: _SessionState = SessionStore.get_state()
 	if st == null or (st.auctions as Array).is_empty():
 		return
 	var result: Dictionary = _AuctionTransfer.settle_expired(st.auctions, st.members, st.days_elapsed)
@@ -1089,7 +1092,7 @@ func _find_auction(auctions: Array, auction_id: String) -> Dictionary:
 func _broadcast_auction_update(target_peer: int = 0) -> void:
 	if not NetworkManager.is_host() or _world._net_sync == null or not SessionStore.is_open():
 		return
-	var st = SessionStore.get_state()
+	var st: _SessionState = SessionStore.get_state()
 	if st == null:
 		return
 	_auction_cache = _AuctionSync.decode_snapshot(st.auctions)

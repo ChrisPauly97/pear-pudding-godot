@@ -5,6 +5,7 @@
 ## because the guildhall furnishing code shares it.
 extends Node
 
+const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const GardenDefs = preload("res://game_logic/GardenDefs.gd")
 const _GardenPlotScript = preload("res://scenes/world/entities/GardenPlot.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
@@ -15,14 +16,14 @@ const HOME_PLOT_TILES: Array[Vector2i] = [Vector2i(52, 54), Vector2i(55, 54), Ve
 const MATURE_STAGE: int = 3
 const _PANEL_BG := Color(0.05, 0.08, 0.05, 0.96)
 
-var _world: Node = null
+var _world: _WorldScene = null
 
 func spawn_home_plots() -> void:
 	_world._garden_plot_nodes.clear()
 	for i: int in range(HOME_PLOT_TILES.size()):
 		var wx: float = float(HOME_PLOT_TILES[i].x) * IsoConst.TILE_SIZE
 		var wz: float = float(HOME_PLOT_TILES[i].y) * IsoConst.TILE_SIZE
-		var plot: Node3D = _GardenPlotScript.new()
+		var plot: _GardenPlotScript = _GardenPlotScript.new()
 		plot.init_from_data({"plot_idx": i})
 		plot.position = Vector3(wx, _world.get_terrain_height(wx, wz), wz)
 		_world._entity_root.add_child(plot)
@@ -30,7 +31,8 @@ func spawn_home_plots() -> void:
 
 ## Opens the panel for `plot`: a seed picker when empty, a countdown while
 ## growing, a harvest button once mature.
-func show_panel(plot: Node3D) -> void:
+func show_panel(plot_node: Node3D) -> void:
+	var plot: _GardenPlotScript = plot_node as _GardenPlotScript
 	var modal: Dictionary = _world._build_modal(0.7, 0.5, _PANEL_BG, 0.012)
 	var layer: CanvasLayer = modal["layer"]
 	var vbox: VBoxContainer = modal["vbox"]
@@ -49,9 +51,9 @@ func show_panel(plot: Node3D) -> void:
 		_build_harvest(plot, plot_data, layer, vbox, font_size, btn_h)
 	_UiUtil.make_button("Close", Vector2(0, btn_h), font_size, layer.queue_free, vbox)
 
-func _build_seed_picker(plot: Node3D, layer: CanvasLayer, vbox: VBoxContainer,
+func _build_seed_picker(plot: _GardenPlotScript, layer: CanvasLayer, vbox: VBoxContainer,
 		vh: float, font_size: int, btn_h: float) -> void:
-	var sm: Node = SceneManager.save_manager
+	var sm := SceneManager.save_manager
 	var session_mode: bool = bool(plot.session_mode)
 	var plot_idx: int = int(plot.plot_idx)
 	_UiUtil.make_label("Choose a seed to plant:", font_size, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
@@ -85,7 +87,7 @@ func _build_seed_picker(plot: Node3D, layer: CanvasLayer, vbox: VBoxContainer,
 		_UiUtil.make_label("No seeds — buy some from a merchant.", font_size, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER,
 				vbox)
 
-func _build_growing_info(plot: Node3D, plot_data: Dictionary, vbox: VBoxContainer, font_size: int) -> void:
+func _build_growing_info(plot: _GardenPlotScript, plot_data: Dictionary, vbox: VBoxContainer, font_size: int) -> void:
 	var sdata: Dictionary = GardenDefs.SEEDS.get(str(plot_data.get("seed_id", "")), {})
 	var sname: String = str(sdata.get("display_name", plot_data.get("seed_id", "")))
 	var ready_day: int = int(plot_data.get("planted_day", 0)) + int(sdata.get("growth_days", 2))
@@ -95,7 +97,7 @@ func _build_growing_info(plot: Node3D, plot_data: Dictionary, vbox: VBoxContaine
 		font_size, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
-func _build_harvest(plot: Node3D, plot_data: Dictionary, layer: CanvasLayer,
+func _build_harvest(plot: _GardenPlotScript, plot_data: Dictionary, layer: CanvasLayer,
 		vbox: VBoxContainer, font_size: int, btn_h: float) -> void:
 	var sdata: Dictionary = GardenDefs.SEEDS.get(str(plot_data.get("seed_id", "")), {})
 	var sname: String = str(sdata.get("display_name", plot_data.get("seed_id", "")))
@@ -108,7 +110,7 @@ func _build_harvest(plot: Node3D, plot_data: Dictionary, layer: CanvasLayer,
 		if session_mode:
 			_world.coop_session._submit_session_harvest(plot_idx)
 		else:
-			var sm: Node = SceneManager.save_manager
+			var sm := SceneManager.save_manager
 			sm.garden.add_plants(plant_id, yield_count)
 			sm.garden.clear_plot(plot_idx)
 			GameBus.plant_harvested.emit(plot_idx, yield_count)

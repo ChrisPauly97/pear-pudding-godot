@@ -7,6 +7,7 @@
 ## WorldScene — the `_find_nearby_*` finders and the co-op modules read them.
 extends Node
 
+const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const WorldMap = preload("res://game_logic/world/WorldMap.gd")
 const _MailboxScene = preload("res://scenes/world/entities/MailboxNPC.tscn")
 const _PuzzleShrineScene = preload("res://scenes/world/entities/PuzzleShrine.tscn")
@@ -36,7 +37,7 @@ const MAILBOX_TILE_OFFSETS: Array[Vector2i] = [
 const MAILBOX_CLEARANCE_TILES: float = 2.0
 const _FAST_TRAVEL_BG := Color(0.05, 0.05, 0.10, 0.96)
 
-var _world: Node = null
+var _world: _WorldScene = null
 var _fast_travel_layer: CanvasLayer = null
 
 ## Spawns every prop on the current named map. Waystones go before the mailbox:
@@ -59,19 +60,19 @@ func _place(scene: PackedScene, wx: float, wz: float, lift: float) -> Node3D:
 func _spawn_scrolls() -> void:
 	for entry: Dictionary in _world.world_map.scrolls:
 		var node: Node3D = _place(_StoryScrollScene, float(entry["x"]), float(entry["z"]), 0.1)
-		node.setup(str(entry["scroll_id"]), _world._player)
+		node.call("setup", str(entry["scroll_id"]), _world._player)
 		if not node.is_queued_for_deletion():   # setup frees an already-collected scroll
 			_world._scroll_nodes.append(node)
 
 func _spawn_shrines() -> void:
 	for entry: Dictionary in _world.world_map.shrines:
 		var node: Node3D = _place(_PuzzleShrineScene, float(entry["x"]), float(entry["z"]), 0.1)
-		node.setup(str(entry["puzzle_id"]), _world._player)
+		node.call("setup", str(entry["puzzle_id"]), _world._player)
 		if not node.is_queued_for_deletion():
 			_world._shrine_nodes.append(node)
 
 func _spawn_waystones() -> void:
-	var sm: Node = SceneManager.save_manager
+	var sm := SceneManager.save_manager
 	var entries: Array[Dictionary] = _world.world_map.waystones
 	if entries.is_empty():
 		entries = _injected_waystone()
@@ -80,7 +81,7 @@ func _spawn_waystones() -> void:
 		var w_dict: Dictionary = entry.duplicate()
 		w_dict["active"] = sm.is_waystone_activated(wid)
 		var node: Node3D = _place(_WaystoneScene, float(entry["x"]), float(entry["z"]), 0.75)
-		node.init_from_data(w_dict)
+		node.call("init_from_data", w_dict)
 		_world._waystone_nodes[wid] = node
 		_world._active_waystone_data[wid] = w_dict
 
@@ -89,7 +90,7 @@ func _injected_waystone() -> Array[Dictionary]:
 	var map_name: String = _world.map_name
 	if not NAMED_MAP_WAYSTONE_LABELS.has(map_name):
 		return []
-	var wm: RefCounted = _world.world_map
+	var wm: WorldMap = _world.world_map
 	var tx: int = clampi(wm.player_spawn_x + 3 if wm.has_player_spawn() else 8, 1, WorldMap.MAP_WIDTH - 2)
 	var tz: int = clampi(wm.player_spawn_z if wm.has_player_spawn() else 8, 1, WorldMap.MAP_HEIGHT - 2)
 	return [{
@@ -116,7 +117,7 @@ func _spawn_mailbox() -> void:
 		"z": float(tile.y) * WorldMap.TILE_SIZE,
 	}
 	var node: Node3D = _place(_MailboxScene, m_dict["x"], m_dict["z"], 0.55)
-	node.init_from_data(m_dict)
+	node.call("init_from_data", m_dict)
 	_world._mailbox_nodes[mid] = node
 	_world._active_mailbox_data[mid] = m_dict
 

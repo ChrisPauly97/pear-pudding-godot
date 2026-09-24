@@ -7,6 +7,7 @@
 ## `tick()` every frame. The joystick reference is set by _build_player_hud.
 extends Node
 
+const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const Pathfinder = preload("res://game_logic/Pathfinder.gd")
 
 const DRAG_THRESHOLD: float = 30.0   # screen pixels; beyond this is a drag, not a tap
@@ -19,7 +20,7 @@ const _REJECT_TINT := Color(1.0, 0.25, 0.2)
 const _WALKABLE: Array[int] = [IsoConst.TILE_GRASS, IsoConst.TILE_HILL, IsoConst.TILE_PATH]
 
 var joystick: Node = null
-var _world: Node = null
+var _world: _WorldScene = null
 
 var _dest_marker: Node3D = null
 var _dest_tween: Tween = null

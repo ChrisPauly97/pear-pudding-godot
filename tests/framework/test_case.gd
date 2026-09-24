@@ -20,7 +20,11 @@ var _test_failed: bool = false
 
 
 func get_suite_name() -> String:
-	return _suite_name if _suite_name != "" else get_script().resource_path.get_file().get_basename()
+	if _suite_name != "":
+		return _suite_name
+	var script: Script = get_script()
+	var path: String = script.resource_path
+	return path.get_file().get_basename()
 
 
 ## Override in subclass for once-per-suite setup (runs before any test_* method).

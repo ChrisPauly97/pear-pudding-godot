@@ -528,7 +528,8 @@ static func type_for_depth(depth: int, max_depth: int) -> String:
 static func get_ai_persona(type_id: String) -> String:
 	_ensure_loaded()
 	if _enemies.has(type_id):
-		return str(_enemies[type_id].get("ai_persona", "basic"))
+		var data: Dictionary = _enemies[type_id]
+		return str(data.get("ai_persona", "basic"))
 	return "basic"
 
 ## Returns the difficulty tier (1–4) for an enemy type. Falls back to 1 if unknown.
@@ -585,7 +586,8 @@ static func is_tracking(type_id: String) -> bool:
 static func get_night_drop_boost(type_id: String) -> bool:
 	_ensure_loaded()
 	if _enemies.has(type_id):
-		return bool(_enemies[type_id].get("night_drop_boost", false))
+		var data: Dictionary = _enemies[type_id]
+		return bool(data.get("night_drop_boost", false))
 	return false
 
 ## Returns the lore text for a type, or "" if unknown or not yet written.
@@ -599,21 +601,24 @@ static func get_lore_text(type_id: String) -> String:
 static func get_signature_card(type_id: String) -> String:
 	_ensure_loaded()
 	if _enemies.has(type_id):
-		return str(_enemies[type_id].get("signature_card", ""))
+		var data: Dictionary = _enemies[type_id]
+		return str(data.get("signature_card", ""))
 	return ""
 
 ## Returns the capture condition key for this enemy type, or "" if none.
 static func get_capture_condition(type_id: String) -> String:
 	_ensure_loaded()
 	if _enemies.has(type_id):
-		return str(_enemies[type_id].get("capture_condition", ""))
+		var data: Dictionary = _enemies[type_id]
+		return str(data.get("capture_condition", ""))
 	return ""
 
 ## Returns the numeric capture param for this enemy type (0 if none or unknown).
 static func get_capture_param(type_id: String) -> int:
 	_ensure_loaded()
 	if _enemies.has(type_id):
-		return int(_enemies[type_id].get("capture_param", 0))
+		var data: Dictionary = _enemies[type_id]
+		return int(data.get("capture_param", 0))
 	return 0
 
 ## Returns XP rewarded for defeating this enemy type. Bosses are 2×.
@@ -631,7 +636,8 @@ static func get_all_signature_card_ids() -> Array[String]:
 	_ensure_loaded()
 	var result: Array[String] = []
 	for key: String in _enemies.keys():
-		var sig: String = str(_enemies[key].get("signature_card", ""))
+		var data: Dictionary = _enemies[key]
+		var sig: String = str(data.get("signature_card", ""))
 		if sig != "" and not result.has(sig):
 			result.append(sig)
 	return result

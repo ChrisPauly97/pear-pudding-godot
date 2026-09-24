@@ -144,7 +144,7 @@ func _run() -> bool:
 	# call WorldScene's own _ensure_coop_modules() so it builds + registers whatever
 	# co-op handler modules currently exist — no module names hardcoded here, this
 	# just runs WorldScene's real setup code for that one piece.
-	var net_sync: Node = _NetSyncScript.new()
+	var net_sync := _NetSyncScript.new()
 	net_sync.name = "NetSync"
 	net_sync.set("world_scene", ws)
 	ws.add_child(net_sync)
@@ -264,7 +264,10 @@ func _check_external_entry_points(ws: Node) -> bool:
 		var src: String = f.get_as_text()
 		f.close()
 		var re := RegEx.new()
-		re.compile("(_saved_world_scene|world_scene|ws)\\s*(?:!=\\s*null\\s+and\\s+\\1\\s*)?\\.has_method\\(\"(\\w+)\"\\)")
+		# `scene` covers SceneManager's current_scene probes (flush_save_position and
+		# flush_time_of_day were probed for years without existing on WorldScene).
+		re.compile("(_saved_world_scene|world_scene|ws|scene)\\s*(?:!=\\s*null\\s+and\\s+\\1\\s*)?"
+				+ "\\.has_method\\(\"(\\w+)\"\\)")
 		for m in re.search_all(src):
 			probes[m.get_string(2)] = path
 	var missing: Array[String] = []

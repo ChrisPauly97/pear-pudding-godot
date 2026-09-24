@@ -83,7 +83,8 @@ func test_normalize_listing_fills_full_shape() -> void:
 func test_normalize_listing_tolerates_garbage() -> void:
 	var listing: Dictionary = AuctionSync.normalize_listing("not-a-dict")
 	assert_eq(listing["id"], "")
-	assert_true(listing["card_instance"].is_empty())
+	var card_instance: Dictionary = listing["card_instance"]
+	assert_true(card_instance.is_empty())
 	assert_eq(listing["status"], AuctionSync.STATUS_ACTIVE)
 
 

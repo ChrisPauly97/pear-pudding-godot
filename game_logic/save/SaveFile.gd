@@ -39,10 +39,11 @@ static func read_json(path: String) -> Variant:
 	var outer: Variant = JSON.parse_string(file.get_as_text())
 	if not outer is Dictionary:
 		return null
-	if not (outer as Dictionary).has("payload"):
+	var outer_dict: Dictionary = outer
+	if not outer_dict.has("payload"):
 		return outer
-	var stored_hmac: String = str(outer.get("hmac", ""))
-	var payload: String = str(outer.get("payload", ""))
+	var stored_hmac: String = str(outer_dict.get("hmac", ""))
+	var payload: String = str(outer_dict.get("payload", ""))
 	if stored_hmac != hmac(payload):
 		push_warning("SaveManager: integrity check failed for %s" % path)
 		return null

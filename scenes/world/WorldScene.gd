@@ -22,6 +22,8 @@ const MapViewOverlay  = preload("res://scenes/ui/MapViewOverlay.gd")
 const WeatherParticles   = preload("res://scenes/world/WeatherParticles.gd")
 const _TerrainShader: Shader = preload("res://assets/shaders/terrain.gdshader")
 const LandmarkNames  = preload("res://game_logic/world/LandmarkNames.gd")
+const _ChunkData     = preload("res://game_logic/world/ChunkData.gd")
+const _WorldEventManager = preload("res://autoloads/WorldEventManager.gd")
 
 const _TexGrass:     Texture2D = preload("res://assets/textures/pixel_art/grass_pixel.png")
 const _TexHillSide:  Texture2D = preload("res://assets/textures/pixel_art/hill_side_pixel.png")
@@ -35,6 +37,7 @@ const _OverworldPauseOverlay = preload("res://scenes/ui/OverworldPauseOverlay.gd
 const _PlayerScene       = preload("res://scenes/world/entities/Player.tscn")
 const _ObjectiveBeacon   = preload("res://scenes/world/entities/ObjectiveBeacon.gd")
 const _ObjectiveTracker  = preload("res://game_logic/ObjectiveTracker.gd")
+const _Player            = preload("res://scenes/world/entities/Player.gd")
 # Party panel (GID-107 / TID-395): consolidated entry point for the always-on
 # co-op HUD affordances (Roster, Loot Mode, Stash, Leaderboard, Ghost Duels,
 # Team Duel, Dungeon Crawl) that used to each be an individually-positioned button.
@@ -144,33 +147,33 @@ var world_map: WorldMap
 # `_world` back-reference to this scene and is registered with NetSync as an RPC
 # handler target, so the `_on_*` entry points resolve exactly as they did when
 # they lived here. See CLAUDE.md "WorldScene co-op modules".
-var coop_social: Node = null
-var coop_pvp: Node = null
-var coop_activities: Node = null
-var coop_session: Node = null
+var coop_social: _CoopSocial = null
+var coop_pvp: _CoopPvP = null
+var coop_activities: _CoopActivities = null
+var coop_session: _CoopSession = null
 
 # Nocturnal spawn system (GID-055 Night Hunts) — see modules/NocturnalSpawner.gd
-var nocturnal: Node = null
-var cantrips: Node = null   # modules/Cantrips.gd (GID-065)
-var home_garden: Node = null   # modules/HomeGarden.gd (GID-059)
-var story_cast: Node = null    # modules/StoryCast.gd (GID-108)
+var nocturnal: _NocturnalSpawner = null
+var cantrips: _Cantrips = null   # modules/Cantrips.gd (GID-065)
+var home_garden: _HomeGarden = null   # modules/HomeGarden.gd (GID-059)
+var story_cast: _StoryCast = null    # modules/StoryCast.gd (GID-108)
 
 var world_seed: int = 42  # overwritten in _ready() for infinite worlds
 
-var tap_move: Node = null   # modules/TapToMove.gd
-var mounts: Node = null     # modules/Mounts.gd (GID-048)
-var player_home: Node = null   # modules/PlayerHome.gd
-var npc_interactions: Node = null   # modules/NpcInteractions.gd
-var town_siege: Node = null   # modules/TownSiege.gd (GID-054)
-var named_props: Node = null   # modules/NamedMapProps.gd
-var chest_loot: Node = null    # modules/ChestLoot.gd
+var tap_move: _TapToMove = null   # modules/TapToMove.gd
+var mounts: _Mounts = null     # modules/Mounts.gd (GID-048)
+var player_home: _PlayerHome = null   # modules/PlayerHome.gd
+var npc_interactions: _NpcInteractions = null   # modules/NpcInteractions.gd
+var town_siege: _TownSiege = null   # modules/TownSiege.gd (GID-054)
+var named_props: _NamedMapProps = null   # modules/NamedMapProps.gd
+var chest_loot: _ChestLoot = null    # modules/ChestLoot.gd
 
 # Computed in _ready from map_name; true for "main" and "infinite", false for named dungeon maps
 var _is_infinite: bool = false
 
 # Common
-var _player: CharacterBody3D
-var _grass: Node3D
+var _player: _Player
+var _grass: GrassBlades
 var _enemy_nodes: Dictionary = {}   # id -> Node3D
 var _chest_nodes: Dictionary = {}   # id -> Node3D
 # Co-op multiplayer (GID-090) — guarded by _coop_active; inert in single-player
@@ -328,15 +331,15 @@ var _weather_tint_lerp_t: float = 1.0
 var _smooth_camera_target: Vector3 = Vector3.ZERO
 var _fill_light: DirectionalLight3D
 
-var _pause_overlay: Node = null
+var _pause_overlay: _OverworldPauseOverlay = null
 var _world_hud: WorldHUD = null
 var _dungeon_session_ui: DungeonSessionUI = null
-var _minimap: Node
-var _map_overlay: Node = null
+var _minimap: Minimap
+var _map_overlay: MapViewOverlay = null
 
 # Story objective beacon (one at most, on the objective's tile — see
 # _refresh_objective_beacon).
-var _objective_beacon: Node3D = null
+var _objective_beacon: _ObjectiveBeacon = null
 
 @onready var _camera: Camera3D = $Camera3D
 @onready var _hud: CanvasLayer = $HUD
@@ -788,17 +791,17 @@ func enter_downed_state() -> void:
 ## Creates the single-player feature modules split out of this scene. Same
 ## shape as the co-op modules: a child Node with a `_world` back-reference.
 func _ensure_world_modules() -> void:
-	nocturnal = _ensure_world_module(nocturnal, _NocturnalSpawner, "NocturnalSpawner")
-	cantrips = _ensure_world_module(cantrips, _Cantrips, "Cantrips")
-	home_garden = _ensure_world_module(home_garden, _HomeGarden, "HomeGarden")
-	story_cast = _ensure_world_module(story_cast, _StoryCast, "StoryCast")
-	tap_move = _ensure_world_module(tap_move, _TapToMove, "TapToMove")
-	mounts = _ensure_world_module(mounts, _Mounts, "Mounts")
-	player_home = _ensure_world_module(player_home, _PlayerHome, "PlayerHome")
-	npc_interactions = _ensure_world_module(npc_interactions, _NpcInteractions, "NpcInteractions")
-	town_siege = _ensure_world_module(town_siege, _TownSiege, "TownSiege")
-	named_props = _ensure_world_module(named_props, _NamedMapProps, "NamedMapProps")
-	chest_loot = _ensure_world_module(chest_loot, _ChestLoot, "ChestLoot")
+	nocturnal = _ensure_world_module(nocturnal, _NocturnalSpawner, "NocturnalSpawner") as _NocturnalSpawner
+	cantrips = _ensure_world_module(cantrips, _Cantrips, "Cantrips") as _Cantrips
+	home_garden = _ensure_world_module(home_garden, _HomeGarden, "HomeGarden") as _HomeGarden
+	story_cast = _ensure_world_module(story_cast, _StoryCast, "StoryCast") as _StoryCast
+	tap_move = _ensure_world_module(tap_move, _TapToMove, "TapToMove") as _TapToMove
+	mounts = _ensure_world_module(mounts, _Mounts, "Mounts") as _Mounts
+	player_home = _ensure_world_module(player_home, _PlayerHome, "PlayerHome") as _PlayerHome
+	npc_interactions = _ensure_world_module(npc_interactions, _NpcInteractions, "NpcInteractions") as _NpcInteractions
+	town_siege = _ensure_world_module(town_siege, _TownSiege, "TownSiege") as _TownSiege
+	named_props = _ensure_world_module(named_props, _NamedMapProps, "NamedMapProps") as _NamedMapProps
+	chest_loot = _ensure_world_module(chest_loot, _ChestLoot, "ChestLoot") as _ChestLoot
 
 func _ensure_world_module(existing: Node, script: GDScript, node_name: String) -> Node:
 	if existing != null and is_instance_valid(existing):
@@ -815,10 +818,10 @@ func _ensure_world_module(existing: Node, script: GDScript, node_name: String) -
 ## battle detaches and re-adds WorldScene without tearing the modules down.
 ## The modules are inert outside a session, so creating them always is free.
 func _ensure_coop_modules() -> void:
-	coop_social = _ensure_coop_module(coop_social, _CoopSocial, "CoopSocial")
-	coop_pvp = _ensure_coop_module(coop_pvp, _CoopPvP, "CoopPvP")
-	coop_activities = _ensure_coop_module(coop_activities, _CoopActivities, "CoopActivities")
-	coop_session = _ensure_coop_module(coop_session, _CoopSession, "CoopSession")
+	coop_social = _ensure_coop_module(coop_social, _CoopSocial, "CoopSocial") as _CoopSocial
+	coop_pvp = _ensure_coop_module(coop_pvp, _CoopPvP, "CoopPvP") as _CoopPvP
+	coop_activities = _ensure_coop_module(coop_activities, _CoopActivities, "CoopActivities") as _CoopActivities
+	coop_session = _ensure_coop_module(coop_session, _CoopSession, "CoopSession") as _CoopSession
 
 func _ensure_coop_module(existing: Node, script: GDScript, node_name: String) -> Node:
 	var mod: Node = existing
@@ -999,12 +1002,12 @@ func _apply_biome_color_grade(biome_id: int) -> void:
 	env.adjustment_contrast   = float(adj.get("contrast",   1.0))
 	env.adjustment_saturation = float(adj.get("saturation", 1.0))
 
-func _on_chunk_committed(_key: Vector2i, chunk_data: RefCounted) -> void:
+func _on_chunk_committed(_key: Vector2i, chunk_data: _ChunkData) -> void:
 	for l_data: Dictionary in chunk_data.landmarks:
 		var lid: String = str(l_data.get("id", ""))
 		_active_landmark_data[lid] = l_data
 
-func _on_chunk_unloading(chunk_key: Vector2i, chunk_data: RefCounted) -> void:
+func _on_chunk_unloading(chunk_key: Vector2i, chunk_data: _ChunkData) -> void:
 	for e_data in chunk_data.enemies:
 		var eid: String = str(e_data.get("id", ""))
 		var enode: Node3D = _valid_node3d(_enemy_nodes.get(eid))
@@ -1070,7 +1073,7 @@ func _tick_traveling_merchant(delta: float) -> void:
 		return
 	_traveling_merchant_timer += delta
 	if _traveling_merchant_timer >= 300.0:
-		var wem: Node = get_node_or_null("/root/WorldEventManager")
+		var wem: _WorldEventManager = get_node_or_null("/root/WorldEventManager") as _WorldEventManager
 		if wem != null:
 			wem.end_event("traveling_merchant")
 
@@ -1083,7 +1086,7 @@ func _tick_roaming_boss(delta: float) -> void:
 	var fled: bool = boss == null or not is_instance_valid(boss) or \
 		(_player != null and _player.position.distance_to(boss.position) > 160.0)
 	if expired or fled:
-		var wem: Node = get_node_or_null("/root/WorldEventManager")
+		var wem: _WorldEventManager = get_node_or_null("/root/WorldEventManager") as _WorldEventManager
 		if wem != null:
 			wem.end_event("roaming_boss")
 
@@ -1300,11 +1303,11 @@ func _find_nearby_waystone(px: float, pz: float, range_dist: float) -> Dictionar
 
 ## Chunk data for the loaded chunks in the 3×3 block around (px, pz). Enemies
 ## and chests are indexed per chunk, so their finders only scan these.
-func _neighbour_chunks(px: float, pz: float) -> Array[RefCounted]:
+func _neighbour_chunks(px: float, pz: float) -> Array[_ChunkData]:
 	var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
 	var pcx: int = int(floor(px / chunk_world))
 	var pcz: int = int(floor(pz / chunk_world))
-	var out: Array[RefCounted] = []
+	var out: Array[_ChunkData] = []
 	for dz: int in range(-1, 2):
 		for dx: int in range(-1, 2):
 			var key := Vector2i(pcx + dx, pcz + dz)
@@ -1313,7 +1316,7 @@ func _neighbour_chunks(px: float, pz: float) -> Array[RefCounted]:
 	return out
 
 func _find_nearby_enemy(px: float, pz: float, range_dist: float) -> Node3D:
-	for chunk: RefCounted in _neighbour_chunks(px, pz):
+	for chunk: _ChunkData in _neighbour_chunks(px, pz):
 		for e_data: Dictionary in chunk.enemies:
 			var node: Node3D = _node_in_range(_enemy_nodes.get(str(e_data.get("id", ""))), px, pz, range_dist)
 			if node != null:
@@ -1322,7 +1325,7 @@ func _find_nearby_enemy(px: float, pz: float, range_dist: float) -> Node3D:
 
 ## The first unopened chest within range, as its live `_active_chest_data` entry.
 func _find_nearby_chest(px: float, pz: float, range_dist: float) -> Dictionary:
-	for chunk: RefCounted in _neighbour_chunks(px, pz):
+	for chunk: _ChunkData in _neighbour_chunks(px, pz):
 		for c_data: Dictionary in chunk.chests:
 			var d: Dictionary = _active_chest_data.get(str(c_data.get("id", "")), {})
 			if not d.is_empty() and not d.get("opened", false) and _data_in_range(d, px, pz, range_dist):
@@ -1377,8 +1380,8 @@ func _make_terrain_material(_seed: int = 0) -> ShaderMaterial:
 	mat.set_shader_parameter("uv_scale", 0.5)
 	return mat
 
-func _create_player_node() -> CharacterBody3D:
-	var p: CharacterBody3D = _PlayerScene.instantiate()
+func _create_player_node() -> _Player:
+	var p: _Player = _PlayerScene.instantiate()
 	p.add_to_group("player")
 	return p
 
@@ -1400,6 +1403,21 @@ func _snap_to_pixel(pos: Vector3) -> Vector3:
 	return right * r + up * u + fwd * d
 
 # ── Per-frame update ───────────────────────────────────────────────────────
+
+## SceneManager probes these by name before leaving the world (go_to_menu,
+## battles, puzzles). `_process` only saves position after a >1 unit move and
+## time of day alongside it, so without them the last step and any time spent
+## standing still were lost. Neither existed until the unsafe-access pass
+## surfaced SceneManager's has_method guards as always-false.
+func flush_save_position() -> void:
+	if _player == null:
+		return
+	_last_save_pos = Vector2(_player.position.x, _player.position.z)
+	SceneManager.save_manager.update_position(map_name, _player.position.x, _player.position.z)
+
+func flush_time_of_day() -> void:
+	if _dnc:
+		SceneManager.save_manager.time_of_day = _dnc.get_time_of_day()
 
 func _process(delta: float) -> void:
 	# Co-op and time ticks run before the player null-check so they work in
@@ -1657,15 +1675,16 @@ func _unhandled_input(event: InputEvent) -> void:
 			"skill_tree": GameBus.skill_tree_requested.emit()
 		get_viewport().set_input_as_handled()
 		return
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_G:
+	var key_event: InputEventKey = event as InputEventKey
+	if key_event != null and key_event.pressed and not key_event.echo and key_event.keycode == KEY_G:
 		cantrips.activate_ghost_phase()
 		get_viewport().set_input_as_handled()
-	elif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_D:
+	elif key_event != null and key_event.pressed and not key_event.echo and key_event.keycode == KEY_D:
 		# D is also move_right: dig only when a mound is in reach, and never
 		# consume the event, so walking right stays silent.
 		cantrips.activate_skeleton_dig(true)
-	elif event is InputEventKey and event.pressed \
-			and (event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER) \
+	elif key_event != null and key_event.pressed \
+			and (key_event.keycode == KEY_ENTER or key_event.keycode == KEY_KP_ENTER) \
 			and _coop_active and _chat_input != null and is_instance_valid(_chat_input) \
 			and not _chat_input.has_focus():
 		# Desktop chat-focus shortcut (TID-374). Mobile equivalent is the "Chat"
@@ -1785,7 +1804,7 @@ func _handle_interact() -> void:
 		else:
 			var wnode := _valid_node3d(_waystone_nodes.get(wid))
 			if wnode != null and wnode.has_method("mark_activated"):
-				wnode.mark_activated()
+				wnode.call("mark_activated")
 		return
 
 	var mailbox := _find_nearby_mailbox(px, pz, IsoConst.INTERACT_RANGE)
@@ -1805,23 +1824,25 @@ func _handle_interact() -> void:
 	# instead of being forced into the fight. See INTERACT_PRIORITY.
 	var blight_heart_node := _find_nearby_blight_heart(px, pz, IsoConst.INTERACT_RANGE)
 	if blight_heart_node != null and blight_heart_node.has_method("engage"):
-		blight_heart_node.engage()
+		blight_heart_node.call("engage")
 		return
 
 	var scout_ambush_node := _find_nearby_scout_ambush(px, pz, IsoConst.INTERACT_RANGE)
 	if scout_ambush_node != null and scout_ambush_node.has_method("interact"):
-		scout_ambush_node.interact()
+		scout_ambush_node.call("interact")
 		return
 
 	var enemy := _find_nearby_enemy(px, pz, IsoConst.INTERACT_RANGE)
 	if enemy != null and enemy.has_method("engage"):
-		if enemy.get("enemy_data") != null:
-			var etype: String = str(enemy.enemy_data.get("enemy_type", ""))
+		var enemy_data: Variant = enemy.get("enemy_data")
+		if enemy_data != null:
+			var edict: Dictionary = enemy_data as Dictionary
+			var etype: String = str(edict.get("enemy_type", ""))
 			if etype.begins_with("rival_"):
-				var dlg: String = str(enemy.enemy_data.get("pre_battle_dialogue", ""))
+				var dlg: String = str(edict.get("pre_battle_dialogue", ""))
 				if dlg != "":
 					_show_dialogue(dlg)
-		enemy.engage()
+		enemy.call("engage")
 		# gdlint:ignore = max-returns
 		return
 

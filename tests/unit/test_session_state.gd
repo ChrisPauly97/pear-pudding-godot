@@ -137,10 +137,12 @@ func test_starter_uids_are_token_salted_and_unique() -> void:
 	var a: Dictionary = SessionState.make_starter_character("tokA", "A")
 	var b: Dictionary = SessionState.make_starter_character("tokB", "B")
 	var a_uids: Dictionary = {}
-	for inst in a.get("owned_cards", []):
+	var a_owned: Array = a.get("owned_cards", [])
+	for inst: Dictionary in a_owned:
 		a_uids[str(inst.get("uid", ""))] = true
 	# No UID collides between two different members' starter decks.
-	for inst in b.get("owned_cards", []):
+	var b_owned: Array = b.get("owned_cards", [])
+	for inst: Dictionary in b_owned:
 		assert_false(a_uids.has(str(inst.get("uid", ""))),
 			"starter UIDs must not collide across members")
 
@@ -148,9 +150,11 @@ func test_starter_uids_are_token_salted_and_unique() -> void:
 func test_starter_deck_uids_reference_owned_cards() -> void:
 	var rec: Dictionary = SessionState.make_starter_character("tok", "Ada")
 	var owned_uids: Dictionary = {}
-	for inst in rec.get("owned_cards", []):
+	var owned_cards: Array = rec.get("owned_cards", [])
+	for inst: Dictionary in owned_cards:
 		owned_uids[str(inst.get("uid", ""))] = true
-	for uid in rec.get("player_deck", []):
+	var player_deck: Array = rec.get("player_deck", [])
+	for uid in player_deck:
 		assert_true(owned_uids.has(str(uid)), "deck UID must exist in owned_cards")
 
 
@@ -553,9 +557,12 @@ func test_leaderboards_defaults_to_empty_both_boards() -> void:
 	assert_true(s.leaderboards.get("spire", null) is Array)
 	assert_true(s.leaderboards.get("coop_clears", null) is Array)
 	assert_true(s.leaderboards.get("coop_spire", null) is Array)
-	assert_true(s.leaderboards["spire"].is_empty())
-	assert_true(s.leaderboards["coop_clears"].is_empty())
-	assert_true(s.leaderboards["coop_spire"].is_empty())
+	var spire_board: Array = s.leaderboards["spire"]
+	var coop_clears_board: Array = s.leaderboards["coop_clears"]
+	var coop_spire_board: Array = s.leaderboards["coop_spire"]
+	assert_true(spire_board.is_empty())
+	assert_true(coop_clears_board.is_empty())
+	assert_true(coop_spire_board.is_empty())
 
 
 func test_record_pve_score_inserts_new_entry() -> void:
@@ -624,8 +631,10 @@ func test_record_pve_score_ignores_unknown_board() -> void:
 	var s := SessionState.new()
 	s.record_pve_score("not_a_board", "tokA", "Ada", 5, 1)
 	assert_true(s.get_pve_leaderboard("not_a_board").is_empty())
-	assert_true(s.leaderboards.get("spire", []).is_empty())
-	assert_true(s.leaderboards.get("coop_clears", []).is_empty())
+	var spire_board: Array = s.leaderboards.get("spire", [])
+	var coop_clears_board: Array = s.leaderboards.get("coop_clears", [])
+	assert_true(spire_board.is_empty())
+	assert_true(coop_clears_board.is_empty())
 
 
 func test_record_pve_score_ignores_blank_token() -> void:
@@ -763,7 +772,8 @@ func test_guildhall_defaults_to_purchased_and_empty() -> void:
 	var s := SessionState.new()
 	assert_true(s.has_guildhall())
 	assert_true(s.guildhall_state.get("members_inside", null) is Array)
-	assert_true(s.guildhall_state["members_inside"].is_empty())
+	var members_inside: Array = s.guildhall_state["members_inside"]
+	assert_true(members_inside.is_empty())
 
 
 func test_guildhall_state_round_trip() -> void:
@@ -783,17 +793,22 @@ func test_guildhall_state_garbage_field_falls_back_to_defaults() -> void:
 	var s := SessionState.new()
 	s.from_dict(data)
 	assert_true(s.has_guildhall(), "purchased always defaults true, even from garbage input")
-	assert_true(s.guildhall_state["members_inside"].is_empty())
-	assert_eq(s.guildhall_state["garden_plots"].size(), 3)
-	assert_true(s.guildhall_state["plants"].is_empty())
+	var members_inside: Array = s.guildhall_state["members_inside"]
+	var garden_plots: Array = s.guildhall_state["garden_plots"]
+	var plants: Dictionary = s.guildhall_state["plants"]
+	assert_true(members_inside.is_empty())
+	assert_eq(garden_plots.size(), 3)
+	assert_true(plants.is_empty())
 
 
 func test_guildhall_garden_plots_default_to_three_empty_slots() -> void:
 	var s := SessionState.new()
-	assert_eq(s.guildhall_state["garden_plots"].size(), 3)
-	for plot in s.guildhall_state["garden_plots"]:
-		assert_true((plot as Dictionary).is_empty())
-	assert_true(s.guildhall_state["plants"].is_empty())
+	var garden_plots: Array = s.guildhall_state["garden_plots"]
+	assert_eq(garden_plots.size(), 3)
+	for plot: Dictionary in garden_plots:
+		assert_true(plot.is_empty())
+	var plants: Dictionary = s.guildhall_state["plants"]
+	assert_true(plants.is_empty())
 
 
 func test_guildhall_garden_state_round_trip() -> void:
@@ -813,14 +828,16 @@ func test_guildhall_garden_plots_padded_and_truncated_to_three() -> void:
 		"version": SessionState.CURRENT_SESSION_VERSION,
 		"guildhall_state": {"purchased": true, "members_inside": [], "garden_plots": [{}], "plants": {}},
 	})
-	assert_eq(s.guildhall_state["garden_plots"].size(), 3)
+	var garden_plots: Array = s.guildhall_state["garden_plots"]
+	assert_eq(garden_plots.size(), 3)
 	var s2 := SessionState.new()
 	s2.from_dict({
 		"version": SessionState.CURRENT_SESSION_VERSION,
 		"guildhall_state": {"purchased": true, "members_inside": [],
 			"garden_plots": [{}, {}, {}, {"seed_id": "extra"}], "plants": {}},
 	})
-	assert_eq(s2.guildhall_state["garden_plots"].size(), 3)
+	var garden_plots2: Array = s2.guildhall_state["garden_plots"]
+	assert_eq(garden_plots2.size(), 3)
 
 
 func test_migration_v11_backfills_guildhall_state() -> void:
@@ -857,8 +874,10 @@ func test_migration_v12_backfills_garden_plots_and_plants() -> void:
 	}
 	var s := SessionState.new()
 	s.from_dict(data)
-	assert_eq(s.guildhall_state["garden_plots"].size(), 3)
-	assert_true(s.guildhall_state["plants"].is_empty())
+	var garden_plots: Array = s.guildhall_state["garden_plots"]
+	var plants: Dictionary = s.guildhall_state["plants"]
+	assert_eq(garden_plots.size(), 3)
+	assert_true(plants.is_empty())
 	assert_eq(int(s.to_dict().get("version", -1)), SessionState.CURRENT_SESSION_VERSION)
 
 
@@ -962,7 +981,8 @@ func test_ghost_snapshot_empty_owned_cards_yields_empty_deck() -> void:
 		"token": "tok", "display_name": "Ada", "owned_cards": [], "player_deck": ["x", "y"],
 	})
 	var snap: Dictionary = s.get_ghost_snapshot("tok")
-	assert_true(snap.get("deck", ["nonempty"]).is_empty())
+	var deck: Array = snap.get("deck", ["nonempty"])
+	assert_true(deck.is_empty())
 	assert_eq(str(snap.get("name", "")), "Ada")
 
 

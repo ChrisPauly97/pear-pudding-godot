@@ -37,7 +37,7 @@ static func _ensure_shared_resources() -> void:
 
 	_glow_mat = StandardMaterial3D.new()
 	_glow_mat.albedo_color = Color(0.50, 0.0, 0.65, 0.18)
-	_glow_mat.flags_transparent = true
+	_glow_mat.set("flags_transparent", true)
 	_glow_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_glow_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 

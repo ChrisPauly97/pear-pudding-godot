@@ -3,7 +3,7 @@ extends "res://tests/framework/test_case.gd"
 
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 
-func _fill_bag(sm: Node) -> void:
+func _fill_bag(sm: SaveManagerScript) -> void:
 	while not sm.is_bag_full():
 		sm.add_card_instance("bat", "common")
 
@@ -11,7 +11,7 @@ func _fill_bag(sm: Node) -> void:
 ## with the 12-card starter deck first, so owned_cards[0] is always a deck
 ## card and scrapping it never frees a bag slot (get_slot_count() excludes
 ## deck cards). Tests that need to free a real slot must scrap one of these.
-func _first_non_deck_uid(sm: Node) -> String:
+func _first_non_deck_uid(sm: SaveManagerScript) -> String:
 	for inst: Dictionary in sm.owned_cards:
 		var uid: String = str(inst.get("uid", ""))
 		if not sm.player_deck.has(uid):
@@ -19,7 +19,7 @@ func _first_non_deck_uid(sm: Node) -> String:
 	return ""
 
 func test_reward_routes_to_mailbox_when_bag_full() -> void:
-	var sm = SaveManagerScript.new()
+	var sm := SaveManagerScript.new()
 	sm.new_game()
 	_fill_bag(sm)
 	var before: int = sm.owned_cards.size()
@@ -30,7 +30,7 @@ func test_reward_routes_to_mailbox_when_bag_full() -> void:
 	assert_eq(str(sm.mailbox_cards[0].get("uid", "")), uid)
 
 func test_reward_goes_straight_to_bag_when_space_available() -> void:
-	var sm = SaveManagerScript.new()
+	var sm := SaveManagerScript.new()
 	sm.new_game()
 	var before: int = sm.owned_cards.size()
 	var uid: String = sm.grant_card_reward("bat", "common")
@@ -39,7 +39,7 @@ func test_reward_goes_straight_to_bag_when_space_available() -> void:
 	assert_eq(sm.mailbox_cards.size(), 0)
 
 func test_claim_mailbox_card_succeeds_once_space_frees_up() -> void:
-	var sm = SaveManagerScript.new()
+	var sm := SaveManagerScript.new()
 	sm.new_game()
 	_fill_bag(sm)
 	var uid: String = sm.grant_card_reward("bat", "common")
@@ -53,7 +53,7 @@ func test_claim_mailbox_card_succeeds_once_space_frees_up() -> void:
 	assert_true(sm.get_instance_by_uid(uid).size() > 0)
 
 func test_claim_fails_when_bag_still_full() -> void:
-	var sm = SaveManagerScript.new()
+	var sm := SaveManagerScript.new()
 	sm.new_game()
 	_fill_bag(sm)
 	var uid: String = sm.grant_card_reward("bat", "common")
@@ -62,7 +62,7 @@ func test_claim_fails_when_bag_still_full() -> void:
 	assert_eq(sm.mailbox_cards.size(), 1)
 
 func test_claim_all_stops_at_capacity() -> void:
-	var sm = SaveManagerScript.new()
+	var sm := SaveManagerScript.new()
 	sm.new_game()
 	_fill_bag(sm)
 	sm.grant_card_reward("bat", "common")
@@ -77,7 +77,7 @@ func test_claim_all_stops_at_capacity() -> void:
 	assert_eq(sm.mailbox_cards.size(), 1)
 
 func test_sell_mailbox_card_awards_gold_and_removes_entry() -> void:
-	var sm = SaveManagerScript.new()
+	var sm := SaveManagerScript.new()
 	sm.new_game()
 	_fill_bag(sm)
 	var uid: String = sm.grant_card_reward("bat", "common")
@@ -87,7 +87,7 @@ func test_sell_mailbox_card_awards_gold_and_removes_entry() -> void:
 	assert_true(sm.coins > coins_before)
 
 func test_scrap_mailbox_card_awards_essence_and_removes_entry() -> void:
-	var sm = SaveManagerScript.new()
+	var sm := SaveManagerScript.new()
 	sm.new_game()
 	_fill_bag(sm)
 	var uid: String = sm.grant_card_reward("bat", "common")
@@ -97,7 +97,7 @@ func test_scrap_mailbox_card_awards_essence_and_removes_entry() -> void:
 	assert_true(sm.essence > essence_before)
 
 func test_mailbox_survives_save_load_round_trip() -> void:
-	var sm = SaveManagerScript.new()
+	var sm := SaveManagerScript.new()
 	sm.new_game()
 	_fill_bag(sm)
 	var uid: String = sm.grant_card_reward("bat", "common")
@@ -107,7 +107,7 @@ func test_mailbox_survives_save_load_round_trip() -> void:
 		"mailbox_cards": sm.mailbox_cards,
 		"player_deck": sm.player_deck,
 	}
-	var sm2 = SaveManagerScript.new()
+	var sm2 := SaveManagerScript.new()
 	sm2.mailbox_cards.assign(data.get("mailbox_cards", []))
 	assert_eq(sm2.mailbox_cards.size(), 1)
 	assert_eq(str(sm2.mailbox_cards[0].get("uid", "")), uid)

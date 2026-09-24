@@ -12,7 +12,7 @@ const CoopPvP = preload("res://scenes/world/coop/CoopPvP.gd")
 const SessionState = preload("res://game_logic/net/SessionState.gd")
 
 
-func _mod() -> Node:
+func _mod() -> CoopPvP:
 	return CoopPvP.new()
 
 

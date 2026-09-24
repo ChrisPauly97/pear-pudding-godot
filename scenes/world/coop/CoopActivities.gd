@@ -9,6 +9,7 @@
 ## lived in WorldScene itself. Everything world-side is reached via `_world`.
 extends Node
 
+const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const _CardDropUtil      = preload("res://game_logic/CardDropUtil.gd")
 const _CardInstanceUtil  = preload("res://game_logic/CardInstanceUtil.gd")
 const _CardRegistry      = preload("res://autoloads/CardRegistry.gd")
@@ -17,10 +18,13 @@ const _CoopSiege         = preload("res://game_logic/CoopSiege.gd")
 const _EnemyScene        = preload("res://scenes/world/entities/EnemyNPC.tscn")
 const _LootRoll          = preload("res://game_logic/net/LootRoll.gd")
 const _RunSummaryScene   = preload("res://scenes/ui/RunSummaryScene.tscn")
+const _RunSummarySceneScript = preload("res://scenes/ui/RunSummaryScene.gd")
+const _LeaderboardOverlay = preload("res://scenes/ui/LeaderboardOverlay.gd")
 const _SessionState      = preload("res://game_logic/net/SessionState.gd")
 const _SiegeDefs         = preload("res://game_logic/SiegeDefs.gd")
 const _SpireDraft        = preload("res://game_logic/spire/SpireDraft.gd")
 const _SpireDraftScene   = preload("res://scenes/ui/SpireDraftScene.tscn")
+const _SpireDraftSceneScript = preload("res://scenes/ui/SpireDraftScene.gd")
 const _SpireDraftSync    = preload("res://game_logic/net/SpireDraftSync.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _WeaponData        = preload("res://data/WeaponData.gd")
@@ -30,7 +34,7 @@ const _WorldObjectSync   = preload("res://game_logic/net/WorldObjectSync.gd")
 ## The WorldScene that owns this module. Everything the module needs from
 ## the world itself — the player node, the HUD, the entity tables — is
 ## reached through it. Sibling modules are reached as _world.<accessor>.
-var _world: Node = null
+var _world: _WorldScene = null
 
 var _coop_night_hunt_active: bool = false
 var _coop_night_hunt_day: int = -1
@@ -277,7 +281,7 @@ func _settle_loot_roll(roll_id: String) -> void:
 ## WorldItem pickup path, which only ever grants to the local opener).
 
 func _grant_chest_loot_to_token(token: String, card_ids: Array[String], tier: int) -> void:
-	var st = SessionStore.get_state()
+	var st: _SessionState = SessionStore.get_state()
 	if st == null or token == "":
 		return
 	var rec: Dictionary = st.get_member(token)
@@ -451,7 +455,7 @@ func _on_spire_draft_start_received(payload: Dictionary) -> void:
 	_world._pending_coop_spire_draft = start
 	var active_picker_token: String = str(start.get("active_picker_token", ""))
 	var is_my_turn: bool = active_picker_token == MpProfile.get_token()
-	var overlay := _SpireDraftScene.instantiate()
+	var overlay: _SpireDraftSceneScript = _SpireDraftScene.instantiate() as _SpireDraftSceneScript
 	get_tree().current_scene.add_child(overlay)
 	overlay.setup_coop(
 		int(start.get("floor", 1)), options, is_my_turn, str(start.get("active_picker_name", "Player")))
@@ -685,7 +689,7 @@ func _on_coop_spire_run_ended_received(payload: Dictionary) -> void:
 	SceneManager.set_coop_spire_run_mirror({"active": false})
 	if _world._coop_spire_summary_overlay != null and is_instance_valid(_world._coop_spire_summary_overlay):
 		_world._coop_spire_summary_overlay.queue_free()
-	var overlay := _RunSummaryScene.instantiate()
+	var overlay: _RunSummarySceneScript = _RunSummaryScene.instantiate() as _RunSummarySceneScript
 	overlay.coop_stats = {
 		"floors_cleared": int(payload.get("floors_cleared", 0)),
 		"party_size": int(payload.get("party_size", 1)),
@@ -730,7 +734,7 @@ func _start_coop_siege() -> void:
 		return
 	var siege_id: int = randi()
 	if SessionStore.is_open():
-		var st = SessionStore.get_state()
+		var st: _SessionState = SessionStore.get_state()
 		# world_seed + days_elapsed: retriggering later the same day reproduces the
 		# same waves; a new day yields a fresh sequence (mirrors _start_dungeon_crawl).
 		siege_id = hash(str(st.world_seed) + "_siege_" + str(st.days_elapsed))
@@ -906,7 +910,7 @@ func _on_coop_siege_battle_ended(did_win: bool) -> void:
 func _finish_coop_siege_victory() -> void:
 	if not NetworkManager.is_host() or not SessionStore.is_open():
 		return
-	var st = SessionStore.get_state()
+	var st: _SessionState = SessionStore.get_state()
 	if st == null:
 		return
 	const SIEGE_COINS: int = 150
@@ -994,7 +998,7 @@ func _submit_pve_score(board: String, value: int) -> void:
 	if NetworkManager.is_host():
 		if not SessionStore.is_open():
 			return
-		var st = SessionStore.get_state()
+		var st: _SessionState = SessionStore.get_state()
 		if st == null:
 			return
 		var token: String = MpProfile.get_token()
@@ -1014,7 +1018,7 @@ func _on_pve_leaderboard_score_submitted(sender: int, board: String, value: int)
 	var token: String = str(_world._session_token_by_peer.get(sender, ""))
 	if token == "":
 		return
-	var st = SessionStore.get_state()
+	var st: _SessionState = SessionStore.get_state()
 	if st == null:
 		return
 	var rec: Dictionary = st.get_member(token)
@@ -1028,7 +1032,7 @@ func _on_pve_leaderboard_score_submitted(sender: int, board: String, value: int)
 func _broadcast_pve_leaderboards(target_peer: int = 0) -> void:
 	if not NetworkManager.is_host() or _world._net_sync == null or not SessionStore.is_open():
 		return
-	var st = SessionStore.get_state()
+	var st: _SessionState = SessionStore.get_state()
 	if st == null:
 		return
 	var snapshot: Dictionary = st.get_pve_leaderboards_snapshot()
@@ -1039,7 +1043,8 @@ func _broadcast_pve_leaderboards(target_peer: int = 0) -> void:
 		_world._net_sync.rpc_id(target_peer, "recv_pve_leaderboards", snapshot)
 	if _world._leaderboard_overlay != null and is_instance_valid(_world._leaderboard_overlay) \
 			and _world._leaderboard_overlay.has_method("refresh_pve_rows"):
-		_world._leaderboard_overlay.refresh_pve_rows(_world._pve_leaderboards)
+		var lb: _LeaderboardOverlay = _world._leaderboard_overlay as _LeaderboardOverlay
+		lb.refresh_pve_rows(_world._pve_leaderboards)
 
 ## Any peer: receive a PvE leaderboard snapshot (late-join, post-update, or an
 ## on-demand refresh reply) and refresh the overlay if open.
@@ -1048,7 +1053,8 @@ func _on_pve_leaderboards_received(snapshot: Dictionary) -> void:
 	_world._pve_leaderboards = snapshot
 	if _world._leaderboard_overlay != null and is_instance_valid(_world._leaderboard_overlay) \
 			and _world._leaderboard_overlay.has_method("refresh_pve_rows"):
-		_world._leaderboard_overlay.refresh_pve_rows(_world._pve_leaderboards)
+		var lb: _LeaderboardOverlay = _world._leaderboard_overlay as _LeaderboardOverlay
+		lb.refresh_pve_rows(_world._pve_leaderboards)
 
 ## Host: a client asked for a fresh PvE leaderboard snapshot (e.g. switching tabs).
 
@@ -1063,7 +1069,7 @@ func _setup_party_bounties() -> void:
 		return
 	if not SessionStore.is_open():
 		return
-	var st = SessionStore.get_state()
+	var st: _SessionState = SessionStore.get_state()
 	if st == null:
 		return
 	const _BountyGen = preload("res://game_logic/BountyGen.gd")
@@ -1106,7 +1112,7 @@ func _refresh_party_bounty_panel() -> void:
 	title.add_theme_color_override("font_color", Color(0.85, 0.75, 0.35))
 	_party_bounty_panel.add_child(title)
 	if NetworkManager.is_host() and SessionStore.is_open():
-		var st = SessionStore.get_state()
+		var st: _SessionState = SessionStore.get_state()
 		if st != null:
 			for b: Variant in (st.party_bounties as Array):
 				if b is Dictionary:
@@ -1142,7 +1148,7 @@ func submit_party_bounty_progress(bounty_type: String, match_data: Dictionary) -
 func _on_party_bounty_progress_submitted(sender: int, bounty_type: String, match_data: Dictionary) -> void:
 	if not NetworkManager.is_host() or not SessionStore.is_open():
 		return
-	var st = SessionStore.get_state()
+	var st: _SessionState = SessionStore.get_state()
 	if st == null:
 		return
 	var token: String = str(_world._session_token_by_peer.get(sender,

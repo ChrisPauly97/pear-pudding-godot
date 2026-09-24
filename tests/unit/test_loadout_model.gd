@@ -11,7 +11,7 @@ const _SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
 
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 
-var _sm: Node
+var _sm: SaveManagerScript
 
 # Helper: replaces _sm.loadouts with the given entries without triggering the
 # typed-array assignment error that occurs when assigning plain Array literals
@@ -69,7 +69,8 @@ func test_migration_does_not_overwrite_existing_loadouts() -> void:
 		"loadouts": [{"name": "Custom", "cards": ["b"]}]
 	}
 	_SaveMigrations.apply(data, 34)
-	assert_eq(data["loadouts"].size(), 1)
+	var loadouts: Array = data["loadouts"]
+	assert_eq(loadouts.size(), 1)
 	assert_eq(str(data["loadouts"][0]["name"]), "Custom")
 
 func test_apply_migrations_reaches_v34_from_v33() -> void:

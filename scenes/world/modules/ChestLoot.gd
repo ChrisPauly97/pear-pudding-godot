@@ -4,12 +4,14 @@
 ## need/greed on, the loot goes to a party roll (CoopActivities) instead.
 extends Node
 
+const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const _LootRoll = preload("res://game_logic/net/LootRoll.gd")
 const _WorldItemScene = preload("res://scenes/world/entities/WorldItem.tscn")
+const _WorldItem = preload("res://scenes/world/entities/WorldItem.gd")
 
 ## Chance an infinite-world chest yields a treasure-map fragment instead of loot
 ## (only while no treasure hunt is active).
@@ -18,7 +20,7 @@ const EQUIPMENT_SLOTS: Array[String] = ["weapon", "armor", "ring", "trinket"]
 ## The starter weapon never drops.
 const _STARTER_WEAPON: String = "rusty_dagger"
 
-var _world: Node = null
+var _world: _WorldScene = null
 
 ## Chest tier from its id prefix: treasure room (dtr_) 3, dungeon (dc_) 2, world 1.
 static func tier_for(chest_id: String) -> int:
@@ -32,7 +34,7 @@ func open(chest: Dictionary, px: float, pz: float) -> void:
 	if chest.get("is_mimic", false):
 		_spring_mimic(chest, px, pz)
 		return
-	var sm: Node = SceneManager.save_manager
+	var sm := SceneManager.save_manager
 	var cid: String = str(chest.get("id", ""))
 	chest["opened"] = true
 	AudioManager.play_sfx("chest_open")
@@ -43,7 +45,7 @@ func open(chest: Dictionary, px: float, pz: float) -> void:
 	SceneManager.session_stats["chests_opened"] = int(SceneManager.session_stats.get("chests_opened", 0)) + 1
 	var node: Node3D = _world._valid_node3d(_world._chest_nodes.get(cid))
 	if node != null and node.has_method("mark_opened"):
-		node.mark_opened()
+		node.call("mark_opened")
 	# Co-op (GID-096): reflect + persist the open for all players (this opener
 	# keeps the loot below; peers only see the chest flip open). Inert solo.
 	_world.coop_session._on_chest_opened_coop(cid)
@@ -106,8 +108,8 @@ func spawn_coin_piles(origin: Vector3) -> void:
 static func _ring_point(origin: Vector3, angle: float, dist: float) -> Vector3:
 	return origin + Vector3(cos(angle) * dist, 0.0, sin(angle) * dist)
 
-func _spawn_item() -> Node3D:
-	var item: Node3D = _WorldItemScene.instantiate()
+func _spawn_item() -> _WorldItem:
+	var item: _WorldItem = _WorldItemScene.instantiate()
 	_world._entity_root.add_child(item)
 	return item
 
@@ -116,7 +118,7 @@ func _spawn_item() -> Node3D:
 func _maybe_drop_equipment(chance: float) -> void:
 	if randf() >= chance:
 		return
-	var sm: Node = SceneManager.save_manager
+	var sm := SceneManager.save_manager
 	var candidates: Array[String] = []
 	for slot: String in EQUIPMENT_SLOTS:
 		var owned: Array[String] = sm.get_owned_by_slot(slot)

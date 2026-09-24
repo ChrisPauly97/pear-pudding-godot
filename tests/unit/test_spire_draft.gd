@@ -6,7 +6,7 @@ extends "res://tests/framework/test_case.gd"
 
 const SpireDraftScript = preload("res://game_logic/spire/SpireDraft.gd")
 
-var _draft: RefCounted
+var _draft: SpireDraftScript
 
 # Pool covering all four tiers:
 #   tier0: ghost(minion,1), skeleton(minion,2)

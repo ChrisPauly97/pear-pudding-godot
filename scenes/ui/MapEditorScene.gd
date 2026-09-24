@@ -317,8 +317,8 @@ func _update_hud() -> void:
 # --- Input ---
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed:
-		match event.keycode:
+	if event is InputEventKey and (event as InputEventKey).pressed:
+		match (event as InputEventKey).keycode:
 			KEY_1: _set_mode(0)
 			KEY_2: _set_mode(1)
 			KEY_3: _set_mode(2)
@@ -329,36 +329,36 @@ func _input(event: InputEvent) -> void:
 			KEY_8: _set_mode(7)
 			KEY_BRACKETRIGHT: _height_up()
 			KEY_BRACKETLEFT: _height_down()
-			KEY_S when event.ctrl_pressed: _save_map()
-			KEY_N when event.ctrl_pressed: _new_map_dialog()
-			KEY_O when event.ctrl_pressed: _show_map_list()
+			KEY_S when (event as InputEventKey).ctrl_pressed: _save_map()
+			KEY_N when (event as InputEventKey).ctrl_pressed: _new_map_dialog()
+			KEY_O when (event as InputEventKey).ctrl_pressed: _show_map_list()
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed:
-		var tile := _screen_to_tile(event.position)
+	if event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
+		var tile := _screen_to_tile((event as InputEventMouseButton).position)
 		if tile.x >= 0:
-			if event.button_index == MOUSE_BUTTON_LEFT:
+			if (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 				_last_painted_tile = Vector2i(-1, -1)
 				_paint_tile(tile.x, tile.y)
-			elif event.button_index == MOUSE_BUTTON_RIGHT:
+			elif (event as InputEventMouseButton).button_index == MOUSE_BUTTON_RIGHT:
 				_erase_tile(tile.x, tile.y)
 
 	if event is InputEventMouseMotion:
-		var tile := _screen_to_tile(event.position)
+		var tile := _screen_to_tile((event as InputEventMouseMotion).position)
 		if tile.x >= 0:
 			_move_highlight(tile.x, tile.y)
 
 	if event is InputEventScreenTouch:
-		if event.pressed:
+		if (event as InputEventScreenTouch).pressed:
 			_last_painted_tile = Vector2i(-1, -1)
-			var tile := _screen_to_tile(event.position)
+			var tile := _screen_to_tile((event as InputEventScreenTouch).position)
 			if tile.x >= 0:
 				_paint_tile(tile.x, tile.y)
 		else:
 			_last_painted_tile = Vector2i(-1, -1)
 
 	if event is InputEventScreenDrag:
-		var tile := _screen_to_tile(event.position)
+		var tile := _screen_to_tile((event as InputEventScreenDrag).position)
 		if tile.x >= 0:
 			_move_highlight(tile.x, tile.y)
 			if tile != _last_painted_tile:

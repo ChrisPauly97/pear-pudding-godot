@@ -19,7 +19,7 @@ const ALL_ENEMY_IDS: Array[String] = [
 	"roaming_terror",
 ]
 
-var _sm: Node
+var _sm: SaveManagerScript
 
 func before_each() -> void:
 	_sm = SaveManagerScript.new()

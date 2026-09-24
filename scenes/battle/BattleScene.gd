@@ -4,6 +4,7 @@ extends Control
 
 const GameState = preload("res://game_logic/battle/GameState.gd")
 const _BattleNet = preload("res://scenes/battle/net/BattleNet.gd")
+const _BattleNetSync = preload("res://scenes/battle/BattleNetSync.gd")
 const _BattleModifiers = preload("res://scenes/battle/modules/BattleModifiers.gd")
 const _BattleConsumables = preload("res://scenes/battle/modules/BattleConsumables.gd")
 const _BattleTutorials = preload("res://scenes/battle/modules/BattleTutorials.gd")
@@ -77,7 +78,7 @@ var scripted_data: Resource = null
 ## Networked-battle module (PvP, spectating, wagers, co-op PvE, team duels).
 ## A child node created in _ready and registered with BattleNetSync as an RPC
 ## handler target; inert in a solo battle. See scenes/battle/net/BattleNet.gd.
-var battle_net: Node = null
+var battle_net: _BattleNet = null
 ## Single-player clusters (scenes/battle/modules/), built by `_ensure_battle_modules()`.
 var modifiers: _BattleModifiers
 var consumables: _BattleConsumables
@@ -137,7 +138,7 @@ var _ghost_duel_reward: int = 0
 # NPC duel, puzzle and Spire battles never touch any of this.
 var _pvp: bool = false
 var _local_player_idx: int = 0       # 0 = host/challenger, 1 = client, -1 = server referee
-var _net: Node = null                # BattleNetSync relay, added under this scene
+var _net: _BattleNetSync = null       # BattleNetSync relay, added under this scene
 var _last_applied_seq: int = -1      # client: last mirror seq applied
 var _pvp_pending: bool = false       # client: waiting on host ack of last action
 var _pvp_ended: bool = false         # guard so the result fires once
@@ -254,12 +255,12 @@ var _tutorial_overlay: Node = null
 # Dual-face flip tracking (GID-062): instance_ids already flipped this battle.
 var _flipped_dual_ids: Dictionary = {}
 
-@onready var _enemy_hand_view = $EnemyArea/EnemyHandView
-@onready var _enemy_board_view = $EnemyArea/EnemyBoardView
-@onready var _enemy_hero_view = $EnemyArea/EnemyHeroView
-@onready var _player_board_view = $PlayerArea/PlayerBoardView
-@onready var _player_hand_view = $PlayerArea/PlayerHandView
-@onready var _player_hero_view = $PlayerArea/PlayerHeroView
+@onready var _enemy_hand_view: HBoxContainer = $EnemyArea/EnemyHandView
+@onready var _enemy_board_view: HBoxContainer = $EnemyArea/EnemyBoardView
+@onready var _enemy_hero_view: PanelContainer = $EnemyArea/EnemyHeroView
+@onready var _player_board_view: HBoxContainer = $PlayerArea/PlayerBoardView
+@onready var _player_hand_view: HBoxContainer = $PlayerArea/PlayerHandView
+@onready var _player_hero_view: PanelContainer = $PlayerArea/PlayerHeroView
 @onready var _turn_label: Label = $SidePanel/TurnLabel
 @onready var _mana_label: Label = $SidePanel/ManaLabel
 @onready var _end_turn_btn: Button = $SidePanel/EndTurnButton
@@ -642,8 +643,9 @@ func _apply_ui_sizes() -> void:
 # -------------------------------------------------------------------------
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_ESCAPE:
+	if event is InputEventKey:
+		var key_event := event as InputEventKey
+		if key_event.pressed and not key_event.echo and key_event.keycode == KEY_ESCAPE:
 			if _inspect_overlay != null and is_instance_valid(_inspect_overlay):
 				return  # overlay handles its own Escape
 			_pause_ui.toggle()

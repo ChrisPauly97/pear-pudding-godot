@@ -63,7 +63,8 @@ func _bury_if_dead(card: CardInstance, fallback: PlayerState) -> void:
 
 ## Clears every dead minion off `player`'s board into their discard.
 func _sweep_dead(player: PlayerState) -> void:
-	for t in player.board.get_cards().duplicate():
+	var cards: Array[CardInstance] = player.board.get_cards().duplicate()
+	for t: CardInstance in cards:
 		if not t.is_alive():
 			player.board.remove_card(t)
 			player.discard.append(t)

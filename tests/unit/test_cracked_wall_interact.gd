@@ -10,13 +10,13 @@ const WorldMapScript = preload("res://game_logic/world/WorldMap.gd")
 # Seeds empirically verified to produce a secret room (TILE_CRACKED).
 const SEED_WITH_SECRET: int = 12345
 
-func _make_map() -> RefCounted:
-	var m: RefCounted = WorldMapScript.new("cwi_unit_test", true)
+func _make_map() -> WorldMapScript:
+	var m := WorldMapScript.new("cwi_unit_test", true)
 	return m
 
 
 func test_set_tile_cracked_then_grass() -> void:
-	var m: RefCounted = _make_map()
+	var m: WorldMapScript = _make_map()
 	m.set_tile(5, 5, IsoConst.TILE_CRACKED)
 	assert_eq(m.get_tile(5, 5), IsoConst.TILE_CRACKED, "tile should be TILE_CRACKED after set")
 	m.set_tile(5, 5, IsoConst.TILE_GRASS)
@@ -24,7 +24,7 @@ func test_set_tile_cracked_then_grass() -> void:
 
 
 func test_cracked_wall_blocks_movement() -> void:
-	var m: RefCounted = _make_map()
+	var m: WorldMapScript = _make_map()
 	m.set_tile(5, 5, IsoConst.TILE_CRACKED)
 	var wx: float = 5.0 * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 	var wz: float = 5.0 * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
@@ -32,7 +32,7 @@ func test_cracked_wall_blocks_movement() -> void:
 
 
 func test_broken_wall_no_longer_blocks() -> void:
-	var m: RefCounted = _make_map()
+	var m: WorldMapScript = _make_map()
 	m.set_tile(5, 5, IsoConst.TILE_CRACKED)
 	m.set_tile(5, 5, IsoConst.TILE_GRASS)
 	var wx: float = 5.0 * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
@@ -41,7 +41,7 @@ func test_broken_wall_no_longer_blocks() -> void:
 
 
 func test_find_nearby_cracked_wall_detects_within_range() -> void:
-	var m: RefCounted = _make_map()
+	var m: WorldMapScript = _make_map()
 	var tx: int = 10
 	var tz: int = 10
 	m.set_tile(tx, tz, IsoConst.TILE_CRACKED)
@@ -55,7 +55,7 @@ func test_find_nearby_cracked_wall_detects_within_range() -> void:
 
 
 func test_find_nearby_cracked_wall_out_of_range() -> void:
-	var m: RefCounted = _make_map()
+	var m: WorldMapScript = _make_map()
 	m.set_tile(10, 10, IsoConst.TILE_CRACKED)
 	# Player far away (100 world units)
 	var px: float = 0.0
@@ -65,7 +65,7 @@ func test_find_nearby_cracked_wall_out_of_range() -> void:
 
 
 func test_find_nearby_cracked_wall_no_cracked_tiles() -> void:
-	var m: RefCounted = _make_map()
+	var m: WorldMapScript = _make_map()
 	# All tiles default to TILE_GRASS (blank WorldMap)
 	var px: float = 5.0 * IsoConst.TILE_SIZE
 	var pz: float = 5.0 * IsoConst.TILE_SIZE
@@ -74,23 +74,23 @@ func test_find_nearby_cracked_wall_no_cracked_tiles() -> void:
 
 
 func test_tile_change_preserved_after_serialization_roundtrip() -> void:
-	var m: RefCounted = _make_map()
+	var m: WorldMapScript = _make_map()
 	m.set_tile(7, 8, IsoConst.TILE_CRACKED)
 	# Break the wall
 	m.set_tile(7, 8, IsoConst.TILE_GRASS)
 	# Serialize to MapData, then load into a fresh WorldMap
 	var data: Resource = m.call("to_map_data", "cwi_roundtrip_test")
-	var m2: RefCounted = WorldMapScript.new("cwi_roundtrip_test", true)
+	var m2 := WorldMapScript.new("cwi_roundtrip_test", true)
 	m2.call("load_from_resource", data)
 	assert_eq(m2.get_tile(7, 8), IsoConst.TILE_GRASS,
 		"broken wall tile should remain TILE_GRASS after serialization roundtrip")
 
 
 func test_cracked_tile_preserved_in_serialization() -> void:
-	var m: RefCounted = _make_map()
+	var m: WorldMapScript = _make_map()
 	m.set_tile(3, 4, IsoConst.TILE_CRACKED)
 	var data: Resource = m.call("to_map_data", "cwi_cracked_test")
-	var m2: RefCounted = WorldMapScript.new("cwi_cracked_test", true)
+	var m2 := WorldMapScript.new("cwi_cracked_test", true)
 	m2.call("load_from_resource", data)
 	assert_eq(m2.get_tile(3, 4), IsoConst.TILE_CRACKED,
 		"TILE_CRACKED should survive serialization roundtrip")
@@ -102,7 +102,7 @@ func test_dungeon_secret_room_cracked_wall_detectable() -> void:
 	var cracked_tx: int = -1
 	var cracked_tz: int = -1
 	for sv in [SEED_WITH_SECRET, 100, 200, 300, 400, 500, 9999, 77777]:
-		var m: RefCounted = DungeonGen.generate("cwi_gen_test_%d" % sv, sv)
+		var m: WorldMapScript = DungeonGen.generate("cwi_gen_test_%d" % sv, sv)
 		for tz in range(DungeonGen.DH):
 			for tx in range(DungeonGen.DW):
 				if m.get_tile(tx, tz) == IsoConst.TILE_CRACKED:
@@ -117,7 +117,7 @@ func test_dungeon_secret_room_cracked_wall_detectable() -> void:
 	if found_seed < 0:
 		# No seed produced a secret room — skip proximity test but don't fail
 		return
-	var m: RefCounted = DungeonGen.generate("cwi_gen_find_%d" % found_seed, found_seed)
+	var m: WorldMapScript = DungeonGen.generate("cwi_gen_find_%d" % found_seed, found_seed)
 	var px: float = float(cracked_tx) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 	var pz: float = float(cracked_tz) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 	var result: Vector2i = m.find_nearby_cracked_wall(px, pz, IsoConst.INTERACT_RANGE)

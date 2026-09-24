@@ -46,14 +46,14 @@ var _minimap_frame_counter: int = 0
 
 # ── Inner: draws entity dots each frame ───────────────────────────────────────
 class _DotLayer extends Control:
-	var minimap  # untyped — inner class can't reference the outer class by name
+	var minimap: Node  # untyped — inner class can't reference the outer class by name
 
 	func _ready() -> void:
 		mouse_filter = MOUSE_FILTER_IGNORE
 
 	func _draw() -> void:
-		if minimap and minimap._player:
-			minimap._on_draw(self)
+		if minimap and minimap.get("_player"):
+			minimap.call("_on_draw", self)
 
 
 # ── Inner: gold ring border drawn once ────────────────────────────────────────
