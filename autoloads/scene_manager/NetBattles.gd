@@ -6,6 +6,7 @@
 ## `_sm._transition_to()`. Use `_sm.add_child` rather than a bare `add_child`.
 extends Node
 
+const _SceneManager = preload("res://autoloads/SceneManager.gd")
 const _SceneFlow = preload("res://game_logic/SceneFlow.gd")
 # gdlint:ignore = constant-name
 const State = _SceneFlow.State
@@ -25,13 +26,13 @@ const PVP_ENEMY_DATA: Dictionary = {
 	"coin_reward": 0,
 }
 
-var _sm: Node
+var _sm: _SceneManager
 
 # Enemy type for the current co-op PvE battle (for achievement tracking)
 var _coop_pve_enemy_type: String = ""
 
 
-func _init(scene_manager: Node) -> void:
+func _init(scene_manager: _SceneManager) -> void:
 	_sm = scene_manager
 
 

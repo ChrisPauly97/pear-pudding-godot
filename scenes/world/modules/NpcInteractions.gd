@@ -3,12 +3,13 @@
 ## duel, and everyone else speaks their (flag-aware) dialogue line.
 extends Node
 
+const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 const _DUEL_PANEL_BG := Color(0.08, 0.08, 0.18, 0.96)
 
-var _world: Node = null
+var _world: _WorldScene = null
 
 ## Runs the interaction for whichever NPC type the player is standing at.
 func interact(npc: Dictionary) -> void:
@@ -62,7 +63,7 @@ func _speak(npc: Dictionary) -> void:
 ## four states the 2-state MapNpc schema can't express: first meeting / council
 ## in session / ending trigger / post-ending epilogue.
 func _king_eldar(npc: Dictionary) -> void:
-	var sm: Node = SceneManager.save_manager
+	var sm := SceneManager.save_manager
 	if sm.get_story_flag("chapter1_complete"):
 		# Chapter 2 beat 1 — the council's charge (GID-108 / TID-407): once,
 		# the first time he's spoken to after the Chapter 1 ending.
@@ -94,7 +95,7 @@ func _trigger_chapter1_ending() -> void:
 ## A duelist's wager offer. Rematches cost half; a champion refuses until the
 ## town's other duelists (`required_duelist_ids`) are beaten.
 func show_duel_offer_panel(npc: Dictionary) -> void:
-	var sm: Node = SceneManager.save_manager
+	var sm := SceneManager.save_manager
 	var npc_id: String = str(npc.get("id", ""))
 	var enemy_id: String = str(npc.get("duelist_enemy_id", "duelist_novice"))
 	var is_rematch: bool = sm.defeated_duelists.has(npc_id)

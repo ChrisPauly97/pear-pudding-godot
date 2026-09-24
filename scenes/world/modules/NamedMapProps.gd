@@ -7,6 +7,7 @@
 ## WorldScene — the `_find_nearby_*` finders and the co-op modules read them.
 extends Node
 
+const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const WorldMap = preload("res://game_logic/world/WorldMap.gd")
 const _MailboxScene = preload("res://scenes/world/entities/MailboxNPC.tscn")
 const _PuzzleShrineScene = preload("res://scenes/world/entities/PuzzleShrine.tscn")
@@ -36,7 +37,7 @@ const MAILBOX_TILE_OFFSETS: Array[Vector2i] = [
 const MAILBOX_CLEARANCE_TILES: float = 2.0
 const _FAST_TRAVEL_BG := Color(0.05, 0.05, 0.10, 0.96)
 
-var _world: Node = null
+var _world: _WorldScene = null
 var _fast_travel_layer: CanvasLayer = null
 
 ## Spawns every prop on the current named map. Waystones go before the mailbox:
@@ -71,7 +72,7 @@ func _spawn_shrines() -> void:
 			_world._shrine_nodes.append(node)
 
 func _spawn_waystones() -> void:
-	var sm: Node = SceneManager.save_manager
+	var sm := SceneManager.save_manager
 	var entries: Array[Dictionary] = _world.world_map.waystones
 	if entries.is_empty():
 		entries = _injected_waystone()

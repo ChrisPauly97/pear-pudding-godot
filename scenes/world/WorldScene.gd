@@ -144,26 +144,26 @@ var world_map: WorldMap
 # `_world` back-reference to this scene and is registered with NetSync as an RPC
 # handler target, so the `_on_*` entry points resolve exactly as they did when
 # they lived here. See CLAUDE.md "WorldScene co-op modules".
-var coop_social: Node = null
-var coop_pvp: Node = null
-var coop_activities: Node = null
-var coop_session: Node = null
+var coop_social: _CoopSocial = null
+var coop_pvp: _CoopPvP = null
+var coop_activities: _CoopActivities = null
+var coop_session: _CoopSession = null
 
 # Nocturnal spawn system (GID-055 Night Hunts) — see modules/NocturnalSpawner.gd
-var nocturnal: Node = null
-var cantrips: Node = null   # modules/Cantrips.gd (GID-065)
-var home_garden: Node = null   # modules/HomeGarden.gd (GID-059)
-var story_cast: Node = null    # modules/StoryCast.gd (GID-108)
+var nocturnal: _NocturnalSpawner = null
+var cantrips: _Cantrips = null   # modules/Cantrips.gd (GID-065)
+var home_garden: _HomeGarden = null   # modules/HomeGarden.gd (GID-059)
+var story_cast: _StoryCast = null    # modules/StoryCast.gd (GID-108)
 
 var world_seed: int = 42  # overwritten in _ready() for infinite worlds
 
-var tap_move: Node = null   # modules/TapToMove.gd
-var mounts: Node = null     # modules/Mounts.gd (GID-048)
-var player_home: Node = null   # modules/PlayerHome.gd
-var npc_interactions: Node = null   # modules/NpcInteractions.gd
-var town_siege: Node = null   # modules/TownSiege.gd (GID-054)
-var named_props: Node = null   # modules/NamedMapProps.gd
-var chest_loot: Node = null    # modules/ChestLoot.gd
+var tap_move: _TapToMove = null   # modules/TapToMove.gd
+var mounts: _Mounts = null     # modules/Mounts.gd (GID-048)
+var player_home: _PlayerHome = null   # modules/PlayerHome.gd
+var npc_interactions: _NpcInteractions = null   # modules/NpcInteractions.gd
+var town_siege: _TownSiege = null   # modules/TownSiege.gd (GID-054)
+var named_props: _NamedMapProps = null   # modules/NamedMapProps.gd
+var chest_loot: _ChestLoot = null    # modules/ChestLoot.gd
 
 # Computed in _ready from map_name; true for "main" and "infinite", false for named dungeon maps
 var _is_infinite: bool = false
@@ -788,17 +788,17 @@ func enter_downed_state() -> void:
 ## Creates the single-player feature modules split out of this scene. Same
 ## shape as the co-op modules: a child Node with a `_world` back-reference.
 func _ensure_world_modules() -> void:
-	nocturnal = _ensure_world_module(nocturnal, _NocturnalSpawner, "NocturnalSpawner")
-	cantrips = _ensure_world_module(cantrips, _Cantrips, "Cantrips")
-	home_garden = _ensure_world_module(home_garden, _HomeGarden, "HomeGarden")
-	story_cast = _ensure_world_module(story_cast, _StoryCast, "StoryCast")
-	tap_move = _ensure_world_module(tap_move, _TapToMove, "TapToMove")
-	mounts = _ensure_world_module(mounts, _Mounts, "Mounts")
-	player_home = _ensure_world_module(player_home, _PlayerHome, "PlayerHome")
-	npc_interactions = _ensure_world_module(npc_interactions, _NpcInteractions, "NpcInteractions")
-	town_siege = _ensure_world_module(town_siege, _TownSiege, "TownSiege")
-	named_props = _ensure_world_module(named_props, _NamedMapProps, "NamedMapProps")
-	chest_loot = _ensure_world_module(chest_loot, _ChestLoot, "ChestLoot")
+	nocturnal = _ensure_world_module(nocturnal, _NocturnalSpawner, "NocturnalSpawner") as _NocturnalSpawner
+	cantrips = _ensure_world_module(cantrips, _Cantrips, "Cantrips") as _Cantrips
+	home_garden = _ensure_world_module(home_garden, _HomeGarden, "HomeGarden") as _HomeGarden
+	story_cast = _ensure_world_module(story_cast, _StoryCast, "StoryCast") as _StoryCast
+	tap_move = _ensure_world_module(tap_move, _TapToMove, "TapToMove") as _TapToMove
+	mounts = _ensure_world_module(mounts, _Mounts, "Mounts") as _Mounts
+	player_home = _ensure_world_module(player_home, _PlayerHome, "PlayerHome") as _PlayerHome
+	npc_interactions = _ensure_world_module(npc_interactions, _NpcInteractions, "NpcInteractions") as _NpcInteractions
+	town_siege = _ensure_world_module(town_siege, _TownSiege, "TownSiege") as _TownSiege
+	named_props = _ensure_world_module(named_props, _NamedMapProps, "NamedMapProps") as _NamedMapProps
+	chest_loot = _ensure_world_module(chest_loot, _ChestLoot, "ChestLoot") as _ChestLoot
 
 func _ensure_world_module(existing: Node, script: GDScript, node_name: String) -> Node:
 	if existing != null and is_instance_valid(existing):
@@ -815,10 +815,10 @@ func _ensure_world_module(existing: Node, script: GDScript, node_name: String) -
 ## battle detaches and re-adds WorldScene without tearing the modules down.
 ## The modules are inert outside a session, so creating them always is free.
 func _ensure_coop_modules() -> void:
-	coop_social = _ensure_coop_module(coop_social, _CoopSocial, "CoopSocial")
-	coop_pvp = _ensure_coop_module(coop_pvp, _CoopPvP, "CoopPvP")
-	coop_activities = _ensure_coop_module(coop_activities, _CoopActivities, "CoopActivities")
-	coop_session = _ensure_coop_module(coop_session, _CoopSession, "CoopSession")
+	coop_social = _ensure_coop_module(coop_social, _CoopSocial, "CoopSocial") as _CoopSocial
+	coop_pvp = _ensure_coop_module(coop_pvp, _CoopPvP, "CoopPvP") as _CoopPvP
+	coop_activities = _ensure_coop_module(coop_activities, _CoopActivities, "CoopActivities") as _CoopActivities
+	coop_session = _ensure_coop_module(coop_session, _CoopSession, "CoopSession") as _CoopSession
 
 func _ensure_coop_module(existing: Node, script: GDScript, node_name: String) -> Node:
 	var mod: Node = existing

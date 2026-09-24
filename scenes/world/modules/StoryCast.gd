@@ -8,6 +8,7 @@
 ## Maiteln sync read them there.
 extends Node
 
+const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const RivalSystem = preload("res://game_logic/RivalSystem.gd")
 const _EnemyScene = preload("res://scenes/world/entities/EnemyNPC.tscn")
@@ -21,12 +22,12 @@ const MAITELN_NAMED_MAPS: Array[String] = [
 	"madrian", "maykalene", "farsyth_mansion", "blancogov", "blancogov_temple",
 ]
 
-var _world: Node = null
+var _world: _WorldScene = null
 
 # ── Maiteln (GID-108 / TID-403) ──────────────────────────────────────────────
 
 func maiteln_should_be_present() -> bool:
-	var sm: Node = SceneManager.save_manager
+	var sm := SceneManager.save_manager
 	if not sm.get_story_flag("story_intro_complete") or sm.get_story_flag("chapter1_complete"):
 		return false
 	var map_name: String = _world.map_name
@@ -70,7 +71,7 @@ func refresh_maiteln_presence() -> void:
 ## First-night wilderness camp (GID-108 / TID-402). Gone for good once
 ## chapter1_learned_fire is set (the entity frees itself on that transition).
 func spawn_wilderness_camp() -> void:
-	var sm: Node = SceneManager.save_manager
+	var sm := SceneManager.save_manager
 	if not sm.get_story_flag("chapter1_left_madrian") or sm.get_story_flag("chapter1_learned_fire"):
 		return
 	if is_instance_valid(_world._wilderness_camp_node):
@@ -80,7 +81,7 @@ func spawn_wilderness_camp() -> void:
 ## Chapter 2 beat 3 scripted ambush (GID-108 / TID-407). One-shot: interacting
 ## starts the battle, and victory sets chapter2_ambush_survived.
 func spawn_scout_ambush() -> void:
-	var sm: Node = SceneManager.save_manager
+	var sm := SceneManager.save_manager
 	if not sm.get_story_flag("chapter2_found_letter") or sm.get_story_flag("chapter2_ambush_survived"):
 		return
 	if is_instance_valid(_world._scout_ambush_node):
@@ -125,7 +126,7 @@ func inject_warcamp_boss(wm: RefCounted) -> void:
 func spawn_named_map_rivals() -> void:
 	if _world.world_map == null:
 		return
-	var sm: Node = SceneManager.save_manager
+	var sm := SceneManager.save_manager
 	var map_name: String = _world.map_name
 	if map_name == "maykalene" and sm.get_story_flag("chapter1_left_madrian") and sm.rival_encounters_won == 0:
 		_spawn_rival_on_tile("rival_enc1", Vector2i(50, 40), "rival_isfig_1",
@@ -137,7 +138,7 @@ func spawn_named_map_rivals() -> void:
 
 ## Encounter 2 meets the player on the road, between Farsyth's warning and the letter.
 func spawn_open_world_rival() -> void:
-	var sm: Node = SceneManager.save_manager
+	var sm := SceneManager.save_manager
 	if not sm.get_story_flag("chapter1_warned_farsyth") or sm.get_story_flag("chapter1_received_letter"):
 		return
 	if sm.rival_encounters_won >= 2:

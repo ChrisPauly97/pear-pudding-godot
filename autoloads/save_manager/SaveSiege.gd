@@ -6,10 +6,12 @@
 ## reads and writes it through `_save.<field>`.
 extends RefCounted
 
-var _save: Node
+const _SaveManager = preload("res://autoloads/SaveManager.gd")
+
+var _save: _SaveManager
 
 
-func _init(save_manager: Node) -> void:
+func _init(save_manager: _SaveManager) -> void:
 	_save = save_manager
 
 

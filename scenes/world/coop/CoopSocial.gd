@@ -8,6 +8,7 @@
 ## lived in WorldScene itself. Everything world-side is reached via `_world`.
 extends Node
 
+const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const UiFx = preload("res://scenes/ui/UiFx.gd")
 const WorldHUD          = preload("res://scenes/world/WorldHUD.gd")
 const _AuctionHouseOverlay = preload("res://scenes/ui/AuctionHouseOverlay.gd")
@@ -24,7 +25,7 @@ const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 ## The WorldScene that owns this module. Everything the module needs from
 ## the world itself — the player node, the HUD, the entity tables — is
 ## reached through it. Sibling modules are reached as _world.<accessor>.
-var _world: Node = null
+var _world: _WorldScene = null
 
 var _auction_cache: Array = []            # last-known listings snapshot
 var _auction_overlay: Node = null         # AuctionHouseOverlay instance, nil when closed

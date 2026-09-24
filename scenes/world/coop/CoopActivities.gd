@@ -9,6 +9,7 @@
 ## lived in WorldScene itself. Everything world-side is reached via `_world`.
 extends Node
 
+const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const _CardDropUtil      = preload("res://game_logic/CardDropUtil.gd")
 const _CardInstanceUtil  = preload("res://game_logic/CardInstanceUtil.gd")
 const _CardRegistry      = preload("res://autoloads/CardRegistry.gd")
@@ -30,7 +31,7 @@ const _WorldObjectSync   = preload("res://game_logic/net/WorldObjectSync.gd")
 ## The WorldScene that owns this module. Everything the module needs from
 ## the world itself — the player node, the HUD, the entity tables — is
 ## reached through it. Sibling modules are reached as _world.<accessor>.
-var _world: Node = null
+var _world: _WorldScene = null
 
 var _coop_night_hunt_active: bool = false
 var _coop_night_hunt_day: int = -1

@@ -5,6 +5,7 @@
 ## because the guildhall furnishing code shares it.
 extends Node
 
+const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const GardenDefs = preload("res://game_logic/GardenDefs.gd")
 const _GardenPlotScript = preload("res://scenes/world/entities/GardenPlot.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
@@ -15,7 +16,7 @@ const HOME_PLOT_TILES: Array[Vector2i] = [Vector2i(52, 54), Vector2i(55, 54), Ve
 const MATURE_STAGE: int = 3
 const _PANEL_BG := Color(0.05, 0.08, 0.05, 0.96)
 
-var _world: Node = null
+var _world: _WorldScene = null
 
 func spawn_home_plots() -> void:
 	_world._garden_plot_nodes.clear()
@@ -51,7 +52,7 @@ func show_panel(plot: Node3D) -> void:
 
 func _build_seed_picker(plot: Node3D, layer: CanvasLayer, vbox: VBoxContainer,
 		vh: float, font_size: int, btn_h: float) -> void:
-	var sm: Node = SceneManager.save_manager
+	var sm := SceneManager.save_manager
 	var session_mode: bool = bool(plot.session_mode)
 	var plot_idx: int = int(plot.plot_idx)
 	_UiUtil.make_label("Choose a seed to plant:", font_size, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
@@ -108,7 +109,7 @@ func _build_harvest(plot: Node3D, plot_data: Dictionary, layer: CanvasLayer,
 		if session_mode:
 			_world.coop_session._submit_session_harvest(plot_idx)
 		else:
-			var sm: Node = SceneManager.save_manager
+			var sm := SceneManager.save_manager
 			sm.garden.add_plants(plant_id, yield_count)
 			sm.garden.clear_plot(plot_idx)
 			GameBus.plant_harvested.emit(plot_idx, yield_count)

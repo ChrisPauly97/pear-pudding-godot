@@ -10,6 +10,7 @@
 ## `_battle`. See CLAUDE.md "WorldScene co-op modules" — same arrangement.
 extends Node
 
+const _BattleScene = preload("res://scenes/battle/BattleScene.gd")
 const BattleNetProtocol = preload("res://game_logic/net/BattleNetProtocol.gd")
 const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
 const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
@@ -29,7 +30,7 @@ const _CoopBattleScaling = preload("res://game_logic/battle/CoopBattleScaling.gd
 ## The BattleScene that owns this module. The game state, the card view builder,
 ## the FX layer and the battle configuration all live there and are reached
 ## through this back-reference; only the networked surface lives here.
-var _battle: Node = null
+var _battle: _BattleScene = null
 
 var _coop_ended: bool = false  # guard so the result fires once
 var _coop_peer_to_idx: Dictionary = {}

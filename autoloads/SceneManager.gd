@@ -6,6 +6,7 @@ extends Node
 signal state_changed(from: State, to: State)
 
 const _SceneFlow = preload("res://game_logic/SceneFlow.gd")
+const _SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 const _BattleVictory = preload("res://autoloads/scene_manager/BattleVictory.gd")
 const _BattleDefeat = preload("res://autoloads/scene_manager/BattleDefeat.gd")
 const _NetBattles = preload("res://autoloads/scene_manager/NetBattles.gd")
@@ -56,7 +57,7 @@ var session_stats: Dictionary = _fresh_session_stats(0)
 
 ## Points at the SaveManager autoload so all systems share one instance.
 ## The autoload is registered before SceneManager in project.godot.
-var save_manager: Node
+var save_manager: _SaveManagerScript
 ## Child modules (see autoloads/scene_manager/), created by `_ensure_modules()`.
 var victory: _BattleVictory
 var defeat: _BattleDefeat

@@ -326,8 +326,8 @@ created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
 | `ChestLoot.gd` (`chest_loot`) | Chest open (mimic, co-op sync, need/greed hand-off), card/coin scatter, equipment drop |
 
 BattleScene's single-player clusters live under `scenes/battle/modules/`, created by
-`BattleScene._ensure_battle_modules()`. Each has a `_battle` back-reference **typed as
-the BattleScene script**, so member typos fail at compile time, not at runtime:
+`BattleScene._ensure_battle_modules()`. Each has a `_battle` back-reference typed as
+the BattleScene script (see "Typed back-references" below):
 
 | Module | Owns |
 |---|---|
@@ -362,11 +362,19 @@ Rules:
   `has_method`, or `.set()`s a property before the scene enters the tree) must
   resolve on the scene — keep a forwarder there. A failed `has_method` guard is
   silent.
-- **Member access resolves at runtime**, so a wrong `_world.X` is invisible to
-  the parse check. `tests/world_scene_smoke.gd` is the guard: it drives all 77
-  handlers through the real `_route`. Run it, plus the PvP smoke tests (they
-  stand up real BattleScenes), after touching any of this:
-  `godot --headless --path . -s tests/world_scene_smoke.gd`
+- **Typed back-references.** Every module's back-reference is typed as its
+  owner script: `_world: _WorldScene`, `_battle: _BattleScene`,
+  `_sm: _SceneManager`, `_save: _SaveManager`, via a (cyclic, fine) `preload`.
+  So are the owners' module fields (`coop_pvp: _CoopPvP`, …) and
+  `SceneManager.save_manager`. Keep new ones typed. A plain `Node` makes a
+  wrong member invisible until that line runs.
+- **Typing alone does not fail the build.** GDScript reports a missing member
+  on a typed receiver only as the opt-in `unsafe_*_access` warning.
+  `bash scripts/check-typed-access.sh` (run in CI) raises it to an error for
+  one run and fails on any hit against a project-script type. Run it after
+  touching module code. `tests/world_scene_smoke.gd` still drives all 77
+  handlers through the real `_route`. Run it, plus the PvP smoke tests, after
+  touching any of this: `godot --headless --path . -s tests/world_scene_smoke.gd`
 
 ---
 

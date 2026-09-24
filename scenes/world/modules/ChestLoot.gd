@@ -4,6 +4,7 @@
 ## need/greed on, the loot goes to a party roll (CoopActivities) instead.
 extends Node
 
+const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
@@ -18,7 +19,7 @@ const EQUIPMENT_SLOTS: Array[String] = ["weapon", "armor", "ring", "trinket"]
 ## The starter weapon never drops.
 const _STARTER_WEAPON: String = "rusty_dagger"
 
-var _world: Node = null
+var _world: _WorldScene = null
 
 ## Chest tier from its id prefix: treasure room (dtr_) 3, dungeon (dc_) 2, world 1.
 static func tier_for(chest_id: String) -> int:
@@ -32,7 +33,7 @@ func open(chest: Dictionary, px: float, pz: float) -> void:
 	if chest.get("is_mimic", false):
 		_spring_mimic(chest, px, pz)
 		return
-	var sm: Node = SceneManager.save_manager
+	var sm := SceneManager.save_manager
 	var cid: String = str(chest.get("id", ""))
 	chest["opened"] = true
 	AudioManager.play_sfx("chest_open")
@@ -116,7 +117,7 @@ func _spawn_item() -> Node3D:
 func _maybe_drop_equipment(chance: float) -> void:
 	if randf() >= chance:
 		return
-	var sm: Node = SceneManager.save_manager
+	var sm := SceneManager.save_manager
 	var candidates: Array[String] = []
 	for slot: String in EQUIPMENT_SLOTS:
 		var owned: Array[String] = sm.get_owned_by_slot(slot)

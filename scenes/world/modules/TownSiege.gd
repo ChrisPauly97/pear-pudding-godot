@@ -5,6 +5,7 @@
 ## `_siege_banner` stays on WorldScene because the co-op modules clear it.
 extends Node
 
+const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _EnemyScene = preload("res://scenes/world/entities/EnemyNPC.tscn")
 const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
@@ -14,7 +15,7 @@ const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const RAIDER_OFFSETS: Array[Vector2] = [Vector2(0.0, 0.0), Vector2(2.0, 1.0), Vector2(-2.0, 1.0)]
 const _BANNER_TINT := Color(1.0, 0.3, 0.1)
 
-var _world: Node = null
+var _world: _WorldScene = null
 
 ## Runs on named-map entry: fire the story trigger, then spawn any active siege.
 func on_map_entered(p_map_name: String) -> void:
@@ -32,7 +33,7 @@ func _check_story_trigger(p_map_name: String) -> void:
 	# one. The victory flag still reaches everyone via shared-flag arbitration.
 	if _world._coop_active and not _world.coop_session._coop_world_authority():
 		return
-	var sm: Node = SceneManager.save_manager
+	var sm := SceneManager.save_manager
 	if not sm.get_story_flag("chapter2_ambush_survived") or sm.get_story_flag("chapter2_siege_won"):
 		return
 	if sm.town_siege.get_active_siege().is_empty():

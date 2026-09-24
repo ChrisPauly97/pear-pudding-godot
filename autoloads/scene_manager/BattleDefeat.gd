@@ -6,18 +6,19 @@
 ## `_sm._transition_to()`. Use `_sm.add_child` rather than a bare `add_child`.
 extends Node
 
+const _SceneManager = preload("res://autoloads/SceneManager.gd")
 const _SceneFlow = preload("res://game_logic/SceneFlow.gd")
 # gdlint:ignore = constant-name
 const State = _SceneFlow.State
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
-var _sm: Node
+var _sm: _SceneManager
 
 var _defeat_overlay: Node = null
 var _defeat_pending_enemy_data: Dictionary = {}
 
 
-func _init(scene_manager: Node) -> void:
+func _init(scene_manager: _SceneManager) -> void:
 	_sm = scene_manager
 
 

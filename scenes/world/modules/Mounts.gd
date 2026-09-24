@@ -3,6 +3,7 @@
 ## auto-dismount when a battle starts. Price and stats come from MountRegistry.
 extends Node
 
+const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const MountRegistry = preload("res://game_logic/MountRegistry.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
@@ -11,11 +12,11 @@ const LEVEL_REQ: int = 10
 const _PANEL_BG := Color(0.06, 0.04, 0.14, 0.96)
 const _WARN := Color(0.9, 0.3, 0.3)
 
-var _world: Node = null
+var _world: _WorldScene = null
 
 ## Mounts / dismounts. Riding is open-world only.
 func toggle() -> void:
-	var sm: Node = SceneManager.save_manager
+	var sm := SceneManager.save_manager
 	if sm.current_map != "main" or sm.owned_mounts.is_empty():
 		return
 	if sm.is_mounted:
@@ -33,7 +34,7 @@ static func price(mount_id: String = STABLE_MOUNT_ID) -> int:
 	return int(MountRegistry.get_mount(mount_id).get("price", 0))
 
 func show_stable_panel() -> void:
-	var sm: Node = SceneManager.save_manager
+	var sm := SceneManager.save_manager
 	if sm.owned_mounts.has(STABLE_MOUNT_ID):
 		_world._show_dialogue("You already own a Stable Horse!")
 		return

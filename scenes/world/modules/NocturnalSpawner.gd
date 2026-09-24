@@ -7,6 +7,7 @@
 ## created. The co-op variant is CoopActivities' deterministic night hunt.
 extends Node
 
+const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const _EnemyScene = preload("res://scenes/world/entities/EnemyNPC.tscn")
 
 const MAX_ALIVE: int = 12
@@ -19,7 +20,7 @@ const SPAWN_TRIES: int = 20
 const HAUNT_FROM_CHUNK: int = 3
 const DREAD_FROM_CHUNK: int = 8
 
-var _world: Node = null
+var _world: _WorldScene = null
 
 var _enemies: Dictionary = {}        # spawn_id -> {"node": Node3D, "chunk": Vector2i}
 var _spawn_timer: float = 0.0

@@ -11,6 +11,7 @@
 ## lived in WorldScene itself. Everything world-side is reached via `_world`.
 extends Node
 
+const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const WorldHUD          = preload("res://scenes/world/WorldHUD.gd")
 const _AvatarSync        = preload("res://game_logic/net/AvatarSync.gd")
 const _CoopSiege         = preload("res://game_logic/CoopSiege.gd")
@@ -43,7 +44,7 @@ const _GUILDHALL_STASH_TILE := Vector2i(50, 48)
 ## The WorldScene that owns this module. Everything the module needs from
 ## the world itself — the player node, the HUD, the entity tables — is
 ## reached through it. Sibling modules are reached as _world.<accessor>.
-var _world: Node = null
+var _world: _WorldScene = null
 
 var _coop_downed_peers: Dictionary = {}       # peer_id -> bool, mirrored via the avatar stream
 var _coop_enemy_targets: Dictionary = {}    # enemy id -> Vector2(x,z) interp target (clients)

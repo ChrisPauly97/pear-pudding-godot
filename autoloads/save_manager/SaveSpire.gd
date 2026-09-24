@@ -6,12 +6,13 @@
 ## reads and writes it through `_save.<field>`.
 extends RefCounted
 
+const _SaveManager = preload("res://autoloads/SaveManager.gd")
 const _SpireFloorGen = preload("res://game_logic/spire/SpireFloorGen.gd")
 
-var _save: Node
+var _save: _SaveManager
 
 
-func _init(save_manager: Node) -> void:
+func _init(save_manager: _SaveManager) -> void:
 	_save = save_manager
 
 
