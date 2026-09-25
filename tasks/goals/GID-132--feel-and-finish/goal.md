@@ -14,7 +14,7 @@ Raised by the user (2026-09-25) after GID-131: *"next improvements"* → *"ok, d
 |----|------|------|--------|------------|
 | TID-509 | Project Fonts (Nunito body, Cinzel titles) | agent | done | — |
 | TID-510 | HUD Button Icons | agent | done | — |
-| TID-511 | Idle Life for World Sprites | agent | pending | — |
+| TID-511 | Idle Life for World Sprites | agent | done | — |
 | TID-512 | Battle Juice | agent | pending | — |
 
 ## Acceptance Criteria

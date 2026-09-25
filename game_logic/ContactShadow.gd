@@ -1,6 +1,6 @@
 extends RefCounted
 ## Contact shadows under characters (GID-131 / TID-503) — caster registry and
-## the pure rules; `scenes/world/modules/ContactShadows.gd` writes the shader
+## the pure rules; `scenes/world/modules/CharacterPresence.gd` writes the shader
 ## globals each frame and `contact_shadow.gdshaderinc` darkens the terrain and
 ## grass around each caster's feet.
 ##

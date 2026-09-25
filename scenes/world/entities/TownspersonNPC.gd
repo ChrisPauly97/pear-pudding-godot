@@ -3,6 +3,7 @@ extends "res://scenes/world/entities/WorldEntityBase.gd"
 const TextureGen = preload("res://game_logic/TextureGen.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const _ContactShadow = preload("res://game_logic/ContactShadow.gd")
+const _IdleLife = preload("res://game_logic/IdleLife.gd")
 
 var npc_data: Dictionary = {}
 var _flag_key: String = ""
@@ -18,6 +19,7 @@ func _ready() -> void:
 			TextureGen.npc_townsperson(), _SpriteRegistry.HEIGHT_NPC)
 	add_child(sprite)
 	_ContactShadow.register(self, _ContactShadow.radius_for_height(_SpriteRegistry.HEIGHT_NPC))
+	_IdleLife.register(sprite, _IdleLife.STYLE_BREATHE)
 	_add_name_label()
 
 func init_from_data(data: Dictionary) -> void:

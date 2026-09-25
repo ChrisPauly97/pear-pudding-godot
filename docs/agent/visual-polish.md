@@ -164,14 +164,22 @@ World module `fake_volumetrics` (created in `_ensure_world_modules`). Stand-ins 
 - **Visual check:** under `xvfb-run` with `--rendering-driver opengl3 --rendering-method gl_compatibility`, instantiate `WorldScene.tscn` after `new_game`, hide HUD CanvasLayers (1–126), set tier/time/weather, call each module's `refresh()` and save `root.get_texture().get_image()`. Headless (dummy renderer) never compiles shaders — use the same xvfb run to catch `SHADER ERROR`s.
 - **Halos (TID-495, in `NightLights`):** each rig gets a `Halo` quad (the shared dot mesh, scaled to `radius × 0.9`) with `light_halo.gdshader`: billboard with node scale, `(1 − r)^2.2` radial glow, depth soft fade 1.2. Visible while `light_halos` is on; energy = pool flicker energy × `HALO_ENERGY` 0.35. `halo_count()` for tests.
 
-### Contact Shadows (`game_logic/ContactShadow.gd`, `scenes/world/modules/ContactShadows.gd`, `contact_shadow.gdshaderinc`) — GID-131 / TID-503
+### Contact Shadows (`game_logic/ContactShadow.gd`, `scenes/world/modules/CharacterPresence.gd`, `contact_shadow.gdshaderinc`) — GID-131 / TID-503
 
 Soft dark pools under characters on every tier (Medium has no sun shadows, so billboards floated). **Not decal geometry:** a flat soft-disc quad was tried first and lost to the terrain shader's flat-ground vertex jitter (up to +0.12 y) and to dense grass. Instead the surfaces darken themselves:
 
 - `contact_shadow.gdshaderinc` declares six `global uniform vec4 contact_shadow_0..5` (world xyz + radius; radius 0 = unused) and `contact_shadow_opacity`, all in `project.godot` `[shader_globals]`. `contact_shadow(p)` multiplies `1 − opacity × (1 − smoothstep(0.15, 1, |Δxz/r|²)) × (1 − smoothstep(0.4, 1.4, |Δy|))` over the slots.
 - `terrain.gdshader` multiplies `ALBEDO` by it at the fragment's world position; `grass_blade` / `grass_cluster` by `mix(contact_shadow(blade root), 1, UV.y × 0.6)` so blades darken at the base and stay lighter at the tip.
 - Casters call `ContactShadow.register(self, ContactShadow.radius_for_height(h))` in `_ready` (group `contact_shadow_caster` + radius meta): Player, RemotePlayer, MaitelnFollower, EnemyNPC, MerchantNPC, TownspersonNPC, ScoutAmbush. Radius = height × 0.45, clamped 0.35–1.6, × node scale (bosses).
-- `ContactShadows` module (`contact_shadows`) writes the nearest six visible casters to the player each frame (`pick_slots`, only changed slots), clears the slots in `_exit_tree`, and `apply_knobs()` (from `apply_graphics_quality`) sets opacity 0.55, or 0.3 when `sun_shadows` is on.
+- `CharacterPresence` module (`character_presence`, formerly ContactShadows) writes the nearest six visible casters to the player each frame (`pick_slots`, only changed slots), clears the slots in `_exit_tree`, and `apply_knobs()` (from `apply_graphics_quality`) sets opacity 0.55, or 0.3 when `sun_shadows` is on.
+
+### Idle Life (`game_logic/IdleLife.gd`, `CharacterPresence`) — GID-132 / TID-511
+
+World billboards used to stand frozen. `IdleLife.register(sprite, style)` stores the sprite's rest position, style and a per-instance phase as metadata (group `idle_life`). Each frame `CharacterPresence._update_idle_life()` poses every visible registered sprite within `MAX_DISTANCE` (32) of the player, so far-off chunks cost only the distance check.
+- **Styles** `[speed rad/s, bob, squash]`: `STYLE_BREATHE` [2.2, 0, 0.035] (townsfolk, merchants), `STYLE_BOB` [3.4, 0.05, 0.03] (enemies), `STYLE_FLOAT` [1.6, 0.12, 0] (nocturnal spectres).
+- `apply()` scales `(1 − 0.6 s, 1 + s, 1)` and sets `y = base.y × scale_y + bob`, so the feet stay planted (base y is the sprite's half height).
+- **Enemies:** `EnemyNPC._process` sets `META_FAST` while CHASING (×2.6 speed), and `_show_alert()` calls `IdleLife.hop()`: a 0.35 s, 0.35-unit parabolic jump with a squash, timed on `Time.get_ticks_msec()`.
+- Nothing else may write these sprites' `position`/`scale`; use a child node for extra offsets. Tests: `test_idle_life.gd`.
 
 ### Vignette (`scenes/world/ScreenVignette.gd`)
 
