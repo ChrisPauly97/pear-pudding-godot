@@ -68,4 +68,6 @@ func init_from_data(data: Dictionary) -> void:
 	lbl.modulate = Color(0.85, 0.50, 1.0) if _is_spire else Color(1.0, 0.85, 0.2)
 	lbl.outline_modulate = Color(0.0, 0.0, 0.0, 1.0)
 	lbl.outline_size = 6
+	lbl.no_depth_test = true  # the door's own wall used to clip its name
+	lbl.render_priority = 2
 	add_child(lbl)

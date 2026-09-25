@@ -215,6 +215,24 @@ void fragment() {
 		tinted_col = vec3(tinted_col.r * 0.80 + 0.06, tinted_col.g * 0.65, tinted_col.b * 0.60);
 	}
 
+	// Wall & ruin detail (GID-134 / TID-521). v_blend runs 0 at a wall face's
+	// foot to 1 at its top (TerrainMath.build_wall_face_mesh). Moss creeps up
+	// from the base and in noisy patches, caps carry moss tufts, the foot sits
+	// in a soft contact shadow and the top edge catches a little light.
+	if (is_wall) {
+		float side = smoothstep(0.3, 0.7, slope);
+		// Noise in face space (along-face axis × height) so moss forms patches
+		// on the bricks instead of diagonal streaks.
+		float su = mix(v_world_xz.y, v_world_xz.x, abs(v_normal_world.z));
+		float mn = mix(vnoise(v_world_xz * 0.8), vnoise(vec2(su * 0.9, v_world_y * 1.4)), side);
+		float moss = side * clamp(smoothstep(0.45, 0.0, v_blend) * 0.9 + smoothstep(0.6, 0.78, mn) * 0.7, 0.0, 1.0);
+		moss = max(moss, (1.0 - side) * smoothstep(0.55, 0.75, mn) * 0.75);
+		vec3 moss_col = vec3(0.36, 0.52, 0.20) * (0.8 + 0.4 * mn);
+		tinted_col = mix(tinted_col * 1.3, moss_col, moss * 0.7);
+		tinted_col *= mix(1.0, mix(0.6, 1.0, smoothstep(0.0, 0.3, v_blend)), side);
+		tinted_col += side * smoothstep(0.9, 1.0, v_blend) * vec3(0.10, 0.09, 0.07);
+	}
+
 	// Blight tint: lerp toward a dark desaturated purple as blight_amount increases.
 	if (blight_amount > 0.0) {
 		float lum = dot(tinted_col, vec3(0.299, 0.587, 0.114));

@@ -44,7 +44,7 @@ const HILL_TINT: Array[Color] = [
 
 # Wall/ruin surface tint per biome.
 const WALL_TINT: Array[Color] = [
-	Color(0.60, 0.50, 0.35),   # Grasslands — mossy stone
+	Color(0.74, 0.66, 0.52),   # Grasslands — weathered stone
 	Color(0.28, 0.20, 0.12),   # Forest      — dark bark/stone
 	Color(0.80, 0.70, 0.50),   # Desert      — pale sandstone
 	Color(0.16, 0.07, 0.02),   # Scorched    — obsidian/lava rock
