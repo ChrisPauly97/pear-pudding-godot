@@ -14,7 +14,7 @@ Raised by the user (2026-09-25) after reviewing phone screenshots: "what else to
 |----|------|------|--------|------------|
 | TID-517 | Hide Debug Labels | agent | done | — |
 | TID-518 | HUD Readability | agent | done | — |
-| TID-519 | Grass Palette | agent | todo | — |
+| TID-519 | Grass Palette | agent | done | — |
 | TID-520 | Soft Hill Edges | agent | todo | — |
 | TID-521 | Wall & Dungeon Detail | agent | todo | — |
 | TID-522 | Scattered Ground Props | agent | todo | — |

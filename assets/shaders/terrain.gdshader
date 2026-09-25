@@ -173,9 +173,11 @@ void fragment() {
 	}
 
 	if (!is_wall) {
-		// Macro variation: ±~12 % brightness plus drier, yellower patches.
-		base_col *= mix(0.88, 1.1, d0);
-		base_col = mix(base_col, base_col * vec3(1.08, 1.03, 0.82), smoothstep(0.5, 0.75, d1) * 0.6);
+		// Macro variation (GID-134 / TID-519): brightness swell, drier golden
+		// patches and deeper, cooler lush hollows so a meadow isn't one green.
+		base_col *= mix(0.82, 1.12, d0);
+		base_col = mix(base_col, base_col * vec3(1.10, 1.02, 0.74), smoothstep(0.5, 0.75, d1) * 0.7);
+		base_col = mix(base_col, base_col * vec3(0.80, 0.92, 0.88), smoothstep(0.42, 0.22, d1) * 0.6);
 	}
 	if (path_t > 0.001 && !is_path && !is_wall) {
 		base_col = mix(base_col, texture(path_texture, uv_xz).rgb * path_tint / max(grass_tint, vec3(0.01)), path_t);

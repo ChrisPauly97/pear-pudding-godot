@@ -2,7 +2,7 @@
 
 **Goal:** GID-134
 **Type:** agent
-**Status:** todo
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -21,6 +21,12 @@ Flat grass is very saturated and uniform, so everything reads as one green.
 
 ## Plan
 
+Mute/warm grassland + hill tints; stronger macro variation incl. cool lush hollows.
+
 ## Changes Made
 
+BiomeDef GRASS_TINT[0] 0.70,0.80,0.30 and HILL_TINT[0] 0.58,0.66,0.26; terrain.gdshader macro variation widened + cool patches.
+
 ## Documentation Updates
+
+visual-polish.md (at goal end).
