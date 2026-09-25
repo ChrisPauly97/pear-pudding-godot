@@ -190,6 +190,10 @@ engine default theme at startup), so factory widgets need no stylebox overrides.
 Only add `add_theme_stylebox_override` for a genuinely bespoke look. Headings use
 the Cinzel title font via `theme_type_variation = &"TitleLabel"` (`make_title_label` sets it).
 
+Tap-and-drag scrolling is global: the `DragScroll` autoload drives every
+`ScrollContainer`, including drags that start on a button (the button's press is
+cancelled). No per-scroll wiring; `attach_drag_scroll()` is a kept no-op.
+
 `BaseOverlay` subclasses additionally inherit `_refresh_metrics()`,
 `_rebuild_ui()` (free children + re-run `_build_ui()` on resize),
 `_build_scroll(parent)`, `_build_centered_panel()` and `_build_margin_vbox()`.

@@ -29,6 +29,10 @@ const NOON_TILT: float = 0.52359878  # 30°
 const SUN_DAY_COLOR := Color(1.0, 0.95, 0.85)
 const SUN_GOLDEN_COLOR := Color(1.0, 0.74, 0.42)
 const SUN_HORIZON_COLOR := Color(0.95, 0.40, 0.14)
+## Peak moonlight and the cool night ambient. Tuned so night reads as moonlit
+## blue rather than near-black on a phone screen.
+const MOON_ENERGY: float = 0.7
+const NIGHT_AMBIENT: Color = Color(0.17, 0.19, 0.30)
 const GOLDEN_BAND: float = 0.45  # sun height (sin of arc angle) below which it warms
 
 # Weather look (TID-486): seconds a weather change takes to blend fog, sun,
@@ -331,7 +335,9 @@ func _apply_lighting() -> void:
 		_cached_shadow_opacity = shadow_opacity
 
 	var moon_h: float = -sun_h
-	var moon_energy: float = clampf(moon_h * 0.35, 0.0, 0.35) * light_mult
+	# Moonlight rises fast after dusk and holds, so the whole night stays
+	# readable rather than only the hours around midnight.
+	var moon_energy: float = smoothstep(0.0, 0.25, moon_h) * MOON_ENERGY * light_mult
 	if not is_equal_approx(moon_energy, _cached_moon_energy):
 		_moon.light_energy = moon_energy
 		_moon.visible = moon_energy > 0.001
@@ -375,12 +381,12 @@ func _apply_lighting() -> void:
 		env.fog_height_density = height_fog
 		_cached_height_fog = height_fog
 
-	var base_ambient: Color = Color(0.10, 0.10, 0.15).lerp(Color(0.65, 0.63, 0.60), t_day)
+	var base_ambient: Color = NIGHT_AMBIENT.lerp(Color(0.65, 0.63, 0.60), t_day)
 	var ambient_color: Color = Color(
 		base_ambient.r * weather_tint.r,
 		base_ambient.g * weather_tint.g,
 		base_ambient.b * weather_tint.b)
-	var ambient_energy: float = lerpf(0.35, 0.7, t_day)
+	var ambient_energy: float = lerpf(0.5, 0.7, t_day)
 	if _flash > 0.0:
 		ambient_color = ambient_color.lerp(flash_col, _flash * FLASH_COLOR_PULL)
 		ambient_energy += _flash * FLASH_AMBIENT_BOOST

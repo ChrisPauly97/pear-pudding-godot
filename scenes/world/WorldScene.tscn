@@ -18,7 +18,7 @@ directional_shadow_mode = 0
 directional_shadow_max_distance = 60.0
 
 [node name="MoonLight" type="DirectionalLight3D" parent="."]
-light_color = Color(0.6, 0.7, 1.0, 1)
+light_color = Color(0.72, 0.8, 1.0, 1)
 light_energy = 0.0
 shadow_enabled = false
 

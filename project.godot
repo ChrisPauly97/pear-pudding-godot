@@ -43,6 +43,7 @@ NetworkManager="*res://autoloads/NetworkManager.gd"
 MpProfile="*res://autoloads/MpProfile.gd"
 SessionStore="*res://autoloads/SessionStore.gd"
 AutomationBridge="*res://autoloads/AutomationBridge.gd"
+DragScroll="*res://autoloads/DragScroll.gd"
 
 [debug]
 
