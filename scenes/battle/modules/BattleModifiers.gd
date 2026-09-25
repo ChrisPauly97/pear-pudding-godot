@@ -215,7 +215,9 @@ func _add_gambit_badge() -> void:
 	var badge_lbl := _UiUtil.make_label("Gambit: %s" % str(gdata.get("name", gambit_id)), int(_battle._font(0.018)))
 	badge_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
 	_battle._gambit_badge.add_child(badge_lbl)
+	_battle._gambit_badge.tooltip_text = str(gdata.get("desc", ""))
 	_battle.get_node("SidePanel").add_child(_battle._gambit_badge)
+	_battle.arena.make_opens_effects(_battle._gambit_badge)
 
 ## Desert biome rule: damage the leftmost minion on each board at turn start.
 ## Does NOT use the Scorched modifier — this is a separate status tick.

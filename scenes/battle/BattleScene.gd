@@ -387,6 +387,7 @@ func _ready() -> void:
 	modifiers._add_companion_hud()
 	consumables._add_potion_button()
 	modifiers._add_gambit_badge()
+	arena._add_effects_button()
 
 	if _state.puzzle_mode:
 		_end_turn_btn.text = "Check"

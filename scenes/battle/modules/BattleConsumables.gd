@@ -29,6 +29,7 @@ func _add_hero_power_button() -> void:
 	_battle._hero_power_btn = _UiUtil.make_button(active_skill.display_name, Vector2(_battle._vh * 0.18,
 			_battle._vh * 0.05), int(_battle._font(0.02)),
 			_use_hero_power)
+	_battle._hero_power_btn.tooltip_text = active_skill.description
 	_battle.get_node("SidePanel").add_child(_battle._hero_power_btn)
 
 func _add_potion_button() -> void:

@@ -12,6 +12,22 @@ const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const BattleBackdrop = preload("res://scenes/battle/BattleBackdrop.gd")
+const BattleEffectsOverlay = preload("res://scenes/battle/BattleEffectsOverlay.gd")
+const WeatherBanner = preload("res://scenes/battle/WeatherBanner.gd")
+const Gambits = preload("res://game_logic/battle/Gambits.gd")
+const SkillRegistry = preload("res://autoloads/SkillRegistry.gd")
+const SkillData = preload("res://data/SkillData.gd")
+const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
+const WeaponData = preload("res://data/WeaponData.gd")
+const CompanionRegistry = preload("res://autoloads/CompanionRegistry.gd")
+const CompanionData = preload("res://data/CompanionData.gd")
+
+const _COL_FIELD := Color(0.4, 0.9, 1.0)
+const _COL_GAMBIT := Color(1.0, 0.85, 0.3)
+const _COL_SKILL := Color(0.75, 0.6, 1.0)
+const _COL_GEAR := Color(0.9, 0.75, 0.5)
+const _COL_ALLY := Color(0.6, 1.0, 0.6)
+const _COL_DANGER := Color(1.0, 0.5, 0.45)
 
 var _battle: _BattleScene
 
@@ -46,6 +62,7 @@ func _add_battlefield_info_label() -> void:
 	info_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_battle.get_node("SidePanel").add_child(info_lbl)
 	_battle._battlefield_info_label = info_lbl
+	make_opens_effects(info_lbl)
 
 ## Adds coloured overlay panels on affected board slots (Forest 0/4, Mountains 2).
 func _add_slot_highlights() -> void:
@@ -162,3 +179,92 @@ func _refresh_coop_ally_panels() -> void:
 		if btn != null:
 			btn.text = "P%d  HP:%d/%d  Mana:%d" % [pidx + 1, ps.hero.health, ps.hero.max_health, ps.hero.mana]
 		btn_idx += 1
+
+
+# ── Battle effects reference (always re-openable) ────────────────────────────
+
+## Side-panel button that opens the Battle Effects list. Always present, so a
+## rule banner that faded away can be re-read at any time.
+func _add_effects_button() -> void:
+	var btn := _UiUtil.make_button("ⓘ Effects", Vector2(_battle._vh * 0.16, _battle._vh * 0.05),
+			int(_battle._font(0.02)), show_effects_overlay)
+	btn.tooltip_text = "Show every active battlefield, weather, gambit and skill effect"
+	_battle.get_node("SidePanel").add_child(btn)
+
+## Lets a side-panel label/badge open the effects list on tap or click.
+func make_opens_effects(ctrl: Control) -> void:
+	ctrl.mouse_filter = Control.MOUSE_FILTER_STOP
+	ctrl.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	ctrl.gui_input.connect(func(ev: InputEvent) -> void:
+		var mb := ev as InputEventMouseButton
+		if mb != null and mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+			show_effects_overlay())
+
+func show_effects_overlay() -> void:
+	if _battle._inspect_overlay != null and is_instance_valid(_battle._inspect_overlay):
+		return
+	var overlay: BattleEffectsOverlay = BattleEffectsOverlay.new()
+	overlay.present(_battle, collect_effect_entries(), func() -> void: _battle._inspect_overlay = null)
+	_battle._inspect_overlay = overlay
+
+## Every modifier active in this battle as {title, desc, color}.
+func collect_effect_entries() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var st := _battle._state
+	if st == null:
+		return out
+	var story_mode: bool = st.puzzle_mode or st.scripted_battle
+	if st.battlefield_biome != BattlefieldRules.BIOME_NONE and not story_mode:
+		out.append({"title": "Battlefield: %s" % BattlefieldRules.get_biome_name(st.battlefield_biome),
+				"desc": BattlefieldRules.get_rule_text(st.battlefield_biome), "color": _COL_FIELD})
+	if not story_mode:
+		var aff: Array[String] = []
+		for branch: String in BattlefieldRules.BRANCH_AFFINITY:
+			if BattlefieldRules.branch_affinity_active(branch, st.battlefield_biome, st.is_night):
+				aff.append("%s cards: %s" % [branch.capitalize(), BattlefieldRules.branch_affinity_text(branch)])
+		var tod: String = "Night" if st.is_night else "Day"
+		out.append({"title": "Time: %s" % tod,
+				"desc": "\n".join(aff) if not aff.is_empty() else "No card discounts from the time or terrain.",
+				"color": _COL_FIELD})
+	var weather_txt: String = WeatherBanner.modifier_text(_battle._battle_weather)
+	if weather_txt != "" and not story_mode:
+		var parts: PackedStringArray = weather_txt.split(": ", true, 1)
+		out.append({"title": "Weather: %s" % parts[0].capitalize(),
+				"desc": parts[1] if parts.size() > 1 else weather_txt, "color": _COL_FIELD})
+	var gdata: Dictionary = Gambits.get_gambit(str(_battle.enemy_data.get("gambit_id", "")))
+	if not gdata.is_empty():
+		out.append({"title": "Gambit: %s" % str(gdata.get("name", "")),
+				"desc": "%s  (Reward ×%.1f)" % [str(gdata.get("desc", "")), float(gdata.get("multiplier", 1.0))],
+				"color": _COL_GAMBIT})
+	if bool(_battle.enemy_data.get("player_ambush", false)):
+		out.append({"title": "Ambush!", "desc": "You caught the enemy off guard: their hero starts with less HP.",
+				"color": _COL_ALLY})
+	elif bool(_battle.enemy_data.get("enemy_ambush", false)):
+		out.append({"title": "Ambushed!", "desc": "The enemy caught you off guard: your hero starts with less HP.",
+				"color": _COL_DANGER})
+	if not st.puzzle_mode and not st.friendly_duel:
+		_append_player_loadout(out)
+	return out
+
+func _append_player_loadout(out: Array[Dictionary]) -> void:
+	var sm := SceneManager.save_manager
+	for skill_id: String in sm.unlocked_skills:
+		var sk: SkillData = SkillRegistry.get_skill(skill_id)
+		if sk == null:
+			continue
+		if sk.skill_type == "active" and sk == _battle.consumables._get_active_skill():
+			var used: String = "  (used)" if _battle._hero_power_used else "  (ready, once per battle)"
+			out.append({"title": "Hero Power: %s%s" % [sk.display_name, used], "desc": sk.description,
+					"color": _COL_SKILL})
+		elif sk.skill_type == "passive":
+			out.append({"title": "Passive: %s" % sk.display_name, "desc": sk.description, "color": _COL_SKILL})
+	for item_id: String in [sm.equipped_weapon, sm.equipped_armor, sm.equipped_ring, sm.equipped_trinket]:
+		var w: WeaponData = WeaponRegistry.get_weapon(item_id) if item_id != "" else null
+		if w != null and w.battle_effect_type != "":
+			out.append({"title": "Gear: %s" % w.display_name, "desc": w.description, "color": _COL_GEAR})
+	var cid: String = sm.active_companion
+	if cid != "" and CompanionRegistry.is_unlocked(cid) and not _battle._state.scripted_battle:
+		var comp: CompanionData = CompanionRegistry.get_companion(cid)
+		if comp != null:
+			out.append({"title": "Companion: %s" % comp.display_name, "desc": comp.description,
+					"color": _COL_ALLY})
