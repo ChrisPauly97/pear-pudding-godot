@@ -541,7 +541,7 @@ SceneTree teardown only frees in-tree nodes. Battles/puzzles detach WorldScene i
 `SpireFloorGen` gave every floor's enemy the literal id `"spire_enemy"`, and `SaveManager.defeated_enemies` is a **permanent, map-agnostic** list. Beating floor 1 therefore marked every later floor's enemy defeated: `ChunkRenderer._spawn_entities` skipped the spawn, the cleared flag never got set, and the exit door (whose only `flag_key` is that flag) stayed locked — a floor you could neither win nor leave. Ids for per-instance entities must be unique per instance (`enemy_id_for(floor, run_seed)`); check them with a prefix helper, never `==`, since old saves/`user://maps/` files keep the legacy id. Entity state that is per-run scenery does not belong in a permanent save list — prune it at run boundaries, and repair on load (`prepare_spire_floor`) so already-broken saves recover.
 
 ### Joiner crashed in the infinite world; late joiners never followed (claude/multiplayer-infinite-world-crash-74il1k)
-Android joiners crashed in the infinite world; the host was fine. The joiner never
+Android joiners crashed in the infinite world; the host was fine. The crash never
 reproduced it headless, so these fixes cover the client-only load and bugs found:
 (1) the host streamed **every** chunk-streamed enemy's position (one over-MTU unreliable
 packet, 5 Hz) and clients pulled their local copies toward it every frame. That stream
