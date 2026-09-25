@@ -56,6 +56,7 @@ The discard pile is **never** reshuffled back into the draw deck. Fatigue applie
 - `PlayerState.fatigue_counter: int` tracks how many empty draws have occurred for that player (starts at 0, never resets within a battle).
 - `PlayerState.draw_card()` increments the counter and calls `hero.take_damage(fatigue_counter)` before returning `null`.
 - `GameBus.fatigue_damage(player_id, damage)` is emitted so `BattleScene` can show an orange "Fatigue! −N" toast near the affected hero panel.
+- **Bonus draws never fatigue:** `draw_card(fatigue_on_empty := true)`. The extra `bonus_draw` draws in `start_turn()` and the companion `draw_card` passive call `draw_card(false)`, which just fizzles on an empty deck. Only the mandatory turn draw (and explicit card-effect draws) escalate fatigue — previously a +3/+4 draw build took 1+2+3+4+5 = 15 damage on its first empty turn.
 - `fatigue_counter` is serialised in `PlayerState.to_dict()` / `from_dict()` so mid-battle saves restore the correct count.
 
 ### Card Data

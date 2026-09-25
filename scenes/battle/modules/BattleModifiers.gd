@@ -113,7 +113,7 @@ func _apply_companion_turn_start() -> void:
 	if companion == null or companion.passive_type != "draw_card":
 		return
 	for _i in range(companion.passive_value):
-		_battle._state.players[0].draw_card()
+		_battle._state.players[0].draw_card(false)
 
 ## Add a compact companion display to SidePanel (name + passive description).
 ## No-op if no companion is equipped or the companion is not unlocked.

@@ -114,3 +114,18 @@ func test_fatigue_counter_defaults_to_zero_if_missing_from_dict() -> void:
 	var p := PlayerState.new(0)
 	p.from_dict({"player_id": 0})
 	assert_eq(p.fatigue_counter, 0)
+
+
+func test_bonus_draws_do_not_stack_fatigue_on_empty_deck() -> void:
+	var p := _player_with_deck(0)
+	p.bonus_draw = 3
+	var hp_before: int = p.hero.health
+	p.start_turn(5)
+	assert_eq(p.fatigue_counter, 1, "only the mandatory draw fatigues")
+	assert_eq(hp_before - p.hero.health, 1)
+
+
+func test_bonus_draw_on_empty_deck_is_silent() -> void:
+	var p := _player_with_deck(0)
+	assert_null(p.draw_card(false))
+	assert_eq(p.fatigue_counter, 0)
