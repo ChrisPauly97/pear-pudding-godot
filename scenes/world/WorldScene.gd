@@ -1474,6 +1474,8 @@ func _process(delta: float) -> void:
 		_world_hud.update_coords(tx, tz)
 	if _grass:
 		_grass.update_player(_player.position, delta, _player.is_on_floor())
+	# Terrain cutaway so walls between the camera and the player dither away.
+	RenderingServer.global_shader_parameter_set("occlusion_focus", _player.position)
 
 	# Keep particle rig centred on the player
 	if _active_weather_particles != null and is_instance_valid(_active_weather_particles):
