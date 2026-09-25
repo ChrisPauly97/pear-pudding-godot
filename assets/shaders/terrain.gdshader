@@ -245,7 +245,9 @@ void fragment() {
 	vec3 rel = vec3(v_world_xz.x, v_world_y, v_world_xz.y) - focus;
 	const vec3 CAM_FWD = vec3(-0.57735, -0.57735, -0.57735);
 	float along = dot(rel, CAM_FWD);
-	if (along < -0.5 && v_world_y > occlusion_focus.y + 0.3) {
+	// Walls only: hills have no floor beneath them, so cutting one punches a
+	// hole through to the clear colour.
+	if (is_wall && along < -0.5 && v_world_y > occlusion_focus.y + 0.3) {
 		float perp = length(rel - along * CAM_FWD);
 		float cut = 1.0 - smoothstep(OCCLUSION_RADIUS * 0.65, OCCLUSION_RADIUS, perp);
 		if (cut > 0.0) {

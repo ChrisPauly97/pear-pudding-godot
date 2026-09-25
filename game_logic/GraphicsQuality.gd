@@ -184,6 +184,11 @@ static func clamp_to_renderer(knobs: Dictionary, rendering_method: String) -> Di
 		out[key] = false
 	if int(out.get("sun_rays", SUN_RAYS_OFF)) == SUN_RAYS_VOLUMETRIC:
 		out["sun_rays"] = SUN_RAYS_SCREEN
+	# The depth-fog pass reads the depth texture, which Mobile/Compatibility
+	# don't resolve under MSAA: it reads garbage and the fog turns into moire
+	# stripes over the whole ground. FXAA still smooths edges.
+	if bool(out.get("depth_fog", false)):
+		out["msaa_3d"] = Viewport.MSAA_DISABLED
 	return out
 
 
