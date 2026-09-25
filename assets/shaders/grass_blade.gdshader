@@ -7,9 +7,9 @@ render_mode cull_disabled, alpha_to_coverage, unshaded;
 
 // --- Color palette ---
 // Tuned to blend with the terrain's flat-grass procedural base (~0.44, 0.62, 0.25).
-uniform vec4  color_base       : source_color = vec4(0.22, 0.32, 0.12, 1.0);
-uniform vec4  color_mid        : source_color = vec4(0.36, 0.52, 0.18, 1.0);
-uniform vec4  color_tip        : source_color = vec4(0.46, 0.64, 0.24, 1.0);
+uniform vec4  color_base       : source_color = vec4(0.18, 0.38, 0.13, 1.0);
+uniform vec4  color_mid        : source_color = vec4(0.32, 0.58, 0.19, 1.0);
+uniform vec4  color_tip        : source_color = vec4(0.56, 0.80, 0.30, 1.0);
 
 // --- Wind ---
 uniform float wind_strength    : hint_range(0.0, 1.0) = 0.28;
@@ -99,16 +99,15 @@ void vertex() {
 }
 
 void fragment() {
-	// Three flat color bands — pixel art style, no gradient blending
-	vec3 col;
-	if (UV.y < 0.33) {
-		col = color_base.rgb;
-	} else if (UV.y < 0.66) {
-		col = color_mid.rgb;
-	} else {
-		col = color_tip.rgb;
-	}
-
+	// Smooth base→mid→tip gradient (GID-131 / TID-506; was three hard bands
+	// with an olive base that read as dark spikes on the bright ground), plus
+	// per-blade brightness/hue jitter from the root position so a field is not
+	// one flat colour.
+	vec3 col = mix(color_base.rgb, color_mid.rgb, smoothstep(0.0, 0.45, UV.y));
+	col = mix(col, color_tip.rgb, smoothstep(0.4, 0.95, UV.y));
+	float jitter = fract(sin(dot(v_root_world.xz, vec2(12.9898, 78.233))) * 43758.5453);
+	col *= mix(0.9, 1.1, jitter);
+	col = mix(col, col * vec3(1.1, 1.04, 0.8), step(0.8, jitter) * 0.5);
 	ALBEDO = col * grass_day_tint * mix(contact_shadow(v_root_world), 1.0, UV.y * 0.6);
 	// Hard cutoff at tip instead of smooth fade
 	ALPHA = step(UV.y, 0.92);

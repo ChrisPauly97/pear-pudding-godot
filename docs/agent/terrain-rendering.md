@@ -175,3 +175,8 @@ No geometry shader is used (Godot 4 does not support them). Keep blade counts at
 | Wall top texture | `assets/textures/pixel_art/wall_top_pixel.png` | Top of walls. Real sprite art (GID-118): 0x72 `floor_1` stone tile, seamless-tiled |
 | Path texture | `assets/textures/pixel_art/path_pixel.png` | Real sprite art (GID-118): Kenney Tiny Dungeon `tile_0048` flat packed-earth. Replaced the old `TextureGen.path()` procedural noise generator, which was removed (no remaining callers) |
 | `.uid` sidecars | `assets/shaders/*.uid` | Required for Android export; must be committed alongside each shader |
+
+
+#### Grass colour (GID-131 / TID-506)
+
+Both `grass_blade.gdshader` and `grass_cluster.gdshader` shade each blade with a smooth gradient: `mix(color_base, color_mid, smoothstep(0, 0.45, UV.y))`, then toward `color_tip` over `smoothstep(0.4, 0.95, UV.y)`. That replaced three hard bands whose olive base read as dark spikes on the bright ground. New defaults are base (0.18, 0.38, 0.13), mid (0.32, 0.58, 0.19), tip (0.56, 0.80, 0.30). A hash of the blade root (`v_root_world`) jitters brightness ±10 %, and one in five blades gets a drier tint. Contact shadows darken the lower blade (`mix(contact_shadow(root), 1, UV.y × 0.6)`).

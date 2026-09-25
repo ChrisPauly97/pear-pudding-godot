@@ -2,7 +2,7 @@
 
 **Goal:** GID-131
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -21,12 +21,12 @@ Grass reads as dark spiky clumps.
 
 ## Plan
 
-_Written during Plan phase._
+Smooth gradient + terrain-matched colours + per-blade jitter in both grass shaders.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `grass_blade.gdshader`, `grass_cluster.gdshader`: new colour defaults, smoothstep gradient, root-hash jitter. Visual check on gl_compatibility (default and zoomed).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+terrain-rendering.md: Grass colour subsection.
