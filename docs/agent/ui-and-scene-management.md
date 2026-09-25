@@ -96,9 +96,17 @@ scroll nor differ from taps. The helper fires `callback` only when the press
 travelled less than `slop`, and pans `scroll` itself otherwise. Used by
 InventoryScene deck/collection tiles and ShopScene Buy buttons. **Any new tappable
 row inside a drag-scrolled list whose tap has side effects (deck edit, purchase)
-must use this helper, not `pressed.connect`.** `BaseOverlay.attach_drag_scroll`
-re-initializes its gesture origin after >150 ms without motion so child-consumed
-presses can't produce scroll jumps.
+must use this helper, not `pressed.connect`.**
+
+**Global drag scrolling (`autoloads/DragScroll.gd`).** Every `ScrollContainer`
+scrolls by tap-and-drag anywhere inside it, including drags that start on a
+button. The autoload watches raw input: past a threshold (1.2 % vh, min 8 px)
+along an axis the container under the finger can scroll, it claims the gesture,
+pushes an off-screen release so the pressed button cancels, scrolls, and flings
+on release. Horizontal drags in vertical-only lists are left alone (InventoryScene
+card drag-and-drop), as are Ranges/LineEdit/TextEdit. New containers are
+registered through `SceneTree.node_added` (group `drag_scroll`, engine
+`scroll_deadzone` disabled). `BaseOverlay.attach_drag_scroll` is a kept no-op.
 
 ### Display safe-area insets (TID-455)
 
@@ -425,6 +433,11 @@ Overlay (extends Control, emits `closed`) showing volume and accessibility contr
 - **Music Volume** HSlider (0–1, default 0.5) — calls `AudioManager.set_music_volume(v)` and `SaveManager.set_setting("music_volume", v)`
 - **SFX Volume** HSlider (0–1, default 1.0) — calls `AudioManager.set_sfx_volume(v)` and `SaveManager.set_setting("sfx_volume", v)`
 
+**Environment section:**
+- **Weather Effects** — persists `"weather_effects"` (default `true`). Off: `WeatherManager.shown()` returns `""`, so the world shows clear weather (no particles, wet ground, weather ambience). Weather keeps running for battle weather and co-op.
+- **Thunder & Lightning** — persists `"weather_storms"` (default `true`); `DayNightCycle.storms_allowed` stops strikes.
+- Both emit `GameBus.weather_settings_changed`; `AmbientTouches` and `AudioManager` re-apply live.
+
 **Accessibility & Comfort section:**
 - **Screen Shake** `CheckButton` — persists `"screen_shake"` (default `true`); `BattleScene._trigger_shake()` checks this before shaking
 - **Text Scale** `OptionButton` (Small=0.85 / Normal=1.0 / Large=1.25) — persists `"text_scale"` (default `1.0`). Consumed since GID-119 / TID-451 by the battle UI: `BattleScene`, `CardViewBuilder`, `BattleFx`, and `CardInspectOverlay` each expose a `_font(pct)` helper = `int(vh * pct * text_scale)` (clamped 0.5–2.0) and route every battle font-size override through it. Other scenes do not consume it yet.
@@ -507,8 +520,9 @@ HUD elements are constructed by `WorldHUD.gd` (owned and set up by WorldScene). 
 
 **Informational elements (unchanged):**
 - **Interact prompt** — on desktop: `_interact_label` Label; on Android: `_interact_btn` Button (`vh * 0.18 × vh * 0.08`) positioned center-bottom at `vh * 0.80`. Both are hidden until the player is within `INTERACT_RANGE` of one of the ~17 interactable types `WorldScene._check_interactions()` scans (door, enemy, chest, npc, scroll, waystone, mailbox, shrine, digspot, garden plot, burial mound, blight heart, mana well, wilderness camp, scout ambush, Maiteln, downed peer). The label is contextual, not a generic "Interact" — `_check_interactions()` computes a specific verb per type (`"OPEN"`, `"TALK"`, `"ATTACK"`, `"ENTER"`, `"SHOP"`, `"WARP"`, `"DIG"`, etc., with `"REVIVE"` and per-NPC-type overrides taking priority) and passes it to `show_interact_prompt(has_entity, label)`. On Android the button calls `_handle_interact()` directly when tapped. `WorldScene.TapToMove.handle_tap()` can also auto-fire `_handle_interact()` once a tap-to-move path aimed at one of these interactables completes (TID-461; see `docs/agent/tap-to-move.md`).
-- **Map name label** — displayed for 3 seconds on map load, then fades. Font `vh * 0.032`.
-- **Coin counter** — reads `SaveManager.coins` each frame. Font `vh * 0.03`.
+- **Map name label** — player-facing place name from `game_logic/PlaceNames.gd` (`title(map_id)`; the infinite world shows the current biome via `biome_title`, dungeons get a stable hashed name such as "The Sunken Crypt"). Door labels use the same helper. Font `vh * 0.032`.
+- **Coin counter** — updated on `coins_changed`. Font `vh * 0.03`.
+- **Chips (GID-134 / TID-518):** map, coin, XP row and the "Ley-Attuned" indicator (now under the compass) sit on `WorldHUD.hud_chip_style(vh)` dark rounded backings with a text outline (`outline_label`). Raw tile coordinates are hidden unless the `show_tile_coords` setting is set by hand.
 - **Level label** — `"Lv.X"` bottom-left, font `vh * 0.028`.
 - **XP bar** — `ProgressBar` beside level label, height `vh * 0.032`.
 - **XP fraction label** — `"current / next XP"` beside bar, font `vh * 0.025`.

@@ -2,6 +2,7 @@ extends Node3D
 
 const _WEB = preload("res://scenes/world/entities/WorldEntityBase.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
+const _PlaceNames = preload("res://game_logic/PlaceNames.gd")
 
 static var _door_mat: StandardMaterial3D
 static var _door_mesh: BoxMesh
@@ -57,13 +58,7 @@ func init_from_data(data: Dictionary) -> void:
 	door_data = data
 	var target: String = str(data.get("target_map", ""))
 	_is_spire = (target == "spire")
-	var label_text: String
-	if _is_spire:
-		label_text = "The Endless Spire"
-	elif target.is_empty():
-		label_text = "[exit]"
-	else:
-		label_text = target
+	var label_text: String = "Exit" if target.is_empty() else _PlaceNames.title(target)
 	var lbl := Label3D.new()
 	lbl.text = label_text
 	lbl.font_size = 32

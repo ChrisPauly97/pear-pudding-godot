@@ -92,7 +92,10 @@ func setup(hud: CanvasLayer, is_infinite: bool, map_name: String,
 	_create_cantrip_buttons(vh, font_size)
 	_create_dialogue_label(vp, font_size)
 	_create_tip_label(vp, font_size)
-	_create_coord_label(vh, font_size)
+	# Raw tile coordinates are a debug aid (Settings has no toggle; set by hand).
+	if bool(SceneManager.save_manager.get_setting("show_tile_coords", false)):
+		_create_coord_label(vh, font_size)
+	_style_status_labels(vh)
 	_create_xp_bar(vh)
 	_create_ley_indicator(vh)
 	_create_compass(map_name)
@@ -351,6 +354,35 @@ func _create_tip_label(vp: Vector2, font_size: int) -> void:
 	_tip_label.hide()
 	_hud.add_child(_tip_label)
 
+## Dark rounded backing for HUD text that sits over the bright world (TID-518).
+static func hud_chip_style(vh: float) -> StyleBoxFlat:
+	var st: StyleBoxFlat = _UiUtil.make_style(Color(0.05, 0.06, 0.10, 0.62), int(vh * 0.012),
+			Color(1.0, 1.0, 1.0, 0.10), 1)
+	st.content_margin_left = vh * 0.014
+	st.content_margin_right = vh * 0.014
+	st.content_margin_top = vh * 0.003
+	st.content_margin_bottom = vh * 0.003
+	return st
+
+
+static func outline_label(lbl: Label, vh: float) -> void:
+	lbl.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.85))
+	lbl.add_theme_constant_override("outline_size", maxi(2, int(vh * 0.005)))
+
+
+## Location and coin labels (WorldScene's $HUD/MapLabel, $HUD/CoinLabel) as chips.
+func _style_status_labels(vh: float) -> void:
+	var y: float = vh * 0.012
+	for label_name: String in ["MapLabel", "CoinLabel"]:
+		var lbl := _hud.get_node_or_null(label_name) as Label
+		if lbl == null:
+			continue
+		lbl.add_theme_stylebox_override("normal", hud_chip_style(vh))
+		outline_label(lbl, vh)
+		lbl.position.y = y
+		y += vh * 0.058
+
+
 func _create_coord_label(vh: float, font_size: int) -> void:
 	_coord_label = Label.new()
 	_coord_label.add_theme_font_size_override("font_size", font_size)
@@ -363,15 +395,20 @@ func _create_coord_label(vh: float, font_size: int) -> void:
 	_hud.add_child(_coord_label)
 
 func _create_xp_bar(vh: float) -> void:
+	var chip := PanelContainer.new()
+	chip.add_theme_stylebox_override("panel", hud_chip_style(vh))
+	chip.position = Vector2(vh * 0.01 + float(_ins.get("left", 0.0)),
+		vh * 0.875 - float(_ins.get("bottom", 0.0)))
+	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hud.add_child(chip)
 	var xp_row := HBoxContainer.new()
-	xp_row.position = Vector2(vh * 0.01 + float(_ins.get("left", 0.0)),
-		vh * 0.88 - float(_ins.get("bottom", 0.0)))
 	xp_row.add_theme_constant_override("separation", int(vh * 0.008))
-	_hud.add_child(xp_row)
+	chip.add_child(xp_row)
 
 	_level_label = Label.new()
 	_level_label.add_theme_font_size_override("font_size", int(vh * 0.028 * _ts))
 	_level_label.custom_minimum_size = Vector2(vh * 0.08, 0)
+	outline_label(_level_label, vh)
 	xp_row.add_child(_level_label)
 
 	_xp_bar = ProgressBar.new()
@@ -381,18 +418,21 @@ func _create_xp_bar(vh: float) -> void:
 
 	_xp_label = Label.new()
 	_xp_label.add_theme_font_size_override("font_size", int(vh * 0.025 * _ts))
+	outline_label(_xp_label, vh)
 	xp_row.add_child(_xp_label)
 
 func _create_ley_indicator(vh: float) -> void:
 	if not _is_infinite:
 		return
-	_ley_indicator = _UiUtil.make_label("~ Attuned ~", int(vh * 0.025 * _ts))
-	_ley_indicator.add_theme_color_override("font_color", Color(0.1, 0.95, 1.0))
+	# A chip under the compass (it used to sit on top of it and the map label).
+	_ley_indicator = _UiUtil.make_label("Ley-Attuned", int(vh * 0.022 * _ts))
+	_ley_indicator.add_theme_color_override("font_color", Color(0.55, 1.0, 0.85))
+	_ley_indicator.add_theme_stylebox_override("normal", hud_chip_style(vh))
 	_ley_indicator.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_ley_indicator.set_anchor_and_offset(SIDE_LEFT, 0.5, -vh * 0.12)
-	_ley_indicator.set_anchor_and_offset(SIDE_RIGHT, 0.5, vh * 0.12)
-	_ley_indicator.set_anchor_and_offset(SIDE_TOP, 0.0, vh * 0.015)
-	_ley_indicator.set_anchor_and_offset(SIDE_BOTTOM, 0.0, vh * 0.055)
+	_ley_indicator.set_anchor_and_offset(SIDE_LEFT, 0.5, -vh * 0.11)
+	_ley_indicator.set_anchor_and_offset(SIDE_RIGHT, 0.5, vh * 0.11)
+	_ley_indicator.set_anchor_and_offset(SIDE_TOP, 0.0, vh * 0.08)
+	_ley_indicator.set_anchor_and_offset(SIDE_BOTTOM, 0.0, vh * 0.118)
 	_ley_indicator.visible = false
 	_hud.add_child(_ley_indicator)
 

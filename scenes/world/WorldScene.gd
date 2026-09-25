@@ -80,6 +80,7 @@ const _DownedSync        = preload("res://game_logic/net/DownedSync.gd")
 # Shared world life (GID-103): synced clock/weather, party night hunts, co-op siege
 const _ENV_BROADCAST_INTERVAL: float = 3.0  # host: low-Hz clock/weather broadcast
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
+const _PlaceNames = preload("res://game_logic/PlaceNames.gd")
 const _SESSION_SNAPSHOT_INTERVAL: float = 5.0
 const _LOOT_ROLL_TIMEOUT: float = 15.0
 const _COOP_SPIRE_DRAFT_TIMEOUT: float = 30.0
@@ -920,14 +921,7 @@ func get_battlefield_context() -> Dictionary:
 	}
 
 func _update_hud() -> void:
-	if _is_infinite:
-		_map_label.text = "World: Infinite"
-	elif map_name.begins_with("spire_floor_"):
-		var _parts: PackedStringArray = map_name.split("_")
-		var _sf: int = int(_parts[2]) if _parts.size() > 2 else 1
-		_map_label.text = "Spire — Floor %d" % _sf
-	else:
-		_map_label.text = "Map: %s" % map_name
+	_map_label.text = _PlaceNames.biome_title(_current_biome) if _is_infinite else _PlaceNames.title(map_name)
 	_coin_label.text = "Coins: %d" % SceneManager.save_manager.coins
 	SceneManager.save_manager.coins_changed.connect(_on_coins_changed)
 	_world_hud.refresh_xp_bar()
@@ -1015,6 +1009,7 @@ func get_terrain_height(wx: float, wz: float) -> float:
 
 func _on_player_chunk_changed(_chunk: Vector2i, biome_id: int) -> void:
 	_current_biome = biome_id
+	_map_label.text = _PlaceNames.biome_title(biome_id)
 	AudioManager.play_music(_BIOME_MUSIC[biome_id])
 	AudioManager.set_ambience(biome_id)
 	SceneManager.save_manager.visit_biome(biome_id)
