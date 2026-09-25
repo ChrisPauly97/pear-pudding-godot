@@ -21,9 +21,9 @@ Raised by the user (2026-09-25) after reviewing phone screenshots: "what else to
 | TID-523 | Cloud Shadows | agent | done | — |
 | TID-524 | Streams & Ponds | agent | done | — |
 | TID-525 | Per-Biome Colour Grade | agent | done | — |
-| TID-526 | Hero Touches | agent | todo | — |
+| TID-526 | Hero Touches | agent | done | — |
 
 ## Acceptance Criteria
 
-- [ ] Each task's change visible in an xvfb capture (Compatibility renderer)
-- [ ] Tests, gdlint, unsafe-hits, smoke tests clean
+- [x] Each task's change visible in an xvfb capture (Compatibility renderer)
+- [x] Tests, gdlint, unsafe-hits, smoke tests clean

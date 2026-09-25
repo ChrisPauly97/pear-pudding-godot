@@ -14,11 +14,14 @@ extends Node
 const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const _ContactShadow = preload("res://game_logic/ContactShadow.gd")
 const _IdleLife = preload("res://game_logic/IdleLife.gd")
+const _SpriteOutline = preload("res://game_logic/SpriteOutline.gd")
 
 var _world: _WorldScene = null
 var _written: Array[Vector4] = []
 var _time: float = 0.0
 var _animated: int = 0
+var _glow: float = 0.0
+var _glow_written: float = -1.0
 
 
 func _ready() -> void:
@@ -54,6 +57,7 @@ func _process(delta: float) -> void:
 	var center: Vector3 = _world._player.global_position
 	RenderingServer.global_shader_parameter_set("occlusion_focus", _world._player.position)
 	_update_idle_life(center)
+	_update_hero(delta)
 	var casters: Array[Vector4] = []
 	for n: Node in get_tree().get_nodes_in_group(_ContactShadow.GROUP):
 		var n3 := n as Node3D
@@ -68,6 +72,22 @@ func _process(delta: float) -> void:
 			continue
 		RenderingServer.global_shader_parameter_set(_ContactShadow.PARAM_PREFIX + str(i), slots_now[i])
 	_written = slots_now
+
+
+## Hero touches (GID-134 / TID-526): walk/breath bob and a warm outline pulse
+## while something is in reach.
+func _update_hero(delta: float) -> void:
+	var pl := _world._player
+	var spr: AnimatedSprite3D = pl._sprite
+	if spr == null:
+		return
+	pl.visual_bob = _IdleLife.hero_bob(spr.animation == &"walk" and spr.is_playing(), spr.frame, _time)
+	var near: bool = _world._world_hud != null and _world._world_hud.interact_prompt_visible
+	_glow = move_toward(_glow, 1.0 if near else 0.0, delta * 4.0)
+	var g: float = _glow * (0.7 + 0.3 * sin(_time * 5.0))
+	if absf(g - _glow_written) > 0.02 or (g == 0.0 and _glow_written != 0.0):
+		_glow_written = g
+		_SpriteOutline.set_glow(spr, g)
 
 
 func _update_idle_life(center: Vector3) -> void:

@@ -27,6 +27,8 @@ const ZONE_SOCIAL  := "social"    # bottom-right: Chat / Emote / Ping cluster
 const DIALOGUE_DURATION: float = 4.0
 const TIP_DURATION: float = 5.0
 
+## True while an interact prompt is up (the hero glows, CharacterPresence).
+var interact_prompt_visible: bool = false
 var _hud: CanvasLayer
 var _world_scene: _WorldScene
 var _is_infinite: bool
@@ -429,10 +431,11 @@ func _create_ley_indicator(vh: float) -> void:
 	_ley_indicator.add_theme_color_override("font_color", Color(0.55, 1.0, 0.85))
 	_ley_indicator.add_theme_stylebox_override("normal", hud_chip_style(vh))
 	_ley_indicator.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_ley_indicator.set_anchor_and_offset(SIDE_LEFT, 0.5, -vh * 0.11)
-	_ley_indicator.set_anchor_and_offset(SIDE_RIGHT, 0.5, vh * 0.11)
-	_ley_indicator.set_anchor_and_offset(SIDE_TOP, 0.0, vh * 0.08)
-	_ley_indicator.set_anchor_and_offset(SIDE_BOTTOM, 0.0, vh * 0.118)
+	# Explicit rect: anchors resolve against the CanvasLayer's viewport only once
+	# in the tree, which stretched the chip across the screen.
+	var chip_w: float = vh * 0.24
+	_ley_indicator.position = Vector2((_vw - chip_w) * 0.5, vh * 0.075)
+	_ley_indicator.size = Vector2(chip_w, vh * 0.04)
 	_ley_indicator.visible = false
 	_hud.add_child(_ley_indicator)
 
@@ -521,6 +524,7 @@ func set_ley_indicator_visible(v: bool) -> void:
 		_ley_indicator.visible = v
 
 func show_interact_prompt(v: bool, label: String = "USE") -> void:
+	interact_prompt_visible = v
 	if v:
 		if _interact_btn != null:
 			_interact_btn.text = label

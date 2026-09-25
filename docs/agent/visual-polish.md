@@ -5,14 +5,15 @@
 - **Procedural sky**: `ProceduralSkyMaterial` replaces the old flat `BG_COLOR`; sky gradient shifts with day/night cycle.
 - **Distance fog**: Depth fog tied to sky color; updates each `DayNightCycle` tick.
 - **Vignette**: Full-screen edge-darkening via `CanvasLayer(127)` + inline `Shader` on a `ColorRect`.
-- **Per-biome color grade**: `Environment.adjustment_brightness/contrast/saturation` set per biome when the player crosses a chunk boundary.
-- **Biome prop scatter**: GPU-instanced `MultiMeshInstance3D` per prop type per chunk; 15 % spawn rate, ≤12 instances per type; real pixel-art textures (GID-118/TID-447) via `SpriteRegistry.prop_texture()`, falling back to `TextureGen.prop()` if a slot is missing.
+- **Per-biome color grade & mood**: brightness/contrast/saturation plus a light mood colour per biome, eased over ~3 s when the player crosses into a new biome (GID-134).
+- **Biome prop scatter**: GPU-instanced `MultiMeshInstance3D` per prop type per chunk; weighted types, clumps and per-instance size (GID-134); real pixel-art textures (GID-118/TID-447) via `SpriteRegistry.prop_texture()`, falling back to `TextureGen.prop()` if a slot is missing.
 - **Interactable highlights**: Pulsing emissive ring (`CylinderMesh` + inline shader) shown on the nearest interactable within 3 world units of the player.
 - **Card illustrations**: 32×32 pixel-art textures per card archetype, wired into `CardRegistry` at load time and displayed in `CardViewBuilder`. Real sprites (GID-118/TID-447) via `SpriteRegistry.card_illustration_texture()`, falling back to `TextureGen.card_illustration()`.
 - **World terrain textures**: the shared terrain shader's grass, hill-side, wall-side, wall-top, and path/road textures are real, seamlessly-tiling sprite-pack art (GID-118) — see `docs/agent/terrain-rendering.md` Asset Requirements and `CREDITS.md`.
 - **Battle backdrop**: the card board's background is a per-biome, day/night patch of ground seen from overhead, painted by one full-screen shader out of the world's own terrain tiles and prop sprites, instead of the flat `Color(0.1, 0.1, 0.15)` rect it was through GID-125.
 - **Chest & door sprites**: `Chest.gd` and `Door.gd` render as billboard `Sprite3D`s (0x72 pack chest/door art, GID-118) instead of flat-colored `BoxMesh` geometry, falling back to the original procedural boxes if the sprites are missing. See `docs/agent/inventory-and-deck.md` (chest open ceremony) and `docs/agent/named-maps-and-dungeons.md` (door rendering).
 
+- **World look polish** (GID-134): calmer palette, grass-covered hill slopes, mossy lit walls, drifting cloud shadows, wadeable streams and ponds, hero walk bob and interact glow.
 - **Ambient touches** (GID-129/TID-493): fireflies blink around the player on grassland/forest nights (still air only, blooming past the glow threshold); forest leaves tumble down the current weather wind; the player kicks a dust puff on moving off and trails soft dust (which never rendered before — no draw pass). Scaled by `particle_scale`, ambient parts off on Low.
 - **Night lights** (GID-129/TID-489): door lanterns, waystones, mana wells and the wilderness camp fire glow from dusk to dawn with per-style flicker. Warm light pools (Medium 4 / High 8) light terrain, grass, props and sprites alike through a depth-reconstructing additive volume; Low keeps just the glowing lamp dots.
 - **Sun rays** (GID-129/TID-488): warm light shafts at dawn and dusk that fade out before midday and under heavy weather. Medium draws cheap screen-space shafts (10 taps, hidden when off); High adds Forward+ volumetric fog lit only by the shadowed sun.
@@ -208,22 +209,30 @@ World billboards used to stand frozen. `IdleLife.register(sprite, style)` stores
 
 `ScreenVignette.make()` (added by `WorldScene._setup_environment`) returns a `CanvasLayer` at layer 127 holding a `ColorRect` covering the full viewport. An inline `Shader` on its `ShaderMaterial` computes `d = length(UV - 0.5)` and darkens the corners: `ALPHA = smoothstep(0.35, 0.75, d) * 0.45`. No `.gdshader` file, no `.uid` required.
 
-### Per-biome Color Grade (`WorldScene._apply_biome_color_grade`)
+### Per-biome Color Grade & Mood (`BiomeDef.ADJ_PARAMS`, `DayNightCycle`) — GID-134 / TID-525
 
-`BiomeDef.ADJ_PARAMS[biome_id]` stores per-biome `{brightness, contrast, saturation}` dicts. `WorldScene._on_player_chunk_changed()` calls `_apply_biome_color_grade(biome_id)` which writes these to `env.adjustment_*`. `BiomeDef` is preloaded with `const BiomeDef = preload(...)` — never use class_name.
+`BiomeDef.ADJ_PARAMS[biome_id]` = `{brightness, contrast, saturation, mood}`. `WorldScene._apply_biome_color_grade(biome_id)` (on chunk/biome change) calls `DayNightCycle.set_biome_grade(id, instant)` — instant only for the first grade after world entry. `_tick_grade` eases all four values over ~`BIOME_BLEND_SECONDS` (3 s) instead of snapping at the border; `_apply_grade` writes `env.adjustment_*` and re-runs lighting. `mood()` (a colour) multiplies the ambient colour and fog colour fully and the sun colour 60 % (meadow warm, forest cool green, desert sun-baked, scorched ember, mountains crisp blue).
 
-### Prop Scatter (`ChunkRenderer`)
+### Prop Scatter (`ChunkRenderer`, `BiomeDef.PROP_SETS/PROP_SIZES/PROP_CLUMPS`) — reworked GID-134 / TID-522
 
-`prepare_terrain()` (worker thread) calls `_compute_prop_positions()` which iterates `TILE_GRASS` cells, applies a seeded LCG hash, and samples a 15 % spawn chance. Up to 12 positions per prop type are collected, returned in the `"props"` dict alongside the mesh/hmap results. `build_visual()` calls `_build_props()` on the main thread, which creates one `MultiMeshInstance3D` per prop type with a billboard `StandardMaterial3D` + `TextureGen.prop(key)` texture. Visibility capped at `ENTITY_VISIBILITY_END`.
+`prepare_terrain()` (worker thread) calls `_compute_prop_positions()`: seeded LCG over `TILE_GRASS` cells, 12 % spawn chance, up to 24 per type. Types repeat in `PROP_SETS` to weight them; `PROP_CLUMPS` adds neighbours around a spawn (flowers 3, mushrooms 2, ferns 1). **Positions are chunk-local** — the `MultiMeshInstance3D` is a child of the chunk node at the chunk origin; world positions (pre-TID-522) drew every chunk but 0,0 a second origin away, so props only ever appeared in one chunk (`test_chunk_props`). Nothing spawns in streams/ponds. `_build_props()` gives each type a quad sized by `PROP_SIZES` with `center_offset` so it stands on the ground, `billboard_keep_scale`, and per-instance scale 0.75–1.25 + random mirror hashed from position. Visibility range = `ENTITY_VISIBILITY_END` + one chunk width (the range is measured to the chunk's prop AABB).
 
-Prop types per biome:
-| Biome | Types |
+| Biome | Types (first pair = battle backdrop pair) |
 |---|---|
-| Grasslands | rock, flower |
-| Forest | mushroom, fern |
-| Desert | cactus, thorn |
-| Scorched | ash_pile, ember |
-| Mountains | boulder, lichen |
+| Grasslands | rock, flower ×2, fern |
+| Forest | mushroom, fern, rock, lichen |
+| Desert | cactus, thorn, rock, boulder |
+| Scorched | ash_pile, ember, rock |
+| Mountains | boulder, lichen, rock |
+
+### World Look Polish (GID-134)
+
+- **Palette (TID-519):** grassland `GRASS_TINT` 0.70/0.80/0.30 (was a neon 0.72/0.94/0.38), `HILL_TINT` 0.58/0.66/0.26. Terrain macro variation widened (×0.82–1.12 swell, golden dry patches, cool lush hollows from `v_d1`).
+- **Hill edges (TID-520):** `t_side` (dirt) = height band with a noisy edge × `smoothstep(0.18, 0.5, slope)`, so grass climbs gentle slopes and dirt shows only on steep sides; the hill foot darkens 12 %.
+- **Walls (TID-521):** `build_wall_face_mesh` writes COLOR.r = 0 at a face's foot, 1 at the top (and on caps). The terrain shader's wall block uses it for moss creeping up from the base plus face-space noise patches (along-face axis × height, not xz — that drew diagonal streaks), moss tufts on caps, a 40 % contact shadow at the foot and a lit top edge. Grassland `WALL_TINT` lightened to 0.74/0.66/0.52. Door labels use `no_depth_test` so their own wall never clips them.
+- **Cloud shadows (TID-523):** `cloud_shadow(xz)` in `contact_shadow.gdshaderinc` (so terrain and both grass shaders share it): two octaves of value noise at 0.05/unit, `smoothstep(0.5, 0.66)`, darkening by `cloud_shadow_strength`. `DayNightCycle._tick_clouds` accumulates `cloud_offset` from the blended look's `wind_direction × wind_scale × CLOUD_SPEED` (1.2 u/s) every frame — accumulated on the CPU so a wind change bends the drift rather than jumping it — and writes `AtmosphereMath.cloud_shadow_strength(sun_h, overcast)` (0.25 max by day, 0 at night, −85 % under full overcast). Props (unshaded) don't receive it.
+- **Streams & ponds (TID-524, `game_logic/world/WaterMath.gd`):** stream = `|simplex(0.011)| < 0.045` band, pond = second simplex (0.035) above 0.52; `intensity()` 0..1, `is_wet()` > 0.3. Grasslands, forest and mountains only. `ChunkRenderer` bakes it per vertex into **UV2.y** (UV2.x is ley) via `TerrainMath.build_terrain_mesh(..., water_field)`, drops grass centres and props that are wet. The shader dips water vertices 0.2 (collision unchanged — the hero wades), and on level non-path ground draws ragged banks, a light shoreline, deeper colour mid-channel, drifting noise ripples as normal perturbation, roughness 0.06 / specular 0.6. `AmbientTouches` turns footstep dust into splashes while wading.
+- **Hero touches (TID-526):** `IdleLife.hero_bob(walking, frame, t)` — one-step lift (0.06) on walk frames 1 and 3, a brief 0.03 breath when idle; `CharacterPresence._update_hero` sets `Player.visual_bob`, which `snap_visuals_to_pixels` adds snapped to whole screen pixels (world up projects at 0.8165). While `WorldHUD.interact_prompt_visible`, the hero's outline eases to `SpriteOutline.GLOW_COLOR` and pulses (`SpriteOutline.set_glow`).
 
 ### Interactable Highlights (`WorldEntityBase`, entity scripts, `Player`)
 
