@@ -136,6 +136,7 @@
 | [GID-130](goals/GID-130--mobile-fake-volumetrics/goal.md) | Mobile Fake Volumetrics | done | 7 / 7 |
 | [GID-131](goals/GID-131--visual-smoothing-polish/goal.md) | Visual Smoothing & Polish | done | 8 / 8 |
 | [GID-132](goals/GID-132--feel-and-finish/goal.md) | Feel & Finish | done | 4 / 4 |
+| [GID-133](goals/GID-133--outlines-and-rain/goal.md) | Sprite Outlines & Rain Detail | in-progress | 0 / 3 |
 
 ## Backlog
 
