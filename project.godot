@@ -153,6 +153,11 @@ anti_aliasing/quality/msaa_3d=2
 
 [shader_globals]
 
+occlusion_focus={
+"type": "vec3",
+"value": Vector3(0, 100000, 0)
+}
+
 terrain_wetness={
 "type": "float",
 "value": 0.0
