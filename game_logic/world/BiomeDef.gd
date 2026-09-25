@@ -77,13 +77,24 @@ const ADJ_PARAMS: Array = [
 ]
 
 # Per-biome prop types to scatter on TILE_GRASS cells (used by ChunkRenderer).
+# The first pair per biome is also the battle backdrop's pair (BattleBackdrop);
+# the rest are world-only extras (GID-134 / TID-522).
 const PROP_SETS: Array = [
-	["rock", "flower"],     # Grasslands
-	["mushroom", "fern"],   # Forest
-	["cactus", "thorn"],    # Desert
-	["ash_pile", "ember"],  # Scorched
-	["boulder", "lichen"],  # Mountains
+	["rock", "flower", "flower", "fern"],        # Grasslands (repeats weight a type)
+	["mushroom", "fern", "rock", "lichen"],      # Forest
+	["cactus", "thorn", "rock", "boulder"],      # Desert
+	["ash_pile", "ember", "rock"],               # Scorched
+	["boulder", "lichen", "rock"],               # Mountains
 ]
+
+# World-unit size of each prop billboard (TID-522; everything was 0.5).
+const PROP_SIZES: Dictionary = {
+	"flower": 0.55, "rock": 0.85, "fern": 0.7, "boulder": 1.0, "mushroom": 0.6,
+	"lichen": 0.6, "cactus": 1.1, "thorn": 0.8, "ash_pile": 0.7, "ember": 0.5,
+}
+
+# Props that grow in clumps: each spawn adds this many neighbours in its tile.
+const PROP_CLUMPS: Dictionary = {"flower": 3, "mushroom": 2, "fern": 1}
 
 # NPC dialogue lines per biome.
 const NPC_LINES: Array = [

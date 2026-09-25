@@ -17,7 +17,7 @@ Raised by the user (2026-09-25) after reviewing phone screenshots: "what else to
 | TID-519 | Grass Palette | agent | done | — |
 | TID-520 | Soft Hill Edges | agent | done | — |
 | TID-521 | Wall & Dungeon Detail | agent | done | — |
-| TID-522 | Scattered Ground Props | agent | todo | — |
+| TID-522 | Scattered Ground Props | agent | done | — |
 | TID-523 | Cloud Shadows | agent | todo | — |
 | TID-524 | Streams & Ponds | agent | todo | — |
 | TID-525 | Per-Biome Colour Grade | agent | todo | — |

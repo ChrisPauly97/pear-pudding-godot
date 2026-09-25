@@ -162,16 +162,16 @@ static func prepare_terrain(
 		"props":          prop_positions,
 	}
 
-# Returns Dictionary of prop_type -> Array[Vector3] of world positions.
+# Returns Dictionary of prop_type -> Array[Vector3] of chunk-local positions.
 static func _compute_prop_positions(
 		chunk_data: _ChunkData,
 		grid_tile_lookup: Callable,
 		hfield: PackedFloat32Array,
-		chunk_origin: Vector3,
+		_chunk_origin: Vector3,
 		nvx: int,
 		world_seed: int) -> Dictionary:
-	const MAX_PER_TYPE: int = 12
-	const SPAWN_CHANCE: float = 0.15
+	const MAX_PER_TYPE: int = 24
+	const SPAWN_CHANCE: float = 0.12
 	var prop_sets: Array = BiomeDef.PROP_SETS
 	var biome_id: int = int(chunk_data.get("biome_id"))
 	if biome_id < 0 or biome_id >= prop_sets.size():
@@ -208,10 +208,17 @@ static func _compute_prop_positions(
 			if vi >= hfield.size():
 				vi = hfield.size() - 1
 			var wy: float = hfield[vi]
-			arr.append(Vector3(
-				chunk_origin.x + float(lx) * IsoConst.TILE_SIZE + ox,
-				wy,
-				chunk_origin.z + float(lz) * IsoConst.TILE_SIZE + oz))
+			# Chunk-local: the MultiMeshInstance3D is a child of the chunk node, which
+			# already sits at the chunk origin (world coords here drew every chunk's
+			# props a second origin away, so only chunk 0,0 ever showed any).
+			var base := Vector3(float(lx) * IsoConst.TILE_SIZE + ox, wy, float(lz) * IsoConst.TILE_SIZE + oz)
+			arr.append(base)
+			# Clumps (flowers, mushrooms): a few neighbours around the first.
+			for _k in int(BiomeDef.PROP_CLUMPS.get(pt_key, 0)):
+				hash_s = (hash_s * 1664525 + 1013904223) & 0x7FFFFFFF
+				var dx: float = (float(hash_s & 0xFF) / 255.0 - 0.5) * 0.9
+				var dz: float = (float((hash_s >> 8) & 0xFF) / 255.0 - 0.5) * 0.9
+				arr.append(base + Vector3(dx, 0.0, dz))
 	return result
 
 # ── Main entry point (main thread only) ───────────────────────────────────
@@ -374,9 +381,13 @@ static func _get_prop_visual(key_str: String) -> Dictionary:
 	mat.alpha_scissor_threshold = 0.5
 	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	mat.billboard_keep_scale = true  # per-instance size/flip variety (TID-522)
 	_apply_lit(mat)
 	var quad := QuadMesh.new()
-	quad.size = Vector2(0.5, 0.5)
+	var sz: float = float(BiomeDef.PROP_SIZES.get(key_str, 0.5))
+	quad.size = Vector2(sz, sz)
+	# Stand on the ground rather than half-buried at the quad's centre.
+	quad.center_offset = Vector3(0.0, sz * 0.45, 0.0)
 	var entry: Dictionary = {"mat": mat, "mesh": quad}
 	_prop_visual_cache[key_str] = entry
 	return entry
@@ -400,12 +411,18 @@ func _build_props(_biome: int, prop_positions: Dictionary) -> void:
 		mm.mesh = quad
 		for i in range(positions.size()):
 			var pos: Vector3 = positions[i] as Vector3
-			mm.set_instance_transform(i, Transform3D(Basis.IDENTITY, pos))
+			# Size and mirror variety hashed from the position (stable per prop).
+			var h: float = fposmod(sin(pos.x * 12.9898 + pos.z * 78.233) * 43758.5453, 1.0)
+			var s: float = lerpf(0.75, 1.25, h)
+			var flip: float = -1.0 if fposmod(h * 7.0, 1.0) > 0.5 else 1.0
+			mm.set_instance_transform(i, Transform3D(Basis.from_scale(Vector3(s * flip, s, s)), pos))
 		var mmi := MultiMeshInstance3D.new()
 		mmi.multimesh = mm
 		mmi.material_override = mat
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		mmi.visibility_range_end = IsoConst.ENTITY_VISIBILITY_END
+		# Range is measured to the whole chunk's prop AABB, so pad it by a chunk
+		# width or on-screen props in the next chunk over vanish (TID-522).
+		mmi.visibility_range_end = IsoConst.ENTITY_VISIBILITY_END + float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 		add_child(mmi)
 
