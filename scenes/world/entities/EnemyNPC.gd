@@ -6,6 +6,7 @@ const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const _EnemyAlertState = preload("res://game_logic/world/EnemyAlertState.gd")
 const _ContactShadow = preload("res://game_logic/ContactShadow.gd")
 const _IdleLife = preload("res://game_logic/IdleLife.gd")
+const _SpriteOutline = preload("res://game_logic/SpriteOutline.gd")
 
 const _ALERT_REACTION_TIME: float = 0.4
 const _GIVEUP_HOLD_TIME: float = 2.0
@@ -35,6 +36,7 @@ func _ready() -> void:
 			_SpriteRegistry.enemy_world_height(etype, _is_roaming_boss, _is_boss))
 	add_child(sprite)
 	_sprite = sprite
+	_SpriteOutline.apply(sprite)
 	_ContactShadow.register(self, _ContactShadow.radius_for_height(
 			_SpriteRegistry.enemy_world_height(etype, _is_roaming_boss, _is_boss)))
 	_IdleLife.register(sprite, _IdleLife.STYLE_FLOAT if bool(enemy_data.get("nocturnal", false))

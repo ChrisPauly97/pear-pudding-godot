@@ -2,7 +2,7 @@
 
 **Goal:** GID-133
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -21,12 +21,14 @@ Characters blend into grass/mist/fog.
 
 ## Plan
 
-_Written during Plan phase._
+Per-sprite outline ShaderMaterial (texture fed manually, billboard in vertex, depth_prepass_alpha); applied to all character sprites.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `assets/shaders/sprite_outline.gdshader` (+ .uid), `game_logic/SpriteOutline.gd`.
+- Applied in Player (rider + mount), RemotePlayer, MaitelnFollower, EnemyNPC, MerchantNPC, TownspersonNPC, ScoutAmbush.
+- Tests: new `test_sprite_outline.gd`. Visual check: isolated (flip + tint) and in world.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+visual-polish.md Character Outlines section; CLAUDE.md learning.

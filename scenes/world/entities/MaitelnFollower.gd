@@ -11,6 +11,7 @@ const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const _AvatarSync = preload("res://game_logic/net/AvatarSync.gd")
 const ObjectiveTracker = preload("res://game_logic/ObjectiveTracker.gd")
 const _ContactShadow = preload("res://game_logic/ContactShadow.gd")
+const _SpriteOutline = preload("res://game_logic/SpriteOutline.gd")
 
 ## Offset from the player's position, in world units — keeps him visibly beside
 ## the player without overlapping the player sprite or blocking the view.
@@ -88,6 +89,7 @@ func _ready() -> void:
 			_static_sprite.position = Vector3(0.0, 0.69, 0.0)
 		_SpriteRegistry.apply_billboard_flags(_static_sprite)
 		add_child(_static_sprite)
+	_SpriteOutline.apply(_sprite if _sprite != null else _static_sprite)
 
 	# No name tag. He walks at the player's shoulder the whole chapter, so the
 	# floating label other NPCs need is permanent screen clutter here — and at

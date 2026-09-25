@@ -181,6 +181,14 @@ World billboards used to stand frozen. `IdleLife.register(sprite, style)` stores
 - **Enemies:** `EnemyNPC._process` sets `META_FAST` while CHASING (×2.6 speed), and `_show_alert()` calls `IdleLife.hop()`: a 0.35 s, 0.35-unit parabolic jump with a squash, timed on `Time.get_ticks_msec()`.
 - Nothing else may write these sprites' `position`/`scale`; use a child node for extra offsets. Tests: `test_idle_life.gd`.
 
+### Character Outlines (`game_logic/SpriteOutline.gd`, `sprite_outline.gdshader`) — GID-133 / TID-513
+
+`SpriteOutline.apply(sprite)` sets a per-sprite `ShaderMaterial` as `material_override` on world character sprites: Player (rider + mount), RemotePlayer, MaitelnFollower, EnemyNPC, MerchantNPC, TownspersonNPC and ScoutAmbush. **SpriteBase3D does not pass its texture to an override material**, so the helper feeds `sprite_tex` itself: once for `Sprite3D` (call `refresh()` after changing `.texture`), and on `frame_changed` / `animation_changed` for `AnimatedSprite3D` (`get_frame_texture`).
+- The sprite's own mesh still supplies UVs (so `flip_h`, region and offset work) and vertex `COLOR` (so `modulate` tints and `modulate:a` fade tweens work).
+- The shader billboards in `vertex()` (node scale kept) and uses `depth_prepass_alpha`, matching `ALPHA_CUT_OPAQUE_PREPASS`, so the rider-over-mount depth nudge still works.
+- Fragment: a transparent texel with an opaque 4-neighbour becomes `outline_color` (0.07, 0.05, 0.09) at 0.9 alpha, giving a 1-texel dark edge (≈3 screen px at the default zoom). Art touching the texture border gets no outline on that side.
+- Tests: `test_sprite_outline.gd`.
+
 ### Vignette (`scenes/world/ScreenVignette.gd`)
 
 `ScreenVignette.make()` (added by `WorldScene._setup_environment`) returns a `CanvasLayer` at layer 127 holding a `ColorRect` covering the full viewport. An inline `Shader` on its `ShaderMaterial` computes `d = length(UV - 0.5)` and darkens the corners: `ALPHA = smoothstep(0.35, 0.75, d) * 0.45`. No `.gdshader` file, no `.uid` required.

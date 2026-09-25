@@ -545,6 +545,9 @@ SceneTree teardown only frees in-tree nodes. Battles/puzzles detach WorldScene i
 ### Rider invisible while mounted (claude/mount-character-visibility-448ys4)
 World sprites use `ALPHA_CUT_OPAQUE_PREPASS`, so overlapping billboards are resolved by the **depth buffer**, not blend order — a sprite 1 cm toward the camera wins every shared pixel. To force one billboard in front of another at the same spot, translate along `Vector3(1,1,1).normalized()`: the iso camera is orthographic and locked to that axis, so it is pure depth with zero screen movement. Also check pack art for a baked-in opaque background (`mount_horse.png` was a 16×16 tile upscaled 2× with a `#3f2631` backdrop) — alpha-cut can't discard what isn't transparent. `SpriteBase3D.offset` is **not** mirrored by `flip_h`; negate it by hand when flipping.
 
+### Sprite3D ignores a custom material's texture (GID-131 / GID-133)
+`SpriteBase3D.material_override` with a ShaderMaterial does **not** receive the sprite's texture (an unbound sampler reads white, so a test with a white texture passes falsely). Feed it yourself: `SpriteOutline.apply()` sets `sprite_tex` once for Sprite3D and on `frame_changed` for AnimatedSprite3D. The override must also billboard in `vertex()`. Mesh UVs (flip/region) and vertex COLOR (modulate) still come from the sprite.
+
 ### Injected entity landed on an authored one (claude/mount-character-visibility-448ys4)
 Entities placed in code (mailbox, fallback waystones) are invisible to the map author, so a fixed `spawn + (dx, dz)` eventually collides — the Madrian mailbox sat on Maiteln's exact NPC tile. Use `WorldMap.pick_free_tile_near_spawn()`: candidate offsets tried in order, first walkable-and-clear one wins.
 
