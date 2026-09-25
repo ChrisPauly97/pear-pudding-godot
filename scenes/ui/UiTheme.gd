@@ -9,6 +9,11 @@ extends RefCounted
 ## and any Control/`theme` set lower down still win. Pixel values are in the 1920×1080
 ## canvas_items base resolution, so they scale with the window.
 
+const _BODY_FONT = preload("res://assets/fonts/Nunito-Bold.woff2")
+const _TITLE_FONT = preload("res://assets/fonts/Cinzel-Bold.woff2")
+## Theme type variation for headings (Cinzel); `UiUtil.make_title_label` uses it.
+const TITLE_VARIATION := "TitleLabel"
+
 const INK := Color(0.95, 0.92, 0.84)
 const INK_DIM := Color(0.62, 0.60, 0.56)
 const INK_HOVER := Color(1.0, 0.95, 0.74)
@@ -72,12 +77,42 @@ static func _button_styles(t: Theme, type: String) -> void:
 static func install() -> void:
 	if _installed:
 		return
-	ThemeDB.get_default_theme().merge_with(build())
+	var project := build()
+	var base: Theme = ThemeDB.get_default_theme()
+	base.merge_with(project)
+	# merge_with leaves the default font alone; set it explicitly (Controls
+	# without a font item fall back to ThemeDB.fallback_font).
+	base.default_font = project.default_font
+	ThemeDB.fallback_font = project.default_font
 	_installed = true
+
+
+## Fonts (GID-132 / TID-509), both SIL OFL 1.1 (assets/fonts/OFL-*.txt,
+## CREDITS.md). Latin subset only, so each falls back to the engine font for
+## symbols and anything outside Latin.
+static func body_font() -> Font:
+	return _with_fallback(_BODY_FONT)
+
+
+static func title_font() -> Font:
+	return _with_fallback(_TITLE_FONT)
+
+
+static func _with_fallback(f: FontFile) -> Font:
+	if ThemeDB.fallback_font != null and not f.fallbacks.has(ThemeDB.fallback_font):
+		var fb: Array[Font] = f.fallbacks.duplicate()
+		fb.append(ThemeDB.fallback_font)
+		f.fallbacks = fb
+	return f
 
 
 static func build() -> Theme:
 	var t := Theme.new()
+	t.default_font = body_font()
+	t.set_type_variation(TITLE_VARIATION, "Label")
+	t.set_font("font", TITLE_VARIATION, title_font())
+	t.set_color("font_color", TITLE_VARIATION, GOLD_BRIGHT.lerp(INK, 0.35))
+	t.set_color("font_shadow_color", TITLE_VARIATION, Color(0, 0, 0, 0.55))
 	for type: String in ["Panel", "PanelContainer", "PopupPanel", "PopupMenu", "TooltipPanel", "AcceptDialog"]:
 		t.set_stylebox("panel", type, panel_style())
 	for type: String in ["Button", "OptionButton", "MenuButton", "CheckBox", "CheckButton"]:

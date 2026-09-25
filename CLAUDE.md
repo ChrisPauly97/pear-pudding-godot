@@ -187,7 +187,8 @@ _UiUtil.make_style(bg, radius, border_color, border_width)   # rounded StyleBoxF
 
 Styling comes from the project theme (`scenes/ui/UiTheme.gd`, merged into the
 engine default theme at startup), so factory widgets need no stylebox overrides.
-Only add `add_theme_stylebox_override` for a genuinely bespoke look.
+Only add `add_theme_stylebox_override` for a genuinely bespoke look. Headings use
+the Cinzel title font via `theme_type_variation = &"TitleLabel"` (`make_title_label` sets it).
 
 `BaseOverlay` subclasses additionally inherit `_refresh_metrics()`,
 `_rebuild_ui()` (free children + re-run `_build_ui()` on resize),

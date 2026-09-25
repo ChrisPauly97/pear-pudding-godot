@@ -14,6 +14,7 @@ func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 
 	_title = _UiUtil.make_label("Pear Pudding TCG", 0, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+	_title.theme_type_variation = &"TitleLabel"  # Cinzel (GID-132 / TID-509)
 	_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_title)
 

@@ -20,6 +20,7 @@ func _ready() -> void:
 	var vbox := _build_margin_vbox(panel, 0.025, 0.02)
 
 	var title_lbl := _UiUtil.make_label(_title, int(_vh * 0.035), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	title_lbl.theme_type_variation = &"TitleLabel"
 
 	var sep := HSeparator.new()
 	vbox.add_child(sep)

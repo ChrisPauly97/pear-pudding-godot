@@ -133,3 +133,13 @@ remains as a runtime fallback wherever a slot's texture is missing.
 | Puzzle shrine | `props/puzzle_shrine.png` | Kenney Tiny Dungeon (tiles 19+31, blue recolor) |
 | Burial mound | `props/burial_mound.png` | Kenney Tiny Dungeon (tile 65 + hand-pixelled mound) |
 | Blight heart | `props/blight_heart.png` | 0x72 (`skull` purple recolor + hand-pixelled crystals) |
+
+## Fonts
+
+Both under the SIL Open Font License 1.1 (licence texts in `assets/fonts/`).
+Latin subsets from the Fontsource npm packages (GID-132 / TID-509).
+
+- **Nunito** Bold — The Nunito Project Authors — https://github.com/googlefonts/nunito
+  *(body text and buttons, `assets/fonts/Nunito-Bold.woff2`; licence `OFL-Nunito.txt`)*
+- **Cinzel** Bold — The Cinzel Project Authors — https://github.com/NDISCOVER/Cinzel
+  *(titles, `assets/fonts/Cinzel-Bold.woff2`; licence `OFL-Cinzel.txt`)*

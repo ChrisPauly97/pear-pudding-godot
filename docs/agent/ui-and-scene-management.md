@@ -21,6 +21,10 @@
 
 `UiTheme.build()` makes one `Theme` in code: dark navy panels (`PANEL_BG`) with a 2 px gold border, 14 px radius and a soft drop shadow (Panel, PanelContainer, PopupPanel, PopupMenu, TooltipPanel, AcceptDialog, TabContainer); rounded buttons (radius 10) with normal / hover / pressed / disabled / focus boxes and matching font colours (Button, OptionButton, MenuButton; CheckBox/CheckButton get transparent boxes); cream `Label` text with a soft shadow; framed LineEdit/TextEdit/SpinBox; ProgressBar, sliders, scrollbars, tabs and `HSeparator` restyled to the same palette. `SceneManager._ready` calls `UiTheme.install()`, which **merges it into `ThemeDB.get_default_theme()`**. Setting it on the root Window does not work: CanvasLayers break Window theme inheritance, and the HUD, popups and overlays all live under CanvasLayers (`test_ui_theme` checks a Button under a CanvasLayer). Explicit `add_theme_*_override` calls still win, so bespoke styles (card views, rarity badges) are unchanged. New widgets need no styling: build them through `UiUtil` and they pick up the theme.
 
+#### Fonts (GID-132 / TID-509)
+
+`assets/fonts/Nunito-Bold.woff2` is the default font: the theme's `default_font`, `ThemeDB.fallback_font`, and so also `Label3D` name tags. `assets/fonts/Cinzel-Bold.woff2` is the heading font, used through the `TitleLabel` theme type variation (base `Label`). Both are Fontsource Latin subsets under SIL OFL 1.1; the licence texts sit next to them and attribution is in `CREDITS.md`. `UiTheme.body_font()` / `title_font()` append the engine font as a fallback, so symbols and non-Latin glyphs still render. `install()` sets `default_font` explicitly, because `merge_with` does not copy it. Headings: `UiUtil.make_title_label()` applies the variation; for other labels set `theme_type_variation = &"TitleLabel"` (MenuScene title, TutorialPopup title).
+
 ### BaseOverlay (`scenes/ui/BaseOverlay.gd`)
 
 All modal overlay scenes extend `"res://scenes/ui/BaseOverlay.gd"` using a string-path extends (not class_name). The base class provides:

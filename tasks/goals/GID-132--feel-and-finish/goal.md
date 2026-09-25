@@ -12,7 +12,7 @@ Raised by the user (2026-09-25) after GID-131: *"next improvements"* → *"ok, d
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-509 | Project Fonts (Nunito body, Cinzel titles) | agent | pending | — |
+| TID-509 | Project Fonts (Nunito body, Cinzel titles) | agent | done | — |
 | TID-510 | HUD Button Icons | agent | pending | — |
 | TID-511 | Idle Life for World Sprites | agent | pending | — |
 | TID-512 | Battle Juice | agent | pending | — |

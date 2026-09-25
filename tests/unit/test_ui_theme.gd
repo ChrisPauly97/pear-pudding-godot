@@ -26,3 +26,15 @@ func test_installed_theme_reaches_controls_under_a_canvas_layer() -> void:
 	if sb != null:
 		assert_eq(sb.bg_color, UT.BUTTON_BG)
 	cl.free()
+
+
+func test_fonts_installed_with_fallback() -> void:
+	UT.install()
+	var t: Theme = ThemeDB.get_default_theme()
+	assert_not_null(t.default_font)
+	assert_eq(t.default_font, UT.body_font())
+	assert_true(t.is_type_variation(UT.TITLE_VARIATION, "Label"))
+	var ff: FontFile = UT.body_font() as FontFile
+	assert_gt(ff.fallbacks.size(), 0, "falls back to the engine font for missing glyphs")
+	for p: String in ["res://assets/fonts/OFL-Nunito.txt", "res://assets/fonts/OFL-Cinzel.txt"]:
+		assert_true(FileAccess.file_exists(p), "licence " + p)
