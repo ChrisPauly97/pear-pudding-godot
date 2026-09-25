@@ -88,45 +88,10 @@ func _close() -> void:
 func _attach_button_fx(btn: BaseButton) -> void:
 	UiFx.attach(btn)
 
-# Attach mouse-drag-to-scroll behaviour to any ScrollContainer.
-# Works on the container's background and on child controls that let events
-# through (Labels, separators, etc.). Interactive controls (Button, HSlider)
-# still handle their own input normally.
-static func attach_drag_scroll(scroll: ScrollContainer) -> void:
-	var drag_start := [0.0]
-	var scroll_start := [0]
-	var dragging := [false]
-	var last_motion_ms := [0]
-
-	scroll.gui_input.connect(func(ev: InputEvent) -> void:
-		if ev is InputEventMouseButton:
-			var mev: InputEventMouseButton = ev
-			if mev.button_index == MOUSE_BUTTON_LEFT:
-				if mev.pressed:
-					drag_start[0] = mev.position.y
-					scroll_start[0] = scroll.scroll_vertical
-					dragging[0] = false
-					last_motion_ms[0] = Time.get_ticks_msec()
-				else:
-					dragging[0] = false
-		elif ev is InputEventMouseMotion:
-			var mm: InputEventMouseMotion = ev
-			if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
-				# A press consumed by a child button never reaches this handler —
-				# adopt such a gesture on its first motion instead of scrolling
-				# from the previous gesture's stale origin (GID-120 / TID-454).
-				var now: int = Time.get_ticks_msec()
-				if now - int(last_motion_ms[0]) > 150:
-					drag_start[0] = mm.position.y
-					scroll_start[0] = scroll.scroll_vertical
-					dragging[0] = false
-				last_motion_ms[0] = now
-				var dy: float = mm.position.y - drag_start[0]
-				if dragging[0] or absf(dy) > 8.0:
-					dragging[0] = true
-					scroll.scroll_vertical = scroll_start[0] - int(dy)
-					scroll.accept_event()
-	)
+static func attach_drag_scroll(_scroll: ScrollContainer) -> void:
+	# Tap-and-drag now works on every ScrollContainer via the DragScroll
+	# autoload, including drags that start on a button. Kept for callers.
+	pass
 
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):

@@ -225,9 +225,11 @@ static func build_terrain_mesh(
 		origin_x: float, origin_z: float,
 		nvx: int, nvz: int, step: float,
 		peak_h: float,
-		ley_field: PackedFloat32Array = PackedFloat32Array()) -> Dictionary:
+		ley_field: PackedFloat32Array = PackedFloat32Array(),
+		water_field: PackedFloat32Array = PackedFloat32Array()) -> Dictionary:
 	var total_verts: int = nvx * nvz
 	var has_ley: bool = ley_field.size() == total_verts
+	var has_water: bool = water_field.size() == total_verts  # UV2.y, GID-134 / TID-524
 
 	var verts   := PackedVector3Array()
 	var normals := PackedVector3Array()
@@ -257,7 +259,7 @@ static func build_terrain_mesh(
 			var is_wall: float = 1.0 if ttype == IsoConst.TILE_WALL else 0.0
 			var is_path: float = 1.0 if ttype == IsoConst.TILE_PATH else 0.0
 			colors[i] = Color(blend, is_wall, is_path, 1.0)
-			uv2s[i] = Vector2(ley_field[i] if has_ley else 0.0, 0.0)
+			uv2s[i] = Vector2(ley_field[i] if has_ley else 0.0, water_field[i] if has_water else 0.0)
 
 	# Normals via finite differences
 	for iz in range(nvz):
@@ -412,7 +414,7 @@ static func build_wall_face_mesh(
 
 	var tile_min_x: int = int(round(origin_x / IsoConst.TILE_SIZE))
 	var tile_min_z: int = int(round(origin_z / IsoConst.TILE_SIZE))
-	# wall colour: v_blend=0 (unused), v_wall=1 (is_wall flag), alpha=1
+	# wall colour: v_blend = height fraction up the face (see face_top), v_wall=1, alpha=1
 	var wall_col := Color(0.0, 1.0, 0.0, 1.0)
 	# cracked wall colour: same flags but alpha=0.3 — shader reads alpha < 0.5 as v_cracked=1
 	var cracked_col := Color(0.0, 1.0, 0.0, 0.3)
@@ -425,6 +427,9 @@ static func build_wall_face_mesh(
 			if this_tile != IsoConst.TILE_WALL and this_tile != IsoConst.TILE_CRACKED:
 				continue
 			var face_col: Color = cracked_col if this_tile == IsoConst.TILE_CRACKED else wall_col
+			# R = 0 at the foot, 1 at the top: the shader's height fraction up the face
+			# (moss at the base, a lit top edge — GID-134 / TID-521).
+			var face_top := Color(1.0, face_col.g, face_col.b, face_col.a)
 			var wh: int = height_lookup.call(tx, tz)
 			var top_y: float = minf(float(maxi(1, wh)) * IsoConst.WALL_FACE_H, WALL_MAX_H)
 
@@ -449,7 +454,7 @@ static func build_wall_face_mesh(
 				uvs.append(Vector2(lx0, lz0)); uvs.append(Vector2(lx0, lz1))
 				uvs.append(Vector2(lx0, lz0)); uvs.append(Vector2(lx0, lz1))
 				colors.append(face_col); colors.append(face_col)
-				colors.append(face_col); colors.append(face_col)
+				colors.append(face_top); colors.append(face_top)
 				indices.append(bi);     indices.append(bi + 2); indices.append(bi + 1)
 				indices.append(bi + 1); indices.append(bi + 2); indices.append(bi + 3)
 
@@ -468,7 +473,7 @@ static func build_wall_face_mesh(
 				uvs.append(Vector2(lx1, lz1)); uvs.append(Vector2(lx1, lz0))
 				uvs.append(Vector2(lx1, lz1)); uvs.append(Vector2(lx1, lz0))
 				colors.append(face_col); colors.append(face_col)
-				colors.append(face_col); colors.append(face_col)
+				colors.append(face_top); colors.append(face_top)
 				indices.append(bi);     indices.append(bi + 2); indices.append(bi + 1)
 				indices.append(bi + 1); indices.append(bi + 2); indices.append(bi + 3)
 
@@ -487,7 +492,7 @@ static func build_wall_face_mesh(
 				uvs.append(Vector2(lx1, lz0)); uvs.append(Vector2(lx0, lz0))
 				uvs.append(Vector2(lx1, lz0)); uvs.append(Vector2(lx0, lz0))
 				colors.append(face_col); colors.append(face_col)
-				colors.append(face_col); colors.append(face_col)
+				colors.append(face_top); colors.append(face_top)
 				indices.append(bi);     indices.append(bi + 2); indices.append(bi + 1)
 				indices.append(bi + 1); indices.append(bi + 2); indices.append(bi + 3)
 
@@ -506,7 +511,7 @@ static func build_wall_face_mesh(
 				uvs.append(Vector2(lx0, lz1)); uvs.append(Vector2(lx1, lz1))
 				uvs.append(Vector2(lx0, lz1)); uvs.append(Vector2(lx1, lz1))
 				colors.append(face_col); colors.append(face_col)
-				colors.append(face_col); colors.append(face_col)
+				colors.append(face_top); colors.append(face_top)
 				indices.append(bi);     indices.append(bi + 2); indices.append(bi + 1)
 				indices.append(bi + 1); indices.append(bi + 2); indices.append(bi + 3)
 
@@ -522,8 +527,8 @@ static func build_wall_face_mesh(
 			normals.append(Vector3(0.0, 1.0, 0.0))
 			uvs.append(Vector2(lx0, lz0)); uvs.append(Vector2(lx1, lz0))
 			uvs.append(Vector2(lx0, lz1)); uvs.append(Vector2(lx1, lz1))
-			colors.append(wall_col); colors.append(wall_col)
-			colors.append(wall_col); colors.append(wall_col)
+			colors.append(face_top); colors.append(face_top)
+			colors.append(face_top); colors.append(face_top)
 			# CCW winding from above (+Y): (0,v0),(2,v2),(1,v1) and (1,v1),(2,v2),(3,v3)
 			indices.append(tbi);     indices.append(tbi + 2); indices.append(tbi + 1)
 			indices.append(tbi + 1); indices.append(tbi + 2); indices.append(tbi + 3)

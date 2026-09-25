@@ -69,6 +69,7 @@ const _WP_ARRIVE_DIST_SQ: float = 0.3 * 0.3  # arrive when within 0.3 world unit
 ## Mounted hoofbeat cadence (the rider sprite idles, so no frame events).
 const _HOOF_INTERVAL: float = 0.26
 
+var visual_bob: float = 0.0  # walk/breath lift, set by CharacterPresence (GID-134)
 var _velocity_y: float = 0.0
 var _sprite: AnimatedSprite3D
 var _sprite_base_pos: Vector3 = Vector3.ZERO   # on-foot sprite position; the ride pose offsets from it
@@ -412,7 +413,7 @@ func _surface_underfoot() -> String:
 	if map_name == "main":
 		biome = _InfiniteWorldGen.biome_for_chunk(floori(float(tx) / IsoConst.CHUNK_SIZE),
 				floori(float(tz) / IsoConst.CHUNK_SIZE), SaveManager.world_seed)
-		weather = WeatherManager.current_weather
+		weather = WeatherManager.shown(WeatherManager.current_weather)
 	return _FootstepSurface.surface_for(tile, biome, map_name, weather)
 
 func _update_mount_visuals(mounted: bool) -> void:
@@ -440,7 +441,8 @@ func snap_visuals_to_pixels(cam_basis: Basis, pixel: float) -> void:
 	var feet: Vector3 = global_position
 	_pixel_offset = _PixelSnap.snap(feet, cam_basis, pixel) - feet
 	if _sprite != null:
-		_sprite.position = _sprite_pose_pos + _pixel_offset
+		# World-up lift in whole screen pixels (up projects at cos 35.26° = 0.8165).
+		_sprite.position = _sprite_pose_pos + _pixel_offset + Vector3.UP * snappedf(visual_bob, pixel / 0.8165)
 	if _mount_sprite != null:
 		_mount_sprite.position = _mount_pose_pos + _pixel_offset
 

@@ -25,6 +25,10 @@ uniform float uv_scale : hint_range(0.05, 2.0) = 0.5;
 uniform vec3 grass_tint = vec3(1.0, 1.0, 1.0);
 uniform vec3 hill_tint  = vec3(1.0, 1.0, 1.0);
 uniform vec3 wall_tint  = vec3(1.0, 1.0, 1.0);
+// Desaturate the (green) ground textures before tinting: desert sand, scorched
+// ash, mountain snow read as themselves instead of tinted meadow (GID-134).
+uniform float ground_desat : hint_range(0.0, 1.0) = 0.0;
+uniform float wall_moss : hint_range(0.0, 1.0) = 1.0;  // per biome: 0 in desert/scorched
 
 // Per-chunk blight intensity [0=clean, 1=fully blighted].
 // Set via MeshInstance3D.set_instance_shader_parameter() — no material duplication needed.
@@ -53,6 +57,7 @@ varying float v_d0;         // fbm noise channel 0, computed per-vertex
 varying float v_d1;         // fbm noise channel 1, computed per-vertex
 varying float v_ley;        // ley line intensity [0..1], baked into UV2.x per vertex
 varying float v_dip;        // 0 low .. 1 high flat-ground jitter (TID-515 puddles)
+varying float v_water;      // stream/pond intensity [0..1], baked into UV2.y (GID-134 / TID-524)
 
 // -- noise for micro grass detail on flat areas --
 float hash2(vec2 p) {
@@ -105,6 +110,12 @@ void vertex() {
 	v_d1 = fbm(world_pos.xz * 0.09 + vec2(7.3, 2.1));
 	// Ley intensity baked per vertex into UV2.x by ChunkRenderer.
 	v_ley = UV2.x;
+	// Streams and ponds (UV2.y): the water surface sits a little below the
+	// meadow so it reads as a channel; collision is untouched (the hero wades).
+	v_water = UV2.y;
+	if (v_water > 0.01 && v_path < 0.5) {
+		VERTEX.y -= smoothstep(0.1, 0.6, v_water) * 0.2 * flat_factor;
+	}
 }
 
 void fragment() {
@@ -121,7 +132,12 @@ void fragment() {
 	// Zone blend factors — driven by height only, not slope.
 	// Slope-based blending caused dungeon floor tiles adjacent to tall walls
 	// to incorrectly show the hill-side (dirt) texture.
-	float t_side = smoothstep(0.05, 0.55, v_blend);
+	// Soft hill edges (GID-134 / TID-520): grass climbs the lower slope and the
+	// dirt only shows where the side is genuinely steep, with a ragged noise
+	// edge — not a hard brown ring the moment the ground starts to rise.
+	float t_side = v_blend > 0.05
+		? smoothstep(0.2, 0.62, v_blend + (vnoise(v_world_xz * 0.9) - 0.5) * 0.3)
+			* smoothstep(0.18, 0.5, slope) : 0.0;
 	float t_top  = smoothstep(0.60, 0.92, v_blend);
 
 	// Sample only the textures actually contributing to this fragment.
@@ -172,10 +188,18 @@ void fragment() {
 		}
 	}
 
+	if (!is_wall && ground_desat > 0.0) {
+		base_col = mix(base_col, vec3(dot(base_col, vec3(0.299, 0.587, 0.114))) * 1.3, ground_desat);
+	}
 	if (!is_wall) {
-		// Macro variation: ±~12 % brightness plus drier, yellower patches.
-		base_col *= mix(0.88, 1.1, d0);
-		base_col = mix(base_col, base_col * vec3(1.08, 1.03, 0.82), smoothstep(0.5, 0.75, d1) * 0.6);
+		// Hill foot: a gentle darkening where the ground starts to rise grounds
+		// the hill instead of it floating on the meadow.
+		base_col *= 1.0 - 0.12 * smoothstep(0.0, 0.06, v_blend) * (1.0 - smoothstep(0.12, 0.35, v_blend));
+		// Macro variation (GID-134 / TID-519): brightness swell, drier golden
+		// patches and deeper, cooler lush hollows so a meadow isn't one green.
+		base_col *= mix(0.82, 1.12, d0);
+		base_col = mix(base_col, base_col * vec3(1.10, 1.02, 0.74), smoothstep(0.5, 0.75, d1) * 0.7);
+		base_col = mix(base_col, base_col * vec3(0.80, 0.92, 0.88), smoothstep(0.42, 0.22, d1) * 0.6);
 	}
 	if (path_t > 0.001 && !is_path && !is_wall) {
 		base_col = mix(base_col, texture(path_texture, uv_xz).rgb * path_tint / max(grass_tint, vec3(0.01)), path_t);
@@ -203,6 +227,24 @@ void fragment() {
 	// Cracked walls: darker with a warm brownish shift to distinguish them subtly
 	if (is_wall && v_cracked > 0.5) {
 		tinted_col = vec3(tinted_col.r * 0.80 + 0.06, tinted_col.g * 0.65, tinted_col.b * 0.60);
+	}
+
+	// Wall & ruin detail (GID-134 / TID-521). v_blend runs 0 at a wall face's
+	// foot to 1 at its top (TerrainMath.build_wall_face_mesh). Moss creeps up
+	// from the base and in noisy patches, caps carry moss tufts, the foot sits
+	// in a soft contact shadow and the top edge catches a little light.
+	if (is_wall) {
+		float side = smoothstep(0.3, 0.7, slope);
+		// Noise in face space (along-face axis × height) so moss forms patches
+		// on the bricks instead of diagonal streaks.
+		float su = mix(v_world_xz.y, v_world_xz.x, abs(v_normal_world.z));
+		float mn = mix(vnoise(v_world_xz * 0.8), vnoise(vec2(su * 0.9, v_world_y * 1.4)), side);
+		float moss = side * clamp(smoothstep(0.45, 0.0, v_blend) * 0.9 + smoothstep(0.6, 0.78, mn) * 0.7, 0.0, 1.0);
+		moss = max(moss, (1.0 - side) * smoothstep(0.55, 0.75, mn) * 0.75) * wall_moss;
+		vec3 moss_col = vec3(0.36, 0.52, 0.20) * (0.8 + 0.4 * mn);
+		tinted_col = mix(tinted_col * 1.3, moss_col, moss * 0.7);
+		tinted_col *= mix(1.0, mix(0.6, 1.0, smoothstep(0.0, 0.3, v_blend)), side);
+		tinted_col += side * smoothstep(0.9, 1.0, v_blend) * vec3(0.10, 0.09, 0.07);
 	}
 
 	// Blight tint: lerp toward a dark desaturated purple as blight_amount increases.
@@ -237,7 +279,29 @@ void fragment() {
 		}
 	}
 
-	ALBEDO = tinted_col * contact_shadow(vec3(v_world_xz.x, v_world_y, v_world_xz.y));
+	// Streams and ponds (GID-134 / TID-524): level grass only, ragged banks, a
+	// lighter shoreline, deeper colour mid-channel and drifting ripples that
+	// catch the sky. Drawn after the wet block so standing water wins.
+	if (v_water > 0.01 && !is_wall && !is_path) {
+		float lg = smoothstep(0.55, 0.95, v_normal_world.y) * (1.0 - smoothstep(0.02, 0.1, v_blend));
+		float water = smoothstep(0.16, 0.36, v_water + (vnoise(v_world_xz * 1.3) - 0.5) * 0.12) * lg;
+		if (water > 0.001) {
+			float deep = smoothstep(0.35, 0.9, v_water);
+			vec2 wp = v_world_xz * 1.4 + vec2(TIME * 0.35, TIME * 0.2);
+			float r0 = vnoise(wp);
+			float rx = vnoise(wp + vec2(0.15, 0.0)) - r0;
+			float rz = vnoise(wp + vec2(0.0, 0.15)) - r0;
+			vec3 wcol = mix(vec3(0.24, 0.46, 0.48), vec3(0.10, 0.25, 0.36), deep) * (0.94 + r0 * 0.12);
+			float shore = smoothstep(0.0, 0.3, water) * (1.0 - smoothstep(0.3, 0.75, water));
+			tinted_col = mix(tinted_col, wcol, water * 0.9) + shore * vec3(0.10, 0.12, 0.10);
+			wet_rough = mix(wet_rough, 0.06, water);
+			wet_spec = mix(wet_spec, 0.6, water);
+			vec3 wn = normalize(vec3(-rx * 2.5, 1.0, -rz * 2.5));
+			NORMAL = normalize((VIEW_MATRIX * vec4(mix(normalize(v_normal_world), wn, water), 0.0)).xyz);
+		}
+	}
+
+	ALBEDO = tinted_col * contact_shadow(vec3(v_world_xz.x, v_world_y, v_world_xz.y)) * cloud_shadow(v_world_xz);
 
 	// Wall cutaway — see occlusion_focus. The camera is orthographic and locked
 	// to (-1,-1,-1), so "between camera and player" is a cylinder along that axis.

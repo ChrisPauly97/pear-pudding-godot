@@ -13,6 +13,7 @@ const _GrassBlades = preload("res://scenes/world/GrassBlades.gd")
 const _WeatherLook = preload("res://game_logic/WeatherLook.gd")
 const _Lightning = preload("res://game_logic/Lightning.gd")
 const _AtmosphereMath = preload("res://game_logic/AtmosphereMath.gd")
+const _BiomeDef = preload("res://game_logic/world/BiomeDef.gd")
 const INTERVAL: float = 0.5  # update lighting at 2 Hz
 
 # Sun arc (TID-485). The old sun swung about the X axis alone: it rose due
@@ -29,6 +30,10 @@ const NOON_TILT: float = 0.52359878  # 30°
 const SUN_DAY_COLOR := Color(1.0, 0.95, 0.85)
 const SUN_GOLDEN_COLOR := Color(1.0, 0.74, 0.42)
 const SUN_HORIZON_COLOR := Color(0.95, 0.40, 0.14)
+## Peak moonlight and the cool night ambient. Tuned so night reads as moonlit
+## blue rather than near-black on a phone screen.
+const MOON_ENERGY: float = 0.7
+const NIGHT_AMBIENT: Color = Color(0.17, 0.19, 0.30)
 const GOLDEN_BAND: float = 0.45  # sun height (sin of arc angle) below which it warms
 
 # Weather look (TID-486): seconds a weather change takes to blend fog, sun,
@@ -49,6 +54,8 @@ const FLASH_COLOR_PULL: float = 0.7
 ## Returns false to suppress the flash (the reduce-flashing setting); thunder
 ## still plays. WorldScene wires it to the save setting so toggles apply live.
 var flashing_allowed: Callable = Callable()
+## Whether storms may strike lightning at all (Settings > Thunder & Lightning).
+var storms_allowed: Callable = Callable()
 
 var _sun: DirectionalLight3D
 var _moon: DirectionalLight3D
@@ -88,6 +95,12 @@ var _base_shadow_opacity: float = 1.0
 
 # Rain wetness: eased toward the target look's `wetness` (quick to wet, slow to dry).
 var _wetness: float = 0.0
+# Biome grade + mood (GID-134 / TID-525), eased toward the current biome's entry.
+var _grade: Dictionary = {"brightness": 1.0, "contrast": 1.0, "saturation": 1.0, "mood": Color.WHITE}
+var _grade_to: Dictionary = _grade
+var _grade_blending: bool = false
+var _cloud_offset: Vector2 = Vector2.ZERO
+var _cached_cloud_strength: float = -1.0
 var _cached_wetness: float = -1.0
 var _cached_rain: float = -1.0
 var _weather_seen: bool = false
@@ -236,11 +249,79 @@ func tick(delta: float) -> void:
 		_apply_lighting()
 	_tick_wetness(delta)
 	_tick_lightning(delta)
+	_tick_clouds(delta)
+	_tick_grade(delta)
 	_timer += delta
 	if _timer < INTERVAL:
 		return
 	_advance(_timer)
 	_timer = 0.0
+
+## Eases the Environment adjustment and light mood toward `biome_id`'s
+## BiomeDef.ADJ_PARAMS entry. `instant` for world entry.
+func set_biome_grade(biome_id: int, instant: bool = false) -> void:
+	if biome_id < 0 or biome_id >= _BiomeDef.ADJ_PARAMS.size():
+		return
+	_grade_to = _BiomeDef.ADJ_PARAMS[biome_id]
+	_grade_blending = true
+	if instant:
+		_grade = _grade_to
+		_apply_grade()
+
+
+func _tick_grade(delta: float) -> void:
+	if not _grade_blending:
+		return
+	var k: float = clampf(delta / _BiomeDef.BIOME_BLEND_SECONDS * 3.0, 0.0, 1.0)
+	var done: bool = true
+	var next: Dictionary = {}
+	for key: String in ["brightness", "contrast", "saturation"]:
+		var a: float = float(_grade.get(key, 1.0))
+		var b: float = float(_grade_to.get(key, 1.0))
+		next[key] = lerpf(a, b, k)
+		done = done and absf(a - b) < 0.002
+	var ma: Color = _grade.get("mood", Color.WHITE) as Color
+	var mb: Color = _grade_to.get("mood", Color.WHITE) as Color
+	next["mood"] = ma.lerp(mb, k)
+	done = done and ma.is_equal_approx(mb)
+	_grade = _grade_to if done else next
+	_grade_blending = not done
+	_apply_grade()
+
+
+func _apply_grade() -> void:
+	var env: Environment = _world_env.environment if _world_env != null else null
+	if env != null:
+		env.adjustment_enabled = true
+		env.adjustment_brightness = float(_grade["brightness"])
+		env.adjustment_contrast = float(_grade["contrast"])
+		env.adjustment_saturation = float(_grade["saturation"])
+	_apply_lighting()
+
+
+## Current biome light mood (multiplies ambient, fog and sun colour).
+func mood() -> Color:
+	return _grade.get("mood", Color.WHITE) as Color
+
+
+## Cloud shadows drift with the weather's wind (GID-134 / TID-523). The offset
+## is accumulated here so a wind change bends the drift instead of jumping it.
+func _tick_clouds(delta: float) -> void:
+	var wind: Vector2 = _look.get("wind_direction", Vector2(0.6, 0.3)) as Vector2
+	_cloud_offset += wind * float(_look.get("wind_scale", 1.0)) * _AtmosphereMath.CLOUD_SPEED * delta
+	_cloud_offset = Vector2(fposmod(_cloud_offset.x, 4096.0), fposmod(_cloud_offset.y, 4096.0))
+	RenderingServer.global_shader_parameter_set("cloud_offset", _cloud_offset)
+	var sun_h: float = sun_direction(_time_of_day).y
+	var strength: float = _AtmosphereMath.cloud_shadow_strength(sun_h, float(_look.get("sky_overcast", 0.0)))
+	if not is_equal_approx(strength, _cached_cloud_strength):
+		_cached_cloud_strength = strength
+		RenderingServer.global_shader_parameter_set("cloud_shadow_strength", strength)
+
+
+## Current cloud shadow strength (0 = none), for tests.
+func cloud_strength() -> float:
+	return maxf(_cached_cloud_strength, 0.0)
+
 
 func _tick_wetness(delta: float) -> void:
 	var rain: float = roundf(float(_look["wetness"]) * 32.0) / 32.0
@@ -260,6 +341,8 @@ func _write_wetness() -> void:
 
 func _tick_lightning(delta: float) -> void:
 	var strength: float = float(_look_to["lightning"])
+	if storms_allowed.is_valid() and not bool(storms_allowed.call()):
+		strength = 0.0
 	if strength <= 0.0:
 		_strike_in = -1.0
 	elif _strike_in < 0.0:
@@ -315,7 +398,7 @@ func _apply_lighting() -> void:
 	# Cap below 1.5: sun + ambient + fill light stack multiplicatively on albedo;
 	# 1.5 pushed midday terrain past 2.5x albedo and over the glow threshold.
 	var sun_energy: float = clampf(sun_h * 1.5, 0.0, 1.1) * light_mult
-	var sun_color: Color = sun_color_for(sun_h)
+	var sun_color: Color = sun_color_for(sun_h) * mood().lerp(Color.WHITE, 0.4)
 
 	if not is_equal_approx(sun_energy, _cached_sun_energy):
 		_sun.light_energy = sun_energy
@@ -331,7 +414,9 @@ func _apply_lighting() -> void:
 		_cached_shadow_opacity = shadow_opacity
 
 	var moon_h: float = -sun_h
-	var moon_energy: float = clampf(moon_h * 0.35, 0.0, 0.35) * light_mult
+	# Moonlight rises fast after dusk and holds, so the whole night stays
+	# readable rather than only the hours around midnight.
+	var moon_energy: float = smoothstep(0.0, 0.25, moon_h) * MOON_ENERGY * light_mult
 	if not is_equal_approx(moon_energy, _cached_moon_energy):
 		_moon.light_energy = moon_energy
 		_moon.visible = moon_energy > 0.001
@@ -359,7 +444,7 @@ func _apply_lighting() -> void:
 			sm.sky_horizon_color     = sky
 			sm.ground_horizon_color  = sky.darkened(0.25)
 	var fog_col: Color = sky.lerp(Color(0.20, 0.20, 0.22), 0.25).lerp(
-		overcast_col, float(_look["fog_color_weight"]))
+		overcast_col, float(_look["fog_color_weight"])) * mood()
 	if env.fog_enabled and not fog_col.is_equal_approx(_cached_fog_color):
 		env.fog_light_color = fog_col
 		_cached_fog_color = fog_col
@@ -375,12 +460,13 @@ func _apply_lighting() -> void:
 		env.fog_height_density = height_fog
 		_cached_height_fog = height_fog
 
-	var base_ambient: Color = Color(0.10, 0.10, 0.15).lerp(Color(0.65, 0.63, 0.60), t_day)
+	var base_ambient: Color = NIGHT_AMBIENT.lerp(Color(0.65, 0.63, 0.60), t_day)
+	var md: Color = mood()
 	var ambient_color: Color = Color(
-		base_ambient.r * weather_tint.r,
-		base_ambient.g * weather_tint.g,
-		base_ambient.b * weather_tint.b)
-	var ambient_energy: float = lerpf(0.35, 0.7, t_day)
+		base_ambient.r * weather_tint.r * md.r,
+		base_ambient.g * weather_tint.g * md.g,
+		base_ambient.b * weather_tint.b * md.b)
+	var ambient_energy: float = lerpf(0.5, 0.7, t_day)
 	if _flash > 0.0:
 		ambient_color = ambient_color.lerp(flash_col, _flash * FLASH_COLOR_PULL)
 		ambient_energy += _flash * FLASH_AMBIENT_BOOST

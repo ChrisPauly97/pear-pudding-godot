@@ -29,6 +29,8 @@ const STYLES: Array = [
 const FAST_SPEED_MULT: float = 2.6
 const HOP_TIME: float = 0.35
 const HOP_HEIGHT: float = 0.35
+const HERO_STEP_LIFT: float = 0.06
+const HERO_BREATH_LIFT: float = 0.03
 ## Beyond this distance from the player sprites are left alone (no cost).
 const MAX_DISTANCE: float = 32.0
 
@@ -64,6 +66,15 @@ static func pose(style: int, t: float, phase: float, fast: bool, hop_age: float)
 		bob += HOP_HEIGHT * 4.0 * k * (1.0 - k)
 		squash += 0.08 * (1.0 - k)
 	return Vector2(bob, squash)
+
+
+## Hero bob (GID-134 / TID-526), world units up: a one-step lift on the walk
+## cycle's passing frames (1 and 3) and, standing still, a brief breath every
+## few seconds. Stepped rather than smooth so it stays on whole pixels.
+static func hero_bob(walking: bool, frame: int, t: float) -> float:
+	if walking:
+		return HERO_STEP_LIFT if frame % 2 == 1 else 0.0
+	return HERO_BREATH_LIFT if sin(t * 2.0) > 0.75 else 0.0
 
 
 ## Applies a pose to `sprite` given its rest position.

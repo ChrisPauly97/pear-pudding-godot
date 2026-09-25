@@ -39,6 +39,10 @@ const FIREFLY_BLOCKING: Array[String] = [
 ]
 ## Weathers that strip the air of leaves (snow cover).
 const LEAF_BLOCKING: Array[String] = ["snow", "blizzard"]
+# Footstep splashes on wet ground (see set_wet).
+const SPLASH_TINT := Color(0.80, 0.88, 0.97)
+const SPLASH_GRAVITY := Vector3(0.0, -9.0, 0.0)
+const SPLASH_SCALE: float = 0.6
 
 static var _dust_mesh: QuadMesh
 static var _firefly_mesh: QuadMesh
@@ -137,6 +141,31 @@ static func style_dust(pm: ParticleProcessMaterial) -> void:
 	_ensure_shared()
 	pm.color_ramp = _dust_fade
 	pm.scale_curve = _dust_grow
+
+
+## Footstep dust on wet ground reads as water: pale blue droplets that are
+## smaller and fall fast. The dry look is stashed on the material the first
+## time, so toggling back restores it exactly.
+
+
+static func set_wet(pm: ParticleProcessMaterial, wet: bool) -> void:
+	if not pm.has_meta(&"dry_color"):
+		pm.set_meta(&"dry_color", pm.color)
+		pm.set_meta(&"dry_gravity", pm.gravity)
+		pm.set_meta(&"dry_scale", Vector2(pm.scale_min, pm.scale_max))
+	var dry_col: Color = pm.get_meta(&"dry_color")
+	var dry_grav: Vector3 = pm.get_meta(&"dry_gravity")
+	var dry_scale: Vector2 = pm.get_meta(&"dry_scale")
+	if wet:
+		pm.color = Color(SPLASH_TINT, dry_col.a * 0.8)
+		pm.gravity = SPLASH_GRAVITY
+		pm.scale_min = dry_scale.x * SPLASH_SCALE
+		pm.scale_max = dry_scale.y * SPLASH_SCALE
+	else:
+		pm.color = dry_col
+		pm.gravity = dry_grav
+		pm.scale_min = dry_scale.x
+		pm.scale_max = dry_scale.y
 
 
 ## A one-shot ground puff (landing, move start). `amount` is pre-scaled.

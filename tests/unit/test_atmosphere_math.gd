@@ -2,6 +2,7 @@
 extends "res://tests/framework/test_case.gd"
 
 const AM = preload("res://game_logic/AtmosphereMath.gd")
+const BiomeDef = preload("res://game_logic/world/BiomeDef.gd")
 const DNC = preload("res://scenes/world/DayNightCycle.gd")
 const WeatherLook = preload("res://game_logic/WeatherLook.gd")
 
@@ -97,3 +98,44 @@ func test_terrain_rain_global_tracks_raining_now() -> void:
 	sun.free()
 	moon.free()
 	we.free()
+
+
+func test_cloud_shadows_by_day_only_and_fade_under_overcast() -> void:
+	assert_almost_eq(AM.cloud_shadow_strength(-0.3, 0.0), 0.0, 0.0001, "no cloud shadows at night")
+	assert_almost_eq(AM.cloud_shadow_strength(0.8, 0.0), AM.CLOUD_SHADOW_MAX, 0.0001)
+	assert_lt(AM.cloud_shadow_strength(0.8, 0.9), AM.cloud_shadow_strength(0.8, 0.0) * 0.5,
+		"a fully overcast sky has no distinct cloud shadows")
+
+
+func test_biome_grade_eases_instead_of_snapping() -> void:
+	var nodes: Array = _make_dnc_grade()
+	var dnc: DNC = nodes[0]
+	var env: Environment = (nodes[3] as WorldEnvironment).environment
+	dnc.set_biome_grade(0, true)
+	var meadow: Color = dnc.mood()
+	assert_almost_eq(env.adjustment_saturation, float(BiomeDef.ADJ_PARAMS[0]["saturation"]), 0.001)
+	dnc.set_biome_grade(3)
+	dnc.tick(0.1)
+	assert_true(dnc.mood() != meadow and dnc.mood() != (BiomeDef.ADJ_PARAMS[3]["mood"] as Color),
+		"mid-blend mood sits between the two biomes")
+	for i in 200:
+		dnc.tick(0.1)
+	assert_true(dnc.mood().is_equal_approx(BiomeDef.ADJ_PARAMS[3]["mood"] as Color), "blend settles")
+	assert_almost_eq(env.adjustment_saturation, float(BiomeDef.ADJ_PARAMS[3]["saturation"]), 0.01)
+	_free_nodes(nodes)
+
+
+func _make_dnc_grade() -> Array:
+	var dnc := DNC.new()
+	var sun := DirectionalLight3D.new()
+	var moon := DirectionalLight3D.new()
+	var we := WorldEnvironment.new()
+	we.environment = Environment.new()
+	dnc.setup(sun, moon, we, true, 600.0, 0.4)
+	dnc.set_weather("", true)
+	return [dnc, sun, moon, we]
+
+
+func _free_nodes(nodes: Array) -> void:
+	for n: Variant in nodes:
+		(n as Node).free()

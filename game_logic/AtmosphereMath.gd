@@ -38,6 +38,10 @@ const DEPTH_FOG_MAX_ALPHA: float = 0.55
 ## Fog layer: surfaces below `DEPTH_FOG_TOP` fog in over `DEPTH_FOG_DEPTH`.
 const DEPTH_FOG_TOP: float = 1.2
 const DEPTH_FOG_DEPTH: float = 1.6
+## Cloud shadows (GID-134 / TID-523): world units per second at wind_scale 1,
+## and the darkest a shadow gets on a clear midday.
+const CLOUD_SPEED: float = 1.2
+const CLOUD_SHADOW_MAX: float = 0.25
 
 
 ## Height-fog density for a sun height `sun_h` (sin of the arc angle) and the
@@ -92,5 +96,11 @@ static func shaft_axis(toward_light: Vector3) -> Vector3:
 
 ## Depth-fog pass alpha 0..DEPTH_FOG_MAX_ALPHA for a sun height and the
 ## WeatherLook `height_fog` multiplier (the same curve as the height fog).
+## Strength of drifting cloud shadows: full by day, none at night, and fading
+## under overcast skies (the whole sky is one cloud, so light is already flat).
+static func cloud_shadow_strength(sun_h: float, overcast: float) -> float:
+	return CLOUD_SHADOW_MAX * clampf(sun_h * 3.0, 0.0, 1.0) * (1.0 - clampf(overcast, 0.0, 1.0) * 0.85)
+
+
 static func depth_fog_density(sun_h: float, weather_mult: float) -> float:
 	return height_fog_density(sun_h, weather_mult) / HEIGHT_FOG_MAX * DEPTH_FOG_MAX_ALPHA

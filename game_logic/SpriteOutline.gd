@@ -7,6 +7,10 @@ extends RefCounted
 
 const _SHADER = preload("res://assets/shaders/sprite_outline.gdshader")
 const META_OUTLINED := "outlined"
+const OUTLINE_COLOR := Color(0.07, 0.05, 0.09)
+## Interact glow (GID-134 / TID-526): the outline warms to this when the hero
+## can use something nearby.
+const GLOW_COLOR := Color(1.0, 0.82, 0.35)
 
 
 static func apply(sprite: SpriteBase3D) -> void:
@@ -21,6 +25,15 @@ static func apply(sprite: SpriteBase3D) -> void:
 		anim.frame_changed.connect(refresh.bind(sprite))
 		anim.animation_changed.connect(refresh.bind(sprite))
 	refresh(sprite)
+
+
+## Blends an outlined sprite's edge from the dark outline (0) to the warm
+## interact glow (1).
+static func set_glow(sprite: SpriteBase3D, amount: float) -> void:
+	var mat := sprite.material_override as ShaderMaterial if sprite != null else null
+	if mat == null:
+		return
+	mat.set_shader_parameter("outline_color", OUTLINE_COLOR.lerp(GLOW_COLOR, clampf(amount, 0.0, 1.0)))
 
 
 ## Current texture of a sprite (the playing frame for AnimatedSprite3D).

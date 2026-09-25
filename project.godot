@@ -43,6 +43,7 @@ NetworkManager="*res://autoloads/NetworkManager.gd"
 MpProfile="*res://autoloads/MpProfile.gd"
 SessionStore="*res://autoloads/SessionStore.gd"
 AutomationBridge="*res://autoloads/AutomationBridge.gd"
+DragScroll="*res://autoloads/DragScroll.gd"
 
 [debug]
 
@@ -152,6 +153,15 @@ textures/vram_compression/import_etc2_astc=true
 anti_aliasing/quality/msaa_3d=2
 
 [shader_globals]
+
+cloud_shadow_strength={
+"type": "float",
+"value": 0.0
+}
+cloud_offset={
+"type": "vec2",
+"value": Vector2(0, 0)
+}
 
 terrain_rain={
 "type": "float",

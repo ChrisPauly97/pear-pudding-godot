@@ -80,6 +80,7 @@ const _DownedSync        = preload("res://game_logic/net/DownedSync.gd")
 # Shared world life (GID-103): synced clock/weather, party night hunts, co-op siege
 const _ENV_BROADCAST_INTERVAL: float = 3.0  # host: low-Hz clock/weather broadcast
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
+const _PlaceNames = preload("res://game_logic/PlaceNames.gd")
 const _SESSION_SNAPSHOT_INTERVAL: float = 5.0
 const _LOOT_ROLL_TIMEOUT: float = 15.0
 const _COOP_SPIRE_DRAFT_TIMEOUT: float = 30.0
@@ -319,6 +320,7 @@ var _blight_heart_nodes: Dictionary = {} # heart_id -> Node3D
 var _active_landmark_data: Dictionary = {} # landmark_id -> Dictionary
 var _mana_well_nodes: Dictionary = {}    # well_id -> Node3D
 var _current_biome: int = -1
+var _current_biome_graded: int = -1  # first grade after entry applies instantly
 var _terrain_mat: ShaderMaterial
 var _last_save_pos: Vector2 = Vector2(-9999, -9999)
 var _interact_timer: float = 0.0
@@ -333,7 +335,6 @@ var _dnc: DayNightCycle = null
 var _sun_rays: _SunRaysFx = null  # TID-488 dawn/dusk light shafts
 
 # Weather visuals
-var _active_weather_particles: Node3D = null
 
 # Camera smoothing: lerped toward player each _process frame to eliminate
 # micro-stutter on high-refresh displays (camera runs at render rate, physics at ~60 Hz).
@@ -543,6 +544,7 @@ func _ready() -> void:
 		_dnc.thunder_rumbled.connect(func(pitch: float) -> void: AudioManager.play_sfx_varied("thunder", pitch, 0.05))
 		_dnc.flashing_allowed = func() -> bool: return not bool(
 			SceneManager.save_manager.get_setting("reduce_flashing", false))
+		_dnc.storms_allowed = WeatherManager.storms_enabled
 
 	if _is_infinite:
 		WorldEvents.register_all(self)
@@ -801,9 +803,6 @@ func _exit_tree() -> void:
 	coop_session._teardown_coop()
 	if _csm != null:
 		_csm.exit_cleanup()
-	if _active_weather_particles != null and is_instance_valid(_active_weather_particles):
-		_active_weather_particles.queue_free()
-	_active_weather_particles = null
 
 # ── Co-op multiplayer (GID-090) ───────────────────────────────────────────────
 # All of this is inert unless a NetworkManager session is active when the world
@@ -923,14 +922,7 @@ func get_battlefield_context() -> Dictionary:
 	}
 
 func _update_hud() -> void:
-	if _is_infinite:
-		_map_label.text = "World: Infinite"
-	elif map_name.begins_with("spire_floor_"):
-		var _parts: PackedStringArray = map_name.split("_")
-		var _sf: int = int(_parts[2]) if _parts.size() > 2 else 1
-		_map_label.text = "Spire — Floor %d" % _sf
-	else:
-		_map_label.text = "Map: %s" % map_name
+	_map_label.text = _PlaceNames.biome_title(_current_biome) if _is_infinite else _PlaceNames.title(map_name)
 	_coin_label.text = "Coins: %d" % SceneManager.save_manager.coins
 	SceneManager.save_manager.coins_changed.connect(_on_coins_changed)
 	_world_hud.refresh_xp_bar()
@@ -1018,6 +1010,7 @@ func get_terrain_height(wx: float, wz: float) -> float:
 
 func _on_player_chunk_changed(_chunk: Vector2i, biome_id: int) -> void:
 	_current_biome = biome_id
+	_map_label.text = _PlaceNames.biome_title(biome_id)
 	AudioManager.play_music(_BIOME_MUSIC[biome_id])
 	AudioManager.set_ambience(biome_id)
 	SceneManager.save_manager.visit_biome(biome_id)
@@ -1025,17 +1018,11 @@ func _on_player_chunk_changed(_chunk: Vector2i, biome_id: int) -> void:
 	GameBus.biome_changed.emit(biome_id)
 	_apply_biome_color_grade(biome_id)
 
+## Biome grade + light mood, eased by DayNightCycle (GID-134 / TID-525).
 func _apply_biome_color_grade(biome_id: int) -> void:
-	if _world_env == null or _world_env.environment == null:
-		return
-	if biome_id < 0 or biome_id >= BiomeDef.ADJ_PARAMS.size():
-		return
-	var adj: Dictionary = BiomeDef.ADJ_PARAMS[biome_id] as Dictionary
-	var env: Environment = _world_env.environment
-	env.adjustment_enabled    = true
-	env.adjustment_brightness = float(adj.get("brightness", 1.0))
-	env.adjustment_contrast   = float(adj.get("contrast",   1.0))
-	env.adjustment_saturation = float(adj.get("saturation", 1.0))
+	if _dnc != null:
+		_dnc.set_biome_grade(biome_id, _current_biome_graded < 0)
+		_current_biome_graded = biome_id
 
 func _on_chunk_committed(_key: Vector2i, chunk_data: _ChunkData) -> void:
 	for l_data: Dictionary in chunk_data.landmarks:
@@ -1483,10 +1470,6 @@ func _process(delta: float) -> void:
 		_world_hud.update_coords(tx, tz)
 	if _grass:
 		_grass.update_player(_player.position, delta, _player.is_on_floor())
-
-	# Keep particle rig centred on the player
-	if _active_weather_particles != null and is_instance_valid(_active_weather_particles):
-		_active_weather_particles.position = _player.position + Vector3(0.0, 12.0, 0.0)
 
 	if _is_infinite:
 		if _world_hud != null:
@@ -2074,30 +2057,7 @@ func _on_scroll_collected(scroll_id: String) -> void:
 # ── Weather visuals ────────────────────────────────────────────────────────
 
 func _on_weather_changed(weather_id: String, _duration: float) -> void:
-	# Swap particle rig
-	if _active_weather_particles != null and is_instance_valid(_active_weather_particles):
-		_active_weather_particles.queue_free()
-	_active_weather_particles = null
-
-	if weather_id != "":
-		var particles: GPUParticles3D = WeatherParticles.make(weather_id) as GPUParticles3D
-		if particles != null:
-			particles.amount = _GraphicsQuality.scaled_amount(particles.amount, _graphics_knobs)
-			_entity_root.add_child(particles)
-			if _player != null:
-				particles.position = _player.position + Vector3(0.0, 12.0, 0.0)
-			_active_weather_particles = particles
-
-	# Fog, sky, sun, shadows, ambient tint and grass wind blend in via
-	# DayNightCycle from the WeatherLook table (TID-486).
-	if _dnc != null:
-		_dnc.set_weather(weather_id)
-
-	# Update grass wind direction
-	if _grass != null:
-		var grass_node: GrassBlades = _grass as GrassBlades
-		if grass_node != null:
-			grass_node.set_wind_direction(WeatherParticles.get_wind_direction(weather_id))
+	ambient.apply_weather(weather_id)  # particle rig, sky/fog look, grass wind
 
 ## Safely coerce a tracking-dict value to Node3D. `as Node3D` on a Variant
 ## holding a freed object throws "Trying to cast a freed object" immediately,

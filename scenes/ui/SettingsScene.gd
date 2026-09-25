@@ -75,6 +75,24 @@ func _build_ui() -> void:
 
 	vbox.add_child(_UiUtil.make_separator())
 
+	# — Environment — weather keeps running (battle weather, co-op); these only
+	# hide what the player sees and hears. Applied live via GameBus.
+	var env_lbl := _UiUtil.make_label("Environment", int(_vh * 0.03))
+	env_lbl.add_theme_color_override("font_color", Color(0.75, 0.85, 1.0))
+	vbox.add_child(env_lbl)
+
+	_add_toggle_row(vbox, "Weather Effects (rain, snow, storms)", WeatherManager.effects_enabled(),
+		func(v: bool) -> void:
+			SceneManager.save_manager.set_setting(WeatherManager.SETTING_EFFECTS, v)
+			GameBus.weather_settings_changed.emit()
+	)
+	_add_toggle_row(vbox, "Thunder & Lightning", WeatherManager.storms_enabled(), func(v: bool) -> void:
+		SceneManager.save_manager.set_setting(WeatherManager.SETTING_STORMS, v)
+		GameBus.weather_settings_changed.emit()
+	)
+
+	vbox.add_child(_UiUtil.make_separator())
+
 	# — Accessibility & Comfort —
 	var access_lbl := _UiUtil.make_label("Accessibility & Comfort", int(_vh * 0.03))
 	access_lbl.add_theme_color_override("font_color", Color(0.75, 0.85, 1.0))

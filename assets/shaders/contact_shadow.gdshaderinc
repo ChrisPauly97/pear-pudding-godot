@@ -26,6 +26,34 @@ float _contact_one(vec4 c, vec3 p) {
 	return 1.0 - contact_shadow_opacity * fall * near_y;
 }
 
+// Drifting cloud shadows (GID-134 / TID-523). DayNightCycle writes the
+// strength (0 at night and under full overcast) and a wind-driven offset that
+// it accumulates on the CPU, so a wind change never jumps the pattern.
+global uniform float cloud_shadow_strength;
+global uniform vec2 cloud_offset;
+
+float _cs_hash(vec2 p) {
+	return fract(sin(dot(p, vec2(41.3, 289.1))) * 43758.5453);
+}
+
+float _cs_noise(vec2 p) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(_cs_hash(i), _cs_hash(i + vec2(1.0, 0.0)), f.x),
+			mix(_cs_hash(i + vec2(0.0, 1.0)), _cs_hash(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+
+// Multiplier (≤ 1) for ground at world `xz` under the passing clouds.
+float cloud_shadow(vec2 xz) {
+	if (cloud_shadow_strength <= 0.001) {
+		return 1.0;
+	}
+	vec2 p = (xz - cloud_offset) * 0.05;
+	float n = _cs_noise(p) * 0.65 + _cs_noise(p * 2.3 + vec2(7.1, 3.7)) * 0.35;
+	return 1.0 - cloud_shadow_strength * smoothstep(0.5, 0.66, n);
+}
+
 // Multiplier (≤ 1) for a surface at world position `p`.
 float contact_shadow(vec3 p) {
 	return _contact_one(contact_shadow_0, p) * _contact_one(contact_shadow_1, p)

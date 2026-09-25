@@ -8,6 +8,7 @@ const Lightning = preload("res://game_logic/Lightning.gd")
 const WeatherLook = preload("res://game_logic/WeatherLook.gd")
 const DNC = preload("res://scenes/world/DayNightCycle.gd")
 const SfxGen = preload("res://game_logic/SfxGen.gd")
+const AmbientParticles = preload("res://game_logic/AmbientParticles.gd")
 
 
 func _make_dnc() -> Array:
@@ -148,3 +149,44 @@ func test_thunder_has_a_synth_fallback() -> void:
 	assert_true(SfxGen.all_keys().has("thunder"))
 	var stream: AudioStreamWAV = SfxGen.get_sfx("thunder")
 	assert_gt(stream.data.size(), SfxGen.MIX_RATE * 2, "thunder rolls for over a second")
+
+
+func test_thunder_and_lightning_setting_stops_strikes() -> void:
+	var nodes: Array = _make_dnc()
+	var dnc: DNC = nodes[0]
+	dnc.set_weather("heavy_rain", true)
+	dnc.storms_allowed = func() -> bool: return false
+	var count: Array[int] = [0]
+	dnc.thunder_rumbled.connect(func(_p: float) -> void: count[0] += 1)
+	var t: float = 0.0
+	while t < Lightning.MAX_INTERVAL * 2.0 + Lightning.MAX_THUNDER_DELAY:
+		dnc.tick(0.25)
+		t += 0.25
+	assert_eq(count[0], 0, "no strikes while Thunder & Lightning is off")
+	assert_almost_eq(dnc.flash_level(), 0.0)
+	_free_all(nodes)
+
+
+func test_weather_effects_setting_shows_clear_skies() -> void:
+	var sm := SaveManager
+	var prev: Variant = sm.get_setting(WeatherManager.SETTING_EFFECTS, true)
+	sm.set_setting(WeatherManager.SETTING_EFFECTS, true)
+	assert_eq(WeatherManager.shown("heavy_rain"), "heavy_rain")
+	sm.set_setting(WeatherManager.SETTING_EFFECTS, false)
+	assert_eq(WeatherManager.shown("heavy_rain"), "", "effects off hides the weather")
+	sm.set_setting(WeatherManager.SETTING_EFFECTS, prev)
+
+
+func test_wet_ground_turns_dust_into_splashes_and_back() -> void:
+	var pm := ParticleProcessMaterial.new()
+	pm.color = Color(0.72, 0.60, 0.42, 0.5)
+	pm.gravity = Vector3(0.0, -3.0, 0.0)
+	pm.scale_min = 0.2
+	pm.scale_max = 0.4
+	AmbientParticles.set_wet(pm, true)
+	assert_gt(pm.color.b, pm.color.r, "splashes are water-blue, not dust-brown")
+	assert_lt(pm.gravity.y, -3.0, "droplets fall faster than dust")
+	AmbientParticles.set_wet(pm, false)
+	assert_eq(pm.color, Color(0.72, 0.60, 0.42, 0.5))
+	assert_eq(pm.gravity, Vector3(0.0, -3.0, 0.0))
+	assert_almost_eq(pm.scale_max, 0.4)
