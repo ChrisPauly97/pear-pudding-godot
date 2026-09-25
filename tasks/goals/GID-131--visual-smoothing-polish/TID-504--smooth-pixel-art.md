@@ -2,7 +2,7 @@
 
 **Goal:** GID-131
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -21,12 +21,15 @@ Nearest-filtered sprites at non-integer scale shimmer/jag as the camera moves.
 
 ## Plan
 
-_Written during Plan phase._
+Custom sprite shader ruled out (texture not auto-bound to material_override). Fixed the camera pixel snap (was 2 px steps) via new PixelSnap helper and pixel-snap the player sprites.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `game_logic/PixelSnap.gd`.
+- `WorldScene._snap_to_pixel` uses it with `_camera.size` (bug: old code snapped to 2-pixel steps); calls `Player.snap_visuals_to_pixels` each frame.
+- `Player`: pose/offset fields, `snap_visuals_to_pixels`.
+- Tests: new `test_pixel_snap.gd`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+camera-and-player.md: Pixel Snapping section.

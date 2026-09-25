@@ -31,6 +31,10 @@ _camera.position = _player.position + Vector3(20, 20, 20)
 
 This is set every frame in `WorldScene._process()`. No `look_at()` call is made.
 
+### Pixel Snapping (`game_logic/PixelSnap.gd`) — GID-131 / TID-504
+
+Nearest-filtered pixel art at ~3.2 screen px per texel shimmers when the camera glides by sub-pixel amounts. Each frame `WorldScene._snap_to_pixel()` rounds the smoothed camera target to whole screen pixels on the camera's right/up axes (depth along the view axis untouched): one pixel = `PixelSnap.pixel_world_size(_camera.size, viewport_h)` = `size / height`. **`Camera3D.size` is the full view height** — the pre-GID-131 code used `CAM_ORTHO_SIZE × 2` and snapped in 2-pixel steps. Then `Player.snap_visuals_to_pixels(basis, px)` offsets the rider and mount sprites (`_pixel_offset`, added to `_sprite_pose_pos` / `_mount_pose_pos`) so the player also lands on whole pixels; the physics body never moves. A custom smooth-pixel-art sprite shader was ruled out: `Sprite3D.material_override` does not receive the sprite texture automatically, so every animated sprite would need per-frame texture wiring. Tests: `test_pixel_snap.gd`.
+
 ### Player Movement (`scenes/world/entities/Player.gd`)
 
 WASD keys map to isometric world directions:

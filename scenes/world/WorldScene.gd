@@ -51,6 +51,7 @@ const _PlayerHome = preload("res://scenes/world/modules/PlayerHome.gd")
 const _ChestLoot = preload("res://scenes/world/modules/ChestLoot.gd")
 const _NightLights = preload("res://scenes/world/modules/NightLights.gd")
 const _AmbientTouches = preload("res://scenes/world/modules/AmbientTouches.gd")
+const _PixelSnap = preload("res://game_logic/PixelSnap.gd")
 const _FakeVolumetrics = preload("res://scenes/world/modules/FakeVolumetrics.gd")
 const _ContactShadows = preload("res://scenes/world/modules/ContactShadows.gd")
 const _NamedMapProps = preload("res://scenes/world/modules/NamedMapProps.gd")
@@ -1418,15 +1419,8 @@ func _create_player_node() -> _Player:
 # grass noise to shimmer — every world point stays on the same screen pixel
 # between frames as long as the camera hasn't moved a full pixel.
 func _snap_to_pixel(pos: Vector3) -> Vector3:
-	var vp_h: float = float(get_viewport().get_visible_rect().size.y)
-	var pixel: float = IsoConst.CAM_ORTHO_SIZE * 2.0 / vp_h
-	var right: Vector3 = _camera.global_transform.basis.x
-	var up: Vector3    = _camera.global_transform.basis.y
-	var fwd: Vector3   = _camera.global_transform.basis.z
-	var r: float = round(pos.dot(right) / pixel) * pixel
-	var u: float = round(pos.dot(up)    / pixel) * pixel
-	var d: float = pos.dot(fwd)
-	return right * r + up * u + fwd * d
+	var px: float = _PixelSnap.pixel_world_size(_camera.size, get_viewport().get_visible_rect().size.y)
+	return _PixelSnap.snap(pos, _camera.global_transform.basis, px)
 
 # ── Per-frame update ───────────────────────────────────────────────────────
 
@@ -1471,6 +1465,8 @@ func _process(delta: float) -> void:
 	var cam_target := _player.position + Vector3(20, 20, 20)
 	_smooth_camera_target = _smooth_camera_target.lerp(cam_target, clampf(20.0 * delta, 0.0, 1.0))
 	_camera.position = _snap_to_pixel(_smooth_camera_target)
+	_player.snap_visuals_to_pixels(_camera.global_transform.basis,
+			_PixelSnap.pixel_world_size(_camera.size, get_viewport().get_visible_rect().size.y))
 	if _minimap:
 		_minimap.update()
 	if _world_hud:
