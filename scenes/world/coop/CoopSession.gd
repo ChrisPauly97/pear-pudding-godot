@@ -17,6 +17,7 @@ const _AvatarSync        = preload("res://game_logic/net/AvatarSync.gd")
 const _CoopSiege         = preload("res://game_logic/CoopSiege.gd")
 const _DownedSync        = preload("res://game_logic/net/DownedSync.gd")
 const _EnemySync         = preload("res://game_logic/net/EnemySync.gd")
+const _AVATAR_HEARTBEAT: float = 1.0       # max seconds between avatar packets while idle
 const _EnvSync           = preload("res://game_logic/net/EnvSync.gd")
 const _GardenPlotScript  = preload("res://scenes/world/entities/GardenPlot.gd")
 const _PlayerHome        = preload("res://scenes/world/modules/PlayerHome.gd")
@@ -69,6 +70,9 @@ var _party_roster_rows: Array = []         # cached roster row data fed into _pa
 var _remote_player_maps: Dictionary = {}   # peer_id -> last-known map name (TID-352)
 var _session_adopted: bool = false
 var _session_snapshot_accum: float = 0.0
+var _last_character_hash: int = 0          # hash of the last character snapshot sent
+var _last_avatar_payload: Array = []       # last avatar packet sent (send-on-change)
+var _avatar_heartbeat_accum: float = 0.0
 
 func _setup_coop() -> void:
 	if not NetworkManager.is_active():
@@ -505,10 +509,17 @@ func _tick_session_persist(delta: float) -> void:
 		return
 	_session_snapshot_accum = 0.0
 	var rec: Dictionary = _build_local_character_record()
+	# The record carries the whole collection (several KB), so skip it when nothing
+	# changed since the last snapshot (idle players send nothing; the host skips a
+	# session-file rewrite).
+	var rec_hash: int = hash(rec)
+	var changed: bool = rec_hash != _last_character_hash
+	_last_character_hash = rec_hash
 	if NetworkManager.is_host():
-		SessionStore.update_member(MpProfile.get_token(), rec)
+		if changed:
+			SessionStore.update_member(MpProfile.get_token(), rec)
 		_world.coop_social._sweep_expired_auctions()
-	elif _world._net_sync != null:
+	elif changed and _world._net_sync != null:
 		_world._net_sync.rpc_id(1, "submit_character", rec)
 
 # ── In-world session roster (GID-094 / TID-342) ───────────────────────────────
@@ -695,8 +706,16 @@ func _broadcast_local_avatar(delta: float) -> void:
 	if spr != null:
 		flip_h = spr.flip_h
 	var moving: bool = bool(_world._player.get("_is_moving"))
-	var payload: Array = _AvatarSync.encode(
-		_world._player.position.x, _world._player.position.z, flip_h, moving, _world.map_name, _world._coop_downed)
+	var px: float = snappedf(_world._player.position.x, 0.01)
+	var pz: float = snappedf(_world._player.position.z, 0.01)
+	var payload: Array = _AvatarSync.encode(px, pz, flip_h, moving, _world.map_name, _world._coop_downed)
+	# Standing still sends nothing new, so only a 1 Hz heartbeat goes out (keeps a
+	# dropped unreliable packet from leaving a peer's copy stale for long).
+	_avatar_heartbeat_accum += _world._NET_BROADCAST_INTERVAL
+	if payload == _last_avatar_payload and _avatar_heartbeat_accum < _AVATAR_HEARTBEAT:
+		return
+	_last_avatar_payload = payload
+	_avatar_heartbeat_accum = 0.0
 	_world._net_sync.rpc("recv_avatar", payload)
 
 ## Co-op (GID-108 / TID-408): the authority's own Maiteln follower is the single

@@ -26,6 +26,8 @@ const INTENT_SURRENDER: String = "surrender"
 
 # target_slot sentinel: an attack aimed at the enemy hero rather than a minion.
 const TARGET_HERO: int = -1
+## Largest decompressed mirror accepted; guards a garbage "n" from a bad peer.
+const MAX_STATE_BYTES: int = 4 * 1024 * 1024
 
 
 # ---------------------------------------------------------------------------
@@ -141,18 +143,26 @@ static func decode_intent(payload: Variant) -> Dictionary:
 # ---------------------------------------------------------------------------
 
 ## Wrap a GameState.to_dict() with a monotonic sequence number for the broadcast.
+## The state travels zstd-compressed under "z" (raw size in "n"): a full mirror is
+## ~21 KB of Variant bytes but ~1.2 KB compressed, and one goes out per action.
 static func encode_state(state_dict: Dictionary, seq: int) -> Dictionary:
-	return {"v": VERSION, "seq": seq, "state": state_dict.duplicate(true)}
+	var raw: PackedByteArray = var_to_bytes(state_dict)
+	return {"v": VERSION, "seq": seq, "z": raw.compress(FileAccess.COMPRESSION_ZSTD), "n": raw.size()}
 
 
 ## Unwrap a mirror payload. Returns {valid, seq, state}; valid == false on garbage.
+## Also accepts the legacy uncompressed {"state": {...}} form.
 static func decode_state(payload: Variant) -> Dictionary:
 	if not (payload is Dictionary):
 		return {"valid": false, "seq": -1, "state": {}}
 	var d: Dictionary = payload
-	if not d.has("state"):
-		return {"valid": false, "seq": -1, "state": {}}
-	var raw_state: Variant = d.get("state", {})
+	var raw_state: Variant = d.get("state", null)
+	if d.get("z", null) is PackedByteArray:
+		var n: int = int(d.get("n", 0))
+		if n <= 0 or n > MAX_STATE_BYTES:
+			return {"valid": false, "seq": -1, "state": {}}
+		var raw: PackedByteArray = (d["z"] as PackedByteArray).decompress(n, FileAccess.COMPRESSION_ZSTD)
+		raw_state = bytes_to_var(raw) if raw.size() == n else null
 	if not (raw_state is Dictionary):
 		return {"valid": false, "seq": -1, "state": {}}
 	return {"valid": true, "seq": int(d.get("seq", 0)), "state": raw_state}

@@ -165,7 +165,10 @@ WorldScene co-op hooks (all guarded by `NetworkManager.is_active()` /
   `Entities` node; spawned on `peer_connected`, freed on `peer_disconnected` /
   `session_ended`.
 - `_broadcast_local_avatar(delta)` in `_process` at **15 Hz**: encodes the local
-  `(x, z, flip_h, moving)` and `rpc("recv_avatar", payload)`. **N-peer note:** in
+  `(x, z, flip_h, moving)` and `rpc("recv_avatar", payload)`. Send-on-change: an
+  unchanged packet is skipped, with a 1 Hz heartbeat while idle. RemotePlayer
+  dead-reckons (`AvatarSync.packet_velocity` / `extrapolate`, capped 0.2 s ahead),
+  snaps past `SNAP_DISTANCE` (rally/warp) and does no terrain query while hidden. **N-peer note:** in
   ENet client-server, clients aren't directly connected, so a client's broadcast
   reaches other clients only because Godot's `SceneMultiplayer.server_relay` (on by
   default) has the host relay it. This is what lets up to 4 players all see each
@@ -289,6 +292,9 @@ Fixed-name child of `BattleScene`, so the RPC path
 `/root/BattleScene/BattleNetSync` matches on both peers (SceneManager sets the
 BattleScene root name explicitly). **Reliable** RPCs (turn-based, must not drop):
 `send_intent` (client→host), `sync_state` / `pvp_ended` (host→client), and
+(all state mirrors, incl. co-op/team, travel zstd-compressed: `encode_state` puts
+`var_to_bytes` of the state under `"z"` with its raw size in `"n"`, ~21 KB → ~1.2 KB;
+`decode_state` still accepts the legacy `"state"` form)
 `request_sync` (client→host, retried until the first mirror lands — resolves the
 race where the host broadcasts before the client's scene exists).
 
@@ -1404,7 +1410,8 @@ matching `export_session_character()` snapshots that slice back to a record dict
 **Persist-back** (`_tick_session_persist`, every 5 s in `_process`): the host writes
 its own member directly; clients `rpc_id(1, "submit_character", record)` with their
 latest snapshot (collection/deck/coins/level/skills + current position), which the host
-merges by the `peer_id → token` map and marks dirty. The host also flushes on a
+merges by the `peer_id → token` map and marks dirty. A snapshot whose `hash()` matches
+the last one is skipped, so idle players send nothing. The host also flushes on a
 peer-disconnect, and `flush_now()` + `close()` on session end. `_session_adopted`
 survives a PvP battle re-attach (SessionStore stays open across battles).
 

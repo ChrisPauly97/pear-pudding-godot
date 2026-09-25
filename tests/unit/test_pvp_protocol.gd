@@ -117,6 +117,29 @@ func test_state_round_trip_preserves_state() -> void:
 	assert_eq(int(s["turn_number"]), 5)
 
 
+func test_state_is_sent_compressed() -> void:
+	var cards: Array = []
+	for i in 60:
+		cards.append({"card_id": "ember_whelp", "attack": 2, "health": 3, "keywords": ["rush"]})
+	var state := {"players": [{"hand": cards, "deck": cards}]}
+	var payload: Dictionary = Proto.encode_state(state, 1)
+	assert_false(payload.has("state"))
+	assert_true(var_to_bytes(payload).size() < var_to_bytes(state).size() / 4)
+	var s: Dictionary = Proto.decode_state(payload)["state"]
+	assert_eq((s["players"] as Array).size(), 1)
+
+
+func test_decode_legacy_uncompressed_state() -> void:
+	var decoded: Dictionary = Proto.decode_state({"v": 1, "seq": 2, "state": {"turn_number": 4}})
+	assert_true(decoded["valid"])
+	assert_eq(int((decoded["state"] as Dictionary)["turn_number"]), 4)
+
+
+func test_decode_state_bad_compressed_payload_is_invalid() -> void:
+	assert_false(Proto.decode_state({"seq": 1, "z": PackedByteArray([1, 2, 3]), "n": 50})["valid"])
+	assert_false(Proto.decode_state({"seq": 1, "z": PackedByteArray([1, 2, 3]), "n": 999999999})["valid"])
+
+
 func test_decode_state_garbage_is_invalid() -> void:
 	var decoded: Dictionary = Proto.decode_state("nope")
 	assert_false(decoded["valid"])

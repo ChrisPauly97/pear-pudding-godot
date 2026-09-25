@@ -7,6 +7,13 @@ extends RefCounted
 
 ## Number of distinct ring slots a remote avatar's initial spawn can land on.
 const SPAWN_RING_SLOTS: int = 12
+## Distance (world units) past which a remote avatar snaps instead of gliding:
+## a rally, respawn or door warp would otherwise slide it across the map.
+const SNAP_DISTANCE: float = 12.0
+## Longest a stale target is projected forward along the peer's last velocity.
+const MAX_EXTRAPOLATION: float = 0.2
+## Cap on a packet-derived speed (world units/s), above any mount's run speed.
+const MAX_SPEED: float = 20.0
 
 
 ## Pack local avatar state into a small array for RPC transmission.
@@ -45,6 +52,23 @@ static func decode(payload: Variant) -> Dictionary:
 static func interp(current: Vector3, target: Vector3, delta: float, rate: float) -> Vector3:
 	var t: float = clamp(delta * rate, 0.0, 1.0)
 	return current.lerp(target, t)
+
+
+
+## Velocity implied by two consecutive packets `dt` seconds apart. Zero for a
+## non-positive or implausibly long gap (a heartbeat after standing still).
+static func packet_velocity(prev: Vector2, cur: Vector2, dt: float) -> Vector2:
+	if dt <= 0.0 or dt > 0.5:
+		return Vector2.ZERO
+	return ((cur - prev) / dt).limit_length(MAX_SPEED)
+
+
+## Dead-reckoned target: the last packet's position pushed along the peer's
+## velocity for the time since it arrived (capped), so a 15 Hz stream reads as
+## continuous motion instead of stepping toward each packet.
+static func extrapolate(target: Vector2, velocity: Vector2, since_packet: float) -> Vector2:
+	return target + velocity * clampf(since_packet, 0.0, MAX_EXTRAPOLATION)
+
 
 ## Deterministic XZ fan-out offset for a remote avatar's initial spawn, keyed by
 ## `peer_id`. With up to 4 players sharing one SPAWN marker the seeded positions

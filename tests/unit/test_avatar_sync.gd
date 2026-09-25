@@ -54,3 +54,23 @@ func test_spawn_offset_is_stable_and_off_centre() -> void:
 	var a: Vector2 = AvatarSync.spawn_offset(7, 4.0)
 	assert_eq(a, AvatarSync.spawn_offset(7, 4.0))
 	assert_gt(a.length(), 0.0)
+
+
+func test_packet_velocity_from_consecutive_packets() -> void:
+	var v: Vector2 = AvatarSync.packet_velocity(Vector2(0, 0), Vector2(0.4, 0), 0.1)
+	assert_true(v.is_equal_approx(Vector2(4, 0)))
+
+
+func test_packet_velocity_zero_for_stale_gap_and_capped() -> void:
+	assert_eq(AvatarSync.packet_velocity(Vector2.ZERO, Vector2(5, 0), 1.0), Vector2.ZERO)
+	assert_eq(AvatarSync.packet_velocity(Vector2.ZERO, Vector2(5, 0), 0.0), Vector2.ZERO)
+	var fast: Vector2 = AvatarSync.packet_velocity(Vector2.ZERO, Vector2(100, 0), 0.1)
+	assert_true(fast.length() <= AvatarSync.MAX_SPEED + 0.001)
+
+
+func test_extrapolate_is_capped() -> void:
+	var t := Vector2(10, 10)
+	assert_eq(AvatarSync.extrapolate(t, Vector2(5, 0), 0.0), t)
+	assert_true(AvatarSync.extrapolate(t, Vector2(5, 0), 0.1).is_equal_approx(Vector2(10.5, 10)))
+	assert_true(AvatarSync.extrapolate(t, Vector2(5, 0), 5.0).is_equal_approx(
+			t + Vector2(5, 0) * AvatarSync.MAX_EXTRAPOLATION))
