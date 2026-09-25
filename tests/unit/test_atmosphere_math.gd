@@ -97,3 +97,10 @@ func test_terrain_rain_global_tracks_raining_now() -> void:
 	sun.free()
 	moon.free()
 	we.free()
+
+
+func test_cloud_shadows_by_day_only_and_fade_under_overcast() -> void:
+	assert_almost_eq(AM.cloud_shadow_strength(-0.3, 0.0), 0.0, 0.0001, "no cloud shadows at night")
+	assert_almost_eq(AM.cloud_shadow_strength(0.8, 0.0), AM.CLOUD_SHADOW_MAX, 0.0001)
+	assert_lt(AM.cloud_shadow_strength(0.8, 0.9), AM.cloud_shadow_strength(0.8, 0.0) * 0.5,
+		"a fully overcast sky has no distinct cloud shadows")

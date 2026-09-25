@@ -94,6 +94,8 @@ var _base_shadow_opacity: float = 1.0
 
 # Rain wetness: eased toward the target look's `wetness` (quick to wet, slow to dry).
 var _wetness: float = 0.0
+var _cloud_offset: Vector2 = Vector2.ZERO
+var _cached_cloud_strength: float = -1.0
 var _cached_wetness: float = -1.0
 var _cached_rain: float = -1.0
 var _weather_seen: bool = false
@@ -242,11 +244,31 @@ func tick(delta: float) -> void:
 		_apply_lighting()
 	_tick_wetness(delta)
 	_tick_lightning(delta)
+	_tick_clouds(delta)
 	_timer += delta
 	if _timer < INTERVAL:
 		return
 	_advance(_timer)
 	_timer = 0.0
+
+## Cloud shadows drift with the weather's wind (GID-134 / TID-523). The offset
+## is accumulated here so a wind change bends the drift instead of jumping it.
+func _tick_clouds(delta: float) -> void:
+	var wind: Vector2 = _look.get("wind_direction", Vector2(0.6, 0.3)) as Vector2
+	_cloud_offset += wind * float(_look.get("wind_scale", 1.0)) * _AtmosphereMath.CLOUD_SPEED * delta
+	_cloud_offset = Vector2(fposmod(_cloud_offset.x, 4096.0), fposmod(_cloud_offset.y, 4096.0))
+	RenderingServer.global_shader_parameter_set("cloud_offset", _cloud_offset)
+	var sun_h: float = sun_direction(_time_of_day).y
+	var strength: float = _AtmosphereMath.cloud_shadow_strength(sun_h, float(_look.get("sky_overcast", 0.0)))
+	if not is_equal_approx(strength, _cached_cloud_strength):
+		_cached_cloud_strength = strength
+		RenderingServer.global_shader_parameter_set("cloud_shadow_strength", strength)
+
+
+## Current cloud shadow strength (0 = none), for tests.
+func cloud_strength() -> float:
+	return maxf(_cached_cloud_strength, 0.0)
+
 
 func _tick_wetness(delta: float) -> void:
 	var rain: float = roundf(float(_look["wetness"]) * 32.0) / 32.0

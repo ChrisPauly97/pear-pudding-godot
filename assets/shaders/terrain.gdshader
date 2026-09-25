@@ -265,7 +265,7 @@ void fragment() {
 		}
 	}
 
-	ALBEDO = tinted_col * contact_shadow(vec3(v_world_xz.x, v_world_y, v_world_xz.y));
+	ALBEDO = tinted_col * contact_shadow(vec3(v_world_xz.x, v_world_y, v_world_xz.y)) * cloud_shadow(v_world_xz);
 
 	// Wall cutaway — see occlusion_focus. The camera is orthographic and locked
 	// to (-1,-1,-1), so "between camera and player" is a cylinder along that axis.

@@ -90,11 +90,11 @@ void fragment() {
 	// real light instead of the grass_day_tint approximation.
 	// ×1.3 matches the unshaded path's grass_day_tint peak (1.25) against the
 	// brighter terrain texture; the small emission floor mirrors terrain's.
-	ALBEDO = col * 1.3 * mix(contact_shadow(v_root_world), 1.0, UV.y * 0.6);
+	ALBEDO = col * 1.3 * mix(contact_shadow(v_root_world), 1.0, UV.y * 0.6) * cloud_shadow(v_root_world.xz);
 	EMISSION = ALBEDO * 0.08;
 	NORMAL = normalize((VIEW_MATRIX * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
 #else
-	ALBEDO = col * grass_day_tint * mix(contact_shadow(v_root_world), 1.0, UV.y * 0.6);
+	ALBEDO = col * grass_day_tint * mix(contact_shadow(v_root_world), 1.0, UV.y * 0.6) * cloud_shadow(v_root_world.xz);
 #endif
 	ALPHA  = a * step(UV.y, 0.92);
 	// Low threshold keeps material in the opaque pass so clusters depth-test
