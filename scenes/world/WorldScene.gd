@@ -776,7 +776,17 @@ func _wire_gamebus_signals() -> void:
 		GameBus.spire_run_ended.connect(coop_activities._on_spire_run_ended_leaderboard)
 
 func _enter_tree() -> void:
-	if _initial_ready_done and not _coop_active and NetworkManager.is_active():
+	# Re-attach after a battle/puzzle detach. Deferred: _enter_tree fires before
+	# the child modules re-enter the tree, so their get_viewport()/multiplayer are
+	# still null here and _setup_coop aborted halfway (no avatars, no session, no
+	# story-flag sync) after every co-op battle.
+	if _initial_ready_done:
+		_on_reattached.call_deferred()
+
+func _on_reattached() -> void:
+	if not is_inside_tree():
+		return
+	if not _coop_active and NetworkManager.is_active():
 		coop_session._setup_coop()
 	# GID-101 (TID-367/368): broadcast pvp-clear to spectators now that the world is
 	# back in the tree and _net_sync is valid again.

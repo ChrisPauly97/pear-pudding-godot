@@ -551,6 +551,13 @@ stayed in Madrian. Always send it; the receiver ignores a same-map redirect. (3)
 reach `NetSync` while its world is detached, when `multiplayer` is null. Use `_sender_id()`.
 (4) Chunk reloads respawned enemies another peer had engaged; check `_coop_removed_enemies`.
 
+### Co-op setup half-ran after every battle (claude/multiplayer-infinite-world-crash-74il1k)
+`WorldScene._enter_tree` fires **before** its child modules re-enter the tree, so on the
+re-attach after a battle their `get_viewport()` and `multiplayer` were null. `_setup_coop`
+errored partway through, leaving no avatars, no session and no story-flag sync. Re-attach
+work now runs deferred in `_on_reattached()`. Never touch a child module's tree state
+from a parent's `_enter_tree`.
+
 ### Nocturnal despawn — "modulate:a does not exist" (fixed with automation bridge)
 `Node3D` has no `modulate`. Always resolve to `Sprite3D`/`CanvasItem` child before tweening modulate.
 
