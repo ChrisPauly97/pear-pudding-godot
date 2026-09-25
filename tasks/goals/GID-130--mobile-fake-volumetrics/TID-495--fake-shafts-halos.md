@@ -2,7 +2,7 @@
 
 **Goal:** GID-130
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -23,12 +23,17 @@ Stand-ins for volumetric shafts and light scattering: additive, depth-faded geom
 
 ## Plan
 
-_Written during Plan phase._
+New FakeVolumetrics world module with pooled shaft quads on hashed world cells; halo quad per NightLights rig; two knobs; clamp stand-ins off where real volumetric fog runs.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `scenes/world/modules/FakeVolumetrics.gd` (+ WorldScene field/const/`_ensure_world_modules` line).
+- New shaders `fake_light_shaft.gdshader`, `light_halo.gdshader` (+ .uid).
+- `AtmosphereMath`: `shaft_anchors`, `shaft_axis`, cell hash.
+- `NightLights`: halo per rig, `halo_count()`.
+- `GraphicsQuality`: `fake_shafts` (0/6/10), `light_halos` (off/on/on), `FAKE_VOLUMETRIC` clamp.
+- Tests: anchors/axis in `test_atmosphere_math`; clamp test in `test_graphics_quality`. Shaders compile-checked on gl_compatibility.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+visual-polish.md: knob rows, clamp note, Fake Volumetrics section. CLAUDE.md module table: FakeVolumetrics row, AmbientTouches mist.

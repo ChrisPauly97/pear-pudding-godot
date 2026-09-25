@@ -18,6 +18,8 @@
 ##   ambient_particles          — dust / fireflies / leaves on or off (TID-493)
 ##   ray_samples, moon_rays     — screen-ray occlusion taps + night moon rays, SunRaysFx (TID-496)
 ##   ground_mist                — low mist particles at night/dawn, AmbientTouches (TID-497)
+##   fake_shafts, light_halos   — fake volumetric sun shafts (count) / night-light halos,
+##                                FakeVolumetrics + NightLights (TID-495)
 ##   height_fog                 — valley mist via Environment height fog, DayNightCycle (GID-130 / TID-494)
 extends RefCounted
 
@@ -36,6 +38,9 @@ const RENDERER_FORWARD_PLUS := "forward_plus"
 
 ## Boolean knobs that need the Forward+ renderer. `clamp_to_renderer` turns them off elsewhere.
 const FORWARD_PLUS_ONLY: Array[String] = ["ssao", "volumetric_fog"]
+## Fake stand-ins (GID-130) that duplicate real volumetric fog: zeroed wherever
+## `volumetric_fog` actually runs, so the two never stack.
+const FAKE_VOLUMETRIC: Dictionary = {"fake_shafts": 0}
 
 ## Shadow tuning (TID-485). The iso camera is orthographic (size 15) and sits
 ## 34.6 units from the player, so on-screen ground lies ~24–45 units deep:
@@ -65,6 +70,8 @@ const TIERS: Array[Dictionary] = [
 		"max_night_lights": 0,
 		"night_light_shadows": false,
 		"height_fog": false,
+		"fake_shafts": 0,
+		"light_halos": false,
 		"ground_mist": false,
 		"ray_samples": 0,
 		"moon_rays": false,
@@ -90,6 +97,8 @@ const TIERS: Array[Dictionary] = [
 		"max_night_lights": 4,
 		"night_light_shadows": false,
 		"height_fog": true,
+		"fake_shafts": 6,
+		"light_halos": true,
 		"ground_mist": true,
 		"ray_samples": 10,
 		"moon_rays": false,
@@ -117,6 +126,8 @@ const TIERS: Array[Dictionary] = [
 		"max_night_lights": 8,
 		"night_light_shadows": false,
 		"height_fog": true,
+		"fake_shafts": 10,
+		"light_halos": true,
 		"ground_mist": true,
 		"ray_samples": 16,
 		"moon_rays": true,
@@ -146,6 +157,8 @@ static func tier_from_setting(value: Variant, is_mobile: bool) -> int:
 static func clamp_to_renderer(knobs: Dictionary, rendering_method: String) -> Dictionary:
 	var out: Dictionary = knobs.duplicate()
 	if rendering_method == RENDERER_FORWARD_PLUS:
+		if bool(out.get("volumetric_fog", false)):
+			out.merge(FAKE_VOLUMETRIC, true)
 		return out
 	for key: String in FORWARD_PLUS_ONLY:
 		out[key] = false

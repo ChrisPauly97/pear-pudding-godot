@@ -15,7 +15,7 @@ Android runs the Mobile renderer, so `GraphicsQuality.clamp_to_renderer()` turns
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-494 | Height Fog (valley mist) | agent | done | — |
-| TID-495 | Fake Light Shafts & Night-Light Halos | agent | pending | — |
+| TID-495 | Fake Light Shafts & Night-Light Halos | agent | done | — |
 | TID-496 | HQ Screen Rays & Moon Rays | agent | done | — |
 | TID-497 | Ground Mist Particles | agent | done | — |
 | TID-498 | Depth-Fog Post Pass | agent | pending | — |

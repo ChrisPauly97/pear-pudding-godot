@@ -53,9 +53,11 @@ The single source of truth for which atmosphere effects run. All-static module (
 | `ray_samples` | 0 | 10 | 16 | `SunRaysFx.set_quality` → `sun_rays.gdshader` `samples` (TID-496) |
 | `moon_rays` | off | off | on | `SunRaysFx.set_quality` — faint cool screen rays at night (TID-496) |
 | `ground_mist` | off | on | on | `AmbientTouches` ground mist emitter (TID-497) |
+| `fake_shafts` | 0 | 6 | 10 | `FakeVolumetrics` beam count (TID-495); zeroed by `FAKE_VOLUMETRIC` wherever real `volumetric_fog` runs |
+| `light_halos` | off | on | on | `NightLights` depth-faded halo per rig (TID-495) |
 | `height_fog` | off | on | on | `DayNightCycle.set_height_fog` — valley mist (GID-130 / TID-494) |
 
-- **Renderer clamp:** `clamp_to_renderer(knobs, method)` turns every `FORWARD_PLUS_ONLY` key (`ssao`, `volumetric_fog`) off and downgrades `sun_rays` VOLUMETRIC → SCREEN unless the method is `"forward_plus"`. `knobs_for(tier, method)` returns a clamped **copy**; `current_knobs(setting)` uses the platform and `RenderingServer.get_current_rendering_method()`.
+- **Renderer clamp:** on Forward+ with `volumetric_fog` on, `clamp_to_renderer` merges `FAKE_VOLUMETRIC` (`fake_shafts: 0`) so the stand-ins never stack with the real fog (desktop Medium keeps them). Otherwise it turns every `FORWARD_PLUS_ONLY` key (`ssao`, `volumetric_fog`) off and downgrades `sun_rays` VOLUMETRIC → SCREEN unless the method is `"forward_plus"`. `knobs_for(tier, method)` returns a clamped **copy**; `current_knobs(setting)` uses the platform and `RenderingServer.get_current_rendering_method()`.
 - **Apply:** `apply(knobs, env, sun, viewport, moon = null)` writes glow/SSAO/volumetric fog to the Environment, shadow enable/mode/distance/split/blend/bias to the sun, shadow enable + an orthogonal low-res map to the moon, MSAA to the viewport and the shadow atlas size + soft-filter quality to the RenderingServer (global). Any argument may be null.
 - **WorldScene wiring:** `apply_graphics_quality()` runs in `_ready()` right after `_setup_environment()` (it replaced the old `OS.has_feature("mobile")` sun-shadow switch — Medium keeps that exact behaviour) and again on `GameBus.graphics_quality_changed(tier)`, emitted by the Settings "Graphics Quality" option row, so a change applies live. The resolved knobs are cached; effects read them via `WorldScene.graphics_knobs()` — **never check the platform or renderer per effect**. `_on_weather_changed` scales the weather `GPUParticles3D.amount` by `particle_scale` before adding it.
 - **Adding a knob:** add the key to all three tier dicts (the test fails otherwise); if it needs Forward+, add it to `FORWARD_PLUS_ONLY`.
@@ -146,6 +148,13 @@ The single source of truth for which atmosphere effects run. All-static module (
 ### Height Fog (`game_logic/AtmosphereMath.gd`, `DayNightCycle`) — GID-130 / TID-494
 
 Mobile-safe valley mist using `Environment.fog_height` / `fog_height_density` (supported on every renderer). `set_height_fog(on)` (forwarded from `WorldScene.apply_graphics_quality`) sets `fog_height = AtmosphereMath.HEIGHT_FOG_TOP` (0.8 — flat ground at y≈0 sits in the mist, hilltops at 1.5 poke out). `_apply_lighting()` writes `fog_height_density = AtmosphereMath.height_fog_density(sun_h, look.height_fog)` (cached): 0.28 at night, 0.06 at midday, +0.18 bump around sunrise/sunset, capped at 0.7; 0 when the knob is off. WeatherLook `height_fog` multiplier: rain 1.6, heavy rain 2.0, snow 1.4, blizzard 1.2, ash 1.3, volcanic 1.5, dust devil 0.5, sandstorm 0.3.
+
+### Fake Volumetrics (`scenes/world/modules/FakeVolumetrics.gd`, `AtmosphereMath`) — GID-130
+
+World module `fake_volumetrics` (created in `_ensure_world_modules`). Stand-ins for Forward+ volumetric fog that run on Mobile and Compatibility.
+
+- **Light shafts (TID-495):** every 0.25 s `refresh()` reads `fake_shafts` (infinite world only — named maps include interiors), strength = `SunRayMath.strength(sun_h, look.sun_rays)` (same dawn/dusk curve as the screen rays; hidden below `MIN_STRENGTH`). `AtmosphereMath.shaft_anchors(player_xz, count)` hashes world cells (`SHAFT_CELL` 7, 45 % chance, ±3 cells) into ground points sorted nearest-first, so shafts stay put as the player walks; each carries a 0..1 seed (width 1.2–2.6, shimmer phase). Pooled `MeshInstance3D`s (shared unit `QuadMesh`, per-shaft `ShaderMaterial`, `custom_aabb` because the vertex shader stretches the quad) sit at `get_terrain_height`. `fake_light_shaft.gdshader` lays the quad along `shaft_axis(sun_dir)` (toward the sun, y clamped ≥ 0.5 so dawn beams stay steep), turns it about that axis to face the camera, and fades edges², both ends, drifting motes and — via the depth texture — the last 1.5 units before any surface, so beams never cut the ground. Additive, `intensity` 0.22 × strength, sun colour.
+- **Halos (TID-495, in `NightLights`):** each rig gets a `Halo` quad (the shared dot mesh, scaled to `radius × 0.9`) with `light_halo.gdshader`: billboard with node scale, `(1 − r)^2.2` radial glow, depth soft fade 1.2. Visible while `light_halos` is on; energy = pool flicker energy × `HALO_ENERGY` 0.35. `halo_count()` for tests.
 
 ### Vignette (`scenes/world/ScreenVignette.gd`)
 

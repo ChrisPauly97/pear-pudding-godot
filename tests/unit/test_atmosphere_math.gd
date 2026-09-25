@@ -45,3 +45,28 @@ func test_day_night_cycle_height_fog_toggle() -> void:
 	sun.free()
 	moon.free()
 	we.free()
+
+func test_shaft_anchors_are_world_anchored_and_nearest_first() -> void:
+	var a: Array[Vector3] = AM.shaft_anchors(Vector2(10.0, -4.0), 8)
+	assert_eq(a.size(), 8)
+	assert_eq(AM.shaft_anchors(Vector2(10.0, -4.0), 0).size(), 0)
+	for i: int in range(1, a.size()):
+		assert_true(Vector2(a[i].x, a[i].y).distance_to(Vector2(10, -4))
+				>= Vector2(a[i - 1].x, a[i - 1].y).distance_to(Vector2(10, -4)) - 0.0001, "sorted by distance")
+	# A small step keeps the nearest shafts where they were (no sliding with the player).
+	var b: Array[Vector3] = AM.shaft_anchors(Vector2(10.5, -4.2), 8)
+	var shared: int = 0
+	for p: Vector3 in b:
+		if a.has(p):
+			shared += 1
+	assert_gte(shared, 6)
+	for p: Vector3 in a:
+		assert_between(p.z, 0.0, 1.0)
+
+func test_shaft_axis_is_steep_and_unit() -> void:
+	var low_sun := Vector3(0.95, 0.05, -0.3)
+	var ax: Vector3 = AM.shaft_axis(low_sun)
+	assert_almost_eq(ax.length(), 1.0, 0.0001)
+	assert_gte(ax.y, AM.SHAFT_MIN_AXIS_Y - 0.0001)
+	assert_gt(ax.x, 0.0, "leans toward the sun")
+	assert_eq(AM.shaft_axis(Vector3.UP), Vector3.UP)
