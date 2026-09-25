@@ -34,6 +34,11 @@ instance uniform float blight_amount : hint_range(0.0, 1.0) = 0.0;
 // [shader_globals]; DayNightCycle eases it in with rain and dries it slowly.
 #include "res://assets/shaders/terrain_puddles.gdshaderinc"
 #include "res://assets/shaders/contact_shadow.gdshaderinc"
+// Wall cutaway: the player's feet in world space, written every frame by
+// WorldScene. Terrain between the iso camera and the player (above their feet)
+// dithers away in a soft circle so walls never hide them. Default in
+// [shader_globals] sits far above the world, so nothing is cut until it's set.
+global uniform vec3 occlusion_focus;
 
 varying float v_blend;      // height ratio [0=flat ground .. 1=hill plateau]
 varying float v_wall;       // 1.0 if this vertex sits on a wall tile
@@ -42,6 +47,8 @@ varying float v_cracked;    // 1.0 if this wall vertex is a TILE_CRACKED (cracke
 varying vec3  v_normal_world;  // world-space normal — used for slope detection only
 varying vec2  v_world_xz;
 varying float v_world_y;    // world Y — used for vertical tiling on wall sides
+const float OCCLUSION_RADIUS = 3.5;  // world units (~1.75 tiles)
+
 varying float v_d0;         // fbm noise channel 0, computed per-vertex
 varying float v_d1;         // fbm noise channel 1, computed per-vertex
 varying float v_ley;        // ley line intensity [0..1], baked into UV2.x per vertex
@@ -231,6 +238,27 @@ void fragment() {
 	}
 
 	ALBEDO = tinted_col * contact_shadow(vec3(v_world_xz.x, v_world_y, v_world_xz.y));
+
+	// Wall cutaway — see occlusion_focus. The camera is orthographic and locked
+	// to (-1,-1,-1), so "between camera and player" is a cylinder along that axis.
+	vec3 focus = occlusion_focus + vec3(0.0, 1.0, 0.0);
+	vec3 rel = vec3(v_world_xz.x, v_world_y, v_world_xz.y) - focus;
+	const vec3 CAM_FWD = vec3(-0.57735, -0.57735, -0.57735);
+	float along = dot(rel, CAM_FWD);
+	if (along < -0.5 && v_world_y > occlusion_focus.y + 0.3) {
+		float perp = length(rel - along * CAM_FWD);
+		float cut = 1.0 - smoothstep(OCCLUSION_RADIUS * 0.65, OCCLUSION_RADIUS, perp);
+		if (cut > 0.0) {
+			// 4x4 Bayer screen-door; keeps ~20% of pixels as a ghost outline.
+			ivec2 p = ivec2(FRAGCOORD.xy) & ivec2(3);
+			int idx = p.x + p.y * 4;
+			const float BAYER[16] = float[16](0.0, 8.0, 2.0, 10.0, 12.0, 4.0, 14.0, 6.0,
+				3.0, 11.0, 1.0, 9.0, 15.0, 7.0, 13.0, 5.0);
+			if ((BAYER[idx] + 0.5) / 16.0 < cut * 0.8) {
+				discard;
+			}
+		}
+	}
 
 	// Soft emission floor keeps cast shadows from going pitch-black.
 	// Keep low — this adds straight onto lit albedo, brightening midday too.

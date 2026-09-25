@@ -4,6 +4,9 @@
 ##     `ContactShadow.MAX_CASTERS` casters (player first) into the
 ##     `contact_shadow_*` shader globals that terrain and grass shaders read;
 ##     casters register with `ContactShadow.register()` in `_ready`.
+##   * wall cutaway focus — writes the player's position to the
+##     `occlusion_focus` global so terrain between the camera and the player
+##     dithers away (moved here from WorldScene._process).
 ##   * idle life (GID-132 / TID-511) — breathes/bobs/floats every sprite
 ##     registered with `IdleLife.register()` within `IdleLife.MAX_DISTANCE`.
 extends Node
@@ -49,6 +52,7 @@ func _process(delta: float) -> void:
 		return
 	_time += delta
 	var center: Vector3 = _world._player.global_position
+	RenderingServer.global_shader_parameter_set("occlusion_focus", _world._player.position)
 	_update_idle_life(center)
 	var casters: Array[Vector4] = []
 	for n: Node in get_tree().get_nodes_in_group(_ContactShadow.GROUP):

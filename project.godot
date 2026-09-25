@@ -193,6 +193,11 @@ contact_shadow_opacity={
 "value": 0.0
 }
 
+occlusion_focus={
+"type": "vec3",
+"value": Vector3(0, 100000, 0)
+}
+
 terrain_wetness={
 "type": "float",
 "value": 0.0
