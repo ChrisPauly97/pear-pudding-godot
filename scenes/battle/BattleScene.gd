@@ -450,16 +450,11 @@ func _setup_solo_battle() -> void:
 	_resolver.setup(_state)
 	_wire_gamebus_emitter()
 
-	# Player deck: spire run uses its run-local draft deck; otherwise use the
-	# persistent player deck. Floor 1 starter gives 8 basics before any pick.
+	# Player deck: a spire run uses its starter plus every drafted card;
+	# otherwise use the persistent player deck.
 	var player_deck: Array[String] = []
 	if SceneManager.save_manager.spire.is_spire_active():
-		var draft: Array = SceneManager.save_manager.spire.get_spire_run().get("draft_deck", [])
-		if draft.size() > 0:
-			player_deck.assign(draft)
-		else:
-			player_deck = ["ghost", "ghost", "skeleton", "skeleton",
-						   "zombie", "zombie", "ghoul", "ghoul"]
+		player_deck = SceneManager.save_manager.spire.run_deck()
 	elif SceneManager.save_manager.player_deck.size() > 0:
 		# Use per-instance build so rolled stats and rank bonuses apply (GID-060).
 		_state.players[0].build_deck_from_instances(SceneManager.save_manager.get_deck_instances())

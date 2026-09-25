@@ -8,6 +8,10 @@ extends RefCounted
 
 const _SaveManager = preload("res://autoloads/SaveManager.gd")
 const _SpireFloorGen = preload("res://game_logic/spire/SpireFloorGen.gd")
+## Every run's base deck. `draft_deck` holds only the picks, so the battle deck
+## is always starter + picks (`run_deck()`); a pick never replaces the deck.
+const STARTER_DECK: Array[String] = ["ghost", "ghost", "skeleton", "skeleton",
+		"zombie", "zombie", "ghoul", "ghoul"]
 
 var _save: _SaveManager
 
@@ -52,6 +56,13 @@ func prepare_spire_floor(floor: int, run_seed: int) -> void:
 	if _save.get_story_flag(_SpireFloorGen.cleared_flag_for(floor, run_seed)):
 		return
 	_clear_spire_enemy_defeats()
+
+## The deck the next Spire battle uses: the starter plus every drafted card.
+func run_deck() -> Array[String]:
+	var deck: Array[String] = STARTER_DECK.duplicate()
+	for id: Variant in _save.spire_run.get("draft_deck", []):
+		deck.append(str(id))
+	return deck
 
 func start_spire_run(seed: int) -> void:
 	_clear_spire_enemy_defeats()
