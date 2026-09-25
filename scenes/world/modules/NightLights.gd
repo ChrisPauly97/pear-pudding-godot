@@ -11,7 +11,9 @@
 ##     rigs (GraphicsQuality: Low 0 / Medium 4 / High 8). It rebuilds world
 ##     positions from the depth texture, so it lights the unshaded grass,
 ##     props and sprites that a real OmniLight3D cannot reach (BID-060);
-##   * a shadow-casting OmniLight3D — only while `night_light_shadows` is on.
+##   * a shadow-casting OmniLight3D — only while `night_light_shadows` is on;
+##   * a depth-faded halo (light_halo.gdshader) — while `light_halos` is on
+##     (GID-130 / TID-495): the scattered glow volumetric fog would draw.
 ## Rigs hide in daylight and the gather is skipped then, so the day costs nothing.
 extends Node
 
@@ -19,6 +21,7 @@ const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const _DayNightCycle = preload("res://scenes/world/DayNightCycle.gd")
 const _NightLightMath = preload("res://game_logic/NightLightMath.gd")
 const _POOL_SHADER = preload("res://assets/shaders/night_light_pool.gdshader")
+const _HALO_SHADER = preload("res://assets/shaders/light_halo.gdshader")
 
 const GATHER_INTERVAL: float = 0.5
 const MAX_RIGS: int = 8
@@ -28,6 +31,9 @@ const DOT_SIZE: float = 0.7
 # Nudges the dot toward the orthographic iso camera: pure depth, zero screen
 # movement, so it draws in front of the door / stone sprite it belongs to.
 const DOT_TOWARD_CAMERA := Vector3(0.23, 0.23, 0.23)
+## Halo quad size relative to the light radius, and its brightness vs the pool.
+const HALO_SCALE: float = 0.9
+const HALO_ENERGY: float = 0.35
 
 class Rig:
 	var root: Node3D
@@ -35,6 +41,8 @@ class Rig:
 	var pool_mat: ShaderMaterial
 	var dot_mat: StandardMaterial3D
 	var omni: OmniLight3D
+	var halo: MeshInstance3D
+	var halo_mat: ShaderMaterial
 	var style: Dictionary = {}
 	var phase: float = 0.0
 
@@ -48,6 +56,7 @@ var _rigs: Array[Rig] = []
 var _active: int = 0            # rigs currently assigned to a source
 var _pool_cap: int = 0
 var _shadows: bool = false
+var _halos: bool = false
 var _night: float = 0.0
 var _gather_in: float = 0.0
 var _time: float = 0.0
@@ -89,6 +98,15 @@ func pool_count() -> int:
 	return n
 
 
+## Rigs currently showing a halo.
+func halo_count() -> int:
+	var n: int = 0
+	for i: int in _active:
+		if _rigs[i].halo.visible:
+			n += 1
+	return n
+
+
 func active_count() -> int:
 	return _active
 
@@ -113,6 +131,7 @@ func refresh() -> void:
 	var knobs: Dictionary = _world.graphics_knobs()
 	_pool_cap = int(knobs.get("max_night_lights", 0))
 	_shadows = bool(knobs.get("night_light_shadows", false))
+	_halos = bool(knobs.get("light_halos", false))
 	var player: Node3D = _world._player
 	if _night < 0.01 or player == null:
 		_assign([])
@@ -178,6 +197,16 @@ func _make_rig() -> Rig:
 	rig.dot_mat.albedo_texture = _dot_tex
 	dot.material_override = rig.dot_mat
 	rig.root.add_child(dot)
+	rig.halo = MeshInstance3D.new()
+	rig.halo.name = "Halo"
+	rig.halo.mesh = _dot_mesh
+	rig.halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	rig.halo.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+	rig.halo_mat = ShaderMaterial.new()
+	rig.halo_mat.shader = _HALO_SHADER
+	rig.halo.material_override = rig.halo_mat
+	rig.halo.visible = false
+	rig.root.add_child(rig.halo)
 	rig.omni = OmniLight3D.new()
 	rig.omni.shadow_enabled = true
 	rig.omni.light_volumetric_fog_energy = 0.0
@@ -204,6 +233,11 @@ func _place_rig(rig: Rig, ground: Vector3, with_pool: bool) -> void:
 	rig.pool_mat.set_shader_parameter("vertical_squash", squash)
 	var dot: Node3D = rig.root.get_node("Glow") as Node3D
 	dot.position = Vector3(0.0, height, 0.0) + DOT_TOWARD_CAMERA
+	rig.halo.visible = _halos
+	rig.halo.position = dot.position
+	var hs: float = radius * HALO_SCALE / DOT_SIZE
+	rig.halo.scale = Vector3(hs, hs, hs)
+	rig.halo_mat.set_shader_parameter("light_color", col)
 	rig.omni.visible = with_pool and _shadows
 	rig.omni.position = Vector3(0.0, height, 0.0)
 	rig.omni.light_color = col
@@ -219,5 +253,7 @@ func _apply_flicker(rig: Rig) -> void:
 		rig.pool_mat.set_shader_parameter("energy", e)
 	var col: Color = st["color"]
 	rig.dot_mat.albedo_color = Color(col.r, col.g, col.b, clampf(_night * f, 0.0, 1.0))
+	if rig.halo.visible:
+		rig.halo_mat.set_shader_parameter("energy", e * HALO_ENERGY)
 	if rig.omni.visible:
 		rig.omni.light_energy = e * 2.0

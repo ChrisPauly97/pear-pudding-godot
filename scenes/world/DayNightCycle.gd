@@ -12,6 +12,7 @@ signal thunder_rumbled(pitch: float)
 const _GrassBlades = preload("res://scenes/world/GrassBlades.gd")
 const _WeatherLook = preload("res://game_logic/WeatherLook.gd")
 const _Lightning = preload("res://game_logic/Lightning.gd")
+const _AtmosphereMath = preload("res://game_logic/AtmosphereMath.gd")
 const INTERVAL: float = 0.5  # update lighting at 2 Hz
 
 # Sun arc (TID-485). The old sun swung about the X axis alone: it rose due
@@ -77,6 +78,9 @@ var _look_to: Dictionary = _look
 var _look_t: float = 1.0
 # Clear-weather values the look multiplies, captured at setup.
 var _base_fog_density: float = 0.004
+# GID-130 / TID-494: valley height fog, on when the GraphicsQuality knob is.
+var _height_fog_on: bool = false
+var _cached_height_fog: float = -1.0
 var _base_shadow_opacity: float = 1.0
 
 # Rain wetness: eased toward the target look's `wetness` (quick to wet, slow to dry).
@@ -186,6 +190,19 @@ func set_weather(weather_id: String, instant: bool = false) -> void:
 		_apply_lighting()
 
 ## The weather look currently applied (mid-blend while a change is in progress).
+## Turns the valley height fog on or off (GraphicsQuality `height_fog`).
+func set_height_fog(on: bool) -> void:
+	_height_fog_on = on
+	_cached_height_fog = -1.0
+	if _world_env != null and _world_env.environment != null:
+		_world_env.environment.fog_height = _AtmosphereMath.HEIGHT_FOG_TOP
+		_apply_lighting()
+
+
+func height_fog_on() -> bool:
+	return _height_fog_on
+
+
 func weather_look() -> Dictionary:
 	return _look
 
@@ -343,6 +360,12 @@ func _apply_lighting() -> void:
 	if not is_equal_approx(fog_density, _cached_fog_density):
 		env.fog_density = fog_density
 		_cached_fog_density = fog_density
+	var height_fog: float = 0.0
+	if _height_fog_on:
+		height_fog = _AtmosphereMath.height_fog_density(sun_h, float(_look["height_fog"]))
+	if not is_equal_approx(height_fog, _cached_height_fog):
+		env.fog_height_density = height_fog
+		_cached_height_fog = height_fog
 
 	var base_ambient: Color = Color(0.10, 0.10, 0.15).lerp(Color(0.65, 0.63, 0.60), t_day)
 	var ambient_color: Color = Color(

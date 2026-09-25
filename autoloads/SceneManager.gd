@@ -6,6 +6,7 @@ extends Node
 signal state_changed(from: State, to: State)
 
 const _SceneFlow = preload("res://game_logic/SceneFlow.gd")
+const _RendererOptIn = preload("res://game_logic/RendererOptIn.gd")
 const _SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 const _BattleVictory = preload("res://autoloads/scene_manager/BattleVictory.gd")
 const _BattleDefeat = preload("res://autoloads/scene_manager/BattleDefeat.gd")
@@ -142,9 +143,22 @@ func _transition_to(to: State) -> void:
 	_state = to
 	state_changed.emit(from, to)
 
+## GID-130 / TID-499: revert the opt-in Forward+ renderer after a crashed or
+## fallen-back boot; clear the crash lock once this boot has run a while.
+func _guard_renderer_opt_in() -> void:
+	if not (OS.has_feature("mobile") or OS.has_feature("android")):
+		return
+	var reason: String = _RendererOptIn.on_boot(RenderingServer.get_current_rendering_method())
+	if reason != _RendererOptIn.REVERT_NONE:
+		push_warning("Forward+ renderer opt-in reverted (%s); back to Mobile next launch" % reason)
+	elif _RendererOptIn.is_enabled():
+		get_tree().create_timer(_RendererOptIn.BOOT_OK_SECONDS).timeout.connect(_RendererOptIn.mark_boot_ok)
+
+
 func _ready() -> void:
 	save_manager = SaveManager
 	_ensure_modules()
+	_guard_renderer_opt_in()
 	apply_keybindings()
 	_toast = _AchievementToastScript.new()
 	add_child(_toast)

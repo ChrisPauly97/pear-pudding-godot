@@ -1,4 +1,5 @@
-## Small ambient touches (GID-129 / TID-493): dust puffs, fireflies, leaves.
+## Small ambient touches (GID-129 / TID-493): dust puffs, fireflies, leaves,
+## and low ground mist (GID-130 / TID-497).
 ##
 ## Same shape as `WeatherParticles.make()`: each factory returns a configured
 ## GPUParticles3D and the caller parents and positions it. Draw meshes, their
@@ -10,9 +11,22 @@ extends RefCounted
 
 const BIOME_GRASSLANDS: int = 0
 const BIOME_FOREST: int = 1
+const BIOME_MOUNTAINS: int = 4
 
 const FIREFLY_AMOUNT: int = 36
 const LEAF_AMOUNT: int = 28
+const MIST_AMOUNT: int = 14
+
+## Ground mist (TID-497): how much each biome holds (missing = none, e.g. desert).
+const MIST_BIOMES: Dictionary = {BIOME_GRASSLANDS: 0.7, BIOME_FOREST: 1.0, BIOME_MOUNTAINS: 0.8}
+## Weathers whose wind or own particles replace ground mist.
+const MIST_BLOCKING: Array[String] = ["sandstorm", "dust_devil", "volcanic", "blizzard"]
+## Per-weather mist multiplier for the rest (missing = 1).
+const MIST_WEATHER: Dictionary = {"rain": 1.25, "heavy_rain": 1.1, "snow": 0.6, "ash_fall": 0.7}
+## Peak puff alpha: several puffs overlap, so each stays faint.
+const MIST_ALPHA: float = 0.16
+const MIST_NIGHT_COLOR := Color(0.42, 0.47, 0.58)
+const MIST_DAY_COLOR := Color(0.92, 0.90, 0.86)
 
 ## Firefly albedo is multiplied past the environment's glow threshold (1.2) so
 ## they bloom on tiers with glow on and still read as bright dots without it.
@@ -33,6 +47,9 @@ static var _dust_fade: GradientTexture1D
 static var _dust_grow: CurveTexture
 static var _firefly_blink: GradientTexture1D
 static var _leaf_tints: GradientTexture1D
+static var _mist_mesh: QuadMesh
+static var _mist_mat: StandardMaterial3D
+static var _mist_fade: GradientTexture1D
 
 
 static func _soft_dot() -> GradientTexture2D:
@@ -95,6 +112,16 @@ static func _ensure_shared() -> void:
 	# Two slow blinks per lifetime; ends dark so respawns never pop.
 	_firefly_blink = _ramp([0.0, 0.2, 0.35, 0.5, 0.7, 1.0], [Color(1, 1, 1, 0.0), Color(1, 1, 1, 1.0),
 			Color(1, 1, 1, 0.15), Color(1, 1, 1, 0.1), Color(1, 1, 1, 0.9), Color(1, 1, 1, 0.0)])
+	_mist_mesh = QuadMesh.new()
+	_mist_mesh.size = Vector2(5.0, 2.6)
+	_mist_mat = _particle_material(dot)
+	# Soft where a puff meets the ground or a sprite instead of a hard line.
+	_mist_mat.proximity_fade_enabled = true
+	_mist_mat.proximity_fade_distance = 1.2
+	_mist_mat.albedo_color = MIST_NIGHT_COLOR
+	_mist_mesh.material = _mist_mat
+	_mist_fade = _ramp([0.0, 0.3, 0.7, 1.0], [Color(1, 1, 1, 0.0), Color(1, 1, 1, MIST_ALPHA),
+			Color(1, 1, 1, MIST_ALPHA), Color(1, 1, 1, 0.0)])
 	_leaf_tints = _ramp([0.0, 0.4, 0.7, 1.0], [Color(0.42, 0.55, 0.22), Color(0.78, 0.62, 0.20),
 			Color(0.82, 0.40, 0.16), Color(0.55, 0.30, 0.14)])
 
@@ -207,6 +234,61 @@ static func make_leaves() -> GPUParticles3D:
 	node.draw_pass_1 = _leaf_mesh
 	apply_wind(pm, Vector2(1.0, 0.0), 1.0)
 	return node
+
+
+## Low rolling ground mist around the player: a few large, faint billboard
+## puffs drifting down-wind (TID-497). Tint follows the time of day (`set_mist_tint`).
+static func make_mist() -> GPUParticles3D:
+	_ensure_shared()
+	var node := GPUParticles3D.new()
+	node.amount = MIST_AMOUNT
+	node.lifetime = 12.0
+	node.preprocess = 12.0
+	node.local_coords = false
+	node.emitting = false
+	node.visibility_aabb = AABB(Vector3(-22, -3, -22), Vector3(44, 6, 44))
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	pm.emission_box_extents = Vector3(15.0, 0.25, 15.0)
+	pm.gravity = Vector3.ZERO
+	pm.scale_min = 0.8
+	pm.scale_max = 1.6
+	pm.color_ramp = _mist_fade
+	node.process_material = pm
+	node.draw_pass_1 = _mist_mesh
+	apply_mist_wind(pm, Vector2(1.0, 0.0), 1.0)
+	return node
+
+
+## Mist creeps slowly along the weather wind.
+static func apply_mist_wind(pm: ParticleProcessMaterial, wind_dir: Vector2, wind_scale: float) -> void:
+	var w: Vector2 = wind_dir.normalized() if wind_dir.length_squared() > 0.0001 else Vector2(1.0, 0.0)
+	pm.direction = Vector3(w.x, 0.0, w.y)
+	pm.spread = 30.0
+	var s: float = clampf(wind_scale, 0.5, 2.0)
+	pm.initial_velocity_min = 0.15 * s
+	pm.initial_velocity_max = 0.45 * s
+
+
+## Tints the shared mist draw pass (cool at night, warm pale by day).
+static func set_mist_tint(col: Color) -> void:
+	_ensure_shared()
+	_mist_mat.albedo_color = col
+
+
+## Mist colour for a sun height: night blue-grey → pale warm white by morning.
+static func mist_color(sun_h: float) -> Color:
+	return MIST_NIGHT_COLOR.lerp(MIST_DAY_COLOR, smoothstep(-0.1, 0.25, sun_h))
+
+
+## 0..1 ground-mist density: night and dawn, thinning out by mid-morning, in
+## damp biomes and calm or wet weather.
+static func mist_level(sun_h: float, biome: int, weather: String) -> float:
+	if not MIST_BIOMES.has(biome) or weather in MIST_BLOCKING:
+		return 0.0
+	var time: float = 1.0 - smoothstep(0.1, 0.35, sun_h)
+	var level: float = time * float(MIST_BIOMES[biome]) * float(MIST_WEATHER.get(weather, 1.0))
+	return clampf(level, 0.0, 1.0)
 
 
 ## Points leaf drift along the weather's grass-wind direction (WeatherLook),

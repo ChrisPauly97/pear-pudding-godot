@@ -35,6 +35,11 @@ const FOG_ALBEDO := Color(1.0, 0.95, 0.88)
 const FOG_ANISOTROPY: float = 0.7
 const FOG_LENGTH: float = 96.0
 const SUN_FOG_ENERGY: float = 1.5
+## Moon rays (GID-130 / TID-496): cool light, and a lower lit threshold since
+## the whole night screen sits under the day one.
+const MOON_RAY_COLOR := Color(0.62, 0.72, 1.0)
+const SUN_LIT_THRESHOLD: float = 0.35
+const MOON_LIT_THRESHOLD: float = 0.08
 
 var _camera: Camera3D = null
 var _sun: DirectionalLight3D = null
@@ -50,6 +55,9 @@ var _timer: float = 0.0
 var _strength: float = 0.0
 var _screen_strength: float = 0.0
 var _cached_density: float = -1.0
+var _samples: int = 10
+var _moon_rays: bool = false
+var _from_moon: bool = false
 
 
 func setup(camera: Camera3D, sun: DirectionalLight3D, moon: DirectionalLight3D,
@@ -72,6 +80,21 @@ func set_mode(mode: int) -> void:
 	elif _env != null:
 		_env.volumetric_fog_enabled = false
 	refresh()
+
+
+## Occlusion taps and whether the moon casts rays (GraphicsQuality
+## `ray_samples` / `moon_rays`, TID-496).
+func set_quality(samples: int, moon_rays: bool) -> void:
+	_samples = maxi(1, samples)
+	_moon_rays = moon_rays
+	if _mat != null:
+		_mat.set_shader_parameter("samples", _samples)
+	refresh()
+
+
+## True while the screen pass is drawing moon rays instead of sun rays.
+func is_moon_source() -> bool:
+	return _from_moon
 
 
 func mode() -> int:
@@ -105,14 +128,20 @@ func _process(delta: float) -> void:
 ## Recomputes strength from the DayNightCycle and writes the shader / fog.
 func refresh() -> void:
 	_strength = 0.0
+	_from_moon = false
 	var tod: float = 0.5
 	if _dnc != null:
 		tod = _dnc.get_time_of_day()
 		var look: Dictionary = _dnc.weather_look()
 		var sun_h: float = sin((tod - 0.25) * TAU)
-		_strength = _SunRayMath.strength(sun_h, float(look.get("sun_rays", 1.0)))
+		var mult: float = float(look.get("sun_rays", 1.0))
+		_strength = _SunRayMath.strength(sun_h, mult)
+		if _moon_rays and _strength < _SunRayMath.MIN_STRENGTH:
+			_strength = _SunRayMath.moon_strength(-sun_h, mult)
+			_from_moon = _strength >= _SunRayMath.MIN_STRENGTH
 	if _mode == _GraphicsQuality.SUN_RAYS_OFF:
 		_strength = 0.0
+		_from_moon = false
 	_update_screen_pass(tod)
 	if _mode == _GraphicsQuality.SUN_RAYS_VOLUMETRIC:
 		_update_volumetric()
@@ -123,9 +152,12 @@ func _update_screen_pass(tod: float) -> void:
 	if _layer == null:
 		return
 	var sun_dir: Vector3 = _DayNightCycle.sun_direction(tod)
+	if _from_moon:
+		sun_dir = -sun_dir
 	var cam_basis: Basis = _camera.basis if _camera != null else Basis.IDENTITY
 	var sd: Vector3 = _SunRayMath.screen_direction(sun_dir, cam_basis)
-	var weight: float = VOLUMETRIC_SCREEN_WEIGHT if _mode == _GraphicsQuality.SUN_RAYS_VOLUMETRIC else 1.0
+	var volumetric: bool = _mode == _GraphicsQuality.SUN_RAYS_VOLUMETRIC and not _from_moon
+	var weight: float = VOLUMETRIC_SCREEN_WEIGHT if volumetric else 1.0
 	var s: float = _strength * sd.z * weight
 	if s < _SunRayMath.MIN_STRENGTH:
 		_layer.visible = false
@@ -138,7 +170,8 @@ func _update_screen_pass(tod: float) -> void:
 		if size.y > 0.0:
 			aspect = size.x / size.y
 	var sun_h: float = sin((tod - 0.25) * TAU)
-	var col: Color = _DayNightCycle.sun_color_for(sun_h)
+	var col: Color = MOON_RAY_COLOR if _from_moon else _DayNightCycle.sun_color_for(sun_h)
+	_mat.set_shader_parameter("lit_threshold", MOON_LIT_THRESHOLD if _from_moon else SUN_LIT_THRESHOLD)
 	_mat.set_shader_parameter("strength", s)
 	_mat.set_shader_parameter("aspect", aspect)
 	_mat.set_shader_parameter("source_uv", _SunRayMath.source_uv(Vector2(sd.x, sd.y), aspect))
@@ -148,7 +181,7 @@ func _update_screen_pass(tod: float) -> void:
 func _update_volumetric() -> void:
 	if _env == null:
 		return
-	var density: float = _SunRayMath.volumetric_density(_strength)
+	var density: float = 0.0 if _from_moon else _SunRayMath.volumetric_density(_strength)
 	if is_equal_approx(density, _cached_density):
 		return
 	_cached_density = density
@@ -185,6 +218,7 @@ func _ensure_layer() -> void:
 	_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_mat = ShaderMaterial.new()
 	_mat.shader = _SHADER
+	_mat.set_shader_parameter("samples", _samples)
 	_rect.material = _mat
 	_layer.add_child(_rect)
 	add_child(_layer)

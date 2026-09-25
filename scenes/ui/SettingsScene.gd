@@ -1,6 +1,7 @@
 extends "res://scenes/ui/BaseOverlay.gd"
 
 const _GraphicsQuality = preload("res://game_logic/GraphicsQuality.gd")
+const _RendererOptIn = preload("res://game_logic/RendererOptIn.gd")
 
 
 # Keybindings capture state
@@ -64,6 +65,13 @@ func _build_ui() -> void:
 			SceneManager.save_manager.set_setting(_GraphicsQuality.SETTING_KEY, idx)
 			GameBus.graphics_quality_changed.emit(idx)
 	)
+
+	# GID-130 / TID-499: flagship phones can run Forward+ (real volumetric fog
+	# on High). Takes effect on the next launch; a crashed boot reverts it.
+	if _GraphicsQuality.is_mobile_platform():
+		_add_toggle_row(vbox, "Advanced Renderer (restart)", _RendererOptIn.is_enabled(), func(v: bool) -> void:
+			_RendererOptIn.set_enabled(v)
+		)
 
 	vbox.add_child(_UiUtil.make_separator())
 

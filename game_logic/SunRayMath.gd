@@ -28,6 +28,11 @@ const FULL_PLANE_LEN: float = 0.3
 ## Volumetric fog (High / Forward+): density at full ray strength. Scaled by
 ## strength so the fog is gone (and switched off) at midday.
 const VOLUMETRIC_MAX_DENSITY: float = 0.018
+## Moon rays (GID-130 / TID-496): fainter, and they last while the moon is up
+## rather than only near the horizon.
+const MOON_RAY_SCALE: float = 0.45
+const MOON_FADE_START_H: float = 0.5
+const MOON_FADE_END_H: float = 1.0
 ## Below this strength the effect is switched off entirely (no GPU cost).
 const MIN_STRENGTH: float = 0.01
 
@@ -37,6 +42,13 @@ static func strength(sun_h: float, weather_mult: float) -> float:
 	var rise: float = smoothstep(0.0, RISE_H, sun_h)
 	var fade: float = 1.0 - smoothstep(FADE_START_H, FADE_END_H, sun_h)
 	return clampf(rise * fade * weather_mult, 0.0, 1.0)
+
+
+## Moon-ray strength 0..1 for the moon height `moon_h` (= -sun_h) and weather.
+static func moon_strength(moon_h: float, weather_mult: float) -> float:
+	var rise: float = smoothstep(0.0, RISE_H, moon_h)
+	var fade: float = 1.0 - smoothstep(MOON_FADE_START_H, MOON_FADE_END_H, moon_h)
+	return clampf(rise * fade * weather_mult * MOON_RAY_SCALE, 0.0, 1.0)
 
 
 ## Screen-space direction (x right, y down) of the sun from the screen centre,

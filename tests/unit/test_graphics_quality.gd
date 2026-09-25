@@ -29,10 +29,10 @@ func test_cost_never_drops_as_tier_rises() -> void:
 		var lo: Dictionary = GQ.TIERS[i - 1]
 		var hi: Dictionary = GQ.TIERS[i]
 		for key: String in ["shadow_atlas_size", "shadow_max_distance", "particle_scale",
-				"max_night_lights", "msaa_3d", "sun_rays", "soft_shadow_quality"]:
+				"max_night_lights", "msaa_3d", "ray_samples", "fake_shafts", "sun_rays", "soft_shadow_quality"]:
 			assert_gte(hi[key], lo[key], "%s drops from tier %d to %d" % [key, i - 1, i])
 		for key: String in ["sun_shadows", "ssao", "glow", "ambient_particles", "moon_shadows",
-				"shadow_blend_splits"]:
+				"shadow_blend_splits", "height_fog", "moon_rays", "ground_mist", "light_halos", "depth_fog"]:
 			assert_true(bool(hi[key]) or not bool(lo[key]), "%s turns off at tier %d" % [key, i])
 
 func test_low_is_cheap_and_high_is_full() -> void:
@@ -134,3 +134,14 @@ func test_shadow_tuning_applied_to_sun_and_moon() -> void:
 	sun.free()
 	moon.free()
 	GQ.apply(GQ.knobs_for(GQ.HIGH, "forward_plus"), null, null, null)
+
+
+func test_fake_volumetrics_yield_to_real_volumetric_fog() -> void:
+	var high: Dictionary = GQ.TIERS[GQ.HIGH]
+	assert_gt(int(high["fake_shafts"]), 0)
+	assert_eq(int(GQ.knobs_for(GQ.HIGH, "forward_plus")["fake_shafts"]), 0, "real fog replaces fake shafts")
+	assert_eq(int(GQ.knobs_for(GQ.HIGH, "mobile")["fake_shafts"]), int(high["fake_shafts"]))
+	assert_eq(int(GQ.knobs_for(GQ.MEDIUM, "forward_plus")["fake_shafts"]), int(GQ.TIERS[GQ.MEDIUM]["fake_shafts"]),
+			"Medium on desktop has no volumetric fog, so it keeps the stand-ins")
+	assert_true(bool(GQ.knobs_for(GQ.HIGH, "mobile")["depth_fog"]), "Mobile High gets the depth-fog pass")
+	assert_false(bool(GQ.knobs_for(GQ.HIGH, "forward_plus")["depth_fog"]), "real fog replaces the depth-fog pass")

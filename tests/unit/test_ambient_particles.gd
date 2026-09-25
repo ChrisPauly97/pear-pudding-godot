@@ -69,3 +69,26 @@ func test_tiers() -> void:
 	assert_true(bool(GQ.TIERS[GQ.MEDIUM]["ambient_particles"]))
 	assert_true(bool(GQ.TIERS[GQ.HIGH]["ambient_particles"]))
 	assert_lt(GQ.scaled_amount(AP.FIREFLY_AMOUNT, GQ.TIERS[GQ.MEDIUM]), AP.FIREFLY_AMOUNT, "Medium scales down")
+
+
+func test_mist_level_rules() -> void:
+	var forest: int = AP.BIOME_FOREST
+	assert_almost_eq(AP.mist_level(-0.5, forest, ""), 1.0, 0.0001, "full at night in forest")
+	assert_gt(AP.mist_level(0.05, forest, ""), 0.9, "still thick at dawn")
+	assert_almost_eq(AP.mist_level(0.8, forest, ""), 0.0, 0.0001, "gone by day")
+	assert_almost_eq(AP.mist_level(-0.5, 2, ""), 0.0, 0.0001, "no desert mist")
+	assert_almost_eq(AP.mist_level(-0.5, -1, ""), 0.0, 0.0001, "off / named maps")
+	for w: String in AP.MIST_BLOCKING:
+		assert_almost_eq(AP.mist_level(-0.5, forest, w), 0.0, 0.0001, w)
+	assert_between(AP.mist_level(-0.5, AP.BIOME_GRASSLANDS, "rain"), 0.0, 1.0)
+
+
+func test_make_mist_is_a_faint_ground_layer() -> void:
+	var m: GPUParticles3D = AP.make_mist()
+	assert_eq(m.amount, AP.MIST_AMOUNT)
+	assert_false(m.local_coords)
+	var pm: ParticleProcessMaterial = m.process_material as ParticleProcessMaterial
+	assert_lt(pm.emission_box_extents.y, 0.5, "mist hugs the ground")
+	assert_lt(AP.MIST_ALPHA, 0.3)
+	assert_ne(AP.mist_color(-0.5), AP.mist_color(0.5))
+	m.free()

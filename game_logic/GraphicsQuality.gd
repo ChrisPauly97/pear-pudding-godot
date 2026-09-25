@@ -16,6 +16,12 @@
 ##   max_night_lights, night_light_shadows — night point lights (TID-489)
 ##   particle_scale             — multiplier for every GPUParticles3D amount (`scaled_amount`)
 ##   ambient_particles          — dust / fireflies / leaves on or off (TID-493)
+##   ray_samples, moon_rays     — screen-ray occlusion taps + night moon rays, SunRaysFx (TID-496)
+##   ground_mist                — low mist particles at night/dawn, AmbientTouches (TID-497)
+##   fake_shafts, light_halos   — fake volumetric sun shafts (count) / night-light halos,
+##                                FakeVolumetrics + NightLights (TID-495)
+##   depth_fog                  — full-screen depth-fog pass, FakeVolumetrics (TID-498)
+##   height_fog                 — valley mist via Environment height fog, DayNightCycle (GID-130 / TID-494)
 extends RefCounted
 
 const LOW := 0
@@ -33,6 +39,9 @@ const RENDERER_FORWARD_PLUS := "forward_plus"
 
 ## Boolean knobs that need the Forward+ renderer. `clamp_to_renderer` turns them off elsewhere.
 const FORWARD_PLUS_ONLY: Array[String] = ["ssao", "volumetric_fog"]
+## Fake stand-ins (GID-130) that duplicate real volumetric fog: zeroed wherever
+## `volumetric_fog` actually runs, so the two never stack.
+const FAKE_VOLUMETRIC: Dictionary = {"fake_shafts": 0, "depth_fog": false}
 
 ## Shadow tuning (TID-485). The iso camera is orthographic (size 15) and sits
 ## 34.6 units from the player, so on-screen ground lies ~24–45 units deep:
@@ -61,6 +70,13 @@ const TIERS: Array[Dictionary] = [
 		"sun_rays": SUN_RAYS_OFF,
 		"max_night_lights": 0,
 		"night_light_shadows": false,
+		"height_fog": false,
+		"fake_shafts": 0,
+		"light_halos": false,
+		"depth_fog": false,
+		"ground_mist": false,
+		"ray_samples": 0,
+		"moon_rays": false,
 	},
 	{ # MEDIUM — the pre-GID-129 mobile look (sun shadows were already off on phones).
 		"sun_shadows": false,
@@ -82,6 +98,13 @@ const TIERS: Array[Dictionary] = [
 		"sun_rays": SUN_RAYS_SCREEN,
 		"max_night_lights": 4,
 		"night_light_shadows": false,
+		"height_fog": true,
+		"fake_shafts": 6,
+		"light_halos": true,
+		"depth_fog": false,
+		"ground_mist": true,
+		"ray_samples": 10,
+		"moon_rays": false,
 	},
 	{ # HIGH — the pre-GID-129 desktop look plus the Forward+ extras.
 		"sun_shadows": true,
@@ -105,6 +128,13 @@ const TIERS: Array[Dictionary] = [
 		"sun_rays": SUN_RAYS_VOLUMETRIC,
 		"max_night_lights": 8,
 		"night_light_shadows": false,
+		"height_fog": true,
+		"fake_shafts": 10,
+		"light_halos": true,
+		"depth_fog": true,
+		"ground_mist": true,
+		"ray_samples": 16,
+		"moon_rays": true,
 	},
 ]
 
@@ -131,6 +161,8 @@ static func tier_from_setting(value: Variant, is_mobile: bool) -> int:
 static func clamp_to_renderer(knobs: Dictionary, rendering_method: String) -> Dictionary:
 	var out: Dictionary = knobs.duplicate()
 	if rendering_method == RENDERER_FORWARD_PLUS:
+		if bool(out.get("volumetric_fog", false)):
+			out.merge(FAKE_VOLUMETRIC, true)
 		return out
 	for key: String in FORWARD_PLUS_ONLY:
 		out[key] = false
