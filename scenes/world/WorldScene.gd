@@ -425,6 +425,9 @@ func apply_graphics_quality(_tier: int = -1) -> void:
 		_sun_rays.set_quality(int(_graphics_knobs.get("ray_samples", 10)), bool(_graphics_knobs.get("moon_rays", false)))
 	if contact_shadows != null:
 		contact_shadows.apply_knobs(_graphics_knobs)
+	ChunkRenderer.set_lit_world(bool(_graphics_knobs.get("lit_world", false)))
+	if _grass != null:
+		_grass.set_lit(bool(_graphics_knobs.get("lit_world", false)))
 	if _dnc != null:
 		_dnc.set_height_fog(bool(_graphics_knobs.get("height_fog", false)))
 

@@ -2,7 +2,7 @@
 
 **Goal:** GID-131
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-506
 
 ## Lock
@@ -21,12 +21,16 @@ Grass, props, landmarks and WorldItem are unshaded, ignoring sun/shadows/lights.
 
 ## Plan
 
-_Written during Plan phase._
+Split grass shaders into include + unshaded/lit headers; GrassBlades swaps variants; ChunkRenderer flips cached prop/landmark materials; knob lit_world on High.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `grass_blade.gdshaderinc`, `grass_cluster.gdshaderinc`, `grass_blade_lit.gdshader`, `grass_cluster_lit.gdshader` (+ .uid); original shaders now header + include.
+- `GrassBlades.set_lit`/`is_lit`; `ChunkRenderer.set_lit_world`/`_apply_lit`/`is_lit_world`.
+- `GraphicsQuality`: `lit_world` (off/off/on); WorldScene forwards it.
+- Brightness matched to terrain after a visual check (×1.3 albedo, 0.08 emission).
+- Tests: new `test_lit_world.gd`. BID-060 resolved (archived).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+visual-polish.md knob row; terrain-rendering.md Lit grass variant subsection; BID-060 progress + archived.

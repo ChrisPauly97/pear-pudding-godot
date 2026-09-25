@@ -177,6 +177,10 @@ No geometry shader is used (Godot 4 does not support them). Keep blade counts at
 | `.uid` sidecars | `assets/shaders/*.uid` | Required for Android export; must be committed alongside each shader |
 
 
+#### Lit grass variant (GID-131 / TID-508)
+
+Each grass shader is now a thin header plus a shared body include (`grass_blade.gdshaderinc`, `grass_cluster.gdshaderinc`). `grass_blade.gdshader` / `grass_cluster.gdshader` keep `render_mode ... unshaded` and the `grass_day_tint` approximation. `grass_blade_lit.gdshader` / `grass_cluster_lit.gdshader` use `diffuse_lambert_wrap, specular_disabled` and `#define GRASS_LIT`, so the body writes `ALBEDO = col × 1.3 × contact`, `EMISSION = ALBEDO × 0.08` and a world-up `NORMAL`. That way blades light like the ground under them and receive sun shadows. `GrassBlades.set_lit(on)` swaps `_mat` / `_cluster_mat` shaders (parameters carry over). WorldScene calls it from `apply_graphics_quality()` with the `lit_world` knob (High only). Grass still casts no shadows.
+
 #### Grass colour (GID-131 / TID-506)
 
 Both `grass_blade.gdshader` and `grass_cluster.gdshader` shade each blade with a smooth gradient: `mix(color_base, color_mid, smoothstep(0, 0.45, UV.y))`, then toward `color_tip` over `smoothstep(0.4, 0.95, UV.y)`. That replaced three hard bands whose olive base read as dark spikes on the bright ground. New defaults are base (0.18, 0.38, 0.13), mid (0.32, 0.58, 0.19), tip (0.56, 0.80, 0.30). A hash of the blade root (`v_root_world`) jitters brightness ±10 %, and one in five blades gets a drier tint. Contact shadows darken the lower blade (`mix(contact_shadow(root), 1, UV.y × 0.6)`).

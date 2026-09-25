@@ -24,6 +24,7 @@
 ##   fxaa, taa                  — screen-space edge smoothing on the viewport, `apply()` (GID-131 / TID-501);
 ##                                taa is Forward+ only
 ##   debanding                  — viewport dithering against 8-bit gradient steps, `apply()` (TID-502)
+##   lit_world                  — grass/props/landmarks lit + sun-shadowed, GrassBlades/ChunkRenderer (TID-508)
 ##   height_fog                 — valley mist via Environment height fog, DayNightCycle (GID-130 / TID-494)
 extends RefCounted
 
@@ -76,6 +77,7 @@ const TIERS: Array[Dictionary] = [
 		"fxaa": false,
 		"taa": false,
 		"debanding": false,
+		"lit_world": false,
 		"height_fog": false,
 		"fake_shafts": 0,
 		"light_halos": false,
@@ -107,6 +109,7 @@ const TIERS: Array[Dictionary] = [
 		"fxaa": true,
 		"taa": false,
 		"debanding": true,
+		"lit_world": false,
 		"height_fog": true,
 		"fake_shafts": 6,
 		"light_halos": true,
@@ -140,6 +143,7 @@ const TIERS: Array[Dictionary] = [
 		"fxaa": true,
 		"taa": true,
 		"debanding": true,
+		"lit_world": true,
 		"height_fog": true,
 		"fake_shafts": 10,
 		"light_halos": true,

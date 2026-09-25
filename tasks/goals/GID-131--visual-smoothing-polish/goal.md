@@ -19,10 +19,10 @@ Raised by the user (2026-09-25): *"what would also make the game look nicer? lik
 | TID-505 | Softer Terrain Tile Blending | agent | done | — |
 | TID-506 | Grass Shading Pass | agent | done | — |
 | TID-507 | Custom UI Theme | agent | done | — |
-| TID-508 | Lit Grass & Props (BID-060) | agent | pending | TID-506 |
+| TID-508 | Lit Grass & Props (BID-060) | agent | done | TID-506 |
 
 ## Acceptance Criteria
 
-- [ ] Each effect is a GraphicsQuality knob where it costs GPU time; Low stays cheap
-- [ ] Visual before/after checked on gl_compatibility under xvfb
-- [ ] Tests, gdlint, unsafe-hits clean
+- [x] Each effect is a GraphicsQuality knob where it costs GPU time; Low stays cheap
+- [x] Visual before/after checked on gl_compatibility under xvfb
+- [x] Tests, gdlint, unsafe-hits clean

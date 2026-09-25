@@ -50,6 +50,8 @@ static var _prop_visual_cache: Dictionary = {}  # prop key -> {"mat": ..., "mesh
 # Landmark meshes/materials are deterministic per (variant, biome) — share them.
 static var _landmark_mesh_cache: Dictionary = {}  # "variant|biome" -> ArrayMesh
 static var _landmark_mat_cache: Dictionary = {}   # biome -> StandardMaterial3D
+# GID-131 / TID-508: props and landmark stone shaded (sun shadows) on High.
+static var _lit_world: bool = false
 
 var _chunk_data: _ChunkData   # ChunkData
 var _chunk_key:  Vector2i
@@ -372,8 +374,7 @@ static func _get_prop_visual(key_str: String) -> Dictionary:
 	mat.alpha_scissor_threshold = 0.5
 	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.disable_receive_shadows = true
+	_apply_lit(mat)
 	var quad := QuadMesh.new()
 	quad.size = Vector2(0.5, 0.5)
 	var entry: Dictionary = {"mat": mat, "mesh": quad}
@@ -599,13 +600,36 @@ static func _get_landmark_mesh(variant: String, biome: int) -> ArrayMesh:
 	_landmark_mesh_cache[key] = mesh
 	return mesh
 
+## Lit (receives sun shadows, diffuse) or unshaded for every cached prop and
+## landmark material, and for any built later (GraphicsQuality `lit_world`).
+static func set_lit_world(on: bool) -> void:
+	_lit_world = on
+	for entry: Variant in _prop_visual_cache.values():
+		var d: Dictionary = entry
+		_apply_lit(d.get("mat") as StandardMaterial3D)
+	for m: Variant in _landmark_mat_cache.values():
+		_apply_lit(m as StandardMaterial3D)
+
+
+static func _apply_lit(mat: StandardMaterial3D) -> void:
+	if mat == null:
+		return
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL if _lit_world else BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.disable_receive_shadows = not _lit_world
+	mat.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
+
+
+static func is_lit_world() -> bool:
+	return _lit_world
+
+
 static func _get_landmark_mat(biome: int) -> StandardMaterial3D:
 	var cached: StandardMaterial3D = _landmark_mat_cache.get(biome)
 	if cached != null:
 		return cached
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = LandmarkMesh._stone_color(biome)
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_apply_lit(mat)
 	_landmark_mat_cache[biome] = mat
 	return mat
 

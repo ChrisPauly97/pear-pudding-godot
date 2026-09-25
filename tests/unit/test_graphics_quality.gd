@@ -33,7 +33,7 @@ func test_cost_never_drops_as_tier_rises() -> void:
 			assert_gte(hi[key], lo[key], "%s drops from tier %d to %d" % [key, i - 1, i])
 		for key: String in ["sun_shadows", "ssao", "glow", "ambient_particles", "moon_shadows",
 				"shadow_blend_splits", "height_fog", "moon_rays", "ground_mist", "light_halos", "depth_fog",
-				"fxaa", "taa", "debanding"]:
+				"fxaa", "taa", "debanding", "lit_world"]:
 			assert_true(bool(hi[key]) or not bool(lo[key]), "%s turns off at tier %d" % [key, i])
 
 func test_low_is_cheap_and_high_is_full() -> void:
