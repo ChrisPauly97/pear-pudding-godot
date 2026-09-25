@@ -4,6 +4,7 @@ const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const TextureGen = preload("res://game_logic/TextureGen.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const _EnemyAlertState = preload("res://game_logic/world/EnemyAlertState.gd")
+const _ContactShadow = preload("res://game_logic/ContactShadow.gd")
 
 const _ALERT_REACTION_TIME: float = 0.4
 const _GIVEUP_HOLD_TIME: float = 2.0
@@ -33,6 +34,8 @@ func _ready() -> void:
 			_SpriteRegistry.enemy_world_height(etype, _is_roaming_boss, _is_boss))
 	add_child(sprite)
 	_sprite = sprite
+	_ContactShadow.register(self, _ContactShadow.radius_for_height(
+			_SpriteRegistry.enemy_world_height(etype, _is_roaming_boss, _is_boss)))
 	if bool(enemy_data.get("nocturnal", false)):
 		sprite.modulate = SPECTRAL_TINT
 	if _is_roaming_boss:

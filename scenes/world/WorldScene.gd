@@ -52,6 +52,7 @@ const _ChestLoot = preload("res://scenes/world/modules/ChestLoot.gd")
 const _NightLights = preload("res://scenes/world/modules/NightLights.gd")
 const _AmbientTouches = preload("res://scenes/world/modules/AmbientTouches.gd")
 const _FakeVolumetrics = preload("res://scenes/world/modules/FakeVolumetrics.gd")
+const _ContactShadows = preload("res://scenes/world/modules/ContactShadows.gd")
 const _NamedMapProps = preload("res://scenes/world/modules/NamedMapProps.gd")
 const _TownSiege = preload("res://scenes/world/modules/TownSiege.gd")
 const _SunRaysFx = preload("res://scenes/world/SunRaysFx.gd")
@@ -175,6 +176,7 @@ var chest_loot: _ChestLoot = null    # modules/ChestLoot.gd
 var night_lights: _NightLights = null  # modules/NightLights.gd (TID-489)
 var ambient: _AmbientTouches = null  # modules/AmbientTouches.gd (TID-493)
 var fake_volumetrics: _FakeVolumetrics = null  # modules/FakeVolumetrics.gd (GID-130)
+var contact_shadows: _ContactShadows = null  # modules/ContactShadows.gd (GID-131)
 
 # Computed in _ready from map_name; true for "main" and "infinite", false for named dungeon maps
 var _is_infinite: bool = false
@@ -420,6 +422,8 @@ func apply_graphics_quality(_tier: int = -1) -> void:
 	if _sun_rays != null:
 		_sun_rays.set_mode(int(_graphics_knobs.get("sun_rays", 0)))
 		_sun_rays.set_quality(int(_graphics_knobs.get("ray_samples", 10)), bool(_graphics_knobs.get("moon_rays", false)))
+	if contact_shadows != null:
+		contact_shadows.apply_knobs(_graphics_knobs)
 	if _dnc != null:
 		_dnc.set_height_fog(bool(_graphics_knobs.get("height_fog", false)))
 
@@ -823,6 +827,7 @@ func _ensure_world_modules() -> void:
 	night_lights = _ensure_world_module(night_lights, _NightLights, "NightLights") as _NightLights
 	ambient = _ensure_world_module(ambient, _AmbientTouches, "AmbientTouches") as _AmbientTouches
 	fake_volumetrics = _ensure_world_module(fake_volumetrics, _FakeVolumetrics, "FakeVolumetrics") as _FakeVolumetrics
+	contact_shadows = _ensure_world_module(contact_shadows, _ContactShadows, "ContactShadows") as _ContactShadows
 
 func _ensure_world_module(existing: Node, script: GDScript, node_name: String) -> Node:
 	if existing != null and is_instance_valid(existing):

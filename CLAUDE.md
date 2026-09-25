@@ -345,6 +345,7 @@ created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
 | `ChestLoot.gd` (`chest_loot`) | Chest open (mimic, co-op sync, need/greed hand-off), card/coin scatter, equipment drop |
 | `NightLights.gd` (`night_lights`) | Night light rigs: lantern/waystone/mana-well/campfire glow dots + depth-based light pools, flicker, tier caps |
 | `AmbientTouches.gd` (`ambient`) | Grassland/forest night fireflies, forest wind-blown leaves, ground mist, pushes particle knobs to player dust |
+| `ContactShadows.gd` (`contact_shadows`) | Writes nearest character positions to the `contact_shadow_*` shader globals (terrain/grass darken under feet, GID-131) |
 | `FakeVolumetrics.gd` (`fake_volumetrics`) | Mobile-safe volumetric stand-ins: dawn/dusk fake light shafts, depth-fog post pass (GID-130) |
 
 BattleScene's single-player clusters live under `scenes/battle/modules/`, created by

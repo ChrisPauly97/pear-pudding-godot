@@ -10,6 +10,7 @@ const TextureGen = preload("res://game_logic/TextureGen.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const _AvatarSync = preload("res://game_logic/net/AvatarSync.gd")
 const ObjectiveTracker = preload("res://game_logic/ObjectiveTracker.gd")
+const _ContactShadow = preload("res://game_logic/ContactShadow.gd")
 
 ## Offset from the player's position, in world units — keeps him visibly beside
 ## the player without overlapping the player sprite or blocking the view.
@@ -71,6 +72,7 @@ func set_net_state(x: float, z: float) -> void:
 	_net_target = Vector3(x, position.y, z)
 
 func _ready() -> void:
+	_ContactShadow.register(self, _ContactShadow.radius_for_height(_SpriteRegistry.HEIGHT_NPC))
 	var tex: Texture2D = _SpriteRegistry.maiteln_texture()
 	var walk_frames: Array[Texture2D] = _SpriteRegistry.maiteln_walk_frames() if tex != null else []
 	if tex != null and walk_frames.size() == 4:

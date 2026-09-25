@@ -25,6 +25,9 @@ global uniform vec3  player_pos;
 global uniform vec2  player_move_dir;
 // Sun+ambient approximation so unshaded blades still follow day/night.
 global uniform vec3  grass_day_tint;
+#include "res://assets/shaders/contact_shadow.gdshaderinc"
+// Blade root in world space, for contact shadows (GID-131 / TID-503).
+varying vec3 v_root_world;
 uniform float player_radius : hint_range(0.0, 2.0) = 0.3;
 uniform float player_push   : hint_range(0.0, 2.0) = 0.5;
 
@@ -41,6 +44,7 @@ float hash(vec2 p) {
 }
 
 void vertex() {
+	v_root_world = MODEL_MATRIX[3].xyz;
 	float t    = UV.y;
 	float bend = t * t;
 	vec3  root = MODEL_MATRIX[3].xyz;
@@ -105,7 +109,7 @@ void fragment() {
 		col = color_tip.rgb;
 	}
 
-	ALBEDO = col * grass_day_tint;
+	ALBEDO = col * grass_day_tint * mix(contact_shadow(v_root_world), 1.0, UV.y * 0.6);
 	// Hard cutoff at tip instead of smooth fade
 	ALPHA = step(UV.y, 0.92);
 	// Low threshold keeps this material in Godot's opaque pass (depth writes,

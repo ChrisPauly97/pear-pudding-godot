@@ -7,6 +7,7 @@ extends Node3D
 
 const TextureGen = preload("res://game_logic/TextureGen.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
+const _ContactShadow = preload("res://game_logic/ContactShadow.gd")
 
 func _ready() -> void:
 	var sprite := Sprite3D.new()
@@ -22,6 +23,7 @@ func _ready() -> void:
 	_SpriteRegistry.apply_billboard_flags(sprite)
 	sprite.modulate = Color(0.55, 0.7, 0.4)
 	add_child(sprite)
+	_ContactShadow.register(self, _ContactShadow.radius_for_height(_SpriteRegistry.HEIGHT_SOLDIER * 0.8))
 
 func interact() -> void:
 	GameBus.hud_message_requested.emit(

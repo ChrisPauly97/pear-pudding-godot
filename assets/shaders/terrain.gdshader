@@ -33,6 +33,7 @@ instance uniform float blight_amount : hint_range(0.0, 1.0) = 0.0;
 // Rain wetness [0=dry, 1=soaked] (GID-129 / TID-487). Declared in project.godot
 // [shader_globals]; DayNightCycle eases it in with rain and dries it slowly.
 global uniform float terrain_wetness;
+#include "res://assets/shaders/contact_shadow.gdshaderinc"
 
 varying float v_blend;      // height ratio [0=flat ground .. 1=hill plateau]
 varying float v_wall;       // 1.0 if this vertex sits on a wall tile
@@ -196,7 +197,7 @@ void fragment() {
 		wet_spec = mix(0.1, 0.45, max(wet, puddle));
 	}
 
-	ALBEDO = tinted_col;
+	ALBEDO = tinted_col * contact_shadow(vec3(v_world_xz.x, v_world_y, v_world_xz.y));
 
 	// Soft emission floor keeps cast shadows from going pitch-black.
 	// Keep low — this adds straight onto lit albedo, brightening midday too.

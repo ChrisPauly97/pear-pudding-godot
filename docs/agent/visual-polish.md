@@ -163,6 +163,15 @@ World module `fake_volumetrics` (created in `_ensure_world_modules`). Stand-ins 
 - **Visual check:** under `xvfb-run` with `--rendering-driver opengl3 --rendering-method gl_compatibility`, instantiate `WorldScene.tscn` after `new_game`, hide HUD CanvasLayers (1–126), set tier/time/weather, call each module's `refresh()` and save `root.get_texture().get_image()`. Headless (dummy renderer) never compiles shaders — use the same xvfb run to catch `SHADER ERROR`s.
 - **Halos (TID-495, in `NightLights`):** each rig gets a `Halo` quad (the shared dot mesh, scaled to `radius × 0.9`) with `light_halo.gdshader`: billboard with node scale, `(1 − r)^2.2` radial glow, depth soft fade 1.2. Visible while `light_halos` is on; energy = pool flicker energy × `HALO_ENERGY` 0.35. `halo_count()` for tests.
 
+### Contact Shadows (`game_logic/ContactShadow.gd`, `scenes/world/modules/ContactShadows.gd`, `contact_shadow.gdshaderinc`) — GID-131 / TID-503
+
+Soft dark pools under characters on every tier (Medium has no sun shadows, so billboards floated). **Not decal geometry:** a flat soft-disc quad was tried first and lost to the terrain shader's flat-ground vertex jitter (up to +0.12 y) and to dense grass. Instead the surfaces darken themselves:
+
+- `contact_shadow.gdshaderinc` declares six `global uniform vec4 contact_shadow_0..5` (world xyz + radius; radius 0 = unused) and `contact_shadow_opacity`, all in `project.godot` `[shader_globals]`. `contact_shadow(p)` multiplies `1 − opacity × (1 − smoothstep(0.15, 1, |Δxz/r|²)) × (1 − smoothstep(0.4, 1.4, |Δy|))` over the slots.
+- `terrain.gdshader` multiplies `ALBEDO` by it at the fragment's world position; `grass_blade` / `grass_cluster` by `mix(contact_shadow(blade root), 1, UV.y × 0.6)` so blades darken at the base and stay lighter at the tip.
+- Casters call `ContactShadow.register(self, ContactShadow.radius_for_height(h))` in `_ready` (group `contact_shadow_caster` + radius meta): Player, RemotePlayer, MaitelnFollower, EnemyNPC, MerchantNPC, TownspersonNPC, ScoutAmbush. Radius = height × 0.45, clamped 0.35–1.6, × node scale (bosses).
+- `ContactShadows` module (`contact_shadows`) writes the nearest six visible casters to the player each frame (`pick_slots`, only changed slots), clears the slots in `_exit_tree`, and `apply_knobs()` (from `apply_graphics_quality`) sets opacity 0.55, or 0.3 when `sun_shadows` is on.
+
 ### Vignette (`scenes/world/ScreenVignette.gd`)
 
 `ScreenVignette.make()` (added by `WorldScene._setup_environment`) returns a `CanvasLayer` at layer 127 holding a `ColorRect` covering the full viewport. An inline `Shader` on its `ShaderMaterial` computes `d = length(UV - 0.5)` and darkens the corners: `ALPHA = smoothstep(0.35, 0.75, d) * 0.45`. No `.gdshader` file, no `.uid` required.

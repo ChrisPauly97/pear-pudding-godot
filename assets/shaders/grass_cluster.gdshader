@@ -17,8 +17,12 @@ global uniform float grass_wind_lean;
 
 // Sun+ambient approximation so unshaded clusters still follow day/night.
 global uniform vec3 grass_day_tint;
+#include "res://assets/shaders/contact_shadow.gdshaderinc"
+// Blade root in world space, for contact shadows (GID-131 / TID-503).
+varying vec3 v_root_world;
 
 void vertex() {
+	v_root_world = MODEL_MATRIX[3].xyz;
 	// Y-axis billboard: rotate the quad around world Y to face the camera,
 	// keeping it upright (no look_at tilt). Extract camera XZ direction from
 	// the inverse view matrix, flatten to Y=0, then rebuild the local axes.
@@ -83,7 +87,7 @@ void fragment() {
 		col = color_tip.rgb;
 	}
 
-	ALBEDO = col * grass_day_tint;
+	ALBEDO = col * grass_day_tint * mix(contact_shadow(v_root_world), 1.0, UV.y * 0.6);
 	ALPHA  = a * step(UV.y, 0.92);
 	// Low threshold keeps material in the opaque pass so clusters depth-test
 	// correctly against the player and terrain.

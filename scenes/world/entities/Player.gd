@@ -36,6 +36,7 @@ const _WalkTex1: Texture2D = preload("res://assets/textures/characters/player_he
 const _WalkTex2: Texture2D = preload("res://assets/textures/characters/player_hero_walk_2.png")
 const _WalkTex3: Texture2D = preload("res://assets/textures/characters/player_hero_walk_3.png")
 const _WalkTex4: Texture2D = preload("res://assets/textures/characters/player_hero_walk_4.png")
+const _ContactShadow = preload("res://game_logic/ContactShadow.gd")
 
 const ANIM_FPS: float = 6.0        # walking animation speed
 const PIXEL_SIZE: float = 0.05     # larger per-pixel size to match 32px sprite scale
@@ -157,6 +158,7 @@ func _build_sprite() -> void:
 	_sprite.position = _sprite_base_pos
 
 	add_child(_sprite)
+	_ContactShadow.register(self, _ContactShadow.radius_for_height(_SpriteRegistry.PLAYER_HEIGHT))
 	_sprite.play("idle")
 	_sprite.frame_changed.connect(_on_sprite_frame_changed)
 

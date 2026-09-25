@@ -2,7 +2,7 @@
 
 **Goal:** GID-131
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -21,12 +21,16 @@ Billboards come from `SpriteRegistry.make_billboard()`; player in `scenes/world/
 
 ## Plan
 
-_Written during Plan phase._
+Mesh blob tried first (hidden by terrain jitter/grass); switched to shader contact shadows: casters register, module writes 6 globals, terrain + grass shaders darken.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `game_logic/ContactShadow.gd`, `scenes/world/modules/ContactShadows.gd`, `assets/shaders/contact_shadow.gdshaderinc` (+ .uid).
+- `project.godot`: 7 new `[shader_globals]`.
+- `terrain.gdshader`, `grass_blade.gdshader`, `grass_cluster.gdshader`: include + ALBEDO multiply.
+- 7 character scripts register as casters; WorldScene module wiring + `apply_knobs` in `apply_graphics_quality`.
+- Tests: new `test_contact_shadow.gd`. Visual check on gl_compatibility.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+visual-polish.md: Contact Shadows section. CLAUDE.md module table row.

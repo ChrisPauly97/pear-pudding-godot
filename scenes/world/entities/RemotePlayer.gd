@@ -7,6 +7,8 @@ extends Node3D
 
 const _AvatarSync = preload("res://game_logic/net/AvatarSync.gd")
 const _AvatarSprite = preload("res://scenes/world/entities/AvatarSprite.gd")
+const _ContactShadow = preload("res://game_logic/ContactShadow.gd")
+const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 
 const _INTERP_RATE: float = 12.0
 const _DOWNED_TINT: Color = Color(0.35, 0.38, 0.45, 0.75)
@@ -58,6 +60,7 @@ func set_player_identity(display_name: String, color: Color) -> void:
 func _ready() -> void:
 	_sprite = _AvatarSprite.build()
 	add_child(_sprite)
+	_ContactShadow.register(self, _ContactShadow.radius_for_height(_SpriteRegistry.PLAYER_HEIGHT))
 	_sprite.play("idle")
 
 	# Billboard name tag floating above the sprite's head. no_depth_test keeps it
