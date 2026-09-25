@@ -24,6 +24,7 @@ const _TerrainShader: Shader = preload("res://assets/shaders/terrain.gdshader")
 const LandmarkNames  = preload("res://game_logic/world/LandmarkNames.gd")
 const _ChunkData     = preload("res://game_logic/world/ChunkData.gd")
 const _GraphicsQuality = preload("res://game_logic/GraphicsQuality.gd")
+const _ScreenVignette = preload("res://scenes/world/ScreenVignette.gd")
 const _WorldEventManager = preload("res://autoloads/WorldEventManager.gd")
 
 const _TexGrass:     Texture2D = preload("res://assets/textures/pixel_art/grass_pixel.png")
@@ -405,7 +406,7 @@ func _setup_environment() -> void:
 	_fill_light.light_volumetric_fog_energy = 0.0  # unshadowed: would only haze the sun-ray fog
 	_fill_light.rotation_degrees = Vector3(60.0, 45.0, 0.0)
 	add_child(_fill_light)
-	_setup_vignette()
+	add_child(_ScreenVignette.make())
 
 ## Re-reads the Graphics Quality setting and applies it (TID-484). Also runs
 ## live from Settings via GameBus.graphics_quality_changed.
@@ -416,26 +417,12 @@ func apply_graphics_quality(_tier: int = -1) -> void:
 	_GraphicsQuality.apply(_graphics_knobs, env, _sun, get_viewport(), _moon)
 	if _sun_rays != null:
 		_sun_rays.set_mode(int(_graphics_knobs.get("sun_rays", 0)))
+	if _dnc != null:
+		_dnc.set_height_fog(bool(_graphics_knobs.get("height_fog", false)))
 
 ## The active GraphicsQuality knobs — atmosphere effects read these, never the platform.
 func graphics_knobs() -> Dictionary:
 	return _graphics_knobs
-
-func _setup_vignette() -> void:
-	var cl := CanvasLayer.new()
-	cl.layer = 127
-	var cr := ColorRect.new()
-	cr.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	cr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var vshader := Shader.new()
-	vshader.code = ("shader_type canvas_item;\nvoid fragment() {\n\tvec2 uv = UV - vec2(0.5);\n\tfloat d = length(uv * "
-			+ "vec2(1.0, 1.2));\n\tfloat vig = smoothstep(0.35, 0.75, d) * 0.45;\n\tCOLOR = vec4(0.0, 0.0, 0.0, "
-			+ "vig);\n}")
-	var vmat := ShaderMaterial.new()
-	vmat.shader = vshader
-	cr.material = vmat
-	cl.add_child(cr)
-	add_child(cl)
 
 func _ready() -> void:
 	# Before anything else wires signals to them (the GameBus connections below
@@ -518,7 +505,7 @@ func _ready() -> void:
 	_sun_rays.name = "SunRays"
 	add_child(_sun_rays)
 	_sun_rays.setup(_camera, _sun, _moon, _world_env.environment, _dnc)
-	_sun_rays.set_mode(int(_graphics_knobs.get("sun_rays", 0)))
+	apply_graphics_quality()
 	_dnc.day_passed.connect(func() -> void:
 		SceneManager.save_manager.increment_day()
 		GameBus.blight_changed.emit()

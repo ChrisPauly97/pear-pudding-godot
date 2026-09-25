@@ -45,6 +45,9 @@ const CLEAR: Dictionary = {
 	# TID-488: multiplier on dawn/dusk sun-ray strength. Cloud and dust cover
 	# dampens shafts; storms and whiteouts kill them.
 	"sun_rays": 1.0,
+	# GID-130 / TID-494: multiplier on the valley height-fog density. Rain and
+	# snow thicken low mist; wind (sand, dust) scours it away.
+	"height_fog": 1.0,
 }
 
 const OVERRIDES: Dictionary = {
@@ -55,6 +58,7 @@ const OVERRIDES: Dictionary = {
 		"wind_direction": Vector2(0.37139068, 0.92847669), "wind_scale": 1.6, "wind_lean": 0.04,
 		"wetness": 0.6,
 		"sun_rays": 0.4,
+		"height_fog": 1.6,
 	},
 	"heavy_rain": {
 		"tint": Color(0.70, 0.70, 0.85),
@@ -63,6 +67,7 @@ const OVERRIDES: Dictionary = {
 		"wind_direction": Vector2(0.49613894, 0.86824314), "wind_scale": 2.6, "wind_lean": 0.10,
 		"wetness": 1.0, "lightning": 1.0,
 		"sun_rays": 0.0,
+		"height_fog": 2.0,
 	},
 	"sandstorm": {
 		"tint": Color(0.95, 0.85, 0.70),
@@ -70,6 +75,7 @@ const OVERRIDES: Dictionary = {
 		"sky_overcast": 0.7, "sun_energy_mult": 0.55, "shadow_opacity_mult": 0.35,
 		"wind_direction": Vector2(0.98058068, 0.19611614), "wind_scale": 3.0, "wind_lean": 0.14,
 		"sun_rays": 0.2,
+		"height_fog": 0.3,
 	},
 	"dust_devil": {
 		"tint": Color(0.92, 0.84, 0.68),
@@ -77,6 +83,7 @@ const OVERRIDES: Dictionary = {
 		"sky_overcast": 0.4, "sun_energy_mult": 0.8, "shadow_opacity_mult": 0.7,
 		"wind_direction": Vector2(0.70710678, 0.70710678), "wind_scale": 2.2, "wind_lean": 0.06,
 		"sun_rays": 0.7,
+		"height_fog": 0.5,
 	},
 	"ash_fall": {
 		"tint": Color(0.70, 0.65, 0.65),
@@ -84,6 +91,7 @@ const OVERRIDES: Dictionary = {
 		"sky_overcast": 0.7, "sun_energy_mult": 0.5, "shadow_opacity_mult": 0.4,
 		"wind_direction": Vector2(0.31622777, 0.94868330), "wind_scale": 0.8, "wind_lean": 0.0,
 		"sun_rays": 0.35,
+		"height_fog": 1.3,
 	},
 	"volcanic": {
 		"tint": Color(0.60, 0.55, 0.55),
@@ -93,6 +101,7 @@ const OVERRIDES: Dictionary = {
 		# Dry lightning in the ash cloud, red-tinted by the lava glow.
 		"lightning": 0.7, "lightning_color": Color(1.00, 0.55, 0.35),
 		"sun_rays": 0.1,
+		"height_fog": 1.5,
 	},
 	"snow": {
 		"tint": Color(0.95, 0.95, 1.00),
@@ -100,6 +109,7 @@ const OVERRIDES: Dictionary = {
 		"sky_overcast": 0.5, "sun_energy_mult": 0.7, "shadow_opacity_mult": 0.6,
 		"wind_direction": Vector2(0.37139068, 0.92847669), "wind_scale": 0.7, "wind_lean": 0.0,
 		"sun_rays": 0.5,
+		"height_fog": 1.4,
 	},
 	"blizzard": {
 		"tint": Color(0.80, 0.80, 0.95),
@@ -107,6 +117,7 @@ const OVERRIDES: Dictionary = {
 		"sky_overcast": 0.85, "sun_energy_mult": 0.35, "shadow_opacity_mult": 0.2,
 		"wind_direction": Vector2(0.91914503, 0.39391929), "wind_scale": 2.8, "wind_lean": 0.12,
 		"sun_rays": 0.0,
+		"height_fog": 1.2,
 	},
 }
 

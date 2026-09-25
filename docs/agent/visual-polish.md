@@ -50,6 +50,7 @@ The single source of truth for which atmosphere effects run. All-static module (
 | `sun_rays` | OFF | SCREEN | VOLUMETRIC | `SunRaysFx.set_mode` (TID-488, `SUN_RAYS_*`) |
 | `max_night_lights` | 0 | 4 | 8 | `NightLights` module: rigs that draw a light pool (TID-489) |
 | `night_light_shadows` | off | off | off | `NightLights`: adds a shadowed `OmniLight3D` per pool rig (reserved, off everywhere) |
+| `height_fog` | off | on | on | `DayNightCycle.set_height_fog` — valley mist (GID-130 / TID-494) |
 
 - **Renderer clamp:** `clamp_to_renderer(knobs, method)` turns every `FORWARD_PLUS_ONLY` key (`ssao`, `volumetric_fog`) off and downgrades `sun_rays` VOLUMETRIC → SCREEN unless the method is `"forward_plus"`. `knobs_for(tier, method)` returns a clamped **copy**; `current_knobs(setting)` uses the platform and `RenderingServer.get_current_rendering_method()`.
 - **Apply:** `apply(knobs, env, sun, viewport, moon = null)` writes glow/SSAO/volumetric fog to the Environment, shadow enable/mode/distance/split/blend/bias to the sun, shadow enable + an orthogonal low-res map to the moon, MSAA to the viewport and the shadow atlas size + soft-filter quality to the RenderingServer (global). Any argument may be null.
@@ -137,9 +138,13 @@ The single source of truth for which atmosphere effects run. All-static module (
 
 `_setup_environment()` creates a `ProceduralSkyMaterial` at startup, assigns it to a `Sky` resource, and sets `env.background_mode = BG_SKY`. Fog is enabled on the same `Environment` with `fog_density=0.004`. `DayNightCycle._apply_lighting()` calls `_get_sky_mat()` (lazy getter that resolves the sky chain) and updates `sky_top_color`, `sky_horizon_color`, `ground_horizon_color`, and `fog_light_color` each half-second tick.
 
-### Vignette (`WorldScene._setup_vignette`)
+### Height Fog (`game_logic/AtmosphereMath.gd`, `DayNightCycle`) — GID-130 / TID-494
 
-A `CanvasLayer` at layer 127 holds a `ColorRect` covering the full viewport. An inline `Shader` on its `ShaderMaterial` computes `d = length(UV - 0.5)` and darkens the corners: `ALPHA = smoothstep(0.35, 0.75, d) * 0.45`. No `.gdshader` file, no `.uid` required.
+Mobile-safe valley mist using `Environment.fog_height` / `fog_height_density` (supported on every renderer). `set_height_fog(on)` (forwarded from `WorldScene.apply_graphics_quality`) sets `fog_height = AtmosphereMath.HEIGHT_FOG_TOP` (0.8 — flat ground at y≈0 sits in the mist, hilltops at 1.5 poke out). `_apply_lighting()` writes `fog_height_density = AtmosphereMath.height_fog_density(sun_h, look.height_fog)` (cached): 0.28 at night, 0.06 at midday, +0.18 bump around sunrise/sunset, capped at 0.7; 0 when the knob is off. WeatherLook `height_fog` multiplier: rain 1.6, heavy rain 2.0, snow 1.4, blizzard 1.2, ash 1.3, volcanic 1.5, dust devil 0.5, sandstorm 0.3.
+
+### Vignette (`scenes/world/ScreenVignette.gd`)
+
+`ScreenVignette.make()` (added by `WorldScene._setup_environment`) returns a `CanvasLayer` at layer 127 holding a `ColorRect` covering the full viewport. An inline `Shader` on its `ShaderMaterial` computes `d = length(UV - 0.5)` and darkens the corners: `ALPHA = smoothstep(0.35, 0.75, d) * 0.45`. No `.gdshader` file, no `.uid` required.
 
 ### Per-biome Color Grade (`WorldScene._apply_biome_color_grade`)
 
