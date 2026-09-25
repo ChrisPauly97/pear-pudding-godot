@@ -12,6 +12,7 @@ const Keywords = preload("res://game_logic/battle/Keywords.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const BattleFx = preload("res://scenes/battle/BattleFx.gd")
+const CardArt = preload("res://scenes/battle/CardArt.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
@@ -292,6 +293,7 @@ func update_card_view(panel: PanelContainer, card: CardInstance, zone_id: String
 		panel.add_child(build_card_vbox(card, is_board_zone))
 	else:
 		name_lbl.text = card.name
+		CardArt.apply(vbox, card, _vh)
 		var stats_lbl: Label = vbox.get_node_or_null("StatsLabel") as Label
 		if stats_lbl:
 			var eff_cost: int = _seat_player(0).effective_cost(card) if zone_id == "hand" else card.cost
@@ -342,16 +344,7 @@ func build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBoxC
 	var name_lbl := _UiUtil.make_label(card.name, int(_font(0.020)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	name_lbl.name = "NameLabel"
 	name_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var tmpl_for_illus: Dictionary = CardRegistry.get_template_for_face(card.template_id, card.active_face)
-	var illus: Texture2D = tmpl_for_illus.get("illustration") as Texture2D
-	if illus != null:
-		var art := TextureRect.new()
-		art.name = "IllustrationRect"
-		art.texture = illus
-		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		art.custom_minimum_size = Vector2(0.0, _vh * 0.07)
-		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		vbox.add_child(art)
+	CardArt.apply(vbox, card, _vh)
 	var stats_lbl := _UiUtil.make_label(format_card_stats(card, card.cost), int(_font(0.022)), Color.WHITE,
 			HORIZONTAL_ALIGNMENT_CENTER)
 	stats_lbl.name = "StatsLabel"

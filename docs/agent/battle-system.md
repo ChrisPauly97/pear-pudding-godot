@@ -359,6 +359,8 @@ All spell and emergence resolution logic lives in `SpellEffectResolver` (extends
 
 ### CardViewBuilder (`scenes/battle/CardViewBuilder.gd`, TID-263)
 
+- **Card art follows the card (CardArt.gd):** zone refreshes recycle panels by index, so `update_card_view()` calls `CardArt.apply(vbox, card, vh)` to add/swap/hide the `IllustrationRect` (always the vbox's first child). Previously only name/stats/text were refreshed and art stayed on the old card when the hand shifted. Tests: `test_card_art.gd`.
+
 All pure view-building logic lives in `CardViewBuilder` (extends RefCounted). BattleScene creates it in `_ready()` and delegates all rendering to it.
 
 **API:**
