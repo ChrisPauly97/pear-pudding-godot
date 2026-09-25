@@ -9,6 +9,7 @@ signal path_arrived
 const MountRegistry = preload("res://game_logic/MountRegistry.gd")
 const TextureGen    = preload("res://game_logic/TextureGen.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
+const _PixelSnap = preload("res://game_logic/PixelSnap.gd")
 const TerrainMath   = preload("res://game_logic/TerrainMath.gd")
 const _FootstepSurface = preload("res://game_logic/FootstepSurface.gd")
 const _InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
@@ -36,6 +37,8 @@ const _WalkTex1: Texture2D = preload("res://assets/textures/characters/player_he
 const _WalkTex2: Texture2D = preload("res://assets/textures/characters/player_hero_walk_2.png")
 const _WalkTex3: Texture2D = preload("res://assets/textures/characters/player_hero_walk_3.png")
 const _WalkTex4: Texture2D = preload("res://assets/textures/characters/player_hero_walk_4.png")
+const _ContactShadow = preload("res://game_logic/ContactShadow.gd")
+const _SpriteOutline = preload("res://game_logic/SpriteOutline.gd")
 
 const ANIM_FPS: float = 6.0        # walking animation speed
 const PIXEL_SIZE: float = 0.05     # larger per-pixel size to match 32px sprite scale
@@ -69,6 +72,9 @@ const _HOOF_INTERVAL: float = 0.26
 var _velocity_y: float = 0.0
 var _sprite: AnimatedSprite3D
 var _sprite_base_pos: Vector3 = Vector3.ZERO   # on-foot sprite position; the ride pose offsets from it
+var _sprite_pose_pos: Vector3 = Vector3.ZERO   # base or ride pose, before pixel snapping
+var _mount_pose_pos: Vector3 = Vector3.ZERO
+var _pixel_offset: Vector3 = Vector3.ZERO      # GID-131 / TID-504: sub-pixel correction
 var _mount_sprite: Sprite3D
 var _dust_particles: GPUParticles3D
 var _dust_mat_mount: ParticleProcessMaterial
@@ -155,8 +161,11 @@ func _build_sprite() -> void:
 	var frame_h: float = _WalkTex1.get_height() * PIXEL_SIZE
 	_sprite_base_pos = Vector3(0.0, frame_h * 0.5, 0.0)
 	_sprite.position = _sprite_base_pos
+	_sprite_pose_pos = _sprite_base_pos
 
 	add_child(_sprite)
+	_SpriteOutline.apply(_sprite)
+	_ContactShadow.register(self, _ContactShadow.radius_for_height(_SpriteRegistry.PLAYER_HEIGHT))
 	_sprite.play("idle")
 	_sprite.frame_changed.connect(_on_sprite_frame_changed)
 
@@ -167,6 +176,7 @@ func _build_sprite() -> void:
 	_mount_sprite.pixel_size = PIXEL_SIZE
 	_SpriteRegistry.apply_billboard_flags(_mount_sprite)
 	_mount_sprite.shaded = false
+	_SpriteOutline.apply(_mount_sprite)
 	_mount_sprite.no_depth_test = false
 	_mount_sprite.double_sided = true
 	_mount_sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -175,7 +185,8 @@ func _build_sprite() -> void:
 	# TextureGen fallback's 24px. Stays at z=0 (hooves flush with the ground);
 	# the rider is the one that moves, along the camera axis, when mounted.
 	var mount_tex_h: float = float(_mount_sprite.texture.get_height())
-	_mount_sprite.position = Vector3(0.0, mount_tex_h * PIXEL_SIZE * 0.5, 0.0)
+	_mount_pose_pos = Vector3(0.0, mount_tex_h * PIXEL_SIZE * 0.5, 0.0)
+	_mount_sprite.position = _mount_pose_pos
 	_mount_sprite.offset = Vector2(_SADDLE_OFFSET_PX, 0.0)
 	_mount_sprite.visible = false
 	add_child(_mount_sprite)
@@ -411,9 +422,10 @@ func _update_mount_visuals(mounted: bool) -> void:
 		# Into the saddle (up) and one depth step toward the camera, so the rider
 		# is drawn over the horse rather than inside it. See _CAM_AXIS above.
 		if mounted:
-			_sprite.position = _sprite_base_pos + Vector3.UP * _RIDE_LIFT + _CAM_AXIS * _RIDE_DEPTH_LIFT
+			_sprite_pose_pos = _sprite_base_pos + Vector3.UP * _RIDE_LIFT + _CAM_AXIS * _RIDE_DEPTH_LIFT
 		else:
-			_sprite.position = _sprite_base_pos
+			_sprite_pose_pos = _sprite_base_pos
+		_sprite.position = _sprite_pose_pos + _pixel_offset
 	if _dust_particles != null:
 		_dust_particles.process_material = _dust_mat_mount if mounted else _dust_mat_foot
 		_dust_particles.amount = _GraphicsQuality.scaled_amount(20 if mounted else 10, _particle_knobs)
@@ -422,6 +434,17 @@ func _update_mount_visuals(mounted: bool) -> void:
 ## amounts scale with `particle_scale`; the on-foot trail and move-start puff
 ## are ambient touches and go off with `ambient_particles` (Low). Landing and
 ## mount dust stay as movement feedback.
+## Nudges the rider and mount sprites so they land on whole screen pixels
+## under the (already pixel-snapped) camera; the body itself never moves.
+func snap_visuals_to_pixels(cam_basis: Basis, pixel: float) -> void:
+	var feet: Vector3 = global_position
+	_pixel_offset = _PixelSnap.snap(feet, cam_basis, pixel) - feet
+	if _sprite != null:
+		_sprite.position = _sprite_pose_pos + _pixel_offset
+	if _mount_sprite != null:
+		_mount_sprite.position = _mount_pose_pos + _pixel_offset
+
+
 func apply_particle_knobs(knobs: Dictionary) -> void:
 	_particle_knobs = knobs
 	if _landing_dust != null:

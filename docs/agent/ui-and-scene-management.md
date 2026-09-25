@@ -17,6 +17,22 @@
 
 ## Overlay Framework (GID-073)
 
+### Project UI Theme (`scenes/ui/UiTheme.gd`) — GID-131 / TID-507
+
+`UiTheme.build()` makes one `Theme` in code: dark navy panels (`PANEL_BG`) with a 2 px gold border, 14 px radius and a soft drop shadow (Panel, PanelContainer, PopupPanel, PopupMenu, TooltipPanel, AcceptDialog, TabContainer); rounded buttons (radius 10) with normal / hover / pressed / disabled / focus boxes and matching font colours (Button, OptionButton, MenuButton; CheckBox/CheckButton get transparent boxes); cream `Label` text with a soft shadow; framed LineEdit/TextEdit/SpinBox; ProgressBar, sliders, scrollbars, tabs and `HSeparator` restyled to the same palette. `SceneManager._ready` calls `UiTheme.install()`, which **merges it into `ThemeDB.get_default_theme()`**. Setting it on the root Window does not work: CanvasLayers break Window theme inheritance, and the HUD, popups and overlays all live under CanvasLayers (`test_ui_theme` checks a Button under a CanvasLayer). Explicit `add_theme_*_override` calls still win, so bespoke styles (card views, rarity badges) are unchanged. New widgets need no styling: build them through `UiUtil` and they pick up the theme.
+
+#### Fonts (GID-132 / TID-509)
+
+`assets/fonts/Nunito-Bold.woff2` is the default font: the theme's `default_font`, `ThemeDB.fallback_font`, and so also `Label3D` name tags. `assets/fonts/Cinzel-Bold.woff2` is the heading font, used through the `TitleLabel` theme type variation (base `Label`). Both are Fontsource Latin subsets under SIL OFL 1.1; the licence texts sit next to them and attribution is in `CREDITS.md`. `UiTheme.body_font()` / `title_font()` append the engine font as a fallback, so symbols and non-Latin glyphs still render. `install()` sets `default_font` explicitly, because `merge_with` does not copy it. Headings: `UiUtil.make_title_label()` applies the variation; for other labels set `theme_type_variation = &"TitleLabel"` (MenuScene title, TutorialPopup title).
+
+### Screen Transitions (`autoloads/TransitionManager.gd`, `screen_wipe.gdshader`) — GID-133 / TID-516
+
+The plain 0.2 s black fade is now a full-screen `ColorRect` running `screen_wipe.gdshader` on CanvasLayer 100. `progress` goes 0 → 1 to cover over `FADE_DURATION` 0.3 s (sine ease in), `change_fn` runs, then it uncovers (ease out).
+- **`STYLE_WIPE`** (default): diamond tiles sweep diagonally top-left → bottom-right, matching the iso grid. Each tile grows from its centre as the front passes.
+- **`STYLE_BATTLE`**: an iris closes on the centre with a 7-lobe swirling edge. `SceneManager._enter_battle` passes it.
+- The API is unchanged apart from the optional `style` argument: `transition(change_fn, style)`, with awaitable `fade_out()` / `fade_in()`. `_restore_world(after)` still runs its post-swap work inside the transition (see the CLAUDE.md spire-draft learning; that delay is now 0.3 s).
+- The rect is hidden while idle, so nothing full-screen is drawn between transitions. Cover colour is the theme's near-black navy (0.04, 0.04, 0.07). `progress()` for tests.
+
 ### BaseOverlay (`scenes/ui/BaseOverlay.gd`)
 
 All modal overlay scenes extend `"res://scenes/ui/BaseOverlay.gd"` using a string-path extends (not class_name). The base class provides:
@@ -197,6 +213,8 @@ _world_hud.set_action_visible(id: String, v: bool) -> void  # direct setter (per
 _world_hud.get_action_button(id: String) -> Button
 _world_hud.get_zone_container(zone: String) -> Container
 ```
+
+**Icons (GID-132 / TID-510):** `register_action` calls `HudIcons.apply(btn, id, vh × 0.034)`, which puts the icon registered for that id (`scenes/ui/HudIcons.gd` `_ICONS`) beside the label. The art is game-icons.net (Lorc, Delapouite & contributors, CC BY 3.0; licence `assets/icons/hud/LICENSE-game-icons.txt`, attribution in `CREDITS.md`): white SVGs imported at `svg/scale=0.25` (128 px) with mipmaps. Ids in `ICON_ONLY` (`pause`, `emote`, whose labels were the stand-in glyphs "II" and ":)") drop the text and centre the icon. Adding an action: drop `<id>.svg` into `assets/icons/hud/` (white fill, 512 viewBox), set the same import scale, and add one `_ICONS` line (`test_hud_icons` loads every entry). The map/coin labels now sit right of the pause button (`WorldScene`, `x = vh × 0.10 + safe-left`); they used to overlap it.
 
 A button that needs a `.toggled` connection (`toggle_mode = true`) rather than a plain `.pressed` callback — the Ranked toggle, the Ping toggle — can't go through `register_action` (its `callback` param is unconditionally wired to `.pressed`). Build it directly and parent it into the zone via `get_zone_container()` instead; see `WorldScene._ensure_challenge_button()`'s Ranked toggle for the pattern.
 

@@ -25,3 +25,9 @@ Evaluate making grass lit (diffuse only, receive shadows) at Medium/High and kee
   grass, props, landmarks, WorldItem and sprites without changing their materials. No real OmniLight3D is needed.
 - **Still open — sun shadows:** grass, props, landmarks and WorldItem still never receive sun shadows, and
   DayNightCycle's grass brightness approximation remains. The WorldItem.gd:92 comment is still accurate for real lights.
+- **Sun shadows — resolved on High (GID-131 / TID-508):** GraphicsQuality `lit_world` (High only) swaps grass to
+  `grass_blade_lit` / `grass_cluster_lit` (shared `.gdshaderinc` bodies, lambert-wrap diffuse, normal forced up,
+  ×1.3 albedo + 0.08 emission floor to match terrain) and flips every cached prop / landmark `StandardMaterial3D`
+  to per-pixel shading with shadows (`ChunkRenderer.set_lit_world`). Low/Medium keep the unshaded path and the
+  `grass_day_tint` approximation on purpose (mobile fragment cost). WorldItem pickups stay unshaded (short-lived);
+  character contact shadows (TID-503) ground sprites on every tier.

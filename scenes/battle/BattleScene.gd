@@ -775,6 +775,8 @@ func _slot_panel_center(zone_view: Node, slot_idx: int) -> Vector2:
 ## a minion reads as a placement instead of a teleport (TID-426). `from_rect`
 ## must be captured before `_do_play_card_at_slot` mutates hand/board state.
 func _animate_card_travel(card: CardInstance, from_rect: Rect2, to_pos: Vector2) -> void:
+	if _fx != null:
+		_fx.mark_board_seen(card)  # the ghost is its entrance; no pop-in on top
 	if _float_layer == null or not is_instance_valid(_float_layer):
 		return
 	if from_rect.size == Vector2.ZERO:
@@ -815,6 +817,8 @@ func _refresh_all() -> void:
 		_state.players[_opp_idx()].hand.size())
 	_view.refresh_hero(_player_hero_view, _state.players[_my_idx()].hero, false)
 	_update_status()
+	if _fx != null:
+		_fx.pop_new_board_cards()  # GID-132 / TID-512
 	if _coop_pve:
 		arena._refresh_coop_ally_panels()
 	if _team_pvp:
@@ -829,6 +833,7 @@ func _refresh_player_board() -> void:
 		_slot_targeting_spell, _slot_select_card
 	)
 	_view.refresh_board_zone(_player_board_view, _state.players[_my_idx()].board, "board")
+	_fx.pop_new_board_cards()
 
 
 func _make_card_view(card: CardInstance, zone_id: String) -> PanelContainer:

@@ -133,7 +133,10 @@
 | [GID-127](goals/GID-127--verdant-rift-magic-types/goal.md) | Verdant & Rift Magic Types | done | 5 / 5 |
 | [GID-128](goals/GID-128--magic-cosmology/goal.md) | Magic Cosmology — Tying the Orphan Systems Together | done | 2 / 2 |
 | [GID-129](goals/GID-129--atmosphere-lighting-polish/goal.md) | Atmosphere & Lighting Polish | in-progress | 9 / 10 |
-| [GID-130](goals/GID-130--mobile-fake-volumetrics/goal.md) | Mobile Fake Volumetrics | done | 6 / 6 |
+| [GID-130](goals/GID-130--mobile-fake-volumetrics/goal.md) | Mobile Fake Volumetrics | done | 7 / 7 |
+| [GID-131](goals/GID-131--visual-smoothing-polish/goal.md) | Visual Smoothing & Polish | done | 8 / 8 |
+| [GID-132](goals/GID-132--feel-and-finish/goal.md) | Feel & Finish | done | 4 / 4 |
+| [GID-133](goals/GID-133--outlines-and-rain/goal.md) | Sprite Outlines & Rain Detail | done | 4 / 4 |
 
 ## Backlog
 
@@ -145,12 +148,12 @@ files in `tasks/archive/backlog/`.
 | [BID-015](backlog/BID-015--no-localization-infrastructure.md) | No localization / translation infrastructure; all UI strings hardcoded — **out of scope for v1** | spec-gap | GID-070 research |
 | [BID-024](backlog/BID-024--coop-map-has-no-enemies-chests.md) | Co-op map (madrian) has no enemies/chests, so GID-096 world sync is dormant in practice (system verified by smoke test) — **being addressed by GID-098** (multi-map co-op story) and **GID-102 / TID-380** (shared procedural dungeon crawl with real enemies/chests) | content-gap | GID-096 |
 | [BID-055](backlog/BID-055--worldscene-god-object.md) | `WorldScene.gd` god-object decomposition, slice 1/3 done (co-op/net cluster folded into `CoopSession.gd`, line-ceiling guardrail added); original 9154/401 census was stale — see file's Progress section for real numbers and slices 2-3 (`_spawn_*`, `_start_*`) | code-smell | GID-123 research |
-| [BID-060](backlog/BID-060--unshaded-world-ignores-lights.md) | Grass, props, landmarks and WorldItem are unshaded, so they ignore sun shadows and point lights (point lights worked around by TID-489; shadows open) | design-inconsistency | GID-129 research |
 
 ## Resolved Backlog
 
 | ID | Summary | Category | Discovered During |
 |----|---------|----------|-------------------|
+| [BID-060](archive/backlog/BID-060--unshaded-world-ignores-lights.md) | Grass, props, landmarks and WorldItem are unshaded, so they ignore sun shadows and point lights — resolved on High by GID-131 / TID-508 | design-inconsistency | GID-129 research |
 | [BID-053](archive/backlog/BID-053--gdlint-debt-advisory-only.md) | CI `gdlint` job was `continue-on-error` — all 959 problems cleared (reorder, line wraps, renames, pragmas for oversized files); job now gating with gdtoolkit pinned | code-smell | GID-123 / TID-466 |
 | [BID-057](archive/backlog/BID-057--duplicate-tid-352.md) | TID-352 used by two completed tasks (GID-096, GID-097) | doc-gap | Resolved: cross-reference notes added + `test_task_id_uniqueness.gd` guardrail |
 | [BID-059](archive/backlog/BID-059--map-scrolls-shrines-music-lost-in-3-maps.md) | `madrian.tres`/`maykalene.tres`/`blancogov.tres` had `scrolls`/`shrines`/`music_track` mis-placed in the `.tres` text format, silently dropped on load | content-bug | Resolved: fixed all 3, added `test_named_map_scrolls_shrines.gd` regression coverage |

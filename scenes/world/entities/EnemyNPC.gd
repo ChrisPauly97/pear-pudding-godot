@@ -4,6 +4,9 @@ const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const TextureGen = preload("res://game_logic/TextureGen.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const _EnemyAlertState = preload("res://game_logic/world/EnemyAlertState.gd")
+const _ContactShadow = preload("res://game_logic/ContactShadow.gd")
+const _IdleLife = preload("res://game_logic/IdleLife.gd")
+const _SpriteOutline = preload("res://game_logic/SpriteOutline.gd")
 
 const _ALERT_REACTION_TIME: float = 0.4
 const _GIVEUP_HOLD_TIME: float = 2.0
@@ -33,6 +36,11 @@ func _ready() -> void:
 			_SpriteRegistry.enemy_world_height(etype, _is_roaming_boss, _is_boss))
 	add_child(sprite)
 	_sprite = sprite
+	_SpriteOutline.apply(sprite)
+	_ContactShadow.register(self, _ContactShadow.radius_for_height(
+			_SpriteRegistry.enemy_world_height(etype, _is_roaming_boss, _is_boss)))
+	_IdleLife.register(sprite, _IdleLife.STYLE_FLOAT if bool(enemy_data.get("nocturnal", false))
+			else _IdleLife.STYLE_BOB)
 	if bool(enemy_data.get("nocturnal", false)):
 		sprite.modulate = SPECTRAL_TINT
 	if _is_roaming_boss:
@@ -49,6 +57,8 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if not _alive or not _tracking:
 		return
+	if _sprite != null:
+		_sprite.set_meta(_IdleLife.META_FAST, _alert_state == _EnemyAlertState.State.CHASING)
 	if NetworkManager.is_active():
 		return
 	if not SceneManager.can_proximity_engage():
@@ -156,6 +166,8 @@ func engage() -> void:
 	queue_free()
 
 func _show_alert() -> void:
+	if _sprite != null:
+		_IdleLife.hop(_sprite)  # GID-132 / TID-511: startled jump
 	var lbl := Label3D.new()
 	lbl.text = "!"
 	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED

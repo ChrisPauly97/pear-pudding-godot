@@ -2,6 +2,8 @@ extends Node3D
 
 const _GrassShader   = preload("res://assets/shaders/grass_blade.gdshader")
 const _ClusterShader = preload("res://assets/shaders/grass_cluster.gdshader")
+const _GrassShaderLit   = preload("res://assets/shaders/grass_blade_lit.gdshader")
+const _ClusterShaderLit = preload("res://assets/shaders/grass_cluster_lit.gdshader")
 const WorldMap       = preload("res://game_logic/world/WorldMap.gd")
 const _ChunkData     = preload("res://game_logic/world/ChunkData.gd")
 
@@ -46,6 +48,7 @@ var _mat: ShaderMaterial
 var _blade_mesh: ArrayMesh  # cached — identical for every chunk
 
 var _cluster_mat:  ShaderMaterial
+var _lit: bool = false
 var _cluster_mesh: ArrayMesh  # unit quad, billboard-rotated per instance
 
 var _prev_pos:      Vector3 = Vector3(-9999, 0, -9999)
@@ -78,15 +81,28 @@ static func _ensure_global_param(name: String, type: RenderingServer.GlobalShade
 		RenderingServer.global_shader_parameter_add(name, type, default_value)
 		_registered_global_params[name] = true
 
+## GID-131 / TID-508: swap to the lit grass shaders (sun shadows, real light)
+## or back to the cheap unshaded ones. GraphicsQuality `lit_world` (High).
+func set_lit(on: bool) -> void:
+	_lit = on
+	if _mat != null:
+		_mat.shader = _GrassShaderLit if on else _GrassShader
+		_cluster_mat.shader = _ClusterShaderLit if on else _ClusterShader
+
+
+func is_lit() -> bool:
+	return _lit
+
+
 func _init_material() -> void:
 	if _mat:
 		return
 	_mat = ShaderMaterial.new()
-	_mat.shader = _GrassShader
+	_mat.shader = _GrassShaderLit if _lit else _GrassShader
 	_blade_mesh = _make_blade_mesh()
 
 	_cluster_mat = ShaderMaterial.new()
-	_cluster_mat.shader = _ClusterShader
+	_cluster_mat.shader = _ClusterShaderLit if _lit else _ClusterShader
 	_cluster_mesh = _make_cluster_mesh()
 
 	# Register global shader parameters shared across all grass chunks.

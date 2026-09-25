@@ -32,7 +32,8 @@ instance uniform float blight_amount : hint_range(0.0, 1.0) = 0.0;
 
 // Rain wetness [0=dry, 1=soaked] (GID-129 / TID-487). Declared in project.godot
 // [shader_globals]; DayNightCycle eases it in with rain and dries it slowly.
-global uniform float terrain_wetness;
+#include "res://assets/shaders/terrain_puddles.gdshaderinc"
+#include "res://assets/shaders/contact_shadow.gdshaderinc"
 // Wall cutaway: the player's feet in world space, written every frame by
 // WorldScene. Terrain between the iso camera and the player (above their feet)
 // dithers away in a soft circle so walls never hide them. Default in
@@ -51,6 +52,7 @@ const float OCCLUSION_RADIUS = 3.5;  // world units (~1.75 tiles)
 varying float v_d0;         // fbm noise channel 0, computed per-vertex
 varying float v_d1;         // fbm noise channel 1, computed per-vertex
 varying float v_ley;        // ley line intensity [0..1], baked into UV2.x per vertex
+varying float v_dip;        // 0 low .. 1 high flat-ground jitter (TID-515 puddles)
 
 // -- noise for micro grass detail on flat areas --
 float hash2(vec2 p) {
@@ -90,13 +92,17 @@ void vertex() {
 	// Subtle micro-bump on flat grass — single hash instead of full FBM (cheap).
 	// Suppressed on path tiles so roads stay visually flat.
 	float flat_factor = clamp(1.0 - v_blend * 4.0, 0.0, 1.0);
+	v_dip = v_path > 0.5 ? 0.5 : puddle_dip(v_world_xz);
 	if (flat_factor > 0.01 && v_path < 0.5) {
 		VERTEX.y += hash2(v_world_xz * 0.08) * 0.12 * flat_factor;
 	}
 
-	// Noise variation removed — pixel art uses flat texture colors only.
-	v_d0 = 0.0;
-	v_d1 = 0.0;
+	// Macro variation (GID-131 / TID-505): slow world-space noise, per vertex
+	// (it changes over tens of units, so interpolation across a 1-unit tile is
+	// exact enough) — breaks the repeating grass tile into lighter/darker and
+	// drier/lusher patches without per-pixel cost.
+	v_d0 = fbm(world_pos.xz * 0.045);
+	v_d1 = fbm(world_pos.xz * 0.09 + vec2(7.3, 2.1));
 	// Ley intensity baked per vertex into UV2.x by ChunkRenderer.
 	v_ley = UV2.x;
 }
@@ -125,7 +131,18 @@ void fragment() {
 	// (interpolated between is_wall=0 grass vertex and is_wall=1 wall vertex)
 	// is classified as wall and receives stone texture rather than grass/hill.
 	bool is_wall = v_wall > 0.05;
-	bool is_path = v_path > 0.05;
+	// Soft, ragged path edges (TID-505): the vertex-interpolated path flag plus
+	// noise, instead of a hard on/off at 0.05 that drew the tile grid.
+	float path_t = v_path > 0.001
+		? smoothstep(0.2, 0.7, v_path + (vnoise(v_world_xz * 1.7) - 0.5) * 0.45) : 0.0;
+	bool is_path = path_t > 0.99;
+	// Anti-tiling (TID-505): swap to a rotated, offset copy of the grass tile
+	// inside irregular noise blobs, so the 2-unit repeat never lines up. A hard
+	// switch (not a blend) keeps the pixel art crisp.
+	vec2 uv_grass = uv_xz;
+	if (vnoise(v_world_xz * 0.23) > 0.5) {
+		uv_grass = vec2(-uv_xz.y, uv_xz.x) + vec2(0.37, 0.61);
+	}
 
 	if (is_path) {
 		base_col = texture(path_texture, uv_xz).rgb;
@@ -144,15 +161,24 @@ void fragment() {
 		               texture(wall_side_texture, uv_side).rgb, t_wall_side);
 	} else if (t_side < 0.01 && t_top < 0.01) {
 		// Pure flat grass — most common case
-		base_col = texture(grass_texture, uv_xz).rgb;
+		base_col = texture(grass_texture, uv_grass).rgb;
 	} else {
-		base_col = texture(grass_texture, uv_xz).rgb;
+		base_col = texture(grass_texture, uv_grass).rgb;
 		if (t_side > 0.01) {
 			base_col = mix(base_col, texture(hill_side_texture, uv_xz).rgb, t_side);
 		}
 		if (t_top > 0.01) {
 			base_col = mix(base_col, texture(hill_texture, uv_xz).rgb, t_top);
 		}
+	}
+
+	if (!is_wall) {
+		// Macro variation: ±~12 % brightness plus drier, yellower patches.
+		base_col *= mix(0.88, 1.1, d0);
+		base_col = mix(base_col, base_col * vec3(1.08, 1.03, 0.82), smoothstep(0.5, 0.75, d1) * 0.6);
+	}
+	if (path_t > 0.001 && !is_path && !is_wall) {
+		base_col = mix(base_col, texture(path_texture, uv_xz).rgb * path_tint / max(grass_tint, vec3(0.01)), path_t);
 	}
 
 	// Hand the base colour to Godot's lighting pipeline.
@@ -195,15 +221,23 @@ void fragment() {
 	if (terrain_wetness > 0.001) {
 		float up = smoothstep(0.55, 0.95, v_normal_world.y);
 		float wet = terrain_wetness * mix(0.25, 1.0, up);
-		float puddle = smoothstep(0.52, 0.68, fbm(v_world_xz * 0.18)) * up
-			* smoothstep(0.35, 1.0, terrain_wetness);
+		// Puddles stand in dips on level ground (TID-515), not on walls or hills.
+		float level_ground = up * (1.0 - smoothstep(0.02, 0.1, v_blend)) * (is_wall ? 0.0 : 1.0);
+		float puddle = puddle_mask(v_world_xz, v_dip, level_ground);
 		tinted_col *= 1.0 - 0.35 * wet - 0.1 * puddle;
+		// Standing water: darker, cooler, picks up a sky-grey sheen.
+		tinted_col = mix(tinted_col, vec3(0.30, 0.37, 0.46), puddle * 0.5);
 		wet_rough = mix(0.9, 0.35, wet);
-		wet_rough = mix(wet_rough, 0.08, puddle);
+		wet_rough = mix(wet_rough, 0.04, puddle);
 		wet_spec = mix(0.1, 0.45, max(wet, puddle));
+		if (puddle > 0.01) {
+			vec2 rip = puddle_ripple(v_world_xz, TIME) * puddle * 0.35;
+			vec3 n_world = normalize(vec3(-rip.x, 1.0, -rip.y));
+			NORMAL = normalize((VIEW_MATRIX * vec4(mix(normalize(v_normal_world), n_world, puddle), 0.0)).xyz);
+		}
 	}
 
-	ALBEDO = tinted_col;
+	ALBEDO = tinted_col * contact_shadow(vec3(v_world_xz.x, v_world_y, v_world_xz.y));
 
 	// Wall cutaway — see occlusion_focus. The camera is orthographic and locked
 	// to (-1,-1,-1), so "between camera and player" is a cylinder along that axis.

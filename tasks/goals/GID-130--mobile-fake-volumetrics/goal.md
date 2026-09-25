@@ -20,6 +20,7 @@ Android runs the Mobile renderer, so `GraphicsQuality.clamp_to_renderer()` turns
 | TID-497 | Ground Mist Particles | agent | done | — |
 | TID-498 | Depth-Fog Post Pass | agent | done | — |
 | TID-499 | Opt-in Forward+ Renderer on Android | agent | done | — |
+| TID-500 | Fix Wavy Lines in Fake Light Shafts | agent | done | TID-495 |
 
 ## Acceptance Criteria
 

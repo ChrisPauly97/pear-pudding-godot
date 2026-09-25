@@ -13,6 +13,7 @@ const CantripManager   = preload("res://game_logic/world/CantripManager.gd")
 const UiFx             = preload("res://scenes/ui/UiFx.gd")
 const _UiUtil          = preload("res://scenes/ui/UiUtil.gd")
 const _WorldScene      = preload("res://scenes/world/WorldScene.gd")
+const _HudIcons = preload("res://scenes/ui/HudIcons.gd")
 
 # ── HUD Action Registry (GID-107) ───────────────────────────────────────────
 # Zones are real Container nodes that auto-stack their (visible) children, so
@@ -247,6 +248,8 @@ func register_action(id: String, label: String, zone: String, callback: Callable
 			btn.get_parent().remove_child(btn)
 			zone_box.add_child(btn)
 	btn.text = label
+	# GID-132 / TID-510: every known action gets its icon beside the label.
+	_HudIcons.apply(btn, id, int(_vh * 0.034))
 	if min_size != Vector2.ZERO:
 		btn.custom_minimum_size = min_size
 	elif btn.custom_minimum_size == Vector2.ZERO:

@@ -185,6 +185,11 @@ _UiUtil.make_centered_panel(w, h, vw, vh, parent)
 _UiUtil.make_style(bg, radius, border_color, border_width)   # rounded StyleBoxFlat
 ```
 
+Styling comes from the project theme (`scenes/ui/UiTheme.gd`, merged into the
+engine default theme at startup), so factory widgets need no stylebox overrides.
+Only add `add_theme_stylebox_override` for a genuinely bespoke look. Headings use
+the Cinzel title font via `theme_type_variation = &"TitleLabel"` (`make_title_label` sets it).
+
 `BaseOverlay` subclasses additionally inherit `_refresh_metrics()`,
 `_rebuild_ui()` (free children + re-run `_build_ui()` on resize),
 `_build_scroll(parent)`, `_build_centered_panel()` and `_build_margin_vbox()`.
@@ -345,6 +350,7 @@ created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
 | `ChestLoot.gd` (`chest_loot`) | Chest open (mimic, co-op sync, need/greed hand-off), card/coin scatter, equipment drop |
 | `NightLights.gd` (`night_lights`) | Night light rigs: lantern/waystone/mana-well/campfire glow dots + depth-based light pools, flicker, tier caps |
 | `AmbientTouches.gd` (`ambient`) | Grassland/forest night fireflies, forest wind-blown leaves, ground mist, pushes particle knobs to player dust |
+| `CharacterPresence.gd` (`character_presence`) | Per-frame character presentation: contact-shadow shader globals (GID-131), wall-cutaway `occlusion_focus`, idle breathe/bob/float of registered sprites (GID-132) |
 | `FakeVolumetrics.gd` (`fake_volumetrics`) | Mobile-safe volumetric stand-ins: dawn/dusk fake light shafts, depth-fog post pass (GID-130) |
 
 BattleScene's single-player clusters live under `scenes/battle/modules/`, created by
@@ -525,7 +531,7 @@ Godot assigns a default `OfflineMultiplayerPeer` to `multiplayer` on launch; it 
 SceneTree teardown only frees in-tree nodes. Battles/puzzles detach WorldScene into `SceneManager._saved_world_scene`; quitting mid-battle left it an orphan and leaked every physics body in it. `SceneManager._exit_tree()` frees the orphan with an immediate `free()` (`queue_free()` never flushes at shutdown). Any stash holding a detached node needs the same explicit shutdown free.
 
 ### Spire draft never appeared — overlay parented to the dying battle scene (claude/drafting-dungeon-stuck-bug-yi20li)
-`_restore_world()` defers its scene swap behind `TransitionManager`'s 0.2 s fade, so the line *after* it still sees the battle overlay `_finish_battle()` just `queue_free()`d. `_spire_battle_won` added `SpireDraftScene` to that `current_scene`, so it was destroyed at end of frame — clear a floor, no draft, same deck forever. `_restore_world(after: Callable)` now runs post-swap work inside the transition; overlays go there or attach to `get_tree().root`, never to `current_scene` on the next line. Also: a dict/var holding a freed node needs `is_instance_valid`, not `!= null`.
+`_restore_world()` defers its scene swap behind `TransitionManager`'s transition (0.3 s wipe since GID-133), so the line *after* it still sees the battle overlay `_finish_battle()` just `queue_free()`d. `_spire_battle_won` added `SpireDraftScene` to that `current_scene`, so it was destroyed at end of frame — clear a floor, no draft, same deck forever. `_restore_world(after: Callable)` now runs post-swap work inside the transition; overlays go there or attach to `get_tree().root`, never to `current_scene` on the next line. Also: a dict/var holding a freed node needs `is_instance_valid`, not `!= null`.
 
 ### Spire floor 2+ was an empty locked room — one enemy id reused per floor (claude/drafting-dungeon-stuck-bug-yi20li)
 `SpireFloorGen` gave every floor's enemy the literal id `"spire_enemy"`, and `SaveManager.defeated_enemies` is a **permanent, map-agnostic** list. Beating floor 1 therefore marked every later floor's enemy defeated: `ChunkRenderer._spawn_entities` skipped the spawn, the cleared flag never got set, and the exit door (whose only `flag_key` is that flag) stayed locked — a floor you could neither win nor leave. Ids for per-instance entities must be unique per instance (`enemy_id_for(floor, run_seed)`); check them with a prefix helper, never `==`, since old saves/`user://maps/` files keep the legacy id. Entity state that is per-run scenery does not belong in a permanent save list — prune it at run boundaries, and repair on load (`prepare_spire_floor`) so already-broken saves recover.
@@ -538,6 +544,9 @@ SceneTree teardown only frees in-tree nodes. Battles/puzzles detach WorldScene i
 
 ### Rider invisible while mounted (claude/mount-character-visibility-448ys4)
 World sprites use `ALPHA_CUT_OPAQUE_PREPASS`, so overlapping billboards are resolved by the **depth buffer**, not blend order — a sprite 1 cm toward the camera wins every shared pixel. To force one billboard in front of another at the same spot, translate along `Vector3(1,1,1).normalized()`: the iso camera is orthographic and locked to that axis, so it is pure depth with zero screen movement. Also check pack art for a baked-in opaque background (`mount_horse.png` was a 16×16 tile upscaled 2× with a `#3f2631` backdrop) — alpha-cut can't discard what isn't transparent. `SpriteBase3D.offset` is **not** mirrored by `flip_h`; negate it by hand when flipping.
+
+### Sprite3D ignores a custom material's texture (GID-131 / GID-133)
+`SpriteBase3D.material_override` with a ShaderMaterial does **not** receive the sprite's texture (an unbound sampler reads white, so a test with a white texture passes falsely). Feed it yourself: `SpriteOutline.apply()` sets `sprite_tex` once for Sprite3D and on `frame_changed` for AnimatedSprite3D. The override must also billboard in `vertex()`. Mesh UVs (flip/region) and vertex COLOR (modulate) still come from the sprite.
 
 ### Injected entity landed on an authored one (claude/mount-character-visibility-448ys4)
 Entities placed in code (mailbox, fallback waystones) are invisible to the map author, so a fixed `spawn + (dx, dz)` eventually collides — the Madrian mailbox sat on Maiteln's exact NPC tile. Use `WorldMap.pick_free_tile_near_spawn()`: candidate offsets tried in order, first walkable-and-clear one wins.

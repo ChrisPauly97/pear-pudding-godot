@@ -7,6 +7,7 @@ signal state_changed(from: State, to: State)
 
 const _SceneFlow = preload("res://game_logic/SceneFlow.gd")
 const _RendererOptIn = preload("res://game_logic/RendererOptIn.gd")
+const _UiTheme = preload("res://scenes/ui/UiTheme.gd")
 const _SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 const _BattleVictory = preload("res://autoloads/scene_manager/BattleVictory.gd")
 const _BattleDefeat = preload("res://autoloads/scene_manager/BattleDefeat.gd")
@@ -159,6 +160,10 @@ func _ready() -> void:
 	save_manager = SaveManager
 	_ensure_modules()
 	_guard_renderer_opt_in()
+	# GID-131 / TID-507: merged into the engine default theme, not set on the
+	# root Window — CanvasLayers break Window theme inheritance, and the HUD,
+	# popups and overlays all live under CanvasLayers.
+	_UiTheme.install()
 	apply_keybindings()
 	_toast = _AchievementToastScript.new()
 	add_child(_toast)
@@ -687,7 +692,7 @@ func _enter_battle(configure: Callable, networked: bool = false) -> void:
 			_battle_overlay.name = "BattleScene"
 		configure.call(_battle_overlay)
 		get_tree().root.add_child(_battle_overlay)
-		get_tree().current_scene = _battle_overlay)
+		get_tree().current_scene = _battle_overlay, TransitionManager.STYLE_BATTLE)
 	_transition_to(State.BATTLE)
 
 
@@ -711,7 +716,7 @@ func _finish_battle(clear_pending: bool = true) -> void:
 ##
 ## `after` runs *inside* the transition callback, once `current_scene` is the
 ## live WorldScene again. Anything that parents an overlay to `current_scene`
-## must go through it: TransitionManager.transition() awaits a 0.2 s fade before
+## must go through it: TransitionManager.transition() awaits a 0.3 s wipe before
 ## running its callback, so a caller that does `_restore_world()` then
 ## `current_scene.add_child(overlay)` on the next line is still looking at the
 ## already-`queue_free()`d battle overlay and the overlay dies with it at the end

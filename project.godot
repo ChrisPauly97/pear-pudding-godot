@@ -153,6 +153,46 @@ anti_aliasing/quality/msaa_3d=2
 
 [shader_globals]
 
+terrain_rain={
+"type": "float",
+"value": 0.0
+}
+
+contact_shadow_0={
+"type": "vec4",
+"value": Vector4(0, -1000, 0, 0)
+}
+
+contact_shadow_1={
+"type": "vec4",
+"value": Vector4(0, -1000, 0, 0)
+}
+
+contact_shadow_2={
+"type": "vec4",
+"value": Vector4(0, -1000, 0, 0)
+}
+
+contact_shadow_3={
+"type": "vec4",
+"value": Vector4(0, -1000, 0, 0)
+}
+
+contact_shadow_4={
+"type": "vec4",
+"value": Vector4(0, -1000, 0, 0)
+}
+
+contact_shadow_5={
+"type": "vec4",
+"value": Vector4(0, -1000, 0, 0)
+}
+
+contact_shadow_opacity={
+"type": "float",
+"value": 0.0
+}
+
 occlusion_focus={
 "type": "vec3",
 "value": Vector3(0, 100000, 0)

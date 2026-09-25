@@ -51,7 +51,9 @@ const _PlayerHome = preload("res://scenes/world/modules/PlayerHome.gd")
 const _ChestLoot = preload("res://scenes/world/modules/ChestLoot.gd")
 const _NightLights = preload("res://scenes/world/modules/NightLights.gd")
 const _AmbientTouches = preload("res://scenes/world/modules/AmbientTouches.gd")
+const _PixelSnap = preload("res://game_logic/PixelSnap.gd")
 const _FakeVolumetrics = preload("res://scenes/world/modules/FakeVolumetrics.gd")
+const _CharacterPresence = preload("res://scenes/world/modules/CharacterPresence.gd")
 const _NamedMapProps = preload("res://scenes/world/modules/NamedMapProps.gd")
 const _TownSiege = preload("res://scenes/world/modules/TownSiege.gd")
 const _SunRaysFx = preload("res://scenes/world/SunRaysFx.gd")
@@ -175,6 +177,7 @@ var chest_loot: _ChestLoot = null    # modules/ChestLoot.gd
 var night_lights: _NightLights = null  # modules/NightLights.gd (TID-489)
 var ambient: _AmbientTouches = null  # modules/AmbientTouches.gd (TID-493)
 var fake_volumetrics: _FakeVolumetrics = null  # modules/FakeVolumetrics.gd (GID-130)
+var character_presence: _CharacterPresence = null  # modules/CharacterPresence.gd (GID-131/132)
 
 # Computed in _ready from map_name; true for "main" and "infinite", false for named dungeon maps
 var _is_infinite: bool = false
@@ -420,6 +423,11 @@ func apply_graphics_quality(_tier: int = -1) -> void:
 	if _sun_rays != null:
 		_sun_rays.set_mode(int(_graphics_knobs.get("sun_rays", 0)))
 		_sun_rays.set_quality(int(_graphics_knobs.get("ray_samples", 10)), bool(_graphics_knobs.get("moon_rays", false)))
+	if character_presence != null:
+		character_presence.apply_knobs(_graphics_knobs)
+	ChunkRenderer.set_lit_world(bool(_graphics_knobs.get("lit_world", false)))
+	if _grass != null:
+		_grass.set_lit(bool(_graphics_knobs.get("lit_world", false)))
 	if _dnc != null:
 		_dnc.set_height_fog(bool(_graphics_knobs.get("height_fog", false)))
 
@@ -636,6 +644,10 @@ func _build_player_hud() -> void:
 	var vh: float = get_viewport().get_visible_rect().size.y
 	_map_label.add_theme_font_size_override("font_size", int(vh * 0.032))
 	_coin_label.add_theme_font_size_override("font_size", int(vh * 0.03))
+	# Right of the top-left pause button (they overlapped; GID-132 / TID-510).
+	var hud_x: float = vh * 0.10 + float(_UiUtil.safe_insets(get_viewport()).get("left", 0.0))
+	_map_label.position = Vector2(hud_x, vh * 0.012)
+	_coin_label.position = Vector2(hud_x, vh * 0.05)
 	_interact_label.add_theme_font_size_override("font_size", int(vh * 0.03))
 
 	# WorldHUD owns all dynamically-created buttons, labels, and display state.
@@ -823,6 +835,8 @@ func _ensure_world_modules() -> void:
 	night_lights = _ensure_world_module(night_lights, _NightLights, "NightLights") as _NightLights
 	ambient = _ensure_world_module(ambient, _AmbientTouches, "AmbientTouches") as _AmbientTouches
 	fake_volumetrics = _ensure_world_module(fake_volumetrics, _FakeVolumetrics, "FakeVolumetrics") as _FakeVolumetrics
+	character_presence = _ensure_world_module(
+		character_presence, _CharacterPresence, "CharacterPresence") as _CharacterPresence
 
 func _ensure_world_module(existing: Node, script: GDScript, node_name: String) -> Node:
 	if existing != null and is_instance_valid(existing):
@@ -1413,15 +1427,8 @@ func _create_player_node() -> _Player:
 # grass noise to shimmer — every world point stays on the same screen pixel
 # between frames as long as the camera hasn't moved a full pixel.
 func _snap_to_pixel(pos: Vector3) -> Vector3:
-	var vp_h: float = float(get_viewport().get_visible_rect().size.y)
-	var pixel: float = IsoConst.CAM_ORTHO_SIZE * 2.0 / vp_h
-	var right: Vector3 = _camera.global_transform.basis.x
-	var up: Vector3    = _camera.global_transform.basis.y
-	var fwd: Vector3   = _camera.global_transform.basis.z
-	var r: float = round(pos.dot(right) / pixel) * pixel
-	var u: float = round(pos.dot(up)    / pixel) * pixel
-	var d: float = pos.dot(fwd)
-	return right * r + up * u + fwd * d
+	var px: float = _PixelSnap.pixel_world_size(_camera.size, get_viewport().get_visible_rect().size.y)
+	return _PixelSnap.snap(pos, _camera.global_transform.basis, px)
 
 # ── Per-frame update ───────────────────────────────────────────────────────
 
@@ -1466,6 +1473,8 @@ func _process(delta: float) -> void:
 	var cam_target := _player.position + Vector3(20, 20, 20)
 	_smooth_camera_target = _smooth_camera_target.lerp(cam_target, clampf(20.0 * delta, 0.0, 1.0))
 	_camera.position = _snap_to_pixel(_smooth_camera_target)
+	_player.snap_visuals_to_pixels(_camera.global_transform.basis,
+			_PixelSnap.pixel_world_size(_camera.size, get_viewport().get_visible_rect().size.y))
 	if _minimap:
 		_minimap.update()
 	if _world_hud:
@@ -1474,8 +1483,6 @@ func _process(delta: float) -> void:
 		_world_hud.update_coords(tx, tz)
 	if _grass:
 		_grass.update_player(_player.position, delta, _player.is_on_floor())
-	# Terrain cutaway so walls between the camera and the player dither away.
-	RenderingServer.global_shader_parameter_set("occlusion_focus", _player.position)
 
 	# Keep particle rig centred on the player
 	if _active_weather_particles != null and is_instance_valid(_active_weather_particles):

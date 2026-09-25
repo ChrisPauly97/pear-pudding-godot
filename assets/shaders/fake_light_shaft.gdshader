@@ -36,8 +36,10 @@ void fragment() {
 	edge *= edge;
 	// UV.y: 0 at the sky end, 1 on the ground.
 	float ends = smoothstep(0.0, 0.5, UV.y) * (1.0 - smoothstep(0.88, 1.0, UV.y));
-	float motes = 0.75 + 0.25 * sin(UV.y * 22.0 - TIME * 0.7 + seed * 6.2831);
-	float breathe = 0.8 + 0.2 * sin(TIME * 0.35 + seed * 12.0);
+	// One slow, low-contrast swell per beam. A higher-frequency band here
+	// (TID-500: sin(UV.y * 22)) read as moving wavy stripes on device.
+	float motes = 0.92 + 0.08 * sin(UV.y * 3.0 - TIME * 0.25 + seed * 6.2831);
+	float breathe = 0.85 + 0.15 * sin(TIME * 0.3 + seed * 12.0);
 
 	float depth = textureLod(depth_tex, SCREEN_UV, 0.0).r;
 #if CURRENT_RENDERER == RENDERER_COMPATIBILITY

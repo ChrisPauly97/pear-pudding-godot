@@ -6,6 +6,7 @@ const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const ZoneState = preload("res://game_logic/battle/ZoneState.gd")
 const GameState = preload("res://game_logic/battle/GameState.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
+const _BattleJuice = preload("res://scenes/battle/BattleJuice.gd")
 
 var _state: GameState
 var _vh: float
@@ -20,6 +21,8 @@ var _is_shaking: bool = false
 # Multiplier from the "text_scale" setting (GID-119 / TID-451).
 var _text_scale: float = 1.0
 var _seat_idx_fn: Callable = Callable()
+# Board card ids seen at the last refresh, per seat (TID-512 pop-in).
+var _seen_board: Dictionary = {}
 
 func setup(
 	p_vh: float,
@@ -226,11 +229,12 @@ func spawn_float_labels(snap: Array[Dictionary]) -> void:
 			hp_after = int(cur_hp[eid])
 		var diff: int = hp_after - hp_before
 		if diff < 0:
-			spawn_float_label(pos, str(diff), Color(1.0, 0.267, 0.267))
+			spawn_float_label(pos, str(diff), Color(1.0, 0.267, 0.267), diff)
+			_BattleJuice.sparks(_float_layer, pos, Color(1.0, 0.5, 0.2), diff)
 		elif diff > 0:
-			spawn_float_label(pos, "+%d" % diff, Color(0.267, 1.0, 0.533))
+			spawn_float_label(pos, "+%d" % diff, Color(0.267, 1.0, 0.533), diff)
 
-func spawn_float_label(pos: Vector2, text: String, color: Color) -> void:
+func spawn_float_label(pos: Vector2, text: String, color: Color, amount: int = 1) -> void:
 	if _float_layer == null or not is_instance_valid(_float_layer):
 		return
 	var font_sz: int = _font(0.040) if _vh > 0.0 else 18
@@ -241,11 +245,7 @@ func spawn_float_label(pos: Vector2, text: String, color: Color) -> void:
 	lbl.add_theme_constant_override("outline_size", maxi(2, int(_vh * 0.006)))
 	lbl.position = pos - Vector2(15.0, 10.0)
 	_float_layer.add_child(lbl)
-	var tw: Tween = lbl.create_tween()
-	tw.set_parallel(true)
-	tw.tween_property(lbl, "position:y", pos.y - 70.0, 0.8)
-	tw.tween_property(lbl, "modulate:a", 0.0, 0.8)
-	tw.chain().tween_callback(lbl.queue_free)
+	_BattleJuice.pop_label(lbl, lbl.position, amount)
 
 # -------------------------------------------------------------------------
 # Card panel helper
@@ -287,10 +287,14 @@ func flash_from_snapshot(snap: Array[Dictionary]) -> void:
 		var hp_after: int = int(cur_hp[eid])
 		if hp_after == hp_before:
 			continue
-		var fcolor: Color = Color(1.0, 0.3, 0.3, 1.0) if hp_after < hp_before else Color(0.3, 1.0, 0.5, 1.0)
+		var hurt: bool = hp_after < hp_before
+		var big: bool = hp_before - hp_after >= _BattleJuice.BIG_HIT
+		var fcolor: Color = _BattleJuice.flash_color(not hurt)
 		if eid.begins_with("hero_"):
 			var hv: Control = _enemy_hero_view if eid == "hero_1" else _player_hero_view
 			flash_node(hv, fcolor)
+			if hurt:
+				_BattleJuice.punch(hv, big)
 		else:
 			var found_panel: bool = false
 			for pi in range(2):
@@ -303,6 +307,8 @@ func flash_from_snapshot(snap: Array[Dictionary]) -> void:
 						for child in zv.get_children():
 							if child is Control and int(child.get_meta("slot_idx", -1)) == si:
 								flash_node(child as Control, fcolor)
+								if hurt:
+									_BattleJuice.punch(child as Control, big)
 								break
 						found_panel = true
 						break
@@ -436,6 +442,30 @@ func check_shake(snap: Array[Dictionary]) -> void:
 # -------------------------------------------------------------------------
 # Convenience: float labels + flash + shake in one call
 # -------------------------------------------------------------------------
+
+## Pops in board cards that were not on the board at the previous call
+## (player, AI and network plays alike). Call after every board refresh.
+func pop_new_board_cards() -> void:
+	if _state == null:
+		return
+	for seat: int in range(2):
+		var is_enemy: bool = seat == 1
+		var seen: Dictionary = _seen_board.get(seat, {})
+		var now: Dictionary = {}
+		for c: CardInstance in _seat_player(seat).board.get_cards():
+			now[c.instance_id] = true
+			if not seen.has(c.instance_id):
+				_BattleJuice.pop_in(get_card_panel(c, is_enemy))
+		_seen_board[seat] = now
+
+
+## Skips the pop-in for a card that already got its own entrance (the local
+## hand→board travel ghost). `seat` 0 = local view seat.
+func mark_board_seen(card: CardInstance, seat: int = 0) -> void:
+	var seen: Dictionary = _seen_board.get(seat, {})
+	seen[card.instance_id] = true
+	_seen_board[seat] = seen
+
 
 func trigger_fx(snap: Array[Dictionary]) -> void:
 	spawn_float_labels(snap)

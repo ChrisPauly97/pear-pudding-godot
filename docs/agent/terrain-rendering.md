@@ -128,6 +128,13 @@ Uniforms set per material instance:
 - `path_tint` — defaults to `vec3(1,1,1)` (no biome override; paths are always brown)
 - `grass_texture`, `hill_side_texture`, `hill_top_texture`, `wall_side_texture`, `wall_top_texture`, `path_texture`
 
+#### Softening the tile grid (GID-131 / TID-505)
+
+- **Macro variation:** `v_d0 = fbm(xz × 0.045)`, `v_d1 = fbm(xz × 0.09 + (7.3, 2.1))` per vertex (slow enough to interpolate across a tile). Non-wall ground: `base × mix(0.88, 1.1, d0)`, then up to 60 % toward a drier `× (1.08, 1.03, 0.82)` where `smoothstep(0.5, 0.75, d1)`.
+- **Anti-tiling:** inside irregular blobs where `vnoise(xz × 0.23) > 0.5`, grass samples a 90°-rotated, offset copy of the tile (`uv_grass`). A hard switch, not a blend, so the pixel art stays crisp and the 2-unit repeat never lines up.
+- **Ragged path edges:** `path_t = smoothstep(0.2, 0.7, v_path + (vnoise(xz × 1.7) − 0.5) × 0.45)`; `is_path` is now `path_t > 0.99`, and the fringe mixes the path texture over the ground (tint-corrected) instead of the old hard `v_path > 0.05` cut.
+- **Contact shadows (TID-503):** `ALBEDO` is multiplied by `contact_shadow(world pos)` from `contact_shadow.gdshaderinc` (see visual-polish.md).
+
 ### Grass Blades & Clusters (`scenes/world/GrassBlades.gd`)
 
 Per-chunk `MultiMeshInstance3D`s built on worker threads (infinite world only — named maps have no blade grass):
@@ -168,3 +175,12 @@ No geometry shader is used (Godot 4 does not support them). Keep blade counts at
 | Wall top texture | `assets/textures/pixel_art/wall_top_pixel.png` | Top of walls. Real sprite art (GID-118): 0x72 `floor_1` stone tile, seamless-tiled |
 | Path texture | `assets/textures/pixel_art/path_pixel.png` | Real sprite art (GID-118): Kenney Tiny Dungeon `tile_0048` flat packed-earth. Replaced the old `TextureGen.path()` procedural noise generator, which was removed (no remaining callers) |
 | `.uid` sidecars | `assets/shaders/*.uid` | Required for Android export; must be committed alongside each shader |
+
+
+#### Lit grass variant (GID-131 / TID-508)
+
+Each grass shader is now a thin header plus a shared body include (`grass_blade.gdshaderinc`, `grass_cluster.gdshaderinc`). `grass_blade.gdshader` / `grass_cluster.gdshader` keep `render_mode ... unshaded` and the `grass_day_tint` approximation. `grass_blade_lit.gdshader` / `grass_cluster_lit.gdshader` use `diffuse_lambert_wrap, specular_disabled` and `#define GRASS_LIT`, so the body writes `ALBEDO = col × 1.3 × contact`, `EMISSION = ALBEDO × 0.08` and a world-up `NORMAL`. That way blades light like the ground under them and receive sun shadows. `GrassBlades.set_lit(on)` swaps `_mat` / `_cluster_mat` shaders (parameters carry over). WorldScene calls it from `apply_graphics_quality()` with the `lit_world` knob (High only). Grass still casts no shadows.
+
+#### Grass colour (GID-131 / TID-506)
+
+Both `grass_blade.gdshader` and `grass_cluster.gdshader` shade each blade with a smooth gradient: `mix(color_base, color_mid, smoothstep(0, 0.45, UV.y))`, then toward `color_tip` over `smoothstep(0.4, 0.95, UV.y)`. That replaced three hard bands whose olive base read as dark spikes on the bright ground. New defaults are base (0.18, 0.38, 0.13), mid (0.32, 0.58, 0.19), tip (0.56, 0.80, 0.30). A hash of the blade root (`v_root_world`) jitters brightness ±10 %, and one in five blades gets a drier tint. Contact shadows darken the lower blade (`mix(contact_shadow(root), 1, UV.y × 0.6)`).

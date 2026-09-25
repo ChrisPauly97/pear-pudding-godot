@@ -203,6 +203,7 @@ static func make_title_label(text: String, vh: float) -> Label:
 	lbl.text = text
 	lbl.add_theme_font_size_override("font_size", int(vh * 0.038 * text_scale()))
 	lbl.add_theme_color_override("font_color", Color(1.0, 0.92, 0.6))
+	lbl.theme_type_variation = &"TitleLabel"  # Cinzel heading font (UiTheme, GID-132)
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	return lbl
 
