@@ -412,7 +412,7 @@ func _surface_underfoot() -> String:
 	if map_name == "main":
 		biome = _InfiniteWorldGen.biome_for_chunk(floori(float(tx) / IsoConst.CHUNK_SIZE),
 				floori(float(tz) / IsoConst.CHUNK_SIZE), SaveManager.world_seed)
-		weather = WeatherManager.current_weather
+		weather = WeatherManager.shown(WeatherManager.current_weather)
 	return _FootstepSurface.surface_for(tile, biome, map_name, weather)
 
 func _update_mount_visuals(mounted: bool) -> void:

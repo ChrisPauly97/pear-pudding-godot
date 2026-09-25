@@ -333,7 +333,6 @@ var _dnc: DayNightCycle = null
 var _sun_rays: _SunRaysFx = null  # TID-488 dawn/dusk light shafts
 
 # Weather visuals
-var _active_weather_particles: Node3D = null
 
 # Camera smoothing: lerped toward player each _process frame to eliminate
 # micro-stutter on high-refresh displays (camera runs at render rate, physics at ~60 Hz).
@@ -543,6 +542,7 @@ func _ready() -> void:
 		_dnc.thunder_rumbled.connect(func(pitch: float) -> void: AudioManager.play_sfx_varied("thunder", pitch, 0.05))
 		_dnc.flashing_allowed = func() -> bool: return not bool(
 			SceneManager.save_manager.get_setting("reduce_flashing", false))
+		_dnc.storms_allowed = WeatherManager.storms_enabled
 
 	if _is_infinite:
 		WorldEvents.register_all(self)
@@ -801,9 +801,6 @@ func _exit_tree() -> void:
 	coop_session._teardown_coop()
 	if _csm != null:
 		_csm.exit_cleanup()
-	if _active_weather_particles != null and is_instance_valid(_active_weather_particles):
-		_active_weather_particles.queue_free()
-	_active_weather_particles = null
 
 # ── Co-op multiplayer (GID-090) ───────────────────────────────────────────────
 # All of this is inert unless a NetworkManager session is active when the world
@@ -1484,10 +1481,6 @@ func _process(delta: float) -> void:
 	if _grass:
 		_grass.update_player(_player.position, delta, _player.is_on_floor())
 
-	# Keep particle rig centred on the player
-	if _active_weather_particles != null and is_instance_valid(_active_weather_particles):
-		_active_weather_particles.position = _player.position + Vector3(0.0, 12.0, 0.0)
-
 	if _is_infinite:
 		if _world_hud != null:
 			_world_hud.set_ley_indicator_visible(TerrainMath.is_on_ley_line(
@@ -2074,30 +2067,7 @@ func _on_scroll_collected(scroll_id: String) -> void:
 # ── Weather visuals ────────────────────────────────────────────────────────
 
 func _on_weather_changed(weather_id: String, _duration: float) -> void:
-	# Swap particle rig
-	if _active_weather_particles != null and is_instance_valid(_active_weather_particles):
-		_active_weather_particles.queue_free()
-	_active_weather_particles = null
-
-	if weather_id != "":
-		var particles: GPUParticles3D = WeatherParticles.make(weather_id) as GPUParticles3D
-		if particles != null:
-			particles.amount = _GraphicsQuality.scaled_amount(particles.amount, _graphics_knobs)
-			_entity_root.add_child(particles)
-			if _player != null:
-				particles.position = _player.position + Vector3(0.0, 12.0, 0.0)
-			_active_weather_particles = particles
-
-	# Fog, sky, sun, shadows, ambient tint and grass wind blend in via
-	# DayNightCycle from the WeatherLook table (TID-486).
-	if _dnc != null:
-		_dnc.set_weather(weather_id)
-
-	# Update grass wind direction
-	if _grass != null:
-		var grass_node: GrassBlades = _grass as GrassBlades
-		if grass_node != null:
-			grass_node.set_wind_direction(WeatherParticles.get_wind_direction(weather_id))
+	ambient.apply_weather(weather_id)  # particle rig, sky/fog look, grass wind
 
 ## Safely coerce a tracking-dict value to Node3D. `as Node3D` on a Variant
 ## holding a freed object throws "Trying to cast a freed object" immediately,

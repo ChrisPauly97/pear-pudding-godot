@@ -133,6 +133,9 @@ func _ready() -> void:
 			layer.players.append(ap)
 	GameBus.dialogue_state_changed.connect(_on_dialogue_state_changed)
 	GameBus.weather_changed.connect(_on_weather_changed)
+	GameBus.weather_settings_changed.connect(func() -> void:
+		_weather_id = WeatherManager.shown(WeatherManager.current_weather)
+		_layers_dirty = true)
 	GameBus.entered_named_map.connect(_on_entered_named_map)
 
 func play_narration(scroll_id: String) -> void:
@@ -298,7 +301,7 @@ func set_ambience(biome_id: int) -> void:
 	if biome_id >= 0:
 		_in_named_map = false
 		# WeatherManager only reports changes; resume whatever is current.
-		_weather_id = WeatherManager.current_weather
+		_weather_id = WeatherManager.shown(WeatherManager.current_weather)
 	else:
 		_in_named_map = true
 		_named_outdoors = false  # entered_named_map (emitted next) may say otherwise
@@ -339,7 +342,7 @@ func _in_battle() -> bool:
 	return SceneManager.current_state() == _SceneFlow.State.BATTLE
 
 func _on_weather_changed(weather_id: String, _duration: float) -> void:
-	_weather_id = weather_id
+	_weather_id = WeatherManager.shown(weather_id)
 	_layers_dirty = true
 
 func _on_entered_named_map(map_name: String) -> void:

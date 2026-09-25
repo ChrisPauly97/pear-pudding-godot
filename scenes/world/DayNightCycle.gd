@@ -53,6 +53,8 @@ const FLASH_COLOR_PULL: float = 0.7
 ## Returns false to suppress the flash (the reduce-flashing setting); thunder
 ## still plays. WorldScene wires it to the save setting so toggles apply live.
 var flashing_allowed: Callable = Callable()
+## Whether storms may strike lightning at all (Settings > Thunder & Lightning).
+var storms_allowed: Callable = Callable()
 
 var _sun: DirectionalLight3D
 var _moon: DirectionalLight3D
@@ -264,6 +266,8 @@ func _write_wetness() -> void:
 
 func _tick_lightning(delta: float) -> void:
 	var strength: float = float(_look_to["lightning"])
+	if storms_allowed.is_valid() and not bool(storms_allowed.call()):
+		strength = 0.0
 	if strength <= 0.0:
 		_strike_in = -1.0
 	elif _strike_in < 0.0:

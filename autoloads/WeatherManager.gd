@@ -44,6 +44,10 @@ const _DURATIONS: Dictionary = {
 	"blizzard":   [100.0, 220.0],
 }
 const _SAVE_INTERVAL: float = 5.0
+## Player settings (Settings > Environment). Weather keeps running underneath
+## (battle weather, co-op sync) — these only hide what the player sees and hears.
+const SETTING_EFFECTS := "weather_effects"
+const SETTING_STORMS := "weather_storms"
 
 var current_weather: String = ""
 var current_duration: float = 0.0
@@ -52,6 +56,22 @@ var _current_biome: int = -1
 var _biome_rngs: Dictionary = {}  # biome_id (int) -> RandomNumberGenerator
 var _initialized: bool = false
 var _save_timer: float = 0.0
+
+## Rain, snow, sandstorms and their sounds and wet ground are shown.
+func effects_enabled() -> bool:
+	return bool(SaveManager.get_setting(SETTING_EFFECTS, true))
+
+
+## Thunder and lightning are shown.
+func storms_enabled() -> bool:
+	return bool(SaveManager.get_setting(SETTING_STORMS, true))
+
+
+## The weather the player should see and hear: `weather_id`, or clear when
+## weather effects are switched off.
+func shown(weather_id: String) -> String:
+	return weather_id if effects_enabled() else ""
+
 
 # Called by WorldScene._ready() after save data is available.
 func on_world_entered() -> void:
