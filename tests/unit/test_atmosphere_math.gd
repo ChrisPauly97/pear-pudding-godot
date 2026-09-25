@@ -76,3 +76,24 @@ func test_depth_fog_follows_height_fog_curve() -> void:
 	assert_almost_eq(AM.depth_fog_density(0.9, 0.0), 0.0)
 	assert_gt(AM.depth_fog_density(0.02, 1.0), AM.depth_fog_density(0.9, 1.0))
 	assert_lte(AM.depth_fog_density(0.02, 5.0), AM.DEPTH_FOG_MAX_ALPHA + 0.0001)
+
+func test_terrain_rain_global_tracks_raining_now() -> void:
+	assert_true(ProjectSettings.has_setting("shader_globals/terrain_rain"))
+	var dnc := DNC.new()
+	var sun := DirectionalLight3D.new()
+	var moon := DirectionalLight3D.new()
+	var we := WorldEnvironment.new()
+	we.environment = Environment.new()
+	dnc.setup(sun, moon, we, false, 600.0, 0.5)
+	dnc.set_weather("heavy_rain", true)
+	dnc.tick(0.1)
+	# The headless dummy renderer stores no globals; check the value written.
+	assert_almost_eq(dnc._cached_rain, 1.0, 0.05)
+	dnc.set_weather("", true)
+	dnc.tick(0.1)
+	assert_almost_eq(dnc._cached_rain, 0.0, 0.05,
+			"ripples stop with the rain even while the ground stays wet")
+	dnc.free()
+	sun.free()
+	moon.free()
+	we.free()

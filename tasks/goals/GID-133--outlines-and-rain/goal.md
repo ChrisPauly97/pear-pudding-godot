@@ -14,11 +14,11 @@ Raised by the user (2026-09-25): *"outlines pls then rain and splash, puddles in
 |----|------|------|--------|------------|
 | TID-513 | Character Sprite Outlines | agent | done | — |
 | TID-514 | Rain Splashes & Ripples | agent | done | — |
-| TID-515 | Puddles in Low Areas | agent | pending | TID-514 |
+| TID-515 | Puddles in Low Areas | agent | done | TID-514 |
 
 ## Acceptance Criteria
 
-- [ ] Outlines on player, remote players, NPCs, enemies; animation, flip, modulate/fades and rider-over-mount depth still work
-- [ ] Rain/heavy rain show ground splash rings + droplets around the player, scaled by particle knobs, none on Low
-- [ ] Puddles collect in dips, reflect the sky, ripple while raining, dry slowly; grass does not poke through them
-- [ ] Tests, gdlint, unsafe-hits, smoke tests clean; visual check
+- [x] Outlines on player, remote players, NPCs, enemies; animation, flip, modulate/fades and rider-over-mount depth still work
+- [x] Rain/heavy rain show ground splash rings + droplets around the player, scaled by particle knobs, none on Low
+- [x] Puddles collect in dips, reflect the sky, ripple while raining, dry slowly; grass does not poke through them
+- [x] Tests, gdlint, unsafe-hits, smoke tests clean; visual check

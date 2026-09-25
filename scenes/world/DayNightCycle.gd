@@ -38,6 +38,9 @@ const WEATHER_BLEND_SECONDS: float = 4.0
 # (declared in project.godot [shader_globals]); written in 1/WETNESS_STEPS steps.
 const WETNESS_PARAM: String = "terrain_wetness"
 const WETNESS_STEPS: float = 128.0
+# GID-133 / TID-515: "raining right now" (blended look wetness target), which
+# drives puddle ripples; terrain_wetness lingers after rain stops.
+const RAIN_PARAM: String = "terrain_rain"
 # Lightning flash: ambient-energy boost and how far ambient/sky pull toward
 # the look's lightning colour at the flash peak.
 const FLASH_AMBIENT_BOOST: float = 1.6
@@ -86,6 +89,7 @@ var _base_shadow_opacity: float = 1.0
 # Rain wetness: eased toward the target look's `wetness` (quick to wet, slow to dry).
 var _wetness: float = 0.0
 var _cached_wetness: float = -1.0
+var _cached_rain: float = -1.0
 var _weather_seen: bool = false
 # Lightning: countdown to the next strike, current flash time (-1 = none) and
 # pending thunder delay (-1 = none). Local-random; co-op peers only share the id.
@@ -239,6 +243,10 @@ func tick(delta: float) -> void:
 	_timer = 0.0
 
 func _tick_wetness(delta: float) -> void:
+	var rain: float = roundf(float(_look["wetness"]) * 32.0) / 32.0
+	if rain != _cached_rain:
+		_cached_rain = rain
+		RenderingServer.global_shader_parameter_set(RAIN_PARAM, rain)
 	var target: float = float(_look_to["wetness"])
 	if _wetness != target:
 		_wetness = _Lightning.step_wetness(_wetness, target, delta)

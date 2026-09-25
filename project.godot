@@ -153,6 +153,11 @@ anti_aliasing/quality/msaa_3d=2
 
 [shader_globals]
 
+terrain_rain={
+"type": "float",
+"value": 0.0
+}
+
 contact_shadow_0={
 "type": "vec4",
 "value": Vector4(0, -1000, 0, 0)

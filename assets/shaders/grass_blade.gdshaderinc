@@ -21,6 +21,7 @@ global uniform vec2  player_move_dir;
 // Sun+ambient approximation so unshaded blades still follow day/night.
 global uniform vec3  grass_day_tint;
 #include "res://assets/shaders/contact_shadow.gdshaderinc"
+#include "res://assets/shaders/terrain_puddles.gdshaderinc"
 // Blade root in world space, for contact shadows (GID-131 / TID-503).
 varying vec3 v_root_world;
 uniform float player_radius : hint_range(0.0, 2.0) = 0.3;
@@ -40,6 +41,9 @@ float hash(vec2 p) {
 
 void vertex() {
 	v_root_world = MODEL_MATRIX[3].xyz;
+	// Blades rooted in standing water sink into it (TID-515).
+	float in_puddle = puddle_mask(v_root_world.xz, puddle_dip(v_root_world.xz), 1.0);
+	VERTEX.y *= 1.0 - smoothstep(0.3, 0.8, in_puddle);
 	float t    = UV.y;
 	float bend = t * t;
 	vec3  root = MODEL_MATRIX[3].xyz;

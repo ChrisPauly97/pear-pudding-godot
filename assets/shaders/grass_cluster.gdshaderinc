@@ -12,11 +12,15 @@ global uniform float grass_wind_lean;
 // Sun+ambient approximation so unshaded clusters still follow day/night.
 global uniform vec3 grass_day_tint;
 #include "res://assets/shaders/contact_shadow.gdshaderinc"
+#include "res://assets/shaders/terrain_puddles.gdshaderinc"
 // Blade root in world space, for contact shadows (GID-131 / TID-503).
 varying vec3 v_root_world;
 
 void vertex() {
 	v_root_world = MODEL_MATRIX[3].xyz;
+	// Blades rooted in standing water sink into it (TID-515).
+	float in_puddle = puddle_mask(v_root_world.xz, puddle_dip(v_root_world.xz), 1.0);
+	VERTEX.y *= 1.0 - smoothstep(0.3, 0.8, in_puddle);
 	// Y-axis billboard: rotate the quad around world Y to face the camera,
 	// keeping it upright (no look_at tilt). Extract camera XZ direction from
 	// the inverse view matrix, flatten to Y=0, then rebuild the local axes.
