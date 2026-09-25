@@ -20,7 +20,7 @@ Raised by the user (2026-09-25) after reviewing phone screenshots: "what else to
 | TID-522 | Scattered Ground Props | agent | done | — |
 | TID-523 | Cloud Shadows | agent | done | — |
 | TID-524 | Streams & Ponds | agent | done | — |
-| TID-525 | Per-Biome Colour Grade | agent | todo | — |
+| TID-525 | Per-Biome Colour Grade | agent | done | — |
 | TID-526 | Hero Touches | agent | todo | — |
 
 ## Acceptance Criteria

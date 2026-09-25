@@ -68,13 +68,17 @@ const ENEMY_POOLS: Array = [
 
 # Per-biome Environment.adjustment scalars (brightness, contrast, saturation).
 # Grasslands: vivid; Forest: cool/desaturated; Desert: bleached; Scorched: dark/muted; Mountains: crisp/cold.
+# Per-biome grade + mood (GID-134 / TID-525). `mood` multiplies ambient light,
+# fog and sunlight so each biome has its own air; DayNightCycle blends all of
+# it over BIOME_BLEND_SECONDS instead of snapping at the chunk border.
 const ADJ_PARAMS: Array = [
-	{"brightness": 1.0,  "contrast": 1.05, "saturation": 1.1},
-	{"brightness": 0.95, "contrast": 1.05, "saturation": 0.85},
-	{"brightness": 1.1,  "contrast": 1.1,  "saturation": 0.9},
-	{"brightness": 0.9,  "contrast": 1.15, "saturation": 0.7},
-	{"brightness": 1.05, "contrast": 1.0,  "saturation": 0.8},
+	{"brightness": 1.0,  "contrast": 1.05, "saturation": 1.0,  "mood": Color(1.05, 1.0, 0.9)},   # warm meadow
+	{"brightness": 0.95, "contrast": 1.05, "saturation": 0.9,  "mood": Color(0.88, 1.0, 0.94)},  # cool green shade
+	{"brightness": 1.08, "contrast": 1.1,  "saturation": 0.9,  "mood": Color(1.12, 1.0, 0.82)},  # sun-baked haze
+	{"brightness": 0.9,  "contrast": 1.15, "saturation": 0.75, "mood": Color(1.15, 0.85, 0.78)}, # ember glow
+	{"brightness": 1.05, "contrast": 1.0,  "saturation": 0.85, "mood": Color(0.9, 0.96, 1.1)},   # crisp alpine
 ]
+const BIOME_BLEND_SECONDS: float = 3.0
 
 # Per-biome prop types to scatter on TILE_GRASS cells (used by ChunkRenderer).
 # The first pair per biome is also the battle backdrop's pair (BattleBackdrop);

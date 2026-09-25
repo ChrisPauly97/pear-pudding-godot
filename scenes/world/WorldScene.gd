@@ -320,6 +320,7 @@ var _blight_heart_nodes: Dictionary = {} # heart_id -> Node3D
 var _active_landmark_data: Dictionary = {} # landmark_id -> Dictionary
 var _mana_well_nodes: Dictionary = {}    # well_id -> Node3D
 var _current_biome: int = -1
+var _current_biome_graded: int = -1  # first grade after entry applies instantly
 var _terrain_mat: ShaderMaterial
 var _last_save_pos: Vector2 = Vector2(-9999, -9999)
 var _interact_timer: float = 0.0
@@ -1017,17 +1018,11 @@ func _on_player_chunk_changed(_chunk: Vector2i, biome_id: int) -> void:
 	GameBus.biome_changed.emit(biome_id)
 	_apply_biome_color_grade(biome_id)
 
+## Biome grade + light mood, eased by DayNightCycle (GID-134 / TID-525).
 func _apply_biome_color_grade(biome_id: int) -> void:
-	if _world_env == null or _world_env.environment == null:
-		return
-	if biome_id < 0 or biome_id >= BiomeDef.ADJ_PARAMS.size():
-		return
-	var adj: Dictionary = BiomeDef.ADJ_PARAMS[biome_id] as Dictionary
-	var env: Environment = _world_env.environment
-	env.adjustment_enabled    = true
-	env.adjustment_brightness = float(adj.get("brightness", 1.0))
-	env.adjustment_contrast   = float(adj.get("contrast",   1.0))
-	env.adjustment_saturation = float(adj.get("saturation", 1.0))
+	if _dnc != null:
+		_dnc.set_biome_grade(biome_id, _current_biome_graded < 0)
+		_current_biome_graded = biome_id
 
 func _on_chunk_committed(_key: Vector2i, chunk_data: _ChunkData) -> void:
 	for l_data: Dictionary in chunk_data.landmarks:
