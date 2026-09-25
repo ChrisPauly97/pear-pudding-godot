@@ -17,6 +17,7 @@
 ##   particle_scale             — multiplier for every GPUParticles3D amount (`scaled_amount`)
 ##   ambient_particles          — dust / fireflies / leaves on or off (TID-493)
 ##   ray_samples, moon_rays     — screen-ray occlusion taps + night moon rays, SunRaysFx (TID-496)
+##   ground_mist                — low mist particles at night/dawn, AmbientTouches (TID-497)
 ##   height_fog                 — valley mist via Environment height fog, DayNightCycle (GID-130 / TID-494)
 extends RefCounted
 
@@ -64,6 +65,7 @@ const TIERS: Array[Dictionary] = [
 		"max_night_lights": 0,
 		"night_light_shadows": false,
 		"height_fog": false,
+		"ground_mist": false,
 		"ray_samples": 0,
 		"moon_rays": false,
 	},
@@ -88,6 +90,7 @@ const TIERS: Array[Dictionary] = [
 		"max_night_lights": 4,
 		"night_light_shadows": false,
 		"height_fog": true,
+		"ground_mist": true,
 		"ray_samples": 10,
 		"moon_rays": false,
 	},
@@ -114,6 +117,7 @@ const TIERS: Array[Dictionary] = [
 		"max_night_lights": 8,
 		"night_light_shadows": false,
 		"height_fog": true,
+		"ground_mist": true,
 		"ray_samples": 16,
 		"moon_rays": true,
 	},

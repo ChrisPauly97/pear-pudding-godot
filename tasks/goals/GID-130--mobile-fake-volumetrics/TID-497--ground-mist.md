@@ -2,7 +2,7 @@
 
 **Goal:** GID-130
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -23,12 +23,15 @@ Rolling low mist at night/dawn in grassland, forest and mountains — soft billb
 
 ## Plan
 
-_Written during Plan phase._
+AmbientParticles factory + pure mist_level/mist_color; AmbientTouches spawns and fades a third emitter gated on the new ground_mist knob.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `AmbientParticles`: `make_mist`, `apply_mist_wind`, `set_mist_tint`, `mist_color`, `mist_level`, MIST_* tables; shared mist mesh/material/ramp.
+- `AmbientTouches`: mist emitter follow/spawn/fade/wind/tint, `mist_level()`.
+- `GraphicsQuality`: `ground_mist` (off/on/on).
+- Tests: mist rules + factory in `test_ambient_particles`; GQ monotonic list.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+visual-polish.md: knob row + Ground mist bullet under Ambient Touches.
