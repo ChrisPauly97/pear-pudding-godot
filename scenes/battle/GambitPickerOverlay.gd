@@ -10,8 +10,9 @@ func _ready() -> void:
 	super._ready()
 	_build_backdrop(0.65)
 	var panel_w: float = minf(_vw * 0.85, _vh * 0.95)
-	var panel := _build_centered_panel(panel_w, 0)
-	panel.custom_minimum_size.x = panel_w
+	# Fixed height: a 0-height panel is positioned at mid-screen and grows off
+	# the bottom, cutting off the skip controls on landscape phones.
+	var panel := _build_centered_panel(panel_w, _vh * 0.9)
 	var style: StyleBoxFlat = _make_dark_glass_style()
 	panel.add_theme_stylebox_override("panel", style)
 
@@ -26,6 +27,11 @@ func _ready() -> void:
 
 	vbox.add_child(HSeparator.new())
 
+	# Gambits scroll; the title and skip controls stay pinned on screen.
+	var scroll := _build_scroll(vbox)
+	var list := _UiUtil.make_vbox(int(_ref * 0.012), scroll)
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
 	for gid: String in Gambits.ALL.keys():
 		var gdata: Dictionary = Gambits.ALL[gid]
 		var gname: String = str(gdata.get("name", gid))
@@ -36,7 +42,7 @@ func _ready() -> void:
 		btn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		var captured_gid: String = gid
 		btn.pressed.connect(func() -> void: _pick(captured_gid))
-		vbox.add_child(btn)
+		list.add_child(btn)
 
 	vbox.add_child(HSeparator.new())
 
