@@ -6,7 +6,11 @@ const _LEVEL_COLORS: Dictionary = {
 	"ERROR": "red",
 }
 
+const _LOG_DIR := "user://logs"
+const _LOG_TAIL_LINES: int = 200
+
 var _rich: RichTextLabel
+var _showing_prev_log: bool = false
 
 func _ready() -> void:
 	super._ready()
@@ -42,6 +46,11 @@ func _ready() -> void:
 	var hbox := _UiUtil.make_hbox(int(_vh * 0.015), vbox)
 
 	var clear_btn := _UiUtil.make_button("Clear", Vector2(_vh * 0.18, _vh * 0.06), int(_vh * 0.026), _on_clear, hbox)
+	# After a crash the engine log of the run that died is the newest rotated
+	# file in user://logs — the only way to read it on a phone without adb.
+	var prev_btn := _UiUtil.make_button("Last Session Log", Vector2(_vh * 0.3, _vh * 0.06), int(_vh * 0.026),
+			Callable(), hbox)
+	prev_btn.pressed.connect(func() -> void: _toggle_prev_log(prev_btn))
 
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -64,3 +73,36 @@ func _populate() -> void:
 func _on_clear() -> void:
 	AppLog.clear()
 	_populate()
+
+func _toggle_prev_log(btn: Button) -> void:
+	_showing_prev_log = not _showing_prev_log
+	btn.text = "Live Log" if _showing_prev_log else "Last Session Log"
+	if not _showing_prev_log:
+		_populate()
+		return
+	_rich.clear()
+	var files: PackedStringArray = DirAccess.get_files_at(_LOG_DIR)
+	var log_name: String = newest_previous_log(files)
+	if log_name == "":
+		_rich.append_text("No previous session log found in %s." % _LOG_DIR)
+		return
+	var text: String = FileAccess.get_file_as_string("%s/%s" % [_LOG_DIR, log_name])
+	_rich.append_text("[color=#ffd966]%s[/color]\n" % log_name)
+	_rich.add_text(log_tail(text, _LOG_TAIL_LINES))
+
+## Godot rotates `godot.log` (the running session) to `godot<timestamp>.log` on
+## startup, so the newest timestamped file is the previous run.
+static func newest_previous_log(files: PackedStringArray) -> String:
+	var best: String = ""
+	for f: String in files:
+		if f == "godot.log" or not f.begins_with("godot") or not f.ends_with(".log"):
+			continue
+		if f > best:
+			best = f
+	return best
+
+static func log_tail(text: String, max_lines: int) -> String:
+	var lines: PackedStringArray = text.split("\n")
+	if lines.size() <= max_lines:
+		return text
+	return "\n".join(lines.slice(lines.size() - max_lines))

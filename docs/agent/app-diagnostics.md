@@ -77,3 +77,14 @@ func _on_diagnostics() -> void:
 ## Asset Requirements
 
 None. `AppLog.gd` is a plain script autoload. `DiagnosticsScene.gd` is a script-only overlay with no external assets.
+
+## Last Session Log (crash capture)
+
+`project.godot` enables `debug/file_logging/enable_file_logging` for every
+platform (Godot defaults it off on mobile) and keeps 5 files. On startup Godot
+rotates the previous `user://logs/godot.log` to `godot<timestamp>.log`, so after
+a crash the newest timestamped file is the run that died. DiagnosticsScene's
+**Last Session Log** button shows its last 200 lines
+(`newest_previous_log()` / `log_tail()`, both static and unit-tested in
+`test_diagnostics_prev_log.gd`); press again for the live AppLog view. This is
+the only way to read engine errors on a phone without adb.
