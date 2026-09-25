@@ -2,7 +2,7 @@
 
 **Goal:** GID-131
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -21,12 +21,13 @@
 
 ## Plan
 
-_Written during Plan phase._
+One knob applied to the viewport.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `GraphicsQuality`: `debanding` (off/on/on) → `viewport.use_debanding`.
+- Tests: viewport assert + monotonic list.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+visual-polish.md: knob row.

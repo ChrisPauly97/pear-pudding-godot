@@ -58,6 +58,7 @@ The single source of truth for which atmosphere effects run. All-static module (
 | `depth_fog` | off | off | on | `FakeVolumetrics` full-screen depth-fog pass (TID-498); zeroed by `FAKE_VOLUMETRIC` wherever real `volumetric_fog` runs |
 | `fxaa` | off | on | on | `apply()` → `viewport.screen_space_aa` FXAA — smooths alpha-cut sprite and shader edges MSAA misses (GID-131 / TID-501) |
 | `taa` *(Forward+ only)* | off | off | on | `apply()` → `viewport.use_taa` (TID-501) |
+| `debanding` | off | on | on | `apply()` → `viewport.use_debanding` — dithers sky/fog/mist gradient steps on 8-bit panels (TID-502) |
 | `height_fog` | off | on | on | `DayNightCycle.set_height_fog` — valley mist (GID-130 / TID-494) |
 
 - **Renderer clamp:** on Forward+ with `volumetric_fog` on, `clamp_to_renderer` merges `FAKE_VOLUMETRIC` (`fake_shafts: 0`, `depth_fog: false`) so the stand-ins never stack with the real fog (desktop Medium keeps them). Otherwise it turns every `FORWARD_PLUS_ONLY` key (`ssao`, `volumetric_fog`, `taa`) off and downgrades `sun_rays` VOLUMETRIC → SCREEN unless the method is `"forward_plus"`. `knobs_for(tier, method)` returns a clamped **copy**; `current_knobs(setting)` uses the platform and `RenderingServer.get_current_rendering_method()`.

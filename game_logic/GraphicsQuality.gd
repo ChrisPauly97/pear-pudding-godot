@@ -23,6 +23,7 @@
 ##   depth_fog                  — full-screen depth-fog pass, FakeVolumetrics (TID-498)
 ##   fxaa, taa                  — screen-space edge smoothing on the viewport, `apply()` (GID-131 / TID-501);
 ##                                taa is Forward+ only
+##   debanding                  — viewport dithering against 8-bit gradient steps, `apply()` (TID-502)
 ##   height_fog                 — valley mist via Environment height fog, DayNightCycle (GID-130 / TID-494)
 extends RefCounted
 
@@ -74,6 +75,7 @@ const TIERS: Array[Dictionary] = [
 		"night_light_shadows": false,
 		"fxaa": false,
 		"taa": false,
+		"debanding": false,
 		"height_fog": false,
 		"fake_shafts": 0,
 		"light_halos": false,
@@ -104,6 +106,7 @@ const TIERS: Array[Dictionary] = [
 		"night_light_shadows": false,
 		"fxaa": true,
 		"taa": false,
+		"debanding": true,
 		"height_fog": true,
 		"fake_shafts": 6,
 		"light_halos": true,
@@ -136,6 +139,7 @@ const TIERS: Array[Dictionary] = [
 		"night_light_shadows": false,
 		"fxaa": true,
 		"taa": true,
+		"debanding": true,
 		"height_fog": true,
 		"fake_shafts": 10,
 		"light_halos": true,
@@ -236,6 +240,8 @@ static func apply(knobs: Dictionary, env: Environment, sun: DirectionalLight3D, 
 		var fxaa: bool = bool(knobs.get("fxaa", false))
 		viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA if fxaa else Viewport.SCREEN_SPACE_AA_DISABLED
 		viewport.use_taa = bool(knobs.get("taa", false))
+		# Sky, fog and mist gradients step visibly on 8-bit phone panels (TID-502).
+		viewport.use_debanding = bool(knobs.get("debanding", false))
 	RenderingServer.directional_shadow_atlas_set_size(int(knobs.get("shadow_atlas_size", 4096)), true)
 	var soft: int = int(knobs.get("soft_shadow_quality", RenderingServer.SHADOW_QUALITY_SOFT_LOW))
 	RenderingServer.directional_soft_shadow_filter_set_quality(soft as RenderingServer.ShadowQuality)

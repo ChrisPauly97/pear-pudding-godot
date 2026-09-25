@@ -13,7 +13,7 @@ Raised by the user (2026-09-25): *"what would also make the game look nicer? lik
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-501 | FXAA / TAA Edge Smoothing | agent | done | — |
-| TID-502 | Debanding | agent | pending | — |
+| TID-502 | Debanding | agent | done | — |
 | TID-503 | Blob Shadows Under Characters | agent | pending | — |
 | TID-504 | Smooth Pixel-Art Sprite Filtering | agent | pending | — |
 | TID-505 | Softer Terrain Tile Blending | agent | pending | — |
