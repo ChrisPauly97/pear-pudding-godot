@@ -25,6 +25,8 @@ func _init(battle: _BattleScene) -> void:
 func _bind_card_input(panel: PanelContainer, card: CardInstance, zone_id: String) -> void:
 	for conn in panel.gui_input.get_connections():
 		panel.gui_input.disconnect(conn["callable"])
+	if zone_id == "hand":
+		_bind_hover_lift(panel)
 	if zone_id == "hand" and _battle._state.current_player_idx == _battle._my_idx():
 		# Tap/click handler fires on release; it only fires when no native drag was started.
 		panel.gui_input.connect(func(event: InputEvent) -> void: _on_hand_card_input(event, card))
@@ -118,7 +120,7 @@ func _on_hand_card_input(event: InputEvent, card: CardInstance) -> void:
 			_on_hand_card_tap(card)
 
 func _on_hand_card_tap(card: CardInstance) -> void:
-	if not _battle._can_local_act():
+	if not _battle._can_local_act() or _inspect_open():
 		return
 	var can_play: bool = _battle._state.players[_battle._my_idx()].can_play(card)
 	if card.card_class != "spell" and can_play:
@@ -241,20 +243,58 @@ func _on_board_card_input(event: InputEvent, my_card: CardInstance) -> void:
 		return
 	var mb := event as InputEventMouseButton
 	if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+		if not _battle._can_local_act() or _inspect_open():
+			return
 		if _battle._targeting_active and _battle._targeting_friendly:
 			_battle.targeting._on_target_chosen_card(my_card)
 			return
+		# Tapping the selected attacker again cancels the selection.
+		if _battle._dragged_card.get("card") == my_card:
+			clear_attacker_selection()
+			return
 		if not my_card.can_attack():
+			_battle._fx.flash_node(_battle._fx.get_card_panel(my_card, false), Color(0.6, 0.6, 0.6, 1.0))
 			return
 		# Always enter selection mode — player clicks a target (minion or hero)
 		_battle._dragged_card = {"card": my_card}
+		AudioManager.play_sfx("ui_click")
 		_battle._refresh_all()
+
+## Drops the pending attacker selection (tap again, Escape, or tap empty board).
+func clear_attacker_selection() -> void:
+	if _battle._dragged_card.is_empty():
+		return
+	_battle._dragged_card.clear()
+	_battle._refresh_all()
+
+func _inspect_open() -> bool:
+	return _battle._inspect_overlay != null and is_instance_valid(_battle._inspect_overlay)
+
+## Desktop hover preview: lifts and enlarges a hand card so a fanned hand is
+## readable without opening the inspect overlay. Bound once per panel.
+func _bind_hover_lift(panel: PanelContainer) -> void:
+	if panel.has_meta("hover_bound"):
+		return
+	panel.set_meta("hover_bound", true)
+	panel.mouse_entered.connect(func() -> void: _set_hover_lift(panel, true))
+	panel.mouse_exited.connect(func() -> void: _set_hover_lift(panel, false))
+
+func _set_hover_lift(panel: PanelContainer, on: bool) -> void:
+	if not is_instance_valid(panel) or not panel.visible:
+		return
+	panel.pivot_offset = Vector2(panel.size.x * 0.5, panel.size.y)
+	panel.z_index = 20 if on else 0
+	var tw: Tween = panel.create_tween()
+	tw.tween_property(panel, "scale", Vector2(1.25, 1.25) if on else Vector2.ONE,
+			0.08).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 func _on_enemy_card_input(event: InputEvent, target: CardInstance) -> void:
 	if not (event is InputEventMouseButton):
 		return
 	var mb := event as InputEventMouseButton
 	if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+		if not _battle._can_local_act():
+			return
 		if _battle._targeting_active and not _battle._targeting_friendly:
 			_battle.targeting._on_target_chosen_card(target)
 			return
@@ -327,15 +367,22 @@ func _on_empty_slot_input(event: InputEvent, slot_idx: int) -> void:
 						_battle._fx.trigger_fx(snap_se)
 					else:
 						_battle.modifiers._apply_weather_to_summoned(card, _battle._my_idx())
+					_battle._action_busy = true
 					await _battle._animate_card_travel(card, from_rect, to_pos)
+					_battle._action_busy = false
 					_battle._refresh_all()
 					_battle._check_game_over()
 					_battle.tutorials._dismiss_battle_tutorial()
 				return
+			if _battle._slot_targeting_spell == null and _battle._slot_select_card == null:
+				clear_attacker_selection()
 
 ## Routes a chosen attack: client sends an intent; host/single-player resolves
 ## locally via _execute_attack (which broadcasts through _check_game_over).
 func _attempt_attack(attacker: CardInstance, target: CardInstance) -> void:
+	# One attack per tap: while a lunge resolves, further taps/drops are ignored.
+	if not _battle._can_local_act() or not attacker.can_attack():
+		return
 	if _battle._is_pvp_client():
 		var a_slot: int = _battle._state.players[_battle._my_idx()].board.slots.find(attacker)
 		var t_slot: int = BattleNetProtocol.TARGET_HERO
@@ -355,6 +402,10 @@ func _attempt_attack(attacker: CardInstance, target: CardInstance) -> void:
 ## brief hit-stop on big/lethal hits, then animates any resulting death(s)
 ## before the board rebuilds (TID-426). All durations respect `_speed_scale`.
 func _execute_attack(attacker: CardInstance, target: CardInstance) -> void:
+	_battle._action_busy = true
+	# Drop the selection highlight immediately so the board reads as resolving.
+	_battle._dragged_card.clear()
+	_battle._refresh_all()
 	AudioManager.play_sfx("attack")
 	var attacker_panel := _battle._fx.get_card_panel(attacker, false)
 	var snap := _battle._fx.snapshot()
@@ -393,6 +444,6 @@ func _execute_attack(attacker: CardInstance, target: CardInstance) -> void:
 	await _battle._animate_deaths_from_snapshot(snap)
 	_battle._fx.spawn_float_labels(snap)
 	_battle._fx.check_shake(snap)
-	_battle._dragged_card.clear()
+	_battle._action_busy = false
 	_battle._refresh_all()
 	_battle._check_game_over()

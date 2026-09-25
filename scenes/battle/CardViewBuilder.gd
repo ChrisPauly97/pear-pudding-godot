@@ -72,6 +72,10 @@ func _seat_player(seat: int) -> PlayerState:
 	var idx: int = int(_seat_idx_fn.call(seat)) if _seat_idx_fn.is_valid() else seat
 	return _state.players[idx]
 
+func _is_local_turn() -> bool:
+	var idx: int = int(_seat_idx_fn.call(0)) if _seat_idx_fn.is_valid() else 0
+	return _state != null and _state.current_player_idx == idx
+
 func update_context(
 	targeting_active: bool,
 	targeting_friendly: bool,
@@ -278,6 +282,7 @@ func update_card_view(panel: PanelContainer, card: CardInstance, zone_id: String
 	panel.visible = true
 	panel.modulate = Color.WHITE
 	panel.scale = Vector2.ONE
+	panel.z_index = 0
 	var vbox: VBoxContainer = panel.get_child(0) as VBoxContainer
 	var name_lbl: Label = vbox.get_node_or_null("NameLabel") as Label if vbox else null
 	var is_board_zone: bool = (zone_id == "board" or zone_id == "enemy_board")
@@ -424,11 +429,20 @@ func apply_card_style(panel: PanelContainer, card: CardInstance, zone_id: String
 		if not valid_targets.has(card):
 			style.bg_color = style.bg_color.darkened(0.45)
 	elif zone_id == "board" and not _dragged_card.is_empty() and _dragged_card.get("card") == card:
+		panel.pivot_offset = panel.custom_minimum_size * 0.5
+		panel.scale = Vector2(1.06, 1.06)
 		style.border_color = Color.YELLOW
 		style.border_width_top = 3
 		style.border_width_bottom = 3
 		style.border_width_left = 3
 		style.border_width_right = 3
+	elif zone_id == "board" and _dragged_card.is_empty() and _is_local_turn() and card.can_attack():
+		# Ready-to-attack cue: a soft green rim on every minion that can act.
+		style.border_color = Color(0.35, 1.0, 0.45, 0.9)
+		style.border_width_top = 2
+		style.border_width_bottom = 2
+		style.border_width_left = 2
+		style.border_width_right = 2
 	# Non-color targeting cue (GID-119 / TID-451): colored borders alone fail
 	# colorblind players, so every valid target also carries an explicit marker.
 	var show_mark: bool = false

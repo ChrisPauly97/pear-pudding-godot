@@ -122,7 +122,9 @@ func _board_drop(local_pos: Vector2, data: Variant) -> void:
 				_battle._fx.trigger_fx(snap_em)
 			else:
 				_battle.modifiers._apply_weather_to_summoned(played_card, _battle._my_idx())
+			_battle._action_busy = true
 			await _battle._animate_card_travel(played_card, from_rect, to_pos)
+			_battle._action_busy = false
 			_battle._refresh_all()
 			_battle._check_game_over()
 			_battle.tutorials._dismiss_battle_tutorial()

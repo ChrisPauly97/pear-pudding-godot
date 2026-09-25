@@ -319,27 +319,39 @@ func animate_attack(attacker_panel: Control, target_pos: Vector2, speed_scale: f
 		hit_stop: float = 0.0) -> void:
 	if attacker_panel == null or not is_instance_valid(attacker_panel):
 		return
-	var origin: Vector2 = attacker_panel.global_position
+	# Tween the container-local position and remember the slot's home, so an
+	# interrupted lunge can never leave the minion parked mid-board.
+	var home: Vector2 = attacker_panel.get_meta("lunge_home", attacker_panel.position)
+	attacker_panel.set_meta("lunge_home", home)
+	attacker_panel.position = home
 	var center: Vector2 = attacker_panel.get_global_rect().get_center()
-	var lunge_pos: Vector2 = origin + (target_pos - center) * 0.6
+	var lunge_pos: Vector2 = home + (target_pos - center) * 0.6
 	var prev_z: int = attacker_panel.z_index
 	attacker_panel.z_index = 10
 	var tw_in: Tween = attacker_panel.create_tween()
-	tw_in.tween_property(attacker_panel, "global_position", lunge_pos,
+	tw_in.tween_property(attacker_panel, "position", lunge_pos,
 			scaled_duration(0.12, speed_scale)).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	await tw_in.finished
-	if not is_instance_valid(attacker_panel):
-		return
-	if hit_stop > 0.0:
+	if hit_stop > 0.0 and is_instance_valid(attacker_panel):
 		await get_tree().create_timer(scaled_duration(hit_stop, speed_scale), false).timeout
 	if not is_instance_valid(attacker_panel):
 		return
 	var tw_out: Tween = attacker_panel.create_tween()
-	tw_out.tween_property(attacker_panel, "global_position", origin,
+	tw_out.tween_property(attacker_panel, "position", home,
 			scaled_duration(0.15, speed_scale)).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	await tw_out.finished
 	if is_instance_valid(attacker_panel):
-		attacker_panel.z_index = prev_z
+		settle_panel(attacker_panel, prev_z)
+
+## Snaps a lunged panel back to its slot and lets its container re-lay it out.
+func settle_panel(panel: Control, z: int = 0) -> void:
+	if panel.has_meta("lunge_home"):
+		panel.position = panel.get_meta("lunge_home")
+		panel.remove_meta("lunge_home")
+	panel.z_index = z
+	var parent: Container = panel.get_parent() as Container
+	if parent != null:
+		parent.queue_sort()
 
 ## Shrinks/fades/rotates a ghost copy of `panel` in `_float_layer` so a death
 ## reads as a beat instead of a pop when `_refresh_all()` removes it. Not a
