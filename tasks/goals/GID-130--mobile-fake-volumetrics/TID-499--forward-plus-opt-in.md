@@ -2,7 +2,7 @@
 
 **Goal:** GID-130
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -23,12 +23,16 @@ Flagship phones can run Forward+, which enables the existing real volumetric fog
 
 ## Plan
 
-_Written during Plan phase._
+Override file is the setting (read before scripts run); RendererOptIn static helper with boot lock + fallback detection; SceneManager guard on mobile; Settings toggle on mobile.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `game_logic/RendererOptIn.gd`.
+- `project.godot`: `application/config/project_settings_override="user://renderer_override.cfg"` (verified a user:// override changes `rendering_method.mobile` at boot).
+- `SceneManager`: `_guard_renderer_opt_in()` in `_ready`.
+- `SettingsScene`: mobile-only "Advanced Renderer (restart)" toggle.
+- Tests: new `test_renderer_opt_in.gd`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+visual-polish.md: Opt-in Forward+ bullet in the Graphics Quality section.

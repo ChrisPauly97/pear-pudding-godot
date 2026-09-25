@@ -19,11 +19,11 @@ Android runs the Mobile renderer, so `GraphicsQuality.clamp_to_renderer()` turns
 | TID-496 | HQ Screen Rays & Moon Rays | agent | done | — |
 | TID-497 | Ground Mist Particles | agent | done | — |
 | TID-498 | Depth-Fog Post Pass | agent | done | — |
-| TID-499 | Opt-in Forward+ Renderer on Android | agent | pending | — |
+| TID-499 | Opt-in Forward+ Renderer on Android | agent | done | — |
 
 ## Acceptance Criteria
 
-- [ ] Every new effect is a GraphicsQuality knob; Low stays cheap; cost never drops as tier rises
-- [ ] All stand-ins run on Mobile and Compatibility renderers; none double up with real Forward+ volumetrics
-- [ ] Opt-in Forward+ on Android takes effect after restart and self-reverts after a crashed boot
-- [ ] Tests, gdlint and unsafe-hits clean
+- [x] Every new effect is a GraphicsQuality knob; Low stays cheap; cost never drops as tier rises
+- [x] All stand-ins run on Mobile and Compatibility renderers; none double up with real Forward+ volumetrics
+- [x] Opt-in Forward+ on Android takes effect after restart and self-reverts after a crashed boot
+- [x] Tests, gdlint and unsafe-hits clean
