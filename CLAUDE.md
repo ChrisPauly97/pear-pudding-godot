@@ -185,6 +185,10 @@ _UiUtil.make_centered_panel(w, h, vw, vh, parent)
 _UiUtil.make_style(bg, radius, border_color, border_width)   # rounded StyleBoxFlat
 ```
 
+Styling comes from the project theme (`scenes/ui/UiTheme.gd`, merged into the
+engine default theme at startup), so factory widgets need no stylebox overrides.
+Only add `add_theme_stylebox_override` for a genuinely bespoke look.
+
 `BaseOverlay` subclasses additionally inherit `_refresh_metrics()`,
 `_rebuild_ui()` (free children + re-run `_build_ui()` on resize),
 `_build_scroll(parent)`, `_build_centered_panel()` and `_build_margin_vbox()`.

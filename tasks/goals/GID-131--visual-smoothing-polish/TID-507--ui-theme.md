@@ -2,7 +2,7 @@
 
 **Goal:** GID-131
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -21,12 +21,14 @@ No project theme — every panel/button is Godot's default grey box.
 
 ## Plan
 
-_Written during Plan phase._
+Theme built in code; root-Window theme failed to reach CanvasLayer children, so install() merges into ThemeDB default theme at SceneManager startup.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `scenes/ui/UiTheme.gd` (panels, buttons, labels, fields, bars, sliders, scrollbars, tabs, separators, popups).
+- `SceneManager._ready`: `_UiTheme.install()`.
+- Tests: new `test_ui_theme.gd` (incl. CanvasLayer reach). Visual check: world popup + main menu.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+ui-and-scene-management.md: Project UI Theme section. CLAUDE.md UI factories note.
