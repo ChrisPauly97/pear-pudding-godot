@@ -133,7 +133,7 @@
 | [GID-127](goals/GID-127--verdant-rift-magic-types/goal.md) | Verdant & Rift Magic Types | done | 5 / 5 |
 | [GID-128](goals/GID-128--magic-cosmology/goal.md) | Magic Cosmology — Tying the Orphan Systems Together | done | 2 / 2 |
 | [GID-129](goals/GID-129--atmosphere-lighting-polish/goal.md) | Atmosphere & Lighting Polish | in-progress | 9 / 10 |
-| [GID-130](goals/GID-130--mobile-fake-volumetrics/goal.md) | Mobile Fake Volumetrics | done | 6 / 6 |
+| [GID-130](goals/GID-130--mobile-fake-volumetrics/goal.md) | Mobile Fake Volumetrics | done | 7 / 7 |
 
 ## Backlog
 
