@@ -33,3 +33,11 @@ func test_every_prop_type_has_a_size() -> void:
 	for set_arr: Array in _BiomeDef.PROP_SETS:
 		for key: String in set_arr:
 			assert_true(_BiomeDef.PROP_SIZES.has(key), "%s has a billboard size" % key)
+
+
+func test_biome_tables_cover_every_biome() -> void:
+	var n: int = _BiomeDef.GRASS_TINT.size()
+	for table: Array in [_BiomeDef.GROUND_DESAT, _BiomeDef.WALL_MOSS, _BiomeDef.GRASS_DENSITY,
+			_BiomeDef.GRASS_RECOLOR, _BiomeDef.ADJ_PARAMS]:
+		assert_eq(table.size(), n, "one entry per biome")
+	assert_true(_BiomeDef.keeps_grass(0, Vector2i(3, 4)), "meadows keep every tuft")

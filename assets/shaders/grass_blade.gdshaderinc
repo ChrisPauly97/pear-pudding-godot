@@ -5,6 +5,7 @@
 uniform vec4  color_base       : source_color = vec4(0.18, 0.38, 0.13, 1.0);
 uniform vec4  color_mid        : source_color = vec4(0.32, 0.58, 0.19, 1.0);
 uniform vec4  color_tip        : source_color = vec4(0.56, 0.80, 0.30, 1.0);
+instance uniform vec4 grass_recolor = vec4(1.0, 1.0, 1.0, 0.0);
 
 // --- Wind ---
 uniform float wind_strength    : hint_range(0.0, 1.0) = 0.28;
@@ -104,6 +105,8 @@ void fragment() {
 	// one flat colour.
 	vec3 col = mix(color_base.rgb, color_mid.rgb, smoothstep(0.0, 0.45, UV.y));
 	col = mix(col, color_tip.rgb, smoothstep(0.4, 0.95, UV.y));
+	// Per-biome recolour (GID-134): straw in the desert, burnt stubble when scorched.
+	col = mix(col, grass_recolor.rgb * mix(0.55, 1.1, UV.y), grass_recolor.a);
 	float jitter = fract(sin(dot(v_root_world.xz, vec2(12.9898, 78.233))) * 43758.5453);
 	col *= mix(0.9, 1.1, jitter);
 	col = mix(col, col * vec3(1.1, 1.04, 0.8), step(0.8, jitter) * 0.5);

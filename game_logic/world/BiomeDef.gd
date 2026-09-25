@@ -29,8 +29,25 @@ const GRASS_TINT: Array[Color] = [
 	Color(0.70, 0.80, 0.30),   # Grasslands — soft warm meadow green (GID-134: was a neon 0.72, 0.94, 0.38)
 	Color(0.22, 0.50, 0.14),   # Forest      — deep pine green
 	Color(0.87, 0.72, 0.38),   # Desert      — warm sand
-	Color(0.22, 0.09, 0.03),   # Scorched    — charred black-brown
+	Color(0.46, 0.30, 0.20),   # Scorched    — charred earth (0.22/0.09/0.03 read as black, fog turned it navy)
 	Color(0.85, 0.90, 0.96),   # Mountains   — snow white-blue
+]
+
+# How far the green grass/hill textures are desaturated before tinting, so
+# desert reads as sand and scorched as ash rather than tinted meadow (GID-134).
+const GROUND_DESAT: Array[float] = [0.0, 0.0, 1.0, 0.9, 0.8]
+# Moss on walls and ruins per biome (none in desert or scorched lands).
+const WALL_MOSS: Array[float] = [1.0, 1.0, 0.0, 0.0, 0.5]
+
+# Grass blades per biome (GID-134): fraction of grass tiles that keep a tuft,
+# and a recolour {rgb target, a = amount} applied over the green blade ramp.
+const GRASS_DENSITY: Array[float] = [1.0, 1.0, 0.35, 0.2, 0.6]
+const GRASS_RECOLOR: Array[Color] = [
+	Color(1.0, 1.0, 1.0, 0.0),     # Grasslands — as authored
+	Color(0.30, 0.55, 0.28, 0.35), # Forest     — deeper green
+	Color(0.86, 0.74, 0.46, 0.85), # Desert     — dry straw
+	Color(0.42, 0.24, 0.14, 0.9),  # Scorched   — burnt stubble
+	Color(0.70, 0.80, 0.76, 0.6),  # Mountains  — frosted
 ]
 
 # Hill surface tint per biome.
@@ -38,7 +55,7 @@ const HILL_TINT: Array[Color] = [
 	Color(0.58, 0.66, 0.26),   # Grasslands
 	Color(0.18, 0.42, 0.10),   # Forest
 	Color(0.74, 0.60, 0.28),   # Desert
-	Color(0.35, 0.14, 0.04),   # Scorched
+	Color(0.40, 0.24, 0.16),   # Scorched
 	Color(0.58, 0.65, 0.72),   # Mountains
 ]
 
@@ -75,7 +92,7 @@ const ADJ_PARAMS: Array = [
 	{"brightness": 1.0,  "contrast": 1.05, "saturation": 1.0,  "mood": Color(1.05, 1.0, 0.9)},   # warm meadow
 	{"brightness": 0.95, "contrast": 1.05, "saturation": 0.9,  "mood": Color(0.88, 1.0, 0.94)},  # cool green shade
 	{"brightness": 1.08, "contrast": 1.1,  "saturation": 0.9,  "mood": Color(1.12, 1.0, 0.82)},  # sun-baked haze
-	{"brightness": 0.9,  "contrast": 1.15, "saturation": 0.75, "mood": Color(1.15, 0.85, 0.78)}, # ember glow
+	{"brightness": 0.9,  "contrast": 1.15, "saturation": 0.75, "mood": Color(1.4, 0.9, 0.7)},   # ember glow
 	{"brightness": 1.05, "contrast": 1.0,  "saturation": 0.85, "mood": Color(0.9, 0.96, 1.1)},   # crisp alpine
 ]
 const BIOME_BLEND_SECONDS: float = 3.0
@@ -108,3 +125,13 @@ const NPC_LINES: Array = [
 	["Nothing grows here anymore. Nothing good.", "The ground itself is angry."],
 	["One wrong step and it's a long fall.", "The cold keeps the dead quiet. Mostly."],
 ]
+
+
+## Whether a grass tile keeps its tuft in this biome (sparse in dry biomes).
+static func keeps_grass(biome_id: int, tile: Vector2i) -> bool:
+	var keep: float = GRASS_DENSITY[clampi(biome_id, 0, GRASS_DENSITY.size() - 1)]
+	return keep >= 1.0 or float(absi(hash(tile)) % 1000) / 1000.0 < keep
+
+
+static func grass_recolor(biome_id: int) -> Color:
+	return GRASS_RECOLOR[clampi(biome_id, 0, GRASS_RECOLOR.size() - 1)]

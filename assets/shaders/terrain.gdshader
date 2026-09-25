@@ -25,6 +25,10 @@ uniform float uv_scale : hint_range(0.05, 2.0) = 0.5;
 uniform vec3 grass_tint = vec3(1.0, 1.0, 1.0);
 uniform vec3 hill_tint  = vec3(1.0, 1.0, 1.0);
 uniform vec3 wall_tint  = vec3(1.0, 1.0, 1.0);
+// Desaturate the (green) ground textures before tinting: desert sand, scorched
+// ash, mountain snow read as themselves instead of tinted meadow (GID-134).
+uniform float ground_desat : hint_range(0.0, 1.0) = 0.0;
+uniform float wall_moss : hint_range(0.0, 1.0) = 1.0;  // per biome: 0 in desert/scorched
 
 // Per-chunk blight intensity [0=clean, 1=fully blighted].
 // Set via MeshInstance3D.set_instance_shader_parameter() — no material duplication needed.
@@ -184,6 +188,9 @@ void fragment() {
 		}
 	}
 
+	if (!is_wall && ground_desat > 0.0) {
+		base_col = mix(base_col, vec3(dot(base_col, vec3(0.299, 0.587, 0.114))) * 1.3, ground_desat);
+	}
 	if (!is_wall) {
 		// Hill foot: a gentle darkening where the ground starts to rise grounds
 		// the hill instead of it floating on the meadow.
@@ -233,7 +240,7 @@ void fragment() {
 		float su = mix(v_world_xz.y, v_world_xz.x, abs(v_normal_world.z));
 		float mn = mix(vnoise(v_world_xz * 0.8), vnoise(vec2(su * 0.9, v_world_y * 1.4)), side);
 		float moss = side * clamp(smoothstep(0.45, 0.0, v_blend) * 0.9 + smoothstep(0.6, 0.78, mn) * 0.7, 0.0, 1.0);
-		moss = max(moss, (1.0 - side) * smoothstep(0.55, 0.75, mn) * 0.75);
+		moss = max(moss, (1.0 - side) * smoothstep(0.55, 0.75, mn) * 0.75) * wall_moss;
 		vec3 moss_col = vec3(0.36, 0.52, 0.20) * (0.8 + 0.4 * mn);
 		tinted_col = mix(tinted_col * 1.3, moss_col, moss * 0.7);
 		tinted_col *= mix(1.0, mix(0.6, 1.0, smoothstep(0.0, 0.3, v_blend)), side);

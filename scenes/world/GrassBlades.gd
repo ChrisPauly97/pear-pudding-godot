@@ -62,7 +62,6 @@ var _trample_origin_x: float = 0.0  # world-space X of pixel (0,0) in trample ma
 var _trample_origin_z: float = 0.0  # world-space Z of pixel (0,0) in trample map
 var _trample_timer:    float = 0.0  # throttle trample updates
 
-
 # Per-chunk MultiMeshInstance3D nodes — keyed by Vector2i(cx, cz)
 var _chunk_mmis:   Dictionary = {}
 var _cluster_mmis: Dictionary = {}
@@ -88,7 +87,6 @@ func set_lit(on: bool) -> void:
 	if _mat != null:
 		_mat.shader = _GrassShaderLit if on else _GrassShader
 		_cluster_mat.shader = _ClusterShaderLit if on else _ClusterShader
-
 
 func is_lit() -> bool:
 	return _lit
@@ -249,7 +247,7 @@ static func prepare_buffers(centres: Array[Vector2], chunk_key: Vector2i) -> Dic
 	}
 
 # Main-thread commit: create MultiMesh + MMI from pre-built buffers.
-func commit_grass_buffers(grass_data: Dictionary, chunk_key: Vector2i) -> void:
+func commit_grass_buffers(grass_data: Dictionary, chunk_key: Vector2i, recolor := Color(1, 1, 1, 0)) -> void:
 	if grass_data.is_empty() or _chunk_mmis.has(chunk_key):
 		return
 	_init_material()
@@ -276,6 +274,7 @@ func commit_grass_buffers(grass_data: Dictionary, chunk_key: Vector2i) -> void:
 	# extra geometry pass for a shadow that reads as noise at 0.2 opacity.
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mmi.layers = RENDER_LAYER
+	mmi.set_instance_shader_parameter("grass_recolor", recolor)  # per-biome blade colour (GID-134)
 	add_child(mmi)
 	_chunk_mmis[chunk_key] = mmi
 
@@ -297,6 +296,7 @@ func commit_grass_buffers(grass_data: Dictionary, chunk_key: Vector2i) -> void:
 	# Billboard quads cast misshapen shadows — disable to avoid diamond artifacts.
 	cmmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	cmmi.layers = RENDER_LAYER
+	cmmi.set_instance_shader_parameter("grass_recolor", recolor)
 	add_child(cmmi)
 	_cluster_mmis[chunk_key] = cmmi
 

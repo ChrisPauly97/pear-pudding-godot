@@ -18,6 +18,11 @@ const POND_SEED_OFFSET: int = 193771
 const WATER_BIOMES: Array[int] = [0, 1, 4]
 ## Intensity above which a spot counts as "in the water" (grass, props, splashes).
 const WET_LEVEL: float = 0.3
+## Keep water this far (world units) from structure tiles, fading over DRY_FADE.
+## The sum must stay ≤ ChunkRenderer.TILE_CHECK tiles minus half a tile (5 u), so
+## both chunks sharing a border see the same structure tiles: no water seams.
+const DRY_RADIUS: float = 2.5
+const DRY_FADE: float = 2.5
 
 static var _stream: FastNoiseLite = null
 static var _pond: FastNoiseLite = null
@@ -39,8 +44,29 @@ static func intensity(wx: float, wz: float, world_seed: int) -> float:
 	return maxf(stream, pond)
 
 
+## Water fades out near structures (ruins, roads, doors): 0 within
+## DRY_RADIUS of the nearest point, 1 beyond DRY_RADIUS + DRY_FADE.
+static func structure_fade(wx: float, wz: float, dry_points: PackedVector2Array) -> float:
+	if dry_points.is_empty():
+		return 1.0
+	var p := Vector2(wx, wz)
+	var best: float = INF
+	for q: Vector2 in dry_points:
+		best = minf(best, p.distance_squared_to(q))
+	return smoothstep(DRY_RADIUS, DRY_RADIUS + DRY_FADE, sqrt(best))
+
+
 static func is_wet(wx: float, wz: float, world_seed: int) -> bool:
 	return intensity(wx, wz, world_seed) > WET_LEVEL
+
+
+## Water after keeping clear of structures (what the terrain actually draws).
+static func water_at(wx: float, wz: float, world_seed: int, dry_points: PackedVector2Array) -> float:
+	return intensity(wx, wz, world_seed) * structure_fade(wx, wz, dry_points)
+
+
+static func wet_at(wx: float, wz: float, world_seed: int, dry_points: PackedVector2Array) -> bool:
+	return water_at(wx, wz, world_seed, dry_points) > WET_LEVEL
 
 
 static func _ensure(world_seed: int) -> void:

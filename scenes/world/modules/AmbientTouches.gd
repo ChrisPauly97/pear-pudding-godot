@@ -22,6 +22,7 @@ const _AmbientParticles = preload("res://game_logic/AmbientParticles.gd")
 const _RainParticles = preload("res://game_logic/RainParticles.gd")
 const _WeatherParticles = preload("res://scenes/world/WeatherParticles.gd")
 const _WaterMath = preload("res://game_logic/world/WaterMath.gd")
+const _ChunkRenderer = preload("res://scenes/world/ChunkRenderer.gd")
 
 const REFRESH_INTERVAL: float = 0.5
 const FIREFLY_LIFT: float = 1.0
@@ -147,8 +148,10 @@ func refresh() -> void:
 	if knobs_changed:
 		_world._player.apply_particle_knobs(knobs)
 	var p: Vector3 = _world._player.global_position
-	var wading: bool = (_world._is_infinite and _WaterMath.biome_has_water(_world._current_biome)
-			and _WaterMath.is_wet(p.x, p.z, SceneManager.save_manager.world_seed))
+	var wading: bool = (_world._is_infinite and _world._csm != null
+			and _WaterMath.biome_has_water(_world._current_biome)
+			and _ChunkRenderer.water_at_world(_world._csm, p.x, p.z, SceneManager.save_manager.world_seed)
+				> _WaterMath.WET_LEVEL)
 	_apply_ground_wet(wading or (_world._dnc != null and _world._dnc.wetness() > WET_SPLASH_THRESHOLD))
 	var on: bool = bool(knobs.get("ambient_particles", false)) and _world._is_infinite
 	var biome: int = _world._current_biome if on else -1

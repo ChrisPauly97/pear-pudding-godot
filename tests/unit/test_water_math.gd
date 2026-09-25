@@ -24,3 +24,12 @@ func test_only_temperate_biomes_have_water() -> void:
 	assert_true(W.biome_has_water(1))
 	assert_false(W.biome_has_water(2), "no desert streams")
 	assert_false(W.biome_has_water(3), "no scorched streams")
+
+
+func test_water_keeps_clear_of_structures() -> void:
+	var pts := PackedVector2Array([Vector2(10.0, 10.0)])
+	assert_almost_eq(W.structure_fade(10.5, 10.0, pts), 0.0, 0.0001, "no water on a ruin")
+	assert_almost_eq(W.structure_fade(30.0, 10.0, pts), 1.0, 0.0001, "full water well away")
+	assert_almost_eq(W.structure_fade(0.0, 0.0, PackedVector2Array()), 1.0, 0.0001)
+	assert_lte(W.DRY_RADIUS + W.DRY_FADE, 5.0,
+		"fade reach must fit the chunk grid margin or water seams at chunk borders")

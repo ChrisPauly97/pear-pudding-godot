@@ -6,6 +6,7 @@ const GrassBlades   = preload("res://scenes/world/GrassBlades.gd")
 const TerrainMath   = preload("res://game_logic/TerrainMath.gd")
 const BiomeDef      = preload("res://game_logic/world/BiomeDef.gd")
 const _WaterMath    = preload("res://game_logic/world/WaterMath.gd")
+const _ChunkStreamingManager = preload("res://scenes/world/ChunkStreamingManager.gd")
 const TextureGen    = preload("res://game_logic/TextureGen.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const BlightField   = preload("res://game_logic/world/BlightField.gd")
@@ -78,6 +79,8 @@ static func _get_biome_mat(template: ShaderMaterial, biome: int) -> ShaderMateri
 	mat.set_shader_parameter("grass_tint", Vector3(gt.r, gt.g, gt.b))
 	mat.set_shader_parameter("hill_tint",  Vector3(ht.r, ht.g, ht.b))
 	mat.set_shader_parameter("wall_tint",  Vector3(wt.r, wt.g, wt.b))
+	mat.set_shader_parameter("ground_desat", BiomeDef.GROUND_DESAT[biome])
+	mat.set_shader_parameter("wall_moss", BiomeDef.WALL_MOSS[biome])
 	_biome_mat_cache[key] = mat
 	return mat
 
@@ -133,15 +136,17 @@ static func prepare_terrain(
 	var ley_field := PackedFloat32Array()
 	ley_field.resize(nvx * nvz)
 	var water_field := PackedFloat32Array()
+	var dry_points := PackedVector2Array()
 	if has_water:
 		water_field.resize(nvx * nvz)
+		dry_points = _water_dry_points(chunk_data, tile_grid, grid_min_x, grid_min_z, grid_w)
 	for iz2 in range(nvz):
 		for ix2 in range(nvx):
 			var gx2: float = chunk_origin.x + float(ix2) * step
 			var gz2: float = chunk_origin.z + float(iz2) * step
 			ley_field[iz2 * nvx + ix2] = TerrainMath.ley_intensity(gx2, gz2, world_seed)
 			if has_water:
-				water_field[iz2 * nvx + ix2] = _WaterMath.intensity(gx2, gz2, world_seed)
+				water_field[iz2 * nvx + ix2] = _WaterMath.water_at(gx2, gz2, world_seed, dry_points)
 
 	var terrain_res: Dictionary = TerrainMath.build_terrain_mesh(
 			hfield, grid_tile_lookup,
@@ -155,17 +160,21 @@ static func prepare_terrain(
 
 	# Build grass buffers on the worker thread — pure math, no scene-tree access.
 	var grass_centres: Array[Vector2] = GrassBlades.compute_centres(chunk_data, chunk_origin)
-	if has_water:  # no grass tufts standing in streams and ponds
-		var dry: Array[Vector2] = []
-		for c: Vector2 in grass_centres:
-			if not _WaterMath.is_wet(c.x, c.y, world_seed):
-				dry.append(c)
-		grass_centres = dry
+	# No tufts standing in streams and ponds; sparse tufts in dry biomes (GID-134).
+	var kept: Array[Vector2] = []
+	for c: Vector2 in grass_centres:
+		var tile := Vector2i(floori(c.x / IsoConst.TILE_SIZE), floori(c.y / IsoConst.TILE_SIZE))
+		if not BiomeDef.keeps_grass(chunk_data.biome_id, tile):
+			continue
+		if has_water and _WaterMath.wet_at(c.x, c.y, world_seed, dry_points):
+			continue
+		kept.append(c)
+	grass_centres = kept
 	var grass_data: Dictionary = GrassBlades.prepare_buffers(grass_centres, Vector2i(chunk_data.cx, chunk_data.cz))
 
 	# Build per-biome prop positions (pure math, no scene tree).
 	var prop_positions: Dictionary = _compute_prop_positions(
-			chunk_data, grid_tile_lookup, hfield, chunk_origin, nvx, world_seed)
+			chunk_data, grid_tile_lookup, hfield, chunk_origin, nvx, world_seed, dry_points)
 
 	return {
 		"mesh":           terrain_res["mesh"],
@@ -176,6 +185,62 @@ static func prepare_terrain(
 		"props":          prop_positions,
 	}
 
+## Water at a world point for gameplay-side checks (footstep splashes), using
+## the same structure clearance the chunk mesh was baked with.
+static func water_at_world(csm: _ChunkStreamingManager, wx: float, wz: float, world_seed: int) -> float:
+	var key := Vector2i(floori(wx / (IsoConst.CHUNK_SIZE * IsoConst.TILE_SIZE)),
+			floori(wz / (IsoConst.CHUNK_SIZE * IsoConst.TILE_SIZE)))
+	var cd: _ChunkData = csm.get_chunk_data(key)
+	if cd == null or not _WaterMath.biome_has_water(cd.biome_id):
+		return 0.0
+	var snap: Array = csm.snapshot_tile_grid_for(key)
+	var pts: PackedVector2Array = _water_dry_points(cd, snap[0], int(snap[2]), int(snap[3]), int(snap[4]))
+	return _WaterMath.water_at(wx, wz, world_seed, pts)
+
+
+## World points water keeps clear of (TID-524 follow-up): centres of the
+## wall/cracked/path tiles in and around this chunk (ruins, roads), every tile
+## of a ruin's footprint (so its courtyard stays dry), and the chunk's
+## structures. Tiles outside the snapshotted grid are skipped, not treated as
+## walls. Footprint and structure points are only used when they sit at least
+## the full fade distance inside this chunk — the neighbour can't see them, and
+## a border vertex must get the same water from both chunks.
+static func _water_dry_points(chunk_data: _ChunkData, tile_grid: PackedInt32Array,
+		grid_min_x: int, grid_min_z: int, grid_w: int) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	var ts: float = IsoConst.TILE_SIZE
+	var c0 := Vector2i(chunk_data.cx * IsoConst.CHUNK_SIZE, chunk_data.cz * IsoConst.CHUNK_SIZE)
+	var lo := Vector2i(1 << 30, 1 << 30)
+	var hi := Vector2i(-(1 << 30), -(1 << 30))
+	for li: int in tile_grid.size():
+		var t: int = tile_grid[li]
+		if t != IsoConst.TILE_WALL and t != IsoConst.TILE_CRACKED and t != IsoConst.TILE_PATH:
+			continue
+		var tile := Vector2i(grid_min_x + li % grid_w, grid_min_z + li / grid_w)
+		pts.append((Vector2(tile) + Vector2(0.5, 0.5)) * ts)
+		var local: Vector2i = tile - c0
+		if t != IsoConst.TILE_PATH and local.x >= 0 and local.y >= 0 \
+				and local.x < IsoConst.CHUNK_SIZE and local.y < IsoConst.CHUNK_SIZE:
+			lo = Vector2i(mini(lo.x, tile.x), mini(lo.y, tile.y))
+			hi = Vector2i(maxi(hi.x, tile.x), maxi(hi.y, tile.y))
+	var reach: float = _WaterMath.DRY_RADIUS + _WaterMath.DRY_FADE
+	var inner := Rect2(Vector2(c0) * ts + Vector2(reach, reach),
+			Vector2.ONE * (float(IsoConst.CHUNK_SIZE) * ts - reach * 2.0))
+	if not chunk_data.doors.is_empty() and hi.x >= lo.x:
+		for tz: int in range(lo.y, hi.y + 1):
+			for tx: int in range(lo.x, hi.x + 1):
+				var p: Vector2 = (Vector2(tx, tz) + Vector2(0.5, 0.5)) * ts
+				if inner.has_point(p):
+					pts.append(p)
+	for group: Array[Dictionary] in [chunk_data.doors, chunk_data.landmarks, chunk_data.waystones,
+			chunk_data.mana_wells]:
+		for d: Dictionary in group:
+			var p := Vector2(float(d.get("x", INF)), float(d.get("z", INF)))
+			if inner.has_point(p):
+				pts.append(p)
+	return pts
+
+
 # Returns Dictionary of prop_type -> Array[Vector3] of chunk-local positions.
 static func _compute_prop_positions(
 		chunk_data: _ChunkData,
@@ -183,7 +248,8 @@ static func _compute_prop_positions(
 		hfield: PackedFloat32Array,
 		chunk_origin: Vector3,
 		nvx: int,
-		world_seed: int) -> Dictionary:
+		world_seed: int,
+		dry_points: PackedVector2Array = PackedVector2Array()) -> Dictionary:
 	const MAX_PER_TYPE: int = 24
 	const SPAWN_CHANCE: float = 0.12
 	var prop_sets: Array = BiomeDef.PROP_SETS
@@ -226,8 +292,8 @@ static func _compute_prop_positions(
 			# already sits at the chunk origin (world coords here drew every chunk's
 			# props a second origin away, so only chunk 0,0 ever showed any).
 			var base := Vector3(float(lx) * IsoConst.TILE_SIZE + ox, wy, float(lz) * IsoConst.TILE_SIZE + oz)
-			if _WaterMath.biome_has_water(biome_id) and _WaterMath.is_wet(
-					chunk_origin.x + base.x, chunk_origin.z + base.z, world_seed):
+			if _WaterMath.biome_has_water(biome_id) and _WaterMath.wet_at(
+					chunk_origin.x + base.x, chunk_origin.z + base.z, world_seed, dry_points):
 				continue  # nothing growing in the water (TID-524)
 			arr.append(base)
 			# Clumps (flowers, mushrooms): a few neighbours around the first.
@@ -381,7 +447,7 @@ func _build_grass(world_scene: _WorldScene, grass_data: Dictionary) -> void:
 	if not grass:
 		return
 	# Buffers were pre-built on the worker thread; just commit them to the scene tree.
-	grass.commit_grass_buffers(grass_data, _chunk_key)
+	grass.commit_grass_buffers(grass_data, _chunk_key, BiomeDef.grass_recolor(_chunk_data.biome_id))
 
 static func _get_prop_visual(key_str: String) -> Dictionary:
 	var cached: Dictionary = _prop_visual_cache.get(key_str, {})
