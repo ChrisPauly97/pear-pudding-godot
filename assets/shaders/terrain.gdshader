@@ -88,9 +88,12 @@ void vertex() {
 		VERTEX.y += hash2(v_world_xz * 0.08) * 0.12 * flat_factor;
 	}
 
-	// Noise variation removed — pixel art uses flat texture colors only.
-	v_d0 = 0.0;
-	v_d1 = 0.0;
+	// Macro variation (GID-131 / TID-505): slow world-space noise, per vertex
+	// (it changes over tens of units, so interpolation across a 1-unit tile is
+	// exact enough) — breaks the repeating grass tile into lighter/darker and
+	// drier/lusher patches without per-pixel cost.
+	v_d0 = fbm(world_pos.xz * 0.045);
+	v_d1 = fbm(world_pos.xz * 0.09 + vec2(7.3, 2.1));
 	// Ley intensity baked per vertex into UV2.x by ChunkRenderer.
 	v_ley = UV2.x;
 }
@@ -119,7 +122,18 @@ void fragment() {
 	// (interpolated between is_wall=0 grass vertex and is_wall=1 wall vertex)
 	// is classified as wall and receives stone texture rather than grass/hill.
 	bool is_wall = v_wall > 0.05;
-	bool is_path = v_path > 0.05;
+	// Soft, ragged path edges (TID-505): the vertex-interpolated path flag plus
+	// noise, instead of a hard on/off at 0.05 that drew the tile grid.
+	float path_t = v_path > 0.001
+		? smoothstep(0.2, 0.7, v_path + (vnoise(v_world_xz * 1.7) - 0.5) * 0.45) : 0.0;
+	bool is_path = path_t > 0.99;
+	// Anti-tiling (TID-505): swap to a rotated, offset copy of the grass tile
+	// inside irregular noise blobs, so the 2-unit repeat never lines up. A hard
+	// switch (not a blend) keeps the pixel art crisp.
+	vec2 uv_grass = uv_xz;
+	if (vnoise(v_world_xz * 0.23) > 0.5) {
+		uv_grass = vec2(-uv_xz.y, uv_xz.x) + vec2(0.37, 0.61);
+	}
 
 	if (is_path) {
 		base_col = texture(path_texture, uv_xz).rgb;
@@ -138,15 +152,24 @@ void fragment() {
 		               texture(wall_side_texture, uv_side).rgb, t_wall_side);
 	} else if (t_side < 0.01 && t_top < 0.01) {
 		// Pure flat grass — most common case
-		base_col = texture(grass_texture, uv_xz).rgb;
+		base_col = texture(grass_texture, uv_grass).rgb;
 	} else {
-		base_col = texture(grass_texture, uv_xz).rgb;
+		base_col = texture(grass_texture, uv_grass).rgb;
 		if (t_side > 0.01) {
 			base_col = mix(base_col, texture(hill_side_texture, uv_xz).rgb, t_side);
 		}
 		if (t_top > 0.01) {
 			base_col = mix(base_col, texture(hill_texture, uv_xz).rgb, t_top);
 		}
+	}
+
+	if (!is_wall) {
+		// Macro variation: ±~12 % brightness plus drier, yellower patches.
+		base_col *= mix(0.88, 1.1, d0);
+		base_col = mix(base_col, base_col * vec3(1.08, 1.03, 0.82), smoothstep(0.5, 0.75, d1) * 0.6);
+	}
+	if (path_t > 0.001 && !is_path && !is_wall) {
+		base_col = mix(base_col, texture(path_texture, uv_xz).rgb * path_tint / max(grass_tint, vec3(0.01)), path_t);
 	}
 
 	// Hand the base colour to Godot's lighting pipeline.

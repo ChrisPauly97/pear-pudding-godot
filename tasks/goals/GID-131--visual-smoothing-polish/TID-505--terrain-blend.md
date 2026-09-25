@@ -2,7 +2,7 @@
 
 **Goal:** GID-131
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -21,12 +21,12 @@ Ground shows a visible tile grid of lighter/darker diamonds.
 
 ## Plan
 
-_Written during Plan phase._
+Per-vertex macro noise (reusing the dead v_d0/v_d1 varyings), hard-switch anti-tiling via rotated UV in noise blobs, noisy soft path edges.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `assets/shaders/terrain.gdshader`: macro brightness/dryness variation, `uv_grass` anti-tiling, `path_t` soft edges. Visual check on gl_compatibility.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+terrain-rendering.md: Softening the tile grid subsection.

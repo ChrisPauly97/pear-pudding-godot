@@ -128,6 +128,13 @@ Uniforms set per material instance:
 - `path_tint` — defaults to `vec3(1,1,1)` (no biome override; paths are always brown)
 - `grass_texture`, `hill_side_texture`, `hill_top_texture`, `wall_side_texture`, `wall_top_texture`, `path_texture`
 
+#### Softening the tile grid (GID-131 / TID-505)
+
+- **Macro variation:** `v_d0 = fbm(xz × 0.045)`, `v_d1 = fbm(xz × 0.09 + (7.3, 2.1))` per vertex (slow enough to interpolate across a tile). Non-wall ground: `base × mix(0.88, 1.1, d0)`, then up to 60 % toward a drier `× (1.08, 1.03, 0.82)` where `smoothstep(0.5, 0.75, d1)`.
+- **Anti-tiling:** inside irregular blobs where `vnoise(xz × 0.23) > 0.5`, grass samples a 90°-rotated, offset copy of the tile (`uv_grass`). A hard switch, not a blend, so the pixel art stays crisp and the 2-unit repeat never lines up.
+- **Ragged path edges:** `path_t = smoothstep(0.2, 0.7, v_path + (vnoise(xz × 1.7) − 0.5) × 0.45)`; `is_path` is now `path_t > 0.99`, and the fringe mixes the path texture over the ground (tint-corrected) instead of the old hard `v_path > 0.05` cut.
+- **Contact shadows (TID-503):** `ALBEDO` is multiplied by `contact_shadow(world pos)` from `contact_shadow.gdshaderinc` (see visual-polish.md).
+
 ### Grass Blades & Clusters (`scenes/world/GrassBlades.gd`)
 
 Per-chunk `MultiMeshInstance3D`s built on worker threads (infinite world only — named maps have no blade grass):

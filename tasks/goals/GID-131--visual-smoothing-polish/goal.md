@@ -16,7 +16,7 @@ Raised by the user (2026-09-25): *"what would also make the game look nicer? lik
 | TID-502 | Debanding | agent | done | — |
 | TID-503 | Blob Shadows Under Characters | agent | done | — |
 | TID-504 | Smooth Pixel-Art Sprite Filtering | agent | done | — |
-| TID-505 | Softer Terrain Tile Blending | agent | pending | — |
+| TID-505 | Softer Terrain Tile Blending | agent | done | — |
 | TID-506 | Grass Shading Pass | agent | pending | — |
 | TID-507 | Custom UI Theme | agent | pending | — |
 | TID-508 | Lit Grass & Props (BID-060) | agent | pending | TID-506 |

@@ -134,7 +134,7 @@
 | [GID-128](goals/GID-128--magic-cosmology/goal.md) | Magic Cosmology — Tying the Orphan Systems Together | done | 2 / 2 |
 | [GID-129](goals/GID-129--atmosphere-lighting-polish/goal.md) | Atmosphere & Lighting Polish | in-progress | 9 / 10 |
 | [GID-130](goals/GID-130--mobile-fake-volumetrics/goal.md) | Mobile Fake Volumetrics | done | 7 / 7 |
-| [GID-131](goals/GID-131--visual-smoothing-polish/goal.md) | Visual Smoothing & Polish | in-progress | 4 / 8 |
+| [GID-131](goals/GID-131--visual-smoothing-polish/goal.md) | Visual Smoothing & Polish | in-progress | 5 / 8 |
 
 ## Backlog
 
