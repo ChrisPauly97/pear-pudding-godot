@@ -2,7 +2,7 @@
 
 **Goal:** GID-131
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -21,12 +21,13 @@ MSAA misses alpha-cut sprite edges and shader-drawn edges.
 
 ## Plan
 
-_Written during Plan phase._
+Two knobs applied to the viewport in GraphicsQuality.apply(); taa joins FORWARD_PLUS_ONLY.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `GraphicsQuality`: `fxaa` (off/on/on), `taa` (off/off/on, Forward+ only); `apply()` writes `screen_space_aa` / `use_taa`.
+- Tests: `test_edge_smoothing_applied_to_viewport`; monotonic list.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+visual-polish.md: knob rows, FORWARD_PLUS_ONLY list.

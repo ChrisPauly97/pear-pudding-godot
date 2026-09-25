@@ -21,6 +21,8 @@
 ##   fake_shafts, light_halos   — fake volumetric sun shafts (count) / night-light halos,
 ##                                FakeVolumetrics + NightLights (TID-495)
 ##   depth_fog                  — full-screen depth-fog pass, FakeVolumetrics (TID-498)
+##   fxaa, taa                  — screen-space edge smoothing on the viewport, `apply()` (GID-131 / TID-501);
+##                                taa is Forward+ only
 ##   height_fog                 — valley mist via Environment height fog, DayNightCycle (GID-130 / TID-494)
 extends RefCounted
 
@@ -38,7 +40,7 @@ const SUN_RAYS_VOLUMETRIC := 2   # volumetric fog light shafts, Forward+ only
 const RENDERER_FORWARD_PLUS := "forward_plus"
 
 ## Boolean knobs that need the Forward+ renderer. `clamp_to_renderer` turns them off elsewhere.
-const FORWARD_PLUS_ONLY: Array[String] = ["ssao", "volumetric_fog"]
+const FORWARD_PLUS_ONLY: Array[String] = ["ssao", "volumetric_fog", "taa"]
 ## Fake stand-ins (GID-130) that duplicate real volumetric fog: zeroed wherever
 ## `volumetric_fog` actually runs, so the two never stack.
 const FAKE_VOLUMETRIC: Dictionary = {"fake_shafts": 0, "depth_fog": false}
@@ -70,6 +72,8 @@ const TIERS: Array[Dictionary] = [
 		"sun_rays": SUN_RAYS_OFF,
 		"max_night_lights": 0,
 		"night_light_shadows": false,
+		"fxaa": false,
+		"taa": false,
 		"height_fog": false,
 		"fake_shafts": 0,
 		"light_halos": false,
@@ -98,6 +102,8 @@ const TIERS: Array[Dictionary] = [
 		"sun_rays": SUN_RAYS_SCREEN,
 		"max_night_lights": 4,
 		"night_light_shadows": false,
+		"fxaa": true,
+		"taa": false,
 		"height_fog": true,
 		"fake_shafts": 6,
 		"light_halos": true,
@@ -128,6 +134,8 @@ const TIERS: Array[Dictionary] = [
 		"sun_rays": SUN_RAYS_VOLUMETRIC,
 		"max_night_lights": 8,
 		"night_light_shadows": false,
+		"fxaa": true,
+		"taa": true,
 		"height_fog": true,
 		"fake_shafts": 10,
 		"light_halos": true,
@@ -223,6 +231,11 @@ static func apply(knobs: Dictionary, env: Environment, sun: DirectionalLight3D, 
 	if viewport != null:
 		var msaa: int = int(knobs.get("msaa_3d", Viewport.MSAA_DISABLED))
 		viewport.msaa_3d = msaa as Viewport.MSAA
+		# MSAA misses alpha-cut sprite edges and shader-drawn edges; FXAA and
+		# TAA catch those (GID-131 / TID-501).
+		var fxaa: bool = bool(knobs.get("fxaa", false))
+		viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA if fxaa else Viewport.SCREEN_SPACE_AA_DISABLED
+		viewport.use_taa = bool(knobs.get("taa", false))
 	RenderingServer.directional_shadow_atlas_set_size(int(knobs.get("shadow_atlas_size", 4096)), true)
 	var soft: int = int(knobs.get("soft_shadow_quality", RenderingServer.SHADOW_QUALITY_SOFT_LOW))
 	RenderingServer.directional_soft_shadow_filter_set_quality(soft as RenderingServer.ShadowQuality)
