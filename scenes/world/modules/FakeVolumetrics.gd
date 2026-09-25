@@ -7,6 +7,11 @@
 ##     Count = GraphicsQuality `fake_shafts` (0 Low / 6 Medium / 10 High;
 ##     clamped to 0 where real volumetric fog runs). Infinite world only —
 ##     named maps include interiors and dungeons.
+##   * depth fog (TID-498) — one full-screen pass (depth_fog.gdshader) that
+##     rebuilds world positions from depth and fogs low ground with drifting
+##     noise, lit by the sun or moon. `AtmosphereMath.depth_fog_density` (the
+##     height-fog time/weather curve). GraphicsQuality `depth_fog` (High only;
+##     clamped off where real volumetric fog runs). Infinite world only.
 ##
 ## Everything hides when its strength is ~0 (midday, night, storms), so the
 ## day's middle costs nothing.
@@ -17,11 +22,13 @@ const _DayNightCycle = preload("res://scenes/world/DayNightCycle.gd")
 const _SunRayMath = preload("res://game_logic/SunRayMath.gd")
 const _AtmosphereMath = preload("res://game_logic/AtmosphereMath.gd")
 const _SHAFT_SHADER = preload("res://assets/shaders/fake_light_shaft.gdshader")
+const _FOG_SHADER = preload("res://assets/shaders/depth_fog.gdshader")
+const _SunRaysFx = preload("res://scenes/world/SunRaysFx.gd")
 
 const REFRESH_INTERVAL: float = 0.25
-const SHAFT_LENGTH: float = 14.0
-const SHAFT_WIDTH_MIN: float = 1.2
-const SHAFT_WIDTH_MAX: float = 2.6
+const SHAFT_LENGTH: float = 10.0
+const SHAFT_WIDTH_MIN: float = 2.0
+const SHAFT_WIDTH_MAX: float = 3.6
 
 static var _quad: QuadMesh
 
@@ -32,6 +39,9 @@ var _shaft_mats: Array[ShaderMaterial] = []
 var _visible_shafts: int = 0
 var _shaft_strength: float = 0.0
 var _refresh_in: float = 0.0
+var _fog: MeshInstance3D = null
+var _fog_mat: ShaderMaterial = null
+var _fog_density: float = 0.0
 
 
 ## Shafts currently drawn and the strength they draw with (tests, debugging).
@@ -41,6 +51,15 @@ func visible_shafts() -> int:
 
 func shaft_strength() -> float:
 	return _shaft_strength
+
+
+## Depth-fog alpha in use (0 = pass hidden).
+func fog_density() -> float:
+	return _fog_density
+
+
+func is_fog_visible() -> bool:
+	return _fog != null and _fog.visible
 
 
 func _process(delta: float) -> void:
@@ -64,6 +83,51 @@ func refresh() -> void:
 		_shaft_strength = 0.0
 		count = 0
 	_update_shafts(count, _DayNightCycle.sun_direction(tod), _DayNightCycle.sun_color_for(sun_h))
+	var fog_on: bool = bool(knobs.get("depth_fog", false)) and _world._is_infinite
+	_fog_density = _AtmosphereMath.depth_fog_density(sun_h, float(look.get("height_fog", 1.0))) if fog_on else 0.0
+	_update_fog(tod, sun_h, look)
+
+
+func _update_fog(tod: float, sun_h: float, look: Dictionary) -> void:
+	if _fog_density < 0.005:
+		_fog_density = 0.0
+		if _fog != null:
+			_fog.visible = false
+		return
+	if _fog == null:
+		_make_fog()
+	_fog.visible = true
+	var dir: Vector3 = _DayNightCycle.sun_direction(tod)
+	var light: Color = _DayNightCycle.sun_color_for(sun_h) * clampf(sun_h * 3.0, 0.0, 1.0)
+	if sun_h < 0.0:
+		dir = -dir
+		light = _SunRaysFx.MOON_RAY_COLOR * clampf(-sun_h * 1.5, 0.0, 0.5)
+	var fog_col: Color = _world._world_env.environment.fog_light_color if _world._world_env != null else Color.GRAY
+	var wind: Vector2 = look.get("wind_direction", Vector2(1.0, 0.0))
+	var wind_scale: float = float(look.get("wind_scale", 1.0))
+	_fog_mat.set_shader_parameter("density", _fog_density)
+	_fog_mat.set_shader_parameter("fog_color", fog_col)
+	_fog_mat.set_shader_parameter("light_color", light)
+	_fog_mat.set_shader_parameter("light_dir", dir)
+	_fog_mat.set_shader_parameter("wind", wind * 0.25 * wind_scale)
+	_fog_mat.set_shader_parameter("player_pos", _world._player.global_position)
+
+
+func _make_fog() -> void:
+	_fog = MeshInstance3D.new()
+	_fog.name = "DepthFog"
+	var quad := QuadMesh.new()
+	_fog.mesh = quad
+	_fog.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_fog.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+	# Clip-space quad: never frustum-cull it.
+	_fog.extra_cull_margin = 16384.0
+	_fog_mat = ShaderMaterial.new()
+	_fog_mat.shader = _FOG_SHADER
+	_fog_mat.set_shader_parameter("fog_top", _AtmosphereMath.DEPTH_FOG_TOP)
+	_fog_mat.set_shader_parameter("fog_depth", _AtmosphereMath.DEPTH_FOG_DEPTH)
+	_fog.material_override = _fog_mat
+	_world.add_child(_fog)
 
 
 func _update_shafts(count: int, sun_dir: Vector3, col: Color) -> void:

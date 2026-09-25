@@ -32,7 +32,7 @@ func test_cost_never_drops_as_tier_rises() -> void:
 				"max_night_lights", "msaa_3d", "ray_samples", "fake_shafts", "sun_rays", "soft_shadow_quality"]:
 			assert_gte(hi[key], lo[key], "%s drops from tier %d to %d" % [key, i - 1, i])
 		for key: String in ["sun_shadows", "ssao", "glow", "ambient_particles", "moon_shadows",
-				"shadow_blend_splits", "height_fog", "moon_rays", "ground_mist", "light_halos"]:
+				"shadow_blend_splits", "height_fog", "moon_rays", "ground_mist", "light_halos", "depth_fog"]:
 			assert_true(bool(hi[key]) or not bool(lo[key]), "%s turns off at tier %d" % [key, i])
 
 func test_low_is_cheap_and_high_is_full() -> void:
@@ -143,3 +143,5 @@ func test_fake_volumetrics_yield_to_real_volumetric_fog() -> void:
 	assert_eq(int(GQ.knobs_for(GQ.HIGH, "mobile")["fake_shafts"]), int(high["fake_shafts"]))
 	assert_eq(int(GQ.knobs_for(GQ.MEDIUM, "forward_plus")["fake_shafts"]), int(GQ.TIERS[GQ.MEDIUM]["fake_shafts"]),
 			"Medium on desktop has no volumetric fog, so it keeps the stand-ins")
+	assert_true(bool(GQ.knobs_for(GQ.HIGH, "mobile")["depth_fog"]), "Mobile High gets the depth-fog pass")
+	assert_false(bool(GQ.knobs_for(GQ.HIGH, "forward_plus")["depth_fog"]), "real fog replaces the depth-fog pass")

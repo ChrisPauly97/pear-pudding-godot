@@ -20,6 +20,7 @@
 ##   ground_mist                — low mist particles at night/dawn, AmbientTouches (TID-497)
 ##   fake_shafts, light_halos   — fake volumetric sun shafts (count) / night-light halos,
 ##                                FakeVolumetrics + NightLights (TID-495)
+##   depth_fog                  — full-screen depth-fog pass, FakeVolumetrics (TID-498)
 ##   height_fog                 — valley mist via Environment height fog, DayNightCycle (GID-130 / TID-494)
 extends RefCounted
 
@@ -40,7 +41,7 @@ const RENDERER_FORWARD_PLUS := "forward_plus"
 const FORWARD_PLUS_ONLY: Array[String] = ["ssao", "volumetric_fog"]
 ## Fake stand-ins (GID-130) that duplicate real volumetric fog: zeroed wherever
 ## `volumetric_fog` actually runs, so the two never stack.
-const FAKE_VOLUMETRIC: Dictionary = {"fake_shafts": 0}
+const FAKE_VOLUMETRIC: Dictionary = {"fake_shafts": 0, "depth_fog": false}
 
 ## Shadow tuning (TID-485). The iso camera is orthographic (size 15) and sits
 ## 34.6 units from the player, so on-screen ground lies ~24–45 units deep:
@@ -72,6 +73,7 @@ const TIERS: Array[Dictionary] = [
 		"height_fog": false,
 		"fake_shafts": 0,
 		"light_halos": false,
+		"depth_fog": false,
 		"ground_mist": false,
 		"ray_samples": 0,
 		"moon_rays": false,
@@ -99,6 +101,7 @@ const TIERS: Array[Dictionary] = [
 		"height_fog": true,
 		"fake_shafts": 6,
 		"light_halos": true,
+		"depth_fog": false,
 		"ground_mist": true,
 		"ray_samples": 10,
 		"moon_rays": false,
@@ -128,6 +131,7 @@ const TIERS: Array[Dictionary] = [
 		"height_fog": true,
 		"fake_shafts": 10,
 		"light_halos": true,
+		"depth_fog": true,
 		"ground_mist": true,
 		"ray_samples": 16,
 		"moon_rays": true,

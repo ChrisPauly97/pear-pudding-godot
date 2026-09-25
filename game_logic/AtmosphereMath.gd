@@ -32,6 +32,14 @@ const SHAFT_RANGE_CELLS: int = 3
 const SHAFT_MIN_AXIS_Y: float = 0.5
 
 
+## Depth-fog pass (TID-498): peak alpha, reached where the height-fog curve
+## peaks (dawn in rain). Same time/weather curve as the height fog.
+const DEPTH_FOG_MAX_ALPHA: float = 0.55
+## Fog layer: surfaces below `DEPTH_FOG_TOP` fog in over `DEPTH_FOG_DEPTH`.
+const DEPTH_FOG_TOP: float = 1.2
+const DEPTH_FOG_DEPTH: float = 1.6
+
+
 ## Height-fog density for a sun height `sun_h` (sin of the arc angle) and the
 ## WeatherLook `height_fog` multiplier.
 static func height_fog_density(sun_h: float, weather_mult: float) -> float:
@@ -80,3 +88,9 @@ static func shaft_axis(toward_light: Vector3) -> Vector3:
 		return Vector3.UP
 	flat = flat.normalized() * h
 	return Vector3(flat.x, y, flat.y)
+
+
+## Depth-fog pass alpha 0..DEPTH_FOG_MAX_ALPHA for a sun height and the
+## WeatherLook `height_fog` multiplier (the same curve as the height fog).
+static func depth_fog_density(sun_h: float, weather_mult: float) -> float:
+	return height_fog_density(sun_h, weather_mult) / HEIGHT_FOG_MAX * DEPTH_FOG_MAX_ALPHA

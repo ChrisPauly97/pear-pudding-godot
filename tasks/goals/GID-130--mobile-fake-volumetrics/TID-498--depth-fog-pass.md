@@ -2,7 +2,7 @@
 
 **Goal:** GID-130
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-495
 
 ## Lock
@@ -23,12 +23,16 @@ A camera-attached full-screen spatial pass that reads depth and adds noise-scrol
 
 ## Plan
 
-_Written during Plan phase._
+Clip-space full-screen quad in FakeVolumetrics; depth reconstruct + height/noise fog lit by sun or moon; density from the height-fog curve; knob High only, clamped off with real volumetric fog.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `assets/shaders/depth_fog.gdshader` (+ .uid).
+- `FakeVolumetrics`: `_update_fog`/`_make_fog`, `fog_density()`, `is_fog_visible()`; shaft size tuned (width 2.0–3.6, length 10) after visual check.
+- `AtmosphereMath`: `depth_fog_density`, `DEPTH_FOG_*`.
+- `GraphicsQuality`: `depth_fog` (off/off/on), added to `FAKE_VOLUMETRIC`.
+- Tests: depth-fog curve; GQ clamp asserts. Rendered dawn/night/rain frames on gl_compatibility under xvfb to verify all GID-130 effects draw.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+visual-polish.md: knob row, clamp note, Depth fog + visual-check bullets.

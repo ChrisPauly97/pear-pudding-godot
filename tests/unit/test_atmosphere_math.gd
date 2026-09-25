@@ -70,3 +70,9 @@ func test_shaft_axis_is_steep_and_unit() -> void:
 	assert_gte(ax.y, AM.SHAFT_MIN_AXIS_Y - 0.0001)
 	assert_gt(ax.x, 0.0, "leans toward the sun")
 	assert_eq(AM.shaft_axis(Vector3.UP), Vector3.UP)
+
+
+func test_depth_fog_follows_height_fog_curve() -> void:
+	assert_almost_eq(AM.depth_fog_density(0.9, 0.0), 0.0)
+	assert_gt(AM.depth_fog_density(0.02, 1.0), AM.depth_fog_density(0.9, 1.0))
+	assert_lte(AM.depth_fog_density(0.02, 5.0), AM.DEPTH_FOG_MAX_ALPHA + 0.0001)
