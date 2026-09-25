@@ -146,6 +146,8 @@ func test_fake_volumetrics_yield_to_real_volumetric_fog() -> void:
 			"Medium on desktop has no volumetric fog, so it keeps the stand-ins")
 	assert_true(bool(GQ.knobs_for(GQ.HIGH, "mobile")["depth_fog"]), "Mobile High gets the depth-fog pass")
 	assert_false(bool(GQ.knobs_for(GQ.HIGH, "forward_plus")["depth_fog"]), "real fog replaces the depth-fog pass")
+	assert_eq(int(GQ.knobs_for(GQ.HIGH, "mobile")["msaa_3d"]), Viewport.MSAA_DISABLED,
+			"depth fog reads the depth texture, which MSAA leaves unresolved on Mobile")
 
 
 func test_edge_smoothing_applied_to_viewport() -> void:

@@ -245,7 +245,9 @@ void fragment() {
 	vec3 rel = vec3(v_world_xz.x, v_world_y, v_world_xz.y) - focus;
 	const vec3 CAM_FWD = vec3(-0.57735, -0.57735, -0.57735);
 	float along = dot(rel, CAM_FWD);
-	if (along < -0.5 && v_world_y > occlusion_focus.y + 0.3) {
+	// Walls only: hills have no floor beneath them, so cutting one punches a
+	// hole through to the clear colour.
+	if (is_wall && along < -0.5 && v_world_y > occlusion_focus.y + 0.3) {
 		float perp = length(rel - along * CAM_FWD);
 		float cut = 1.0 - smoothstep(OCCLUSION_RADIUS * 0.65, OCCLUSION_RADIUS, perp);
 		if (cut > 0.0) {
@@ -263,10 +265,13 @@ void fragment() {
 	// Soft emission floor keeps cast shadows from going pitch-black.
 	// Keep low — this adds straight onto lit albedo, brightening midday too.
 	vec3 base_emission = tinted_col * 0.08;
-	// Ley line glow: cyan emissive pulse on non-wall ground.
+	// Ley line glow: a tight pale-teal core down the line's centre plus a faint
+	// halo, so the whole (gameplay-wide) band doesn't wash the ground blue.
 	if (v_ley > 0.01 && !is_wall) {
 		float pulse = 0.8 + 0.2 * sin(TIME * 0.8);
-		base_emission += v_ley * pulse * 0.45 * vec3(0.05, 0.85, 0.90);
+		float core = smoothstep(0.6, 0.92, v_ley);
+		float glow = core * 0.4 + v_ley * v_ley * 0.06;
+		base_emission += glow * pulse * vec3(0.45, 0.95, 0.70);
 	}
 	EMISSION = base_emission;
 	ROUGHNESS = wet_rough;
