@@ -692,7 +692,7 @@ func _enter_battle(configure: Callable, networked: bool = false) -> void:
 			_battle_overlay.name = "BattleScene"
 		configure.call(_battle_overlay)
 		get_tree().root.add_child(_battle_overlay)
-		get_tree().current_scene = _battle_overlay)
+		get_tree().current_scene = _battle_overlay, TransitionManager.STYLE_BATTLE)
 	_transition_to(State.BATTLE)
 
 
@@ -716,7 +716,7 @@ func _finish_battle(clear_pending: bool = true) -> void:
 ##
 ## `after` runs *inside* the transition callback, once `current_scene` is the
 ## live WorldScene again. Anything that parents an overlay to `current_scene`
-## must go through it: TransitionManager.transition() awaits a 0.2 s fade before
+## must go through it: TransitionManager.transition() awaits a 0.3 s wipe before
 ## running its callback, so a caller that does `_restore_world()` then
 ## `current_scene.add_child(overlay)` on the next line is still looking at the
 ## already-`queue_free()`d battle overlay and the overlay dies with it at the end

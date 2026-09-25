@@ -25,6 +25,14 @@
 
 `assets/fonts/Nunito-Bold.woff2` is the default font: the theme's `default_font`, `ThemeDB.fallback_font`, and so also `Label3D` name tags. `assets/fonts/Cinzel-Bold.woff2` is the heading font, used through the `TitleLabel` theme type variation (base `Label`). Both are Fontsource Latin subsets under SIL OFL 1.1; the licence texts sit next to them and attribution is in `CREDITS.md`. `UiTheme.body_font()` / `title_font()` append the engine font as a fallback, so symbols and non-Latin glyphs still render. `install()` sets `default_font` explicitly, because `merge_with` does not copy it. Headings: `UiUtil.make_title_label()` applies the variation; for other labels set `theme_type_variation = &"TitleLabel"` (MenuScene title, TutorialPopup title).
 
+### Screen Transitions (`autoloads/TransitionManager.gd`, `screen_wipe.gdshader`) — GID-133 / TID-516
+
+The plain 0.2 s black fade is now a full-screen `ColorRect` running `screen_wipe.gdshader` on CanvasLayer 100. `progress` goes 0 → 1 to cover over `FADE_DURATION` 0.3 s (sine ease in), `change_fn` runs, then it uncovers (ease out).
+- **`STYLE_WIPE`** (default): diamond tiles sweep diagonally top-left → bottom-right, matching the iso grid. Each tile grows from its centre as the front passes.
+- **`STYLE_BATTLE`**: an iris closes on the centre with a 7-lobe swirling edge. `SceneManager._enter_battle` passes it.
+- The API is unchanged apart from the optional `style` argument: `transition(change_fn, style)`, with awaitable `fade_out()` / `fade_in()`. `_restore_world(after)` still runs its post-swap work inside the transition (see the CLAUDE.md spire-draft learning; that delay is now 0.3 s).
+- The rect is hidden while idle, so nothing full-screen is drawn between transitions. Cover colour is the theme's near-black navy (0.04, 0.04, 0.07). `progress()` for tests.
+
 ### BaseOverlay (`scenes/ui/BaseOverlay.gd`)
 
 All modal overlay scenes extend `"res://scenes/ui/BaseOverlay.gd"` using a string-path extends (not class_name). The base class provides:
