@@ -2,7 +2,7 @@
 
 **Goal:** GID-132
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -21,12 +21,15 @@ Battles feel static; few tweens.
 
 ## Plan
 
-_Written during Plan phase._
+New BattleJuice static helpers (pop labels, punch, sparks, pop-in) wired into existing BattleFx paths; board pop-in by diffing ids after refresh; Reduce Flashing respected.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `scenes/battle/BattleJuice.gd`.
+- `BattleFx`: amount-aware float labels + sparks, punch on hit, softer flash colour, `pop_new_board_cards`, `mark_board_seen`.
+- `BattleScene`: pop-in after `_refresh_all`; travel ghost marks its card seen.
+- Tests: new `test_battle_juice.gd`; PvP/co-op battle smoke tests clean. Visual check of label/punch/sparks on gl_compatibility.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+battle-system.md: Battle juice bullet.

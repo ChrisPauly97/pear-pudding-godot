@@ -15,12 +15,12 @@ Raised by the user (2026-09-25) after GID-131: *"next improvements"* → *"ok, d
 | TID-509 | Project Fonts (Nunito body, Cinzel titles) | agent | done | — |
 | TID-510 | HUD Button Icons | agent | done | — |
 | TID-511 | Idle Life for World Sprites | agent | done | — |
-| TID-512 | Battle Juice | agent | pending | — |
+| TID-512 | Battle Juice | agent | done | — |
 
 ## Acceptance Criteria
 
-- [ ] Fonts bundled with OFL licence + CREDITS entry; fallback to the engine font for missing glyphs
-- [ ] HUD actions show icons on touch and desktop (key hints kept on desktop)
-- [ ] NPCs/enemies idle-bob, cheap (shader or shared tween), off-screen cost ~0
-- [ ] Battle attacks/damage/hover have motion; respects Reduce Flashing / Screen Shake settings
-- [ ] Tests, gdlint, unsafe-hits, smoke tests clean
+- [x] Fonts bundled with OFL licence + CREDITS entry; fallback to the engine font for missing glyphs
+- [x] HUD actions show icons on touch and desktop (key hints kept on desktop)
+- [x] NPCs/enemies idle-bob, cheap (shader or shared tween), off-screen cost ~0
+- [x] Battle attacks/damage/hover have motion; respects Reduce Flashing / Screen Shake settings
+- [x] Tests, gdlint, unsafe-hits, smoke tests clean
