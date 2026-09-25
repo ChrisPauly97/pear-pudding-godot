@@ -328,9 +328,12 @@ func _on_identity_received(sender: int, payload: Array, is_reply: bool) -> void:
 		_send_story_flags_snapshot_to_peer(sender)
 		# Co-op story mode (GID-098): if the party has already moved beyond the
 		# default lobby map, redirect the late joiner to the party's current map.
+		# Always send it: the joiner lands on the lobby map, not ours, so comparing
+		# against our own map (which *is* st.current_map) never fired. A peer
+		# already on the target map ignores it in _on_map_transition_received.
 		if SessionStore.is_open() and _world._net_sync != null:
 			var st: _SessionState = SessionStore.get_state()
-			if st != null and st.current_map != "" and st.current_map != _world.map_name:
+			if st != null and st.current_map != "":
 				_world._net_sync.rpc_id(sender, "recv_map_transition", st.current_map, "")
 	# Answer an initiator's broadcast exactly once so it learns our identity too.
 	if not is_reply:
@@ -1164,8 +1167,14 @@ func _coop_apply_world_progress(removed_enemies: Array, opened_objects: Array, c
 
 ## Host: broadcast positions for any live shared enemy at a low Hz (inert while all
 ## enemies are static, as on every current co-op map). Called from _process.
+## Never on the infinite world: its enemies are chunk-streamed and simulated per
+## peer (each peer loads different chunks), so the stream was one over-MTU packet
+## of every host enemy 5x a second that dragged the joiner's copies toward the
+## host's positions every frame.
 
 func _broadcast_enemy_positions(delta: float) -> void:
+	if _world._is_infinite:
+		return
 	if not _coop_world_authority() or _world._net_sync == null or _world._enemy_nodes.is_empty():
 		return
 	_enemy_pos_accum += delta
@@ -1185,7 +1194,7 @@ func _broadcast_enemy_positions(delta: float) -> void:
 ## Client: store the latest authority positions; _process interpolates toward them.
 
 func _on_enemy_positions_received(payload: Array) -> void:
-	if not _world._coop_active or NetworkManager.is_host():
+	if not _world._coop_active or NetworkManager.is_host() or _world._is_infinite:
 		return
 	for st: Dictionary in _EnemySync.decode_batch(payload):
 		var eid: String = str(st.get("id", ""))

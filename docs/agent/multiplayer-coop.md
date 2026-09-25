@@ -1618,7 +1618,7 @@ loot" framing.
 | `recv_world_event(payload)` | authority → clients, reliable | apply a discrete event (`enemy_removed` → drop node; `chest_opened` → flip node) |
 | `submit_world_event(payload)` | client → authority, reliable | intent: I engaged / defeated an enemy, or opened a chest |
 | `recv_world_snapshot(payload)` | authority → joining client, reliable | reconcile freshly-spawned nodes to the live + persisted removed/opened sets |
-| `recv_enemy_positions(payload)` | authority → clients, unreliable_ordered | low-Hz (5 Hz) moving-enemy position batch; clients `EnemySync.interp` toward it |
+| `recv_enemy_positions(payload)` | authority → clients, unreliable_ordered | low-Hz (5 Hz) moving-enemy position batch; clients `EnemySync.interp` toward it. Named maps only: skipped (both send and receive) on the infinite world, whose chunk-streamed enemies are simulated per peer |
 | `recv_loot_roll_start(payload)` (GID-102 / TID-381) | authority → all, reliable | show the Need/Greed/Pass prompt for a chest's resolved drop |
 | `submit_loot_roll_request(cid, tier)` (GID-102 / TID-381) | client → authority, reliable | "I opened this chest and need/greed mode is on — start a roll" |
 | `submit_loot_roll_choice(roll_id, choice)` (GID-102 / TID-381) | client → authority, reliable | my need/greed/pass choice for an active roll |
