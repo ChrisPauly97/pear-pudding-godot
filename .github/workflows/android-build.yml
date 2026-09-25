@@ -24,6 +24,9 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # Default 'tools' package was removed from the SDK repo; components installed below.
+          packages: ''
 
       - name: Install required Android SDK components
         run: |
