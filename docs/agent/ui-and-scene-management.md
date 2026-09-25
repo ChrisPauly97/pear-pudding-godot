@@ -206,6 +206,8 @@ _world_hud.get_action_button(id: String) -> Button
 _world_hud.get_zone_container(zone: String) -> Container
 ```
 
+**Icons (GID-132 / TID-510):** `register_action` calls `HudIcons.apply(btn, id, vh × 0.034)`, which puts the icon registered for that id (`scenes/ui/HudIcons.gd` `_ICONS`) beside the label. The art is game-icons.net (Lorc, Delapouite & contributors, CC BY 3.0; licence `assets/icons/hud/LICENSE-game-icons.txt`, attribution in `CREDITS.md`): white SVGs imported at `svg/scale=0.25` (128 px) with mipmaps. Ids in `ICON_ONLY` (`pause`, `emote`, whose labels were the stand-in glyphs "II" and ":)") drop the text and centre the icon. Adding an action: drop `<id>.svg` into `assets/icons/hud/` (white fill, 512 viewBox), set the same import scale, and add one `_ICONS` line (`test_hud_icons` loads every entry). The map/coin labels now sit right of the pause button (`WorldScene`, `x = vh × 0.10 + safe-left`); they used to overlap it.
+
 A button that needs a `.toggled` connection (`toggle_mode = true`) rather than a plain `.pressed` callback — the Ranked toggle, the Ping toggle — can't go through `register_action` (its `callback` param is unconditionally wired to `.pressed`). Build it directly and parent it into the zone via `get_zone_container()` instead; see `WorldScene._ensure_challenge_button()`'s Ranked toggle for the pattern.
 
 `WorldHUD.is_touch_on_hud_button(pos)` recurses into zone `Container` children (not just direct `_hud` children) so the Android tap-to-move guard still sees every registered button.

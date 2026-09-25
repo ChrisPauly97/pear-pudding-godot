@@ -143,3 +143,11 @@ Latin subsets from the Fontsource npm packages (GID-132 / TID-509).
   *(body text and buttons, `assets/fonts/Nunito-Bold.woff2`; licence `OFL-Nunito.txt`)*
 - **Cinzel** Bold — The Cinzel Project Authors — https://github.com/NDISCOVER/Cinzel
   *(titles, `assets/fonts/Cinzel-Bold.woff2`; licence `OFL-Cinzel.txt`)*
+
+## Icons
+
+HUD action icons (`assets/icons/hud/`) are from **game-icons.net** by **Lorc,
+Delapouite & contributors** — https://game-icons.net — **CC BY 3.0**
+(licence: `assets/icons/hud/LICENSE-game-icons.txt`). Attribution is a licence
+condition; keep this line in distributed builds. Recoloured to white; taken via
+the `@iconify-json/game-icons` npm package (GID-132 / TID-510).

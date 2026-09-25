@@ -2,7 +2,7 @@
 
 **Goal:** GID-132
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -21,12 +21,14 @@ HUD actions registered via `WorldHUD.register_action(id, label, zone, cb)`. Icon
 
 ## Plan
 
-_Written during Plan phase._
+game-icons.net SVGs (CC BY 3.0) via npm, imported at 128 px; HudIcons registry applied inside register_action; fixed map/coin labels overlapping the pause button.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `assets/icons/hud/` (14 SVGs + .import, licence), `scenes/ui/HudIcons.gd`.
+- `WorldHUD.register_action` applies icons; `WorldScene` moves map/coin labels right of pause.
+- `CREDITS.md` Icons section. Tests: new `test_hud_icons.gd`. Visual check with HUD.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+ui-and-scene-management.md: Icons paragraph under HUD action registry.

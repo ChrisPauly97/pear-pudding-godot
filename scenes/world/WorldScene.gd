@@ -644,6 +644,10 @@ func _build_player_hud() -> void:
 	var vh: float = get_viewport().get_visible_rect().size.y
 	_map_label.add_theme_font_size_override("font_size", int(vh * 0.032))
 	_coin_label.add_theme_font_size_override("font_size", int(vh * 0.03))
+	# Right of the top-left pause button (they overlapped; GID-132 / TID-510).
+	var hud_x: float = vh * 0.10 + float(_UiUtil.safe_insets(get_viewport()).get("left", 0.0))
+	_map_label.position = Vector2(hud_x, vh * 0.012)
+	_coin_label.position = Vector2(hud_x, vh * 0.05)
 	_interact_label.add_theme_font_size_override("font_size", int(vh * 0.03))
 
 	# WorldHUD owns all dynamically-created buttons, labels, and display state.
