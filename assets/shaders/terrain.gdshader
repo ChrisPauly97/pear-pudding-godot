@@ -121,7 +121,12 @@ void fragment() {
 	// Zone blend factors — driven by height only, not slope.
 	// Slope-based blending caused dungeon floor tiles adjacent to tall walls
 	// to incorrectly show the hill-side (dirt) texture.
-	float t_side = smoothstep(0.05, 0.55, v_blend);
+	// Soft hill edges (GID-134 / TID-520): grass climbs the lower slope and the
+	// dirt only shows where the side is genuinely steep, with a ragged noise
+	// edge — not a hard brown ring the moment the ground starts to rise.
+	float t_side = v_blend > 0.05
+		? smoothstep(0.2, 0.62, v_blend + (vnoise(v_world_xz * 0.9) - 0.5) * 0.3)
+			* smoothstep(0.18, 0.5, slope) : 0.0;
 	float t_top  = smoothstep(0.60, 0.92, v_blend);
 
 	// Sample only the textures actually contributing to this fragment.
@@ -173,6 +178,9 @@ void fragment() {
 	}
 
 	if (!is_wall) {
+		// Hill foot: a gentle darkening where the ground starts to rise grounds
+		// the hill instead of it floating on the meadow.
+		base_col *= 1.0 - 0.12 * smoothstep(0.0, 0.06, v_blend) * (1.0 - smoothstep(0.12, 0.35, v_blend));
 		// Macro variation (GID-134 / TID-519): brightness swell, drier golden
 		// patches and deeper, cooler lush hollows so a meadow isn't one green.
 		base_col *= mix(0.82, 1.12, d0);

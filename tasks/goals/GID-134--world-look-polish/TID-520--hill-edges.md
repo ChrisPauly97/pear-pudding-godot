@@ -2,7 +2,7 @@
 
 **Goal:** GID-134
 **Type:** agent
-**Status:** todo
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -21,6 +21,12 @@ Hill sides show a hard brown dirt ring.
 
 ## Plan
 
+Dirt only on steep upper slopes with a noisy edge; darken the hill foot.
+
 ## Changes Made
 
+terrain.gdshader t_side gated by slope + noise; hill-foot darkening. Also TownspersonNPC unnamed extras get a hashed role instead of 'NPC'.
+
 ## Documentation Updates
+
+visual-polish.md (at goal end).

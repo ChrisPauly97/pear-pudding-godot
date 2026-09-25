@@ -47,7 +47,11 @@ func _extract_name() -> String:
 			end = after.find(",")
 		if end > 0:
 			return after.substr(0, end).strip_edges()
-	return "NPC"
+	if npc_data.has("name"):
+		return str(npc_data["name"])
+	# Unnamed extras get a role hashed from their spot, never the raw "NPC".
+	var roles: Array[String] = ["Traveller", "Wanderer", "Farmhand", "Pilgrim", "Herbalist", "Shepherd"]
+	return roles[absi(hash(Vector2i(int(npc_data.get("x", 0)), int(npc_data.get("z", 0))))) % roles.size()]
 
 func get_dialogue() -> String:
 	if _flag_key != "" and SaveManager.get_story_flag(_flag_key):
