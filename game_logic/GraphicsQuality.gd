@@ -16,6 +16,7 @@
 ##   max_night_lights, night_light_shadows — night point lights (TID-489)
 ##   particle_scale             — multiplier for every GPUParticles3D amount (`scaled_amount`)
 ##   ambient_particles          — dust / fireflies / leaves on or off (TID-493)
+##   ray_samples, moon_rays     — screen-ray occlusion taps + night moon rays, SunRaysFx (TID-496)
 ##   height_fog                 — valley mist via Environment height fog, DayNightCycle (GID-130 / TID-494)
 extends RefCounted
 
@@ -63,6 +64,8 @@ const TIERS: Array[Dictionary] = [
 		"max_night_lights": 0,
 		"night_light_shadows": false,
 		"height_fog": false,
+		"ray_samples": 0,
+		"moon_rays": false,
 	},
 	{ # MEDIUM — the pre-GID-129 mobile look (sun shadows were already off on phones).
 		"sun_shadows": false,
@@ -85,6 +88,8 @@ const TIERS: Array[Dictionary] = [
 		"max_night_lights": 4,
 		"night_light_shadows": false,
 		"height_fog": true,
+		"ray_samples": 10,
+		"moon_rays": false,
 	},
 	{ # HIGH — the pre-GID-129 desktop look plus the Forward+ extras.
 		"sun_shadows": true,
@@ -109,6 +114,8 @@ const TIERS: Array[Dictionary] = [
 		"max_night_lights": 8,
 		"night_light_shadows": false,
 		"height_fog": true,
+		"ray_samples": 16,
+		"moon_rays": true,
 	},
 ]
 

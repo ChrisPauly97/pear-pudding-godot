@@ -2,7 +2,7 @@
 
 **Goal:** GID-130
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -23,12 +23,16 @@ Mobile High falls back to the Medium screen pass (10 taps). Give it more occlusi
 
 ## Plan
 
-_Written during Plan phase._
+Shader loop bound → uniform with MAX_SAMPLES break; SunRayMath.moon_strength; SunRaysFx.set_quality(samples, moon_rays) swaps source/colour/threshold at night; two new knobs.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `sun_rays.gdshader`: `samples` uniform (1–24).
+- `SunRayMath`: `moon_strength`, `MOON_*` constants.
+- `SunRaysFx`: `set_quality`, `is_moon_source`, moon direction/colour/lit threshold; volumetric fog ignores the moon.
+- `GraphicsQuality`: `ray_samples` (0/10/16), `moon_rays` (off/off/on). WorldScene forwards them.
+- Tests: moon strength curve, moon-ray toggle; GQ monotonic lists. Shaders compile-checked on gl_compatibility under xvfb.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+visual-polish.md: knob rows + HQ taps/moon rays bullet.

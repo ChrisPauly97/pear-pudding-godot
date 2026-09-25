@@ -148,3 +148,25 @@ func test_high_enables_volumetric_fog_only_on_forward_plus() -> void:
 	assert_false(bool(GQ.knobs_for(GQ.HIGH, "mobile")["volumetric_fog"]))
 	assert_eq(int(GQ.knobs_for(GQ.MEDIUM, "mobile")["sun_rays"]), GQ.SUN_RAYS_SCREEN)
 	assert_eq(int(GQ.knobs_for(GQ.LOW, "forward_plus")["sun_rays"]), GQ.SUN_RAYS_OFF)
+
+
+func test_moon_strength_curve() -> void:
+	assert_almost_eq(SunRayMath.moon_strength(-0.2, 1.0), 0.0)
+	assert_almost_eq(SunRayMath.moon_strength(0.3, 1.0), SunRayMath.MOON_RAY_SCALE, 0.0001)
+	assert_almost_eq(SunRayMath.moon_strength(1.0, 1.0), 0.0)
+	assert_almost_eq(SunRayMath.moon_strength(0.3, 0.0), 0.0)
+
+
+func test_moon_rays_only_when_enabled() -> void:
+	var nodes: Array = _make_fx(0.8)  # evening, moon ~0.3 up
+	var fx: SunRaysFx = nodes[0]
+	fx.set_mode(GQ.SUN_RAYS_SCREEN)
+	fx.set_quality(16, false)
+	assert_false(fx.is_screen_pass_visible(), "no moon rays unless the knob is on")
+	fx.set_quality(16, true)
+	assert_true(fx.is_screen_pass_visible(), "moon rays at night on High")
+	assert_true(fx.is_moon_source())
+	assert_lt(fx.screen_strength(), 0.5, "moon rays stay faint")
+	fx.set_mode(GQ.SUN_RAYS_OFF)
+	assert_false(fx.is_moon_source())
+	_free_all(nodes)

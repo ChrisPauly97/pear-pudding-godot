@@ -417,6 +417,7 @@ func apply_graphics_quality(_tier: int = -1) -> void:
 	_GraphicsQuality.apply(_graphics_knobs, env, _sun, get_viewport(), _moon)
 	if _sun_rays != null:
 		_sun_rays.set_mode(int(_graphics_knobs.get("sun_rays", 0)))
+		_sun_rays.set_quality(int(_graphics_knobs.get("ray_samples", 10)), bool(_graphics_knobs.get("moon_rays", false)))
 	if _dnc != null:
 		_dnc.set_height_fog(bool(_graphics_knobs.get("height_fog", false)))
 

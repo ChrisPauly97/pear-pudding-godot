@@ -6,12 +6,13 @@
 // at (source_uv). Each pixel gets
 //   * shafts   — irregular angular bands radiating from the source, slowly drifting;
 //   * falloff  — fading with distance from the source (rays die out mid-screen);
-//   * lit      — a short occlusion march (SAMPLES taps) toward the source over
+//   * lit      — a short occlusion march (`samples` taps) toward the source over
 //                the screen texture: dark pixels (tree canopies, cliffs, shade)
 //                on the way break the shaft, bright ground lets it through.
 // The result is added (blend_add) in the sun colour. SunRaysFx hides the layer
 // when strength is ~0 (midday, night, storms), so the screen copy and the
-// SAMPLES taps cost nothing then.
+// occlusion taps cost nothing then. At night the same pass draws faint moon
+// rays (TID-496) from the moon's side of the screen.
 shader_type canvas_item;
 render_mode blend_add, unshaded;
 
@@ -23,9 +24,13 @@ uniform float aspect = 1.7778;
 // Peak added brightness at full strength; kept low so rays never wash out the screen.
 uniform float intensity = 0.32;
 // Luminance around which a screen pixel counts as lit (not an occluder).
+// SunRaysFx lowers it for moon rays, where the whole screen is dark.
 uniform float lit_threshold = 0.35;
+// Occlusion taps (GID-130 / TID-496): GraphicsQuality `ray_samples`, 10 on
+// Medium, 16 on High. More taps = finer breaks behind canopies and cliffs.
+uniform int samples : hint_range(1, 24) = 10;
 
-const int SAMPLES = 10;
+const int MAX_SAMPLES = 24;
 // Fraction of the pixel → source distance the occlusion march covers.
 const float MARCH_REACH = 0.35;
 
@@ -55,12 +60,16 @@ void fragment() {
 	shafts = 0.25 + 0.75 * smoothstep(0.35, 0.9, shafts);
 	float falloff = exp(-dist * 1.6);
 
-	vec2 stp = to_src * (MARCH_REACH / float(SAMPLES));
+	int n = clamp(samples, 1, MAX_SAMPLES);
+	vec2 stp = to_src * (MARCH_REACH / float(n));
 	vec2 p = uv;
 	float lit = 0.0;
 	float wsum = 0.0;
 	float w = 1.0;
-	for (int i = 0; i < SAMPLES; i++) {
+	for (int i = 0; i < MAX_SAMPLES; i++) {
+		if (i >= n) {
+			break;
+		}
 		p += stp;
 		vec3 c = texture(screen_tex, clamp(p, vec2(0.0), vec2(1.0))).rgb;
 		float l = dot(c, vec3(0.299, 0.587, 0.114));
