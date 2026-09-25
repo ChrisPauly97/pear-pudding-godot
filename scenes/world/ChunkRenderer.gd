@@ -5,6 +5,7 @@ extends Node3D
 const GrassBlades   = preload("res://scenes/world/GrassBlades.gd")
 const TerrainMath   = preload("res://game_logic/TerrainMath.gd")
 const BiomeDef      = preload("res://game_logic/world/BiomeDef.gd")
+const _WaterMath    = preload("res://game_logic/world/WaterMath.gd")
 const TextureGen    = preload("res://game_logic/TextureGen.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const BlightField   = preload("res://game_logic/world/BlightField.gd")
@@ -127,18 +128,25 @@ static func prepare_terrain(
 
 	# Bake per-vertex ley intensity (UV2.x) so the shader can render glow without
 	# runtime noise in GLSL — guarantees visual/gameplay agreement on same seed.
+	# Streams/ponds (UV2.y, TID-524) ride along in biomes that have water.
+	var has_water: bool = _WaterMath.biome_has_water(chunk_data.biome_id)
 	var ley_field := PackedFloat32Array()
 	ley_field.resize(nvx * nvz)
+	var water_field := PackedFloat32Array()
+	if has_water:
+		water_field.resize(nvx * nvz)
 	for iz2 in range(nvz):
 		for ix2 in range(nvx):
 			var gx2: float = chunk_origin.x + float(ix2) * step
 			var gz2: float = chunk_origin.z + float(iz2) * step
 			ley_field[iz2 * nvx + ix2] = TerrainMath.ley_intensity(gx2, gz2, world_seed)
+			if has_water:
+				water_field[iz2 * nvx + ix2] = _WaterMath.intensity(gx2, gz2, world_seed)
 
 	var terrain_res: Dictionary = TerrainMath.build_terrain_mesh(
 			hfield, grid_tile_lookup,
 			chunk_origin.x, chunk_origin.z,
-			nvx, nvz, step, IsoConst.HILL_PEAK_H, ley_field)
+			nvx, nvz, step, IsoConst.HILL_PEAK_H, ley_field, water_field)
 
 	var wall_face_mesh: ArrayMesh = TerrainMath.build_wall_face_mesh(
 			grid_tile_lookup, grid_height_lookup,
@@ -147,6 +155,12 @@ static func prepare_terrain(
 
 	# Build grass buffers on the worker thread — pure math, no scene-tree access.
 	var grass_centres: Array[Vector2] = GrassBlades.compute_centres(chunk_data, chunk_origin)
+	if has_water:  # no grass tufts standing in streams and ponds
+		var dry: Array[Vector2] = []
+		for c: Vector2 in grass_centres:
+			if not _WaterMath.is_wet(c.x, c.y, world_seed):
+				dry.append(c)
+		grass_centres = dry
 	var grass_data: Dictionary = GrassBlades.prepare_buffers(grass_centres, Vector2i(chunk_data.cx, chunk_data.cz))
 
 	# Build per-biome prop positions (pure math, no scene tree).
@@ -167,7 +181,7 @@ static func _compute_prop_positions(
 		chunk_data: _ChunkData,
 		grid_tile_lookup: Callable,
 		hfield: PackedFloat32Array,
-		_chunk_origin: Vector3,
+		chunk_origin: Vector3,
 		nvx: int,
 		world_seed: int) -> Dictionary:
 	const MAX_PER_TYPE: int = 24
@@ -212,6 +226,9 @@ static func _compute_prop_positions(
 			# already sits at the chunk origin (world coords here drew every chunk's
 			# props a second origin away, so only chunk 0,0 ever showed any).
 			var base := Vector3(float(lx) * IsoConst.TILE_SIZE + ox, wy, float(lz) * IsoConst.TILE_SIZE + oz)
+			if _WaterMath.biome_has_water(biome_id) and _WaterMath.is_wet(
+					chunk_origin.x + base.x, chunk_origin.z + base.z, world_seed):
+				continue  # nothing growing in the water (TID-524)
 			arr.append(base)
 			# Clumps (flowers, mushrooms): a few neighbours around the first.
 			for _k in int(BiomeDef.PROP_CLUMPS.get(pt_key, 0)):

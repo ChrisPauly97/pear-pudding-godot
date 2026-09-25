@@ -19,7 +19,7 @@ Raised by the user (2026-09-25) after reviewing phone screenshots: "what else to
 | TID-521 | Wall & Dungeon Detail | agent | done | — |
 | TID-522 | Scattered Ground Props | agent | done | — |
 | TID-523 | Cloud Shadows | agent | done | — |
-| TID-524 | Streams & Ponds | agent | todo | — |
+| TID-524 | Streams & Ponds | agent | done | — |
 | TID-525 | Per-Biome Colour Grade | agent | todo | — |
 | TID-526 | Hero Touches | agent | todo | — |
 

@@ -225,9 +225,11 @@ static func build_terrain_mesh(
 		origin_x: float, origin_z: float,
 		nvx: int, nvz: int, step: float,
 		peak_h: float,
-		ley_field: PackedFloat32Array = PackedFloat32Array()) -> Dictionary:
+		ley_field: PackedFloat32Array = PackedFloat32Array(),
+		water_field: PackedFloat32Array = PackedFloat32Array()) -> Dictionary:
 	var total_verts: int = nvx * nvz
 	var has_ley: bool = ley_field.size() == total_verts
+	var has_water: bool = water_field.size() == total_verts  # UV2.y, GID-134 / TID-524
 
 	var verts   := PackedVector3Array()
 	var normals := PackedVector3Array()
@@ -257,7 +259,7 @@ static func build_terrain_mesh(
 			var is_wall: float = 1.0 if ttype == IsoConst.TILE_WALL else 0.0
 			var is_path: float = 1.0 if ttype == IsoConst.TILE_PATH else 0.0
 			colors[i] = Color(blend, is_wall, is_path, 1.0)
-			uv2s[i] = Vector2(ley_field[i] if has_ley else 0.0, 0.0)
+			uv2s[i] = Vector2(ley_field[i] if has_ley else 0.0, water_field[i] if has_water else 0.0)
 
 	# Normals via finite differences
 	for iz in range(nvz):

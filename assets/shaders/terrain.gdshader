@@ -53,6 +53,7 @@ varying float v_d0;         // fbm noise channel 0, computed per-vertex
 varying float v_d1;         // fbm noise channel 1, computed per-vertex
 varying float v_ley;        // ley line intensity [0..1], baked into UV2.x per vertex
 varying float v_dip;        // 0 low .. 1 high flat-ground jitter (TID-515 puddles)
+varying float v_water;      // stream/pond intensity [0..1], baked into UV2.y (GID-134 / TID-524)
 
 // -- noise for micro grass detail on flat areas --
 float hash2(vec2 p) {
@@ -105,6 +106,12 @@ void vertex() {
 	v_d1 = fbm(world_pos.xz * 0.09 + vec2(7.3, 2.1));
 	// Ley intensity baked per vertex into UV2.x by ChunkRenderer.
 	v_ley = UV2.x;
+	// Streams and ponds (UV2.y): the water surface sits a little below the
+	// meadow so it reads as a channel; collision is untouched (the hero wades).
+	v_water = UV2.y;
+	if (v_water > 0.01 && v_path < 0.5) {
+		VERTEX.y -= smoothstep(0.1, 0.6, v_water) * 0.2 * flat_factor;
+	}
 }
 
 void fragment() {
@@ -262,6 +269,28 @@ void fragment() {
 			vec2 rip = puddle_ripple(v_world_xz, TIME) * puddle * 0.35;
 			vec3 n_world = normalize(vec3(-rip.x, 1.0, -rip.y));
 			NORMAL = normalize((VIEW_MATRIX * vec4(mix(normalize(v_normal_world), n_world, puddle), 0.0)).xyz);
+		}
+	}
+
+	// Streams and ponds (GID-134 / TID-524): level grass only, ragged banks, a
+	// lighter shoreline, deeper colour mid-channel and drifting ripples that
+	// catch the sky. Drawn after the wet block so standing water wins.
+	if (v_water > 0.01 && !is_wall && !is_path) {
+		float lg = smoothstep(0.55, 0.95, v_normal_world.y) * (1.0 - smoothstep(0.02, 0.1, v_blend));
+		float water = smoothstep(0.16, 0.36, v_water + (vnoise(v_world_xz * 1.3) - 0.5) * 0.12) * lg;
+		if (water > 0.001) {
+			float deep = smoothstep(0.35, 0.9, v_water);
+			vec2 wp = v_world_xz * 1.4 + vec2(TIME * 0.35, TIME * 0.2);
+			float r0 = vnoise(wp);
+			float rx = vnoise(wp + vec2(0.15, 0.0)) - r0;
+			float rz = vnoise(wp + vec2(0.0, 0.15)) - r0;
+			vec3 wcol = mix(vec3(0.24, 0.46, 0.48), vec3(0.10, 0.25, 0.36), deep) * (0.94 + r0 * 0.12);
+			float shore = smoothstep(0.0, 0.3, water) * (1.0 - smoothstep(0.3, 0.75, water));
+			tinted_col = mix(tinted_col, wcol, water * 0.9) + shore * vec3(0.10, 0.12, 0.10);
+			wet_rough = mix(wet_rough, 0.06, water);
+			wet_spec = mix(wet_spec, 0.6, water);
+			vec3 wn = normalize(vec3(-rx * 2.5, 1.0, -rz * 2.5));
+			NORMAL = normalize((VIEW_MATRIX * vec4(mix(normalize(v_normal_world), wn, water), 0.0)).xyz);
 		}
 	}
 
