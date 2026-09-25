@@ -2,7 +2,7 @@
 
 **Goal:** GID-133
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -21,12 +21,13 @@ Rain has no ground impact.
 
 ## Plan
 
-_Written during Plan phase._
+RainParticles factories (flat ring quads + bouncing drops, shared resources) and splash_level rule; AmbientTouches spawns/follows/fades them under ambient_particles.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `game_logic/RainParticles.gd`; `AmbientTouches`: rings/drops emitters, `splash_level()`.
+- Tests: new `test_rain_particles.gd`. Visual check in heavy rain.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+visual-polish.md Rain Splashes section.

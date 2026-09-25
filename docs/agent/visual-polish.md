@@ -132,11 +132,26 @@ The single source of truth for which atmosphere effects run. All-static module (
 - **HQ taps + moon rays (GID-130 / TID-496):** the march length is the `samples` uniform (loop to `MAX_SAMPLES` 24 with an early break), set from the `ray_samples` knob via `set_quality(samples, moon_rays)` — so Mobile High (VOLUMETRIC demoted to SCREEN) gets 16 taps instead of Medium's 10. With `moon_rays` on, when the sun strength is below `MIN_STRENGTH` the pass uses `SunRayMath.moon_strength(-sun_h, weather)` (rise over 0.06, fade 0.5→1.0, × `MOON_RAY_SCALE` 0.45) from the opposite direction, `MOON_RAY_COLOR` (0.62, 0.72, 1.0) and `lit_threshold` 0.08 instead of 0.35 (the night screen is dark everywhere). Moon rays never drive volumetric fog and run at full screen weight. `is_moon_source()` reports it.
 - **Tests:** `tests/unit/test_sun_rays.gd` (strength curve, moon strength + moon-ray toggle, weather dampening, screen direction vs the real camera basis, off-screen source, fog density, SunRaysFx screen/volumetric modes).
 
-### Rain Wetness (`DayNightCycle`, `terrain.gdshader`) — TID-487
+### Rain Wetness (`DayNightCycle`, `terrain.gdshader`) — TID-487 (puddles reworked by TID-515, below)
 
 - **State:** `DayNightCycle._wetness` eases toward the *target* look's `wetness` every frame via `Lightning.step_wetness` — full soak in `WET_SECONDS` (20 s), full dry in `DRY_SECONDS` (90 s), so puddles outlast the rain. The first weather id after `setup()` (world entry, co-op join) snaps wetness to its target, so re-entering mid-rain starts wet; `setup()` also writes 0, because the global outlives scenes (a named map entered from a rainy world would otherwise be wet). `set_weather(id, true)` snaps too. `wetness()` getter.
 - **Shader param:** global `terrain_wetness`, declared in `project.godot` `[shader_globals]` (so it exists before any shader compiles — do **not** also `global_shader_parameter_add` it at runtime). Written by `DayNightCycle._write_wetness()` quantised to 1/128 steps, only on change.
 - **Terrain shader:** when `terrain_wetness > 0.001` (uniform branch; dry weather pays nothing): wetness weighted by how upward-facing the ground is (`smoothstep(0.55, 0.95, normal.y)`, vertical wall faces get 25 %) darkens albedo up to 35 %, drops roughness 0.9 → 0.35 and raises specular 0.1 → 0.45; `fbm` noise patches (only once wetness passes ~0.35) become puddles — another 10 % darker, roughness 0.08. Emission floor uses the darkened colour. Plain PBR params: works on Forward+, Mobile and Compatibility at every tier.
+
+### Rain Splashes (`game_logic/RainParticles.gd`, `AmbientTouches`) — GID-133 / TID-514
+
+Two emitters in a 26×26 box around the player, lifted `RING_LIFT` 0.14 (above the terrain's ≤ 0.12 flat-ground jitter):
+- **Rings:** 70 flat `FACE_Y` quads with a thin radial ring texture, growing 0.15 → 1 over 0.55 s and fading.
+- **Drops:** 90 tiny billboard dots bouncing up 1.2–2.4 u/s under −12 gravity, 0.35 s.
+
+Meshes, materials and ramps are shared statically. `splash_level(weather, ambient_particles)` gives rain 0.6, heavy rain 1.0, and 0 for everything else (snow and sand don't splash) or when the knob is off (Low). AmbientTouches spawns both on first rain, follows the player and fades them with `amount_ratio`. It reads `WeatherManager.current_weather` and also runs on named maps (towns get rain). `splash_level()` for tests; tests in `test_rain_particles.gd`.
+
+### Puddles in Low Areas (`terrain_puddles.gdshaderinc`) — GID-133 / TID-515
+
+- **Shared include** used by terrain and both grass bodies, so they agree where water stands. `puddle_dip(xz)` is the same hash as the terrain's flat-ground vertex jitter (low = dip). `puddle_mask(xz, dip, level_ground) = smoothstep(line, line + 0.05, noise(xz × 0.16) × 0.55 + (1 − dip) × 0.45)`, where the waterline `line = mix(0.8, 0.68, terrain_wetness)` rises as the ground soaks. Scaled by `smoothstep(0.3, 0.8, wetness)`; 0 below wetness 0.05.
+- **Terrain:** new varying `v_dip` (paths 0.5). Level-ground factor = up × not-hill (`v_blend`) × not-wall. Puddles darken, pull toward a sky grey (0.30, 0.37, 0.46) at 50 %, and get roughness 0.04 with high specular. While `terrain_rain` > 0 their normal is perturbed by `puddle_ripple()`: expanding rings in a 0.6-unit cell grid (3×3 neighbourhood, per-cell clock), computed only on puddle pixels.
+- **Grass:** in the vertex shader, blades whose root is in a puddle shrink to nothing (`VERTEX.y *= 1 − smoothstep(0.3, 0.8, mask)`).
+- **Globals:** new `terrain_rain` (project.godot `[shader_globals]`). DayNightCycle writes it from the blended look's `wetness` target (so it is "raining now", quantised to 1/32), separate from `terrain_wetness`, which lingers while the ground dries. Ripples stop when the rain stops; puddles shrink as the ground dries.
 
 ### Storm Lightning (`game_logic/Lightning.gd`, `DayNightCycle`) — TID-487
 

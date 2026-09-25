@@ -1,6 +1,7 @@
 ## Small ambient touches (GID-129 / TID-493): night fireflies in grassland and
 ## forest, wind-blown leaves in forest, the player's dust quality, and low
-## ground mist at night and dawn (GID-130 / TID-497, knob `ground_mist`).
+## ground mist at night and dawn (GID-130 / TID-497, knob `ground_mist`), and
+## rain splash rings + droplets (GID-133 / TID-514, knob `ambient_particles`).
 ##
 ## One firefly and one leaf emitter (AmbientParticles factories) follow the
 ## player. Every REFRESH_INTERVAL the module re-reads the GraphicsQuality knobs
@@ -16,6 +17,7 @@ const _DayNightCycle = preload("res://scenes/world/DayNightCycle.gd")
 const _NightLightMath = preload("res://game_logic/NightLightMath.gd")
 const _GraphicsQuality = preload("res://game_logic/GraphicsQuality.gd")
 const _AmbientParticles = preload("res://game_logic/AmbientParticles.gd")
+const _RainParticles = preload("res://game_logic/RainParticles.gd")
 
 const REFRESH_INTERVAL: float = 0.5
 const FIREFLY_LIFT: float = 1.0
@@ -27,11 +29,14 @@ var _world: _WorldScene = null
 var _fireflies: GPUParticles3D = null
 var _leaves: GPUParticles3D = null
 var _mist: GPUParticles3D = null
+var _rings: GPUParticles3D = null
+var _drops: GPUParticles3D = null
 var _refresh_in: float = 0.0
 var _knobs_hash: int = 0
 var _firefly_level: float = 0.0
 var _leaf_level: float = 0.0
 var _mist_level: float = 0.0
+var _splash_level: float = 0.0
 
 
 ## Current densities (0..1); exposed for tests and debugging.
@@ -45,6 +50,10 @@ func leaf_level() -> float:
 
 func mist_level() -> float:
 	return _mist_level
+
+
+func splash_level() -> float:
+	return _splash_level
 
 
 func _process(delta: float) -> void:
@@ -65,6 +74,11 @@ func _follow() -> void:
 		_leaves.global_position = p + Vector3(0.0, LEAF_LIFT, 0.0)
 	if _mist != null:
 		_mist.global_position = p + Vector3(0.0, MIST_LIFT, 0.0)
+	var ground: Vector3 = p + Vector3(0.0, _RainParticles.RING_LIFT, 0.0)
+	if _rings != null:
+		_rings.global_position = ground
+	if _drops != null:
+		_drops.global_position = ground
 
 
 ## Re-reads knobs, biome, night and wind and applies them to the emitters.
@@ -100,6 +114,14 @@ func refresh() -> void:
 	_apply(_fireflies, _firefly_level, _AmbientParticles.FIREFLY_AMOUNT, knobs, knobs_changed)
 	_apply(_leaves, _leaf_level, _AmbientParticles.LEAF_AMOUNT, knobs, knobs_changed)
 	_apply(_mist, _mist_level, _AmbientParticles.MIST_AMOUNT, knobs, knobs_changed)
+	# Rain splashes work on named maps too (towns get rain), unlike biome touches.
+	_splash_level = _RainParticles.splash_level(weather, bool(knobs.get("ambient_particles", false)))
+	if _splash_level > 0.0 and _rings == null:
+		_rings = _spawn(_RainParticles.make_rings(), knobs)
+		_drops = _spawn(_RainParticles.make_drops(), knobs)
+		_follow()
+	_apply(_rings, _splash_level, _RainParticles.RING_AMOUNT, knobs, knobs_changed)
+	_apply(_drops, _splash_level, _RainParticles.DROP_AMOUNT, knobs, knobs_changed)
 	if _mist != null and _mist_level > 0.0:
 		_AmbientParticles.apply_mist_wind(_mist.process_material as ParticleProcessMaterial, wind_dir, wind_scale)
 		_AmbientParticles.set_mist_tint(_AmbientParticles.mist_color(sun_h))

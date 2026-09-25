@@ -13,7 +13,7 @@ Raised by the user (2026-09-25): *"outlines pls then rain and splash, puddles in
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-513 | Character Sprite Outlines | agent | done | — |
-| TID-514 | Rain Splashes & Ripples | agent | pending | — |
+| TID-514 | Rain Splashes & Ripples | agent | done | — |
 | TID-515 | Puddles in Low Areas | agent | pending | TID-514 |
 
 ## Acceptance Criteria
