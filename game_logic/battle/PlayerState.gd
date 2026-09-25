@@ -111,8 +111,13 @@ func build_scripted_deck(draw_order: Array[String], dark_aligned: bool = false) 
 		draw_deck.append(CardInstance.new(tmpl))
 	draw_deck.reverse()
 
-func draw_card() -> CardInstance:
+## `fatigue_on_empty` false = a bonus draw (passive skill, companion) that just
+## fizzles on an empty deck. Only the mandatory draw escalates fatigue, or a
+## +2 draw build takes 1+2+3 damage in a single turn.
+func draw_card(fatigue_on_empty: bool = true) -> CardInstance:
 	if draw_deck.is_empty():
+		if not fatigue_on_empty:
+			return null
 		fatigue_counter += 1
 		hero.take_damage(fatigue_counter)
 		_emit_fatigue(fatigue_counter)
@@ -218,7 +223,7 @@ func start_turn(turn_number: int) -> void:
 	else:
 		draw_card()
 	for _i in range(bonus_draw):
-		draw_card()
+		draw_card(false)
 
 func to_dict() -> Dictionary:
 	var hand_arr: Array = []

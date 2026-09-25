@@ -12,6 +12,7 @@ const Keywords = preload("res://game_logic/battle/Keywords.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const BattleFx = preload("res://scenes/battle/BattleFx.gd")
+const CardArt = preload("res://scenes/battle/CardArt.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
@@ -71,6 +72,10 @@ func set_battle_state(state: GameState, enemy_data: Dictionary, seat_idx_fn: Cal
 func _seat_player(seat: int) -> PlayerState:
 	var idx: int = int(_seat_idx_fn.call(seat)) if _seat_idx_fn.is_valid() else seat
 	return _state.players[idx]
+
+func _is_local_turn() -> bool:
+	var idx: int = int(_seat_idx_fn.call(0)) if _seat_idx_fn.is_valid() else 0
+	return _state != null and _state.current_player_idx == idx
 
 func update_context(
 	targeting_active: bool,
@@ -278,6 +283,7 @@ func update_card_view(panel: PanelContainer, card: CardInstance, zone_id: String
 	panel.visible = true
 	panel.modulate = Color.WHITE
 	panel.scale = Vector2.ONE
+	panel.z_index = 0
 	var vbox: VBoxContainer = panel.get_child(0) as VBoxContainer
 	var name_lbl: Label = vbox.get_node_or_null("NameLabel") as Label if vbox else null
 	var is_board_zone: bool = (zone_id == "board" or zone_id == "enemy_board")
@@ -287,6 +293,7 @@ func update_card_view(panel: PanelContainer, card: CardInstance, zone_id: String
 		panel.add_child(build_card_vbox(card, is_board_zone))
 	else:
 		name_lbl.text = card.name
+		CardArt.apply(vbox, card, _vh)
 		var stats_lbl: Label = vbox.get_node_or_null("StatsLabel") as Label
 		if stats_lbl:
 			var eff_cost: int = _seat_player(0).effective_cost(card) if zone_id == "hand" else card.cost
@@ -337,16 +344,7 @@ func build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBoxC
 	var name_lbl := _UiUtil.make_label(card.name, int(_font(0.020)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	name_lbl.name = "NameLabel"
 	name_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var tmpl_for_illus: Dictionary = CardRegistry.get_template_for_face(card.template_id, card.active_face)
-	var illus: Texture2D = tmpl_for_illus.get("illustration") as Texture2D
-	if illus != null:
-		var art := TextureRect.new()
-		art.name = "IllustrationRect"
-		art.texture = illus
-		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		art.custom_minimum_size = Vector2(0.0, _vh * 0.07)
-		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		vbox.add_child(art)
+	CardArt.apply(vbox, card, _vh)
 	var stats_lbl := _UiUtil.make_label(format_card_stats(card, card.cost), int(_font(0.022)), Color.WHITE,
 			HORIZONTAL_ALIGNMENT_CENTER)
 	stats_lbl.name = "StatsLabel"
@@ -424,11 +422,20 @@ func apply_card_style(panel: PanelContainer, card: CardInstance, zone_id: String
 		if not valid_targets.has(card):
 			style.bg_color = style.bg_color.darkened(0.45)
 	elif zone_id == "board" and not _dragged_card.is_empty() and _dragged_card.get("card") == card:
+		panel.pivot_offset = panel.custom_minimum_size * 0.5
+		panel.scale = Vector2(1.06, 1.06)
 		style.border_color = Color.YELLOW
 		style.border_width_top = 3
 		style.border_width_bottom = 3
 		style.border_width_left = 3
 		style.border_width_right = 3
+	elif zone_id == "board" and _dragged_card.is_empty() and _is_local_turn() and card.can_attack():
+		# Ready-to-attack cue: a soft green rim on every minion that can act.
+		style.border_color = Color(0.35, 1.0, 0.45, 0.9)
+		style.border_width_top = 2
+		style.border_width_bottom = 2
+		style.border_width_left = 2
+		style.border_width_right = 2
 	# Non-color targeting cue (GID-119 / TID-451): colored borders alone fail
 	# colorblind players, so every valid target also carries an explicit marker.
 	var show_mark: bool = false

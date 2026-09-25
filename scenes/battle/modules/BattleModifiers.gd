@@ -113,7 +113,7 @@ func _apply_companion_turn_start() -> void:
 	if companion == null or companion.passive_type != "draw_card":
 		return
 	for _i in range(companion.passive_value):
-		_battle._state.players[0].draw_card()
+		_battle._state.players[0].draw_card(false)
 
 ## Add a compact companion display to SidePanel (name + passive description).
 ## No-op if no companion is equipped or the companion is not unlocked.
@@ -215,7 +215,9 @@ func _add_gambit_badge() -> void:
 	var badge_lbl := _UiUtil.make_label("Gambit: %s" % str(gdata.get("name", gambit_id)), int(_battle._font(0.018)))
 	badge_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
 	_battle._gambit_badge.add_child(badge_lbl)
+	_battle._gambit_badge.tooltip_text = str(gdata.get("desc", ""))
 	_battle.get_node("SidePanel").add_child(_battle._gambit_badge)
+	_battle.arena.make_opens_effects(_battle._gambit_badge)
 
 ## Desert biome rule: damage the leftmost minion on each board at turn start.
 ## Does NOT use the Scorched modifier — this is a separate status tick.

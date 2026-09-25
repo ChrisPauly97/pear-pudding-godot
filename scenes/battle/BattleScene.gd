@@ -192,6 +192,9 @@ var _give_up_btn: Button = null
 var _companion_hud: Control = null
 var _state: GameState
 var _ai_thinking: bool = false
+# True while a local action (attack lunge, card-travel) is animating. Blocks
+# further input so repeated taps can't stack attacks or overlap tweens.
+var _action_busy: bool = false
 var _game_over_handled: bool = false
 var _boss_phase2_triggered: bool = false
 var _hero_power_btn: Button = null
@@ -384,6 +387,7 @@ func _ready() -> void:
 	modifiers._add_companion_hud()
 	consumables._add_potion_button()
 	modifiers._add_gambit_badge()
+	arena._add_effects_button()
 
 	if _state.puzzle_mode:
 		_end_turn_btn.text = "Check"
@@ -648,6 +652,10 @@ func _input(event: InputEvent) -> void:
 		if key_event.pressed and not key_event.echo and key_event.keycode == KEY_ESCAPE:
 			if _inspect_overlay != null and is_instance_valid(_inspect_overlay):
 				return  # overlay handles its own Escape
+			if not _dragged_card.is_empty():
+				card_input.clear_attacker_selection()
+				get_viewport().set_input_as_handled()
+				return
 			_pause_ui.toggle()
 			get_viewport().set_input_as_handled()
 
@@ -855,7 +863,7 @@ func _update_status() -> void:
 	var player := _state.players[_my_idx()]
 	_turn_label.text = "Turn %d" % _state.turn_number
 	_mana_label.text = "Mana: %d/%d" % [player.hero.mana, player.hero.max_mana]
-	_end_turn_btn.disabled = _state.current_player_idx != _my_idx() or _ai_thinking
+	_end_turn_btn.disabled = _state.current_player_idx != _my_idx() or _ai_thinking or _action_busy
 
 # -------------------------------------------------------------------------
 # Input handlers
@@ -1300,7 +1308,7 @@ func _can_local_act() -> bool:
 		return false  # spectators never act
 	if _local_player_idx < 0:
 		return false  # dedicated-server referee has no local player
-	if _ai_thinking:
+	if _ai_thinking or _action_busy:
 		return false
 	if _state == null:
 		return false
