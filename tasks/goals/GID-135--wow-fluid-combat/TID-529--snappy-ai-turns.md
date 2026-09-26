@@ -2,7 +2,7 @@
 
 **Goal:** GID-135
 **Type:** agent
-**Status:** pending
+**Status:** superseded
 **Depends On:** TID-527
 
 ## Lock
@@ -29,6 +29,9 @@ Enemy turns currently wait a fixed 1.5 s and then resolve each action serially w
   hit lands, not after full FX tail), remove the 0.5 s tail. Consider making `fast` the default `battle_speed`.
 - Must keep `_state` authoritative ordering; only visual overlap. Co-op boss path (BID-027 index logic) must still work.
 - Tests: `tests/unit/test_basic_ai.gd`, `test_ai_personas.gd`, battle smoke tests; extend TID-527 budget test.
+
+**Superseded (2026-09-26)** by real-time combat (TID-546/547): there are no enemy turns to speed up.
+Turn-based mode (puzzles, story, PvP) keeps today's pacing.
 
 ## Plan
 

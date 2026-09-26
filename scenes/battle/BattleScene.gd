@@ -11,6 +11,7 @@ const _BattleTutorials = preload("res://scenes/battle/modules/BattleTutorials.gd
 const _BattleArena = preload("res://scenes/battle/modules/BattleArena.gd")
 const _BattleTargeting = preload("res://scenes/battle/modules/BattleTargeting.gd")
 const _BattleInput = preload("res://scenes/battle/modules/BattleInput.gd")
+const _BattleRealtime = preload("res://scenes/battle/modules/BattleRealtime.gd")
 const ScriptedBattleData = preload("res://game_logic/battle/ScriptedBattleData.gd")
 const BasicAI = preload("res://ai/BasicAI.gd")
 const _BattlePacing = preload("res://game_logic/battle/BattlePacing.gd")
@@ -87,6 +88,7 @@ var tutorials: _BattleTutorials
 var arena: _BattleArena
 var targeting: _BattleTargeting
 var card_input: _BattleInput
+var realtime: _BattleRealtime
 # Listen-server: client deck relayed in challenge handshake (host builds players[1]).
 var pvp_opponent_deck: Array = []
 # Dedicated-server referee (GID-097 / TID-353): both player decks come from clients.
@@ -305,6 +307,9 @@ func _ensure_battle_modules() -> void:
 	card_input = _BattleInput.new(self)
 	card_input.name = "BattleInput"
 	add_child(card_input)
+	realtime = _BattleRealtime.new(self)
+	realtime.name = "BattleRealtime"
+	add_child(realtime)
 
 func _process(delta: float) -> void:
 	if battle_net != null:
@@ -404,6 +409,9 @@ func _ready() -> void:
 	# Catch any hero deaths that occurred during setup (e.g., fatigue on very small
 	# Spire decks, or auto-resolve spells dealing damage before game-over was wired).
 	_check_game_over()
+
+	# GID-135 / TID-546: real-time mode (setting-gated, fresh solo PvE only).
+	realtime.maybe_start(_saved_battle.is_empty())
 
 	# If we resumed a battle mid-AI-turn, restart the AI (deferred so UI is ready).
 	if not _saved_battle.is_empty() and _state.current_player_idx == 1 and not _state.is_game_over():
@@ -593,6 +601,7 @@ func _do_play_card(card: CardInstance, player_idx: int) -> bool:
 		ok = _state.players[player_idx].play_card(card)
 	if ok:
 		GameBus.card_played.emit(card.template_id, "spell", -1)
+		realtime.note_player_play(player_idx)
 	return ok
 
 ## Font size helper: pct of viewport height × the "text_scale" setting.
@@ -1314,8 +1323,8 @@ func _can_local_act() -> bool:
 		return false  # spectators never act
 	if _local_player_idx < 0:
 		return false  # dedicated-server referee has no local player
-	if _ai_thinking or _action_busy:
-		return false
+	if _ai_thinking or _action_busy or (realtime != null and realtime.on_cooldown()):
+		return false  # busy, or on the real-time global cooldown (TID-546)
 	if _state == null:
 		return false
 	if _is_pvp_client() and _pvp_pending:

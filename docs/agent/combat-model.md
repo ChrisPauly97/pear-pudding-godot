@@ -99,3 +99,46 @@ Keyboard: `Q`/`1`–`2` quick slots, `Space` end turn, number row for hand cards
    | **Mentor** | Maiteln-style passive helper; one equipped at a time (today's in-game "Companion") |
    | **Ally** | A player creature card / unit on the player's board |
    | **Minion** | An enemy creature unit on the enemy board |
+
+## Real-Time Combat (decided 2026-09-26)
+
+The user asked for WoW-style parallel combat: "enemy attacks on its own schedule, I use my abilities
+on mine". Turns are replaced by per-combatant timers. Puzzles, scripted story battles, PvP, co-op,
+team duels and resumed mid-battle saves stay turn-based.
+
+| Rule | Value (prototype) |
+|---|---|
+| Player global cooldown (GCD) after any card | 1.5 s |
+| Enemy GCD / cast-bar telegraph before a play | 2.5 s / 1.0 s |
+| Mana | start 3/3; +1 current every 1.5 s; +1 max every 6 s, cap 10 |
+| Draw | 1 card every 5 s while hand < 7 (no fatigue from the clock) |
+| Unit auto-attack | every 3 s; a fresh unit waits one full swing (Surge: 0.5 s) |
+| Hero auto-attack | every 2.5 s when `hero.attack > 0` (weapon — TID-545) |
+| Targeting | Ward minions first; else the player's **focus** (tap an enemy minion); else the enemy hero |
+| Retaliation | none — hits are one-way; the target answers on its own swing timer |
+| Speed | Settings > Battle Mode: Turn-based / Real-time / Real-time (slow, 60 %). Battle Speed = Fast runs real time at 125 %. |
+
+### Prototype (TID-546)
+
+- Pure driver `game_logic/battle/RealtimeCombat.gd`: `advance(delta)` ticks resources, swings (resolved
+  in place: damage, deaths → discard) and the enemy cast state machine, returning events
+  (`mana`, `draw`, `swing`, `enemy_cast_start`, `enemy_cast`). `current_player_idx` is pinned to 0 so
+  the existing hand/targeting input works unchanged; the enemy acts only through events.
+- Scene module `scenes/battle/modules/BattleRealtime.gd` (`BattleScene.realtime`): `maybe_start()` at the
+  end of `_ready` (gated by `eligible()`), `_process` drives the clock (paused with the pause menu),
+  renders events (FX flash/float labels, death ghosts, intent banner as the cast bar), hides End Turn
+  and adds a GCD bar + "Target:" label to the side panel. `_can_local_act()` returns false while on
+  GCD; `_do_play_card` / `BattleTargeting` slot plays call `note_player_play()`. A plain tap on an enemy
+  minion sets focus (`BattleInput._on_enemy_card_input`).
+- Tests: `tests/unit/test_realtime_combat.gd`, `tests/realtime_battle_smoke.gd` (in CI scene smokes).
+
+### Known prototype gaps (follow-ups)
+
+- Turn-keyed effects don't tick: status durations (poison/freeze/stun), once-per-turn passives, weather
+  per-turn effects, gambit per-turn rules. Needs a periodic "pulse" (e.g. every 6 s) — TID-547.
+- Enemy spells are skipped (the turn-based AI also plays them without an effect); enemy ability cards
+  arrive with TID-541. Enemy card choice is "most expensive affordable unit".
+- Player Allies auto-swing only (no manual attack); their `summoning_sick` stays set, which disables the
+  turn-based attack path.
+- No per-unit swing bar yet; the cast bar is the text intent banner. No input queue during GCD (TID-530).
+- Mid-battle save/resume restores into turn-based mode.

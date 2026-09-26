@@ -27,6 +27,9 @@ A single world enemy summoning a board of ghouls feels wrong. Implement the enco
 - **TID-540 decided Option A** — read `docs/agent/combat-model.md` (Decisions section) first. Use the
   Mentor / Ally / Minion terminology.
 
+- Real time: pack members start on the board (RealtimeCombat gives pre-placed units a half swing);
+  solo enemies' ability cards resolve through the enemy cast telegraph (`enemy_cast_start` / `enemy_cast`).
+
 ## Plan
 
 _Written during Plan phase._

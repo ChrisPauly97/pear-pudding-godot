@@ -98,7 +98,7 @@ jobs:
       - name: Run scene smoke tests
         run: |
           set -o pipefail
-          for t in world_scene_smoke menu_hub_smoke spire_draft_smoke coop_pve_ai_turn_smoke; do
+          for t in world_scene_smoke menu_hub_smoke spire_draft_smoke coop_pve_ai_turn_smoke realtime_battle_smoke; do
             godot --headless --path . -s tests/$t.gd 2>&1 | tee /tmp/$t.log
             ERRORS=$(grep -A2 "SCRIPT ERROR" /tmp/$t.log || true)
             if [ -n "$ERRORS" ]; then

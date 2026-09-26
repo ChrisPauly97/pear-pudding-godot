@@ -369,6 +369,7 @@ the BattleScene script (see "Typed back-references" below):
 | `BattleArena.gd` (`arena`) | Backdrop, battlefield label/banner, slot highlights, co-op ally panels |
 | `BattleTargeting.gd` (`targeting`) | Board drop zone, spell/ally/slot targeting modes, resolving chosen targets |
 | `BattleInput.gd` (`card_input`) | Hand/board/enemy taps, cast confirm, attacks |
+| `BattleRealtime.gd` (`realtime`) | Real-time combat (setting-gated): drives `RealtimeCombat` clock, GCD gate, enemy cast telegraph, focus target |
 
 Keep `_find_nearby_*` finders on WorldScene even when the spawn moves —
 `test_interact_priority` reads the interaction chains by those names. Likewise
