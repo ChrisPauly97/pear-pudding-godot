@@ -340,8 +340,9 @@ func _process(delta: float) -> void:
 		return
 	var snap: Array[Dictionary] = _battle._fx.snapshot()
 	var events: Array[Dictionary] = rt.advance(dt)
-	# Global cooldown: the hand dims until you can play again.
-	_battle._player_hand_view.modulate = Color(0.72, 0.72, 0.8) if on_cooldown() else Color.WHITE
+	# Global cooldown: a sweep drains down the hand cards (full shade while casting).
+	var gcd_frac: float = 0.0 if _cast_card != null else rt.gcd_fraction(RealtimeCombat.PLAYER)
+	_visuals.update_hand_sweep(gcd_frac)
 	# Mana ticks every frame in points; the labels are cheap to update, the full
 	# board refresh only runs on events (a whole cost unit, swings, casts).
 	_battle._view.refresh_hero(_battle._player_hero_view, _battle._state.players[RealtimeCombat.PLAYER].hero, false)

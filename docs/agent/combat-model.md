@@ -232,7 +232,7 @@ buttons.
 ### One-glance layout (2026-09-26)
 
 Everything you act on is in one bottom band: skill strip + hand, with your cast bar above the hand.
-There is no bottom-right readout box any more: the GCD is the sweep on the skill buttons plus a dimmed
-hand, the auto-attack bar lives on your token, and your target gets a gold ring
+There is no bottom-right readout box any more: the GCD is a sweep on the skill buttons and on the hand
+cards (`RealtimeVisuals.update_hand_sweep`, pooled overlays on the root; full shade while casting), the auto-attack bar lives on your token, and your target gets a gold ring
 (`RealtimeVisuals._update_focus_ring`: focused minion, else the targeted enemy token). Enemy cast bars
 (inside their tokens) are larger, and a ready Kick pulses so you can react without looking up.

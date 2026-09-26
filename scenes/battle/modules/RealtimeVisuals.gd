@@ -43,6 +43,8 @@ var _cast_bar: ProgressBar
 var _strip: Control = null
 ## Ring around your current target (focused minion, else the targeted enemy token).
 var _focus_ring: Panel = null
+## Global-cooldown sweep shades over the hand cards, pooled (cards rebuild on refresh).
+var _hand_shades: Array[ColorRect] = []
 
 func _init(battle: _BattleScene) -> void:
 	_battle = battle
@@ -259,6 +261,31 @@ func update(rt: RealtimeCombat, player_cast: Dictionary) -> void:
 	_update_player_cast(player_cast)
 	_place_strip(_battle.get_viewport().get_visible_rect().size, _battle._vh * 0.015)
 	_update_focus_ring(rt)
+
+## Darkens the unready part of each hand card, draining from the top like the
+## skill buttons: `frac` 1 = ready (no shade), 0 = fully shaded (e.g. mid-cast).
+## Overlays live on the root (a card is a container, so a child would be stretched).
+func update_hand_sweep(frac: float) -> void:
+	var cards: Array[Control] = []
+	for c: Node in _battle._player_hand_view.get_children():
+		var ctl := c as Control
+		if ctl != null and ctl.visible:
+			cards.append(ctl)
+	while _hand_shades.size() < cards.size():
+		var shade := ColorRect.new()
+		shade.color = Color(0.0, 0.0, 0.05, 0.55)
+		shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_root.add_child(shade)
+		_hand_shades.append(shade)
+	for i: int in _hand_shades.size():
+		var shade: ColorRect = _hand_shades[i]
+		shade.visible = i < cards.size() and frac < 1.0
+		if not shade.visible:
+			continue
+		var r: Rect2 = cards[i].get_global_rect()
+		var top: float = r.size.y * clampf(frac, 0.0, 1.0)
+		shade.global_position = Vector2(r.position.x, r.position.y + top)
+		shade.size = Vector2(r.size.x, r.size.y - top)
 
 func _update_focus_ring(rt: RealtimeCombat) -> void:
 	if _focus_ring == null:
