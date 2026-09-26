@@ -17,6 +17,10 @@ signal connection_failed
 signal peer_connected(id: int)
 signal peer_disconnected(id: int)
 signal session_ended
+## Client auto-reconnect after a dropped connection (attempt is 1-based).
+signal reconnecting(attempt: int, max_attempts: int)
+signal reconnected
+signal reconnect_failed
 
 ## Emitted ~1.2 s after start_discovery(); payload is an Array of host dicts
 ## {name, ip, game_port, map, players}.
@@ -36,6 +40,9 @@ const DISCOVERY_PORT: int = 24566
 const _DISCOVERY_QUERY: String = "PPTCG_DISCOVER"
 const _DISCOVERY_REPLY_TAG: String = "PPTCG_HOST"
 const _DISCOVERY_SCAN_SECONDS: float = 1.2
+const RECONNECT_ATTEMPTS: int = 5
+const RECONNECT_RETRY_DELAY: float = 1.5   # after a failed attempt
+const RECONNECT_ATTEMPT_TIMEOUT: float = 8.0
 
 ## Shown to other players in their found-games list.
 var host_label: String = "Pear Pudding Host"
@@ -63,6 +70,14 @@ var _discovered: Dictionary = {}          # ip -> host dict (dedupe)
 # leave() clears it, so the record outlives the very disconnect it exists to recover
 # from. Cleared explicitly by BattleScene at every genuine end-of-duel path.
 var _pvp_resume: Dictionary = {}
+
+## Client auto-reconnect: after an unexpected drop while in the world, re-join the
+## last address a few times before giving up (the host resumes us by token).
+var _last_join_ip: String = ""
+var _last_join_port: int = DEFAULT_PORT
+var _reconnecting: bool = false
+var _reconnect_attempt: int = 0
+var _reconnect_timer: float = 0.0
 
 ## Returns true only when this process was launched as a dedicated headless server.
 func is_dedicated_server() -> bool:
@@ -118,11 +133,15 @@ func join(ip: String, port: int = DEFAULT_PORT) -> Error:
 	if err != OK:
 		return err
 	multiplayer.multiplayer_peer = peer
+	_last_join_ip = ip
+	_last_join_port = port
 	return OK
 
 
 ## Disconnect and clean up. Safe to call when not connected.
 func leave() -> void:
+	_stop_reconnect()
+	_last_join_ip = ""
 	_reset_session()
 	clear_pvp_resume()
 	session_ended.emit()
@@ -187,6 +206,18 @@ func get_pvp_resume() -> Dictionary:
 	return _pvp_resume
 
 
+## Round-trip time to `peer_id` in ms, or -1 when unknown. A client can only
+## measure the host (peer 1); the host can measure every client.
+func get_ping_ms(peer_id: int) -> int:
+	var enet := multiplayer.multiplayer_peer as ENetMultiplayerPeer
+	if enet == null or not is_active():
+		return -1
+	var pkt: ENetPacketPeer = enet.get_peer(peer_id)
+	if pkt == null:
+		return -1
+	return int(pkt.get_statistic(ENetPacketPeer.PEER_ROUND_TRIP_TIME))
+
+
 ## This peer's unique network ID (1 = host, >1 = clients).
 func local_id() -> int:
 	return multiplayer.get_unique_id()
@@ -226,6 +257,8 @@ func get_lan_ip() -> String:
 func _process(delta: float) -> void:
 	_serve_discovery()
 	_tick_scan(delta)
+	if _reconnecting:
+		_tick_reconnect(delta)
 
 ## Host: begin answering discovery queries on DISCOVERY_PORT.
 func _start_discovery_listener() -> void:
@@ -367,12 +400,60 @@ func _on_peer_disconnected(id: int) -> void:
 
 
 func _on_connected_to_server() -> void:
+	if _reconnecting:
+		_stop_reconnect()
+		reconnected.emit()
+		return
 	connection_succeeded.emit()
 
 
 func _on_connection_failed() -> void:
+	if _reconnecting:
+		_reconnect_timer = RECONNECT_RETRY_DELAY
+		return
 	connection_failed.emit()
 
 
 func _on_server_disconnected() -> void:
 	session_ended.emit()
+	if _can_auto_reconnect():
+		_reconnecting = true
+		_reconnect_attempt = 0
+		_reconnect_timer = 0.5
+
+
+## Only a client that dropped while walking the world retries; a mid-duel drop has
+## its own resume path through the lobby, and a deliberate leave() clears the address.
+func _can_auto_reconnect() -> bool:
+	return _last_join_ip != "" and not _server_mode and not has_pvp_resume() and _in_world()
+
+
+## Looked up by path: `-s` smoke tests preload this script before autoloads exist.
+func _in_world() -> bool:
+	var sm: Node = get_node_or_null("/root/SceneManager")
+	return sm != null and bool(sm.call("is_in_world"))
+
+
+func is_reconnecting() -> bool:
+	return _reconnecting
+
+
+func _stop_reconnect() -> void:
+	_reconnecting = false
+	_reconnect_attempt = 0
+
+
+func _tick_reconnect(delta: float) -> void:
+	_reconnect_timer -= delta
+	if _reconnect_timer > 0.0:
+		return
+	if _reconnect_attempt >= RECONNECT_ATTEMPTS or not _in_world():
+		_stop_reconnect()
+		_reset_session()
+		reconnect_failed.emit()
+		return
+	_reconnect_attempt += 1
+	reconnecting.emit(_reconnect_attempt, RECONNECT_ATTEMPTS)
+	_reconnect_timer = RECONNECT_ATTEMPT_TIMEOUT
+	if join(_last_join_ip, _last_join_port) != OK:
+		_reconnect_timer = RECONNECT_RETRY_DELAY

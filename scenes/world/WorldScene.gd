@@ -714,6 +714,9 @@ func _load_named_map() -> void:
 				"Map '%s' could not be loaded — using a generated map instead." % map_name)
 
 func _wire_gamebus_signals() -> void:
+	NetworkManager.reconnecting.connect(coop_session.on_net_reconnecting)
+	NetworkManager.reconnected.connect(coop_session.on_net_reconnected)
+	NetworkManager.reconnect_failed.connect(coop_session.on_net_reconnect_failed)
 	GameBus.battle_won.connect(_on_battle_won)
 	GameBus.enemy_engaged.connect(mounts.on_enemy_engaged)
 	GameBus.blight_changed.connect(_refresh_blight_tints)
@@ -1530,6 +1533,7 @@ func _tick_coop(delta: float) -> void:
 	coop_pvp._check_challenge_timeouts()
 	coop_pvp._tick_tournament(delta)
 	coop_session._tick_session_persist(delta)
+	coop_session._tick_connection_quality(delta)
 	# World-object sync (GID-096): host streams enemy positions; clients smooth.
 	coop_session._broadcast_enemy_positions(delta)
 	coop_session._interp_synced_enemies(delta)

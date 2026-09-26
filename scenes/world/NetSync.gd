@@ -700,7 +700,7 @@ func notify_tournament_spectate() -> void:
 # ── Synced world clock & weather (GID-103 / TID-382) ──────────────────────────
 
 ## Authority → peers: the current shared clock/weather. payload is
-## EnvSync.encode() output: [time_of_day, days_elapsed, weather_id]. Reliable —
+## EnvSync.encode() output: [time_of_day, days_elapsed, weather_id, biome]. Reliable —
 ## a dropped update just means the next low-Hz tick (or the next weather change)
 ## corrects it; there is no continuous stream to fall back on.
 @rpc("any_peer", "reliable", "call_remote")
