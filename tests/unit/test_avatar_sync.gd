@@ -74,3 +74,25 @@ func test_extrapolate_is_capped() -> void:
 	assert_true(AvatarSync.extrapolate(t, Vector2(5, 0), 0.1).is_equal_approx(Vector2(10.5, 10)))
 	assert_true(AvatarSync.extrapolate(t, Vector2(5, 0), 5.0).is_equal_approx(
 			t + Vector2(5, 0) * AvatarSync.MAX_EXTRAPOLATION))
+
+
+func test_packed_round_trip_preserves_all_fields() -> void:
+	var b: PackedByteArray = AvatarSync.encode_packed(3.5, -7.25, true, true, "dungeon_2", true)
+	var d: Dictionary = AvatarSync.decode(b)
+	assert_almost_eq(float(d["x"]), 3.5)
+	assert_almost_eq(float(d["z"]), -7.25)
+	assert_true(bool(d["flip_h"]))
+	assert_true(bool(d["moving"]))
+	assert_true(bool(d["downed"]))
+	assert_eq(str(d["map"]), "dungeon_2")
+	assert_true(b.size() < var_to_bytes(AvatarSync.encode(3.5, -7.25, true, true, "dungeon_2", true)).size() / 2)
+
+
+func test_packed_flags_independent_and_short_payload_defaults() -> void:
+	var d: Dictionary = AvatarSync.decode(AvatarSync.encode_packed(1.0, 2.0, false, true, "main", false))
+	assert_false(bool(d["flip_h"]))
+	assert_true(bool(d["moving"]))
+	assert_false(bool(d["downed"]))
+	var bad: Dictionary = AvatarSync.decode(PackedByteArray([1, 2, 3]))
+	assert_almost_eq(float(bad["x"]), 0.0)
+	assert_eq(str(bad["map"]), "")

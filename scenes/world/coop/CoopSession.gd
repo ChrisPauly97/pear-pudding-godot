@@ -19,6 +19,11 @@ const _DownedSync        = preload("res://game_logic/net/DownedSync.gd")
 const _EnemySync         = preload("res://game_logic/net/EnemySync.gd")
 const _AVATAR_HEARTBEAT: float = 1.0       # max seconds between avatar packets while idle
 const WEAK_PING_MS: int = 250
+## Teammates within this many world units of an engage join the fight.
+const JOINT_FIGHT_RADIUS: float = 12.0
+## A teammate whose avatar packet is older than this is treated as unavailable
+## (in a battle, backgrounded or dropping): heartbeats arrive every second.
+const _AVATAR_FRESH_MSEC: int = 2500
 const _WEAK_WARN_COOLDOWN: float = 30.0
 const _EnvSync           = preload("res://game_logic/net/EnvSync.gd")
 const _GardenPlotScript  = preload("res://scenes/world/entities/GardenPlot.gd")
@@ -75,8 +80,11 @@ var _session_snapshot_accum: float = 0.0
 var _last_character_hash: int = 0          # hash of the last character snapshot sent
 var _rejoining: bool = false               # set by on_net_reconnected until the character arrives
 var _ping_refresh_accum: float = 0.0
+var _last_avatar_msec: Dictionary = {}     # peer_id -> ticks of its last avatar packet
+var _joint_claim_eid: String = ""          # engage claimed by claim_joint_fight this frame
+var _joint_claim_partners: Array[int] = []
 var _last_weak_warn: float = -999.0
-var _last_avatar_payload: Array = []       # last avatar packet sent (send-on-change)
+var _last_avatar_payload: PackedByteArray = PackedByteArray()  # last avatar packet sent
 var _avatar_heartbeat_accum: float = 0.0
 
 func _setup_coop() -> void:
@@ -749,13 +757,14 @@ func _open_party_panel() -> void:
 
 # Called by NetSync when a remote avatar packet arrives.
 
-func _on_avatar_received(sender: int, payload: Array) -> void:
+func _on_avatar_received(sender: int, payload: Variant) -> void:
 	var rp: Node = _world._valid_node(_world._remote_player_nodes.get(sender))
 	if not is_instance_valid(rp):
 		# Packet arrived before the connect signal was processed — spawn now.
 		_spawn_remote_player(sender)
 		rp = _world._valid_node(_world._remote_player_nodes.get(sender))
 	var d: Dictionary = _AvatarSync.decode(payload)
+	_last_avatar_msec[sender] = Time.get_ticks_msec()
 	# Map-scoped avatar sync (TID-352): only render a peer that is on our map. An
 	# empty map (legacy/garbage payload) is treated as same-map so nothing regresses.
 	var sender_map: String = str(d.get("map", ""))
@@ -796,7 +805,8 @@ func _broadcast_local_avatar(delta: float) -> void:
 	var moving: bool = bool(_world._player.get("_is_moving"))
 	var px: float = snappedf(_world._player.position.x, 0.01)
 	var pz: float = snappedf(_world._player.position.z, 0.01)
-	var payload: Array = _AvatarSync.encode(px, pz, flip_h, moving, _world.map_name, _world._coop_downed)
+	var payload: PackedByteArray = _AvatarSync.encode_packed(px, pz, flip_h, moving, _world.map_name,
+			_world._coop_downed)
 	# Standing still sends nothing new, so only a 1 Hz heartbeat goes out (keeps a
 	# dropped unreliable packet from leaving a peer's copy stale for long).
 	_avatar_heartbeat_accum += _world._NET_BROADCAST_INTERVAL
@@ -885,6 +895,12 @@ func _on_enemy_engaged_coop(edata: Dictionary) -> void:
 	if _in_coop_spire_floor() and _SpireFloorGen.is_spire_enemy_id(eid):
 		_world.coop_activities._coop_engage_spire_boss(edata)
 		return
+	if eid == _joint_claim_eid:
+		var partners: Array[int] = _joint_claim_partners.duplicate()
+		_joint_claim_eid = ""
+		_joint_claim_partners.clear()
+		_world.coop_activities.request_joint_fight(edata, partners)
+		return
 	_coop_last_engaged_enemy_id = eid
 	if NetworkManager.is_host():
 		_world._coop_removed_enemies[eid] = true
@@ -893,6 +909,44 @@ func _on_enemy_engaged_coop(edata: Dictionary) -> void:
 	else:
 		_world._net_sync.rpc_id(1, "submit_world_event", _WorldObjectSync.encode_event(
 			_WorldObjectSync.EV_ENEMY_ENGAGED, eid))
+
+## Teammates close enough to join a fight against this enemy: same map, fresh
+## avatar, not downed, within JOINT_FIGHT_RADIUS. The host runs every joint
+## battle, so a client only gets partners when the host is among them.
+func joint_fight_partners(edata: Dictionary) -> Array[int]:
+	var out: Array[int] = []
+	if not _world._coop_active or not NetworkManager.is_active() or _world._player == null:
+		return out
+	var eid: String = str(edata.get("id", ""))
+	# Ordinary world enemies only: mimics, blight hearts, resumed and scripted
+	# battles never register here; siege and Spire bosses have their own path.
+	if eid == "" or not _world._enemy_nodes.has(eid) or eid.begins_with("siege_boss_") \
+			or _SpireFloorGen.is_spire_enemy_id(eid):
+		return out
+	var now: int = Time.get_ticks_msec()
+	var px: float = _world._player.position.x
+	var pz: float = _world._player.position.z
+	for pid in _world._remote_player_nodes.keys():
+		var rp: Node3D = _world._node_in_range(_world._remote_player_nodes[pid], px, pz, JOINT_FIGHT_RADIUS)
+		if rp == null or not rp.visible or bool(_coop_downed_peers.get(pid, false)):
+			continue
+		if now - int(_last_avatar_msec.get(pid, 0)) > _AVATAR_FRESH_MSEC:
+			continue
+		out.append(int(pid))
+	if not NetworkManager.is_host() and not out.has(1):
+		out.clear()
+	return out
+
+## Called (via WorldScene.wants_joint_engage) by SceneManager before it starts a
+## solo battle. Remembers the partners so _on_enemy_engaged_coop, which runs next
+## for the same signal, routes this engage to a joint fight.
+func claim_joint_fight(edata: Dictionary) -> bool:
+	var partners: Array[int] = joint_fight_partners(edata)
+	if partners.is_empty():
+		return false
+	_joint_claim_eid = str(edata.get("id", ""))
+	_joint_claim_partners = partners
+	return true
 
 ## Persist a co-op battle victory against a shared enemy. Host writes the session
 ## file directly; a client submits the defeat for the host to persist. Called from

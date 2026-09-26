@@ -200,6 +200,9 @@ var _coop_active: bool = false
 var _session_token_by_peer: Dictionary = {}  # host: peer_id -> identity token
 # Co-op world-object sync (GID-096) — guarded by _coop_active; inert single-player.
 var _coop_removed_enemies: Dictionary = {}  # enemy id -> true (engaged/defeated this session)
+## Open-world joint fight in progress: the shared enemy's id on every participant
+## ("" otherwise). Read by the co-op clears leaderboard to skip ordinary enemies.
+var _joint_fight_eid: String = ""
 # Shared story scrolls (GID-108 / TID-408) — mirrors _coop_opened_objects exactly.
 var _coop_collected_scrolls: Dictionary = {}  # scroll id -> true (collected by anyone this session)
 var _coop_scroll_syncing: bool = false        # reentry guard, mirrors _coop_story_flag_syncing
@@ -713,6 +716,11 @@ func _load_named_map() -> void:
 			_show_dialogue.call_deferred(
 				"Map '%s' could not be loaded — using a generated map instead." % map_name)
 
+## SceneManager probes this before starting a solo battle: true when a nearby
+## teammate turns this engage into an open-world joint fight instead.
+func wants_joint_engage(enemy_data: Dictionary) -> bool:
+	return coop_session.claim_joint_fight(enemy_data)
+
 func _wire_gamebus_signals() -> void:
 	NetworkManager.reconnecting.connect(coop_session.on_net_reconnecting)
 	NetworkManager.reconnected.connect(coop_session.on_net_reconnected)
@@ -745,6 +753,9 @@ func _wire_gamebus_signals() -> void:
 
 	# GID-101 (TID-368): champion record + wager payout when PvP ends. Connected
 	# permanently (not in _setup_coop) because WorldScene is detached during battle.
+	# Open-world joint fights: after the leaderboard handler above, which reads the flag.
+	if not GameBus.coop_pve_battle_ended.is_connected(coop_activities._on_joint_fight_ended):
+		GameBus.coop_pve_battle_ended.connect(coop_activities._on_joint_fight_ended)
 	if not GameBus.pvp_battle_ended.is_connected(coop_pvp._on_pvp_battle_ended_coop):
 		GameBus.pvp_battle_ended.connect(coop_pvp._on_pvp_battle_ended_coop)
 

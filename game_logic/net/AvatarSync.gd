@@ -28,6 +28,21 @@ static func encode(x: float, z: float, flip_h: bool, moving: bool, map: String =
 	return [x, z, flip_h, moving, map, downed]
 
 
+## Compact wire form of encode(): 4-byte float x, 4-byte float z, one flag byte
+## (bit0 flip_h, bit1 moving, bit2 downed), then the map name as UTF-8. About 16
+## bytes against ~64 for the Variant Array. decode() reads both forms.
+static func encode_packed(x: float, z: float, flip_h: bool, moving: bool, map: String = "",
+		downed: bool = false) -> PackedByteArray:
+	var name_bytes: PackedByteArray = map.to_utf8_buffer()
+	var out := PackedByteArray()
+	out.resize(9)
+	out.encode_float(0, x)
+	out.encode_float(4, z)
+	out[8] = (1 if flip_h else 0) | (2 if moving else 0) | (4 if downed else 0)
+	out.append_array(name_bytes)
+	return out
+
+
 ## Unpack a received payload back into named fields.
 ## Returns {x, z, flip_h, moving, map, downed}. Every field is bounds-checked and
 ## defaulted: this decodes packets straight off the wire, so a truncated or
@@ -35,6 +50,8 @@ static func encode(x: float, z: float, flip_h: bool, moving: bool, map: String =
 ## are also absent from legacy 4- and 5-element payloads. Matches the
 ## garbage-tolerant contract every other *Sync decoder in this directory follows.
 static func decode(payload: Variant) -> Dictionary:
+	if payload is PackedByteArray:
+		return _decode_packed(payload as PackedByteArray)
 	var arr: Array = payload as Array if payload is Array else []
 	return {
 		"x": float(arr[0]) if arr.size() > 0 else 0.0,
@@ -43,6 +60,20 @@ static func decode(payload: Variant) -> Dictionary:
 		"moving": bool(arr[3]) if arr.size() > 3 else false,
 		"map": str(arr[4]) if arr.size() > 4 else "",
 		"downed": bool(arr[5]) if arr.size() > 5 else false,
+	}
+
+
+static func _decode_packed(b: PackedByteArray) -> Dictionary:
+	if b.size() < 9:
+		return {"x": 0.0, "z": 0.0, "flip_h": false, "moving": false, "map": "", "downed": false}
+	var flags: int = b[8]
+	return {
+		"x": b.decode_float(0),
+		"z": b.decode_float(4),
+		"flip_h": (flags & 1) != 0,
+		"moving": (flags & 2) != 0,
+		"map": b.slice(9).get_string_from_utf8(),
+		"downed": (flags & 4) != 0,
 	}
 
 

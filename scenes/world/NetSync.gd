@@ -46,10 +46,10 @@ func _route(method: String, args: Array) -> bool:
 	return false
 
 
-## Receive a peer's latest avatar state. payload is AvatarSync.encode() output:
-## [x: float, z: float, flip_h: bool, moving: bool].
+## Receive a peer's latest avatar state: AvatarSync.encode_packed() bytes (or the
+## legacy encode() Array); AvatarSync.decode() reads both.
 @rpc("any_peer", "unreliable_ordered", "call_remote")
-func recv_avatar(payload: Array) -> void:
+func recv_avatar(payload: Variant) -> void:
 	var sender: int = _sender_id()
 	_route("_on_avatar_received", [sender, payload])
 
@@ -741,6 +741,20 @@ func submit_siege_boss_engaged(edata: Dictionary) -> void:
 @rpc("any_peer", "reliable", "call_remote")
 func notify_coop_pve_start(my_idx: int, all_ally_decks: Array, enemy_data: Dictionary) -> void:
 	_route("_on_notify_coop_pve_start", [my_idx, all_ally_decks, enemy_data])
+
+
+## Client → host: I engaged `edata` with these teammates close by — start an
+## open-world joint fight. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func submit_joint_fight(edata: Dictionary, partners: Array) -> void:
+	var sender: int = _sender_id()
+	_route("_on_joint_fight_submitted", [sender, edata, partners])
+
+
+## Host → client: the joint fight couldn't start; fight `edata` solo. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_joint_fight_declined(edata: Dictionary) -> void:
+	_route("_on_joint_fight_declined", [edata])
 
 
 # ── Ghost duels — client entry point (GID-102 / TID-377 follow-up, fixes BID-032) ──
