@@ -49,6 +49,7 @@ func _run() -> bool:
 		print("  [FAIL] real-time module did not start")
 		return false
 	var fails: Array[String] = []
+	_check_diagonal_layout(battle, fails)
 	# Any tutorial popup must freeze the clock; then dismiss them like the player would.
 	var modal_up: bool = battle.get("_tutorial_overlay") != null or not get_nodes_in_group("modal_popup").is_empty()
 	if modal_up and not bool(rt_mod.call("is_blocked")):
@@ -140,3 +141,20 @@ func _check_cast_time(battle: Node, fails: Array[String]) -> void:
 		fails.append("cast never completed")
 	if rt == null:
 		fails.append("no RealtimeCombat")
+
+## Hero strips live inside the tokens; each board row steps down-right.
+func _check_diagonal_layout(battle: Node, fails: Array[String]) -> void:
+	var hero: Node = battle.get("_player_hero_view")
+	if hero.get_parent().name == "PlayerArea":
+		fails.append("player hero strip was not moved into its token")
+	for key: String in ["_player_board_view", "_enemy_board_view"]:
+		var board: Control = battle.get(key) as Control
+		var prev := Vector2(-INF, -INF)
+		for child in board.get_children():
+			var c := child as Control
+			if c == null or not c.visible:
+				continue
+			if not (c.position.x > prev.x and c.position.y > prev.y):
+				fails.append("%s slots are not on a top-left → bottom-right diagonal" % key)
+				break
+			prev = c.position

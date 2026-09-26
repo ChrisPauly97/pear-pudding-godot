@@ -53,6 +53,9 @@ See `docs/agent/combat-model.md` → Real-Time Combat. Battle state is pure (`Ga
   tier); spell cast times with cast bar (`run_cast` wraps the 4 solo spell paths; GCD is a minimum); enemy cast
   bar; `RealtimeVisuals.gd`: hero tokens with sprites that lunge on auto-attack, per-unit charge/ready/wind-up
   bars, enemy unit lunges. Smoke covers cast deferral. 30 unit tests.
+- Playtest round 3 (user): diagonal arena — hero strips moved into the hero tokens (you bottom-left, enemy
+  top-right), board rows re-placed diagonally top-left → bottom-right by `DiagonalBoard.gd` (runtime script on
+  the board HBoxes, sorts after the native BoxContainer pass), divider hidden, hand at the bottom; smoke asserts it.
 - **Awaiting user playtest** (Settings > Battle Mode > Real-time). Mark done on approval; tuning notes go to TID-547.
 
 ## Documentation Updates
