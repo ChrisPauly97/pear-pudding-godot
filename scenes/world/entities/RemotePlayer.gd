@@ -27,6 +27,9 @@ var _target_x: float = 0.0
 var _target_z: float = 0.0
 var _target_flip_h: bool = false
 var _target_moving: bool = false
+var _net_velocity: Vector2 = Vector2.ZERO  # XZ velocity from the last two packets
+var _since_packet: float = 0.0             # seconds since the last packet arrived
+var _has_packet: bool = false
 
 ## Identity (TID-342). Defaults until set_identity() delivers the peer's choice;
 ## the neutral blue keeps the old look for an as-yet-unidentified avatar.
@@ -121,6 +124,15 @@ func set_downed(downed: bool) -> void:
 
 ## Receive latest authoritative state from the peer (called by WorldScene/NetSync).
 func set_net_state(x: float, z: float, flip_h: bool, moving: bool) -> void:
+	var cur := Vector2(x, z)
+	if moving and _has_packet:
+		_net_velocity = _AvatarSync.packet_velocity(Vector2(_target_x, _target_z), cur, _since_packet)
+	else:
+		_net_velocity = Vector2.ZERO
+	if not _has_packet or Vector2(position.x, position.z).distance_to(cur) > _AvatarSync.SNAP_DISTANCE:
+		position = Vector3(x, position.y, z)
+	_has_packet = true
+	_since_packet = 0.0
 	_target_x = x
 	_target_z = z
 	_target_flip_h = flip_h
@@ -134,8 +146,13 @@ func _process(delta: float) -> void:
 		if _emote_timer <= 0.0 and _emote_label != null:
 			_emote_label.visible = false
 
-	# Interpolate XZ toward the latest received target.
-	var target_pos := Vector3(_target_x, position.y, _target_z)
+	_since_packet += delta
+	# Hidden (peer on another map): no motion or terrain query to do.
+	if not visible:
+		return
+	# Interpolate XZ toward the dead-reckoned target (last packet + velocity).
+	var aim: Vector2 = _AvatarSync.extrapolate(Vector2(_target_x, _target_z), _net_velocity, _since_packet)
+	var target_pos := Vector3(aim.x, position.y, aim.y)
 	var new_pos: Vector3 = _AvatarSync.interp(position, target_pos, delta, _INTERP_RATE)
 
 	# Recompute Y locally from terrain — y is never transmitted over the network.

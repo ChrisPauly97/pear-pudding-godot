@@ -584,6 +584,13 @@ func _on_enemy_engaged(enemy_data: Dictionary) -> void:
 	# NetworkManager.is_active() correctly leaves them on the solo path.
 	if NetworkManager.is_active() and _is_coop_joint_battle_enemy(enemy_data, current_map):
 		return
+	# Co-op open-world joint fight: a teammate is close enough to fight alongside,
+	# so WorldScene starts the party battle instead of this solo one.
+	if NetworkManager.is_active():
+		var world := get_tree().current_scene
+		if world != null and world.has_method("wants_joint_engage") \
+				and bool(world.call("wants_joint_engage", enemy_data)):
+			return
 	if save_manager.player_deck.size() < IsoConst.DECK_MIN:
 		GameBus.hud_message_requested.emit("Deck too small — add at least %d cards first." % IsoConst.DECK_MIN)
 		return

@@ -224,7 +224,12 @@ func touch_friend_last_seen(token: String) -> void:
 	for i in range(_friends.size()):
 		var ed: Dictionary = _friends[i]
 		if str(ed.get("token", "")) == t:
-			ed["last_seen"] = Time.get_datetime_string_from_system(false, true)
+			var now: String = Time.get_datetime_string_from_system(false, true)
+			# Minute resolution: the roster refreshes every few seconds and each
+			# write rewrites the profile file.
+			if str(ed.get("last_seen", "")).left(16) == now.left(16):
+				return
+			ed["last_seen"] = now
 			_friends[i] = ed
 			_save()
 			return

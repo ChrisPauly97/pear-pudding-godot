@@ -23,8 +23,14 @@ func test_encode_decode_preserves_weather_id() -> void:
 	assert_eq(str(d["weather_id"]), "heavy_rain")
 
 
-func test_encode_returns_three_elements() -> void:
-	assert_eq(EnvSync.encode(0.4, 0, "").size(), 3)
+func test_encode_returns_four_elements() -> void:
+	assert_eq(EnvSync.encode(0.4, 0, "").size(), 4)
+
+
+func test_biome_round_trips_and_defaults_for_legacy_payload() -> void:
+	assert_eq(int(EnvSync.decode(EnvSync.encode(0.4, 0, "snow", 4))["biome"]), 4)
+	assert_eq(int(EnvSync.decode(EnvSync.encode(0.4, 0, ""))["biome"]), -1)
+	assert_eq(int(EnvSync.decode([0.4, 0, "rain"])["biome"]), -1)
 
 
 func test_decode_returns_all_keys() -> void:

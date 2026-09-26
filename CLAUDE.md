@@ -544,6 +544,31 @@ SceneTree teardown only frees in-tree nodes. Battles/puzzles detach WorldScene i
 ### Spire floor 2+ was an empty locked room — one enemy id reused per floor (claude/drafting-dungeon-stuck-bug-yi20li)
 `SpireFloorGen` gave every floor's enemy the literal id `"spire_enemy"`, and `SaveManager.defeated_enemies` is a **permanent, map-agnostic** list. Beating floor 1 therefore marked every later floor's enemy defeated: `ChunkRenderer._spawn_entities` skipped the spawn, the cleared flag never got set, and the exit door (whose only `flag_key` is that flag) stayed locked — a floor you could neither win nor leave. Ids for per-instance entities must be unique per instance (`enemy_id_for(floor, run_seed)`); check them with a prefix helper, never `==`, since old saves/`user://maps/` files keep the legacy id. Entity state that is per-run scenery does not belong in a permanent save list — prune it at run boundaries, and repair on load (`prepare_spire_floor`) so already-broken saves recover.
 
+### Joiner crashed in the infinite world; late joiners never followed (claude/multiplayer-infinite-world-crash-74il1k)
+Android joiners crashed in the infinite world; the host was fine. The crash never
+reproduced it headless, so these fixes cover the client-only load and bugs found:
+(1) the host streamed **every** chunk-streamed enemy's position (one over-MTU unreliable
+packet, 5 Hz) and clients pulled their local copies toward it every frame. That stream
+assumes static named-map enemies, so it's now skipped on `_is_infinite`. (2) The late-join
+redirect compared `st.current_map` with the host's own map (always equal), so a joiner
+stayed in Madrian. Always send it; the receiver ignores a same-map redirect. (3) RPCs can
+reach `NetSync` while its world is detached, when `multiplayer` is null. Use `_sender_id()`.
+(4) Chunk reloads respawned enemies another peer had engaged; check `_coop_removed_enemies`.
+
+### Co-op setup half-ran after every battle (claude/multiplayer-infinite-world-crash-74il1k)
+`WorldScene._enter_tree` fires **before** its child modules re-enter the tree, so on the
+re-attach after a battle their `get_viewport()` and `multiplayer` were null. `_setup_coop`
+errored partway through, leaving no avatars, no session and no story-flag sync. Re-attach
+work now runs deferred in `_on_reattached()`. Never touch a child module's tree state
+from a parent's `_enter_tree`.
+
+### Joiner generated a different infinite world (claude/multiplayer-infinite-world-crash-74il1k)
+The host saved its seed into the session but never sent it, so a joiner built the
+infinite world from its own seed while sharing entity ids (`e_<cx>_<cz>_<i>`). A
+chest or enemy removal then hit an unrelated object. The session owns the seed now,
+and the joiner adopts it with its character. Any deterministic world generation a
+peer runs locally needs every input synced, not just the entity ids.
+
 ### Nocturnal despawn — "modulate:a does not exist" (fixed with automation bridge)
 `Node3D` has no `modulate`. Always resolve to `Sprite3D`/`CanvasItem` child before tweening modulate.
 
