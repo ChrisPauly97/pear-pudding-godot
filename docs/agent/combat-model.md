@@ -35,6 +35,7 @@ You are the fighter; spells are your abilities; creature cards are a small band 
   your hero **auto-attacks** once per turn with the equipped weapon (WoW auto-attack).
   Weapon damage from gear gives gear a direct, felt effect.
 - **Faster start:** start at **3 mana** (ramp +1 to 10), draw 4 opening cards — fights are 3–6 turns, not 8–12.
+  *(Superseded for real time: max mana is fixed per fight from level + gear — see Real-Time Combat.)*
 - **Enemy side = encounter** (fixes problem 2), three shapes defined in `EnemyRegistry`:
   | Shape | World | Battle | Win |
   |---|---|---|---|
@@ -110,7 +111,7 @@ team duels and resumed mid-battle saves stay turn-based.
 |---|---|
 | Player global cooldown (GCD) after any card | 1.5 s |
 | Enemy GCD / cast-bar telegraph before a play | 2.5 s / 1.0 s |
-| Mana | start 3/3; +1 current every 1.5 s; +1 max every 6 s, cap 10 |
+| Mana | **fixed max for the fight** = `4 + (level − 1) / 3 + hero.bonus_mana` (gear/passive skills), cap 10 (`max_mana_for`); start full; +1 current every 1.5 s. Enemy level-equivalent = `1 + (tier − 1) × 3` until zone levels (TID-536). |
 | Draw | 1 card every 5 s while hand < 7 (no fatigue from the clock) |
 | Unit auto-attack | every 3 s; a fresh unit waits one full swing (Surge: 0.5 s) |
 | Hero auto-attack (always on) | main hand every 2.5 s for `2 + hero.attack` (unarmed base + weapon/passive bonuses); off hand every 2.0 s for `offhand_damage` when > 0 (off-hand gear slot — TID-545). Enemy heroes swing only with `hero.attack > 0`. Frozen/stunned heroes don't swing. |

@@ -34,8 +34,8 @@ already swings main hand (`RealtimeCombat.main_hand_damage`) and supports `offha
 `BattleModifiers` → `RealtimeCombat`. Save field for the off-hand slot via PERSISTED_FIELDS.
 
 **Real-time update (2026-09-26):** hero auto-attack is a swing timer (`RealtimeCombat.HERO_SWING_INTERVAL`,
-already driven by `hero.attack`) — weapons add `hero_attack` and a swing speed. The 3-mana start is
-`RealtimeCombat.START_MAX_MANA`; the turn-based 3-mana/4-card change applies only to turn-based modes.
+already driven by `hero.attack`) — weapons add `hero_attack` and a swing speed. Max mana is fixed per fight from level + gear
+(`RealtimeCombat.max_mana_for`); the turn-based 3-mana/4-card change applies only to turn-based modes.
 
 ## Plan
 

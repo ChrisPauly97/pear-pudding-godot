@@ -24,13 +24,14 @@ const PLAYER_GCD: float = 1.5
 const ENEMY_GCD: float = 2.5
 ## Enemy "cast bar": telegraph time between choosing a card and playing it.
 const ENEMY_CAST_TIME: float = 1.0
-## Starting mana pool and cap growth.
-const START_MAX_MANA: int = 3
+## Max mana is fixed for the whole fight (WoW-style): it comes from character
+## level plus `hero.bonus_mana` (gear / passive skills), never from fight time.
+## Level 1 = BASE_MAX_MANA, +1 every LEVELS_PER_MANA levels, capped at MANA_CAP.
+const BASE_MAX_MANA: int = 4
+const LEVELS_PER_MANA: int = 3
 const MANA_CAP: int = 10
-## +1 current mana every MANA_REGEN_INTERVAL (up to max_mana).
+## You start full; +1 current mana every MANA_REGEN_INTERVAL (up to max_mana).
 const MANA_REGEN_INTERVAL: float = 1.5
-## +1 max mana every MAX_MANA_INTERVAL (up to MANA_CAP).
-const MAX_MANA_INTERVAL: float = 6.0
 ## One card drawn every DRAW_INTERVAL while the hand is below HAND_CAP.
 const DRAW_INTERVAL: float = 5.0
 const HAND_CAP: int = 7
@@ -58,24 +59,29 @@ var offhand_damage: Array[int] = [0, 0]
 
 ## Per-side resource and hero-swing timers.
 var _mana_timer: Array[float] = [0.0, 0.0]
-var _max_mana_timer: Array[float] = [0.0, 0.0]
 var _draw_timer: Array[float] = [0.0, 0.0]
 var _hero_swing: Array[float] = [HERO_SWING_INTERVAL, HERO_SWING_INTERVAL]
 var _offhand_swing: Array[float] = [OFFHAND_SWING_INTERVAL, OFFHAND_SWING_INTERVAL]
 ## instance_id -> seconds until next swing
 var _swing: Dictionary = {}
 
-func _init(s: GameState) -> void:
+## `levels` = [player character level, enemy level-equivalent].
+func _init(s: GameState, levels: Array[int] = [1, 1]) -> void:
 	state = s
 	state.current_player_idx = PLAYER
 	for i in range(2):
 		var h := state.players[i].hero
-		h.max_mana = maxi(h.max_mana, START_MAX_MANA)
+		h.max_mana = max_mana_for(levels[i] if i < levels.size() else 1, h.bonus_mana)
 		h.mana = h.max_mana
 	# Units already on the board (pack encounters, resumed state) start mid-swing.
 	for i in range(2):
 		for c: CardInstance in state.players[i].board.get_cards():
 			_swing[c.instance_id] = SWING_INTERVAL * 0.5
+
+## Pure: fixed max mana for a character level plus gear/skill bonus mana.
+static func max_mana_for(level: int, bonus_mana: int = 0) -> int:
+	var from_level: int = BASE_MAX_MANA + maxi(0, level - 1) / LEVELS_PER_MANA
+	return mini(MANA_CAP, from_level + maxi(0, bonus_mana))
 
 ## Starts `side`'s global cooldown. Call after every card that side plays.
 func start_gcd(side: int) -> void:
@@ -115,12 +121,6 @@ func advance(delta: float) -> Array[Dictionary]:
 func _tick_resources(side: int, delta: float, events: Array[Dictionary]) -> void:
 	var p: PlayerState = state.players[side]
 	var h := p.hero
-	_max_mana_timer[side] += delta
-	while _max_mana_timer[side] >= MAX_MANA_INTERVAL:
-		_max_mana_timer[side] -= MAX_MANA_INTERVAL
-		if h.max_mana < MANA_CAP:
-			h.max_mana += 1
-			events.append({"type": "mana", "side": side})
 	_mana_timer[side] += delta
 	while _mana_timer[side] >= MANA_REGEN_INTERVAL:
 		_mana_timer[side] -= MANA_REGEN_INTERVAL

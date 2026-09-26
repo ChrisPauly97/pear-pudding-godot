@@ -33,8 +33,8 @@ func _run(rt: RealtimeCombat, seconds: float) -> Array[Dictionary]:
 func test_player_pinned_and_start_mana() -> void:
 	var rt := _rt()
 	assert_eq(rt.state.current_player_idx, 0)
-	assert_gte(rt.state.players[0].hero.max_mana, RealtimeCombat.START_MAX_MANA)
-	assert_eq(rt.state.players[0].hero.mana, rt.state.players[0].hero.max_mana)
+	assert_eq(rt.state.players[0].hero.max_mana, RealtimeCombat.BASE_MAX_MANA)
+	assert_eq(rt.state.players[0].hero.mana, rt.state.players[0].hero.max_mana, "starts full")
 
 func test_mana_regenerates_on_clock() -> void:
 	var rt := _rt()
@@ -43,11 +43,26 @@ func test_mana_regenerates_on_clock() -> void:
 	_run(rt, RealtimeCombat.MANA_REGEN_INTERVAL)
 	assert_eq(h.mana, 1)
 
-func test_max_mana_grows_to_cap() -> void:
+func test_max_mana_fixed_during_fight() -> void:
 	var rt := _rt()
 	rt.state.players[1].hero.health = 100000  # outlast the auto-attack
-	_run(rt, RealtimeCombat.MAX_MANA_INTERVAL * 20.0)
-	assert_eq(rt.state.players[0].hero.max_mana, RealtimeCombat.MANA_CAP)
+	var start_max: int = rt.state.players[0].hero.max_mana
+	_run(rt, 120.0)
+	assert_eq(rt.state.players[0].hero.max_mana, start_max)
+
+func test_max_mana_from_level_and_bonus() -> void:
+	assert_eq(RealtimeCombat.max_mana_for(1), RealtimeCombat.BASE_MAX_MANA)
+	assert_eq(RealtimeCombat.max_mana_for(1 + RealtimeCombat.LEVELS_PER_MANA), RealtimeCombat.BASE_MAX_MANA + 1)
+	assert_eq(RealtimeCombat.max_mana_for(1, 2), RealtimeCombat.BASE_MAX_MANA + 2, "gear/skill bonus_mana")
+	assert_eq(RealtimeCombat.max_mana_for(99, 5), RealtimeCombat.MANA_CAP)
+
+func test_levels_passed_to_constructor() -> void:
+	var gs := GameState.new()
+	gs.players[0].hero.bonus_mana = 1
+	var levels: Array[int] = [7, 1]
+	var rt := RealtimeCombat.new(gs, levels)
+	assert_eq(rt.state.players[0].hero.max_mana, RealtimeCombat.max_mana_for(7, 1))
+	assert_eq(rt.state.players[1].hero.max_mana, RealtimeCombat.BASE_MAX_MANA)
 
 func test_draw_on_clock_respects_hand_cap() -> void:
 	var rt := _rt()
@@ -128,6 +143,10 @@ func test_eligibility() -> void:
 	assert_false(_BattleRealtime.eligible("realtime", true, true, false, false), "networked stays turn-based")
 	assert_false(_BattleRealtime.eligible("realtime", true, false, true, false))
 	assert_false(_BattleRealtime.eligible("realtime", true, false, false, true))
+
+func test_enemy_level_for_tier() -> void:
+	assert_eq(_BattleRealtime.enemy_level_for_tier(1), 1)
+	assert_eq(RealtimeCombat.max_mana_for(_BattleRealtime.enemy_level_for_tier(3)), RealtimeCombat.BASE_MAX_MANA + 2)
 
 func test_player_auto_attacks_with_no_mana_or_units() -> void:
 	var rt := _rt()

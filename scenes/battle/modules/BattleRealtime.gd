@@ -12,6 +12,7 @@ const _BattleScene = preload("res://scenes/battle/BattleScene.gd")
 const RealtimeCombat = preload("res://game_logic/battle/RealtimeCombat.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
+const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 
 var rt: RealtimeCombat = null
 var _battle: _BattleScene
@@ -34,7 +35,9 @@ func maybe_start(is_fresh: bool) -> void:
 	var networked: bool = _battle._pvp or _battle._coop_pve or _battle._team_pvp or _battle._pvp_spectating
 	if not eligible(mode, is_fresh, networked, _battle._state.puzzle_mode, _battle._state.scripted_battle):
 		return
-	rt = RealtimeCombat.new(_battle._state)
+	var player_level: int = SceneManager.save_manager.level
+	var tier: int = _EnemyRegistry.get_difficulty_tier(str(_battle.enemy_data.get("enemy_type", "")))
+	rt = RealtimeCombat.new(_battle._state, [player_level, enemy_level_for_tier(tier)])
 	_build_ui()
 	_battle._refresh_all()
 
@@ -61,6 +64,10 @@ func _build_ui() -> void:
 			HORIZONTAL_ALIGNMENT_CENTER, side)
 	_focus_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_focus_lbl.custom_minimum_size = Vector2(vh * 0.16, 0.0)
+
+## Enemy level-equivalent for mana until zone levels land (TID-536): tier 1 → 1, each tier +3.
+static func enemy_level_for_tier(tier: int) -> int:
+	return 1 + maxi(0, tier - 1) * RealtimeCombat.LEVELS_PER_MANA
 
 ## True while the local player is on global cooldown (blocks plays).
 func on_cooldown() -> bool:

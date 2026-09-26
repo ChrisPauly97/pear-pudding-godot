@@ -37,6 +37,8 @@ See `docs/agent/combat-model.md` → Real-Time Combat. Battle state is pure (`Ga
 - Always-on hero auto-attack (user follow-up): main hand `2 + hero.attack` every 2.5 s, off hand on its own 2.0 s
   timer (`offhand_damage`), orange swing bar; tapping the enemy hero clears focus (`BattleInput._on_enemy_hero_tap`
   extracted). +5 unit tests (16 total).
+- Max mana fixed per fight (user follow-up): `RealtimeCombat.max_mana_for(level, bonus_mana)`; player level from
+  `SaveManager.level`, enemy from difficulty tier (`BattleRealtime.enemy_level_for_tier`). No in-fight max growth. 19 unit tests.
 - **Awaiting user playtest** (Settings > Battle Mode > Real-time). Mark done on approval; tuning notes go to TID-547.
 
 ## Documentation Updates
