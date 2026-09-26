@@ -118,6 +118,7 @@ func test_ally_timer_restarts_after_attack() -> void:
 
 func test_enemy_minion_auto_swings_on_slower_timer() -> void:
 	var rt := _rt()
+	rt.unarmed[1] = 0  # isolate the minion from the enemy hero's auto-attack
 	var foe := _card(3, 5)
 	rt.state.players[1].board.add_card(foe)
 	var hp: int = rt.state.players[0].hero.health
@@ -203,6 +204,7 @@ func test_offhand_swings_on_its_own_timer() -> void:
 func test_enemy_hero_without_attack_does_not_swing() -> void:
 	var rt := _rt()
 	rt.state.players[1].hero.attack = 0
+	rt.unarmed[1] = 0
 	var hp: int = rt.state.players[0].hero.health
 	_run(rt, RealtimeCombat.HERO_SWING_INTERVAL * 3.0)
 	assert_eq(rt.state.players[0].hero.health, hp)
@@ -245,3 +247,41 @@ func test_turn_based_scale_unchanged() -> void:
 	assert_eq(h.max_mana, 3)
 	var card := _card(1, 1, 3)
 	assert_eq(gs.players[0].effective_cost(card), 3)
+
+func test_enemy_hero_auto_attacks_with_unarmed_damage() -> void:
+	var rt := _rt()
+	var hp: int = rt.state.players[0].hero.health
+	_run(rt, RealtimeCombat.HERO_SWING_INTERVAL)
+	assert_eq(rt.state.players[0].hero.health, hp - RealtimeCombat.ENEMY_UNARMED_DAMAGE)
+
+func test_unit_caps() -> void:
+	var rt := _rt()
+	var p := rt.state.players[0]
+	p.hero.mana = p.hero.max_mana
+	for i in range(RealtimeCombat.MAX_ALLIES):
+		p.board.add_card(_card())
+	var extra := _card(1, 1, 0)
+	p.hand.append(extra)
+	assert_false(p.can_play(extra), "Ally cap reached")
+	assert_eq(rt.state.players[1].max_units, RealtimeCombat.MAX_ENEMY_MINIONS)
+
+func test_enemy_minions_alternate_hero_and_weakest_ally() -> void:
+	var rt := _rt()
+	rt.unarmed[1] = 0
+	rt.state.players[0].hero.attack = -RealtimeCombat.UNARMED_DAMAGE  # player hero idle
+	var tough := _card(0, 20)
+	var weak := _card(0, 10)
+	rt.state.players[0].board.add_card(tough)
+	rt.state.players[0].board.add_card(weak)
+	rt.state.players[1].board.add_card(_card(2, 50))
+	var hp: int = rt.state.players[0].hero.health
+	_run(rt, RealtimeCombat.ENEMY_SWING_INTERVAL)
+	assert_eq(weak.health, 8, "first swing hits the weakest Ally")
+	_run(rt, RealtimeCombat.ENEMY_SWING_INTERVAL)
+	assert_eq(rt.state.players[0].hero.health, hp - 2, "second swing goes at the hero")
+	assert_eq(tough.health, 20)
+
+func test_cast_time_scales_with_cost() -> void:
+	assert_eq(RealtimeCombat.cast_time_for(0), 0.0, "0-cost is instant")
+	assert_true(RealtimeCombat.cast_time_for(3) > RealtimeCombat.cast_time_for(1))
+	assert_eq(RealtimeCombat.cast_time_for(99), RealtimeCombat.CAST_MAX)

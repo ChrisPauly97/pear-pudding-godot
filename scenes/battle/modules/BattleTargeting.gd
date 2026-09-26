@@ -272,16 +272,21 @@ func _resolve_slot_spell(spell: CardInstance, slot_idx: int) -> void:
 			_battle._fx.haptic(20)
 			_battle._send_intent(BattleNetProtocol.encode_play_spell(hi, {"slot": slot_idx}))
 		return
-	_battle._do_play_card(spell, _battle._my_idx())
-	AudioManager.play_sfx("spell_resolve")
-	_battle._fx.haptic(20)
-	match spell.spell_effect:
-		"bless_slot":
-			_battle._state.players[_battle._my_idx()].board.enhance_slot(slot_idx, "atk_bonus", spell.spell_power)
-		"ward_slot":
-			_battle._state.players[_battle._my_idx()].board.enhance_slot(slot_idx, "shroud", 1)
-	_battle._refresh_all()
-	_battle._check_game_over()
+	# Real time: spells show a cast bar and resolve when it completes (TID-546).
+	var finish := func() -> void:
+		if not _battle._do_play_card(spell, _battle._my_idx()):
+			return  # no longer affordable when the cast completed
+		AudioManager.play_sfx("spell_resolve")
+		_battle._fx.haptic(20)
+		match spell.spell_effect:
+			"bless_slot":
+				_battle._state.players[_battle._my_idx()].board.enhance_slot(slot_idx, "atk_bonus", spell.spell_power)
+			"ward_slot":
+				_battle._state.players[_battle._my_idx()].board.enhance_slot(slot_idx, "shroud", 1)
+		_battle._refresh_all()
+		_battle._check_game_over()
+	if not _battle.realtime.run_cast(spell, finish, null):
+		finish.call()
 
 func _on_target_chosen_card(target: CardInstance) -> void:
 	var spell := _battle._targeting_spell
@@ -298,15 +303,19 @@ func _on_target_chosen_card(target: CardInstance) -> void:
 					_battle.battle_net._pvp_target_dict_for_card(target)))
 			_battle.tutorials._dismiss_battle_tutorial()
 		return
-	if _battle._do_play_card(spell, _battle._my_idx()):
-		AudioManager.play_sfx("card_play")
-		_battle._fx.haptic(20)
-		var snap_otc := _battle._fx.snapshot()
-		_battle._resolver.resolve_spell(spell, _battle._my_idx(), {"type": "minion", "card": target})
-		_battle._fx.trigger_fx(snap_otc)
-	_battle._refresh_all()
-	_battle._check_game_over()
-	_battle.tutorials._dismiss_battle_tutorial()
+	# Real time: spells show a cast bar and resolve when it completes (TID-546).
+	var finish := func() -> void:
+		if _battle._do_play_card(spell, _battle._my_idx()):
+			AudioManager.play_sfx("card_play")
+			_battle._fx.haptic(20)
+			var snap_otc := _battle._fx.snapshot()
+			_battle._resolver.resolve_spell(spell, _battle._my_idx(), {"type": "minion", "card": target})
+			_battle._fx.trigger_fx(snap_otc)
+		_battle._refresh_all()
+		_battle._check_game_over()
+		_battle.tutorials._dismiss_battle_tutorial()
+	if not _battle.realtime.run_cast(spell, finish, target):
+		finish.call()
 
 func _on_target_chosen_hero() -> void:
 	var spell := _battle._targeting_spell
@@ -323,14 +332,18 @@ func _on_target_chosen_hero() -> void:
 			_battle._send_intent(BattleNetProtocol.encode_play_spell(hi, hero_tgt))
 			_battle.tutorials._dismiss_battle_tutorial()
 		return
-	if _battle._do_play_card(spell, _battle._my_idx()):
-		AudioManager.play_sfx("card_play")
-		_battle._fx.haptic(20)
-		var snap_oth := _battle._fx.snapshot()
-		var resolver_hero_tgt: Dictionary = {"type": "hero",
-				"pidx": _battle._opp_idx()} if _battle._team_pvp else {"type": "hero"}
-		_battle._resolver.resolve_spell(spell, _battle._my_idx(), resolver_hero_tgt)
-		_battle._fx.trigger_fx(snap_oth)
-	_battle._refresh_all()
-	_battle._check_game_over()
-	_battle.tutorials._dismiss_battle_tutorial()
+	# Real time: spells show a cast bar and resolve when it completes (TID-546).
+	var finish := func() -> void:
+		if _battle._do_play_card(spell, _battle._my_idx()):
+			AudioManager.play_sfx("card_play")
+			_battle._fx.haptic(20)
+			var snap_oth := _battle._fx.snapshot()
+			var resolver_hero_tgt: Dictionary = {"type": "hero",
+					"pidx": _battle._opp_idx()} if _battle._team_pvp else {"type": "hero"}
+			_battle._resolver.resolve_spell(spell, _battle._my_idx(), resolver_hero_tgt)
+			_battle._fx.trigger_fx(snap_oth)
+		_battle._refresh_all()
+		_battle._check_game_over()
+		_battle.tutorials._dismiss_battle_tutorial()
+	if not _battle.realtime.run_cast(spell, finish, null):
+		finish.call()

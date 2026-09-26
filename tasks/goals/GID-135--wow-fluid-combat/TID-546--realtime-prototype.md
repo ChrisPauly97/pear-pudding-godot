@@ -48,6 +48,11 @@ See `docs/agent/combat-model.md` → Real-Time Combat. Battle state is pure (`Ga
   minion swing 4.5 s, hero 3 s, regen 50/s, draw 6 s); clock stops under pause/inspect/tutorial popups and during
   lunges; Turn label hidden, bars labelled. `_can_local_act(ignore_gcd)`. Smoke test covers popup freeze +
   commanded attack on GCD. 26 unit tests.
+- Playtest round 2 (user): regen 20 pt/s; board caps 3 Allies / 2 enemy minions (`PlayerState.max_units`,
+  empty over-cap slots hidden); enemy minions alternate weakest Ally / hero; both heroes auto-attack (enemy by
+  tier); spell cast times with cast bar (`run_cast` wraps the 4 solo spell paths; GCD is a minimum); enemy cast
+  bar; `RealtimeVisuals.gd`: hero tokens with sprites that lunge on auto-attack, per-unit charge/ready/wind-up
+  bars, enemy unit lunges. Smoke covers cast deferral. 30 unit tests.
 - **Awaiting user playtest** (Settings > Battle Mode > Real-time). Mark done on approval; tuning notes go to TID-547.
 
 ## Documentation Updates

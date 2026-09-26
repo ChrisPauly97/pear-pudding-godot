@@ -11,15 +11,26 @@ extends Node
 const _BattleScene = preload("res://scenes/battle/BattleScene.gd")
 const RealtimeCombat = preload("res://game_logic/battle/RealtimeCombat.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
+const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _TutorialPopup = preload("res://scenes/ui/TutorialPopup.gd")
+const _RealtimeVisuals = preload("res://scenes/battle/modules/RealtimeVisuals.gd")
 
 var rt: RealtimeCombat = null
 var _battle: _BattleScene
 var _gcd_bar: ProgressBar = null
 var _swing_bar: ProgressBar = null
 var _focus_lbl: Label = null
+var _visuals: _RealtimeVisuals = null
+## Player cast in progress: the card, seconds left / total, the deferred
+## resolution, and an optional unit target that must still be alive.
+var _cast_card: CardInstance = null
+var _cast_left: float = 0.0
+var _cast_total: float = 0.0
+var _cast_finish: Callable = Callable()
+var _cast_target: CardInstance = null
+var _resolving_cast: bool = false
 
 func _init(battle: _BattleScene) -> void:
 	_battle = battle
@@ -39,7 +50,10 @@ func maybe_start(is_fresh: bool) -> void:
 	var player_level: int = SceneManager.save_manager.level
 	var tier: int = _EnemyRegistry.get_difficulty_tier(str(_battle.enemy_data.get("enemy_type", "")))
 	rt = RealtimeCombat.new(_battle._state, [player_level, enemy_level_for_tier(tier)])
+	rt.unarmed[RealtimeCombat.ENEMY] = RealtimeCombat.ENEMY_UNARMED_DAMAGE + maxi(0, tier - 1)
 	_build_ui()
+	_visuals = _RealtimeVisuals.new(_battle)
+	_visuals.build(str(_battle.enemy_data.get("enemy_type", "")), bool(_battle.enemy_data.get("is_boss", false)))
 	_battle._refresh_all()
 
 func _build_ui() -> void:
@@ -83,14 +97,66 @@ func is_blocked() -> bool:
 		return true
 	return not get_tree().get_nodes_in_group(_TutorialPopup.MODAL_GROUP).is_empty()
 
-## True while the local player is on global cooldown (blocks plays).
+## True while the local player is on global cooldown or mid-cast (blocks plays).
 func on_cooldown() -> bool:
-	return rt != null and not rt.gcd_ready(RealtimeCombat.PLAYER)
+	return rt != null and (not rt.gcd_ready(RealtimeCombat.PLAYER) or _cast_card != null)
 
-## Called after any successful local card play.
+## Called after any successful local card play. A cast's GCD already started
+## when the cast began, so its resolution doesn't restart it.
 func note_player_play(player_idx: int) -> void:
-	if rt != null and player_idx == RealtimeCombat.PLAYER:
+	if rt != null and player_idx == RealtimeCombat.PLAYER and not _resolving_cast:
 		rt.start_gcd(RealtimeCombat.PLAYER)
+
+## Real time: starts a visible cast for `card` and runs `finish` when it
+## completes (the GCD starts now — it is only the minimum between actions).
+## Returns false when the caller should resolve immediately: turn-based mode,
+## or a 0-cost instant. A unit `target` that dies mid-cast fizzles the spell
+## (card stays in hand, no mana spent).
+func run_cast(card: CardInstance, finish: Callable, target: CardInstance = null) -> bool:
+	if rt == null or _cast_card != null:
+		return false
+	var t: float = RealtimeCombat.cast_time_for(card.cost)
+	if t <= 0.0:
+		return false
+	_cast_card = card
+	_cast_total = t
+	_cast_left = t
+	_cast_finish = finish
+	_cast_target = target
+	rt.start_gcd(RealtimeCombat.PLAYER)
+	_battle._refresh_all()
+	return true
+
+func _tick_cast(dt: float) -> void:
+	if _cast_card == null:
+		return
+	_cast_left -= dt
+	if _cast_left > 0.0:
+		return
+	var finish: Callable = _cast_finish
+	var target: CardInstance = _cast_target
+	_cast_card = null
+	_cast_finish = Callable()
+	_cast_target = null
+	if target != null and not (target.is_alive() and _target_on_board(target)):
+		_visuals.toast("Target lost — spell fizzled")
+		_battle._refresh_all()
+		return
+	_resolving_cast = true
+	finish.call()
+	_resolving_cast = false
+
+func _target_on_board(c: CardInstance) -> bool:
+	for p: PlayerState in _battle._state.players:
+		if p.board.get_cards().has(c):
+			return true
+	return false
+
+func _cast_info() -> Dictionary:
+	if _cast_card == null:
+		return {}
+	return {"name": _cast_card.name, "fraction": 1.0 - _cast_left / _cast_total,
+		"cost": _battle._state.players[RealtimeCombat.PLAYER].effective_cost(_cast_card)}
 
 ## Tap on an enemy minion with no Ally selected: focus it for the hero's auto-attack;
 ## tapping it again, or tapping the enemy hero (null), goes back to the hero.
@@ -111,8 +177,12 @@ func _process(delta: float) -> void:
 	# a swing landing mid-resolution could remove its attacker or target.
 	if rt == null or _battle._state.is_game_over() or is_blocked() or _battle._action_busy:
 		return
+	var dt: float = delta * _speed_factor()
+	_tick_cast(dt)
+	if _battle._state.is_game_over():
+		return
 	var snap: Array[Dictionary] = _battle._fx.snapshot()
-	var events: Array[Dictionary] = rt.advance(delta * _speed_factor())
+	var events: Array[Dictionary] = rt.advance(dt)
 	if _gcd_bar != null:
 		_gcd_bar.value = rt.gcd_fraction(RealtimeCombat.PLAYER)
 	if _swing_bar != null:
@@ -121,21 +191,17 @@ func _process(delta: float) -> void:
 	# board refresh only runs on events (a whole cost unit, swings, casts).
 	_battle._view.refresh_hero(_battle._player_hero_view, _battle._state.players[RealtimeCombat.PLAYER].hero, false)
 	_battle._update_status()
+	_visuals.update(rt, _cast_info())
 	if events.is_empty():
 		return
-	var swung: bool = false
+	var swings: Array[Dictionary] = []
 	for ev: Dictionary in events:
 		match str(ev.get("type", "")):
 			"swing":
-				swung = true
-			"enemy_cast_start":
-				var c: CardInstance = ev["card"] as CardInstance
-				var cost: int = _battle._state.players[RealtimeCombat.ENEMY].effective_cost(c)
-				_battle._fx.show_intent_banner("Casting %s (%d mana)…" % [c.name, cost])
+				swings.append(ev)
 			"enemy_cast":
-				_battle._fx.hide_intent_banner()
 				_after_enemy_play(ev["card"] as CardInstance)
-	if swung:
+	if not swings.is_empty():
 		AudioManager.play_sfx("attack")
 		_battle._fx.trigger_fx(snap)
 		# Death ghosts are built synchronously from the old panels, so the
@@ -143,7 +209,22 @@ func _process(delta: float) -> void:
 		_battle._animate_deaths_from_snapshot(snap)
 	_update_focus_label()
 	_battle._refresh_all()
+	for ev: Dictionary in swings:
+		_animate_swing(ev)
 	_battle._check_game_over()
+
+## Lunge the attacker (hero token or enemy unit) at its target.
+func _animate_swing(ev: Dictionary) -> void:
+	var side: int = int(ev.get("side", 0))
+	var target: CardInstance = ev.get("target") as CardInstance
+	var to: Vector2 = _visuals.target_pos(target, 1 - side)
+	var attacker: CardInstance = ev.get("attacker") as CardInstance
+	if attacker == null:
+		_visuals.lunge_token(side, to)
+		return
+	var panel: Control = _battle._fx.get_card_panel(attacker, side == RealtimeCombat.ENEMY)
+	if panel != null:
+		_battle._fx.animate_attack(panel, to, 1.0)
 
 ## Mirrors the post-action steps of BattleScene._execute_ai_actions.
 func _after_enemy_play(card: CardInstance) -> void:

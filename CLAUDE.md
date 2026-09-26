@@ -369,7 +369,7 @@ the BattleScene script (see "Typed back-references" below):
 | `BattleArena.gd` (`arena`) | Backdrop, battlefield label/banner, slot highlights, co-op ally panels |
 | `BattleTargeting.gd` (`targeting`) | Board drop zone, spell/ally/slot targeting modes, resolving chosen targets |
 | `BattleInput.gd` (`card_input`) | Hand/board/enemy taps, cast confirm, attacks |
-| `BattleRealtime.gd` (`realtime`) | Real-time combat (setting-gated): drives `RealtimeCombat` clock, GCD gate, enemy cast telegraph, focus target |
+| `BattleRealtime.gd` (`realtime`) | Real-time combat (setting-gated): drives `RealtimeCombat` clock, GCD gate, player cast bars (`run_cast`), enemy casts, focus target; presentation in `RealtimeVisuals.gd` (hero tokens, unit bars, lunges) |
 
 Keep `_find_nearby_*` finders on WorldScene even when the spawn moves —
 `test_interact_priority` reads the interaction chains by those names. Likewise
@@ -420,6 +420,9 @@ emits `state_changed`. Read it via `SceneManager.current_state()` /
 `is_in_world()`, never `SceneManager._state`. A new battle kind goes through
 `_enter_battle(configure, networked)` (or `_enter_pvp_battle`). Don't hand-copy
 the world-detach block. `test_scene_flow` enforces all three.
+
+A battle's held world (detached, or frozen in place for real-time solo fights — GID-135) is made current
+again only through `SceneManager.reattach_world()`; never `root.add_child(_saved_world_scene)` by hand.
 
 Battle outcomes and networked battles live in child modules under
 `autoloads/scene_manager/`: `BattleVictory` (`SceneManager.victory`),

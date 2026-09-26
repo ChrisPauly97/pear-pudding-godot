@@ -228,15 +228,19 @@ func _cast_confirmed_spell(card: CardInstance) -> void:
 			_battle._send_intent(BattleNetProtocol.encode_play_spell(hi, {}))
 			_battle.tutorials._dismiss_battle_tutorial()
 		return
-	if _battle._do_play_card(card, _battle._my_idx()):
-		AudioManager.play_sfx("card_play")
-		_battle._fx.haptic(20)
-		var snap: Array[Dictionary] = _battle._fx.snapshot()
-		_battle._resolver.resolve_spell(card, _battle._my_idx())
-		_battle._fx.trigger_fx(snap)
-		_battle._refresh_all()
-		_battle._check_game_over()
-		_battle.tutorials._dismiss_battle_tutorial()
+	# Real time: spells show a cast bar and resolve when it completes (TID-546).
+	var finish := func() -> void:
+		if _battle._do_play_card(card, _battle._my_idx()):
+			AudioManager.play_sfx("card_play")
+			_battle._fx.haptic(20)
+			var snap: Array[Dictionary] = _battle._fx.snapshot()
+			_battle._resolver.resolve_spell(card, _battle._my_idx())
+			_battle._fx.trigger_fx(snap)
+			_battle._refresh_all()
+			_battle._check_game_over()
+			_battle.tutorials._dismiss_battle_tutorial()
+	if not _battle.realtime.run_cast(card, finish, null):
+		finish.call()
 
 func _on_board_card_input(event: InputEvent, my_card: CardInstance) -> void:
 	if not (event is InputEventMouseButton):

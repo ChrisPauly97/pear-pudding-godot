@@ -54,6 +54,9 @@ const _SESSION_STAT_KEYS: PackedStringArray = [
 
 # Fixed world seeds — one per biome, giving each a distinct world layout.
 const _BIOME_SEEDS: Array[int] = [42, 73856135, 100033, 19349705, 294967337]
+## Camera zoom factor (orthographic size multiplier) for fighting in place.
+const _IN_WORLD_ZOOM: float = 0.6
+const _IN_WORLD_ZOOM_SECONDS: float = 0.35
 
 var map_stack: Array[String] = []
 var door_stack: Array[String] = []
@@ -230,8 +233,11 @@ func _ensure_modules() -> void:
 ## 'GodotBody3D' were leaked on exit". Free it here with free(), not
 ## queue_free() — no more frames run this late, a queued free never executes.
 func _exit_tree() -> void:
+	# Orphan = no parent. A world fought in place (GID-135) is still parented
+	# to root, and during teardown it can already report !is_inside_tree()
+	# while root is mid-removal — freeing it then crashes; the tree frees it.
 	if _saved_world_scene != null and is_instance_valid(_saved_world_scene) \
-			and not _saved_world_scene.is_inside_tree():
+			and _saved_world_scene.get_parent() == null:
 		_saved_world_scene.free()
 	_saved_world_scene = null
 
@@ -682,6 +688,10 @@ func _on_duel_lost() -> void:
 ## promotes it to `current_scene`. `networked` fixes the node name, because
 ## BattleNetSync's RPC path is /root/BattleScene/BattleNetSync on every peer.
 func _enter_battle(configure: Callable, networked: bool = false) -> void:
+	if _in_world_battle_eligible(networked):
+		_enter_battle_in_world(configure)
+		_transition_to(State.BATTLE)
+		return
 	TransitionManager.transition(func() -> void:
 		var world: Node = get_tree().current_scene
 		if world != null:
@@ -695,6 +705,76 @@ func _enter_battle(configure: Callable, networked: bool = false) -> void:
 		get_tree().current_scene = _battle_overlay, TransitionManager.STYLE_BATTLE)
 	_transition_to(State.BATTLE)
 
+
+## GID-135 / TID-528: with Battle Mode = Real-time, solo battles open over the
+## live world — frozen, HUD hidden, camera pushed in — instead of a screen wipe.
+## Networked battles keep the detach + wipe path.
+func _in_world_battle_eligible(networked: bool) -> bool:
+	if networked or NetworkManager.is_active():
+		return false
+	if not str(save_manager.get_setting("battle_mode", "turn")).begins_with("realtime"):
+		return false
+	var world: Node = get_tree().current_scene
+	return world != null and world.get("_camera") is Camera3D
+
+func _enter_battle_in_world(configure: Callable) -> void:
+	var world: Node = get_tree().current_scene
+	_saved_world_scene = world
+	_freeze_world(world)
+	_battle_overlay = _battle_scene_packed.instantiate()
+	configure.call(_battle_overlay)
+	_battle_overlay.set("in_world", true)
+	var overlay_ci := _battle_overlay as CanvasItem
+	overlay_ci.modulate.a = 0.0
+	get_tree().root.add_child(_battle_overlay)
+	get_tree().current_scene = _battle_overlay
+	var tw: Tween = create_tween()
+	tw.tween_interval(_IN_WORLD_ZOOM_SECONDS * 0.6)
+	tw.tween_property(overlay_ci, "modulate:a", 1.0, 0.25)
+
+## Stops the world (process, input, physics callbacks), hides its CanvasLayers
+## (HUD, joystick, compass) and pushes the camera in. `_thaw_world` undoes it.
+func _freeze_world(world: Node) -> void:
+	world.process_mode = Node.PROCESS_MODE_DISABLED
+	var hidden: Array[CanvasLayer] = []
+	for n: Node in world.find_children("*", "CanvasLayer", true, false):
+		var layer := n as CanvasLayer
+		if layer.visible:
+			layer.visible = false
+			hidden.append(layer)
+	world.set_meta("battle_hidden_layers", hidden)
+	var cam: Camera3D = world.get("_camera") as Camera3D
+	if cam != null:
+		world.set_meta("battle_cam_size", cam.size)
+		create_tween().tween_property(cam, "size", cam.size * _IN_WORLD_ZOOM, _IN_WORLD_ZOOM_SECONDS) \
+				.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+func _thaw_world(world: Node) -> void:
+	world.process_mode = Node.PROCESS_MODE_INHERIT
+	if world.has_meta("battle_hidden_layers"):
+		for layer: CanvasLayer in (world.get_meta("battle_hidden_layers") as Array[CanvasLayer]):
+			if is_instance_valid(layer):
+				layer.visible = true
+		world.remove_meta("battle_hidden_layers")
+	var cam: Camera3D = world.get("_camera") as Camera3D
+	if cam != null and world.has_meta("battle_cam_size"):
+		create_tween().tween_property(cam, "size", float(world.get_meta("battle_cam_size")), _IN_WORLD_ZOOM_SECONDS) \
+				.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		world.remove_meta("battle_cam_size")
+
+## Makes the world held for a battle the current scene again: re-attaches it
+## (classic detach path) or thaws it (fought in place). Returns it, or null.
+func reattach_world() -> Node:
+	var world: Node = _saved_world_scene
+	if world == null:
+		return null
+	_saved_world_scene = null
+	if world.is_inside_tree():
+		_thaw_world(world)
+	else:
+		get_tree().root.add_child(world)
+	get_tree().current_scene = world
+	return world
 
 ## Frees the battle overlay if one is up. Every battle exit path ends here.
 func _dismiss_battle_overlay() -> void:
@@ -726,11 +806,15 @@ func _restore_world(after: Callable = Callable()) -> void:
 	_proximity_engage_blocked = true
 	get_tree().create_timer(2.0, false).timeout.connect(
 		func() -> void: _proximity_engage_blocked = false)
+	if _saved_world_scene != null and _saved_world_scene.is_inside_tree():
+		# Fought in place: no wipe — thaw and zoom back out.
+		reattach_world()
+		_transition_to(State.WORLD)
+		if after.is_valid():
+			after.call()
+		return
 	TransitionManager.transition(func() -> void:
-		if _saved_world_scene != null:
-			get_tree().root.add_child(_saved_world_scene)
-			get_tree().current_scene = _saved_world_scene
-			_saved_world_scene = null
+		reattach_world()
 		_transition_to(State.WORLD)
 		if after.is_valid():
 			after.call())

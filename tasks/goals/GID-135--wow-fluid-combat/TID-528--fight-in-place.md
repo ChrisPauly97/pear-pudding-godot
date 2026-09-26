@@ -2,7 +2,7 @@
 
 **Goal:** GID-135
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-527
 
 ## Lock
@@ -31,12 +31,20 @@ User wants fights to zoom in on the main world, "like Pokémon almost but still 
 
 ## Plan
 
-_Written during Plan phase._
+Real-time solo battles only (the setting the user plays with); networked battles keep detach + wipe.
+Freeze the world in place, hide its CanvasLayers, push the camera in, fade the battle overlay in over it;
+route every exit through one `reattach_world()` helper.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `SceneManager`: `_in_world_battle_eligible`, `_enter_battle_in_world`, `_freeze_world` / `_thaw_world`,
+  `reattach_world()`; `_restore_world` skips the wipe for an in-place world; `_exit_tree` orphan check is now
+  "no parent" (freeing a still-parented world during teardown segfaulted).
+- `BattleDefeat` (2 sites) and `NetBattles` (1) use `reattach_world()`.
+- `BattleScene.in_world`: skips the arena backdrop and dims the Background so the world shows through.
+- `tests/in_world_battle_smoke.gd` (in CI): world stays in tree + frozen, HUD hidden, camera pushed in; after
+  the battle it is current, thawed, HUD back, camera restored, state WORLD. Verified in an xvfb capture.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`docs/agent/combat-model.md` → Fighting in place; CLAUDE.md SceneManager note on `reattach_world()`.

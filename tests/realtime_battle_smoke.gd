@@ -78,6 +78,8 @@ func _run() -> bool:
 		fails.append("no enemy swing reached the player hero")
 	if not state.is_game_over():
 		await _check_commanded_attack(battle, state, fails)
+	if not state.is_game_over():
+		await _check_cast_time(battle, fails)
 	for f: String in fails:
 		print("  [FAIL] " + f)
 	if fails.is_empty():
@@ -115,3 +117,26 @@ func _check_commanded_attack(battle: Node, state: _GameState, fails: Array[Strin
 		await process_frame
 	if ally.attack_count != 0 or state.players[1].hero.health > hp - 3:
 		fails.append("commanded Ally attack did not land during the global cooldown")
+
+## A 3-cost spell shows a cast bar: the play is deferred, then resolves.
+func _check_cast_time(battle: Node, fails: Array[String]) -> void:
+	var rt_mod: Node = battle.get("realtime") as Node
+	var rt: Object = rt_mod.get("rt")
+	for _i in range(200):  # let any running GCD / cast finish first
+		if not bool(rt_mod.call("on_cooldown")):
+			break
+		await process_frame
+	var spell := _CardInstance.new({"id": "smoke_bolt", "name": "Smoke Bolt", "cost": 3, "attack": 0,
+		"health": 0, "card_class": "spell", "description": ""})
+	var resolved: Array[bool] = [false]
+	var deferred: bool = bool(rt_mod.call("run_cast", spell, func() -> void: resolved[0] = true))
+	if not deferred or resolved[0] or not bool(rt_mod.call("on_cooldown")):
+		fails.append("3-cost spell did not start a cast bar")
+		return
+	var t0: int = Time.get_ticks_msec()
+	while not resolved[0] and Time.get_ticks_msec() - t0 < 8000:
+		await process_frame
+	if not resolved[0]:
+		fails.append("cast never completed")
+	if rt == null:
+		fails.append("no RealtimeCombat")

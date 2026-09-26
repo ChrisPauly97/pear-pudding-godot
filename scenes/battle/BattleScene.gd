@@ -70,6 +70,9 @@ const _AMBUSH_HP_PCT: float = 0.2
 const _AMBUSH_HP_MIN: int = 10
 
 var enemy_data: Dictionary = {}
+## Set by SceneManager when the battle is fought over the live (frozen) world
+## (GID-135 / TID-528): the backdrop is skipped so the world shows through.
+var in_world: bool = false
 var duel_wager: int = 0
 var puzzle_data: Resource = null  # PuzzleData set by SceneManager before _ready
 
@@ -424,9 +427,13 @@ func _ready() -> void:
 		add_child(banner)
 		banner.setup(_battle_weather)
 
-	# Battlefield backdrop (GID-126) — unconditional: puzzle, scripted and PvP
-	# battles carry no world biome and get the neutral roofed-vault look.
-	arena._setup_backdrop()
+	# Battlefield backdrop (GID-126): puzzle, scripted and PvP battles carry no
+	# world biome and get the neutral roofed-vault look. Fought in place, the
+	# world itself is the backdrop — just dim it.
+	if in_world:
+		($Background as ColorRect).color = Color(0.03, 0.03, 0.06, 0.45)
+	else:
+		arena._setup_backdrop()
 
 	# Battlefield Resonance UI (GID-059)
 	if not _state.puzzle_mode and not _state.scripted_battle:

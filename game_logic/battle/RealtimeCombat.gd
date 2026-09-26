@@ -33,8 +33,9 @@ const MANA_SCALE: int = 100
 const BASE_MAX_MANA: int = 400
 const MANA_PER_LEVEL: int = 35
 const MANA_CAP: int = 1000
-## You start full, then regenerate continuously at MANA_REGEN_PER_SEC (1 cost unit / 2 s).
-const MANA_REGEN_PER_SEC: float = 50.0
+## You start full, then regenerate continuously at MANA_REGEN_PER_SEC (1 cost unit / 5 s) —
+## slow enough that spending matters; empty → full 400 takes 20 s.
+const MANA_REGEN_PER_SEC: float = 20.0
 ## One card drawn every DRAW_INTERVAL while the hand is below HAND_CAP.
 const DRAW_INTERVAL: float = 6.0
 const HAND_CAP: int = 7
@@ -47,12 +48,22 @@ const ALLY_READY_INTERVAL: float = 3.0
 const ENEMY_SWING_INTERVAL: float = 4.5
 ## Hero auto-attack (WoW-style, always on): main hand every HERO_SWING_INTERVAL,
 ## off hand on its own OFFHAND_SWING_INTERVAL timer when `offhand_damage` > 0.
-## The player's main hand always deals at least UNARMED_DAMAGE on top of
-## `hero.attack` (weapon/passive bonuses), so an empty mana bar is never idle.
-## Enemy heroes swing only with `hero.attack` > 0 (summoners fight through units).
+## Each hero's main hand deals `unarmed[side]` on top of `hero.attack` (weapon /
+## passive bonuses), so an empty mana bar is never idle. The enemy's unarmed
+## damage is set per encounter (BattleRealtime: by difficulty tier).
 const HERO_SWING_INTERVAL: float = 3.0
 const OFFHAND_SWING_INTERVAL: float = 2.0
-const UNARMED_DAMAGE: int = 2
+const UNARMED_DAMAGE: int = 3
+const ENEMY_UNARMED_DAMAGE: int = 2
+## Board caps in real time: fights lean on the hero and spells, not a wall of units.
+const MAX_ALLIES: int = 3
+const MAX_ENEMY_MINIONS: int = 2
+## Player cast times (the GCD is only the minimum between actions): spells take
+## CAST_BASE + CAST_PER_COST × cost units, capped at CAST_MAX; 0-cost is instant.
+## Summons are instant (GCD only).
+const CAST_BASE: float = 0.4
+const CAST_PER_COST: float = 0.35
+const CAST_MAX: float = 2.5
 
 var state: GameState
 ## Seconds of global cooldown left, per side.
@@ -64,6 +75,8 @@ var enemy_casting: CardInstance = null
 var enemy_cast_remaining: float = 0.0
 ## Off-hand weapon damage per side (0 = no off hand). Set from gear (TID-545).
 var offhand_damage: Array[int] = [0, 0]
+## Base main-hand damage per side before `hero.attack`.
+var unarmed: Array[int] = [UNARMED_DAMAGE, ENEMY_UNARMED_DAMAGE]
 
 ## Per-side resource and hero-swing timers.
 ## Fractional mana points carried between ticks.
@@ -73,11 +86,15 @@ var _hero_swing: Array[float] = [HERO_SWING_INTERVAL, HERO_SWING_INTERVAL]
 var _offhand_swing: Array[float] = [OFFHAND_SWING_INTERVAL, OFFHAND_SWING_INTERVAL]
 ## instance_id -> seconds until next swing
 var _swing: Dictionary = {}
+## enemy minion instance_id -> true when its next swing goes at an Ally
+var _hit_ally_next: Dictionary = {}
 
 ## `levels` = [player character level, enemy level-equivalent].
 func _init(s: GameState, levels: Array[int] = [1, 1]) -> void:
 	state = s
 	state.current_player_idx = PLAYER
+	state.players[PLAYER].max_units = MAX_ALLIES
+	state.players[ENEMY].max_units = MAX_ENEMY_MINIONS
 	for i in range(2):
 		var h := state.players[i].hero
 		h.mana_scale = MANA_SCALE
@@ -183,7 +200,7 @@ func _tick_swings(delta: float, events: Array[Dictionary]) -> void:
 			_swing[c.instance_id] = ENEMY_SWING_INTERVAL + left
 			if c.attack <= 0:
 				continue
-			var target: CardInstance = pick_target(side)
+			var target: CardInstance = pick_minion_target(c)
 			_resolve_swing(side, c, c.attack, target)
 			events.append({"type": "swing", "side": side, "attacker": c, "target": target})
 		_tick_hero(side, delta, events)
@@ -205,8 +222,7 @@ func _tick_ally(c: CardInstance, delta: float, events: Array[Dictionary]) -> voi
 
 ## Main-hand damage for `side` (0 = this hero doesn't auto-attack).
 func main_hand_damage(side: int) -> int:
-	var atk: int = state.players[side].hero.attack
-	return atk + UNARMED_DAMAGE if side == PLAYER else atk
+	return state.players[side].hero.attack + unarmed[side]
 
 ## Progress 0..1 of `side`'s main-hand swing (1 = about to swing).
 func hero_swing_fraction(side: int) -> float:
@@ -248,6 +264,29 @@ func pick_target(side: int) -> CardInstance:
 	if not wards.is_empty():
 		return wards[0]
 	return null
+
+## Enemy minions alternate between the player's hero and an Ally (the one with
+## the least health), so Allies soak hits and a board of them is worth guarding.
+func pick_minion_target(minion: CardInstance) -> CardInstance:
+	var forced: CardInstance = pick_target(ENEMY)
+	if forced != null:
+		return forced
+	var allies: Array[CardInstance] = state.players[PLAYER].board.get_cards()
+	var go_ally: bool = not bool(_hit_ally_next.get(minion.instance_id, false))
+	_hit_ally_next[minion.instance_id] = go_ally
+	if not go_ally or allies.is_empty():
+		return null
+	var weakest: CardInstance = allies[0]
+	for a: CardInstance in allies:
+		if a.health < weakest.health:
+			weakest = a
+	return weakest
+
+## Pure: seconds to cast `units`-cost card (0 = instant).
+static func cast_time_for(units: int) -> float:
+	if units <= 0:
+		return 0.0
+	return minf(CAST_MAX, CAST_BASE + CAST_PER_COST * float(units))
 
 ## One-way hit: in real time the target answers on its own swing timer,
 ## so there is no Hearthstone-style retaliation damage.
