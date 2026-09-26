@@ -46,11 +46,13 @@ func _run() -> Array[String]:
 	var cam_size: float = cam.size
 
 	# Stand-in for the engaged EnemyNPC: it must stay visible during the fight.
+	# Real order: engage emits → the battle can start synchronously (gambits
+	# auto-skipped) → only then does the enemy call free_after_battle.
 	var enemy := Node3D.new()
 	ws.add_child(enemy)
-	sm.call("free_after_battle", enemy)
 	sm.call("_start_battle", {"enemy_type": "undead_basic", "is_boss": false,
 		"enemy_deck": ["ghost", "ghost", "skeleton", "skeleton", "ghost", "ghost"]})
+	sm.call("free_after_battle", enemy)
 	await _wait(600)
 	var battle: Node = current_scene
 	if not ws.is_inside_tree():

@@ -44,6 +44,9 @@ route every exit through one `reattach_world()` helper.
 - Follow-up (user: "the enemy disappeared when the battle started"): `SceneManager.fights_in_world()` /
   `free_after_battle(node)`; EnemyNPC and BlightHeart keep standing during an in-world fight and are freed when
   the scene returns to WORLD. Smoke asserts both.
+- Follow-up 2 (user: "where is the enemy?"): with gambits auto-skipped the battle starts inside the engage
+  emit, so `fights_in_world()` saw the battle overlay as current and freed the enemy at once. It now also
+  returns true while a world is held in place; the smoke uses the real call order (fails without the fix).
 - `BattleScene.in_world`: skips the arena backdrop and dims the Background so the world shows through.
 - `tests/in_world_battle_smoke.gd` (in CI): world stays in tree + frozen, HUD hidden, camera pushed in; after
   the battle it is current, thawed, HUD back, camera restored, state WORLD. Verified in an xvfb capture.

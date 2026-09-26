@@ -569,6 +569,13 @@ chest or enemy removal then hit an unrelated object. The session owns the seed n
 and the joiner adopts it with its character. Any deterministic world generation a
 peer runs locally needs every input synced, not just the entity ids.
 
+### Engaged enemy vanished in in-world fights — battle already started mid-signal (claude/wow-inspired-rpg-mechanics-13i2dk)
+`EnemyNPC.engage()` emits `enemy_engaged`, then asks `SceneManager.free_after_battle(self)` whether to stay visible.
+With gambits auto-skipped, SceneManager starts the battle **synchronously inside that emit**, so by the question
+`current_scene` is already the battle overlay and the "is this fight in the world?" check said no. Code after a
+GameBus emit must not assume the world is still current; `fights_in_world()` now also answers true while a world
+is held in place. Tests must call things in the real order (emit → battle start → follow-up).
+
 ### Nocturnal despawn — "modulate:a does not exist" (fixed with automation bridge)
 `Node3D` has no `modulate`. Always resolve to `Sprite3D`/`CanvasItem` child before tweening modulate.
 

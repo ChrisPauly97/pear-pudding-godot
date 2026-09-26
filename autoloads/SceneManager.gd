@@ -728,6 +728,11 @@ func _in_world_battle_eligible(networked: bool) -> bool:
 ## that start one (EnemyNPC, BlightHeart) then stay visible until it ends
 ## instead of freeing themselves on engage (see `free_after_battle`).
 func fights_in_world() -> bool:
+	# Already fighting in place: the engage signal can start the battle
+	# synchronously (gambits auto-skipped), so by the time the enemy asks,
+	# current_scene is the battle overlay, not the world.
+	if _saved_world_scene != null and is_instance_valid(_saved_world_scene) and _saved_world_scene.is_inside_tree():
+		return true
 	return _in_world_battle_eligible(false)
 
 ## Frees `node` now, or — when the coming battle is fought in place — keeps it
