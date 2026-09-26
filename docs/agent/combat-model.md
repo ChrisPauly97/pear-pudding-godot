@@ -187,3 +187,22 @@ WoW runs five independent clocks; only the GCD gates button presses:
 reads them each tick; `BattleRealtime` loads overrides from the `combat_tuning` setting. In a real-time fight,
 **⚙ Tune** (top-left, or T) opens `CombatTuningPanel`: grouped − / + rows, clock paused, changes apply at once
 and are saved on the device; Reset all restores defaults. Max-mana knobs apply from the next fight.
+
+
+## Adds — a second enemy joins (TID-551)
+
+An enemy that engages while a real-time in-world fight is running **joins it** instead of being refused
+(`SceneManager.accepts_engage()` → `_battle_accepts_add()` → `BattleRealtime.can_join()`; at most
+`RealtimeCombat.MAX_ENEMIES` = 2 enemy heroes). `join_enemy()` builds its hero like the first enemy (tier-scaled
+deck, boss HP, 3-card hand) and `RealtimeCombat.add_enemy()` turns the state into a **team battle** (teams
+`[0, 1, 1]`), so GameState's win rules end the fight only when every enemy hero is down; a fallen enemy's
+minions flee and its token greys out.
+
+- **Each enemy runs its own clocks** — GCD, cast bar (inside its token), pushback, minion swings, hero swing.
+- **Targeting:** tap an enemy's hero strip to point your auto-attack at it (`focus_enemy`); hero-targeted spells
+  and Ally attacks go at the tapped enemy (`_on_target_chosen_hero(pidx)`, `_execute_attack(…, defender)`);
+  minion targets resolve against their owner (`SpellEffectResolver._explicit_opponent`). Untargeted AoE spells
+  still hit the lowest-HP enemy's side only (`GameState.opponent()`).
+- **Layout:** the add's token stacks under the first enemy's on the right, its row attached to its left.
+- **Victory:** `BattleVictory._reward_joined_enemies` marks each joined enemy defeated and pays its coins/XP,
+  bestiary and bounty progress. Turn-based fights still refuse a second engage.

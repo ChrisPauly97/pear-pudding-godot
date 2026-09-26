@@ -123,6 +123,20 @@ func resolve_emergence(card: CardInstance, caster_pid: int) -> void:
 
 ## Resolves the effect of a spell card played by caster_pid against the opponent.
 ## explicit_target: optional dict with "type" ("minion"/"hero") and "card" (CardInstance).
+## The opponent an explicit target points at: the owner of a targeted enemy
+## minion, or the player named by "pidx" on a hero target; else `fallback`.
+func _explicit_opponent(explicit_target: Dictionary, caster_pid: int, fallback: PlayerState) -> PlayerState:
+	var card: Variant = explicit_target.get("card", null)
+	if card is CardInstance:
+		for i in range(_state.players.size()):
+			if i != caster_pid and _state.players[i].board.get_cards().has(card as CardInstance):
+				return _state.players[i]
+	if str(explicit_target.get("type", "")) == "hero" and explicit_target.has("pidx"):
+		var pidx: int = int(explicit_target["pidx"])
+		if pidx >= 0 and pidx < _state.players.size() and pidx != caster_pid:
+			return _state.players[pidx]
+	return fallback
+
 func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Dictionary = {}) -> void:
 	AudioManager.play_sfx("spell_resolve")
 	var _ct_board_before: int = _state.players[1 - caster_pid].board.get_cards().size() if caster_pid == 0 else 0
@@ -131,6 +145,9 @@ func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Diction
 	# old "_state.players[1 - caster_pid]" to co-op-PvE (boss) and team battles (lowest-HP
 	# enemy-team member) without changing 2-player behavior (opponent() == players[1-idx] there).
 	var opponent: PlayerState = _state.opponent()
+	# An explicit target decides which opponent: with several enemies (a real-time
+	# "add", GID-135) the targeted minion's owner or the named hero's player.
+	opponent = _explicit_opponent(explicit_target, caster_pid, opponent)
 	var caster: PlayerState = _state.players[caster_pid]
 	var power: int = card.spell_power
 	var _spell_dmg: int = BattlefieldRules.modify_damage(power, _state.battlefield_biome)

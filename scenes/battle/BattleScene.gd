@@ -841,6 +841,8 @@ func _refresh_all() -> void:
 		arena._refresh_coop_ally_panels()
 	if _team_pvp:
 		battle_net._refresh_team_panels()
+	if realtime != null:
+		realtime.refresh_extra_views()  # enemies that joined a real-time fight
 
 func _refresh_player_board() -> void:
 	if _local_player_idx < 0:

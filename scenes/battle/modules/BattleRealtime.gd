@@ -164,10 +164,10 @@ func _apply_live_tuning() -> void:
 	rt.unarmed[RealtimeCombat.ENEMY] = rt.tune.get_i("enemy_unarmed") + maxi(0, _enemy_tier - 1)
 
 ## A commanded Ally attack on the enemy hero interrupts its cast (WoW pet kick).
-func on_ally_hit_enemy_hero() -> void:
+func on_ally_hit_enemy_hero(side: int = RealtimeCombat.ENEMY) -> void:
 	if rt == null:
 		return
-	var cut: CardInstance = rt.interrupt_enemy_cast()
+	var cut: CardInstance = rt.interrupt_enemy_cast(side)
 	if cut != null:
 		_visuals.toast("Interrupted %s!" % cut.name)
 
@@ -257,11 +257,86 @@ func set_focus(target: CardInstance) -> void:
 	rt.focus_target = null if (target == null or rt.focus_target == target) else target
 	_update_focus_label()
 
+## Tap on an enemy hero with no Ally selected: your auto-attack goes at that
+## enemy (`pidx` -1 = the first enemy).
+func set_focus_enemy(pidx: int) -> void:
+	if rt == null:
+		return
+	rt.focus_target = null
+	rt.focus_enemy = pidx if pidx > RealtimeCombat.PLAYER else RealtimeCombat.ENEMY
+	_update_focus_label()
+
 func _update_focus_label() -> void:
 	if _focus_lbl == null:
 		return
 	var t: CardInstance = rt.focus_target
-	_focus_lbl.text = "Target: %s" % (t.name if t != null else "enemy hero")
+	var hero_name: String = "enemy hero"
+	if rt.enemy_sides().size() > 1:
+		hero_name = "enemy %d" % rt.target_enemy()
+	_focus_lbl.text = "Target: %s" % (t.name if t != null else hero_name)
+
+## Screen position of enemy `pidx`'s hero (its token in real time).
+func hero_screen_pos(pidx: int) -> Vector2:
+	if rt == null or _visuals == null:
+		return _battle._fx.pos_of_hero(true)
+	return _visuals.token_center(pidx)
+
+# ---------------------------------------------------------------------------
+# Adds (TID-551): a second enemy joins the running fight
+# ---------------------------------------------------------------------------
+
+## True when another enemy can join this fight (real time, not over, room left).
+func can_join() -> bool:
+	return rt != null and not _battle._state.is_game_over() \
+			and rt.enemy_sides().size() < RealtimeCombat.MAX_ENEMIES
+
+## A world enemy engaged mid-fight: build its hero + deck like the first enemy
+## (tier-scaled deck, boss HP), add it to the fight and give it a token and a
+## row. Returns false when it can't join.
+func join_enemy(enemy_data: Dictionary) -> bool:
+	if not can_join():
+		return false
+	var etype: String = str(enemy_data.get("enemy_type", "undead_basic"))
+	var is_boss: bool = bool(enemy_data.get("is_boss", false))
+	var tier: int = 4 if is_boss else _EnemyRegistry.get_difficulty_tier(etype)
+	var ps := PlayerState.new(_battle._state.players.size(), true)
+	var deck: Array[String] = []
+	deck.assign(enemy_data.get("enemy_deck", _EnemyRegistry.get_deck(etype)))
+	ps.build_deck(deck, tier)
+	ps.draw_opening_hand(3)
+	var bhp: int = int(enemy_data.get("boss_hp", 0))
+	if is_boss and bhp > 0:
+		ps.hero.health = bhp
+		ps.hero.max_health = bhp
+	var side: int = rt.add_enemy(ps, enemy_level_for_tier(tier))
+	if side < 0:
+		return false
+	rt.unarmed[side] = rt.tune.get_i("enemy_unarmed") + maxi(0, tier - 1)
+	_visuals.add_enemy_view(side, etype, is_boss, card_input_hero(side))
+	_visuals.toast("%s joins the fight!" % etype.capitalize())
+	AudioManager.play_sfx("enemy_engage")
+	_battle._refresh_all()
+	return true
+
+func card_input_hero(side: int) -> Callable:
+	return _battle.card_input._on_enemy_hero_input.bind(side)
+
+## Redraws the joined enemies' rows and hero strips (BattleScene._refresh_all
+## only knows the first enemy's views).
+func refresh_extra_views() -> void:
+	if _visuals == null:
+		return
+	for side: Variant in _visuals.add_rows.keys():
+		var i: int = int(side)
+		var p: PlayerState = _battle._state.players[i]
+		_battle._view.refresh_board_zone(_visuals.add_rows[side] as Node, p.board, "enemy_board")
+		_battle._view.refresh_hero(_visuals.add_hero_views[side] as PanelContainer, p.hero, true, p.hand.size())
+
+## The hero strip for enemy `side` (the scene's for the first enemy).
+func hero_view_for(side: int) -> Control:
+	if _visuals != null and _visuals.add_hero_views.has(side):
+		return _visuals.add_hero_views[side] as Control
+	return _battle._enemy_hero_view
 
 func _process(delta: float) -> void:
 	# Also hold the clock during a commanded Ally attack's lunge (`_action_busy`):
@@ -292,7 +367,10 @@ func _process(delta: float) -> void:
 			"swing":
 				swings.append(ev)
 			"enemy_cast":
-				_after_enemy_play(ev["card"] as CardInstance)
+				_after_enemy_play(ev["card"] as CardInstance, int(ev.get("side", RealtimeCombat.ENEMY)))
+			"enemy_down":
+				if rt.enemy_sides().size() > 1 and not _battle._state.is_game_over():
+					_visuals.toast("An enemy falls — keep fighting!")
 	if not swings.is_empty():
 		AudioManager.play_sfx("attack")
 		_battle._fx.trigger_fx(snap)
@@ -309,18 +387,19 @@ func _process(delta: float) -> void:
 func _animate_swing(ev: Dictionary) -> void:
 	var side: int = int(ev.get("side", 0))
 	var target: CardInstance = ev.get("target") as CardInstance
-	var to: Vector2 = _visuals.target_pos(target, 1 - side)
+	var target_side: int = int(ev.get("target_side", RealtimeCombat.PLAYER if side != RealtimeCombat.PLAYER
+			else RealtimeCombat.ENEMY))
+	var to: Vector2 = _visuals.target_pos(target, target_side)
 	var attacker: CardInstance = ev.get("attacker") as CardInstance
 	if attacker == null:
 		_visuals.lunge_token(side, to)
 		return
-	var panel: Control = _battle._fx.get_card_panel(attacker, side == RealtimeCombat.ENEMY)
+	var panel: Control = _visuals.unit_panel(attacker, side)
 	if panel != null:
 		_battle._fx.animate_attack(panel, to, 1.0)
 
 ## Mirrors the post-action steps of BattleScene._execute_ai_actions.
-func _after_enemy_play(card: CardInstance) -> void:
-	var ai_idx: int = RealtimeCombat.ENEMY
+func _after_enemy_play(card: CardInstance, ai_idx: int = RealtimeCombat.ENEMY) -> void:
 	_battle._resolver.flush_auto_spells(ai_idx)
 	if card.card_class != "spell":
 		_battle._resolver.resolve_emergence(card, ai_idx)

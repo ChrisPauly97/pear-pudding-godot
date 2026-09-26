@@ -1,7 +1,8 @@
-## Real-time battle presentation (GID-135 / TID-546), owned by `BattleRealtime`:
-## hero tokens (a card-sized box with the hero / enemy sprite beside each board)
-## that lunge on auto-attack, per-unit readiness / wind-up bars, unit lunges on
-## enemy swings, and the player / enemy cast bars.
+## Real-time battle presentation (GID-135 / TID-546, adds TID-551), owned by
+## `BattleRealtime`: hero tokens (a box with the hero / enemy sprite, its hero
+## strip, swing bar and — for enemies — cast bar) that lunge on auto-attack,
+## per-unit readiness / wind-up bars, unit lunges on enemy swings, the player
+## cast bar, and a token + diagonal row for each enemy that joins mid-fight.
 ##
 ## Everything is parented under one full-rect Control added to the battle scene
 ## (mouse-transparent), never to a module node.
@@ -23,18 +24,21 @@ const WIND_UP_FROM: float = 0.7
 ## Gap between a hero token and its own front line, as a fraction of card width.
 const ROW_GAP: float = 0.12
 
+## Joined enemies (adds): side -> their board row (HBoxContainer + DiagonalBoard)
+## and hero strip (PanelContainer refreshed by CardViewBuilder).
+var add_rows: Dictionary = {}
+var add_hero_views: Dictionary = {}
 var _battle: _BattleScene
 var _root: Control
-var _tokens: Array[PanelContainer] = [null, null]
-## Token resting positions (global), set by apply_layout.
-var _token_home: Array[Vector2] = [Vector2.ZERO, Vector2.ZERO]
-var _token_bars: Array[ProgressBar] = [null, null]
+## side -> PanelContainer token / Vector2 home (global) / ProgressBar swing bar /
+## {"box", "label", "bar"} enemy cast readout inside the token.
+var _tokens: Dictionary = {}
+var _token_home: Dictionary = {}
+var _token_bars: Dictionary = {}
+var _token_casts: Dictionary = {}
 var _cast_panel: PanelContainer
 var _cast_lbl: Label
 var _cast_bar: ProgressBar
-var _enemy_cast_panel: PanelContainer
-var _enemy_cast_lbl: Label
-var _enemy_cast_bar: ProgressBar
 ## BattleRealtime's cooldown / auto-attack / target box, placed bottom-right.
 var _status_box: Control = null
 
@@ -54,10 +58,6 @@ func build(enemy_type: String, is_boss: bool) -> void:
 	_cast_panel = cast["panel"]
 	_cast_lbl = cast["label"]
 	_cast_bar = cast["bar"]
-	var ecast := _make_cast_panel(ENEMY_BAR_COLOR)
-	_enemy_cast_panel = ecast["panel"]
-	_enemy_cast_lbl = ecast["label"]
-	_enemy_cast_bar = ecast["bar"]
 	_setup_arena()
 	_battle.get_viewport().size_changed.connect(apply_layout)
 	apply_layout.call_deferred()
@@ -95,19 +95,33 @@ func apply_layout() -> void:
 	var arena := Vector2(vp.x, vh - _battle._player_hand_view.get_combined_minimum_size().y - vh * 0.03)
 	var card: Vector2 = _battle._view.card_size()
 	var step := Vector2(card.x * 0.95, card.y * 0.30)
-	for side in range(2):
+	for side: Variant in _tokens.keys():
 		var tok: PanelContainer = _tokens[side]
 		tok.size = tok.get_combined_minimum_size()
-	var lay: Dictionary = arena_layout(arena, card, step,
-			_tokens[RealtimeCombat.PLAYER].size, _tokens[RealtimeCombat.ENEMY].size, vh * 0.015)
+	var p_tok: Vector2 = (_tokens[RealtimeCombat.PLAYER] as PanelContainer).size
+	var e_tok: Vector2 = (_tokens[RealtimeCombat.ENEMY] as PanelContainer).size
+	var margin: float = vh * 0.015
+	var lay: Dictionary = arena_layout(arena, card, step, p_tok, e_tok, margin)
 	_place_board(_battle._enemy_board_view, lay["enemy"], step, arena)
 	_place_board(_battle._player_board_view, lay["player"], step, arena)
 	_token_home[RealtimeCombat.PLAYER] = lay["player_token"]
 	_token_home[RealtimeCombat.ENEMY] = lay["enemy_token"]
-	for side in range(2):
-		if not _tokens[side].has_meta("lunging"):
-			_tokens[side].global_position = _token_home[side]
-	_place_corner_panels(vp, arena, vh * 0.015)
+	# Each add stacks under the previous enemy token (room left for its cast bar),
+	# its front line attached to its left like the first enemy's.
+	var above: Rect2 = Rect2(lay["enemy_token"], e_tok)
+	for side: Variant in add_rows.keys():
+		var tok: PanelContainer = _tokens[side]
+		var home := Vector2(arena.x - tok.size.x - margin, above.end.y + vh * 0.07)
+		_token_home[side] = home
+		var row_origin := Vector2(home.x - card.x * ROW_GAP - card.x - step.x * float(RealtimeCombat.MAX_ENEMY_MINIONS - 1),
+				home.y)
+		_place_board(add_rows[side] as HBoxContainer, row_origin, step, arena)
+		above = Rect2(home, tok.size)
+	for side: Variant in _tokens.keys():
+		var t: PanelContainer = _tokens[side]
+		if not t.has_meta("lunging"):
+			t.global_position = _token_home[side]
+	_place_corner_panels(vp, margin)
 
 ## Pure: tokens in opposite corners (you bottom-left, the enemy top-right) and
 ## each side's front line attached to its own hero — yours just right of your
@@ -126,8 +140,8 @@ static func arena_layout(arena: Vector2, card: Vector2, step: Vector2, p_tok: Ve
 
 ## Utility controls fill the two empty corners, level with a hero each: the
 ## side panel (pause, Effects, battlefield info) top-left beside the enemy's
-## band, your cooldown / auto-attack / target box bottom-right beside yours.
-func _place_corner_panels(vp: Vector2, arena: Vector2, margin: float) -> void:
+## band, your cooldown / auto-attack / target box in the screen's bottom-right corner.
+func _place_corner_panels(vp: Vector2, margin: float) -> void:
 	var side: Control = _battle.get_node_or_null("SidePanel") as Control
 	if side != null:
 		side.set_anchors_preset(Control.PRESET_TOP_LEFT)
@@ -135,7 +149,8 @@ func _place_corner_panels(vp: Vector2, arena: Vector2, margin: float) -> void:
 		side.position = Vector2(margin, margin)
 	if _status_box != null:
 		_status_box.size = _status_box.get_combined_minimum_size()
-		_status_box.position = Vector2(vp.x - _status_box.size.x - margin, arena.y - _status_box.size.y)
+		# Screen bottom-right, beside the hand: clear of enemy tokens even with an add.
+		_status_box.position = Vector2(vp.x - _status_box.size.x - margin, vp.y - _status_box.size.y - margin)
 
 func _place_board(board: HBoxContainer, origin: Vector2, step: Vector2, arena: Vector2) -> void:
 	board.position = Vector2.ZERO
@@ -163,14 +178,26 @@ func _make_token(tex: Texture2D, hero_view: PanelContainer, side: int) -> PanelC
 	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	pic.custom_minimum_size = Vector2(0.0, vh * 0.13)
 	pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if side == RealtimeCombat.ENEMY:
+	if side != RealtimeCombat.PLAYER:
 		pic.flip_h = true
 	vbox.add_child(pic)
 	hero_view.reparent(vbox, false)
 	hero_view.custom_minimum_size = Vector2(0.0, vh * 0.09)
-	var bar := _make_bar(vh * 0.012, ENEMY_BAR_COLOR if side == RealtimeCombat.ENEMY else Color(1.0, 0.75, 0.45))
+	var bar := _make_bar(vh * 0.012, ENEMY_BAR_COLOR if side != RealtimeCombat.PLAYER else Color(1.0, 0.75, 0.45))
 	vbox.add_child(bar)
 	_token_bars[side] = bar
+	if side != RealtimeCombat.PLAYER:
+		# The enemy's cast bar lives in its own token, so several enemies never collide.
+		var cast_box := _UiUtil.make_vbox(0, vbox)
+		cast_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var cl := _UiUtil.make_label("", int(_battle._font(0.018)), Color(1.0, 0.85, 0.6),
+				HORIZONTAL_ALIGNMENT_CENTER, cast_box)
+		cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var cb := _make_bar(vh * 0.016, ENEMY_BAR_COLOR)
+		cast_box.add_child(cb)
+		cast_box.visible = false
+		_token_casts[side] = {"box": cast_box, "label": cl, "bar": cb}
+	_tokens[side] = panel
 	_root.add_child(panel)
 	return panel
 
@@ -202,19 +229,24 @@ func _make_cast_panel(tint: Color) -> Dictionary:
 func update(rt: RealtimeCombat, player_cast: Dictionary) -> void:
 	if _root == null:
 		return
-	for side in range(2):
-		if not _tokens[side].has_meta("lunging"):
-			_tokens[side].global_position = _token_home[side]
-	for side in range(2):
-		_token_bars[side].value = rt.hero_swing_fraction(side)
+	for side: Variant in _tokens.keys():
+		var tok: PanelContainer = _tokens[side]
+		if not tok.has_meta("lunging"):
+			tok.global_position = _token_home.get(side, tok.global_position)
+		(_token_bars[side] as ProgressBar).value = rt.hero_swing_fraction(int(side))
+		# A fallen enemy's token greys out.
+		if int(side) != RealtimeCombat.PLAYER:
+			tok.modulate = Color.WHITE if rt.is_alive(int(side)) else Color(0.45, 0.45, 0.45, 0.8)
+			_update_enemy_cast(rt, int(side))
 	_update_units(rt, RealtimeCombat.PLAYER, _battle._player_board_view)
 	_update_units(rt, RealtimeCombat.ENEMY, _battle._enemy_board_view)
+	for side: Variant in add_rows.keys():
+		_update_units(rt, int(side), add_rows[side] as Control)
 	_update_player_cast(player_cast)
-	_update_enemy_cast(rt)
 
 func token_center(side: int) -> Vector2:
-	var tok: PanelContainer = _tokens[side]
-	return tok.get_global_rect().get_center() if tok != null else _battle._fx.pos_of_hero(side == RealtimeCombat.ENEMY)
+	var tok: PanelContainer = _tokens.get(side) as PanelContainer
+	return tok.get_global_rect().get_center() if tok != null else _battle._fx.pos_of_hero(side != RealtimeCombat.PLAYER)
 
 func _update_units(rt: RealtimeCombat, side: int, board_view: Control) -> void:
 	var board_slots: Array = _battle._state.players[side].board.slots
@@ -272,24 +304,22 @@ func _update_player_cast(cast: Dictionary) -> void:
 	_cast_panel.global_position = Vector2(hand_r.get_center().x - sz.x * 0.5,
 			hand_r.position.y - sz.y - _battle._vh * 0.01)
 
-func _update_enemy_cast(rt: RealtimeCombat) -> void:
-	var c: CardInstance = rt.enemy_casting
-	if c == null:
-		_enemy_cast_panel.visible = false
+func _update_enemy_cast(rt: RealtimeCombat, side: int) -> void:
+	var ui: Dictionary = _token_casts.get(side, {})
+	if ui.is_empty():
 		return
-	_enemy_cast_panel.visible = true
-	var cost: int = _battle._state.players[RealtimeCombat.ENEMY].effective_cost(c)
-	_enemy_cast_lbl.text = "Enemy casts %s  (%d mana)" % [c.name, cost]
-	_enemy_cast_bar.value = clampf(1.0 - rt.enemy_cast_remaining / rt.tune.get_f("enemy_cast"), 0.0, 1.0)
-	# Right under the enemy token, right-aligned with it.
-	var tok_r := Rect2(_token_home[RealtimeCombat.ENEMY], _tokens[RealtimeCombat.ENEMY].size)
-	var sz: Vector2 = _enemy_cast_panel.get_combined_minimum_size()
-	_enemy_cast_panel.size = sz
-	_enemy_cast_panel.global_position = Vector2(tok_r.end.x - sz.x, tok_r.end.y + _battle._vh * 0.01)
+	var c: CardInstance = rt.casting[side] as CardInstance
+	var box: Control = ui["box"]
+	box.visible = c != null
+	if c == null:
+		return
+	var cost: int = _battle._state.players[side].effective_cost(c)
+	(ui["label"] as Label).text = "Casting %s (%d)" % [c.name, cost]
+	(ui["bar"] as ProgressBar).value = clampf(1.0 - rt.cast_remaining[side] / rt.tune.get_f("enemy_cast"), 0.0, 1.0)
 
 ## Lunge a hero token toward `target_pos` and back.
 func lunge_token(side: int, target_pos: Vector2) -> void:
-	var tok: PanelContainer = _tokens[side]
+	var tok: PanelContainer = _tokens.get(side) as PanelContainer
 	if tok == null or tok.has_meta("lunging"):
 		return
 	tok.set_meta("lunging", true)
@@ -307,7 +337,7 @@ func lunge_token(side: int, target_pos: Vector2) -> void:
 ## Screen position of a swing's target: a unit panel, or the target side's token.
 func target_pos(target: CardInstance, target_side: int) -> Vector2:
 	if target != null:
-		var p: Control = _battle._fx.get_card_panel(target, target_side == RealtimeCombat.ENEMY)
+		var p: Control = unit_panel(target, target_side)
 		if p != null:
 			return p.get_global_rect().get_center()
 	return token_center(target_side)
@@ -327,3 +357,32 @@ func toast(text: String) -> void:
 func set_status_box(box: Control) -> void:
 	_status_box = box
 	box.reparent(_root, false)
+
+## The on-screen panel of `card` on `side`'s board (main rows via BattleFx,
+## an add's row by slot), or null.
+func unit_panel(card: CardInstance, side: int) -> Control:
+	if not add_rows.has(side):
+		return _battle._fx.get_card_panel(card, side != RealtimeCombat.PLAYER)
+	var slot: int = _battle._state.players[side].board.slots.find(card)
+	for child in (add_rows[side] as Node).get_children():
+		if child is Control and int((child as Control).get_meta("slot_idx", -1)) == slot:
+			return child as Control
+	return null
+
+## Builds the token, hero strip and diagonal row for an enemy that joined the
+## fight. `hero_input` is bound to the strip so taps target this enemy.
+func add_enemy_view(side: int, enemy_type: String, is_boss: bool, hero_input: Callable) -> void:
+	var hero_view := PanelContainer.new()
+	hero_view.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	hero_view.gui_input.connect(hero_input)
+	_root.add_child(hero_view)
+	add_hero_views[side] = hero_view
+	_make_token(_SpriteRegistry.enemy_texture(enemy_type, false, is_boss), hero_view, side)
+	var row := HBoxContainer.new()
+	row.name = "AddBoardView%d" % side
+	_battle.add_child(row)
+	row.set_script(_DiagonalBoard)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_battle.move_child(_root, -1)
+	add_rows[side] = row
+	apply_layout()

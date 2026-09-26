@@ -317,13 +317,16 @@ func _on_target_chosen_card(target: CardInstance) -> void:
 	if not _battle.realtime.run_cast(spell, finish, target):
 		finish.call()
 
-func _on_target_chosen_hero() -> void:
+## `pidx`: which enemy hero (-1 = the main opponent; a real-time add passes its index).
+func _on_target_chosen_hero(pidx: int = -1) -> void:
 	var spell := _battle._targeting_spell
 	_battle._targeting_active = false
 	_battle._targeting_friendly = false
 	_battle._targeting_spell = null
 	_hide_cancel_btn()
 	var hero_tgt: Dictionary = {"hero": true, "pidx": _battle._opp_idx()} if _battle._team_pvp else {"hero": true}
+	if pidx >= 0:
+		hero_tgt = {"hero": true, "pidx": pidx}
 	if _battle._is_pvp_client():
 		var hi: int = _battle._state.players[_battle._my_idx()].hand.find(spell)
 		if hi != -1 and _battle._state.players[_battle._my_idx()].can_play(spell):
@@ -340,6 +343,8 @@ func _on_target_chosen_hero() -> void:
 			var snap_oth := _battle._fx.snapshot()
 			var resolver_hero_tgt: Dictionary = {"type": "hero",
 					"pidx": _battle._opp_idx()} if _battle._team_pvp else {"type": "hero"}
+			if pidx >= 0:
+				resolver_hero_tgt = {"type": "hero", "pidx": pidx}
 			_battle._resolver.resolve_spell(spell, _battle._my_idx(), resolver_hero_tgt)
 			_battle._fx.trigger_fx(snap_oth)
 		_battle._refresh_all()

@@ -84,7 +84,52 @@ func _run() -> Array[String]:
 	if int(sm.call("current_state")) != _SceneFlow.State.WORLD:
 		fails.append("SceneManager not back in WORLD state")
 	await _check_double_engage(sm, save_manager, fails)
+	await _check_add_joins(sm, save_manager, fails)
 	return fails
+
+## TID-551: a second enemy engaging mid-fight joins it; beating both through the
+## real victory screen returns to the world and marks both defeated.
+func _check_add_joins(sm: Node, save_manager: Object, fails: Array[String]) -> void:
+	var data := {"id": "smoke_main", "enemy_type": "undead_basic", "is_boss": false,
+		"enemy_deck": ["ghost", "ghost", "skeleton", "skeleton", "ghost", "ghost"]}
+	sm.call("_on_enemy_engaged", data.duplicate())
+	await _wait(500)
+	var battle: Node = current_scene
+	if not bool(sm.call("accepts_engage")):
+		fails.append("a real-time fight did not accept an add")
+		return
+	var add := data.duplicate()
+	add["id"] = "smoke_add"
+	sm.call("_on_enemy_engaged", add)
+	await _wait(300)
+	var state: Object = battle.get("_state")
+	var players: Array = state.get("players")
+	if players.size() != 3:
+		fails.append("the add did not join (players=%d)" % players.size())
+		return
+	var rt_mod: Node = battle.get("realtime")
+	var visuals: Object = rt_mod.get("_visuals")
+	var rows: Dictionary = visuals.get("add_rows")
+	if not rows.has(2):
+		fails.append("no row / token built for the add")
+	for i in [1, 2]:
+		var hero: Object = (players[i] as Object).get("hero")
+		hero.set("health", 0)
+	battle.call("_check_game_over")
+	for _i in range(8):
+		await _wait(500)
+		for n: Node in root.find_children("*", "Button", true, false):
+			var b := n as Button
+			if b.is_visible_in_tree() and b.text in ["Continue", "Collect", "Collect All"]:
+				b.pressed.emit()
+		if int(sm.call("current_state")) == _SceneFlow.State.WORLD:
+			break
+	await _wait(400)
+	if int(sm.call("current_state")) != _SceneFlow.State.WORLD or current_scene.get("_camera") == null:
+		fails.append("did not return to the world after beating both enemies")
+	var defeated: Array = save_manager.get("defeated_enemies")
+	if not defeated.has("smoke_main") or not defeated.has("smoke_add"):
+		fails.append("both enemies should be marked defeated (got %s)" % str(defeated))
 
 ## Two enemies engaging back to back with the gambit picker on must give ONE
 ## picker and one battle — never a battle stacked on a battle.

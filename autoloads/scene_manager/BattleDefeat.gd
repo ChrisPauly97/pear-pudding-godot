@@ -34,6 +34,7 @@ func _on_battle_lost() -> void:
 	if _sm.current_state() != State.BATTLE:
 		return
 	_sm._current_battle_enemy_id = ""
+	_sm._joined_enemies.clear()
 	_sm._bump_session_stat("battles_lost", 1)
 	# Downed & rescue in shared co-op dungeons (GID-105 / TID-389): a PvE loss inside
 	# a shared dungeon crawl leaves the player downed/revivable instead of routing to

@@ -87,6 +87,9 @@ var _battle_overlay: Node = null
 ## True while an engaged fight waits on the gambit picker — the world is still
 ## live then, so a second engage must be refused (see accepts_engage).
 var _engage_pending: bool = false
+## Enemies that joined the running real-time fight (TID-551): their engage data,
+## so victory can mark each defeated and pay its rewards.
+var _joined_enemies: Array[Dictionary] = []
 var _overlays: Dictionary = {}  # State -> Node, for WORLD-state overlays
 var _achievements_overlay: Node = null
 var _spire_draft_overlay: _SpireDraftScene = null
@@ -322,6 +325,7 @@ func _maybe_boot_dedicated_server() -> void:
 
 func go_to_menu() -> void:
 	_engage_pending = false  # every exit path resets engage state
+	_joined_enemies.clear()
 	_flush_position_save()
 	# Any active co-op/PvP session ends the moment the player returns to the main
 	# menu — otherwise NetworkManager.is_active() stays stuck true across scene
@@ -578,10 +582,26 @@ static func _is_coop_joint_battle_enemy(enemy_data: Dictionary, current_map_name
 ## second one parked the first battle's overlay as "the world" and the real world
 ## was never restored.)
 func accepts_engage() -> bool:
+	if _state == State.BATTLE:
+		return _battle_accepts_add()
 	return _state == State.WORLD and not _engage_pending and not is_instance_valid(_battle_overlay)
+
+## A real-time fight in the world can take one more enemy (a WoW "add").
+func _battle_accepts_add() -> bool:
+	var battle := _battle_overlay as _BattleScene
+	return battle != null and is_instance_valid(battle) and battle.realtime != null and battle.realtime.can_join()
 
 func _on_enemy_engaged(enemy_data: Dictionary) -> void:
 	if not accepts_engage():
+		return
+	if _state == State.BATTLE:
+		# Mid-fight engage: the enemy joins the running real-time battle.
+		var battle := _battle_overlay as _BattleScene
+		if battle.realtime.join_enemy(enemy_data):
+			_joined_enemies.append(enemy_data.duplicate())
+			var jtype: String = str(enemy_data.get("enemy_type", ""))
+			if jtype != "":
+				save_manager.record_enemy_seen(jtype)
 		return
 	# Co-op Endless Spire boss / Town Siege boss: both are joint battles for the
 	# whole party, not solo fights — WorldScene._on_enemy_engaged_coop routes them
@@ -649,6 +669,7 @@ func _on_enemy_engaged(enemy_data: Dictionary) -> void:
 		_start_battle(captured))
 
 func _start_battle(enemy_data: Dictionary) -> void:
+	_joined_enemies.clear()
 	save_manager.set_pending_battle(enemy_data)
 	save_manager.save()
 	var captured_enemy_data: Dictionary = enemy_data
