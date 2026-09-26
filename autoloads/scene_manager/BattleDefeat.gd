@@ -34,6 +34,7 @@ func _on_battle_lost() -> void:
 	if _sm.current_state() != State.BATTLE:
 		return
 	_sm._current_battle_enemy_id = ""
+	_sm._joined_enemies.clear()
 	_sm._bump_session_stat("battles_lost", 1)
 	# Downed & rescue in shared co-op dungeons (GID-105 / TID-389): a PvE loss inside
 	# a shared dungeon crawl leaves the player downed/revivable instead of routing to
@@ -44,12 +45,9 @@ func _on_battle_lost() -> void:
 		_sm.save_manager.clear_pending_battle_state()
 		_sm._dismiss_battle_overlay()
 		TransitionManager.transition(func() -> void:
-			if _sm._saved_world_scene != null:
-				get_tree().root.add_child(_sm._saved_world_scene)
-				get_tree().current_scene = _sm._saved_world_scene
-				if _sm._saved_world_scene.has_method("enter_downed_state"):
-					_sm._saved_world_scene.call("enter_downed_state")
-				_sm._saved_world_scene = null)
+			var world: Node = _sm.reattach_world()
+			if world != null and world.has_method("enter_downed_state"):
+				world.call("enter_downed_state"))
 		_sm._transition_to(State.WORLD)
 		return
 	# Siege defeat: apply coin penalty, end siege, then show standard game over.
@@ -80,10 +78,7 @@ func _on_battle_lost() -> void:
 	_sm._dismiss_battle_overlay()
 	# Restore world to tree without clearing pending_battle (needed for Retry).
 	TransitionManager.transition(func() -> void:
-		if _sm._saved_world_scene != null:
-			get_tree().root.add_child(_sm._saved_world_scene)
-			get_tree().current_scene = _sm._saved_world_scene
-			_sm._saved_world_scene = null
+		_sm.reattach_world()
 		_show_defeat_overlay())
 	_sm._transition_to(State.GAME_OVER)
 

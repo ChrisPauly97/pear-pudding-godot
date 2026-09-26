@@ -42,6 +42,24 @@ See `docs/agent/combat-model.md` → Real-Time Combat. Battle state is pure (`Ga
 - Mana ×100 (user follow-up): `HeroState.mana_scale` + `gain_mana`/`drain_mana`; `PlayerState.effective_cost` /
   `base_cost` scale; all mana mutation sites (companion, consumables, spells, PvP hero power, attuned) converted;
   continuous 65 pt/s regen; max = 400 + 35/level + 100/bonus unit, cap 1000. 22 unit tests; PvP smoke passes.
+- Playtest round 1 (user): costs shown as their own "N mana" line (blue/green/red) on card faces, inspect overlay
+  and enemy cast banner (fixes a freshly built card showing the unscaled cost); Allies are commanded (ready timer,
+  off-GCD attack via the normal attack path) instead of auto-swinging; slower pace (enemy GCD 3.5 s, cast 1.5 s,
+  minion swing 4.5 s, hero 3 s, regen 50/s, draw 6 s); clock stops under pause/inspect/tutorial popups and during
+  lunges; Turn label hidden, bars labelled. `_can_local_act(ignore_gcd)`. Smoke test covers popup freeze +
+  commanded attack on GCD. 26 unit tests.
+- Playtest round 2 (user): regen 20 pt/s; board caps 3 Allies / 2 enemy minions (`PlayerState.max_units`,
+  empty over-cap slots hidden); enemy minions alternate weakest Ally / hero; both heroes auto-attack (enemy by
+  tier); spell cast times with cast bar (`run_cast` wraps the 4 solo spell paths; GCD is a minimum); enemy cast
+  bar; `RealtimeVisuals.gd`: hero tokens with sprites that lunge on auto-attack, per-unit charge/ready/wind-up
+  bars, enemy unit lunges. Smoke covers cast deferral. 30 unit tests.
+- Playtest round 3 (user): diagonal arena — hero strips moved into the hero tokens (you bottom-left, enemy
+  top-right), board rows re-placed diagonally top-left → bottom-right by `DiagonalBoard.gd` (runtime script on
+  the board HBoxes, sorts after the native BoxContainer pass), divider hidden, hand at the bottom; smoke asserts it.
+- Rows moved close together (user): `row_origins()` places parallel front lines one card height + a thin
+  gap apart, centred; `tests/unit/test_realtime_layout.gd`.
+- Layout round 5 (user): lines attached to their heroes with a wide middle gap (`arena_layout`), arena spans
+  the full width (hand centred), pause/Effects top-left, cooldown/auto-attack/target box bottom-right.
 - **Awaiting user playtest** (Settings > Battle Mode > Real-time). Mark done on approval; tuning notes go to TID-547.
 
 ## Documentation Updates

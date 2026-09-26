@@ -5,6 +5,8 @@ const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const Keywords = preload("res://game_logic/battle/Keywords.gd")
 const SpellEffectLabels = preload("res://game_logic/battle/SpellEffectLabels.gd")
 
+## Mana points per cost unit (100 in real-time battles) — set before present().
+var mana_scale: int = 1
 var _card: CardInstance = null
 # Multiplier from the "text_scale" accessibility setting (GID-119 / TID-451).
 var _ts: float = 1.0
@@ -166,14 +168,15 @@ func _build_face_body(container: VBoxContainer, tmpl: Dictionary, card: CardInst
 	container.add_child(class_lbl)
 
 	# Stats
-	var cost_v: int = int(tmpl.get("cost", 0)) if not tmpl.is_empty() else (card.cost if card != null else 0)
+	var cost_units: int = int(tmpl.get("cost", 0)) if not tmpl.is_empty() else (card.cost if card != null else 0)
+	var cost_v: int = cost_units * mana_scale
 	var atk_v: int = int(tmpl.get("attack", 0)) if not tmpl.is_empty() else (card.attack if card != null else 0)
 	var hp_v: int = int(tmpl.get("health", 0)) if not tmpl.is_empty() else (card.health if card != null else 0)
 	var stats_lbl := Label.new()
 	if cc == "minion":
-		stats_lbl.text = "Cost %d   ·   %d / %d" % [cost_v, atk_v, hp_v]
+		stats_lbl.text = "%d mana   ·   %d / %d" % [cost_v, atk_v, hp_v]
 	else:
-		stats_lbl.text = "Cost %d" % cost_v
+		stats_lbl.text = "%d mana" % cost_v
 	stats_lbl.add_theme_font_size_override("font_size", _font(0.022))
 	stats_lbl.add_theme_color_override("font_color", Color.WHITE)
 	stats_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

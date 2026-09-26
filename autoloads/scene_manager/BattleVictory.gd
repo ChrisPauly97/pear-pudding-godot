@@ -122,6 +122,7 @@ func _on_battle_won(result: Dictionary) -> void:
 	var xp_amount: int = EnemyRegistry.get_xp_reward(enemy_type, is_boss)
 	_sm.save_manager.add_xp(xp_amount)
 	_sm._bump_session_stat("xp_earned", xp_amount)
+	_reward_joined_enemies(gambit_id)
 	# Rival encounter win: don't count as standard kill; update rival progress instead.
 	if is_rival:
 		if enemy_type == "rival_isfig_3":
@@ -173,6 +174,28 @@ func _on_battle_won(result: Dictionary) -> void:
 		_show_chapter2_cliffhanger()
 
 ## Spire floor cleared: no card/coin rewards, save hero HP, show the draft.
+## Enemies that joined the fight mid-way (TID-551) each count as a kill:
+## defeated in the world, bestiary + bounty progress, their own coins and XP.
+func _reward_joined_enemies(gambit_id: String) -> void:
+	for data: Dictionary in _sm._joined_enemies:
+		var jid: String = str(data.get("id", ""))
+		var jtype: String = str(data.get("enemy_type", ""))
+		if jid != "":
+			_sm.save_manager.mark_enemy_defeated(jid)
+		_sm.save_manager.increment_progress("enemies_defeated", 1)
+		_sm._bump_session_stat("enemies_defeated", 1)
+		if jtype == "":
+			continue
+		_sm.save_manager.record_enemy_defeated(jtype)
+		_sm.save_manager.bounties.increment_bounty_progress("defeat_enemy_type", {"enemy_type": jtype})
+		var coins: int = Gambits.apply_reward_multiplier(EnemyRegistry.get_coin_reward(jtype), gambit_id)
+		_sm.save_manager.add_coins(coins)
+		_sm._bump_session_stat("coins_earned", coins)
+		var xp: int = EnemyRegistry.get_xp_reward(jtype, bool(data.get("is_boss", false)))
+		_sm.save_manager.add_xp(xp)
+		_sm._bump_session_stat("xp_earned", xp)
+	_sm._joined_enemies.clear()
+
 func _spire_battle_won(result: Dictionary) -> bool:
 	if not _sm.save_manager.spire.is_spire_active():
 		return false

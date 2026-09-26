@@ -22,6 +22,9 @@ var bonus_draw: int = 0
 var fatigue_counter: int = 0
 var skip_next_draw: bool = false
 var minion_attack_bonus: int = 0
+## Most units this player may have on the board at once (real time caps Allies at
+## 3 and enemy minions at 2 — combat skews toward the hero and spells).
+var max_units: int = ZoneState.SLOT_COUNT
 # Injected by GameState.inject_gamebus_emitter(); call(player_id, damage)
 var gamebus_emitter: Callable = Callable()
 
@@ -152,7 +155,7 @@ func can_play(card: CardInstance) -> bool:
 	var cost: int = effective_cost(card)
 	if card.card_class == "spell":
 		return hero.mana >= cost
-	return hero.mana >= cost and not board.is_full()
+	return hero.mana >= cost and not board.is_full() and board.get_cards().size() < max_units
 
 func play_card(card: CardInstance) -> bool:
 	if not can_play(card):

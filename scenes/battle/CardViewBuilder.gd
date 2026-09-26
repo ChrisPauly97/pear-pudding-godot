@@ -15,6 +15,9 @@ const BattleFx = preload("res://scenes/battle/BattleFx.gd")
 const CardArt = preload("res://scenes/battle/CardArt.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
+const COST_COLOR := Color(0.45, 0.75, 1.0)
+const COST_DISCOUNT_COLOR := Color(0.3, 1.0, 0.5)
+const COST_UNAFFORDABLE_COLOR := Color(1.0, 0.45, 0.45)
 
 # Fixed references — set once at setup
 var _vh: float
@@ -267,10 +270,36 @@ func _apply_slot_enhancement_border(panel: Control, enh: Dictionary) -> void:
 # Card view building
 # -------------------------------------------------------------------------
 
-func format_card_stats(card: CardInstance, cost: int) -> String:
+## Attack/health line for a unit; spells have none (cost lives in CostLabel).
+func format_card_stats(card: CardInstance) -> String:
 	if card.card_class == "spell":
-		return "(%d)" % cost
-	return "%d/%d  (%d)" % [card.attack, card.health, cost]
+		return "Spell"
+	return "%d / %d" % [card.attack, card.health]
+
+## Mana cost as shown on a card face: points in real time (×100), units otherwise.
+static func format_cost(points: int) -> String:
+	return "%d mana" % points
+
+## Cost in mana points for `zone_id` — hand cards include battlefield discounts.
+func _cost_points(card: CardInstance, zone_id: String) -> int:
+	if _state == null:
+		return card.cost
+	var p: PlayerState = _seat_player(0)
+	return p.effective_cost(card) if zone_id == "hand" else p.base_cost(card)
+
+## Text + colour of a card's CostLabel: blue, green when discounted, red when
+## a hand card is not affordable yet (so real-time players see what to wait for).
+func _refresh_cost_label(lbl: Label, card: CardInstance, zone_id: String) -> void:
+	var pts: int = _cost_points(card, zone_id)
+	lbl.text = format_cost(pts)
+	var col: Color = COST_COLOR
+	if zone_id == "hand" and _state != null:
+		var p: PlayerState = _seat_player(0)
+		if pts < p.base_cost(card):
+			col = COST_DISCOUNT_COLOR
+		elif p.hero.mana < pts:
+			col = COST_UNAFFORDABLE_COLOR
+	lbl.add_theme_color_override("font_color", col)
 
 func update_card_view(panel: PanelContainer, card: CardInstance, zone_id: String) -> void:
 	if bool(panel.get_meta("is_card_back", false)):
@@ -296,13 +325,10 @@ func update_card_view(panel: PanelContainer, card: CardInstance, zone_id: String
 		CardArt.apply(vbox, card, _vh)
 		var stats_lbl: Label = vbox.get_node_or_null("StatsLabel") as Label
 		if stats_lbl:
-			var base: int = _seat_player(0).base_cost(card)
-			var eff_cost: int = _seat_player(0).effective_cost(card) if zone_id == "hand" else base
-			stats_lbl.text = format_card_stats(card, eff_cost)
-			if zone_id == "hand" and eff_cost < base:
-				stats_lbl.add_theme_color_override("font_color", Color(0.3, 1.0, 0.5))
-			else:
-				stats_lbl.remove_theme_color_override("font_color")
+			stats_lbl.text = format_card_stats(card)
+		var cost_lbl: Label = vbox.get_node_or_null("CostLabel") as Label
+		if cost_lbl:
+			_refresh_cost_label(cost_lbl, card, zone_id)
 		var desc_lbl: Label = vbox.get_node_or_null("DescLabel") as Label
 		if desc_lbl:
 			var ability_text: String = get_card_ability_text(card)
@@ -346,7 +372,10 @@ func build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBoxC
 	name_lbl.name = "NameLabel"
 	name_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	CardArt.apply(vbox, card, _vh)
-	var stats_lbl := _UiUtil.make_label(format_card_stats(card, card.cost), int(_font(0.022)), Color.WHITE,
+	var cost_lbl := _UiUtil.make_label("", int(_font(0.022)), COST_COLOR, HORIZONTAL_ALIGNMENT_CENTER)
+	cost_lbl.name = "CostLabel"
+	_refresh_cost_label(cost_lbl, card, "")
+	var stats_lbl := _UiUtil.make_label(format_card_stats(card), int(_font(0.020)), Color.WHITE,
 			HORIZONTAL_ALIGNMENT_CENTER)
 	stats_lbl.name = "StatsLabel"
 	var desc_lbl := Label.new()
@@ -364,6 +393,7 @@ func build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBoxC
 	desc_lbl.add_theme_font_size_override("font_size", _font(0.017))
 	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(name_lbl)
+	vbox.add_child(cost_lbl)
 	vbox.add_child(stats_lbl)
 	vbox.add_child(desc_lbl)
 	var kw_row := HBoxContainer.new()

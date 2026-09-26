@@ -272,8 +272,7 @@ func _on_pvp_battle_ended(_did_win: bool) -> void:
 	elif NetworkManager.is_dedicated_server():
 		# Server restores its world scene — no menu to fall back to.
 		if _sm._saved_world_scene != null:
-			get_tree().root.add_child(_sm._saved_world_scene)
-			get_tree().current_scene = _sm._saved_world_scene
+			_sm.reattach_world()
 			_sm._transition_to(State.WORLD)
 	else:
 		# No co-op session / world to return to.

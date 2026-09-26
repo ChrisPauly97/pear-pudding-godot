@@ -57,7 +57,7 @@ func _bind_card_input(panel: PanelContainer, card: CardInstance, zone_id: String
 		# be dropped onto an enemy card panel or the enemy hero view.
 		panel.set_drag_forwarding(
 			func(_pos: Vector2) -> Variant:
-				if not _battle._can_local_act() or not card.can_attack():
+				if not _battle._can_local_act(true) or not card.can_attack():
 					return null
 				return {"attacker": card},
 			func(_pos: Vector2, _data: Variant) -> bool: return false,
@@ -228,22 +228,26 @@ func _cast_confirmed_spell(card: CardInstance) -> void:
 			_battle._send_intent(BattleNetProtocol.encode_play_spell(hi, {}))
 			_battle.tutorials._dismiss_battle_tutorial()
 		return
-	if _battle._do_play_card(card, _battle._my_idx()):
-		AudioManager.play_sfx("card_play")
-		_battle._fx.haptic(20)
-		var snap: Array[Dictionary] = _battle._fx.snapshot()
-		_battle._resolver.resolve_spell(card, _battle._my_idx())
-		_battle._fx.trigger_fx(snap)
-		_battle._refresh_all()
-		_battle._check_game_over()
-		_battle.tutorials._dismiss_battle_tutorial()
+	# Real time: spells show a cast bar and resolve when it completes (TID-546).
+	var finish := func() -> void:
+		if _battle._do_play_card(card, _battle._my_idx()):
+			AudioManager.play_sfx("card_play")
+			_battle._fx.haptic(20)
+			var snap: Array[Dictionary] = _battle._fx.snapshot()
+			_battle._resolver.resolve_spell(card, _battle._my_idx())
+			_battle._fx.trigger_fx(snap)
+			_battle._refresh_all()
+			_battle._check_game_over()
+			_battle.tutorials._dismiss_battle_tutorial()
+	if not _battle.realtime.run_cast(card, finish, null):
+		finish.call()
 
 func _on_board_card_input(event: InputEvent, my_card: CardInstance) -> void:
 	if not (event is InputEventMouseButton):
 		return
 	var mb := event as InputEventMouseButton
 	if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
-		if not _battle._can_local_act() or _inspect_open():
+		if not _battle._can_local_act(true) or _inspect_open():
 			return
 		if _battle._targeting_active and _battle._targeting_friendly:
 			_battle.targeting._on_target_chosen_card(my_card)
@@ -293,12 +297,17 @@ func _on_enemy_card_input(event: InputEvent, target: CardInstance) -> void:
 		return
 	var mb := event as InputEventMouseButton
 	if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
-		# Real-time mode: a plain tap focuses the minion for Ally/hero swings,
-		# even during the global cooldown (targeting a spell still wins).
-		if _battle.realtime.is_active() and not _battle._targeting_active:
+		# Real-time mode: with no Ally selected, a tap sets the hero's auto-attack
+		# focus (even on global cooldown); a selected Ally attacks instead.
+		if _is_realtime_focus_tap():
 			_battle.realtime.set_focus(target)
-		elif _battle._can_local_act():
+		elif _battle._can_local_act(true):
 			_on_enemy_card_tap(target)
+
+## Real time, nothing selected, not aiming a spell: an enemy tap sets focus.
+func _is_realtime_focus_tap() -> bool:
+	return (_battle.realtime.is_active() and not _battle._targeting_active
+			and _battle._dragged_card.is_empty())
 
 func _on_enemy_card_tap(target: CardInstance) -> void:
 	if _battle._targeting_active and not _battle._targeting_friendly:
@@ -310,36 +319,48 @@ func _on_enemy_card_tap(target: CardInstance) -> void:
 	if not attacker.can_attack():
 		_battle._dragged_card.clear()
 		return
-	# Ward: if any enemy minion has Ward, only those are valid targets
-	var opp_board: Array[CardInstance] = _battle._state.players[_battle._opp_idx()].board.get_cards()
+	# Ward: if any enemy minion has Ward, only those are valid targets (on the
+	# target's own board — a real-time fight can have two enemies).
+	var opp_board: Array[CardInstance] = _battle._state.players[_defender_of(target)].board.get_cards()
 	var valid_targets: Array[CardInstance] = _battle._view.get_ward_valid_targets(opp_board)
 	if not valid_targets.has(target):
 		return  # keep attacker selected; player must click a Ward minion
 	_attempt_attack(attacker, target)
 
-func _on_enemy_hero_input(event: InputEvent) -> void:
+## `pidx`: which enemy hero was tapped (-1 = the main opponent; a real-time add
+## binds its own index).
+func _on_enemy_hero_input(event: InputEvent, pidx: int = -1) -> void:
 	if not (event is InputEventMouseButton):
 		return
 	var mb := event as InputEventMouseButton
 	if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
 		if _battle._targeting_active and not _battle._targeting_friendly:
-			_battle.targeting._on_target_chosen_hero()
-		elif _battle.realtime.is_active():
-			_battle.realtime.set_focus(null)  # auto-attacks go back to the enemy hero
-		elif _battle._can_local_act() and not _battle._dragged_card.is_empty():
-			_on_enemy_hero_tap()
+			_battle.targeting._on_target_chosen_hero(pidx)
+		elif _is_realtime_focus_tap():
+			_battle.realtime.set_focus_enemy(pidx)  # hero auto-attack goes at this enemy
+		elif _battle._can_local_act(true) and not _battle._dragged_card.is_empty():
+			_on_enemy_hero_tap(pidx)
 
-func _on_enemy_hero_tap() -> void:
+## Owner index of an enemy target card (the main opponent for a hero / unknown).
+func _defender_of(target: CardInstance) -> int:
+	if target != null:
+		for i in range(_battle._state.players.size()):
+			if i != _battle._my_idx() and _battle._state.players[i].board.get_cards().has(target):
+				return i
+	return _battle._opp_idx()
+
+func _on_enemy_hero_tap(pidx: int = -1) -> void:
 	var attacker: CardInstance = _battle._dragged_card["card"]
 	if not attacker.can_attack():
 		_battle._dragged_card.clear()
 		_battle._refresh_all()
 		return
-	# Ward: cannot attack hero while any Ward minion is alive on enemy board
-	for ec: CardInstance in _battle._state.players[_battle._opp_idx()].board.get_cards():
+	# Ward: cannot attack hero while any Ward minion is alive on that enemy's board
+	var def_idx: int = pidx if pidx >= 0 else _battle._opp_idx()
+	for ec: CardInstance in _battle._state.players[def_idx].board.get_cards():
 		if ec.keywords.has(Keywords.WARD):
 			return  # keep attacker selected; player must target the Ward minion
-	_attempt_attack(attacker, null)
+	_attempt_attack(attacker, null, def_idx)
 
 func _on_empty_slot_input(event: InputEvent, slot_idx: int) -> void:
 	if event is InputEventMouseButton:
@@ -386,9 +407,10 @@ func _on_empty_slot_input(event: InputEvent, slot_idx: int) -> void:
 
 ## Routes a chosen attack: client sends an intent; host/single-player resolves
 ## locally via _execute_attack (which broadcasts through _check_game_over).
-func _attempt_attack(attacker: CardInstance, target: CardInstance) -> void:
+## `defender`: whose hero / board is hit (-1 = the target's owner, else the main opponent).
+func _attempt_attack(attacker: CardInstance, target: CardInstance, defender: int = -1) -> void:
 	# One attack per tap: while a lunge resolves, further taps/drops are ignored.
-	if not _battle._can_local_act() or not attacker.can_attack():
+	if not _battle._can_local_act(true) or not attacker.can_attack():
 		return
 	if _battle._is_pvp_client():
 		var a_slot: int = _battle._state.players[_battle._my_idx()].board.slots.find(attacker)
@@ -401,14 +423,18 @@ func _attempt_attack(attacker: CardInstance, target: CardInstance) -> void:
 			_battle._send_intent(BattleNetProtocol.encode_attack(a_slot, t_slot, target_pidx))
 		_battle._refresh_all()
 		return
-	await _execute_attack(attacker, target)
+	await _execute_attack(attacker, target, defender)
 
 ## Resolves a player minion attack against target (CardInstance) or the enemy hero (null).
 ## Handles damage, counterattack, death removal, FX, and the card_attacked signal.
 ## Async: lunges the attacker into the target before mutating state, with a
 ## brief hit-stop on big/lethal hits, then animates any resulting death(s)
 ## before the board rebuilds (TID-426). All durations respect `_speed_scale`.
-func _execute_attack(attacker: CardInstance, target: CardInstance) -> void:
+func _execute_attack(attacker: CardInstance, target: CardInstance, defender: int = -1) -> void:
+	var def_idx: int = defender if defender >= 0 else _defender_of(target)
+	# Multiplayer host: the next mirror carries this attack so other screens replay it.
+	if _battle.battle_net != null:
+		_battle.battle_net.record_attack_fx(_battle._my_idx(), attacker, def_idx, target)
 	_battle._action_busy = true
 	# Drop the selection highlight immediately so the board reads as resolving.
 	_battle._dragged_card.clear()
@@ -419,7 +445,7 @@ func _execute_attack(attacker: CardInstance, target: CardInstance) -> void:
 	var attacker_dmg: int = BattlefieldRules.modify_damage(attacker.attack, _battle._state.battlefield_biome)
 	var target_panel_pre: Control = _battle._fx.get_card_panel(target, true) if target != null else null
 	var target_pos: Vector2 = (target_panel_pre.get_global_rect().get_center() if target_panel_pre != null
-			else _battle._fx.pos_of_hero(true))
+			else _battle.realtime.hero_screen_pos(def_idx))
 	var is_big_hit: bool = attacker_dmg >= 5 or (target != null and attacker_dmg >= target.health)
 	await _battle._fx.animate_attack(attacker_panel, target_pos, _battle._speed_scale, 0.06 if is_big_hit else 0.0)
 	if target != null:
@@ -432,17 +458,18 @@ func _execute_attack(attacker: CardInstance, target: CardInstance) -> void:
 		_battle._fx.flash_node(attacker_panel, Color(1.0, 0.3, 0.3, 1.0))
 		if not target.is_alive():
 			attacker.battle_kills += 1
-			_battle._state.players[_battle._opp_idx()].board.remove_card(target)
-			_battle._state.players[_battle._opp_idx()].discard.append(target)
+			_battle._state.players[def_idx].board.remove_card(target)
+			_battle._state.players[def_idx].discard.append(target)
 		GameBus.card_attacked.emit(attacker.template_id, target.template_id)
 	else:
 		if _battle._capture_tracker != null:
 			_battle._capture_tracker.note_minion_attacked_hero(0)
-		var hero := _battle._state.players[_battle._opp_idx()].hero
+		_battle.realtime.on_ally_hit_enemy_hero(def_idx)  # real time: interrupts that enemy's cast
+		var hero := _battle._state.players[def_idx].hero
 		hero.take_damage(attacker_dmg)
 		attacker.take_damage(BattlefieldRules.modify_damage(hero.attack, _battle._state.battlefield_biome))
 		attacker.attack_count -= 1
-		_battle._fx.flash_node(_battle._enemy_hero_view, Color(1.0, 0.3, 0.3, 1.0))
+		_battle._fx.flash_node(_battle.realtime.hero_view_for(def_idx), Color(1.0, 0.3, 0.3, 1.0))
 		_battle._fx.flash_node(attacker_panel, Color(1.0, 0.3, 0.3, 1.0))
 		GameBus.card_attacked.emit(attacker.template_id, "hero")
 	if not attacker.is_alive():

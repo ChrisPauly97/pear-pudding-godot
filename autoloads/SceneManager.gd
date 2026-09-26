@@ -54,6 +54,9 @@ const _SESSION_STAT_KEYS: PackedStringArray = [
 
 # Fixed world seeds — one per biome, giving each a distinct world layout.
 const _BIOME_SEEDS: Array[int] = [42, 73856135, 100033, 19349705, 294967337]
+## Camera zoom factor (orthographic size multiplier) for fighting in place.
+const _IN_WORLD_ZOOM: float = 0.6
+const _IN_WORLD_ZOOM_SECONDS: float = 0.35
 
 var map_stack: Array[String] = []
 var door_stack: Array[String] = []
@@ -81,6 +84,12 @@ var _blacksmith_scene_packed := preload("res://scenes/ui/BlacksmithScene.tscn")
 
 var _state: State = State.MENU
 var _battle_overlay: Node = null
+## True while an engaged fight waits on the gambit picker — the world is still
+## live then, so a second engage must be refused (see accepts_engage).
+var _engage_pending: bool = false
+## Enemies that joined the running real-time fight (TID-551): their engage data,
+## so victory can mark each defeated and pay its rewards.
+var _joined_enemies: Array[Dictionary] = []
 var _overlays: Dictionary = {}  # State -> Node, for WORLD-state overlays
 var _achievements_overlay: Node = null
 var _spire_draft_overlay: _SpireDraftScene = null
@@ -230,8 +239,11 @@ func _ensure_modules() -> void:
 ## 'GodotBody3D' were leaked on exit". Free it here with free(), not
 ## queue_free() — no more frames run this late, a queued free never executes.
 func _exit_tree() -> void:
+	# Orphan = no parent. A world fought in place (GID-135) is still parented
+	# to root, and during teardown it can already report !is_inside_tree()
+	# while root is mid-removal — freeing it then crashes; the tree frees it.
 	if _saved_world_scene != null and is_instance_valid(_saved_world_scene) \
-			and not _saved_world_scene.is_inside_tree():
+			and _saved_world_scene.get_parent() == null:
 		_saved_world_scene.free()
 	_saved_world_scene = null
 
@@ -312,6 +324,8 @@ func _maybe_boot_dedicated_server() -> void:
 	enter_map_coop.call_deferred(map_name)
 
 func go_to_menu() -> void:
+	_engage_pending = false  # every exit path resets engage state
+	_joined_enemies.clear()
 	_flush_position_save()
 	# Any active co-op/PvP session ends the moment the player returns to the main
 	# menu — otherwise NetworkManager.is_active() stays stuck true across scene
@@ -562,8 +576,32 @@ static func _is_coop_joint_battle_enemy(enemy_data: Dictionary, current_map_name
 		return true
 	return false
 
+## Whether a world entity may start a fight right now: only from the world, and
+## never while another engage waits on the gambit picker or a battle is up.
+## (Two engages in a row used to open two pickers → two stacked battles → the
+## second one parked the first battle's overlay as "the world" and the real world
+## was never restored.)
+func accepts_engage() -> bool:
+	if _state == State.BATTLE:
+		return _battle_accepts_add()
+	return _state == State.WORLD and not _engage_pending and not is_instance_valid(_battle_overlay)
+
+## A real-time fight in the world can take one more enemy (a WoW "add").
+func _battle_accepts_add() -> bool:
+	var battle := _battle_overlay as _BattleScene
+	return battle != null and is_instance_valid(battle) and battle.realtime != null and battle.realtime.can_join()
+
 func _on_enemy_engaged(enemy_data: Dictionary) -> void:
-	if _state != State.WORLD:
+	if not accepts_engage():
+		return
+	if _state == State.BATTLE:
+		# Mid-fight engage: the enemy joins the running real-time battle.
+		var battle := _battle_overlay as _BattleScene
+		if battle.realtime.join_enemy(enemy_data):
+			_joined_enemies.append(enemy_data.duplicate())
+			var jtype: String = str(enemy_data.get("enemy_type", ""))
+			if jtype != "":
+				save_manager.record_enemy_seen(jtype)
 		return
 	# Co-op Endless Spire boss / Town Siege boss: both are joint battles for the
 	# whole party, not solo fights — WorldScene._on_enemy_engaged_coop routes them
@@ -621,14 +659,17 @@ func _on_enemy_engaged(enemy_data: Dictionary) -> void:
 	layer.layer = 200
 	get_tree().root.add_child(layer)
 	layer.add_child(picker)
+	_engage_pending = true
 	var captured: Dictionary = enemy_data
 	picker.gambit_chosen.connect(func(gambit_id: String) -> void:
+		_engage_pending = false
 		layer.queue_free()
 		if not gambit_id.is_empty():
 			captured["gambit_id"] = gambit_id
 		_start_battle(captured))
 
 func _start_battle(enemy_data: Dictionary) -> void:
+	_joined_enemies.clear()
 	save_manager.set_pending_battle(enemy_data)
 	save_manager.save()
 	var captured_enemy_data: Dictionary = enemy_data
@@ -689,6 +730,15 @@ func _on_duel_lost() -> void:
 ## promotes it to `current_scene`. `networked` fixes the node name, because
 ## BattleNetSync's RPC path is /root/BattleScene/BattleNetSync on every peer.
 func _enter_battle(configure: Callable, networked: bool = false) -> void:
+	# Never stack a battle on a battle: the new one would park the old overlay
+	# as the held "world" and the real world could never be restored.
+	if is_instance_valid(_battle_overlay):
+		push_warning("SceneManager: a battle is already up — ignoring a second battle start")
+		return
+	if _in_world_battle_eligible(networked):
+		_enter_battle_in_world(configure)
+		_transition_to(State.BATTLE)
+		return
 	TransitionManager.transition(func() -> void:
 		var world: Node = get_tree().current_scene
 		if world != null:
@@ -702,6 +752,101 @@ func _enter_battle(configure: Callable, networked: bool = false) -> void:
 		get_tree().current_scene = _battle_overlay, TransitionManager.STYLE_BATTLE)
 	_transition_to(State.BATTLE)
 
+
+## GID-135 / TID-528: with Battle Mode = Real-time, solo battles open over the
+## live world — frozen, HUD hidden, camera pushed in — instead of a screen wipe.
+## Networked battles keep the detach + wipe path.
+func _in_world_battle_eligible(networked: bool) -> bool:
+	if networked or NetworkManager.is_active():
+		return false
+	if not str(save_manager.get_setting("battle_mode", "turn")).begins_with("realtime"):
+		return false
+	var world: Node = get_tree().current_scene
+	return world != null and world.get("_camera") is Camera3D
+
+## True when a solo fight started now would be fought in place — world entities
+## that start one (EnemyNPC, BlightHeart) then stay visible until it ends
+## instead of freeing themselves on engage (see `free_after_battle`).
+func fights_in_world() -> bool:
+	# Already fighting in place: the engage signal can start the battle
+	# synchronously (gambits auto-skipped), so by the time the enemy asks,
+	# current_scene is the battle overlay, not the world.
+	if _saved_world_scene != null and is_instance_valid(_saved_world_scene) and _saved_world_scene.is_inside_tree():
+		return true
+	return _in_world_battle_eligible(false)
+
+## Frees `node` now, or — when the coming battle is fought in place — keeps it
+## standing in the frozen world and frees it once the scene is back in WORLD.
+func free_after_battle(node: Node) -> void:
+	if not fights_in_world():
+		node.queue_free()
+		return
+	var on_change: Callable = func(_from: State, to: State) -> void:
+		if to == State.WORLD and is_instance_valid(node):
+			node.queue_free()
+	state_changed.connect(on_change)
+	node.tree_exiting.connect(func() -> void:
+		if state_changed.is_connected(on_change):
+			state_changed.disconnect(on_change))
+
+func _enter_battle_in_world(configure: Callable) -> void:
+	var world: Node = get_tree().current_scene
+	_saved_world_scene = world
+	_freeze_world(world)
+	_battle_overlay = _battle_scene_packed.instantiate()
+	configure.call(_battle_overlay)
+	_battle_overlay.set("in_world", true)
+	var overlay_ci := _battle_overlay as CanvasItem
+	overlay_ci.modulate.a = 0.0
+	get_tree().root.add_child(_battle_overlay)
+	get_tree().current_scene = _battle_overlay
+	var tw: Tween = create_tween()
+	tw.tween_interval(_IN_WORLD_ZOOM_SECONDS * 0.6)
+	tw.tween_property(overlay_ci, "modulate:a", 1.0, 0.25)
+
+## Stops the world (process, input, physics callbacks), hides its CanvasLayers
+## (HUD, joystick, compass) and pushes the camera in. `_thaw_world` undoes it.
+func _freeze_world(world: Node) -> void:
+	world.process_mode = Node.PROCESS_MODE_DISABLED
+	var hidden: Array[CanvasLayer] = []
+	for n: Node in world.find_children("*", "CanvasLayer", true, false):
+		var layer := n as CanvasLayer
+		if layer.visible:
+			layer.visible = false
+			hidden.append(layer)
+	world.set_meta("battle_hidden_layers", hidden)
+	var cam: Camera3D = world.get("_camera") as Camera3D
+	if cam != null:
+		world.set_meta("battle_cam_size", cam.size)
+		create_tween().tween_property(cam, "size", cam.size * _IN_WORLD_ZOOM, _IN_WORLD_ZOOM_SECONDS) \
+				.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+func _thaw_world(world: Node) -> void:
+	world.process_mode = Node.PROCESS_MODE_INHERIT
+	if world.has_meta("battle_hidden_layers"):
+		for layer: CanvasLayer in (world.get_meta("battle_hidden_layers") as Array[CanvasLayer]):
+			if is_instance_valid(layer):
+				layer.visible = true
+		world.remove_meta("battle_hidden_layers")
+	var cam: Camera3D = world.get("_camera") as Camera3D
+	if cam != null and world.has_meta("battle_cam_size"):
+		create_tween().tween_property(cam, "size", float(world.get_meta("battle_cam_size")), _IN_WORLD_ZOOM_SECONDS) \
+				.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		world.remove_meta("battle_cam_size")
+
+## Makes the world held for a battle the current scene again: re-attaches it
+## (classic detach path) or thaws it (fought in place). Returns it, or null.
+func reattach_world() -> Node:
+	var world: Node = _saved_world_scene
+	if world == null:
+		return null
+	_saved_world_scene = null
+	if world.is_inside_tree():
+		_thaw_world(world)
+	else:
+		get_tree().root.add_child(world)
+	get_tree().current_scene = world
+	return world
 
 ## Frees the battle overlay if one is up. Every battle exit path ends here.
 func _dismiss_battle_overlay() -> void:
@@ -733,11 +878,15 @@ func _restore_world(after: Callable = Callable()) -> void:
 	_proximity_engage_blocked = true
 	get_tree().create_timer(2.0, false).timeout.connect(
 		func() -> void: _proximity_engage_blocked = false)
+	if _saved_world_scene != null and _saved_world_scene.is_inside_tree():
+		# Fought in place: no wipe — thaw and zoom back out.
+		reattach_world()
+		_transition_to(State.WORLD)
+		if after.is_valid():
+			after.call()
+		return
 	TransitionManager.transition(func() -> void:
-		if _saved_world_scene != null:
-			get_tree().root.add_child(_saved_world_scene)
-			get_tree().current_scene = _saved_world_scene
-			_saved_world_scene = null
+		reattach_world()
 		_transition_to(State.WORLD)
 		if after.is_valid():
 			after.call())

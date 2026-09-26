@@ -334,7 +334,7 @@ BattleScene's PvP/co-op surface in `scenes/battle/net/BattleNet.gd`:
 | `CoopPvP.gd` | challenge handshake + timeouts, team duels, referee routing, spectating, wagers, ranked/leaderboard, draft duels, tournaments |
 | `CoopSocial.gd` | emotes, pings, chat, trading/gifting, party stash, auction house |
 
-| `net/BattleNet.gd` | PvP duels, spectating, spectator wagers, co-op PvE joint battle, team duels (back-reference `_battle`) |
+| `net/BattleNet.gd` | PvP duels, spectating, spectator wagers, co-op PvE joint battle, team duels (back-reference `_battle`); attack replay across screens in `net/NetBattleFx.gd` (fx carried in state mirrors) |
 
 Single-player feature clusters use the same shape under `scenes/world/modules/`,
 created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
@@ -369,7 +369,7 @@ the BattleScene script (see "Typed back-references" below):
 | `BattleArena.gd` (`arena`) | Backdrop, battlefield label/banner, slot highlights, co-op ally panels |
 | `BattleTargeting.gd` (`targeting`) | Board drop zone, spell/ally/slot targeting modes, resolving chosen targets |
 | `BattleInput.gd` (`card_input`) | Hand/board/enemy taps, cast confirm, attacks |
-| `BattleRealtime.gd` (`realtime`) | Real-time combat (setting-gated): drives `RealtimeCombat` clock, GCD gate, enemy cast telegraph, focus target |
+| `BattleRealtime.gd` (`realtime`) | Real-time combat (setting-gated): drives `RealtimeCombat` clock, GCD gate, player cast bars (`run_cast`), enemy casts, focus target; presentation in `RealtimeVisuals.gd` (diagonal arena via `DiagonalBoard.gd`, hero tokens holding the hero strips, unit bars, lunges); a second enemy can join mid-fight (`join_enemy`, team battle — TID-551); fixed 3-slot skill bar in `BattleSkillBar.gd` over `game_logic/battle/SkillBar.gd` (TID-550); new-player ramp + first-time tips in `BattleOnboarding.gd` over `game_logic/battle/CombatOnboarding.gd` (TID-552/553); every timing comes from `game_logic/battle/CombatTuning.gd` (edited live by `CombatTuningPanel.gd`, ⚙ Tune / T) — add knobs there, not constants |
 
 Keep `_find_nearby_*` finders on WorldScene even when the spawn moves —
 `test_interact_priority` reads the interaction chains by those names. Likewise
@@ -420,6 +420,9 @@ emits `state_changed`. Read it via `SceneManager.current_state()` /
 `is_in_world()`, never `SceneManager._state`. A new battle kind goes through
 `_enter_battle(configure, networked)` (or `_enter_pvp_battle`). Don't hand-copy
 the world-detach block. `test_scene_flow` enforces all three.
+
+A battle's held world (detached, or frozen in place for real-time solo fights — GID-135) is made current
+again only through `SceneManager.reattach_world()`; never `root.add_child(_saved_world_scene)` by hand.
 
 Battle outcomes and networked battles live in child modules under
 `autoloads/scene_manager/`: `BattleVictory` (`SceneManager.victory`),
@@ -565,6 +568,22 @@ infinite world from its own seed while sharing entity ids (`e_<cx>_<cz>_<i>`). A
 chest or enemy removal then hit an unrelated object. The session owns the seed now,
 and the joiner adopts it with its character. Any deterministic world generation a
 peer runs locally needs every input synced, not just the entity ids.
+
+### Engaged enemy vanished in in-world fights — battle already started mid-signal (claude/wow-inspired-rpg-mechanics-13i2dk)
+`EnemyNPC.engage()` emits `enemy_engaged`, then asks `SceneManager.free_after_battle(self)` whether to stay visible.
+With gambits auto-skipped, SceneManager starts the battle **synchronously inside that emit**, so by the question
+`current_scene` is already the battle overlay and the "is this fight in the world?" check said no. Code after a
+GameBus emit must not assume the world is still current; `fights_in_world()` now also answers true while a world
+is held in place. Tests must call things in the real order (emit → battle start → follow-up).
+
+### Two enemies → two stacked battles → stuck out of the world (claude/wow-inspired-rpg-mechanics-13i2dk)
+With the gambit picker on, an engage leaves SceneManager in WORLD until a gambit is chosen, so a second enemy's
+engage opened a second picker and a second battle. The second `_enter_battle` treated the first battle overlay as
+"the world" and parked it in `_saved_world_scene`; winning both "returned" to a dead overlay and the real world
+stayed frozen. Now `SceneManager.accepts_engage()` gates every engage (WORLD, no pending picker, no battle up),
+`EnemyNPC`/`BlightHeart` re-check it after their alert beat and stand down (stay fightable) if refused, and
+`_enter_battle` refuses to start over an existing battle. Any "pending" UI step between an event and a state
+change needs its own busy flag — the state machine alone doesn't cover the gap.
 
 ### Nocturnal despawn — "modulate:a does not exist" (fixed with automation bridge)
 `Node3D` has no `modulate`. Always resolve to `Sprite3D`/`CanvasItem` child before tweening modulate.

@@ -109,16 +109,34 @@ team duels and resumed mid-battle saves stay turn-based.
 
 | Rule | Value (prototype) |
 |---|---|
-| Player global cooldown (GCD) after any card | 1.5 s |
-| Enemy GCD / cast-bar telegraph before a play | 2.5 s / 1.0 s |
-| Mana | **×100 points** (`MANA_SCALE`, `HeroState.mana_scale`): a 3-cost card costs 300. **Fixed max for the fight** = `400 + 35 × (level − 1) + 100 × hero.bonus_mana` (gear/passive skills), cap 1000 (`max_mana_for`); start full; regen continuously at 65 points/s. Enemy level-equivalent = `1 + (tier − 1) × 3` until zone levels (TID-536). Turn-based fights keep `mana_scale = 1`. |
-| Draw | 1 card every 5 s while hand < 7 (no fatigue from the clock) |
-| Unit auto-attack | every 3 s; a fresh unit waits one full swing (Surge: 0.5 s) |
-| Hero auto-attack (always on) | main hand every 2.5 s for `2 + hero.attack` (unarmed base + weapon/passive bonuses); off hand every 2.0 s for `offhand_damage` when > 0 (off-hand gear slot — TID-545). Enemy heroes swing only with `hero.attack > 0`. Frozen/stunned heroes don't swing. |
-| Auto-attack target | same as units; tap the enemy hero to clear focus. Orange swing bar under the GCD bar. |
-| Targeting | Ward minions first; else the player's **focus** (tap an enemy minion); else the enemy hero |
-| Retaliation | none — hits are one-way; the target answers on its own swing timer |
+| Player global cooldown (GCD) | 1.5 s — a **minimum** between plays; it starts when a cast starts |
+| Player cast time (spells) | `0.4 + 0.35 × cost units` s, max 2.5 s; 0-cost instant; summons instant (GCD only). Cast bar "Casting X (N mana)" above the hand; mana is spent when the cast completes; a unit target that dies mid-cast fizzles the spell (card kept, no mana spent) |
+| Enemy GCD / cast bar | 3.5 s / 1.5 s — an orange "Enemy casts X (N mana)" bar over the enemy board |
+| Mana | **×100 points** (`MANA_SCALE`, `HeroState.mana_scale`): a 3-cost card costs 300. **Fixed max for the fight** = `400 + 35 × (level − 1) + 100 × hero.bonus_mana`, cap 1000 (`max_mana_for`); start full; regen **20 points/s** (one cost unit per 5 s). Enemy level-equivalent = `1 + (tier − 1) × 3`. Turn-based fights keep `mana_scale = 1`. |
+| Draw | 1 card every 6 s while hand < 7 (no fatigue from the clock) |
+| Board caps | **3 Allies**, **2 enemy minions** (`PlayerState.max_units`); empty slots past the cap are hidden |
+| Allies (player units) | **commanded**: ready every 3 s (fresh Ally waits one interval; Surge at once). Tap a ready Ally, then a target — normal attack path (lunge, retaliation), **off the GCD**. Per-card bar: blue charging, green + pulse when ready |
+| Enemy minions | auto-attack every 4.5 s, **alternating** the player's weakest Ally and the hero (Ward Allies first); per-card orange bar; **wind-up** (grow + redden) over the last 30 %; lunge on the hit |
+| Hero auto-attack | both heroes, main hand every 3.0 s for `unarmed[side] + hero.attack` (player 3; enemy 2 + (tier − 1)); off hand every 2.0 s for `offhand_damage` (TID-545). Frozen/stunned heroes don't swing |
+| Arena layout | **Diagonal, full width, centred**: your token bottom-left, the enemy's top-right; each side's slots step top-left → bottom-right and **hug their own hero** — your line just right of your token (bottom-aligned), theirs just left of theirs (top-aligned) — leaving open ground between the lines (`RealtimeVisuals.arena_layout`, `ROW_GAP` = token↔line gap; unit-tested at 16:9 and 20:9: no cross-group overlap, lines attached, ≥ 1 card width apart). `DiagonalBoard.gd` places the slots. The side panel (pause, Effects, battlefield info) moves to the top-left corner and your Cooldown / Auto-attack / Target box to the bottom-right (`_place_corner_panels`); the side mana label is hidden (mana is on your token). Re-laid out on viewport resize |
+| Hero tokens | boxes with the hero / enemy sprite; the scene's **hero strips are reparented into them** (HP bar, mana / hand count — still refreshed by CardViewBuilder and still the enemy-hero tap target), plus a swing bar; they **lunge** at the target on each auto-attack |
+| Auto-attack target | Ward first; else your **focus** (tap an enemy minion with no Ally selected); tap the enemy hero to clear |
+| Clock stops | pause menu, card inspect, first-battle tip, any `TutorialPopup` (group `modal_popup`), and during a commanded attack's lunge (`_action_busy`) |
+| Card cost display | `CostLabel` line on every card face: "N mana" (points), blue / green discounted / red not yet affordable; inspect overlay and cast bars show points too |
 | Speed | Settings > Battle Mode: Turn-based / Real-time / Real-time (slow, 60 %). Battle Speed = Fast runs real time at 125 %. |
+
+### Fighting in place (TID-528)
+
+With Battle Mode = Real-time, solo battles (`SceneManager._in_world_battle_eligible`: not networked, no
+session, current scene has a `_camera`) skip the wipe: `_enter_battle_in_world` keeps the WorldScene in the
+tree but frozen (`process_mode = DISABLED`), hides its CanvasLayers (HUD), pushes the orthographic camera
+in (size × 0.6 over 0.35 s) and fades the battle overlay in with `in_world = true` (BattleScene skips the
+backdrop and dims the Background to 45 %, so the world is the arena). Every exit re-attaches through
+`SceneManager.reattach_world()`, which thaws an in-place world (layers back, camera zooms out) or re-adds a
+detached one; `_restore_world` skips the wipe for an in-place world. The engaged enemy stays standing in the frozen world:
+`EnemyNPC.engage()` / `BlightHeart.engage()` call `SceneManager.free_after_battle(self)`, which frees at once on
+the wipe path, or on the next transition back to WORLD when fighting in place. `_exit_tree` frees the held world only
+when it has **no parent** (an in-place world is freed by the tree). Test: `tests/in_world_battle_smoke.gd` (CI).
 
 ### Prototype (TID-546)
 
@@ -149,7 +167,104 @@ fires only when a whole unit is crossed; the module updates hero/mana labels eve
   per-turn effects, gambit per-turn rules. Needs a periodic "pulse" (e.g. every 6 s) — TID-547.
 - Enemy spells are skipped (the turn-based AI also plays them without an effect); enemy ability cards
   arrive with TID-541. Enemy card choice is "most expensive affordable unit".
-- Player Allies auto-swing only (no manual attack); their `summoning_sick` stays set, which disables the
-  turn-based attack path.
-- No per-unit swing bar yet; the cast bar is the text intent banner. No input queue during GCD (TID-530).
+- No input queue during GCD/cast (TID-530). No interrupts yet. Summons have no cast time.
 - Mid-battle save/resume restores into turn-based mode.
+
+
+## WoW timing model & tuning (TID-549)
+
+WoW runs five independent clocks; only the GCD gates button presses:
+
+| Clock | WoW | Ours |
+|---|---|---|
+| Global cooldown | 1.5 s (haste → 1.0 s floor); potions, interrupts, pet commands are off-GCD; ~0.4 s spell queue | `player_gcd` 1.5 s; Ally commands + potions off-GCD; `spell_queue` 0.4 s (cast queued until the GCD ends) |
+| Cast time | 0–3 s, starts the GCD; pushback when hit; interrupts cancel | `cast_base + cast_per_cost × units` (≤ `cast_max`); `cast_pushback` × up to `pushback_max_hits`; enemy casts interrupted by a commanded Ally hit on the enemy hero |
+| Swing timer | weapon speed (dagger ~1.8 s … 2H ~3.6 s), slow = bigger hits, off hand ~50 % | `WeaponData.swing_speed` (0 = `hero_swing`); damage × speed ÷ `hero_swing`; `offhand_swing` |
+| Ability cooldowns | per ability, 6 s … 2 min | deck cards single-use; skill-card cooldowns → TID-550 |
+| Resource regen | Classic five-second rule | regen pauses `mana_regen_delay` after any spend, then `mana_regen` pts/s |
+
+**Tuning:** every number above (21 knobs) lives in `game_logic/battle/CombatTuning.gd` `DEFS`. `RealtimeCombat`
+reads them each tick; `BattleRealtime` loads overrides from the `combat_tuning` setting. In a real-time fight,
+**⚙ Tune** (top-left, or T) opens `CombatTuningPanel`: grouped − / + rows, clock paused, changes apply at once
+and are saved on the device; Reset all restores defaults. Max-mana knobs apply from the next fight.
+
+
+## Adds — a second enemy joins (TID-551)
+
+An enemy that engages while a real-time in-world fight is running **joins it** instead of being refused
+(`SceneManager.accepts_engage()` → `_battle_accepts_add()` → `BattleRealtime.can_join()`; at most
+`RealtimeCombat.MAX_ENEMIES` = 2 enemy heroes). `join_enemy()` builds its hero like the first enemy (tier-scaled
+deck, boss HP, 3-card hand) and `RealtimeCombat.add_enemy()` turns the state into a **team battle** (teams
+`[0, 1, 1]`), so GameState's win rules end the fight only when every enemy hero is down; a fallen enemy's
+minions flee and its token greys out.
+
+- **Each enemy runs its own clocks** — GCD, cast bar (inside its token), pushback, minion swings, hero swing.
+- **Targeting:** tap an enemy's hero strip to point your auto-attack at it (`focus_enemy`); hero-targeted spells
+  and Ally attacks go at the tapped enemy (`_on_target_chosen_hero(pidx)`, `_execute_attack(…, defender)`);
+  minion targets resolve against their owner (`SpellEffectResolver._explicit_opponent`). Untargeted AoE spells
+  still hit the lowest-HP enemy's side only (`GameState.opponent()`).
+- **Layout:** the add's token stacks under the first enemy's on the right, its row attached to its left.
+- **Victory:** `BattleVictory._reward_joined_enemies` marks each joined enemy defeated and pays its coins/XP,
+  bestiary and bounty progress. Turn-based fights still refuse a second engage.
+
+## Skill bar — fixed abilities (TID-550)
+
+Decided 2026-09-26: a **small** fixed bar, not a full WoW action bar, so the deck stays the main
+engine (draw, hand management, deckbuilding). Bar skills are weaker but always there on their own
+cooldowns; deck spells are stronger and single-use. Think Hearthstone's hero power stretched to three
+buttons.
+
+- **Logic:** `game_logic/battle/SkillBar.gd` — `ABILITIES` table (cost in mana points, cooldown,
+  cast time, effect, `off_gcd`), `SLOTS = 3`, per-slot cooldowns, `blocker()` (reason it can't be
+  used), `apply()` (spends mana, applies the effect). Defaults: **Strike** (3 dmg to the focused
+  minion / targeted enemy hero, instant, 6 s), **Mend** (heal 6, 1.5 s cast, 20 s), **Kick**
+  (interrupt an enemy cast, off the GCD, 12 s).
+- **UI:** `scenes/battle/modules/BattleSkillBar.gd` (`BattleRealtime.skills`) — buttons in the bottom
+  action strip just left of the hand, with a draining shade (own cooldown or the GCD, whichever is
+  longer); Kick pulses while an enemy is casting; keys 1–3. Cast-time abilities go through
+  `BattleRealtime.run_cast(card, finish, null, cast_time)` so they share the GCD, spell queue, cast bar
+  and pushback. Instants start the GCD unless `off_gcd`; nothing fires mid-cast. Mana is spent and the
+  cooldown starts when the ability resolves.
+- **Slots:** `SaveManager.skill_bar` (ability ids; empty = `DEFAULT_BAR`). Trainers (TID-537) fill it.
+- **Tuning:** `skill_cooldown` multiplier knob (Skill bar group).
+- Real time only; turn-based keeps the once-per-battle hero power.
+
+### One-glance layout (2026-09-26)
+
+Everything you act on is in one bottom band: skill strip + hand, with your cast bar above the hand.
+There is no bottom-right readout box any more: the GCD is a sweep on the skill buttons and on the hand
+cards (`RealtimeVisuals.update_hand_sweep`, pooled overlays on the root; full shade while casting), the auto-attack bar lives on your token, and your target gets a gold ring
+(`RealtimeVisuals._update_focus_ring`: focused minion, else the targeted enemy token). Enemy cast bars
+(inside their tokens) are larger, and a ready Kick pulses so you can react without looking up.
+
+## New-player onboarding (TID-552 / TID-553)
+
+**Ramp** — `game_logic/battle/CombatOnboarding.gd`, keyed on `SaveManager.realtime_fights` (counted when a
+real-time fight starts; skipped for level > `MAX_LEVEL` = 2):
+
+| Fight | Bar | Hand / Allies | Clock |
+|---|---|---|---|
+| 1 | Strike | hidden | slow (60 %) |
+| 2 | Strike, Mend | hidden | normal |
+| 3 | Strike, Mend, Kick | hidden | normal |
+| 4+ | full bar | shown | normal |
+
+`scenes/battle/modules/BattleOnboarding.gd` (`BattleRealtime.onboarding`) applies it; the turn-based card tips
+(`tutorial_battle_tip`, tap_and_hold / tap_to_cast) wait until the hand is shown (`realtime.shows_card_tips()`).
+
+**Tips** — `BattleOnboarding.tip(id, target)` emits `GameBus.tutorial_popup_requested` (once ever via the
+`seen_tutorial_<id>` story flag; the popup pauses the clock) and spotlights `target` with a pulsing gold ring for
+3.5 s after the popup closes. Texts in `TutorialRegistry` (`rt_*`):
+
+| Tip | When | Spotlight |
+|---|---|---|
+| `rt_intro` | fight 1 starts | Strike |
+| `rt_skill_mend` / `rt_skill_kick` | the fight that unlocks it | that skill |
+| `rt_cards` | first fight with the hand | hand |
+| `rt_low_hp` | HP ≤ 40 % with Mend on the bar | Mend |
+| `rt_enemy_cast` | an enemy casts with Kick on the bar | Kick |
+| `rt_out_of_mana` | mana below the cheapest skill | your token |
+| `rt_ally` | your first unit on the board | that unit |
+| `rt_add` | a second enemy joins | its token |
+
+Smoke tests that aren't about onboarding set `realtime_fights = 99` and mark the `rt_*` tips seen.

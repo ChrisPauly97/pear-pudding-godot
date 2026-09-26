@@ -50,7 +50,7 @@ const PERSISTED_FIELDS: Dictionary = {
 	"collected_scrolls": [], "settings": {},
 	"achievement_progress": {}, "unlocked_achievements": [],
 	"visited_biomes": [], "visited_dungeon_rooms": [],
-	"xp": 0, "skill_points": 0, "unlocked_skills": [],
+	"xp": 0, "skill_points": 0, "unlocked_skills": [], "skill_bar": [], "realtime_fights": 0,
 	"magic_type": "", "corruption_points": 0, "redemption_points": 0,
 	"spire_run": {"active": false}, "spire_best_floor": 0, "solved_puzzles": [],
 	"world_events": {}, "weather": {"id": "", "duration": 0.0, "biome_id": 0},
@@ -182,6 +182,10 @@ var xp: int = 0
 var level: int = 1
 var skill_points: int = 0
 var unlocked_skills: Array[String] = []
+## Real-time skill bar ability ids (SkillBar.ABILITIES); empty = the default bar (TID-550).
+var skill_bar: Array[String] = []
+## Real-time fights started — drives the new-player control ramp (CombatOnboarding, TID-552).
+var realtime_fights: int = 0
 
 # Magic progression
 ## "light", "dark", or "" (not yet chosen)

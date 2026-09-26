@@ -70,6 +70,9 @@ const _AMBUSH_HP_PCT: float = 0.2
 const _AMBUSH_HP_MIN: int = 10
 
 var enemy_data: Dictionary = {}
+## Set by SceneManager when the battle is fought over the live (frozen) world
+## (GID-135 / TID-528): the backdrop is skipped so the world shows through.
+var in_world: bool = false
 var duel_wager: int = 0
 var puzzle_data: Resource = null  # PuzzleData set by SceneManager before _ready
 
@@ -424,9 +427,13 @@ func _ready() -> void:
 		add_child(banner)
 		banner.setup(_battle_weather)
 
-	# Battlefield backdrop (GID-126) — unconditional: puzzle, scripted and PvP
-	# battles carry no world biome and get the neutral roofed-vault look.
-	arena._setup_backdrop()
+	# Battlefield backdrop (GID-126): puzzle, scripted and PvP battles carry no
+	# world biome and get the neutral roofed-vault look. Fought in place, the
+	# world itself is the backdrop — just dim it.
+	if in_world:
+		($Background as ColorRect).color = Color(0.03, 0.03, 0.06, 0.45)
+	else:
+		arena._setup_backdrop()
 
 	# Battlefield Resonance UI (GID-059)
 	if not _state.puzzle_mode and not _state.scripted_battle:
@@ -436,7 +443,8 @@ func _ready() -> void:
 
 	AudioManager.play_music("res://assets/audio/music/battle.ogg")
 
-	if not _state.scripted_battle:
+	# Real-time onboarding hides the hand at first; its own tips teach the fight.
+	if not _state.scripted_battle and realtime.shows_card_tips():
 		if not SceneManager.save_manager.get_story_flag("tutorial_battle_tip"):
 			tutorials._show_battle_tutorial()
 		# One popup per battle entry: tap_and_hold on the first, tap_to_cast on
@@ -445,7 +453,7 @@ func _ready() -> void:
 			GameBus.tutorial_popup_requested.emit("tap_to_cast")
 		else:
 			GameBus.tutorial_popup_requested.emit("tap_and_hold")
-	else:
+	elif _state.scripted_battle:
 		tutorials._maybe_show_scripted_tutorial_step(_state.player_turn_numbers[0])
 
 
@@ -683,6 +691,7 @@ func _show_card_inspect(card: CardInstance) -> void:
 	if _inspect_overlay != null and is_instance_valid(_inspect_overlay):
 		return
 	var overlay: CardInspectOverlay = CardInspectOverlay.new()
+	overlay.mana_scale = _state.players[_my_idx()].hero.mana_scale
 	overlay.present(self, card, func() -> void: _inspect_overlay = null)
 	_inspect_overlay = overlay
 
@@ -833,6 +842,8 @@ func _refresh_all() -> void:
 		arena._refresh_coop_ally_panels()
 	if _team_pvp:
 		battle_net._refresh_team_panels()
+	if realtime != null:
+		realtime.refresh_extra_views()  # enemies that joined a real-time fight
 
 func _refresh_player_board() -> void:
 	if _local_player_idx < 0:
@@ -1318,12 +1329,13 @@ func _is_pvp_client() -> bool:
 
 ## True when local input is allowed: it's our turn, AI/round-trip not pending,
 ## and we have a local player (not the headless referee, _local_player_idx = -1).
-func _can_local_act() -> bool:
+## `ignore_gcd`: Ally attack commands are off the real-time global cooldown.
+func _can_local_act(ignore_gcd: bool = false) -> bool:
 	if _pvp_spectating:
 		return false  # spectators never act
 	if _local_player_idx < 0:
 		return false  # dedicated-server referee has no local player
-	if _ai_thinking or _action_busy or (realtime != null and realtime.on_cooldown()):
+	if _ai_thinking or _action_busy or (not ignore_gcd and realtime != null and realtime.on_cooldown()):
 		return false  # busy, or on the real-time global cooldown (TID-546)
 	if _state == null:
 		return false
