@@ -138,6 +138,8 @@
 | [GID-132](goals/GID-132--feel-and-finish/goal.md) | Feel & Finish | done | 4 / 4 |
 | [GID-133](goals/GID-133--outlines-and-rain/goal.md) | Sprite Outlines & Rain Detail | done | 4 / 4 |
 | [GID-134](goals/GID-134--world-look-polish/goal.md) | World Look Polish | done | 10 / 10 |
+| [GID-135](goals/GID-135--wow-fluid-combat/goal.md) | WoW-Fluid Card Combat | in-progress | 2 / 12 |
+| [GID-136](goals/GID-136--wow-rpg-loop/goal.md) | WoW-Style RPG Loop | pending | 0 / 9 |
 
 ## Backlog
 
@@ -149,6 +151,7 @@ files in `tasks/archive/backlog/`.
 | [BID-015](backlog/BID-015--no-localization-infrastructure.md) | No localization / translation infrastructure; all UI strings hardcoded — **out of scope for v1** | spec-gap | GID-070 research |
 | [BID-024](backlog/BID-024--coop-map-has-no-enemies-chests.md) | Co-op map (madrian) has no enemies/chests, so GID-096 world sync is dormant in practice (system verified by smoke test) — **being addressed by GID-098** (multi-map co-op story) and **GID-102 / TID-380** (shared procedural dungeon crawl with real enemies/chests) | content-gap | GID-096 |
 | [BID-055](backlog/BID-055--worldscene-god-object.md) | `WorldScene.gd` god-object decomposition, slice 1/3 done (co-op/net cluster folded into `CoopSession.gd`, line-ceiling guardrail added); original 9154/401 census was stale — see file's Progress section for real numbers and slices 2-3 (`_spawn_*`, `_start_*`) | code-smell | GID-123 research |
+| [BID-061](backlog/BID-061--spec-says-no-xp-system.md) | Spec says "No XP system planned" but XP/levels/skill points shipped (GID-030) | spec-gap | Tracked by TID-539 |
 
 ## Resolved Backlog
 

@@ -237,6 +237,7 @@ func _do_play_card_at_slot(card: CardInstance, player_idx: int, slot_idx: int) -
 		ok = _battle._state.players[player_idx].play_card_at_slot(card, slot_idx)
 	if ok:
 		GameBus.card_played.emit(card.template_id, "board", slot_idx)
+		_battle.realtime.note_player_play(player_idx)
 	return ok
 
 func _enter_slot_select_mode(card: CardInstance) -> void:

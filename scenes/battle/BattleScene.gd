@@ -11,8 +11,10 @@ const _BattleTutorials = preload("res://scenes/battle/modules/BattleTutorials.gd
 const _BattleArena = preload("res://scenes/battle/modules/BattleArena.gd")
 const _BattleTargeting = preload("res://scenes/battle/modules/BattleTargeting.gd")
 const _BattleInput = preload("res://scenes/battle/modules/BattleInput.gd")
+const _BattleRealtime = preload("res://scenes/battle/modules/BattleRealtime.gd")
 const ScriptedBattleData = preload("res://game_logic/battle/ScriptedBattleData.gd")
 const BasicAI = preload("res://ai/BasicAI.gd")
+const _BattlePacing = preload("res://game_logic/battle/BattlePacing.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
@@ -86,6 +88,7 @@ var tutorials: _BattleTutorials
 var arena: _BattleArena
 var targeting: _BattleTargeting
 var card_input: _BattleInput
+var realtime: _BattleRealtime
 # Listen-server: client deck relayed in challenge handshake (host builds players[1]).
 var pvp_opponent_deck: Array = []
 # Dedicated-server referee (GID-097 / TID-353): both player decks come from clients.
@@ -304,6 +307,9 @@ func _ensure_battle_modules() -> void:
 	card_input = _BattleInput.new(self)
 	card_input.name = "BattleInput"
 	add_child(card_input)
+	realtime = _BattleRealtime.new(self)
+	realtime.name = "BattleRealtime"
+	add_child(realtime)
 
 func _process(delta: float) -> void:
 	if battle_net != null:
@@ -325,7 +331,7 @@ func _ready() -> void:
 	_view = CardViewBuilder.new()
 	_view.setup(_vh, _fx, card_input._bind_card_input, card_input._on_empty_slot_input, _make_card_view, _text_scale)
 	var _bs: String = str(SceneManager.save_manager.get_setting("battle_speed", "normal"))
-	_speed_scale = 0.45 if _bs == "fast" else 1.0
+	_speed_scale = _BattlePacing.FAST_SPEED_SCALE if _bs == "fast" else 1.0
 	_apply_ui_sizes()
 	_resolver = SpellEffectResolver.new()
 	_pause_ui = BattlePauseUI.new()
@@ -403,6 +409,9 @@ func _ready() -> void:
 	# Catch any hero deaths that occurred during setup (e.g., fatigue on very small
 	# Spire decks, or auto-resolve spells dealing damage before game-over was wired).
 	_check_game_over()
+
+	# GID-135 / TID-546: real-time mode (setting-gated, fresh solo PvE only).
+	realtime.maybe_start(_saved_battle.is_empty())
 
 	# If we resumed a battle mid-AI-turn, restart the AI (deferred so UI is ready).
 	if not _saved_battle.is_empty() and _state.current_player_idx == 1 and not _state.is_game_over():
@@ -527,7 +536,7 @@ func _setup_solo_battle() -> void:
 	_state.players[0].start_turn(1)
 	# Attuned buff (GID-068): +1 mana on turn 1 when engaged on a ley line.
 	if bool(enemy_data.get("player_attuned", false)):
-		_state.players[0].hero.mana = mini(10, _state.players[0].hero.mana + 1)
+		_state.players[0].hero.gain_mana(1, true)
 		GameBus.hud_message_requested.emit("Attuned: +1 mana this turn.")
 	if duel_wager > 0:
 		_state.friendly_duel = true
@@ -592,6 +601,7 @@ func _do_play_card(card: CardInstance, player_idx: int) -> bool:
 		ok = _state.players[player_idx].play_card(card)
 	if ok:
 		GameBus.card_played.emit(card.template_id, "spell", -1)
+		realtime.note_player_play(player_idx)
 	return ok
 
 ## Font size helper: pct of viewport height × the "text_scale" setting.
@@ -1026,7 +1036,7 @@ func _run_ai_turn() -> void:
 	var ai_tier: int = EnemyRegistry.get_difficulty_tier(ai_enemy_type)
 	var actions := BasicAI.decide_turn(_state, ai_persona)
 	_fx.show_intent_banner(BasicAI.describe_turn(_state, ai_persona, ai_tier))
-	await _battle_delay(1.5)
+	await _battle_delay(_BattlePacing.AI_THINK)
 	_execute_ai_actions(actions, 0)
 
 func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
@@ -1037,7 +1047,7 @@ func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 		return
 	if idx >= actions.size():
 		_fx.hide_intent_banner()
-		await _battle_delay(0.5)
+		await _battle_delay(_BattlePacing.AI_TURN_TAIL)
 		_ai_thinking = false
 		_state.end_turn()
 		_refresh_all()
@@ -1066,7 +1076,7 @@ func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 	if _state.is_game_over():
 		_check_game_over()
 		return
-	await _battle_delay(0.6)
+	await _battle_delay(_BattlePacing.AI_ACTION_GAP)
 	_execute_ai_actions(actions, idx + 1)
 
 func _check_boss_phase2() -> void:
@@ -1313,8 +1323,8 @@ func _can_local_act() -> bool:
 		return false  # spectators never act
 	if _local_player_idx < 0:
 		return false  # dedicated-server referee has no local player
-	if _ai_thinking or _action_busy:
-		return false
+	if _ai_thinking or _action_busy or (realtime != null and realtime.on_cooldown()):
+		return false  # busy, or on the real-time global cooldown (TID-546)
 	if _state == null:
 		return false
 	if _is_pvp_client() and _pvp_pending:

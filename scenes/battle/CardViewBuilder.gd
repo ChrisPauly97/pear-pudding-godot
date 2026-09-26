@@ -296,9 +296,10 @@ func update_card_view(panel: PanelContainer, card: CardInstance, zone_id: String
 		CardArt.apply(vbox, card, _vh)
 		var stats_lbl: Label = vbox.get_node_or_null("StatsLabel") as Label
 		if stats_lbl:
-			var eff_cost: int = _seat_player(0).effective_cost(card) if zone_id == "hand" else card.cost
+			var base: int = _seat_player(0).base_cost(card)
+			var eff_cost: int = _seat_player(0).effective_cost(card) if zone_id == "hand" else base
 			stats_lbl.text = format_card_stats(card, eff_cost)
-			if zone_id == "hand" and eff_cost < card.cost:
+			if zone_id == "hand" and eff_cost < base:
 				stats_lbl.add_theme_color_override("font_color", Color(0.3, 1.0, 0.5))
 			else:
 				stats_lbl.remove_theme_color_override("font_color")
@@ -399,7 +400,7 @@ func apply_card_style(panel: PanelContainer, card: CardInstance, zone_id: String
 	style.bg_color = tmpl.get("color", Color(0.3, 0.3, 0.3)) if not tmpl.is_empty() else Color(0.3, 0.3, 0.3)
 	if zone_id == "hand" and not _seat_player(0).can_play(card):
 		style.bg_color = style.bg_color.darkened(0.5)
-	elif zone_id == "hand" and _seat_player(0).effective_cost(card) < card.cost:
+	elif zone_id == "hand" and _seat_player(0).effective_cost(card) < _seat_player(0).base_cost(card):
 		style.border_color = Color(0.3, 1.0, 0.5, 0.8)
 		style.border_width_top = 2
 		style.border_width_bottom = 2

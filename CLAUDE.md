@@ -369,6 +369,7 @@ the BattleScene script (see "Typed back-references" below):
 | `BattleArena.gd` (`arena`) | Backdrop, battlefield label/banner, slot highlights, co-op ally panels |
 | `BattleTargeting.gd` (`targeting`) | Board drop zone, spell/ally/slot targeting modes, resolving chosen targets |
 | `BattleInput.gd` (`card_input`) | Hand/board/enemy taps, cast confirm, attacks |
+| `BattleRealtime.gd` (`realtime`) | Real-time combat (setting-gated): drives `RealtimeCombat` clock, GCD gate, enemy cast telegraph, focus target |
 
 Keep `_find_nearby_*` finders on WorldScene even when the spawn moves —
 `test_interact_priority` reads the interaction chains by those names. Likewise
@@ -608,6 +609,7 @@ Agent-owned feature docs. Each covers Key Features, How It Works, Integrations, 
 |---|---|
 | [docs/agent/docsplan.md](docs/agent/docsplan.md) | Documentation index and architecture overview |
 | [docs/agent/battle-system.md](docs/agent/battle-system.md) | TCG card battles: game state, mana, boards, AI |
+| [docs/agent/combat-model.md](docs/agent/combat-model.md) | Combat model redesign proposal: hero spells, Allies, pack/solo/summoner encounters, quick slots (GID-135) |
 | [docs/agent/world-generation.md](docs/agent/world-generation.md) | Infinite chunks, 5 biomes, ruins, entity spawning |
 | [docs/agent/named-maps-and-dungeons.md](docs/agent/named-maps-and-dungeons.md) | Text map format, DungeonGen, map stack navigation |
 | [docs/agent/terrain-rendering.md](docs/agent/terrain-rendering.md) | TerrainMath mesh building, height fields, shaders, grass |

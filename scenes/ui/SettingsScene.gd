@@ -137,6 +137,14 @@ func _build_ui() -> void:
 			SceneManager.save_manager.set_setting("battle_speed", "fast" if idx == 1 else "normal")
 	)
 
+	# GID-135 / TID-546 prototype: real-time combat (solo PvE only).
+	var modes: Array[String] = ["turn", "realtime", "realtime_slow"]
+	var mode_idx: int = maxi(0, modes.find(str(SceneManager.save_manager.get_setting("battle_mode", "turn"))))
+	_add_option_row(vbox, "Battle Mode", ["Turn-based", "Real-time", "Real-time (slow)"], mode_idx,
+		func(idx: int) -> void:
+			SceneManager.save_manager.set_setting("battle_mode", modes[idx])
+	)
+
 	# — Keybindings (desktop only) —
 	if not (OS.has_feature("mobile") or OS.has_feature("android")):
 		vbox.add_child(_UiUtil.make_separator())

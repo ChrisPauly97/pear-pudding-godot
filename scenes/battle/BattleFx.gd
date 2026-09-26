@@ -1,5 +1,6 @@
 extends RefCounted
 
+const _BattlePacing = preload("res://game_logic/battle/BattlePacing.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const HeroState = preload("res://game_logic/battle/HeroState.gd")
 const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
@@ -378,9 +379,9 @@ func animate_death(panel: Control, speed_scale: float = 1.0) -> Tween:
 	ghost.pivot_offset = ghost.size * 0.5
 	var tw: Tween = ghost.create_tween()
 	tw.set_parallel(true)
-	tw.tween_property(ghost, "scale", Vector2(0.1, 0.1), scaled_duration(0.25, speed_scale))
-	tw.tween_property(ghost, "modulate:a", 0.0, scaled_duration(0.25, speed_scale))
-	tw.tween_property(ghost, "rotation", deg_to_rad(25.0), scaled_duration(0.25, speed_scale))
+	tw.tween_property(ghost, "scale", Vector2(0.1, 0.1), scaled_duration(_BattlePacing.DEATH_ANIM, speed_scale))
+	tw.tween_property(ghost, "modulate:a", 0.0, scaled_duration(_BattlePacing.DEATH_ANIM, speed_scale))
+	tw.tween_property(ghost, "rotation", deg_to_rad(25.0), scaled_duration(_BattlePacing.DEATH_ANIM, speed_scale))
 	tw.finished.connect(func() -> void:
 		if is_instance_valid(ghost):
 			ghost.queue_free())
