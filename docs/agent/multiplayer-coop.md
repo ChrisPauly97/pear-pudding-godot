@@ -1480,6 +1480,59 @@ pattern above exactly.
   a friend's server, if known, already one-tap-rejoins via the existing
   recent-servers list, so the coupling was kept deliberately light per the task scope.
 
+### Shared world seed, clock/weather, reconnect, ping (claude/multiplayer-infinite-world-crash-74il1k)
+
+- **World seed.** The session owns its seed: `_setup_session` writes the host's
+  `save_manager.world_seed` into `SessionState.world_seed` only when the session is
+  brand new (`members` empty), then sets the host's `world_seed` from it.
+  `_send_character_to_peer` adds `world_seed` to the record it sends;
+  `_adopt_session_seed` sets it on the client and, if the current infinite world
+  was built from another seed, reloads the map (`enter_coop_map_no_stack`). Before
+  this, a joiner generated its own infinite world under the same entity ids.
+- **Clock and weather on the infinite world.** `_tick_env_sync` broadcasts there too
+  (no co-op weather roll). `_current_env_payload()` sends `WeatherManager.current_weather`
+  plus the host's biome (`EnvSync` 4th field, `-1` on named maps). A client in the
+  same biome calls `WeatherManager.apply_remote(id, hold)`; one elsewhere keeps its
+  own per-biome roll.
+- **Auto-reconnect (client).** On `server_disconnected` while in the world with no
+  duel resume pending, `NetworkManager` re-joins the last address up to
+  `RECONNECT_ATTEMPTS` (5) times, emitting `reconnecting(attempt, max)`,
+  `reconnected` or `reconnect_failed`. `CoopSession.on_net_reconnected` re-runs
+  `_setup_coop` (its NetworkManager connects are idempotent) with `_rejoining` set,
+  so the host's record is not adopted: the client keeps its newer character and
+  position and pushes them on the next persist tick. `leave()` clears the address.
+- **Ping.** `NetworkManager.get_ping_ms(peer_id)` reads the ENet RTT. The Party
+  roster shows it where it is measurable (host: every client; client: the host) and
+  refreshes every 2 s while open; a client warns at most every 30 s above 250 ms.
+- **Avatar wire form.** `AvatarSync.encode_packed()` is 9 bytes (x, z as float32, a
+  flip/moving/downed flag byte) plus the UTF-8 map name; `decode()` reads it or the
+  legacy Array. `recv_avatar` takes a `Variant`.
+
+### Open-world joint fights
+
+Engaging an ordinary world enemy (registered in `_enemy_nodes`; not siege/Spire
+bosses, mimics, blight hearts or resumed battles) with teammates within
+`CoopSession.JOINT_FIGHT_RADIUS` (12) starts one joint PvE battle for all of them.
+A teammate counts only if on the same map, not downed, and its last avatar packet
+is under 2.5 s old (heartbeats are 1 Hz, so a teammate in a battle or backgrounded
+drops out). The host runs every joint battle, so a client only qualifies when the
+host is among the partners.
+
+Flow: `SceneManager._on_enemy_engaged` asks `WorldScene.wants_joint_engage(edata)`
+(→ `CoopSession.claim_joint_fight`) before its solo path and returns if claimed;
+`_on_enemy_engaged_coop` then calls `CoopActivities.request_joint_fight`. A client
+sends `submit_joint_fight(edata, partners)`; the host ignores a duplicate (enemy
+already removed) and answers `recv_joint_fight_declined` (client fights solo) when
+it is not in the world. `_start_joint_fight` removes the enemy for everyone, tags
+`edata.joint_fight`, and uses `notify_coop_pve_start` / `enter_coop_pve_battle`
+(per-ally card/coin/XP rewards). `WorldScene._joint_fight_eid` marks the fight on
+each participant: the co-op clears leaderboard skips it, and
+`_on_joint_fight_ended` has the host persist the enemy on a win.
+
+Enemies don't chase in a network session (`EnemyNPC._process` returns when
+`NetworkManager.is_active()`), so with a shared seed they stand in the same place
+on every screen; engage removal (`EV_ENEMY_REMOVED`) keeps them consistent.
+
 ## Shared World-Object Sync (GID-096)
 
 Enemies and chests in a co-op session are **authority-owned shared state**. They are

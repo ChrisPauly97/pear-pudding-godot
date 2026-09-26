@@ -558,6 +558,13 @@ errored partway through, leaving no avatars, no session and no story-flag sync. 
 work now runs deferred in `_on_reattached()`. Never touch a child module's tree state
 from a parent's `_enter_tree`.
 
+### Joiner generated a different infinite world (claude/multiplayer-infinite-world-crash-74il1k)
+The host saved its seed into the session but never sent it, so a joiner built the
+infinite world from its own seed while sharing entity ids (`e_<cx>_<cz>_<i>`). A
+chest or enemy removal then hit an unrelated object. The session owns the seed now,
+and the joiner adopts it with its character. Any deterministic world generation a
+peer runs locally needs every input synced, not just the entity ids.
+
 ### Nocturnal despawn — "modulate:a does not exist" (fixed with automation bridge)
 `Node3D` has no `modulate`. Always resolve to `Sprite3D`/`CanvasItem` child before tweening modulate.
 
