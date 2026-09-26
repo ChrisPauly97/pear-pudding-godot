@@ -27,10 +27,7 @@ var rt: RealtimeCombat = null
 ## The fixed ability bar (TID-550); null outside real time.
 var skills: _BattleSkillBar = null
 var _battle: _BattleScene
-var _gcd_bar: ProgressBar = null
-var _swing_bar: ProgressBar = null
-var _focus_lbl: Label = null
-var _status_box: VBoxContainer = null
+var _strip: HBoxContainer = null
 var _visuals: _RealtimeVisuals = null
 ## Player cast in progress: the card, seconds left / total, the deferred
 ## resolution, and an optional unit target that must still be alive.
@@ -74,46 +71,25 @@ func maybe_start(is_fresh: bool) -> void:
 	_build_ui()
 	_visuals = _RealtimeVisuals.new(_battle)
 	_visuals.build(str(_battle.enemy_data.get("enemy_type", "")), bool(_battle.enemy_data.get("is_boss", false)))
-	_visuals.set_status_box(_status_box)
+	_visuals.set_action_strip(_strip)
 	skills = _BattleSkillBar.new(_battle, self, SceneManager.save_manager.skill_bar)
-	skills.build(_status_box)
+	skills.build(_strip)
 	_battle._refresh_all()
 
 func _build_ui() -> void:
 	var vh: float = _battle._vh
 	_battle._end_turn_btn.visible = false
 	_battle._turn_label.visible = false  # no turns in real time
-	# Your combat readouts get their own box; RealtimeVisuals places it bottom-right.
-	var side: VBoxContainer = _UiUtil.make_vbox(int(vh * 0.006), _battle)
-	side.name = "RealtimeStatus"
-	side.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_status_box = side
-	var small: int = int(_battle._font(0.018))
-	_UiUtil.make_label("Cooldown", small, Color(0.75, 0.85, 1.0), HORIZONTAL_ALIGNMENT_CENTER, side)
-	_gcd_bar = ProgressBar.new()
-	_gcd_bar.min_value = 0.0
-	_gcd_bar.max_value = 1.0
-	_gcd_bar.show_percentage = false
-	_gcd_bar.custom_minimum_size = Vector2(vh * 0.16, vh * 0.03)
-	_gcd_bar.tooltip_text = "Global cooldown — full bar = ready to play a card"
-	side.add_child(_gcd_bar)
-	_UiUtil.make_label("Auto-attack", small, Color(1.0, 0.8, 0.55), HORIZONTAL_ALIGNMENT_CENTER, side)
-	_swing_bar = ProgressBar.new()
-	_swing_bar.min_value = 0.0
-	_swing_bar.max_value = 1.0
-	_swing_bar.show_percentage = false
-	_swing_bar.custom_minimum_size = Vector2(vh * 0.16, vh * 0.018)
-	_swing_bar.modulate = Color(1.0, 0.75, 0.45)
-	_swing_bar.tooltip_text = "Auto-attack — your weapon swings when the bar fills"
-	side.add_child(_swing_bar)
-	_focus_lbl = _UiUtil.make_label("Target: enemy hero", int(_battle._font(0.022)), Color(1.0, 0.85, 0.5),
-			HORIZONTAL_ALIGNMENT_CENTER, side)
-	_focus_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# One bottom action strip beside the hand (skill bar); RealtimeVisuals places it.
+	# The GCD shows as a sweep on the skills + dimmed hand, the swing bar is on
+	# your token and the target gets a ring, so there is no separate readout box.
+	_strip = _UiUtil.make_hbox(int(vh * 0.008), _battle)
+	_strip.name = "RealtimeActionStrip"
+	_strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# Combat tuning panel (TID-549): top-left with pause / Effects; T on desktop.
 	var tune_parent: Control = _battle.get_node("SidePanel") as Control
 	_UiUtil.make_button("⚙ Tune", Vector2(vh * 0.14, vh * 0.055), int(_battle._font(0.022)), open_tuning,
 			tune_parent)
-	_focus_lbl.custom_minimum_size = Vector2(vh * 0.26, 0.0)
 
 ## Enemy level-equivalent for mana until zone levels land (TID-536): tier 1 → 1, each tier +3.
 static func enemy_level_for_tier(tier: int) -> int:
@@ -279,7 +255,6 @@ func set_focus(target: CardInstance) -> void:
 	if rt == null:
 		return
 	rt.focus_target = null if (target == null or rt.focus_target == target) else target
-	_update_focus_label()
 
 ## Tap on an enemy hero with no Ally selected: your auto-attack goes at that
 ## enemy (`pidx` -1 = the first enemy).
@@ -288,16 +263,6 @@ func set_focus_enemy(pidx: int) -> void:
 		return
 	rt.focus_target = null
 	rt.focus_enemy = pidx if pidx > RealtimeCombat.PLAYER else RealtimeCombat.ENEMY
-	_update_focus_label()
-
-func _update_focus_label() -> void:
-	if _focus_lbl == null:
-		return
-	var t: CardInstance = rt.focus_target
-	var hero_name: String = "enemy hero"
-	if rt.enemy_sides().size() > 1:
-		hero_name = "enemy %d" % rt.target_enemy()
-	_focus_lbl.text = "Target: %s" % (t.name if t != null else hero_name)
 
 ## Screen position of enemy `pidx`'s hero (its token in real time).
 func hero_screen_pos(pidx: int) -> Vector2:
@@ -375,10 +340,8 @@ func _process(delta: float) -> void:
 		return
 	var snap: Array[Dictionary] = _battle._fx.snapshot()
 	var events: Array[Dictionary] = rt.advance(dt)
-	if _gcd_bar != null:
-		_gcd_bar.value = rt.gcd_fraction(RealtimeCombat.PLAYER)
-	if _swing_bar != null:
-		_swing_bar.value = rt.hero_swing_fraction(RealtimeCombat.PLAYER)
+	# Global cooldown: the hand dims until you can play again.
+	_battle._player_hand_view.modulate = Color(0.72, 0.72, 0.8) if on_cooldown() else Color.WHITE
 	# Mana ticks every frame in points; the labels are cheap to update, the full
 	# board refresh only runs on events (a whole cost unit, swings, casts).
 	_battle._view.refresh_hero(_battle._player_hero_view, _battle._state.players[RealtimeCombat.PLAYER].hero, false)
@@ -402,7 +365,6 @@ func _process(delta: float) -> void:
 		# Death ghosts are built synchronously from the old panels, so the
 		# board can rebuild straight away without awaiting the tween.
 		_battle._animate_deaths_from_snapshot(snap)
-	_update_focus_label()
 	_battle._refresh_all()
 	for ev: Dictionary in swings:
 		_animate_swing(ev)

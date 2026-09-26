@@ -40,7 +40,9 @@ var _cast_panel: PanelContainer
 var _cast_lbl: Label
 var _cast_bar: ProgressBar
 ## BattleRealtime's cooldown / auto-attack / target box, placed bottom-right.
-var _status_box: Control = null
+var _strip: Control = null
+## Ring around your current target (focused minion, else the targeted enemy token).
+var _focus_ring: Panel = null
 
 func _init(battle: _BattleScene) -> void:
 	_battle = battle
@@ -147,10 +149,22 @@ func _place_corner_panels(vp: Vector2, margin: float) -> void:
 		side.set_anchors_preset(Control.PRESET_TOP_LEFT)
 		side.size = side.get_combined_minimum_size()
 		side.position = Vector2(margin, margin)
-	if _status_box != null:
-		_status_box.size = _status_box.get_combined_minimum_size()
-		# Screen bottom-right, beside the hand: clear of enemy tokens even with an add.
-		_status_box.position = Vector2(vp.x - _status_box.size.x - margin, vp.y - _status_box.size.y - margin)
+	_place_strip(vp, margin)
+
+## The action strip sits at the bottom, just left of the hand, so what you press
+## and what you cast from stay in one band.
+func _place_strip(vp: Vector2, margin: float) -> void:
+	if _strip == null:
+		return
+	_strip.size = _strip.get_combined_minimum_size()
+	# The hand row spans the width with its cards centred: hug the leftmost card.
+	var left: float = _battle._player_hand_view.get_global_rect().get_center().x
+	for c: Node in _battle._player_hand_view.get_children():
+		var ctl := c as Control
+		if ctl != null and ctl.visible:
+			left = minf(left, ctl.get_global_rect().position.x)
+	var x: float = maxf(margin, left - _strip.size.x - margin)
+	_strip.position = Vector2(x, vp.y - _strip.size.y - margin)
 
 func _place_board(board: HBoxContainer, origin: Vector2, step: Vector2, arena: Vector2) -> void:
 	board.position = Vector2.ZERO
@@ -190,10 +204,10 @@ func _make_token(tex: Texture2D, hero_view: PanelContainer, side: int) -> PanelC
 		# The enemy's cast bar lives in its own token, so several enemies never collide.
 		var cast_box := _UiUtil.make_vbox(0, vbox)
 		cast_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var cl := _UiUtil.make_label("", int(_battle._font(0.018)), Color(1.0, 0.85, 0.6),
+		var cl := _UiUtil.make_label("", int(_battle._font(0.022)), Color(1.0, 0.85, 0.6),
 				HORIZONTAL_ALIGNMENT_CENTER, cast_box)
 		cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		var cb := _make_bar(vh * 0.016, ENEMY_BAR_COLOR)
+		var cb := _make_bar(vh * 0.026, ENEMY_BAR_COLOR)
 		cast_box.add_child(cb)
 		cast_box.visible = false
 		_token_casts[side] = {"box": cast_box, "label": cl, "bar": cb}
@@ -243,6 +257,28 @@ func update(rt: RealtimeCombat, player_cast: Dictionary) -> void:
 	for side: Variant in add_rows.keys():
 		_update_units(rt, int(side), add_rows[side] as Control)
 	_update_player_cast(player_cast)
+	_place_strip(_battle.get_viewport().get_visible_rect().size, _battle._vh * 0.015)
+	_update_focus_ring(rt)
+
+func _update_focus_ring(rt: RealtimeCombat) -> void:
+	if _focus_ring == null:
+		_focus_ring = Panel.new()
+		_focus_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_focus_ring.add_theme_stylebox_override("panel", _UiUtil.make_style(Color(0, 0, 0, 0), 8,
+				Color(1.0, 0.85, 0.3), 3))
+		_focus_ring.z_index = 15
+		_root.add_child(_focus_ring)
+	var target: Control = null
+	if rt.focus_target != null:
+		target = unit_panel(rt.focus_target, rt.owner_of(rt.focus_target))
+	if target == null:
+		target = _tokens.get(rt.target_enemy()) as Control
+	_focus_ring.visible = target != null and rt.is_alive(rt.target_enemy())
+	if target != null:
+		var pad: float = _battle._vh * 0.008
+		var r: Rect2 = target.get_global_rect().grow(pad)
+		_focus_ring.global_position = r.position
+		_focus_ring.size = r.size
 
 func token_center(side: int) -> Vector2:
 	var tok: PanelContainer = _tokens.get(side) as PanelContainer
@@ -354,8 +390,8 @@ func toast(text: String) -> void:
 	tw.tween_property(lbl, "modulate:a", 0.0, 1.2).set_delay(0.6)
 	tw.finished.connect(lbl.queue_free)
 
-func set_status_box(box: Control) -> void:
-	_status_box = box
+func set_action_strip(box: Control) -> void:
+	_strip = box
 	box.reparent(_root, false)
 
 ## The on-screen panel of `card` on `side`'s board (main rows via BattleFx,

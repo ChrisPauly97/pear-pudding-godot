@@ -219,11 +219,20 @@ buttons.
   used), `apply()` (spends mana, applies the effect). Defaults: **Strike** (3 dmg to the focused
   minion / targeted enemy hero, instant, 6 s), **Mend** (heal 6, 1.5 s cast, 20 s), **Kick**
   (interrupt an enemy cast, off the GCD, 12 s).
-- **UI:** `scenes/battle/modules/BattleSkillBar.gd` (`BattleRealtime.skills`) — buttons at the top of
-  the bottom-right status box with a draining cooldown shade; keys 1–3. Cast-time abilities go through
+- **UI:** `scenes/battle/modules/BattleSkillBar.gd` (`BattleRealtime.skills`) — buttons in the bottom
+  action strip just left of the hand, with a draining shade (own cooldown or the GCD, whichever is
+  longer); Kick pulses while an enemy is casting; keys 1–3. Cast-time abilities go through
   `BattleRealtime.run_cast(card, finish, null, cast_time)` so they share the GCD, spell queue, cast bar
   and pushback. Instants start the GCD unless `off_gcd`; nothing fires mid-cast. Mana is spent and the
   cooldown starts when the ability resolves.
 - **Slots:** `SaveManager.skill_bar` (ability ids; empty = `DEFAULT_BAR`). Trainers (TID-537) fill it.
 - **Tuning:** `skill_cooldown` multiplier knob (Skill bar group).
 - Real time only; turn-based keeps the once-per-battle hero power.
+
+### One-glance layout (2026-09-26)
+
+Everything you act on is in one bottom band: skill strip + hand, with your cast bar above the hand.
+There is no bottom-right readout box any more: the GCD is the sweep on the skill buttons plus a dimmed
+hand, the auto-attack bar lives on your token, and your target gets a gold ring
+(`RealtimeVisuals._update_focus_ring`: focused minion, else the targeted enemy token). Enemy cast bars
+(inside their tokens) are larger, and a ready Kick pulses so you can react without looking up.

@@ -1,10 +1,11 @@
-## Real-time skill bar (GID-135 / TID-550): one button per `SkillBar` slot at
-## the top of the status box (bottom-right), with a cooldown sweep and seconds
-## left; keys 1–3 on desktop. Casts go through `BattleRealtime.run_cast`, so
+## Real-time skill bar (GID-135 / TID-550): one button per `SkillBar` slot in
+## the bottom action strip beside the hand, with a cooldown sweep (its own
+## cooldown or the GCD, whichever is longer) and seconds left; keys 1–3 on
+## desktop. Casts go through `BattleRealtime.run_cast`, so
 ## they share the GCD, spell queue, cast bar and pushback with deck spells.
 ##
-## Owned by `BattleRealtime` (`skills`); parents its widgets under the status
-## box, never a module node.
+## Owned by `BattleRealtime` (`skills`); parents its widgets under the action
+## strip, never a module node.
 extends RefCounted
 
 const _BattleScene = preload("res://scenes/battle/BattleScene.gd")
@@ -28,13 +29,10 @@ func _init(battle: _BattleScene, realtime: _BattleRealtime, saved_bar: Array) ->
 
 func build(parent: Control) -> void:
 	var vh: float = _battle._vh
-	var row := _UiUtil.make_hbox(int(vh * 0.008), parent)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	parent.move_child(row, 0)
 	for i: int in bar.ids.size():
 		var d: Dictionary = bar.def_at(i)
 		var btn := _UiUtil.make_button("", Vector2(vh * 0.1, vh * 0.09), int(_battle._font(0.019)),
-				press.bind(i), row)
+				press.bind(i), parent)
 		btn.tooltip_text = "%s — %d mana, %ds cooldown. %s" % [str(d["name"]), int(d["cost"]),
 			roundi(float(d["cooldown"])), str(d["desc"])]
 		var shade := ColorRect.new()
@@ -57,9 +55,18 @@ func update(dt: float) -> void:
 			label = "%d %s\n%.0fs" % [i + 1, str(d["name"]), ceilf(left)]
 		_buttons[i].text = label
 		# The shade covers the unready part, draining from the top like a sweep.
-		_shades[i].anchor_top = bar.fraction(i)
+		# On-GCD skills also show the global cooldown (WoW's sweep on every button).
+		var frac: float = bar.fraction(i)
+		if not bool(d.get("off_gcd", false)):
+			frac = minf(frac, rt.gcd_fraction(RealtimeCombat.PLAYER))
+		_shades[i].anchor_top = frac
 		var usable: bool = bar.blocker(i, rt) == ""
-		_buttons[i].modulate = Color.WHITE if usable else Color(0.7, 0.7, 0.75)
+		var tint: Color = Color.WHITE if usable else Color(0.7, 0.7, 0.75)
+		# An interrupt that's ready while an enemy casts pulses: react without looking up.
+		if usable and str(d.get("effect", "")) == "interrupt":
+			var pulse: float = 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.012)
+			tint = Color(1.0, 1.0, 1.0).lerp(Color(1.0, 0.55, 0.3), pulse)
+		_buttons[i].modulate = tint
 
 ## Button / key press on `slot`.
 func press(slot: int) -> void:
