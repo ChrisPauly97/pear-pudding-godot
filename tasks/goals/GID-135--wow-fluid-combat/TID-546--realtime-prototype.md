@@ -34,6 +34,9 @@ See `docs/agent/combat-model.md` → Real-Time Combat. Battle state is pure (`Ga
   (`_on_enemy_card_tap` extracted). `SettingsScene.gd`: Battle Mode row (Turn-based / Real-time / Real-time (slow)).
 - Tests: `tests/unit/test_realtime_combat.gd` (11), `tests/realtime_battle_smoke.gd` (added to CI scene smokes).
   Full suite exit 0, 0 SCRIPT ERRORs; coop/world/realtime smokes pass; gdlint + unsafe-hits clean.
+- Always-on hero auto-attack (user follow-up): main hand `2 + hero.attack` every 2.5 s, off hand on its own 2.0 s
+  timer (`offhand_damage`), orange swing bar; tapping the enemy hero clears focus (`BattleInput._on_enemy_hero_tap`
+  extracted). +5 unit tests (16 total).
 - **Awaiting user playtest** (Settings > Battle Mode > Real-time). Mark done on approval; tuning notes go to TID-547.
 
 ## Documentation Updates

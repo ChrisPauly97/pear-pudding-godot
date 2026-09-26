@@ -27,6 +27,12 @@ Option A core (see `docs/agent/combat-model.md`): the hero fights. Weapon auto-a
   mid-battle save (GID-034) too. AI: `ai/BasicAI.gd` must use enemy hero attack when enemy has a weapon (solo shape).
 - Budget test from TID-527 (`BattlePacing`) should still hold.
 
+**Auto-attack (user, 2026-09-26):** "when I'm low on mana I just attack with my main/off hand". The prototype
+already swings main hand (`RealtimeCombat.main_hand_damage`) and supports `offhand_damage[side]`; this task adds a
+**main-hand + off-hand gear slot** (today's slots: weapon/armor/ring/trinket; no weapon actually uses slot
+"weapon" — `berserker_axe` is `passive_atk`), weapon damage + swing speed fields on `WeaponData`, and wires them in
+`BattleModifiers` → `RealtimeCombat`. Save field for the off-hand slot via PERSISTED_FIELDS.
+
 **Real-time update (2026-09-26):** hero auto-attack is a swing timer (`RealtimeCombat.HERO_SWING_INTERVAL`,
 already driven by `hero.attack`) — weapons add `hero_attack` and a swing speed. The 3-mana start is
 `RealtimeCombat.START_MAX_MANA`; the turn-based 3-mana/4-card change applies only to turn-based modes.

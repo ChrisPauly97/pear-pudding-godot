@@ -36,7 +36,14 @@ const DRAW_INTERVAL: float = 5.0
 const HAND_CAP: int = 7
 ## Seconds between a unit's auto-attacks; a fresh unit waits one full swing.
 const SWING_INTERVAL: float = 3.0
+## Hero auto-attack (WoW-style, always on): main hand every HERO_SWING_INTERVAL,
+## off hand on its own OFFHAND_SWING_INTERVAL timer when `offhand_damage` > 0.
+## The player's main hand always deals at least UNARMED_DAMAGE on top of
+## `hero.attack` (weapon/passive bonuses), so an empty mana bar is never idle.
+## Enemy heroes swing only with `hero.attack` > 0 (summoners fight through units).
 const HERO_SWING_INTERVAL: float = 2.5
+const OFFHAND_SWING_INTERVAL: float = 2.0
+const UNARMED_DAMAGE: int = 2
 
 var state: GameState
 ## Seconds of global cooldown left, per side.
@@ -46,12 +53,15 @@ var focus_target: CardInstance = null
 ## Enemy cast in progress (the telegraph): card being cast and time left.
 var enemy_casting: CardInstance = null
 var enemy_cast_remaining: float = 0.0
+## Off-hand weapon damage per side (0 = no off hand). Set from gear (TID-545).
+var offhand_damage: Array[int] = [0, 0]
 
 ## Per-side resource and hero-swing timers.
 var _mana_timer: Array[float] = [0.0, 0.0]
 var _max_mana_timer: Array[float] = [0.0, 0.0]
 var _draw_timer: Array[float] = [0.0, 0.0]
 var _hero_swing: Array[float] = [HERO_SWING_INTERVAL, HERO_SWING_INTERVAL]
+var _offhand_swing: Array[float] = [OFFHAND_SWING_INTERVAL, OFFHAND_SWING_INTERVAL]
 ## instance_id -> seconds until next swing
 var _swing: Dictionary = {}
 
@@ -152,14 +162,37 @@ func _tick_swings(delta: float, events: Array[Dictionary]) -> void:
 			var target: CardInstance = pick_target(side)
 			_resolve_swing(side, c, c.attack, target)
 			events.append({"type": "swing", "side": side, "attacker": c, "target": target})
-		var hero := state.players[side].hero
-		if hero.attack > 0 and hero.is_alive():
-			_hero_swing[side] -= delta
-			if _hero_swing[side] <= 0.0:
-				_hero_swing[side] += HERO_SWING_INTERVAL
-				var ht: CardInstance = pick_target(side)
-				_resolve_swing(side, null, hero.attack, ht)
-				events.append({"type": "swing", "side": side, "attacker": null, "target": ht})
+		_tick_hero(side, delta, events)
+
+## Main-hand damage for `side` (0 = this hero doesn't auto-attack).
+func main_hand_damage(side: int) -> int:
+	var atk: int = state.players[side].hero.attack
+	return atk + UNARMED_DAMAGE if side == PLAYER else atk
+
+## Progress 0..1 of `side`'s main-hand swing (1 = about to swing).
+func hero_swing_fraction(side: int) -> float:
+	return clampf(1.0 - _hero_swing[side] / HERO_SWING_INTERVAL, 0.0, 1.0)
+
+func _tick_hero(side: int, delta: float, events: Array[Dictionary]) -> void:
+	var hero := state.players[side].hero
+	if not hero.is_alive() or hero.has_status("freeze") or hero.has_status("stun"):
+		return
+	var main: int = main_hand_damage(side)
+	if main > 0:
+		_hero_swing[side] -= delta
+		if _hero_swing[side] <= 0.0:
+			_hero_swing[side] += HERO_SWING_INTERVAL
+			_hero_hit(side, main, "main", events)
+	if offhand_damage[side] > 0 and not state.is_game_over():
+		_offhand_swing[side] -= delta
+		if _offhand_swing[side] <= 0.0:
+			_offhand_swing[side] += OFFHAND_SWING_INTERVAL
+			_hero_hit(side, offhand_damage[side], "off", events)
+
+func _hero_hit(side: int, dmg: int, hand: String, events: Array[Dictionary]) -> void:
+	var target: CardInstance = pick_target(side)
+	_resolve_swing(side, null, dmg, target)
+	events.append({"type": "swing", "side": side, "attacker": null, "hand": hand, "target": target})
 
 ## Who `side`'s units hit: a Ward minion must be hit first; otherwise the
 ## player's focus target (player side only); otherwise the enemy hero (null).

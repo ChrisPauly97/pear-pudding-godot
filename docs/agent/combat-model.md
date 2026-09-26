@@ -113,7 +113,8 @@ team duels and resumed mid-battle saves stay turn-based.
 | Mana | start 3/3; +1 current every 1.5 s; +1 max every 6 s, cap 10 |
 | Draw | 1 card every 5 s while hand < 7 (no fatigue from the clock) |
 | Unit auto-attack | every 3 s; a fresh unit waits one full swing (Surge: 0.5 s) |
-| Hero auto-attack | every 2.5 s when `hero.attack > 0` (weapon — TID-545) |
+| Hero auto-attack (always on) | main hand every 2.5 s for `2 + hero.attack` (unarmed base + weapon/passive bonuses); off hand every 2.0 s for `offhand_damage` when > 0 (off-hand gear slot — TID-545). Enemy heroes swing only with `hero.attack > 0`. Frozen/stunned heroes don't swing. |
+| Auto-attack target | same as units; tap the enemy hero to clear focus. Orange swing bar under the GCD bar. |
 | Targeting | Ward minions first; else the player's **focus** (tap an enemy minion); else the enemy hero |
 | Retaliation | none — hits are one-way; the target answers on its own swing timer |
 | Speed | Settings > Battle Mode: Turn-based / Real-time / Real-time (slow, 60 %). Battle Speed = Fast runs real time at 125 %. |

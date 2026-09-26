@@ -45,12 +45,14 @@ func test_mana_regenerates_on_clock() -> void:
 
 func test_max_mana_grows_to_cap() -> void:
 	var rt := _rt()
+	rt.state.players[1].hero.health = 100000  # outlast the auto-attack
 	_run(rt, RealtimeCombat.MAX_MANA_INTERVAL * 20.0)
 	assert_eq(rt.state.players[0].hero.max_mana, RealtimeCombat.MANA_CAP)
 
 func test_draw_on_clock_respects_hand_cap() -> void:
 	var rt := _rt()
 	var p := rt.state.players[0]
+	rt.state.players[1].hero.health = 100000  # outlast the auto-attack
 	for i in range(10):
 		p.draw_deck.append(_card())
 	_run(rt, RealtimeCombat.DRAW_INTERVAL)
@@ -73,17 +75,19 @@ func test_ally_swings_enemy_hero_without_retaliation() -> void:
 	rt.state.players[1].hero.attack = 0
 	var hp_before: int = rt.state.players[1].hero.health
 	_run(rt, RealtimeCombat.SWING_INTERVAL)
-	assert_eq(rt.state.players[1].hero.health, hp_before - 2, "fresh ally swings after one interval")
+	# One ally swing (2) + one main-hand hero swing (2.5 s) inside the window.
+	assert_eq(rt.state.players[1].hero.health, hp_before - 2 - rt.main_hand_damage(0),
+		"fresh ally swings after one interval")
 	assert_eq(ally.health, 3, "no retaliation in real time")
 
 func test_ward_is_hit_first() -> void:
 	var rt := _rt()
 	rt.state.players[0].board.add_card(_card(2, 3))
-	var warden := _card(0, 5, 1, ["ward"])
+	var warden := _card(0, 9, 1, ["ward"])
 	rt.state.players[1].board.add_card(warden)
 	var hero_hp: int = rt.state.players[1].hero.health
 	_run(rt, RealtimeCombat.SWING_INTERVAL)
-	assert_eq(warden.health, 3)
+	assert_eq(warden.health, 9 - 2 - rt.main_hand_damage(0), "ally and hero auto-attack both hit the Ward")
 	assert_eq(rt.state.players[1].hero.health, hero_hp)
 
 func test_focus_target_is_hit_and_cleared_on_death() -> void:
@@ -124,3 +128,39 @@ func test_eligibility() -> void:
 	assert_false(_BattleRealtime.eligible("realtime", true, true, false, false), "networked stays turn-based")
 	assert_false(_BattleRealtime.eligible("realtime", true, false, true, false))
 	assert_false(_BattleRealtime.eligible("realtime", true, false, false, true))
+
+func test_player_auto_attacks_with_no_mana_or_units() -> void:
+	var rt := _rt()
+	rt.state.players[0].hero.mana = 0
+	var hp: int = rt.state.players[1].hero.health
+	_run(rt, RealtimeCombat.HERO_SWING_INTERVAL)
+	assert_eq(rt.state.players[1].hero.health, hp - RealtimeCombat.UNARMED_DAMAGE)
+
+func test_weapon_attack_adds_to_main_hand() -> void:
+	var rt := _rt()
+	rt.state.players[0].hero.attack = 3
+	assert_eq(rt.main_hand_damage(0), 3 + RealtimeCombat.UNARMED_DAMAGE)
+
+func test_offhand_swings_on_its_own_timer() -> void:
+	var rt := _rt()
+	rt.offhand_damage[0] = 1
+	var hands: Array[String] = []
+	for e: Dictionary in _run(rt, RealtimeCombat.HERO_SWING_INTERVAL):
+		if str(e.get("type", "")) == "swing" and e.get("attacker") == null and int(e.get("side", -1)) == 0:
+			hands.append(str(e.get("hand", "")))
+	assert_true(hands.has("off"), "off hand swung")
+	assert_true(hands.has("main"), "main hand swung")
+
+func test_enemy_hero_without_attack_does_not_swing() -> void:
+	var rt := _rt()
+	rt.state.players[1].hero.attack = 0
+	var hp: int = rt.state.players[0].hero.health
+	_run(rt, RealtimeCombat.HERO_SWING_INTERVAL * 3.0)
+	assert_eq(rt.state.players[0].hero.health, hp)
+
+func test_frozen_hero_does_not_swing() -> void:
+	var rt := _rt()
+	rt.state.players[0].hero.status_effects["freeze"] = 1
+	var hp: int = rt.state.players[1].hero.health
+	_run(rt, RealtimeCombat.HERO_SWING_INTERVAL)
+	assert_eq(rt.state.players[1].hero.health, hp)

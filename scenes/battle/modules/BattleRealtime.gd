@@ -16,6 +16,7 @@ const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 var rt: RealtimeCombat = null
 var _battle: _BattleScene
 var _gcd_bar: ProgressBar = null
+var _swing_bar: ProgressBar = null
 var _focus_lbl: Label = null
 
 func _init(battle: _BattleScene) -> void:
@@ -48,6 +49,14 @@ func _build_ui() -> void:
 	_gcd_bar.custom_minimum_size = Vector2(vh * 0.16, vh * 0.03)
 	_gcd_bar.tooltip_text = "Global cooldown — full bar = ready to play a card"
 	side.add_child(_gcd_bar)
+	_swing_bar = ProgressBar.new()
+	_swing_bar.min_value = 0.0
+	_swing_bar.max_value = 1.0
+	_swing_bar.show_percentage = false
+	_swing_bar.custom_minimum_size = Vector2(vh * 0.16, vh * 0.018)
+	_swing_bar.modulate = Color(1.0, 0.75, 0.45)
+	_swing_bar.tooltip_text = "Auto-attack — your weapon swings when the bar fills"
+	side.add_child(_swing_bar)
 	_focus_lbl = _UiUtil.make_label("Target: enemy hero", int(_battle._font(0.022)), Color(1.0, 0.85, 0.5),
 			HORIZONTAL_ALIGNMENT_CENTER, side)
 	_focus_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -62,11 +71,12 @@ func note_player_play(player_idx: int) -> void:
 	if rt != null and player_idx == RealtimeCombat.PLAYER:
 		rt.start_gcd(RealtimeCombat.PLAYER)
 
-## Tap on an enemy minion (when not targeting a spell): focus it for Ally and hero swings.
+## Tap on an enemy minion (when not targeting a spell): focus it for Ally and hero
+## swings; tapping it again, or tapping the enemy hero (null), goes back to the hero.
 func set_focus(target: CardInstance) -> void:
 	if rt == null:
 		return
-	rt.focus_target = null if rt.focus_target == target else target
+	rt.focus_target = null if (target == null or rt.focus_target == target) else target
 	_update_focus_label()
 
 func _update_focus_label() -> void:
@@ -82,6 +92,8 @@ func _process(delta: float) -> void:
 	var events: Array[Dictionary] = rt.advance(delta * _speed_factor())
 	if _gcd_bar != null:
 		_gcd_bar.value = rt.gcd_fraction(RealtimeCombat.PLAYER)
+	if _swing_bar != null:
+		_swing_bar.value = rt.hero_swing_fraction(RealtimeCombat.PLAYER)
 	if events.is_empty():
 		return
 	var swung: bool = false

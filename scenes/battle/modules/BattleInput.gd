@@ -324,21 +324,22 @@ func _on_enemy_hero_input(event: InputEvent) -> void:
 	if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
 		if _battle._targeting_active and not _battle._targeting_friendly:
 			_battle.targeting._on_target_chosen_hero()
-			return
-		if not _battle._can_local_act():
-			return
-		if _battle._dragged_card.is_empty():
-			return
-		var attacker: CardInstance = _battle._dragged_card["card"]
-		if not attacker.can_attack():
-			_battle._dragged_card.clear()
-			_battle._refresh_all()
-			return
-		# Ward: cannot attack hero while any Ward minion is alive on enemy board
-		for ec: CardInstance in _battle._state.players[_battle._opp_idx()].board.get_cards():
-			if ec.keywords.has(Keywords.WARD):
-				return  # keep attacker selected; player must target the Ward minion
-		_attempt_attack(attacker, null)
+		elif _battle.realtime.is_active():
+			_battle.realtime.set_focus(null)  # auto-attacks go back to the enemy hero
+		elif _battle._can_local_act() and not _battle._dragged_card.is_empty():
+			_on_enemy_hero_tap()
+
+func _on_enemy_hero_tap() -> void:
+	var attacker: CardInstance = _battle._dragged_card["card"]
+	if not attacker.can_attack():
+		_battle._dragged_card.clear()
+		_battle._refresh_all()
+		return
+	# Ward: cannot attack hero while any Ward minion is alive on enemy board
+	for ec: CardInstance in _battle._state.players[_battle._opp_idx()].board.get_cards():
+		if ec.keywords.has(Keywords.WARD):
+			return  # keep attacker selected; player must target the Ward minion
+	_attempt_attack(attacker, null)
 
 func _on_empty_slot_input(event: InputEvent, slot_idx: int) -> void:
 	if event is InputEventMouseButton:
