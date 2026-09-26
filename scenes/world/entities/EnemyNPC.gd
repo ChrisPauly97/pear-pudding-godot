@@ -163,7 +163,8 @@ func engage() -> void:
 	edata["phase2_deck"] = EnemyRegistry.get_phase2_deck(etype)
 	AudioManager.play_sfx("enemy_engage")
 	GameBus.enemy_engaged.emit(edata)
-	queue_free()
+	# Fought in place, the enemy stays on screen until the battle ends (GID-135).
+	SceneManager.free_after_battle(self)
 
 func _show_alert() -> void:
 	if _sprite != null:

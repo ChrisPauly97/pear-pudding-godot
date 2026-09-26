@@ -45,6 +45,10 @@ func _run() -> Array[String]:
 	var hud: CanvasLayer = ws.get_node_or_null("HUD") as CanvasLayer
 	var cam_size: float = cam.size
 
+	# Stand-in for the engaged EnemyNPC: it must stay visible during the fight.
+	var enemy := Node3D.new()
+	ws.add_child(enemy)
+	sm.call("free_after_battle", enemy)
 	sm.call("_start_battle", {"enemy_type": "undead_basic", "is_boss": false,
 		"enemy_deck": ["ghost", "ghost", "skeleton", "skeleton", "ghost", "ghost"]})
 	await _wait(600)
@@ -57,6 +61,8 @@ func _run() -> Array[String]:
 		fails.append("battle overlay is not the in-world current scene")
 	if hud != null and hud.visible:
 		fails.append("world HUD still visible over the battle")
+	if not is_instance_valid(enemy):
+		fails.append("engaged enemy vanished when the in-world battle started")
 	if not (cam.size < cam_size * 0.9):
 		fails.append("camera did not push in (%.2f -> %.2f)" % [cam_size, cam.size])
 
@@ -71,6 +77,8 @@ func _run() -> Array[String]:
 		fails.append("world HUD not restored")
 	if absf(cam.size - cam_size) > 0.01:
 		fails.append("camera did not zoom back out (%.2f vs %.2f)" % [cam.size, cam_size])
+	if is_instance_valid(enemy) and not enemy.is_queued_for_deletion():
+		fails.append("engaged enemy not removed after the battle")
 	if int(sm.call("current_state")) != _SceneFlow.State.WORLD:
 		fails.append("SceneManager not back in WORLD state")
 	return fails

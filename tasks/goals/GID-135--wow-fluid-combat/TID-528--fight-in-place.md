@@ -41,6 +41,9 @@ route every exit through one `reattach_world()` helper.
   `reattach_world()`; `_restore_world` skips the wipe for an in-place world; `_exit_tree` orphan check is now
   "no parent" (freeing a still-parented world during teardown segfaulted).
 - `BattleDefeat` (2 sites) and `NetBattles` (1) use `reattach_world()`.
+- Follow-up (user: "the enemy disappeared when the battle started"): `SceneManager.fights_in_world()` /
+  `free_after_battle(node)`; EnemyNPC and BlightHeart keep standing during an in-world fight and are freed when
+  the scene returns to WORLD. Smoke asserts both.
 - `BattleScene.in_world`: skips the arena backdrop and dims the Background so the world shows through.
 - `tests/in_world_battle_smoke.gd` (in CI): world stays in tree + frozen, HUD hidden, camera pushed in; after
   the battle it is current, thawed, HUD back, camera restored, state WORLD. Verified in an xvfb capture.

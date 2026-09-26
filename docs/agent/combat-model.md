@@ -133,7 +133,9 @@ tree but frozen (`process_mode = DISABLED`), hides its CanvasLayers (HUD), pushe
 in (size × 0.6 over 0.35 s) and fades the battle overlay in with `in_world = true` (BattleScene skips the
 backdrop and dims the Background to 45 %, so the world is the arena). Every exit re-attaches through
 `SceneManager.reattach_world()`, which thaws an in-place world (layers back, camera zooms out) or re-adds a
-detached one; `_restore_world` skips the wipe for an in-place world. `_exit_tree` frees the held world only
+detached one; `_restore_world` skips the wipe for an in-place world. The engaged enemy stays standing in the frozen world:
+`EnemyNPC.engage()` / `BlightHeart.engage()` call `SceneManager.free_after_battle(self)`, which frees at once on
+the wipe path, or on the next transition back to WORLD when fighting in place. `_exit_tree` frees the held world only
 when it has **no parent** (an in-place world is freed by the tree). Test: `tests/in_world_battle_smoke.gd` (CI).
 
 ### Prototype (TID-546)

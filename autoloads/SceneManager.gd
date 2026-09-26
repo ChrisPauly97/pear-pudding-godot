@@ -717,6 +717,26 @@ func _in_world_battle_eligible(networked: bool) -> bool:
 	var world: Node = get_tree().current_scene
 	return world != null and world.get("_camera") is Camera3D
 
+## True when a solo fight started now would be fought in place — world entities
+## that start one (EnemyNPC, BlightHeart) then stay visible until it ends
+## instead of freeing themselves on engage (see `free_after_battle`).
+func fights_in_world() -> bool:
+	return _in_world_battle_eligible(false)
+
+## Frees `node` now, or — when the coming battle is fought in place — keeps it
+## standing in the frozen world and frees it once the scene is back in WORLD.
+func free_after_battle(node: Node) -> void:
+	if not fights_in_world():
+		node.queue_free()
+		return
+	var on_change: Callable = func(_from: State, to: State) -> void:
+		if to == State.WORLD and is_instance_valid(node):
+			node.queue_free()
+	state_changed.connect(on_change)
+	node.tree_exiting.connect(func() -> void:
+		if state_changed.is_connected(on_change):
+			state_changed.disconnect(on_change))
+
 func _enter_battle_in_world(configure: Callable) -> void:
 	var world: Node = get_tree().current_scene
 	_saved_world_scene = world

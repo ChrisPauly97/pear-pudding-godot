@@ -87,4 +87,4 @@ func engage() -> void:
 		"blight_heart_id": _heart_id,
 	}
 	GameBus.enemy_engaged.emit(edata)
-	queue_free()
+	SceneManager.free_after_battle(self)  # stays visible during an in-world fight
