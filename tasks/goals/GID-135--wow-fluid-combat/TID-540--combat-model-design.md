@@ -35,6 +35,9 @@ the user and get approval before TID-537/TID-541 build**.
   all, mana/resource model, what enemy board represents (its pack members pre-placed vs summoning), how captures /
   soulbinding (positioning pillar in spec) survive, AI (`ai/BasicAI.gd`) impact, PvP/co-op impact, migration of
   existing decks/saves (`SaveMigrations.gd`).
+- Control scheme: user wants easy consumables "like D3" — define the battle input layout (hand, skill cards,
+  quick consumable slot(s) with cooldown, end turn) and whether potions use a cooldown instead of once-per-battle.
+  Implementation lands in TID-542 / TID-530.
 - Spec says 4 card types in v1 and Hearthstone as TCG reference — a big pivot likely needs a spec amendment
   (fold into TID-539).
 

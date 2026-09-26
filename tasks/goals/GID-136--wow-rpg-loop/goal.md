@@ -18,7 +18,7 @@ Raised by the user (2026-09-26): towns, NPCs with asks, tracked objectives like 
 | TID-536 | Zone Level Ranges & Enemy Levels | agent | pending | — |
 | TID-537 | Class Trainers & Skill Cards | agent | pending | TID-536, TID-540 |
 | TID-538 | Gear Rarity, Item Level & Quest Reward Choice | agent | pending | TID-533, TID-536 |
-| TID-542 | Use Consumables From the Inventory | agent | pending | — |
+| TID-542 | Consumables — Inventory Use & D3-Style Quick Slot | agent | pending | — |
 | TID-539 | Spec Update — RPG Loop, XP, WoW Inspiration, Combat Pivot | human-action | pending | — |
 
 ## Acceptance Criteria
