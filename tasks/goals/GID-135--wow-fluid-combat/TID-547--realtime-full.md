@@ -22,6 +22,8 @@ Take the prototype to the default combat mode after user playtest: fill the know
   timers (`to_dict`); enemy ability cards (with TID-541); tutorials (`BattleTutorials.gd`, TutorialRegistry) rewritten
   for real time; make real time the default for solo PvE; decide PvP/co-op (host-authoritative tick over
   `BattleNet` is feasible later).
+- Card costs in mana points (`CardData.cost` ×100 in `.tres` + migration) so costs like 150 are possible;
+  show costs as points on card faces / inspect overlay (`CardInspectOverlay` shows template cost).
 - Replace `BattlePacing` turn budgets with real-time budgets (GCD, cast time, swing interval) and keep the guard test.
 
 ## Plan

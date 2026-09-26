@@ -7,6 +7,11 @@ var max_health: int = 30
 var mana: int = 1
 var max_mana: int = 1
 var bonus_mana: int = 0  # permanent per-game mana bonus from skills/equipment
+## Mana points per card-cost unit: 1 in turn-based fights, RealtimeCombat.MANA_SCALE (100)
+## in real time, so regen and level/gear bonuses can move in small steps while a
+## 3-cost card still costs 3 × scale. `mana`/`max_mana` are in points; card costs,
+## `bonus_mana` and effect values stay in units — convert with gain_mana/drain_mana.
+var mana_scale: int = 1
 var attack: int = 0
 
 # Status effects: key = effect_id ("poison","armor","freeze","stun"), value = duration/stacks int
@@ -37,8 +42,18 @@ func heal(n: int) -> void:
 	health = mini(max_health, health + n)
 
 func gain_mana_for_turn(turn: int) -> void:
-	max_mana = mini(10, turn + bonus_mana)
+	max_mana = mini(10, turn + bonus_mana) * mana_scale
 	mana = max_mana
+
+## Adds `units` card-cost units of mana (scaled), capped at max_mana — or at the
+## 10-unit hard cap when `allow_overflow` (companion/attuned start-of-battle bonuses).
+func gain_mana(units: int, allow_overflow: bool = false) -> void:
+	var cap: int = 10 * mana_scale if allow_overflow else max_mana
+	mana = mini(mana + units * mana_scale, maxi(cap, mana))
+
+## Removes `units` card-cost units of mana (scaled), never below 0.
+func drain_mana(units: int) -> void:
+	mana = maxi(0, mana - units * mana_scale)
 
 func spend_mana(amount: int) -> bool:
 	if mana < amount:
@@ -72,6 +87,7 @@ func to_dict() -> Dictionary:
 		"mana": mana,
 		"max_mana": max_mana,
 		"bonus_mana": bonus_mana,
+		"mana_scale": mana_scale,
 		"attack": attack,
 		"status_effects": status_effects.duplicate(),
 	}
@@ -83,6 +99,7 @@ func from_dict(d: Dictionary) -> void:
 	mana = int(d.get("mana", 1))
 	max_mana = int(d.get("max_mana", 1))
 	bonus_mana = int(d.get("bonus_mana", 0))
+	mana_scale = maxi(1, int(d.get("mana_scale", 1)))
 	attack = int(d.get("attack", 0))
 	var se = d.get("status_effects", {})
 	status_effects = se if se is Dictionary else {}

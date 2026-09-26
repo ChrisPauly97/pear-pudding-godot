@@ -480,7 +480,7 @@ func _apply_potion_state_effect(player_idx: int, potion_id: String) -> void:
 			player.draw_card()
 			player.draw_card()
 		"ember_tonic":
-			player.hero.mana = mini(player.hero.mana + 1, player.hero.max_mana)
+			player.hero.gain_mana(1)
 
 # ── Client intent builders ────────────────────────────────────────────────────
 

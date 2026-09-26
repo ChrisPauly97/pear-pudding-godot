@@ -111,7 +111,7 @@ team duels and resumed mid-battle saves stay turn-based.
 |---|---|
 | Player global cooldown (GCD) after any card | 1.5 s |
 | Enemy GCD / cast-bar telegraph before a play | 2.5 s / 1.0 s |
-| Mana | **fixed max for the fight** = `4 + (level − 1) / 3 + hero.bonus_mana` (gear/passive skills), cap 10 (`max_mana_for`); start full; +1 current every 1.5 s. Enemy level-equivalent = `1 + (tier − 1) × 3` until zone levels (TID-536). |
+| Mana | **×100 points** (`MANA_SCALE`, `HeroState.mana_scale`): a 3-cost card costs 300. **Fixed max for the fight** = `400 + 35 × (level − 1) + 100 × hero.bonus_mana` (gear/passive skills), cap 1000 (`max_mana_for`); start full; regen continuously at 65 points/s. Enemy level-equivalent = `1 + (tier − 1) × 3` until zone levels (TID-536). Turn-based fights keep `mana_scale = 1`. |
 | Draw | 1 card every 5 s while hand < 7 (no fatigue from the clock) |
 | Unit auto-attack | every 3 s; a fresh unit waits one full swing (Surge: 0.5 s) |
 | Hero auto-attack (always on) | main hand every 2.5 s for `2 + hero.attack` (unarmed base + weapon/passive bonuses); off hand every 2.0 s for `offhand_damage` when > 0 (off-hand gear slot — TID-545). Enemy heroes swing only with `hero.attack > 0`. Frozen/stunned heroes don't swing. |
@@ -133,6 +133,15 @@ team duels and resumed mid-battle saves stay turn-based.
   GCD; `_do_play_card` / `BattleTargeting` slot plays call `note_player_play()`. A plain tap on an enemy
   minion sets focus (`BattleInput._on_enemy_card_input`).
 - Tests: `tests/unit/test_realtime_combat.gd`, `tests/realtime_battle_smoke.gd` (in CI scene smokes).
+
+### Mana scale
+
+`HeroState.mana_scale` (1 turn-based, 100 real time) converts card-cost **units** to mana **points**.
+`mana`/`max_mana` are points; card `cost`, `bonus_mana` and effect values stay in units.
+`PlayerState.effective_cost()`/`base_cost()` return points; mutate mana only via `HeroState.gain_mana(units,
+allow_overflow)` / `drain_mana(units)` so every effect scales. Card `.tres` costs are still whole units — a
+finer cost (e.g. 150) needs `CardData.cost` in points, planned with the full mode (TID-547). The `mana` event
+fires only when a whole unit is crossed; the module updates hero/mana labels every frame.
 
 ### Known prototype gaps (follow-ups)
 

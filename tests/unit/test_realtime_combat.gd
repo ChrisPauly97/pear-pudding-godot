@@ -40,8 +40,10 @@ func test_mana_regenerates_on_clock() -> void:
 	var rt := _rt()
 	var h := rt.state.players[0].hero
 	h.mana = 0
-	_run(rt, RealtimeCombat.MANA_REGEN_INTERVAL)
-	assert_eq(h.mana, 1)
+	_run(rt, 1.0)
+	# ~65 points/s in small steps (0.1 s ticks + one slack step).
+	assert_gte(h.mana, 60)
+	assert_lte(h.mana, 80)
 
 func test_max_mana_fixed_during_fight() -> void:
 	var rt := _rt()
@@ -52,8 +54,10 @@ func test_max_mana_fixed_during_fight() -> void:
 
 func test_max_mana_from_level_and_bonus() -> void:
 	assert_eq(RealtimeCombat.max_mana_for(1), RealtimeCombat.BASE_MAX_MANA)
-	assert_eq(RealtimeCombat.max_mana_for(1 + RealtimeCombat.LEVELS_PER_MANA), RealtimeCombat.BASE_MAX_MANA + 1)
-	assert_eq(RealtimeCombat.max_mana_for(1, 2), RealtimeCombat.BASE_MAX_MANA + 2, "gear/skill bonus_mana")
+	assert_eq(RealtimeCombat.max_mana_for(2), RealtimeCombat.BASE_MAX_MANA + RealtimeCombat.MANA_PER_LEVEL,
+		"each level adds a small step")
+	assert_eq(RealtimeCombat.max_mana_for(1, 2), RealtimeCombat.BASE_MAX_MANA + 2 * RealtimeCombat.MANA_SCALE,
+		"gear/skill bonus_mana is in cost units")
 	assert_eq(RealtimeCombat.max_mana_for(99, 5), RealtimeCombat.MANA_CAP)
 
 func test_levels_passed_to_constructor() -> void:
@@ -146,7 +150,7 @@ func test_eligibility() -> void:
 
 func test_enemy_level_for_tier() -> void:
 	assert_eq(_BattleRealtime.enemy_level_for_tier(1), 1)
-	assert_eq(RealtimeCombat.max_mana_for(_BattleRealtime.enemy_level_for_tier(3)), RealtimeCombat.BASE_MAX_MANA + 2)
+	assert_eq(_BattleRealtime.enemy_level_for_tier(3), 7)
 
 func test_player_auto_attacks_with_no_mana_or_units() -> void:
 	var rt := _rt()
@@ -183,3 +187,35 @@ func test_frozen_hero_does_not_swing() -> void:
 	var hp: int = rt.state.players[1].hero.health
 	_run(rt, RealtimeCombat.HERO_SWING_INTERVAL)
 	assert_eq(rt.state.players[1].hero.health, hp)
+
+func test_card_costs_scale_with_mana() -> void:
+	var rt := _rt()
+	var p := rt.state.players[0]
+	var card := _card(1, 1, 3)
+	p.hand.append(card)
+	assert_eq(p.effective_cost(card), 3 * RealtimeCombat.MANA_SCALE)
+	p.hero.mana = 3 * RealtimeCombat.MANA_SCALE - 1
+	assert_false(p.can_play(card), "299 points can't pay a 3-cost card")
+	p.hero.mana = 3 * RealtimeCombat.MANA_SCALE
+	assert_true(p.play_card(card))
+	assert_eq(p.hero.mana, 0)
+
+func test_gain_and_drain_use_cost_units() -> void:
+	var rt := _rt()
+	var h := rt.state.players[0].hero
+	h.mana = 0
+	h.gain_mana(2)
+	assert_eq(h.mana, 2 * RealtimeCombat.MANA_SCALE)
+	h.drain_mana(1)
+	assert_eq(h.mana, RealtimeCombat.MANA_SCALE)
+	h.gain_mana(99)
+	assert_eq(h.mana, h.max_mana, "capped at max")
+
+func test_turn_based_scale_unchanged() -> void:
+	var gs := GameState.new()
+	var h := gs.players[0].hero
+	assert_eq(h.mana_scale, 1)
+	h.gain_mana_for_turn(3)
+	assert_eq(h.max_mana, 3)
+	var card := _card(1, 1, 3)
+	assert_eq(gs.players[0].effective_cost(card), 3)

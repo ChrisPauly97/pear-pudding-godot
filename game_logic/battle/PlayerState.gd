@@ -138,10 +138,15 @@ func draw_opening_hand(count: int = 4) -> void:
 	for _i in range(count):
 		draw_card()
 
-## Returns the effective mana cost of a card, applying biome and time-of-day rules.
+## Returns the effective mana cost of a card in mana points (cost units ×
+## `hero.mana_scale`), applying biome and time-of-day rules.
 func effective_cost(card: CardInstance) -> int:
 	return BattlefieldRules.effective_cost(
-		card.cost, card.magic_branch, battlefield_biome, is_night, grasslands_card_played)
+		card.cost, card.magic_branch, battlefield_biome, is_night, grasslands_card_played) * hero.mana_scale
+
+## The card's printed cost in mana points (no battlefield discounts).
+func base_cost(card: CardInstance) -> int:
+	return card.cost * hero.mana_scale
 
 func can_play(card: CardInstance) -> bool:
 	var cost: int = effective_cost(card)

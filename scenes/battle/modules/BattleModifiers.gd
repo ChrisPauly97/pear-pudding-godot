@@ -96,7 +96,7 @@ func _apply_companion_battle_start(player: PlayerState) -> void:
 		return
 	match companion.passive_type:
 		"extra_mana":
-			player.hero.mana = mini(player.hero.mana + companion.passive_value, 10)
+			player.hero.gain_mana(companion.passive_value, true)
 		"hero_armor":
 			player.hero.apply_status("armor", companion.passive_value)
 

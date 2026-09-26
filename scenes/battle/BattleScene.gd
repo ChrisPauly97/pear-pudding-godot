@@ -536,7 +536,7 @@ func _setup_solo_battle() -> void:
 	_state.players[0].start_turn(1)
 	# Attuned buff (GID-068): +1 mana on turn 1 when engaged on a ley line.
 	if bool(enemy_data.get("player_attuned", false)):
-		_state.players[0].hero.mana = mini(10, _state.players[0].hero.mana + 1)
+		_state.players[0].hero.gain_mana(1, true)
 		GameBus.hud_message_requested.emit("Attuned: +1 mana this turn.")
 	if duel_wager > 0:
 		_state.friendly_duel = true

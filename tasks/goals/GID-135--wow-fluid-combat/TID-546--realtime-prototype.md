@@ -39,6 +39,9 @@ See `docs/agent/combat-model.md` → Real-Time Combat. Battle state is pure (`Ga
   extracted). +5 unit tests (16 total).
 - Max mana fixed per fight (user follow-up): `RealtimeCombat.max_mana_for(level, bonus_mana)`; player level from
   `SaveManager.level`, enemy from difficulty tier (`BattleRealtime.enemy_level_for_tier`). No in-fight max growth. 19 unit tests.
+- Mana ×100 (user follow-up): `HeroState.mana_scale` + `gain_mana`/`drain_mana`; `PlayerState.effective_cost` /
+  `base_cost` scale; all mana mutation sites (companion, consumables, spells, PvP hero power, attuned) converted;
+  continuous 65 pt/s regen; max = 400 + 35/level + 100/bonus unit, cap 1000. 22 unit tests; PvP smoke passes.
 - **Awaiting user playtest** (Settings > Battle Mode > Real-time). Mark done on approval; tuning notes go to TID-547.
 
 ## Documentation Updates

@@ -24,14 +24,17 @@ const PLAYER_GCD: float = 1.5
 const ENEMY_GCD: float = 2.5
 ## Enemy "cast bar": telegraph time between choosing a card and playing it.
 const ENEMY_CAST_TIME: float = 1.0
+## Mana runs in points: MANA_SCALE points per card-cost unit (a 3-cost card costs
+## 300), so regen, level and gear can move in small steps (HeroState.mana_scale).
+const MANA_SCALE: int = 100
 ## Max mana is fixed for the whole fight (WoW-style): it comes from character
-## level plus `hero.bonus_mana` (gear / passive skills), never from fight time.
-## Level 1 = BASE_MAX_MANA, +1 every LEVELS_PER_MANA levels, capped at MANA_CAP.
-const BASE_MAX_MANA: int = 4
-const LEVELS_PER_MANA: int = 3
-const MANA_CAP: int = 10
-## You start full; +1 current mana every MANA_REGEN_INTERVAL (up to max_mana).
-const MANA_REGEN_INTERVAL: float = 1.5
+## level plus `hero.bonus_mana` (gear / passive skills, in cost units), never
+## from fight time. Level 1 = BASE_MAX_MANA, +MANA_PER_LEVEL each level after.
+const BASE_MAX_MANA: int = 400
+const MANA_PER_LEVEL: int = 35
+const MANA_CAP: int = 1000
+## You start full, then regenerate continuously at MANA_REGEN_PER_SEC (≈1 cost unit / 1.5 s).
+const MANA_REGEN_PER_SEC: float = 65.0
 ## One card drawn every DRAW_INTERVAL while the hand is below HAND_CAP.
 const DRAW_INTERVAL: float = 5.0
 const HAND_CAP: int = 7
@@ -58,7 +61,8 @@ var enemy_cast_remaining: float = 0.0
 var offhand_damage: Array[int] = [0, 0]
 
 ## Per-side resource and hero-swing timers.
-var _mana_timer: Array[float] = [0.0, 0.0]
+## Fractional mana points carried between ticks.
+var _mana_carry: Array[float] = [0.0, 0.0]
 var _draw_timer: Array[float] = [0.0, 0.0]
 var _hero_swing: Array[float] = [HERO_SWING_INTERVAL, HERO_SWING_INTERVAL]
 var _offhand_swing: Array[float] = [OFFHAND_SWING_INTERVAL, OFFHAND_SWING_INTERVAL]
@@ -71,6 +75,7 @@ func _init(s: GameState, levels: Array[int] = [1, 1]) -> void:
 	state.current_player_idx = PLAYER
 	for i in range(2):
 		var h := state.players[i].hero
+		h.mana_scale = MANA_SCALE
 		h.max_mana = max_mana_for(levels[i] if i < levels.size() else 1, h.bonus_mana)
 		h.mana = h.max_mana
 	# Units already on the board (pack encounters, resumed state) start mid-swing.
@@ -78,10 +83,11 @@ func _init(s: GameState, levels: Array[int] = [1, 1]) -> void:
 		for c: CardInstance in state.players[i].board.get_cards():
 			_swing[c.instance_id] = SWING_INTERVAL * 0.5
 
-## Pure: fixed max mana for a character level plus gear/skill bonus mana.
+## Pure: fixed max mana (points) for a character level plus gear/skill bonus
+## mana (cost units, ×MANA_SCALE).
 static func max_mana_for(level: int, bonus_mana: int = 0) -> int:
-	var from_level: int = BASE_MAX_MANA + maxi(0, level - 1) / LEVELS_PER_MANA
-	return mini(MANA_CAP, from_level + maxi(0, bonus_mana))
+	var from_level: int = BASE_MAX_MANA + maxi(0, level - 1) * MANA_PER_LEVEL
+	return mini(MANA_CAP, from_level + maxi(0, bonus_mana) * MANA_SCALE)
 
 ## Starts `side`'s global cooldown. Call after every card that side plays.
 func start_gcd(side: int) -> void:
@@ -121,12 +127,17 @@ func advance(delta: float) -> Array[Dictionary]:
 func _tick_resources(side: int, delta: float, events: Array[Dictionary]) -> void:
 	var p: PlayerState = state.players[side]
 	var h := p.hero
-	_mana_timer[side] += delta
-	while _mana_timer[side] >= MANA_REGEN_INTERVAL:
-		_mana_timer[side] -= MANA_REGEN_INTERVAL
-		if h.mana < h.max_mana:
-			h.mana += 1
+	if h.mana < h.max_mana:
+		_mana_carry[side] += delta * MANA_REGEN_PER_SEC
+		var whole: int = int(_mana_carry[side])
+		_mana_carry[side] -= whole
+		var before_units: int = h.mana / h.mana_scale
+		h.mana = mini(h.max_mana, h.mana + whole)
+		# Only a whole cost unit changes what's affordable — emit then, not per point.
+		if h.mana / h.mana_scale != before_units:
 			events.append({"type": "mana", "side": side})
+	else:
+		_mana_carry[side] = 0.0
 	_draw_timer[side] += delta
 	if _draw_timer[side] >= DRAW_INTERVAL:
 		_draw_timer[side] -= DRAW_INTERVAL

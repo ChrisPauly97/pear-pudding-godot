@@ -145,7 +145,7 @@ func _apply_potion_effect(potion_id: String) -> void:
 			player.draw_card()
 			player.draw_card()
 		"ember_tonic":
-			player.hero.mana = mini(player.hero.mana + 1, player.hero.max_mana)
+			player.hero.gain_mana(1)
 			_battle._fx.spawn_float_label(_battle._fx.pos_of_hero(false), "+1 Mana", Color(0.4, 0.8, 1.0))
 	GameBus.potion_used.emit(potion_id)
 	_battle._refresh_all()
@@ -204,4 +204,4 @@ func _apply_hero_power_effect(player_idx: int, effect_type: String, value: int) 
 				player.draw_card()
 			_battle._resolver.flush_auto_spells(player_idx)
 		"active_mana":
-			player.hero.mana = mini(player.hero.mana + value, player.hero.max_mana)
+			player.hero.gain_mana(value)

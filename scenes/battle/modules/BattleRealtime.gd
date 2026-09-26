@@ -67,7 +67,7 @@ func _build_ui() -> void:
 
 ## Enemy level-equivalent for mana until zone levels land (TID-536): tier 1 → 1, each tier +3.
 static func enemy_level_for_tier(tier: int) -> int:
-	return 1 + maxi(0, tier - 1) * RealtimeCombat.LEVELS_PER_MANA
+	return 1 + maxi(0, tier - 1) * 3
 
 ## True while the local player is on global cooldown (blocks plays).
 func on_cooldown() -> bool:
@@ -101,6 +101,10 @@ func _process(delta: float) -> void:
 		_gcd_bar.value = rt.gcd_fraction(RealtimeCombat.PLAYER)
 	if _swing_bar != null:
 		_swing_bar.value = rt.hero_swing_fraction(RealtimeCombat.PLAYER)
+	# Mana ticks every frame in points; the labels are cheap to update, the full
+	# board refresh only runs on events (a whole cost unit, swings, casts).
+	_battle._view.refresh_hero(_battle._player_hero_view, _battle._state.players[RealtimeCombat.PLAYER].hero, false)
+	_battle._update_status()
 	if events.is_empty():
 		return
 	var swung: bool = false

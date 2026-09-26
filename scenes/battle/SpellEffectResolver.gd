@@ -192,7 +192,7 @@ func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Diction
 				caster.hero.health = mini(caster.hero.max_health, caster.hero.health + _spell_dmg)
 				_bury_if_dead(foe, opponent)
 		"mana_drain":
-			opponent.hero.mana = maxi(0, opponent.hero.mana - power)
+			opponent.hero.drain_mana(power)
 		"curse_minion":
 			if foe != null:
 				foe.attack = maxi(0, foe.attack - power)
@@ -298,7 +298,7 @@ func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Diction
 				t.max_health += power
 		"ally_grant_mana":
 			var ally_hero := _ally(explicit_target, caster_pid).hero
-			ally_hero.mana = mini(ally_hero.mana + power, ally_hero.max_mana)
+			ally_hero.gain_mana(power)
 		"ally_revive":
 			_revive_last_minion(_ally(explicit_target, caster_pid))
 	if capture_tracker != null and caster_pid == 0:
