@@ -20,8 +20,8 @@ const CHARGING_COLOR := Color(0.45, 0.75, 1.0)
 const ENEMY_BAR_COLOR := Color(1.0, 0.6, 0.3)
 ## Enemy units past this swing fraction visibly wind up (grow + redden).
 const WIND_UP_FROM: float = 0.7
-## Gap between the two front lines, as a fraction of card height.
-const ROW_GAP: float = 0.08
+## Gap between a hero token and its own front line, as a fraction of card width.
+const ROW_GAP: float = 0.12
 
 var _battle: _BattleScene
 var _root: Control
@@ -35,6 +35,8 @@ var _cast_bar: ProgressBar
 var _enemy_cast_panel: PanelContainer
 var _enemy_cast_lbl: Label
 var _enemy_cast_bar: ProgressBar
+## BattleRealtime's cooldown / auto-attack / target box, placed bottom-right.
+var _status_box: Control = null
 
 func _init(battle: _BattleScene) -> void:
 	_battle = battle
@@ -75,6 +77,12 @@ func _setup_arena() -> void:
 	var player_area: BoxContainer = _battle.get_node_or_null("PlayerArea") as BoxContainer
 	if player_area != null:
 		player_area.alignment = BoxContainer.ALIGNMENT_END
+	# No side column any more: the hand (and the enemy area) centre on the full width.
+	for area_name: String in ["PlayerArea", "EnemyArea"]:
+		var area: Control = _battle.get_node_or_null(area_name) as Control
+		if area != null:
+			area.anchor_right = 1.0
+	_battle._mana_label.visible = false  # mana lives on your hero token
 
 ## Places both board rows and tokens for the current viewport: you bottom-left,
 ## the enemy top-right, each side's slots stepping top-left → bottom-right.
@@ -83,35 +91,51 @@ func apply_layout() -> void:
 		return
 	var vp: Vector2 = _battle.get_viewport().get_visible_rect().size
 	var vh: float = vp.y
-	var arena := Vector2(vp.x * 0.86, vh - _battle._player_hand_view.get_combined_minimum_size().y - vh * 0.03)
+	# The arena spans the whole width (centred in the scene); the hand sits below it.
+	var arena := Vector2(vp.x, vh - _battle._player_hand_view.get_combined_minimum_size().y - vh * 0.03)
 	var card: Vector2 = _battle._view.card_size()
 	var step := Vector2(card.x * 0.95, card.y * 0.30)
-	var rows: Dictionary = row_origins(arena, card, step)
-	_place_board(_battle._enemy_board_view, rows["enemy"], step, arena)
-	_place_board(_battle._player_board_view, rows["player"], step, arena)
 	for side in range(2):
 		var tok: PanelContainer = _tokens[side]
 		tok.size = tok.get_combined_minimum_size()
-	var p_tok: Vector2 = _tokens[RealtimeCombat.PLAYER].size
-	var e_tok: Vector2 = _tokens[RealtimeCombat.ENEMY].size
-	_token_home[RealtimeCombat.PLAYER] = Vector2(arena.x * 0.015, arena.y - p_tok.y)
-	_token_home[RealtimeCombat.ENEMY] = Vector2(arena.x - e_tok.x - arena.x * 0.015, arena.y * 0.02)
+	var lay: Dictionary = arena_layout(arena, card, step,
+			_tokens[RealtimeCombat.PLAYER].size, _tokens[RealtimeCombat.ENEMY].size, vh * 0.015)
+	_place_board(_battle._enemy_board_view, lay["enemy"], step, arena)
+	_place_board(_battle._player_board_view, lay["player"], step, arena)
+	_token_home[RealtimeCombat.PLAYER] = lay["player_token"]
+	_token_home[RealtimeCombat.ENEMY] = lay["enemy_token"]
 	for side in range(2):
 		if not _tokens[side].has_meta("lunging"):
 			_tokens[side].global_position = _token_home[side]
+	_place_corner_panels(vp, arena, vh * 0.015)
 
-## Pure: the two front lines as parallel diagonals, the enemy's shifted up-right
-## of yours by one card height plus a thin gap (ROW_GAP), so the
-## rows face each other across a narrow strip. The block is centred in the arena.
-static func row_origins(arena: Vector2, card: Vector2, step: Vector2) -> Dictionary:
-	var gap: float = card.y * ROW_GAP
-	var enemy_off := Vector2(card.x * 0.9, -(card.y + gap))
-	var player_slots: int = RealtimeCombat.MAX_ALLIES
-	var height: float = card.y + gap + step.y * float(player_slots - 1) + card.y
-	var width: float = maxf(step.x * float(player_slots - 1),
-			enemy_off.x + step.x * float(RealtimeCombat.MAX_ENEMY_MINIONS - 1)) + card.x
-	var player := Vector2((arena.x - width) * 0.5, (arena.y - height) * 0.5 + card.y + gap)
-	return {"player": player, "enemy": player + enemy_off}
+## Pure: tokens in opposite corners (you bottom-left, the enemy top-right) and
+## each side's front line attached to its own hero — yours just right of your
+## token, bottom-aligned with it; theirs just left of theirs, top-aligned — so
+## the open middle of the arena is the gap the two lines face across.
+static func arena_layout(arena: Vector2, card: Vector2, step: Vector2, p_tok: Vector2, e_tok: Vector2,
+		margin: float) -> Dictionary:
+	var gap_x: float = card.x * ROW_GAP
+	var p_home := Vector2(margin, arena.y - p_tok.y)
+	var e_home := Vector2(arena.x - e_tok.x - margin, margin)
+	var p_rows: int = RealtimeCombat.MAX_ALLIES
+	var e_rows: int = RealtimeCombat.MAX_ENEMY_MINIONS
+	var player := Vector2(p_home.x + p_tok.x + gap_x, arena.y - card.y - step.y * float(p_rows - 1))
+	var enemy := Vector2(e_home.x - gap_x - card.x - step.x * float(e_rows - 1), margin)
+	return {"player": player, "enemy": enemy, "player_token": p_home, "enemy_token": e_home}
+
+## Utility controls fill the two empty corners, level with a hero each: the
+## side panel (pause, Effects, battlefield info) top-left beside the enemy's
+## band, your cooldown / auto-attack / target box bottom-right beside yours.
+func _place_corner_panels(vp: Vector2, arena: Vector2, margin: float) -> void:
+	var side: Control = _battle.get_node_or_null("SidePanel") as Control
+	if side != null:
+		side.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		side.size = side.get_combined_minimum_size()
+		side.position = Vector2(margin, margin)
+	if _status_box != null:
+		_status_box.size = _status_box.get_combined_minimum_size()
+		_status_box.position = Vector2(vp.x - _status_box.size.x - margin, arena.y - _status_box.size.y)
 
 func _place_board(board: HBoxContainer, origin: Vector2, step: Vector2, arena: Vector2) -> void:
 	board.position = Vector2.ZERO
@@ -299,3 +323,7 @@ func toast(text: String) -> void:
 	var tw: Tween = lbl.create_tween()
 	tw.tween_property(lbl, "modulate:a", 0.0, 1.2).set_delay(0.6)
 	tw.finished.connect(lbl.queue_free)
+
+func set_status_box(box: Control) -> void:
+	_status_box = box
+	box.reparent(_root, false)

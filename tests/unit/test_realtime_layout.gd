@@ -1,4 +1,5 @@
-## GID-135: the real-time diagonal arena's two front lines sit close but never overlap.
+## GID-135: the real-time diagonal arena — each front line hugs its own hero,
+## with open ground between the two lines, and nothing overlaps.
 extends "res://tests/framework/test_case.gd"
 
 const _RealtimeVisuals = preload("res://scenes/battle/modules/RealtimeVisuals.gd")
@@ -14,22 +15,34 @@ func _check(vp: Vector2) -> void:
 	var vh: float = vp.y
 	var card := Vector2(vh * 0.135, vh * 0.24)
 	var step := Vector2(card.x * 0.95, card.y * 0.30)
-	var arena := Vector2(vp.x * 0.86, vh * 0.73)
-	var rows: Dictionary = _RealtimeVisuals.row_origins(arena, card, step)
-	var mine: Array[Rect2] = _rects(rows["player"], step, card, RealtimeCombat.MAX_ALLIES)
-	var theirs: Array[Rect2] = _rects(rows["enemy"], step, card, RealtimeCombat.MAX_ENEMY_MINIONS)
-	for a: Rect2 in mine:
-		for b: Rect2 in theirs:
-			assert_false(a.intersects(b), "rows overlap at %s" % str(vp))
-	var all_rects: Array[Rect2] = mine + theirs
-	for r: Rect2 in all_rects:
-		assert_true(Rect2(Vector2.ZERO, arena).encloses(r), "slot outside the arena at %s" % str(vp))
-	# Close: the enemy row's first slot sits within a card height (+ gap) above yours.
-	var gap_y: float = (rows["player"] as Vector2).y - ((rows["enemy"] as Vector2).y + card.y)
-	assert_true(gap_y >= 0.0 and gap_y <= card.y * 0.1, "rows not close together (gap %.1f)" % gap_y)
+	var arena := Vector2(vp.x, vh * 0.73)
+	var tok := Vector2(vh * 0.24, vh * 0.27)
+	var lay: Dictionary = _RealtimeVisuals.arena_layout(arena, card, step, tok, tok, vh * 0.015)
+	var mine: Array[Rect2] = _rects(lay["player"], step, card, RealtimeCombat.MAX_ALLIES)
+	var theirs: Array[Rect2] = _rects(lay["enemy"], step, card, RealtimeCombat.MAX_ENEMY_MINIONS)
+	var p_tok := Rect2(lay["player_token"], tok)
+	var e_tok := Rect2(lay["enemy_token"], tok)
+	# Slots within one line fan over each other by design; compare across groups only.
+	var groups: Array = [mine, theirs, [p_tok] as Array[Rect2], [e_tok] as Array[Rect2]]
+	for gi in range(groups.size()):
+		var g: Array[Rect2] = groups[gi]
+		for r: Rect2 in g:
+			assert_true(Rect2(Vector2.ZERO, arena).encloses(r), "outside the arena at %s" % str(vp))
+		for gj in range(gi + 1, groups.size()):
+			var h: Array[Rect2] = groups[gj]
+			for a: Rect2 in g:
+				for b: Rect2 in h:
+					assert_false(a.intersects(b), "groups %d/%d overlap at %s" % [gi, gj, str(vp)])
+	# Attached: each line starts within a small gap of its own hero token.
+	assert_true(mine[0].position.x - p_tok.end.x <= card.x * 0.2, "Ally line not attached to your hero")
+	assert_true(e_tok.position.x - theirs[theirs.size() - 1].end.x <= card.x * 0.2,
+			"enemy line not attached to the enemy hero")
+	# Wide gap: open ground of at least a card width between the two lines.
+	assert_true(theirs[0].position.x - mine[mine.size() - 1].end.x >= card.x,
+			"lines too close at %s" % str(vp))
 
-func test_rows_close_and_clear_16x9() -> void:
+func test_layout_16x9() -> void:
 	_check(Vector2(1280, 720))
 
-func test_rows_close_and_clear_phone_20x9() -> void:
+func test_layout_phone_20x9() -> void:
 	_check(Vector2(2400, 1080))

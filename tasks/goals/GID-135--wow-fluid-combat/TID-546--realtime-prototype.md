@@ -58,6 +58,8 @@ See `docs/agent/combat-model.md` → Real-Time Combat. Battle state is pure (`Ga
   the board HBoxes, sorts after the native BoxContainer pass), divider hidden, hand at the bottom; smoke asserts it.
 - Rows moved close together (user): `row_origins()` places parallel front lines one card height + a thin
   gap apart, centred; `tests/unit/test_realtime_layout.gd`.
+- Layout round 5 (user): lines attached to their heroes with a wide middle gap (`arena_layout`), arena spans
+  the full width (hand centred), pause/Effects top-left, cooldown/auto-attack/target box bottom-right.
 - **Awaiting user playtest** (Settings > Battle Mode > Real-time). Mark done on approval; tuning notes go to TID-547.
 
 ## Documentation Updates
