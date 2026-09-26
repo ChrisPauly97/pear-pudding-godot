@@ -125,3 +125,29 @@ func test_decode_state_garbage_is_invalid() -> void:
 func test_decode_state_missing_state_is_invalid() -> void:
 	var decoded: Dictionary = Proto.decode_state({"seq": 3})
 	assert_false(decoded["valid"])
+
+# ---------------------------------------------------------------------------
+# Attack fx in state mirrors (GID-135)
+# ---------------------------------------------------------------------------
+
+func test_state_mirror_carries_attack_fx() -> void:
+	var fx: Array = [Proto.encode_attack_fx(0, 2, 1, Proto.TARGET_HERO)]
+	var decoded: Dictionary = Proto.decode_state(Proto.encode_state({"a": 1}, 3, fx))
+	var got: Array[Dictionary] = decoded["fx"]
+	assert_eq(got.size(), 1)
+	assert_eq(int(got[0]["ap"]), 0)
+	assert_eq(int(got[0]["as"]), 2)
+	assert_eq(int(got[0]["tp"]), 1)
+	assert_eq(int(got[0]["ts"]), Proto.TARGET_HERO)
+
+func test_state_mirror_without_fx_has_none() -> void:
+	var payload: Dictionary = Proto.encode_state({"a": 1}, 3)
+	assert_false(payload.has("fx"), "no fx key when nothing happened")
+	var got: Array[Dictionary] = Proto.decode_state(payload)["fx"]
+	assert_true(got.is_empty())
+
+func test_malformed_fx_entries_dropped() -> void:
+	var got: Array[Dictionary] = Proto.decode_fx([1, "x", {"k": "nope"}, {"k": "attack", "ap": 1}])
+	assert_eq(got.size(), 1)
+	assert_eq(int(got[0]["as"]), -1)
+	assert_true(Proto.decode_fx("garbage").is_empty())

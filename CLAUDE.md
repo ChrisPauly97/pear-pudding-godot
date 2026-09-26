@@ -334,7 +334,7 @@ BattleScene's PvP/co-op surface in `scenes/battle/net/BattleNet.gd`:
 | `CoopPvP.gd` | challenge handshake + timeouts, team duels, referee routing, spectating, wagers, ranked/leaderboard, draft duels, tournaments |
 | `CoopSocial.gd` | emotes, pings, chat, trading/gifting, party stash, auction house |
 
-| `net/BattleNet.gd` | PvP duels, spectating, spectator wagers, co-op PvE joint battle, team duels (back-reference `_battle`) |
+| `net/BattleNet.gd` | PvP duels, spectating, spectator wagers, co-op PvE joint battle, team duels (back-reference `_battle`); attack replay across screens in `net/NetBattleFx.gd` (fx carried in state mirrors) |
 
 Single-player feature clusters use the same shape under `scenes/world/modules/`,
 created by `WorldScene._ensure_world_modules()` (not registered with NetSync):

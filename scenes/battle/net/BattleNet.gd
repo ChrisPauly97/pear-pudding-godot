@@ -24,6 +24,7 @@ const SpellEffectResolver = preload("res://scenes/battle/SpellEffectResolver.gd"
 const WagerSync = preload("res://game_logic/net/WagerSync.gd")
 const _BattleNetSyncScript = preload("res://scenes/battle/BattleNetSync.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
+const _NetBattleFx = preload("res://scenes/battle/net/NetBattleFx.gd")
 
 const _CoopBattleScaling = preload("res://game_logic/battle/CoopBattleScaling.gd")
 
@@ -45,6 +46,7 @@ var _pvp_reconnect_timer: Timer = null
 var _pvp_sync_retry_accum: float = 0.0
 var _spectators: Array[int] = []      # host only: peer_ids watching this duel
 var _state_seq: int = 0              # host: monotonic broadcast counter
+var _net_fx: _NetBattleFx = null     # replays attacks resolved on other screens
 var _team_arena_built: bool = false
 var _team_ended: bool = false  # guard so the result fires once
 var _team_panels: Array[Control] = []
@@ -211,11 +213,21 @@ func _disconnect_pvp_net_signals() -> void:
 
 ## Client → host: send one intent (host is network id 1).
 
+## Authority: queue an attack for the next mirror (see NetBattleFx.record).
+func record_attack_fx(attacker_pid: int, attacker: CardInstance, target_pid: int, target: CardInstance) -> void:
+	_fx_replay().record(attacker_pid, attacker, target_pid, target)
+
+## The attack-replay helper, built on first use (`_battle` is set after construction).
+func _fx_replay() -> _NetBattleFx:
+	if _net_fx == null:
+		_net_fx = _NetBattleFx.new(_battle)
+	return _net_fx
+
 func _broadcast_state() -> void:
 	if not _battle._is_pvp_host() or _battle._net == null:
 		return
 	_state_seq += 1
-	var payload: Dictionary = BattleNetProtocol.encode_state(_battle._state.to_dict(), _state_seq)
+	var payload: Dictionary = BattleNetProtocol.encode_state(_battle._state.to_dict(), _state_seq, _fx_replay().take())
 	_battle._net.rpc("sync_state", payload)
 	for spec_id in _spectators:
 		_battle._net.rpc_id(spec_id, "sync_state", payload)
@@ -235,7 +247,13 @@ func _accept_state_mirror(payload: Dictionary) -> bool:
 		return false
 	_battle._last_applied_seq = seq
 	_battle._pvp_pending = false
-	_adopt_mirrored_state(decoded["state"])
+	var fx: Array[Dictionary] = decoded.get("fx", [] as Array[Dictionary])
+	# Replay the attacks against the *old* board (its panels still show the
+	# attackers), then adopt the new state and let the snapshot diff float the
+	# damage numbers and animate deaths.
+	var snap: Array[Dictionary] = _battle._fx.snapshot() if _battle._fx != null else []
+	_fx_replay().replay(fx)
+	_adopt_mirrored_state(decoded["state"], snap)
 	return true
 
 func _on_pvp_state(payload: Dictionary) -> void:
@@ -253,7 +271,10 @@ func _on_pvp_state(payload: Dictionary) -> void:
 ## a brand-new GameState, so its turn_ended signal must be reconnected too — the
 ## connection made in _ready was to the state this one replaces.
 
-func _adopt_mirrored_state(state_dict: Dictionary) -> void:
+## `snap`: a pre-adoption snapshot — when given, deaths animate off the old
+## panels and damage numbers float from the diff (remote actions get the same
+## feedback as local ones).
+func _adopt_mirrored_state(state_dict: Dictionary, snap: Array[Dictionary] = []) -> void:
 	_battle._state = GameState.new()
 	_battle._state.from_dict(state_dict)
 	_battle._wire_gamebus_emitter()
@@ -261,7 +282,12 @@ func _adopt_mirrored_state(state_dict: Dictionary) -> void:
 	if not _battle._state.turn_ended.is_connected(_battle._on_turn_ended):
 		_battle._state.turn_ended.connect(_battle._on_turn_ended)
 	_battle._bind_state()
-	_battle._refresh_all()
+	if not snap.is_empty() and _battle._local_player_idx >= 0:
+		_battle._animate_deaths_from_snapshot(snap)  # ghosts built synchronously
+		_battle._refresh_all()
+		_battle._fx.trigger_fx(snap)
+	else:
+		_battle._refresh_all()
 	_battle.consumables._refresh_potion_button()
 
 ## Authority: validate + apply a client intent, then re-render (broadcast happens
@@ -403,7 +429,8 @@ func _apply_remote_intent(intent: Dictionary, player_idx: int) -> bool:
 				for ec: CardInstance in _battle._state.players[opp_idx].board.get_cards():
 					if ec.keywords.has(Keywords.WARD):
 						return false
-			_resolve_remote_attack(attacker, target, player_idx, opp_idx)
+			record_attack_fx(player_idx, attacker, opp_idx, target)
+			_show_remote_attack(attacker, target, player_idx, opp_idx)
 			return true
 		BattleNetProtocol.INTENT_HERO_POWER:
 			_battle.consumables._apply_hero_power_effect(player_idx, str(intent["effect_type"]), int(intent["effect_value"]))
@@ -444,6 +471,18 @@ func _pvp_resolver_target(tgt: Dictionary) -> Dictionary:
 ## State-only attack resolution (no side-specific FX) for relayed/remote attacks.
 ## defender_pid is resolved by the caller via _resolve_intent_opp_idx (handles 2-player
 ## PvP, co-op-PvE-vs-boss, and team-PvP focus/auto-target uniformly).
+
+## Authority screen: a remote player's attack gets the same lunge, damage numbers
+## and death beats as a local one, then resolves.
+func _show_remote_attack(attacker: CardInstance, target: CardInstance, attacker_pid: int, defender_pid: int) -> void:
+	var visible: bool = _battle._local_player_idx >= 0 and _battle._fx != null
+	var snap: Array[Dictionary] = _battle._fx.snapshot() if visible else []
+	_fx_replay().lunge(attacker, attacker_pid, target, defender_pid)
+	_resolve_remote_attack(attacker, target, attacker_pid, defender_pid)
+	if visible:
+		_battle._animate_deaths_from_snapshot(snap)
+		_battle._refresh_all()
+		_battle._fx.trigger_fx(snap)
 
 func _resolve_remote_attack(attacker: CardInstance, target: CardInstance, attacker_pid: int, defender_pid: int) -> void:
 	var attacker_dmg: int = BattlefieldRules.modify_damage(attacker.attack, _battle._state.battlefield_biome)
@@ -1130,7 +1169,8 @@ func _broadcast_coop_state() -> void:
 	if not _battle._is_pvp_host() or _battle._net == null:
 		return
 	_state_seq += 1
-	_battle._net.rpc("sync_coop_state", BattleNetProtocol.encode_state(_battle._state.to_dict(), _state_seq))
+	var payload: Dictionary = BattleNetProtocol.encode_state(_battle._state.to_dict(), _state_seq, _fx_replay().take())
+	_battle._net.rpc("sync_coop_state", payload)
 
 ## Authority-only: detect co-op battle end, compute rewards, and broadcast.
 
@@ -1346,7 +1386,8 @@ func _broadcast_team_state() -> void:
 	if not _battle._is_pvp_host() or _battle._net == null:
 		return
 	_state_seq += 1
-	_battle._net.rpc("sync_team_state", BattleNetProtocol.encode_state(_battle._state.to_dict(), _state_seq))
+	var payload: Dictionary = BattleNetProtocol.encode_state(_battle._state.to_dict(), _state_seq, _fx_replay().take())
+	_battle._net.rpc("sync_team_state", payload)
 
 ## Authority-only: detect team-battle end and broadcast.
 

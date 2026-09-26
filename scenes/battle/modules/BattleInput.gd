@@ -418,6 +418,9 @@ func _attempt_attack(attacker: CardInstance, target: CardInstance) -> void:
 ## brief hit-stop on big/lethal hits, then animates any resulting death(s)
 ## before the board rebuilds (TID-426). All durations respect `_speed_scale`.
 func _execute_attack(attacker: CardInstance, target: CardInstance) -> void:
+	# Multiplayer host: the next mirror carries this attack so other screens replay it.
+	if _battle.battle_net != null:
+		_battle.battle_net.record_attack_fx(_battle._my_idx(), attacker, _battle._opp_idx(), target)
 	_battle._action_busy = true
 	# Drop the selection highlight immediately so the board reads as resolving.
 	_battle._dragged_card.clear()
