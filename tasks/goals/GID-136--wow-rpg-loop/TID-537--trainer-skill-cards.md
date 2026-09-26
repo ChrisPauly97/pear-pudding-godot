@@ -25,6 +25,9 @@ User: skill cards are the things you use in battle. Trainer NPCs in towns teach 
   skill cards (or a skill bar — per TID-540). Save: `learned_skill_cards` {id: rank}; migration of existing
   `unlocked_skills` actives in `SaveMigrations.gd`.
 
+- **TID-540 decided Option A** — read `docs/agent/combat-model.md` (Decisions section) first. Use the
+  Mentor / Ally / Minion terminology.
+
 ## Plan
 
 _Written during Plan phase._

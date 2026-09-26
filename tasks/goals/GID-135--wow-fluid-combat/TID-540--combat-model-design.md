@@ -2,7 +2,7 @@
 
 **Goal:** GID-135
 **Type:** agent
-**Status:** review
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -50,7 +50,9 @@ control layout and rollout order; present to the user before TID-537/541/542 bui
 
 - New `docs/agent/combat-model.md`: facts table, options A (Hero & Allies — recommended), B (encounters only),
   C (full action bar), phased rollout, control layout, 3 open questions.
-- **Awaiting user approval** — mark done once the user picks an option and answers the open questions.
+- User approved **Option A** (2026-09-26): Allies are drawn deck cards (not pre-deployed); hero HP carries over with
+  more healing (food, early heal spells); terminology Mentor / Ally / Minion. Recorded under "Decisions" in the doc.
+- Follow-up tasks created: TID-544 (terminology), TID-545 (hero kit), TID-543 (persistent HP & healing).
 
 ## Documentation Updates
 

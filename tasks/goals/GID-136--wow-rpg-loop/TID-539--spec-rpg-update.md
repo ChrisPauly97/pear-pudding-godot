@@ -21,6 +21,9 @@
   resolve the XP line; describe the combat model agreed in TID-540 (spells + companions, pack encounters,
   fight-in-place). Present text to user; mark done when they confirm.
 
+- **TID-540 decided Option A** — read `docs/agent/combat-model.md` (Decisions section) first. Use the
+  Mentor / Ally / Minion terminology.
+
 ## Plan
 
 _Written during Plan phase._

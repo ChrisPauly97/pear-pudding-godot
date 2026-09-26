@@ -24,6 +24,9 @@ A single world enemy summoning a board of ghouls feels wrong. Implement the enco
 - Touch points: `GameState` setup (initial board), `BasicAI`, `CaptureTracker.gd` (capture target), bestiary
   (`docs/agent/bestiary-codex.md`), co-op scaling `CoopBattleScaling.gd`, scripted battles/puzzles unaffected.
 
+- **TID-540 decided Option A** — read `docs/agent/combat-model.md` (Decisions section) first. Use the
+  Mentor / Ally / Minion terminology.
+
 ## Plan
 
 _Written during Plan phase._

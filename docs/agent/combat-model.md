@@ -1,6 +1,6 @@
 # Combat Model — Hero Spells, Allies, Enemy Packs (GID-135 / TID-540)
 
-**Status:** proposal — awaiting user approval. TID-537, TID-541 and TID-542 build on the chosen option.
+**Status:** **Option A approved** by the user (2026-09-26). TID-537, TID-541, TID-542, TID-543, TID-544 and TID-545 build on it.
 
 ## Problem
 
@@ -85,9 +85,17 @@ the spec positioning ("every enemy can be soulbound into your deck"). Not recomm
 ```
 Keyboard: `Q`/`1`–`2` quick slots, `Space` end turn, number row for hand cards (TID-530).
 
-## Open questions for the user
+## Decisions (2026-09-26)
 
-1. Ally cap and slots: 5 Allies in deck / 3 on board OK?
-2. Should hero HP **carry over between fights** (with out-of-combat regen), so potions matter in
-   the world and chain pulls (TID-532) have tension? Recommended yes, full heal in towns/beds.
-3. Rename in-game "Companion" (Maiteln passives) to "Mentor", so "Ally" and "Companion" don't collide?
+1. **Option A** — Hero & Allies.
+2. **Allies are ordinary deck cards**: drawn and played like any card, never auto-deployed at battle start.
+   Cap: at most 5 Ally cards per deck, 3 Ally board slots (tunable in TID-545).
+3. **Hero HP carries over between fights**, with slow out-of-combat regen and a full heal in towns / beds.
+   Healing must be accessible early: more low-level hero heal spells, **food** consumables (out-of-combat
+   regen, WoW-style) alongside the existing persistent potions (TID-543).
+4. **Terminology** (use everywhere — UI text, docs, code names for new work):
+   | Term | Meaning |
+   |---|---|
+   | **Mentor** | Maiteln-style passive helper; one equipped at a time (today's in-game "Companion") |
+   | **Ally** | A player creature card / unit on the player's board |
+   | **Minion** | An enemy creature unit on the enemy board |

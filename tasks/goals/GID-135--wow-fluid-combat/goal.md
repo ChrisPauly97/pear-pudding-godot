@@ -13,7 +13,9 @@ Raised by the user (2026-09-26), inspired by WoW: "key thing will be making card
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-527 | Battle Pacing Audit & Timing Test | agent | done | — |
-| TID-540 | Combat Model Redesign — Hero Spells, Companion Minions, Enemy Packs | agent | review | — |
+| TID-540 | Combat Model Redesign — Hero Spells, Companion Minions, Enemy Packs | agent | done | — |
+| TID-544 | Terminology — Mentor, Ally, Minion | agent | pending | TID-540 |
+| TID-545 | Hero Kit — Weapon Auto-Attack, Ally Cap, Faster Start | agent | pending | TID-540 |
 | TID-528 | Fight In Place — Camera Zoom Into Battle | agent | pending | TID-527 |
 | TID-529 | Snappy Enemy Turns | agent | pending | TID-527 |
 | TID-530 | Input Flow — Queued Taps, One-Tap Attack, Auto End Turn | agent | pending | TID-527 |
