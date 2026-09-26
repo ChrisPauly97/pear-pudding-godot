@@ -583,6 +583,7 @@ Agent-owned feature docs. Each covers Key Features, How It Works, Integrations, 
 |---|---|
 | [docs/agent/docsplan.md](docs/agent/docsplan.md) | Documentation index and architecture overview |
 | [docs/agent/battle-system.md](docs/agent/battle-system.md) | TCG card battles: game state, mana, boards, AI |
+| [docs/agent/combat-model.md](docs/agent/combat-model.md) | Combat model redesign proposal: hero spells, Allies, pack/solo/summoner encounters, quick slots (GID-135) |
 | [docs/agent/world-generation.md](docs/agent/world-generation.md) | Infinite chunks, 5 biomes, ruins, entity spawning |
 | [docs/agent/named-maps-and-dungeons.md](docs/agent/named-maps-and-dungeons.md) | Text map format, DungeonGen, map stack navigation |
 | [docs/agent/terrain-rendering.md](docs/agent/terrain-rendering.md) | TerrainMath mesh building, height fields, shaders, grass |

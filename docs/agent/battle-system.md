@@ -1277,3 +1277,28 @@ A "Flee Battle" button is added to the pause overlay alongside Resume / Settings
 4. Calls `_restore_world()` — returns the world scene without any rewards or enemy defeat mark.
 
 The fled enemy survives and will attempt to re-engage. There is no per-enemy `EnemyNPC.engage_cooldown` field (corrected BID-058) — `_restore_world()`'s global 2 s `_proximity_engage_blocked` window (see `docs/agent/enemies-and-npcs.md` "Post-battle immunity") is what prevents immediate re-engagement, for every nearby enemy at once, not just the one fled from.
+
+---
+
+## Battle Pacing (GID-135 / TID-527)
+
+All fixed battle waits live in `game_logic/battle/BattlePacing.gd` (seconds at normal
+speed; BattleScene multiplies by `_speed_scale`, `FAST_SPEED_SCALE` = 0.45).
+`tests/unit/test_battle_pacing.gd` asserts the budgets, that `TRANSITION_HALF` mirrors
+`TransitionManager.FADE_DURATION`, and that BattleScene has no literal
+`_battle_delay(<number>)` — add a named constant instead. Budgets may only go down.
+
+### Baseline audit (2026-09-26)
+
+| Segment | Normal | Fast | Source |
+|---|---|---|---|
+| Engage → battle wipe | 0.6 s | 0.6 s | `TransitionManager` 0.3 s cover + 0.3 s uncover |
+| **Gambit picker before every fight** | waits on player | — | `SceneManager` ~L612; skipped only by `auto_skip_gambits` setting — biggest engage friction |
+| AI turn, 3 actions (fixed waits) | 3.8 s | 1.7 s | `AI_THINK` 1.5 + 3 × `AI_ACTION_GAP` 0.6 + `AI_TURN_TAIL` 0.5 |
+| + per AI attack | hit-stop + 0.25 s death anim | ×0.45 | `BattleFx` `hit_stop`, `DEATH_ANIM` (actions are serial) |
+| Player input during animations | blocked | blocked | `_action_busy` / `_ai_thinking` gate End Turn and taps |
+| Victory → world | result card, needs a tap + 0.6 s wipe | same | `BattleResultUI` Continue/Collect button, `_restore_world` |
+| Post-battle re-engage lockout | 2.0 s | 2.0 s | `SceneManager._restore_world` `_proximity_engage_blocked` |
+
+Targets for GID-135: AI turn ≲ 1 s of fixed wait (TID-529), no blocking gambit/result
+modals on routine fights (TID-528/531), queued input during animations (TID-530).

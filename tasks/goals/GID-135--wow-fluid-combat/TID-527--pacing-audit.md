@@ -2,7 +2,7 @@
 
 **Goal:** GID-135
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -34,12 +34,20 @@ The user wants card battles to feel as fluid as WoW combat. Before changing anyt
 
 ## Plan
 
-_Written during Plan phase._
+1. Move every fixed battle wait into a pure `BattlePacing.gd` table with budgets (no behaviour change).
+2. Test: budgets, TransitionManager mirror, no literal `_battle_delay(<n>)` in BattleScene.
+3. Record the baseline audit in `battle-system.md`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `game_logic/battle/BattlePacing.gd` (+ `.uid`): `FAST_SPEED_SCALE`, `AI_THINK`, `AI_ACTION_GAP`,
+  `AI_TURN_TAIL`, `DEATH_ANIM`, `TRANSITION_HALF`, budgets, `ai_turn_dead_time()`, `engage_to_input()`.
+- `BattleScene.gd`: speed scale and the three AI delays read from BattlePacing (values unchanged).
+- `BattleFx.gd`: death animation duration reads `DEATH_ANIM`.
+- New `tests/unit/test_battle_pacing.gd` (5 tests). Full suite exit 0, 0 SCRIPT ERRORs; gdlint + unsafe-hits clean.
+- Finding: the gambit picker is a modal before every fight unless `auto_skip_gambits` is set — flagged in the
+  audit for TID-528.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`docs/agent/battle-system.md`: new "Battle Pacing" section with baseline audit table and targets.

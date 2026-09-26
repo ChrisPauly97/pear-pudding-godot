@@ -2,7 +2,7 @@
 
 **Goal:** GID-135
 **Type:** agent
-**Status:** pending
+**Status:** review
 **Depends On:** —
 
 ## Lock
@@ -43,12 +43,15 @@ the user and get approval before TID-537/TID-541 build**.
 
 ## Plan
 
-_Written during Plan phase._
+Design-only: compare 2–3 combat models against the user's direction, recommend one, define encounter shapes,
+control layout and rollout order; present to the user before TID-537/541/542 build.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `docs/agent/combat-model.md`: facts table, options A (Hero & Allies — recommended), B (encounters only),
+  C (full action bar), phased rollout, control layout, 3 open questions.
+- **Awaiting user approval** — mark done once the user picks an option and answers the open questions.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`docs/agent/combat-model.md` (new); linked from CLAUDE.md docs table.

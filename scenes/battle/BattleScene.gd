@@ -13,6 +13,7 @@ const _BattleTargeting = preload("res://scenes/battle/modules/BattleTargeting.gd
 const _BattleInput = preload("res://scenes/battle/modules/BattleInput.gd")
 const ScriptedBattleData = preload("res://game_logic/battle/ScriptedBattleData.gd")
 const BasicAI = preload("res://ai/BasicAI.gd")
+const _BattlePacing = preload("res://game_logic/battle/BattlePacing.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
@@ -325,7 +326,7 @@ func _ready() -> void:
 	_view = CardViewBuilder.new()
 	_view.setup(_vh, _fx, card_input._bind_card_input, card_input._on_empty_slot_input, _make_card_view, _text_scale)
 	var _bs: String = str(SceneManager.save_manager.get_setting("battle_speed", "normal"))
-	_speed_scale = 0.45 if _bs == "fast" else 1.0
+	_speed_scale = _BattlePacing.FAST_SPEED_SCALE if _bs == "fast" else 1.0
 	_apply_ui_sizes()
 	_resolver = SpellEffectResolver.new()
 	_pause_ui = BattlePauseUI.new()
@@ -1026,7 +1027,7 @@ func _run_ai_turn() -> void:
 	var ai_tier: int = EnemyRegistry.get_difficulty_tier(ai_enemy_type)
 	var actions := BasicAI.decide_turn(_state, ai_persona)
 	_fx.show_intent_banner(BasicAI.describe_turn(_state, ai_persona, ai_tier))
-	await _battle_delay(1.5)
+	await _battle_delay(_BattlePacing.AI_THINK)
 	_execute_ai_actions(actions, 0)
 
 func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
@@ -1037,7 +1038,7 @@ func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 		return
 	if idx >= actions.size():
 		_fx.hide_intent_banner()
-		await _battle_delay(0.5)
+		await _battle_delay(_BattlePacing.AI_TURN_TAIL)
 		_ai_thinking = false
 		_state.end_turn()
 		_refresh_all()
@@ -1066,7 +1067,7 @@ func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 	if _state.is_game_over():
 		_check_game_over()
 		return
-	await _battle_delay(0.6)
+	await _battle_delay(_BattlePacing.AI_ACTION_GAP)
 	_execute_ai_actions(actions, idx + 1)
 
 func _check_boss_phase2() -> void:
