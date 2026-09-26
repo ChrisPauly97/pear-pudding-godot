@@ -77,6 +77,8 @@ func init_from_data(data: Dictionary) -> void:
 	_heart_id = str(data.get("id", ""))
 
 func engage() -> void:
+	if not SceneManager.accepts_engage():
+		return
 	var deck: Array[String] = EnemyRegistry.get_deck("blight_heart")
 	var edata: Dictionary = {
 		"id": _heart_id,

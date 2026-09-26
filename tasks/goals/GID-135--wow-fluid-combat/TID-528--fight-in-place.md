@@ -47,6 +47,10 @@ route every exit through one `reattach_world()` helper.
 - Follow-up 2 (user: "where is the enemy?"): with gambits auto-skipped the battle starts inside the engage
   emit, so `fights_in_world()` saw the battle overlay as current and freed the enemy at once. It now also
   returns true while a world is held in place; the smoke uses the real call order (fails without the fix).
+- Follow-up 3 (user: "fight with two monsters, beat both but can't go back to main world"): a second engage
+  during the gambit picker stacked a second battle that parked the first overlay as the world. Fixed with
+  `SceneManager.accepts_engage()` + `_engage_pending`, enemy stand-down after the alert beat, and a no-stacking
+  guard in `_enter_battle`. In-world smoke reproduces it (2 pickers) without the guard.
 - `BattleScene.in_world`: skips the arena backdrop and dims the Background so the world shows through.
 - `tests/in_world_battle_smoke.gd` (in CI): world stays in tree + frozen, HUD hidden, camera pushed in; after
   the battle it is current, thawed, HUD back, camera restored, state WORLD. Verified in an xvfb capture.

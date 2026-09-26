@@ -84,6 +84,9 @@ var _blacksmith_scene_packed := preload("res://scenes/ui/BlacksmithScene.tscn")
 
 var _state: State = State.MENU
 var _battle_overlay: Node = null
+## True while an engaged fight waits on the gambit picker — the world is still
+## live then, so a second engage must be refused (see accepts_engage).
+var _engage_pending: bool = false
 var _overlays: Dictionary = {}  # State -> Node, for WORLD-state overlays
 var _achievements_overlay: Node = null
 var _spire_draft_overlay: _SpireDraftScene = null
@@ -318,6 +321,7 @@ func _maybe_boot_dedicated_server() -> void:
 	enter_map_coop.call_deferred(map_name)
 
 func go_to_menu() -> void:
+	_engage_pending = false  # every exit path resets engage state
 	_flush_position_save()
 	# Any active co-op/PvP session ends the moment the player returns to the main
 	# menu — otherwise NetworkManager.is_active() stays stuck true across scene
@@ -568,8 +572,16 @@ static func _is_coop_joint_battle_enemy(enemy_data: Dictionary, current_map_name
 		return true
 	return false
 
+## Whether a world entity may start a fight right now: only from the world, and
+## never while another engage waits on the gambit picker or a battle is up.
+## (Two engages in a row used to open two pickers → two stacked battles → the
+## second one parked the first battle's overlay as "the world" and the real world
+## was never restored.)
+func accepts_engage() -> bool:
+	return _state == State.WORLD and not _engage_pending and not is_instance_valid(_battle_overlay)
+
 func _on_enemy_engaged(enemy_data: Dictionary) -> void:
-	if _state != State.WORLD:
+	if not accepts_engage():
 		return
 	# Co-op Endless Spire boss / Town Siege boss: both are joint battles for the
 	# whole party, not solo fights — WorldScene._on_enemy_engaged_coop routes them
@@ -627,8 +639,10 @@ func _on_enemy_engaged(enemy_data: Dictionary) -> void:
 	layer.layer = 200
 	get_tree().root.add_child(layer)
 	layer.add_child(picker)
+	_engage_pending = true
 	var captured: Dictionary = enemy_data
 	picker.gambit_chosen.connect(func(gambit_id: String) -> void:
+		_engage_pending = false
 		layer.queue_free()
 		if not gambit_id.is_empty():
 			captured["gambit_id"] = gambit_id
@@ -695,6 +709,11 @@ func _on_duel_lost() -> void:
 ## promotes it to `current_scene`. `networked` fixes the node name, because
 ## BattleNetSync's RPC path is /root/BattleScene/BattleNetSync on every peer.
 func _enter_battle(configure: Callable, networked: bool = false) -> void:
+	# Never stack a battle on a battle: the new one would park the old overlay
+	# as the held "world" and the real world could never be restored.
+	if is_instance_valid(_battle_overlay):
+		push_warning("SceneManager: a battle is already up — ignoring a second battle start")
+		return
 	if _in_world_battle_eligible(networked):
 		_enter_battle_in_world(configure)
 		_transition_to(State.BATTLE)

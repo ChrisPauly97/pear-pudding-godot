@@ -576,6 +576,15 @@ With gambits auto-skipped, SceneManager starts the battle **synchronously inside
 GameBus emit must not assume the world is still current; `fights_in_world()` now also answers true while a world
 is held in place. Tests must call things in the real order (emit → battle start → follow-up).
 
+### Two enemies → two stacked battles → stuck out of the world (claude/wow-inspired-rpg-mechanics-13i2dk)
+With the gambit picker on, an engage leaves SceneManager in WORLD until a gambit is chosen, so a second enemy's
+engage opened a second picker and a second battle. The second `_enter_battle` treated the first battle overlay as
+"the world" and parked it in `_saved_world_scene`; winning both "returned" to a dead overlay and the real world
+stayed frozen. Now `SceneManager.accepts_engage()` gates every engage (WORLD, no pending picker, no battle up),
+`EnemyNPC`/`BlightHeart` re-check it after their alert beat and stand down (stay fightable) if refused, and
+`_enter_battle` refuses to start over an existing battle. Any "pending" UI step between an event and a state
+change needs its own busy flag — the state machine alone doesn't cover the gap.
+
 ### Nocturnal despawn — "modulate:a does not exist" (fixed with automation bridge)
 `Node3D` has no `modulate`. Always resolve to `Sprite3D`/`CanvasItem` child before tweening modulate.
 

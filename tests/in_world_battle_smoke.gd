@@ -83,4 +83,33 @@ func _run() -> Array[String]:
 		fails.append("engaged enemy not removed after the battle")
 	if int(sm.call("current_state")) != _SceneFlow.State.WORLD:
 		fails.append("SceneManager not back in WORLD state")
+	await _check_double_engage(sm, save_manager, fails)
 	return fails
+
+## Two enemies engaging back to back with the gambit picker on must give ONE
+## picker and one battle — never a battle stacked on a battle.
+func _check_double_engage(sm: Node, save_manager: Object, fails: Array[String]) -> void:
+	save_manager.call("set_setting", "auto_skip_gambits", false)
+	var data := {"enemy_type": "undead_basic", "is_boss": false,
+		"enemy_deck": ["ghost", "ghost", "skeleton", "skeleton", "ghost", "ghost"]}
+	sm.call("_on_enemy_engaged", data.duplicate())
+	if bool(sm.call("accepts_engage")):
+		fails.append("engage still accepted while the gambit picker is open")
+	sm.call("_on_enemy_engaged", data.duplicate())
+	await process_frame
+	var pickers: int = 0
+	for n: Node in root.get_children():
+		if n is CanvasLayer and n.get_child_count() > 0 and n.get_child(0).has_signal("gambit_chosen"):
+			pickers += 1
+	if pickers != 1:
+		fails.append("expected 1 gambit picker after two engages, got %d" % pickers)
+	for n: Node in root.get_children():
+		if n is CanvasLayer and n.get_child_count() > 0 and n.get_child(0).has_signal("gambit_chosen"):
+			n.get_child(0).emit_signal("gambit_chosen", "")
+	await _wait(600)
+	sm.call("_finish_battle")
+	sm.call("_restore_world")
+	await _wait(600)
+	if int(sm.call("current_state")) != _SceneFlow.State.WORLD or current_scene.get("_camera") == null:
+		fails.append("did not return to the world after the double-engage fight")
+	save_manager.call("set_setting", "auto_skip_gambits", true)
