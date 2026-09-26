@@ -236,3 +236,35 @@ There is no bottom-right readout box any more: the GCD is a sweep on the skill b
 cards (`RealtimeVisuals.update_hand_sweep`, pooled overlays on the root; full shade while casting), the auto-attack bar lives on your token, and your target gets a gold ring
 (`RealtimeVisuals._update_focus_ring`: focused minion, else the targeted enemy token). Enemy cast bars
 (inside their tokens) are larger, and a ready Kick pulses so you can react without looking up.
+
+## New-player onboarding (TID-552 / TID-553)
+
+**Ramp** — `game_logic/battle/CombatOnboarding.gd`, keyed on `SaveManager.realtime_fights` (counted when a
+real-time fight starts; skipped for level > `MAX_LEVEL` = 2):
+
+| Fight | Bar | Hand / Allies | Clock |
+|---|---|---|---|
+| 1 | Strike | hidden | slow (60 %) |
+| 2 | Strike, Mend | hidden | normal |
+| 3 | Strike, Mend, Kick | hidden | normal |
+| 4+ | full bar | shown | normal |
+
+`scenes/battle/modules/BattleOnboarding.gd` (`BattleRealtime.onboarding`) applies it; the turn-based card tips
+(`tutorial_battle_tip`, tap_and_hold / tap_to_cast) wait until the hand is shown (`realtime.shows_card_tips()`).
+
+**Tips** — `BattleOnboarding.tip(id, target)` emits `GameBus.tutorial_popup_requested` (once ever via the
+`seen_tutorial_<id>` story flag; the popup pauses the clock) and spotlights `target` with a pulsing gold ring for
+3.5 s after the popup closes. Texts in `TutorialRegistry` (`rt_*`):
+
+| Tip | When | Spotlight |
+|---|---|---|
+| `rt_intro` | fight 1 starts | Strike |
+| `rt_skill_mend` / `rt_skill_kick` | the fight that unlocks it | that skill |
+| `rt_cards` | first fight with the hand | hand |
+| `rt_low_hp` | HP ≤ 40 % with Mend on the bar | Mend |
+| `rt_enemy_cast` | an enemy casts with Kick on the bar | Kick |
+| `rt_out_of_mana` | mana below the cheapest skill | your token |
+| `rt_ally` | your first unit on the board | that unit |
+| `rt_add` | a second enemy joins | its token |
+
+Smoke tests that aren't about onboarding set `realtime_fights = 99` and mark the `rt_*` tips seen.

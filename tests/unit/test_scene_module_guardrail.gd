@@ -32,6 +32,7 @@ const _MODULE_DIRS: Array[String] = [
 const _ALLOWED_SELF_ARGS: Array[String] = [
 	"register_handler",   # NetSync/BattleNetSync RPC handler registration
 	"world_scene = self", # stash + auction overlays call request_* on CoopSocial
+	"_BattleOnboarding.new(_battle, self)", # real-time helper wants BattleRealtime itself (TID-552)
 ]
 
 

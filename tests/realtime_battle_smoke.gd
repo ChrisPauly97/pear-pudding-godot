@@ -23,6 +23,7 @@ func _initialize() -> void:
 func _go() -> void:
 	await process_frame
 	var ok: bool = await _run()
+	ok = await _run_onboarding() and ok
 	print("\nrealtime_battle_smoke: %s" % ("PASS" if ok else "FAIL"))
 	quit(0 if ok else 1)
 
@@ -34,6 +35,10 @@ func _run() -> bool:
 	var save_manager: Object = scene_manager.get("save_manager")
 	save_manager.call("set_setting", "battle_mode", "realtime")
 	save_manager.call("set_setting", "auto_skip_gambits", true)
+	save_manager.set("realtime_fights", 99)  # past the onboarding ramp; checked separately below
+	for tip: String in ["rt_intro", "rt_skill_mend", "rt_skill_kick", "rt_cards", "rt_low_hp", "rt_enemy_cast",
+			"rt_out_of_mana", "rt_ally", "rt_add"]:
+		save_manager.call("set_story_flag", "seen_tutorial_" + tip)
 	Engine.time_scale = 4.0
 
 	var packed: PackedScene = load(_BATTLE_SCENE_PATH)
@@ -90,6 +95,43 @@ func _run() -> bool:
 	if fails.is_empty():
 		print("  [PASS] enemy cast units and swings landed (player HP %d -> %d)" % [
 			player_hp, state.players[0].hero.health])
+	battle.queue_free()
+	await process_frame
+	return fails.is_empty()
+
+## New player's first real-time fight (TID-552 / TID-553): Strike only, no
+## hand, and the intro tip is up (clock paused) until it's dismissed.
+func _run_onboarding() -> bool:
+	var save_manager: Object = root.get_node("SceneManager").get("save_manager")
+	save_manager.set("realtime_fights", 0)
+	save_manager.set("level", 1)
+	(save_manager.get("story_flags") as Dictionary).erase("seen_tutorial_rt_intro")
+	var battle: Node = (load(_BATTLE_SCENE_PATH) as PackedScene).instantiate()
+	battle.set("enemy_data", {"enemy_type": "undead_basic", "is_boss": false, "enemy_deck": _ENEMY_DECK})
+	root.add_child(battle)
+	await process_frame
+	await process_frame
+	var fails: Array[String] = []
+	var rt_mod: Node = battle.get("realtime")
+	var skills: Object = rt_mod.get("skills")
+	var ids: Array = (skills.get("bar") as Object).get("ids")
+	if ids != ["strike"]:
+		fails.append("first fight bar should be Strike only, got %s" % str(ids))
+	if (battle.get("_player_hand_view") as Control).visible:
+		fails.append("first fight should hide the hand")
+	if int(save_manager.get("realtime_fights")) != 1:
+		fails.append("fight was not counted towards the ramp")
+	if not bool(save_manager.call("get_story_flag", "seen_tutorial_rt_intro")):
+		fails.append("intro tip was not shown")
+	if not bool(rt_mod.call("is_blocked")):
+		fails.append("clock should pause under the intro tip")
+	_dismiss_popups(battle)
+	if bool(rt_mod.call("is_blocked")):
+		fails.append("clock still paused after the tip was dismissed")
+	for f: String in fails:
+		print("  [FAIL] onboarding: " + f)
+	if fails.is_empty():
+		print("  [PASS] onboarding: first fight is Strike-only with the intro tip")
 	battle.queue_free()
 	await process_frame
 	return fails.is_empty()

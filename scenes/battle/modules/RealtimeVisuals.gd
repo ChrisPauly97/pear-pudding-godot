@@ -159,6 +159,10 @@ func _place_strip(vp: Vector2, margin: float) -> void:
 	if _strip == null:
 		return
 	_strip.size = _strip.get_combined_minimum_size()
+	if not _battle._player_hand_view.visible:
+		# No hand yet (onboarding): the skills are the whole action strip.
+		_strip.position = Vector2((vp.x - _strip.size.x) * 0.5, vp.y - _strip.size.y - margin)
+		return
 	# The hand row spans the width with its cards centred: hug the leftmost card.
 	var left: float = _battle._player_hand_view.get_global_rect().get_center().x
 	for c: Node in _battle._player_hand_view.get_children():
@@ -306,6 +310,9 @@ func _update_focus_ring(rt: RealtimeCombat) -> void:
 		var r: Rect2 = target.get_global_rect().grow(pad)
 		_focus_ring.global_position = r.position
 		_focus_ring.size = r.size
+
+func token(side: int) -> Control:
+	return _tokens.get(side) as Control
 
 func token_center(side: int) -> Vector2:
 	var tok: PanelContainer = _tokens.get(side) as PanelContainer

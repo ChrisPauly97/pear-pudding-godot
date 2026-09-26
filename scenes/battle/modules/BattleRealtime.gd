@@ -20,12 +20,16 @@ const CombatTuning = preload("res://game_logic/battle/CombatTuning.gd")
 const _WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const _CombatTuningPanel = preload("res://scenes/battle/modules/CombatTuningPanel.gd")
 const _BattleSkillBar = preload("res://scenes/battle/modules/BattleSkillBar.gd")
+const _BattleOnboarding = preload("res://scenes/battle/modules/BattleOnboarding.gd")
+const SkillBar = preload("res://game_logic/battle/SkillBar.gd")
 ## Settings key holding the tuning panel's overrides (per device).
 const TUNING_SETTING: String = "combat_tuning"
 
 var rt: RealtimeCombat = null
 ## The fixed ability bar (TID-550); null outside real time.
 var skills: _BattleSkillBar = null
+## New-player ramp + first-time tips (TID-552 / TID-553); null outside real time.
+var onboarding: _BattleOnboarding = null
 var _battle: _BattleScene
 var _strip: HBoxContainer = null
 var _visuals: _RealtimeVisuals = null
@@ -72,9 +76,13 @@ func maybe_start(is_fresh: bool) -> void:
 	_visuals = _RealtimeVisuals.new(_battle)
 	_visuals.build(str(_battle.enemy_data.get("enemy_type", "")), bool(_battle.enemy_data.get("is_boss", false)))
 	_visuals.set_action_strip(_strip)
-	skills = _BattleSkillBar.new(_battle, self, SceneManager.save_manager.skill_bar)
+	onboarding = _BattleOnboarding.new(_battle, self)
+	onboarding.begin()
+	var bar_ids: Array[String] = SkillBar.new(SceneManager.save_manager.skill_bar).ids
+	skills = _BattleSkillBar.new(_battle, self, onboarding.filter_skills(bar_ids))
 	skills.build(_strip)
 	_battle._refresh_all()
+	onboarding.apply()
 
 func _build_ui() -> void:
 	var vh: float = _battle._vh
@@ -240,6 +248,17 @@ func _cast_info() -> Dictionary:
 		return {"name": _cast_card.name + " (queued)", "fraction": 0.0, "cost": cost}
 	return {"name": _cast_card.name, "fraction": 1.0 - _cast_left / _cast_total, "cost": cost}
 
+## Hero token for `side` (onboarding spotlights), or null.
+func token(side: int) -> Control:
+	return _visuals.token(side) if _visuals != null else null
+
+func unit_panel(card: CardInstance, side: int) -> Control:
+	return _visuals.unit_panel(card, side) if _visuals != null else null
+
+## False while onboarding hides the hand (the turn-based card tips don't apply yet).
+func shows_card_tips() -> bool:
+	return onboarding == null or onboarding.shows_hand()
+
 func toast(text: String) -> void:
 	if _visuals != null:
 		_visuals.toast(text)
@@ -303,6 +322,7 @@ func join_enemy(enemy_data: Dictionary) -> bool:
 	rt.unarmed[side] = rt.tune.get_i("enemy_unarmed") + maxi(0, tier - 1)
 	_visuals.add_enemy_view(side, etype, is_boss, card_input_hero(side))
 	_visuals.toast("%s joins the fight!" % etype.capitalize())
+	onboarding.on_add(side)
 	AudioManager.play_sfx("enemy_engage")
 	_battle._refresh_all()
 	return true
@@ -334,6 +354,7 @@ func _process(delta: float) -> void:
 		return
 	var dt: float = delta * _speed_factor()
 	skills.update(dt)
+	onboarding.update(dt)
 	_tick_cast(dt)
 	_last_player_hp = _battle._state.players[RealtimeCombat.PLAYER].hero.health
 	if _battle._state.is_game_over():
@@ -400,6 +421,6 @@ func _after_enemy_play(card: CardInstance, ai_idx: int = RealtimeCombat.ENEMY) -
 ## setting runs real time 25 % quicker. Plain inverse of `_speed_scale` would be 2.2×.
 func _speed_factor() -> float:
 	var mode: String = str(SceneManager.save_manager.get_setting("battle_mode", "turn"))
-	if mode == "realtime_slow":
+	if mode == "realtime_slow" or (onboarding != null and onboarding.slow_clock()):
 		return 0.6
 	return 1.25 if _battle._speed_scale < 1.0 else 1.0

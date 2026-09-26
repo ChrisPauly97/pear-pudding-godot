@@ -43,6 +43,19 @@ func build(parent: Control) -> void:
 		_buttons.append(btn)
 		_shades.append(shade)
 
+## The button for ability `id`, or null when it isn't on the bar.
+func button_for(id: String) -> Control:
+	var i: int = bar.ids.find(id)
+	return _buttons[i] if i >= 0 and i < _buttons.size() else null
+
+## Mana points of the cheapest ability on the bar.
+func cheapest_cost() -> int:
+	var best: int = 0
+	for i: int in bar.ids.size():
+		var c: int = int(bar.def_at(i).get("cost", 0))
+		best = c if i == 0 else mini(best, c)
+	return best
+
 ## Per-frame: ticks the cooldowns and redraws the buttons.
 func update(dt: float) -> void:
 	bar.advance(dt)

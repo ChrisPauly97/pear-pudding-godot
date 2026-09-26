@@ -21,6 +21,8 @@ Raised by the user (2026-09-26), inspired by WoW: "key thing will be making card
 | TID-548 | Remote Attack Replay in Multiplayer Battles | agent | done | — |
 | TID-549 | Combat Tuning Panel + WoW-Style Timers | agent | done | TID-546 |
 | TID-550 | Skill Cards as Reusable Abilities with Cooldowns | agent | done | TID-549 |
+| TID-552 | Real-Time Onboarding Ramp (Staged Control Unlocks) | agent | done | TID-550 |
+| TID-553 | Real-Time First-Time Tips with Spotlight | agent | done | TID-552 |
 | TID-551 | Adds — a Second Enemy Joins a Real-Time Fight | agent | done | TID-546, TID-528 |
 | TID-528 | Fight In Place — Camera Zoom Into Battle | agent | done | TID-527 |
 | TID-529 | Snappy Enemy Turns | agent | superseded | TID-527 |

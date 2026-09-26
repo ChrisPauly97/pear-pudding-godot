@@ -138,7 +138,7 @@
 | [GID-132](goals/GID-132--feel-and-finish/goal.md) | Feel & Finish | done | 4 / 4 |
 | [GID-133](goals/GID-133--outlines-and-rain/goal.md) | Sprite Outlines & Rain Detail | done | 4 / 4 |
 | [GID-134](goals/GID-134--world-look-polish/goal.md) | World Look Polish | done | 10 / 10 |
-| [GID-135](goals/GID-135--wow-fluid-combat/goal.md) | WoW-Fluid Card Combat | in-progress | 7 / 16 |
+| [GID-135](goals/GID-135--wow-fluid-combat/goal.md) | WoW-Fluid Card Combat | in-progress | 9 / 18 |
 | [GID-136](goals/GID-136--wow-rpg-loop/goal.md) | WoW-Style RPG Loop | pending | 0 / 9 |
 
 ## Backlog

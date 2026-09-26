@@ -35,6 +35,10 @@ func _run() -> Array[String]:
 	var save_manager: Object = sm.get("save_manager")
 	save_manager.call("new_game", 1)
 	save_manager.call("set_setting", "battle_mode", "realtime")
+	save_manager.set("realtime_fights", 99)  # past the onboarding ramp (TID-552)
+	for tip: String in ["rt_intro", "rt_skill_mend", "rt_skill_kick", "rt_cards", "rt_low_hp", "rt_enemy_cast",
+			"rt_out_of_mana", "rt_ally", "rt_add"]:
+		save_manager.call("set_story_flag", "seen_tutorial_" + tip)
 	var ws: Node = (load(_WORLD_SCENE_PATH) as PackedScene).instantiate()
 	ws.set("map_name", "main")
 	root.add_child(ws)

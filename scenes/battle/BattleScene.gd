@@ -443,7 +443,8 @@ func _ready() -> void:
 
 	AudioManager.play_music("res://assets/audio/music/battle.ogg")
 
-	if not _state.scripted_battle:
+	# Real-time onboarding hides the hand at first; its own tips teach the fight.
+	if not _state.scripted_battle and realtime.shows_card_tips():
 		if not SceneManager.save_manager.get_story_flag("tutorial_battle_tip"):
 			tutorials._show_battle_tutorial()
 		# One popup per battle entry: tap_and_hold on the first, tap_to_cast on
@@ -452,7 +453,7 @@ func _ready() -> void:
 			GameBus.tutorial_popup_requested.emit("tap_to_cast")
 		else:
 			GameBus.tutorial_popup_requested.emit("tap_and_hold")
-	else:
+	elif _state.scripted_battle:
 		tutorials._maybe_show_scripted_tutorial_step(_state.player_turn_numbers[0])
 
 
