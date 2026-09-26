@@ -2000,6 +2000,10 @@ func _build_prompt(layer_index: int, sep_frac: float) -> Dictionary:
 
 	var panel := PanelContainer.new()
 	panel.set_anchors_preset(Control.PRESET_CENTER)
+	# Grow out from the centre point. The default (END) hangs the whole panel
+	# right-and-down from screen centre, so taller prompts ran off the bottom.
+	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
 	layer.add_child(panel)
 	return {"layer": layer, "vbox": _UiUtil.make_vbox(int(vh * sep_frac), panel)}
 
