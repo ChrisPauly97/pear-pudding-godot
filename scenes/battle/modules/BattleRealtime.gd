@@ -19,10 +19,13 @@ const _RealtimeVisuals = preload("res://scenes/battle/modules/RealtimeVisuals.gd
 const CombatTuning = preload("res://game_logic/battle/CombatTuning.gd")
 const _WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const _CombatTuningPanel = preload("res://scenes/battle/modules/CombatTuningPanel.gd")
+const _BattleSkillBar = preload("res://scenes/battle/modules/BattleSkillBar.gd")
 ## Settings key holding the tuning panel's overrides (per device).
 const TUNING_SETTING: String = "combat_tuning"
 
 var rt: RealtimeCombat = null
+## The fixed ability bar (TID-550); null outside real time.
+var skills: _BattleSkillBar = null
 var _battle: _BattleScene
 var _gcd_bar: ProgressBar = null
 var _swing_bar: ProgressBar = null
@@ -72,6 +75,8 @@ func maybe_start(is_fresh: bool) -> void:
 	_visuals = _RealtimeVisuals.new(_battle)
 	_visuals.build(str(_battle.enemy_data.get("enemy_type", "")), bool(_battle.enemy_data.get("is_boss", false)))
 	_visuals.set_status_box(_status_box)
+	skills = _BattleSkillBar.new(_battle, self, SceneManager.save_manager.skill_bar)
+	skills.build(_status_box)
 	_battle._refresh_all()
 
 func _build_ui() -> void:
@@ -148,8 +153,13 @@ func open_tuning() -> void:
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	var k := event as InputEventKey
-	if rt != null and k != null and k.pressed and not k.echo and k.keycode == KEY_T:
+	if rt == null or k == null or not k.pressed or k.echo:
+		return
+	if k.keycode == KEY_T:
 		open_tuning()
+		get_viewport().set_input_as_handled()
+	elif k.keycode >= KEY_1 and k.keycode < KEY_1 + skills.bar.ids.size():
+		skills.press(k.keycode - KEY_1)
 		get_viewport().set_input_as_handled()
 
 ## Saves the tuning panel's overrides and applies them from the next tick.
@@ -181,11 +191,12 @@ func note_player_play(player_idx: int) -> void:
 ## completes (the GCD starts now — it is only the minimum between actions).
 ## Returns false when the caller should resolve immediately: turn-based mode,
 ## or a 0-cost instant. A unit `target` that dies mid-cast fizzles the spell
-## (card stays in hand, no mana spent).
-func run_cast(card: CardInstance, finish: Callable, target: CardInstance = null) -> bool:
+## (card stays in hand, no mana spent). `cast_time` >= 0 overrides the
+## cost-based time (skill bar abilities).
+func run_cast(card: CardInstance, finish: Callable, target: CardInstance = null, cast_time: float = -1.0) -> bool:
 	if rt == null or _cast_card != null:
 		return false
-	var t: float = rt.cast_time_for(card.cost)
+	var t: float = cast_time if cast_time >= 0.0 else rt.cast_time_for(card.cost)
 	if t <= 0.0:
 		return false
 	_cast_card = card
@@ -240,14 +251,27 @@ func _target_on_board(c: CardInstance) -> bool:
 			return true
 	return false
 
+func is_casting() -> bool:
+	return _cast_card != null
+
 func _cast_info() -> Dictionary:
 	if _cast_card == null:
 		return {}
+	var cost: int = _battle._state.players[RealtimeCombat.PLAYER].effective_cost(_cast_card)
+	if _cast_card.has_meta("cost_points"):
+		cost = int(_cast_card.get_meta("cost_points"))
 	if _cast_delay > 0.0:
-		return {"name": _cast_card.name + " (queued)", "fraction": 0.0,
-			"cost": _battle._state.players[RealtimeCombat.PLAYER].effective_cost(_cast_card)}
-	return {"name": _cast_card.name, "fraction": 1.0 - _cast_left / _cast_total,
-		"cost": _battle._state.players[RealtimeCombat.PLAYER].effective_cost(_cast_card)}
+		return {"name": _cast_card.name + " (queued)", "fraction": 0.0, "cost": cost}
+	return {"name": _cast_card.name, "fraction": 1.0 - _cast_left / _cast_total, "cost": cost}
+
+func toast(text: String) -> void:
+	if _visuals != null:
+		_visuals.toast(text)
+
+## Your hero token lunges at a unit (or enemy `side`'s token when `target` is null).
+func lunge_at(target: CardInstance, side: int) -> void:
+	if _visuals != null:
+		_visuals.lunge_token(RealtimeCombat.PLAYER, _visuals.target_pos(target, side))
 
 ## Tap on an enemy minion with no Ally selected: focus it for the hero's auto-attack;
 ## tapping it again, or tapping the enemy hero (null), goes back to the hero.
@@ -344,6 +368,7 @@ func _process(delta: float) -> void:
 	if rt == null or _battle._state.is_game_over() or is_blocked() or _battle._action_busy:
 		return
 	var dt: float = delta * _speed_factor()
+	skills.update(dt)
 	_tick_cast(dt)
 	_last_player_hp = _battle._state.players[RealtimeCombat.PLAYER].hero.health
 	if _battle._state.is_game_over():

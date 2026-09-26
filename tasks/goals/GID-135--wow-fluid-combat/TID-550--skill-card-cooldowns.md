@@ -2,8 +2,8 @@
 
 **Goal:** GID-135
 **Type:** agent
-**Status:** pending
-**Depends On:** TID-549, TID-537
+**Status:** done
+**Depends On:** TID-549
 
 ## Lock
 
@@ -25,12 +25,19 @@ User approved (2026-09-26): skill cards become WoW-style abilities — always av
 
 ## Plan
 
-_Written during Plan phase._
+User scoped it (2026-09-26) to a small bar so the game stays a TCG: 3 fixed slots of weaker, reliable
+skills with their own cooldowns; deck spells stay stronger and single-use. Default skills now; trainers
+(TID-537) fill `SaveManager.skill_bar` later.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/battle/SkillBar.gd` (new): ability table (Strike / Mend / Kick), cooldowns, blocker, apply.
+- `scenes/battle/modules/BattleSkillBar.gd` (new): buttons + cooldown shade in the status box, keys 1–3.
+- `BattleRealtime`: `skills` field, `run_cast(..., cast_time)` override, `is_casting()`, `toast()`,
+  `lunge_at()`, cast bar shows an ability's own mana cost.
+- `CombatTuning`: `skill_cooldown` knob. `SaveManager`: `skill_bar` persisted field.
+- Tests: `tests/unit/test_skill_bar.gd`; `realtime_battle_smoke` presses Strike and Mend.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`docs/agent/combat-model.md` — Skill bar section; CLAUDE.md BattleRealtime row.

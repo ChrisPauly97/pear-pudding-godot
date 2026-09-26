@@ -26,6 +26,7 @@ const DEFS: Array = [
 	["offhand_swing", "Off-hand swing speed (s)", 2.0, 1.0, 5.0, 0.1, "Auto-attack"],
 	["unarmed", "Your unarmed damage", 3.0, 0.0, 10.0, 1.0, "Auto-attack"],
 	["enemy_unarmed", "Enemy hero base damage", 2.0, 0.0, 10.0, 1.0, "Auto-attack"],
+	["skill_cooldown", "Skill bar cooldown multiplier", 1.0, 0.25, 3.0, 0.05, "Skill bar"],
 	["ally_ready", "Ally ready every (s)", 3.0, 0.5, 8.0, 0.25, "Units"],
 	["enemy_swing", "Enemy minion swing (s)", 4.5, 1.0, 10.0, 0.25, "Units"],
 	["enemy_gcd", "Enemy global cooldown (s)", 3.5, 0.5, 8.0, 0.25, "Enemy"],

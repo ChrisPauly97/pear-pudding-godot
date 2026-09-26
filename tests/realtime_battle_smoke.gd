@@ -82,6 +82,8 @@ func _run() -> bool:
 	if not state.is_game_over():
 		await _check_cast_time(battle, fails)
 	if not state.is_game_over():
+		await _check_skill_bar(battle, state, fails)
+	if not state.is_game_over():
 		await _check_tuning_panel(battle, fails)
 	for f: String in fails:
 		print("  [FAIL] " + f)
@@ -151,6 +153,45 @@ func _check_cast_time(battle: Node, fails: Array[String]) -> void:
 		fails.append("cast never completed")
 	if rt == null:
 		fails.append("no RealtimeCombat")
+
+## Skill bar (TID-550): Strike damages the enemy hero and goes on cooldown;
+## Mend runs a cast bar and heals when it completes.
+func _check_skill_bar(battle: Node, state: _GameState, fails: Array[String]) -> void:
+	var rt_mod: Node = battle.get("realtime") as Node
+	var skills: Object = rt_mod.get("skills")
+	if skills == null:
+		fails.append("no skill bar in real time")
+		return
+	var bar: Object = skills.get("bar")
+	var ids: Array = bar.get("ids")
+	for _i in range(200):
+		if not bool(rt_mod.call("on_cooldown")):
+			break
+		await process_frame
+	var hero: Object = state.players[0].hero
+	hero.set("mana", int(hero.get("max_mana")))
+	var enemy_hp: int = state.players[1].hero.health
+	var strike: int = ids.find("strike")
+	skills.call("press", strike)
+	if state.players[1].hero.health >= enemy_hp and not state.is_game_over():
+		fails.append("Strike did not damage the enemy hero")
+	if bool(bar.call("ready", strike)):
+		fails.append("Strike did not go on cooldown")
+	for _i in range(200):
+		if not bool(rt_mod.call("on_cooldown")):
+			break
+		await process_frame
+	hero.set("mana", int(hero.get("max_mana")))
+	hero.set("health", 5)
+	var mend: int = ids.find("mend")
+	skills.call("press", mend)
+	if not bool(rt_mod.call("is_casting")):
+		fails.append("Mend did not start a cast")
+	var t0: int = Time.get_ticks_msec()
+	while bool(rt_mod.call("is_casting")) and Time.get_ticks_msec() - t0 < 8000:
+		await process_frame
+	if bool(bar.call("ready", mend)):
+		fails.append("Mend never completed")
 
 ## Hero strips live inside the tokens; each board row steps down-right.
 func _check_diagonal_layout(battle: Node, fails: Array[String]) -> void:
