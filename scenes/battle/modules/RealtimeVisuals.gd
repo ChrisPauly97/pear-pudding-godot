@@ -20,6 +20,8 @@ const CHARGING_COLOR := Color(0.45, 0.75, 1.0)
 const ENEMY_BAR_COLOR := Color(1.0, 0.6, 0.3)
 ## Enemy units past this swing fraction visibly wind up (grow + redden).
 const WIND_UP_FROM: float = 0.7
+## Gap between the two front lines, as a fraction of card height.
+const ROW_GAP: float = 0.08
 
 var _battle: _BattleScene
 var _root: Control
@@ -84,8 +86,9 @@ func apply_layout() -> void:
 	var arena := Vector2(vp.x * 0.86, vh - _battle._player_hand_view.get_combined_minimum_size().y - vh * 0.03)
 	var card: Vector2 = _battle._view.card_size()
 	var step := Vector2(card.x * 0.95, card.y * 0.30)
-	_place_board(_battle._enemy_board_view, Vector2(arena.x * 0.50, arena.y * 0.02), step, arena)
-	_place_board(_battle._player_board_view, Vector2(arena.x * 0.21, arena.y * 0.34), step, arena)
+	var rows: Dictionary = row_origins(arena, card, step)
+	_place_board(_battle._enemy_board_view, rows["enemy"], step, arena)
+	_place_board(_battle._player_board_view, rows["player"], step, arena)
 	for side in range(2):
 		var tok: PanelContainer = _tokens[side]
 		tok.size = tok.get_combined_minimum_size()
@@ -96,6 +99,19 @@ func apply_layout() -> void:
 	for side in range(2):
 		if not _tokens[side].has_meta("lunging"):
 			_tokens[side].global_position = _token_home[side]
+
+## Pure: the two front lines as parallel diagonals, the enemy's shifted up-right
+## of yours by one card height plus a thin gap (ROW_GAP), so the
+## rows face each other across a narrow strip. The block is centred in the arena.
+static func row_origins(arena: Vector2, card: Vector2, step: Vector2) -> Dictionary:
+	var gap: float = card.y * ROW_GAP
+	var enemy_off := Vector2(card.x * 0.9, -(card.y + gap))
+	var player_slots: int = RealtimeCombat.MAX_ALLIES
+	var height: float = card.y + gap + step.y * float(player_slots - 1) + card.y
+	var width: float = maxf(step.x * float(player_slots - 1),
+			enemy_off.x + step.x * float(RealtimeCombat.MAX_ENEMY_MINIONS - 1)) + card.x
+	var player := Vector2((arena.x - width) * 0.5, (arena.y - height) * 0.5 + card.y + gap)
+	return {"player": player, "enemy": player + enemy_off}
 
 func _place_board(board: HBoxContainer, origin: Vector2, step: Vector2, arena: Vector2) -> void:
 	board.position = Vector2.ZERO
