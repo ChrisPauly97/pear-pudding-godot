@@ -518,7 +518,8 @@ func _spawn_entities(world_scene: _WorldScene) -> void:
 
 	for e_data in _chunk_data.enemies:
 		var eid: String = str(e_data.get("id", ""))
-		if SceneManager.save_manager.is_enemy_defeated(eid):
+		# Co-op: an enemy another peer engaged stays gone when its chunk reloads.
+		if SceneManager.save_manager.is_enemy_defeated(eid) or world_scene._coop_removed_enemies.has(eid):
 			continue
 		var node: Node3D = TerrainMath.spawn_entity(_EnemyScene, e_data, 0.5, entity_root, world_scene)
 		_set_visibility_range(node)

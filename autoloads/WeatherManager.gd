@@ -116,6 +116,15 @@ func _process(delta: float) -> void:
 		_save_timer = 0.0
 		_sync_to_save()
 
+## Co-op: adopt the host's weather for this biome and hold it for `hold_seconds`
+## (refreshed by each host packet) so the local roll doesn't override it.
+func apply_remote(weather_id: String, hold_seconds: float) -> void:
+	current_duration = hold_seconds
+	if weather_id == current_weather:
+		return
+	current_weather = weather_id
+	GameBus.weather_changed.emit(current_weather, current_duration)
+
 func _change_weather() -> void:
 	if _current_biome < 0:
 		current_weather = ""

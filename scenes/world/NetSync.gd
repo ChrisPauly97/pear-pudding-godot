@@ -23,6 +23,17 @@ func register_handler(node: Node) -> void:
 ## Routes `method` to whichever target declares it: WorldScene first, then the
 ## registered modules. Returns false when nothing handled it, which only happens
 ## if a handler was renamed without updating its caller.
+## Sender of the RPC being handled. A packet can reach this node while its world
+## is detached (battle) or mid map-swap, when the node-level `multiplayer` is null;
+## fall back to the root multiplayer that actually delivered it.
+func _sender_id() -> int:
+	var mp: MultiplayerAPI = multiplayer
+	if mp == null:
+		var tree := Engine.get_main_loop() as SceneTree
+		mp = tree.root.multiplayer if tree != null else null
+	return mp.get_remote_sender_id() if mp != null else 0
+
+
 func _route(method: String, args: Array) -> bool:
 	if world_scene != null and is_instance_valid(world_scene) and world_scene.has_method(method):
 		world_scene.callv(method, args)
@@ -35,11 +46,11 @@ func _route(method: String, args: Array) -> bool:
 	return false
 
 
-## Receive a peer's latest avatar state. payload is AvatarSync.encode() output:
-## [x: float, z: float, flip_h: bool, moving: bool].
+## Receive a peer's latest avatar state: AvatarSync.encode_packed() bytes (or the
+## legacy encode() Array); AvatarSync.decode() reads both.
 @rpc("any_peer", "unreliable_ordered", "call_remote")
-func recv_avatar(payload: Array) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+func recv_avatar(payload: Variant) -> void:
+	var sender: int = _sender_id()
 	_route("_on_avatar_received", [sender, payload])
 
 
@@ -49,7 +60,7 @@ func recv_avatar(payload: Array) -> void:
 ## reply, so the receiver replies exactly once and the exchange terminates.
 @rpc("any_peer", "reliable", "call_remote")
 func recv_identity(payload: Array, is_reply: bool) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_identity_received", [sender, payload, is_reply])
 
 
@@ -66,7 +77,7 @@ func recv_character(record: Dictionary, resume: bool) -> void:
 ## its latest character snapshot; only the host (authority) writes the session file.
 @rpc("any_peer", "reliable", "call_remote")
 func submit_character(record: Dictionary) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_character_submitted", [sender, record])
 
 
@@ -77,7 +88,7 @@ func submit_character(record: Dictionary) -> void:
 ## Reliable — discrete state changes must not drop.
 @rpc("any_peer", "reliable", "call_remote")
 func recv_world_event(payload: Array) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_world_event_received", [sender, payload])
 
 
@@ -85,7 +96,7 @@ func recv_world_event(payload: Array) -> void:
 ## won against enemy id). Only the authority mutates shared/persisted state.
 @rpc("any_peer", "reliable", "call_remote")
 func submit_world_event(payload: Array) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_world_event_submitted", [sender, payload])
 
 
@@ -111,7 +122,7 @@ func recv_enemy_positions(payload: Array) -> void:
 ## Reliable — must not drop. Routed to WorldScene._on_battle_requested.
 @rpc("any_peer", "reliable", "call_remote")
 func request_battle(challenger_deck: Array, ranked: bool = false) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_battle_requested", [sender, challenger_deck, ranked])
 
 
@@ -120,7 +131,7 @@ func request_battle(challenger_deck: Array, ranked: bool = false) -> void:
 ## with the same flag (defaulted for backward-compat with any stale caller).
 @rpc("any_peer", "reliable", "call_remote")
 func respond_battle(accepted: bool, responder_deck: Array, ranked: bool = false) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_battle_responded", [sender, accepted, responder_deck, ranked])
 
 
@@ -143,14 +154,14 @@ func set_session_flags(flags: Dictionary) -> void:
 ## Client → server: "I want to challenge peer target_peer_id." Dedicated mode only.
 @rpc("any_peer", "reliable", "call_remote")
 func relay_pvp_request(target_peer_id: int, challenger_deck: Array) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_relay_pvp_request", [sender, target_peer_id, challenger_deck])
 
 
 ## Client → server: "I accept/decline the challenge from challenger_id." Dedicated mode only.
 @rpc("any_peer", "reliable", "call_remote")
 func relay_pvp_response(challenger_id: int, accepted: bool, responder_deck: Array) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_relay_pvp_response", [sender, challenger_id, accepted, responder_deck])
 
 
@@ -183,7 +194,7 @@ func recv_story_flag(key: String, value: bool) -> void:
 ## the session state and broadcasts to everyone (including the submitter).
 @rpc("any_peer", "reliable", "call_remote")
 func submit_story_flag(key: String, value: bool) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_story_flag_submitted", [sender, key, value])
 
 
@@ -226,7 +237,7 @@ func recv_rally_notice(rallier_name: String) -> void:
 ## view (mirrored from the AvatarSync stream) before applying.
 @rpc("any_peer", "reliable", "call_remote")
 func submit_revive_request(peer_id: int) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_revive_request_submitted", [sender, peer_id])
 
 
@@ -244,7 +255,7 @@ func recv_revive(peer_id: int) -> void:
 ## payload is SocialSync.encode_emote() output: [emote_id, map_name].
 @rpc("any_peer", "unreliable_ordered", "call_remote")
 func recv_emote(payload: Array) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_emote_received", [sender, payload])
 
 
@@ -253,7 +264,7 @@ func recv_emote(payload: Array) -> void:
 ## payload is SocialSync.encode_ping() output: [x, z, kind, color_hex, map_name].
 @rpc("any_peer", "unreliable_ordered", "call_remote")
 func recv_ping(payload: Array) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_ping_received", [sender, payload])
 
 
@@ -265,7 +276,7 @@ func recv_ping(payload: Array) -> void:
 ## payload is ChatSync.encode_quick()/encode_text() output: [text, kind, map].
 @rpc("any_peer", "reliable", "call_remote")
 func recv_chat(payload: Array) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_chat_received", [sender, payload])
 
 
@@ -275,14 +286,14 @@ func recv_chat(payload: Array) -> void:
 ## TradeSync.encode_offer(). Reliable — must not drop.
 @rpc("any_peer", "reliable", "call_remote")
 func submit_trade_offer(payload: Dictionary) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_trade_offer_submitted", [sender, payload])
 
 
 ## Target peer → authority: accept or decline the pending offer. Reliable.
 @rpc("any_peer", "reliable", "call_remote")
 func submit_trade_confirm(trade_id: String, confirmed: bool) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_trade_confirm_submitted", [sender, trade_id, confirmed])
 
 
@@ -300,7 +311,7 @@ func recv_trade_update(payload: Dictionary) -> void:
 ## payload: {"kind": "card"|"coins", "card_uid": String, "amount": int}. Reliable.
 @rpc("any_peer", "reliable", "call_remote")
 func submit_stash_deposit(payload: Dictionary) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_stash_deposit_submitted", [sender, payload])
 
 
@@ -308,7 +319,7 @@ func submit_stash_deposit(payload: Dictionary) -> void:
 ## shape as submit_stash_deposit (card_uid here refers to the stash-namespaced uid).
 @rpc("any_peer", "reliable", "call_remote")
 func submit_stash_withdraw(payload: Dictionary) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_stash_withdraw_submitted", [sender, payload])
 
 
@@ -326,7 +337,7 @@ func recv_stash_update(snapshot: Dictionary) -> void:
 ## output ({"card_uid": String, "buyout": int}). Reliable.
 @rpc("any_peer", "reliable", "call_remote")
 func submit_auction_list(payload: Dictionary) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_auction_list_submitted", [sender, payload])
 
 
@@ -334,7 +345,7 @@ func submit_auction_list(payload: Dictionary) -> void:
 ## output ({"auction_id": String, "amount": int}). Reliable.
 @rpc("any_peer", "reliable", "call_remote")
 func submit_auction_bid(payload: Dictionary) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_auction_bid_submitted", [sender, payload])
 
 
@@ -342,7 +353,7 @@ func submit_auction_bid(payload: Dictionary) -> void:
 ## output ({"auction_id": String}). Reliable.
 @rpc("any_peer", "reliable", "call_remote")
 func submit_auction_buyout(payload: Dictionary) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_auction_buyout_submitted", [sender, payload])
 
 
@@ -350,7 +361,7 @@ func submit_auction_buyout(payload: Dictionary) -> void:
 ## output ({"auction_id": String}). Reliable.
 @rpc("any_peer", "reliable", "call_remote")
 func submit_auction_cancel(payload: Dictionary) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_auction_cancel_submitted", [sender, payload])
 
 
@@ -373,7 +384,7 @@ func recv_pvp_active(in_battle: bool, peer_a: int, peer_b: int) -> void:
 ## Non-participant → host: "I want to spectate the active duel." Reliable.
 @rpc("any_peer", "reliable", "call_remote")
 func request_spectate_pvp() -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_spectate_pvp_requested", [sender])
 
 
@@ -390,7 +401,7 @@ func recv_spectate_approved() -> void:
 ## challenger also proposes ante_coins staked by each player. Reliable.
 @rpc("any_peer", "reliable", "call_remote")
 func request_battle_wager(challenger_deck: Array, ante_coins: int) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_battle_wager_requested", [sender, challenger_deck, ante_coins])
 
 
@@ -398,7 +409,7 @@ func request_battle_wager(challenger_deck: Array, ante_coins: int) -> void:
 ## confirms the agreed ante. Reliable.
 @rpc("any_peer", "reliable", "call_remote")
 func respond_battle_wager(accepted: bool, responder_deck: Array, ante_coins: int) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_battle_wager_responded", [sender, accepted, responder_deck, ante_coins])
 
 
@@ -415,7 +426,7 @@ func recv_party_bounty_update(payload: Dictionary) -> void:
 ## bounty_type / match_data mirror SaveManager.increment_bounty_progress. Reliable.
 @rpc("any_peer", "reliable", "call_remote")
 func submit_party_bounty_progress(bounty_type: String, match_data: Dictionary) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_party_bounty_progress_submitted", [sender, bounty_type, match_data])
 
 
@@ -454,7 +465,7 @@ func recv_leaderboard(rows: Array) -> void:
 ## Reliable.
 @rpc("any_peer", "reliable", "call_remote")
 func submit_leaderboard_request() -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_leaderboard_request_submitted", [sender])
 
 
@@ -477,7 +488,7 @@ func recv_rating_delta(delta: int) -> void:
 ## Reliable — a dropped submission would silently lose a player's best result.
 @rpc("any_peer", "reliable", "call_remote")
 func submit_pve_leaderboard_score(board: String, value: int) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_pve_leaderboard_score_submitted", [sender, board, value])
 
 
@@ -495,7 +506,7 @@ func recv_pve_leaderboards(snapshot: Dictionary) -> void:
 ## tab in the leaderboard overlay). Reliable.
 @rpc("any_peer", "reliable", "call_remote")
 func submit_pve_leaderboard_request() -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_pve_leaderboard_request_submitted", [sender])
 
 
@@ -507,7 +518,7 @@ func submit_pve_leaderboard_request() -> void:
 ## entering the guildhall map). Reliable.
 @rpc("any_peer", "reliable", "call_remote")
 func submit_guildhall_garden_request() -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_guildhall_garden_request_submitted", [sender])
 
 
@@ -523,14 +534,14 @@ func recv_guildhall_garden_update(payload: Dictionary) -> void:
 ## submit_spire_draft_choice's precedent. Reliable.
 @rpc("any_peer", "reliable", "call_remote")
 func submit_session_plant(plot_idx: int, seed_id: String) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_session_plant_submitted", [sender, plot_idx, seed_id])
 
 
 ## Client → authority: harvest a mature guildhall garden plot. Reliable.
 @rpc("any_peer", "reliable", "call_remote")
 func submit_session_harvest(plot_idx: int) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_session_harvest_submitted", [sender, plot_idx])
 
 
@@ -550,7 +561,7 @@ func recv_loot_roll_start(payload: Dictionary) -> void:
 ## re-derive card_ids/position from its own deterministic chest data. Reliable.
 @rpc("any_peer", "reliable", "call_remote")
 func submit_loot_roll_request(cid: String, chest_tier: int) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_loot_roll_request_submitted", [sender, cid, chest_tier])
 
 
@@ -559,7 +570,7 @@ func submit_loot_roll_request(cid: String, chest_tier: int) -> void:
 ## simple RPC parameters like the other submit_* calls. Reliable.
 @rpc("any_peer", "reliable", "call_remote")
 func submit_loot_roll_choice(roll_id: String, choice: String) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_loot_roll_choice_submitted", [sender, roll_id, choice])
 
 
@@ -585,7 +596,7 @@ func recv_spire_draft_start(payload: Dictionary) -> void:
 ## plain-RPC-params precedent. Reliable.
 @rpc("any_peer", "reliable", "call_remote")
 func submit_spire_draft_choice(card_idx: int) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_spire_draft_choice_submitted", [sender, card_idx])
 
 
@@ -600,7 +611,7 @@ func recv_spire_draft_choice(payload: Array) -> void:
 ## EnemyNPC.engage() payload. Mirrors submit_siege_boss_engaged. Reliable.
 @rpc("any_peer", "reliable", "call_remote")
 func submit_spire_boss_engaged(edata: Dictionary) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_spire_boss_engaged_submitted", [sender, edata])
 
 
@@ -622,7 +633,7 @@ func recv_coop_spire_run_ended(payload: Dictionary) -> void:
 ## carrying the shared seed. Reliable — a dropped challenge must not silently vanish.
 @rpc("any_peer", "reliable", "call_remote")
 func request_draft_duel(payload: Dictionary) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_draft_duel_requested", [sender, payload])
 
 
@@ -630,7 +641,7 @@ func request_draft_duel(payload: Dictionary) -> void:
 ## seed payload back so both peers provably draft from the same seed. Reliable.
 @rpc("any_peer", "reliable", "call_remote")
 func respond_draft_duel(accepted: bool, payload: Dictionary) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_draft_duel_responded", [sender, accepted, payload])
 
 
@@ -640,7 +651,7 @@ func respond_draft_duel(accepted: bool, payload: Dictionary) -> void:
 ## simply waits until the opponent's deck arrives. Reliable — must not drop.
 @rpc("any_peer", "reliable", "call_remote")
 func submit_draft_duel_deck(deck: Array) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_draft_duel_deck_submitted", [sender, deck])
 # ── Session tournaments (GID-104 / TID-386) ──────────────────────────────────
 
@@ -658,7 +669,7 @@ func notify_tournament_start(bracket: Dictionary, ante: int) -> void:
 ## Reliable.
 @rpc("any_peer", "reliable", "call_remote")
 func request_tournament_ante_check(ante_coins: int) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_tournament_ante_check_requested", [sender, ante_coins])
 
 
@@ -666,7 +677,7 @@ func request_tournament_ante_check(ante_coins: int) -> void:
 ## Reliable.
 @rpc("any_peer", "reliable", "call_remote")
 func respond_tournament_ante_check(can_afford: bool) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_tournament_ante_check_responded", [sender, can_afford])
 
 
@@ -689,7 +700,7 @@ func notify_tournament_spectate() -> void:
 # ── Synced world clock & weather (GID-103 / TID-382) ──────────────────────────
 
 ## Authority → peers: the current shared clock/weather. payload is
-## EnvSync.encode() output: [time_of_day, days_elapsed, weather_id]. Reliable —
+## EnvSync.encode() output: [time_of_day, days_elapsed, weather_id, biome]. Reliable —
 ## a dropped update just means the next low-Hz tick (or the next weather change)
 ## corrects it; there is no continuous stream to fall back on.
 @rpc("any_peer", "reliable", "call_remote")
@@ -721,7 +732,7 @@ func recv_siege_boss_phase(siege_id: int) -> void:
 ## whole party. edata is the raw EnemyNPC.engage() payload. Reliable.
 @rpc("any_peer", "reliable", "call_remote")
 func submit_siege_boss_engaged(edata: Dictionary) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_siege_boss_engaged_submitted", [sender, edata])
 
 
@@ -730,6 +741,20 @@ func submit_siege_boss_engaged(edata: Dictionary) -> void:
 @rpc("any_peer", "reliable", "call_remote")
 func notify_coop_pve_start(my_idx: int, all_ally_decks: Array, enemy_data: Dictionary) -> void:
 	_route("_on_notify_coop_pve_start", [my_idx, all_ally_decks, enemy_data])
+
+
+## Client → host: I engaged `edata` with these teammates close by — start an
+## open-world joint fight. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func submit_joint_fight(edata: Dictionary, partners: Array) -> void:
+	var sender: int = _sender_id()
+	_route("_on_joint_fight_submitted", [sender, edata, partners])
+
+
+## Host → client: the joint fight couldn't start; fight `edata` solo. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_joint_fight_declined(edata: Dictionary) -> void:
+	_route("_on_joint_fight_declined", [edata])
 
 
 # ── Ghost duels — client entry point (GID-102 / TID-377 follow-up, fixes BID-032) ──
@@ -743,7 +768,7 @@ func notify_coop_pve_start(my_idx: int, all_ally_decks: Array, enemy_data: Dicti
 ## Reliable.
 @rpc("any_peer", "reliable", "call_remote")
 func request_ghost_roster() -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_ghost_roster_requested", [sender])
 
 
@@ -760,7 +785,7 @@ func recv_ghost_roster(rows: Array) -> void:
 ## roster row and pressed "Ghost Duel"). Reliable.
 @rpc("any_peer", "reliable", "call_remote")
 func request_ghost_snapshot(token: String) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
+	var sender: int = _sender_id()
 	_route("_on_ghost_snapshot_requested", [sender, token])
 
 

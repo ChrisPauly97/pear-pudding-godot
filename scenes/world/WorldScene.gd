@@ -200,6 +200,9 @@ var _coop_active: bool = false
 var _session_token_by_peer: Dictionary = {}  # host: peer_id -> identity token
 # Co-op world-object sync (GID-096) — guarded by _coop_active; inert single-player.
 var _coop_removed_enemies: Dictionary = {}  # enemy id -> true (engaged/defeated this session)
+## Open-world joint fight in progress: the shared enemy's id on every participant
+## ("" otherwise). Read by the co-op clears leaderboard to skip ordinary enemies.
+var _joint_fight_eid: String = ""
 # Shared story scrolls (GID-108 / TID-408) — mirrors _coop_opened_objects exactly.
 var _coop_collected_scrolls: Dictionary = {}  # scroll id -> true (collected by anyone this session)
 var _coop_scroll_syncing: bool = false        # reentry guard, mirrors _coop_story_flag_syncing
@@ -713,7 +716,15 @@ func _load_named_map() -> void:
 			_show_dialogue.call_deferred(
 				"Map '%s' could not be loaded — using a generated map instead." % map_name)
 
+## SceneManager probes this before starting a solo battle: true when a nearby
+## teammate turns this engage into an open-world joint fight instead.
+func wants_joint_engage(enemy_data: Dictionary) -> bool:
+	return coop_session.claim_joint_fight(enemy_data)
+
 func _wire_gamebus_signals() -> void:
+	NetworkManager.reconnecting.connect(coop_session.on_net_reconnecting)
+	NetworkManager.reconnected.connect(coop_session.on_net_reconnected)
+	NetworkManager.reconnect_failed.connect(coop_session.on_net_reconnect_failed)
 	GameBus.battle_won.connect(_on_battle_won)
 	GameBus.enemy_engaged.connect(mounts.on_enemy_engaged)
 	GameBus.blight_changed.connect(_refresh_blight_tints)
@@ -742,6 +753,9 @@ func _wire_gamebus_signals() -> void:
 
 	# GID-101 (TID-368): champion record + wager payout when PvP ends. Connected
 	# permanently (not in _setup_coop) because WorldScene is detached during battle.
+	# Open-world joint fights: after the leaderboard handler above, which reads the flag.
+	if not GameBus.coop_pve_battle_ended.is_connected(coop_activities._on_joint_fight_ended):
+		GameBus.coop_pve_battle_ended.connect(coop_activities._on_joint_fight_ended)
 	if not GameBus.pvp_battle_ended.is_connected(coop_pvp._on_pvp_battle_ended_coop):
 		GameBus.pvp_battle_ended.connect(coop_pvp._on_pvp_battle_ended_coop)
 
@@ -776,7 +790,17 @@ func _wire_gamebus_signals() -> void:
 		GameBus.spire_run_ended.connect(coop_activities._on_spire_run_ended_leaderboard)
 
 func _enter_tree() -> void:
-	if _initial_ready_done and not _coop_active and NetworkManager.is_active():
+	# Re-attach after a battle/puzzle detach. Deferred: _enter_tree fires before
+	# the child modules re-enter the tree, so their get_viewport()/multiplayer are
+	# still null here and _setup_coop aborted halfway (no avatars, no session, no
+	# story-flag sync) after every co-op battle.
+	if _initial_ready_done:
+		_on_reattached.call_deferred()
+
+func _on_reattached() -> void:
+	if not is_inside_tree():
+		return
+	if not _coop_active and NetworkManager.is_active():
 		coop_session._setup_coop()
 	# GID-101 (TID-367/368): broadcast pvp-clear to spectators now that the world is
 	# back in the tree and _net_sync is valid again.
@@ -1520,6 +1544,7 @@ func _tick_coop(delta: float) -> void:
 	coop_pvp._check_challenge_timeouts()
 	coop_pvp._tick_tournament(delta)
 	coop_session._tick_session_persist(delta)
+	coop_session._tick_connection_quality(delta)
 	# World-object sync (GID-096): host streams enemy positions; clients smooth.
 	coop_session._broadcast_enemy_positions(delta)
 	coop_session._interp_synced_enemies(delta)
@@ -1990,6 +2015,10 @@ func _build_prompt(layer_index: int, sep_frac: float) -> Dictionary:
 
 	var panel := PanelContainer.new()
 	panel.set_anchors_preset(Control.PRESET_CENTER)
+	# Grow out from the centre point. The default (END) hangs the whole panel
+	# right-and-down from screen centre, so taller prompts ran off the bottom.
+	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
 	layer.add_child(panel)
 	return {"layer": layer, "vbox": _UiUtil.make_vbox(int(vh * sep_frac), panel)}
 

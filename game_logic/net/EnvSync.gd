@@ -30,8 +30,10 @@ const _DURATIONS: Dictionary = {
 }
 
 ## Payload layout: [time_of_day: float, days_elapsed: int, weather_id: String]
-static func encode(time_of_day: float, days_elapsed: int, weather_id: String) -> Array:
-	return [time_of_day, days_elapsed, weather_id]
+## `biome` is the sender's biome on the infinite world (-1 on named maps), where
+## weather is per biome.
+static func encode(time_of_day: float, days_elapsed: int, weather_id: String, biome: int = -1) -> Array:
+	return [time_of_day, days_elapsed, weather_id, biome]
 
 
 ## Unpack a received payload. Tolerant of a short/garbage array — missing fields
@@ -40,7 +42,8 @@ static func decode(payload: Array) -> Dictionary:
 	var time_of_day: float = float(payload[0]) if payload.size() > 0 else 0.4
 	var days_elapsed: int = int(payload[1]) if payload.size() > 1 else 0
 	var weather_id: String = str(payload[2]) if payload.size() > 2 else ""
-	return {"time_of_day": time_of_day, "days_elapsed": days_elapsed, "weather_id": weather_id}
+	var biome: int = int(payload[3]) if payload.size() > 3 else -1
+	return {"time_of_day": time_of_day, "days_elapsed": days_elapsed, "weather_id": weather_id, "biome": biome}
 
 
 ## Weighted-random weather pick using the caller-owned RNG.

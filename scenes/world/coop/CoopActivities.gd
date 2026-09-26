@@ -878,10 +878,86 @@ func _coop_start_siege_boss_battle(edata: Dictionary) -> void:
 			_world._net_sync.rpc_id(pid, "notify_coop_pve_start", i, all_decks, edata)
 	SceneManager.net_battles.enter_coop_pve_battle(0, all_decks, edata)
 
-## Client: the host started the joint siege-boss battle — enter with our index.
+## Client: the host started a joint battle (siege boss, or an open-world joint
+## fight) — enter with our index.
 
 func _on_notify_coop_pve_start(my_idx: int, all_ally_decks: Array, enemy_data: Dictionary) -> void:
+	if bool(enemy_data.get("joint_fight", false)):
+		_world._joint_fight_eid = str(enemy_data.get("id", ""))
+		GameBus.hud_message_requested.emit("Fighting together!")
 	SceneManager.net_battles.enter_coop_pve_battle(my_idx, all_ally_decks, enemy_data)
+
+# ── Open-world joint fights ───────────────────────────────────────────────────
+# Engaging an ordinary enemy with the host (and any other teammate) close by pulls
+# everyone nearby into one joint PvE battle on the siege-boss engine instead of a
+# solo fight. Same per-ally rewards; the shared enemy is persisted on a win.
+
+## Engager: the host starts the fight directly; a client asks the host.
+func request_joint_fight(edata: Dictionary, partners: Array[int]) -> void:
+	if NetworkManager.is_host():
+		_start_joint_fight(edata, partners)
+	elif _world._net_sync != null:
+		_world._net_sync.rpc_id(1, "submit_joint_fight", edata, partners)
+
+## Host: a client engaged with us nearby. The fight is the sender plus the
+## partners it saw, less anyone who has since left.
+func _on_joint_fight_submitted(sender: int, edata: Dictionary, partners: Array) -> void:
+	if not NetworkManager.is_host():
+		return
+	var eid: String = str(edata.get("id", ""))
+	if _world._coop_removed_enemies.has(eid):
+		return  # both engaged it at once: the first request already pulled them in
+	if not SceneManager.is_in_world() or _world._joint_fight_eid != "":
+		# Host can't run it right now (already in a battle): the sender fights solo.
+		if _world._net_sync != null:
+			_world._net_sync.rpc_id(sender, "recv_joint_fight_declined", edata)
+		return
+	var clients: Array[int] = [sender]
+	for pid: Variant in partners:
+		clients.append(int(pid))
+	_start_joint_fight(edata, clients)
+
+## Client: the host couldn't start the joint fight — take the enemy on solo.
+func _on_joint_fight_declined(edata: Dictionary) -> void:
+	if SceneManager.is_in_world():
+		SceneManager._start_battle(edata)
+
+## Host-only: remove the enemy for everyone and start the joint battle for the
+## host plus the given (connected) clients.
+func _start_joint_fight(edata: Dictionary, clients: Array[int]) -> void:
+	if not NetworkManager.is_host() or _world._net_sync == null:
+		return
+	var eid: String = str(edata.get("id", ""))
+	_world.coop_session._coop_remove_enemy_node(eid)
+	_world._net_sync.rpc("recv_world_event", _WorldObjectSync.encode_event(
+		_WorldObjectSync.EV_ENEMY_REMOVED, eid))
+	var connected: Array = multiplayer.get_peers()
+	var abs_peer_ids: Array[int] = [multiplayer.get_unique_id()]
+	var sorted_clients: Array[int] = []
+	for pid: int in clients:
+		if pid != abs_peer_ids[0] and connected.has(pid) and not sorted_clients.has(pid):
+			sorted_clients.append(pid)
+	sorted_clients.sort()
+	abs_peer_ids.append_array(sorted_clients)
+	var fight: Dictionary = edata.duplicate(true)
+	fight["joint_fight"] = true
+	var all_decks: Array = []
+	for pid: int in abs_peer_ids:
+		all_decks.append(_world.coop_pvp._team_deck_for_peer(pid))
+	for i in range(1, abs_peer_ids.size()):
+		_world._net_sync.rpc_id(abs_peer_ids[i], "notify_coop_pve_start", i, all_decks, fight)
+	_world._joint_fight_eid = eid
+	GameBus.hud_message_requested.emit("Fighting together!")
+	SceneManager.net_battles.enter_coop_pve_battle(0, all_decks, fight)
+
+## Any participant: the joint fight ended. The host persists a won enemy.
+func _on_joint_fight_ended(did_win: bool, _result: Dictionary = {}) -> void:
+	var eid: String = _world._joint_fight_eid
+	if eid == "":
+		return
+	_world._joint_fight_eid = ""
+	if did_win and NetworkManager.is_host():
+		_world.coop_session._coop_record_enemy_defeated(eid)
 
 ## Any peer: the joint siege-boss battle ended — reset siege UI/state; the host
 ## additionally distributes victory rewards to the whole party. A no-op unless a
@@ -984,7 +1060,8 @@ func _on_spire_run_ended_leaderboard(stats: Dictionary) -> void:
 ## breaks ties within the same tier. `result` defaults ({} -> tier 1, 0s) keep this
 ## safe against a stale caller that still only emits `did_win`.
 func _on_coop_pve_battle_ended_leaderboard(did_win: bool, result: Dictionary = {}) -> void:
-	if not did_win or not NetworkManager.is_active():
+	# Ordinary open-world joint fights aren't boss clears.
+	if not did_win or not NetworkManager.is_active() or _world._joint_fight_eid != "":
 		return
 	var boss_tier: int = int(result.get("boss_tier", 1))
 	var clear_seconds: float = float(result.get("clear_seconds", 0.0))

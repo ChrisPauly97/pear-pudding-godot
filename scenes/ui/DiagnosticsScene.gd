@@ -52,6 +52,11 @@ func _ready() -> void:
 			Callable(), hbox)
 	prev_btn.pressed.connect(func() -> void: _toggle_prev_log(prev_btn))
 
+	# Copy whatever is shown (live or last-session log) so it can be pasted into
+	# a bug report straight from the phone.
+	_UiUtil.make_button("Copy", Vector2(_vh * 0.14, _vh * 0.06), int(_vh * 0.026),
+			func() -> void: DisplayServer.clipboard_set(_rich.get_parsed_text()), hbox)
+
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hbox.add_child(spacer)

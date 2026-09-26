@@ -17,6 +17,14 @@ const _AvatarSync        = preload("res://game_logic/net/AvatarSync.gd")
 const _CoopSiege         = preload("res://game_logic/CoopSiege.gd")
 const _DownedSync        = preload("res://game_logic/net/DownedSync.gd")
 const _EnemySync         = preload("res://game_logic/net/EnemySync.gd")
+const _AVATAR_HEARTBEAT: float = 1.0       # max seconds between avatar packets while idle
+const WEAK_PING_MS: int = 250
+## Teammates within this many world units of an engage join the fight.
+const JOINT_FIGHT_RADIUS: float = 12.0
+## A teammate whose avatar packet is older than this is treated as unavailable
+## (in a battle, backgrounded or dropping): heartbeats arrive every second.
+const _AVATAR_FRESH_MSEC: int = 2500
+const _WEAK_WARN_COOLDOWN: float = 30.0
 const _EnvSync           = preload("res://game_logic/net/EnvSync.gd")
 const _GardenPlotScript  = preload("res://scenes/world/entities/GardenPlot.gd")
 const _PlayerHome        = preload("res://scenes/world/modules/PlayerHome.gd")
@@ -69,6 +77,15 @@ var _party_roster_rows: Array = []         # cached roster row data fed into _pa
 var _remote_player_maps: Dictionary = {}   # peer_id -> last-known map name (TID-352)
 var _session_adopted: bool = false
 var _session_snapshot_accum: float = 0.0
+var _last_character_hash: int = 0          # hash of the last character snapshot sent
+var _rejoining: bool = false               # set by on_net_reconnected until the character arrives
+var _ping_refresh_accum: float = 0.0
+var _last_avatar_msec: Dictionary = {}     # peer_id -> ticks of its last avatar packet
+var _joint_claim_eid: String = ""          # engage claimed by claim_joint_fight this frame
+var _joint_claim_partners: Array[int] = []
+var _last_weak_warn: float = -999.0
+var _last_avatar_payload: PackedByteArray = PackedByteArray()  # last avatar packet sent
+var _avatar_heartbeat_accum: float = 0.0
 
 func _setup_coop() -> void:
 	if not NetworkManager.is_active():
@@ -86,9 +103,13 @@ func _setup_coop() -> void:
 		_world.add_child(_world._net_sync)
 	_world._ensure_coop_modules()
 
-	NetworkManager.peer_connected.connect(_on_coop_peer_connected)
-	NetworkManager.peer_disconnected.connect(_on_coop_peer_disconnected)
-	NetworkManager.session_ended.connect(_on_coop_session_ended)
+	# Guarded: a reconnect re-runs setup after session_ended (which doesn't disconnect).
+	if not NetworkManager.peer_connected.is_connected(_on_coop_peer_connected):
+		NetworkManager.peer_connected.connect(_on_coop_peer_connected)
+	if not NetworkManager.peer_disconnected.is_connected(_on_coop_peer_disconnected):
+		NetworkManager.peer_disconnected.connect(_on_coop_peer_disconnected)
+	if not NetworkManager.session_ended.is_connected(_on_coop_session_ended):
+		NetworkManager.session_ended.connect(_on_coop_session_ended)
 
 	# Dedicated server has no player, no HUD, no identity to share.
 	if not NetworkManager.is_dedicated_server():
@@ -328,9 +349,12 @@ func _on_identity_received(sender: int, payload: Array, is_reply: bool) -> void:
 		_send_story_flags_snapshot_to_peer(sender)
 		# Co-op story mode (GID-098): if the party has already moved beyond the
 		# default lobby map, redirect the late joiner to the party's current map.
+		# Always send it: the joiner lands on the lobby map, not ours, so comparing
+		# against our own map (which *is* st.current_map) never fired. A peer
+		# already on the target map ignores it in _on_map_transition_received.
 		if SessionStore.is_open() and _world._net_sync != null:
 			var st: _SessionState = SessionStore.get_state()
-			if st != null and st.current_map != "" and st.current_map != _world.map_name:
+			if st != null and st.current_map != "":
 				_world._net_sync.rpc_id(sender, "recv_map_transition", st.current_map, "")
 	# Answer an initiator's broadcast exactly once so it learns our identity too.
 	if not is_reply:
@@ -365,7 +389,11 @@ func _setup_session() -> void:
 	var st: _SessionState = SessionStore.get_state()
 	if st != null:
 		st.current_map = _world.map_name
-		st.world_seed = SceneManager.save_manager.world_seed
+		# The session owns its world: a brand-new session takes the host's seed,
+		# a resumed one keeps its own (its defeated/opened ids belong to it).
+		if st.members.is_empty():
+			st.world_seed = SceneManager.save_manager.world_seed
+		SceneManager.save_manager.world_seed = st.world_seed
 		SessionStore.mark_dirty()
 		# GID-103 (TID-382): resume the host's own clock from the persisted session
 		# value (a fresh session's default 0.4 matches _dnc's own default, so this is
@@ -412,11 +440,48 @@ func _setup_session() -> void:
 func _on_character_received(record: Dictionary, resume: bool) -> void:
 	if record.is_empty():
 		return
-	SceneManager.save_manager.adopt_session_character(record)
-	if resume:
-		_restore_session_position(record)
+	_adopt_session_seed(record)
+	if _rejoining:
+		# Back from a dropped connection: our in-memory character and position are
+		# newer than the host's last snapshot, so keep them and push them up.
+		_rejoining = false
+		_last_character_hash = 0
+		_session_snapshot_accum = _world._SESSION_SNAPSHOT_INTERVAL
+	else:
+		SceneManager.save_manager.adopt_session_character(record)
+		if resume:
+			_restore_session_position(record)
 	_session_adopted = true
 	_refresh_coop_roster()
+
+# ── Auto-reconnect (client) ───────────────────────────────────────────────────
+# NetworkManager retries the host after an unexpected drop while we stay in the
+# world; these surface it and re-run co-op setup once the link is back.
+
+func on_net_reconnecting(attempt: int, max_attempts: int) -> void:
+	GameBus.hud_message_requested.emit("Connection lost — reconnecting (%d/%d)…" % [attempt, max_attempts])
+
+func on_net_reconnected() -> void:
+	if not _world.is_inside_tree() or _world._coop_active:
+		return
+	_rejoining = true
+	_setup_coop()
+	GameBus.hud_message_requested.emit("Reconnected!")
+
+func on_net_reconnect_failed() -> void:
+	GameBus.hud_message_requested.emit("Couldn't reconnect to the host — you're playing solo now.")
+
+## Client: take the session's world seed. Without it a joiner generated its own
+## infinite world (different terrain, enemies and chests under the same ids). If
+## this world was already built from another seed, reload it with the right one.
+func _adopt_session_seed(record: Dictionary) -> void:
+	if not record.has("world_seed"):
+		return
+	var seed_val: int = int(record["world_seed"])
+	SceneManager.save_manager.world_seed = seed_val
+	if _world._is_infinite and _world.world_seed != seed_val and not _world._coop_map_transitioning:
+		_world._coop_map_transitioning = true
+		SceneManager.enter_coop_map_no_stack(_world.map_name, "")
 
 ## Host: a client pushed its latest character snapshot — persist it under its token.
 
@@ -444,7 +509,11 @@ func _send_character_to_peer(peer_id: int, token: String, member_name: String) -
 	var rec: Dictionary = SessionStore.ensure_member(token, member_name)
 	if rec.is_empty():
 		return
-	_world._net_sync.rpc_id(peer_id, "recv_character", rec, resume)
+	# The joiner must build the same infinite world as the host.
+	var out: Dictionary = rec.duplicate()
+	if st != null:
+		out["world_seed"] = st.world_seed
+	_world._net_sync.rpc_id(peer_id, "recv_character", out, resume)
 	if NetworkManager.is_dedicated_server():
 		_world._net_sync.rpc_id(peer_id, "set_session_flags", {"dedicated": true})
 	# GID-101 (TID-369): send party bounties snapshot so joining client is in sync.
@@ -468,8 +537,7 @@ func _send_character_to_peer(peer_id: int, token: String, member_name: String) -
 		# GID-103 (TID-382): send the current clock/weather so a late joiner never
 		# sees a mismatched sky before the next low-Hz broadcast tick.
 		if _world._dnc != null:
-			_world._net_sync.rpc_id(peer_id, "recv_env_state",
-				_EnvSync.encode(_world._dnc.get_time_of_day(), st.days_elapsed, st.weather_id))
+			_world._net_sync.rpc_id(peer_id, "recv_env_state", _current_env_payload())
 
 ## Move the local player to the position stored in a session record (same map only).
 
@@ -502,10 +570,17 @@ func _tick_session_persist(delta: float) -> void:
 		return
 	_session_snapshot_accum = 0.0
 	var rec: Dictionary = _build_local_character_record()
+	# The record carries the whole collection (several KB), so skip it when nothing
+	# changed since the last snapshot (idle players send nothing; the host skips a
+	# session-file rewrite).
+	var rec_hash: int = hash(rec)
+	var changed: bool = rec_hash != _last_character_hash
+	_last_character_hash = rec_hash
 	if NetworkManager.is_host():
-		SessionStore.update_member(MpProfile.get_token(), rec)
+		if changed:
+			SessionStore.update_member(MpProfile.get_token(), rec)
 		_world.coop_social._sweep_expired_auctions()
-	elif _world._net_sync != null:
+	elif changed and _world._net_sync != null:
 		_world._net_sync.rpc_id(1, "submit_character", rec)
 
 # ── In-world session roster (GID-094 / TID-342) ───────────────────────────────
@@ -541,6 +616,9 @@ func _refresh_coop_roster() -> void:
 			var rating_badge: String = _world.coop_pvp._rating_badge_for_token(token)
 			nm += "  [%s]" % rating_badge
 			# Map-scoped sync (TID-352): peers on another map are greyed + "(elsewhere)".
+			var ping: int = _measurable_ping(int(pid))
+			if ping >= 0:
+				nm += "  %s" % _ping_badge(ping)
 			var peer_map: String = str(_remote_player_maps.get(pid, _world.map_name))
 			if peer_map != "" and peer_map != _world.map_name:
 				nm += " (elsewhere)"
@@ -554,6 +632,38 @@ func _refresh_coop_roster() -> void:
 			})
 	if _party_panel != null and is_instance_valid(_party_panel):
 		_party_panel.refresh_roster(_party_roster_rows)
+
+## Ping we can actually measure to `pid`: the host sees every client, a client
+## only the host. -1 otherwise.
+func _measurable_ping(pid: int) -> int:
+	if NetworkManager.is_host() or pid == 1:
+		return NetworkManager.get_ping_ms(pid)
+	return -1
+
+## "good 45 ms" style badge: the word reads at a glance without relying on colour.
+static func _ping_badge(ping_ms: int) -> String:
+	if ping_ms < 100:
+		return "good %d ms" % ping_ms
+	if ping_ms < WEAK_PING_MS:
+		return "ok %d ms" % ping_ms
+	return "weak %d ms" % ping_ms
+
+## Keeps the open Party panel's ping badges live and warns (at most every
+## _WEAK_WARN_COOLDOWN s) when a client's link to the host turns weak.
+func _tick_connection_quality(delta: float) -> void:
+	_ping_refresh_accum += delta
+	if _ping_refresh_accum < 2.0:
+		return
+	_ping_refresh_accum = 0.0
+	if _party_panel != null and is_instance_valid(_party_panel):
+		_refresh_coop_roster()
+	if NetworkManager.is_host():
+		return
+	var ping: int = NetworkManager.get_ping_ms(1)
+	var now: float = Time.get_ticks_msec() / 1000.0
+	if ping >= WEAK_PING_MS and now - _last_weak_warn >= _WEAK_WARN_COOLDOWN:
+		_last_weak_warn = now
+		GameBus.hud_message_requested.emit("Weak connection to host (%d ms)" % ping)
 
 ## Party loot rolls (GID-102 / TID-381): host-only toggle between the default
 ## first-opener-takes rule and the opt-in need/greed roll. Now a Party-panel
@@ -647,13 +757,14 @@ func _open_party_panel() -> void:
 
 # Called by NetSync when a remote avatar packet arrives.
 
-func _on_avatar_received(sender: int, payload: Array) -> void:
+func _on_avatar_received(sender: int, payload: Variant) -> void:
 	var rp: Node = _world._valid_node(_world._remote_player_nodes.get(sender))
 	if not is_instance_valid(rp):
 		# Packet arrived before the connect signal was processed — spawn now.
 		_spawn_remote_player(sender)
 		rp = _world._valid_node(_world._remote_player_nodes.get(sender))
 	var d: Dictionary = _AvatarSync.decode(payload)
+	_last_avatar_msec[sender] = Time.get_ticks_msec()
 	# Map-scoped avatar sync (TID-352): only render a peer that is on our map. An
 	# empty map (legacy/garbage payload) is treated as same-map so nothing regresses.
 	var sender_map: String = str(d.get("map", ""))
@@ -692,8 +803,17 @@ func _broadcast_local_avatar(delta: float) -> void:
 	if spr != null:
 		flip_h = spr.flip_h
 	var moving: bool = bool(_world._player.get("_is_moving"))
-	var payload: Array = _AvatarSync.encode(
-		_world._player.position.x, _world._player.position.z, flip_h, moving, _world.map_name, _world._coop_downed)
+	var px: float = snappedf(_world._player.position.x, 0.01)
+	var pz: float = snappedf(_world._player.position.z, 0.01)
+	var payload: PackedByteArray = _AvatarSync.encode_packed(px, pz, flip_h, moving, _world.map_name,
+			_world._coop_downed)
+	# Standing still sends nothing new, so only a 1 Hz heartbeat goes out (keeps a
+	# dropped unreliable packet from leaving a peer's copy stale for long).
+	_avatar_heartbeat_accum += _world._NET_BROADCAST_INTERVAL
+	if payload == _last_avatar_payload and _avatar_heartbeat_accum < _AVATAR_HEARTBEAT:
+		return
+	_last_avatar_payload = payload
+	_avatar_heartbeat_accum = 0.0
 	_world._net_sync.rpc("recv_avatar", payload)
 
 ## Co-op (GID-108 / TID-408): the authority's own Maiteln follower is the single
@@ -775,6 +895,12 @@ func _on_enemy_engaged_coop(edata: Dictionary) -> void:
 	if _in_coop_spire_floor() and _SpireFloorGen.is_spire_enemy_id(eid):
 		_world.coop_activities._coop_engage_spire_boss(edata)
 		return
+	if eid == _joint_claim_eid:
+		var partners: Array[int] = _joint_claim_partners.duplicate()
+		_joint_claim_eid = ""
+		_joint_claim_partners.clear()
+		_world.coop_activities.request_joint_fight(edata, partners)
+		return
 	_coop_last_engaged_enemy_id = eid
 	if NetworkManager.is_host():
 		_world._coop_removed_enemies[eid] = true
@@ -783,6 +909,44 @@ func _on_enemy_engaged_coop(edata: Dictionary) -> void:
 	else:
 		_world._net_sync.rpc_id(1, "submit_world_event", _WorldObjectSync.encode_event(
 			_WorldObjectSync.EV_ENEMY_ENGAGED, eid))
+
+## Teammates close enough to join a fight against this enemy: same map, fresh
+## avatar, not downed, within JOINT_FIGHT_RADIUS. The host runs every joint
+## battle, so a client only gets partners when the host is among them.
+func joint_fight_partners(edata: Dictionary) -> Array[int]:
+	var out: Array[int] = []
+	if not _world._coop_active or not NetworkManager.is_active() or _world._player == null:
+		return out
+	var eid: String = str(edata.get("id", ""))
+	# Ordinary world enemies only: mimics, blight hearts, resumed and scripted
+	# battles never register here; siege and Spire bosses have their own path.
+	if eid == "" or not _world._enemy_nodes.has(eid) or eid.begins_with("siege_boss_") \
+			or _SpireFloorGen.is_spire_enemy_id(eid):
+		return out
+	var now: int = Time.get_ticks_msec()
+	var px: float = _world._player.position.x
+	var pz: float = _world._player.position.z
+	for pid in _world._remote_player_nodes.keys():
+		var rp: Node3D = _world._node_in_range(_world._remote_player_nodes[pid], px, pz, JOINT_FIGHT_RADIUS)
+		if rp == null or not rp.visible or bool(_coop_downed_peers.get(pid, false)):
+			continue
+		if now - int(_last_avatar_msec.get(pid, 0)) > _AVATAR_FRESH_MSEC:
+			continue
+		out.append(int(pid))
+	if not NetworkManager.is_host() and not out.has(1):
+		out.clear()
+	return out
+
+## Called (via WorldScene.wants_joint_engage) by SceneManager before it starts a
+## solo battle. Remembers the partners so _on_enemy_engaged_coop, which runs next
+## for the same signal, routes this engage to a joint fight.
+func claim_joint_fight(edata: Dictionary) -> bool:
+	var partners: Array[int] = joint_fight_partners(edata)
+	if partners.is_empty():
+		return false
+	_joint_claim_eid = str(edata.get("id", ""))
+	_joint_claim_partners = partners
+	return true
 
 ## Persist a co-op battle victory against a shared enemy. Host writes the session
 ## file directly; a client submits the defeat for the host to persist. Called from
@@ -989,7 +1153,14 @@ func _coop_apply_scroll_collected(scroll_id: String) -> void:
 ## infinite world (WeatherManager already owns weather there).
 
 func _tick_env_sync(delta: float) -> void:
-	if _world._is_infinite or not _coop_world_authority() or _world._dnc == null:
+	if not _coop_world_authority() or _world._dnc == null:
+		return
+	if _world._is_infinite:
+		# WeatherManager owns the host's weather here; just share clock + weather.
+		_coop_env_broadcast_timer -= delta
+		if _coop_env_broadcast_timer <= 0.0:
+			_coop_env_broadcast_timer = _world._ENV_BROADCAST_INTERVAL
+			_broadcast_env_state()
 		return
 	_coop_weather_timer -= delta
 	var weather_rolled: bool = false
@@ -1024,13 +1195,22 @@ func _coop_roll_weather() -> float:
 func _broadcast_env_state() -> void:
 	if not _coop_world_authority() or _world._net_sync == null or _world._dnc == null:
 		return
+	_world._net_sync.rpc("recv_env_state", _current_env_payload())
+
+## Host: the clock/weather packet. On the infinite world weather is per biome, so
+## it carries the host's biome and WeatherManager's live weather.
+func _current_env_payload() -> Array:
 	var days: int = 0
 	var weather_id: String = ""
 	if SessionStore.is_open():
 		var st: _SessionState = SessionStore.get_state()
 		days = st.days_elapsed
 		weather_id = st.weather_id
-	_world._net_sync.rpc("recv_env_state", _EnvSync.encode(_world._dnc.get_time_of_day(), days, weather_id))
+	var biome: int = -1
+	if _world._is_infinite:
+		weather_id = WeatherManager.current_weather
+		biome = _world._current_biome
+	return _EnvSync.encode(_world._dnc.get_time_of_day(), days, weather_id, biome)
 
 ## Any peer: apply the authority's clock/weather broadcast (or late-join snapshot).
 
@@ -1042,10 +1222,16 @@ func _on_env_state_received(payload: Array) -> void:
 		_world._dnc.set_time_of_day(float(d.get("time_of_day", 0.4)))
 	_coop_env_days_elapsed = int(d.get("days_elapsed", 0))
 	var weather_id: String = str(d.get("weather_id", ""))
+	if _world._is_infinite:
+		# Same biome as the host: share its weather (held until the next packet).
+		# Elsewhere our own WeatherManager keeps rolling for our biome.
+		var biome: int = int(d.get("biome", -1))
+		if biome >= 0 and biome == _world._current_biome and not _coop_world_authority():
+			WeatherManager.apply_remote(weather_id, _world._ENV_BROADCAST_INTERVAL * 3.0)
+		return
 	if weather_id != _coop_env_weather_id:
 		_coop_env_weather_id = weather_id
-		if not _world._is_infinite:
-			_world._on_weather_changed(weather_id, 0.0)
+		_world._on_weather_changed(weather_id, 0.0)
 
 ## The current shared co-op day counter, read from the authoritative SessionStore on
 ## the host or from the last-received broadcast on a client. Used to key the
@@ -1164,8 +1350,14 @@ func _coop_apply_world_progress(removed_enemies: Array, opened_objects: Array, c
 
 ## Host: broadcast positions for any live shared enemy at a low Hz (inert while all
 ## enemies are static, as on every current co-op map). Called from _process.
+## Never on the infinite world: its enemies are chunk-streamed and simulated per
+## peer (each peer loads different chunks), so the stream was one over-MTU packet
+## of every host enemy 5x a second that dragged the joiner's copies toward the
+## host's positions every frame.
 
 func _broadcast_enemy_positions(delta: float) -> void:
+	if _world._is_infinite:
+		return
 	if not _coop_world_authority() or _world._net_sync == null or _world._enemy_nodes.is_empty():
 		return
 	_enemy_pos_accum += delta
@@ -1185,7 +1377,7 @@ func _broadcast_enemy_positions(delta: float) -> void:
 ## Client: store the latest authority positions; _process interpolates toward them.
 
 func _on_enemy_positions_received(payload: Array) -> void:
-	if not _world._coop_active or NetworkManager.is_host():
+	if not _world._coop_active or NetworkManager.is_host() or _world._is_infinite:
 		return
 	for st: Dictionary in _EnemySync.decode_batch(payload):
 		var eid: String = str(st.get("id", ""))
