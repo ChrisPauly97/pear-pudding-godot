@@ -169,3 +169,21 @@ fires only when a whole unit is crossed; the module updates hero/mana labels eve
   arrive with TID-541. Enemy card choice is "most expensive affordable unit".
 - No input queue during GCD/cast (TID-530). No interrupts yet. Summons have no cast time.
 - Mid-battle save/resume restores into turn-based mode.
+
+
+## WoW timing model & tuning (TID-549)
+
+WoW runs five independent clocks; only the GCD gates button presses:
+
+| Clock | WoW | Ours |
+|---|---|---|
+| Global cooldown | 1.5 s (haste → 1.0 s floor); potions, interrupts, pet commands are off-GCD; ~0.4 s spell queue | `player_gcd` 1.5 s; Ally commands + potions off-GCD; `spell_queue` 0.4 s (cast queued until the GCD ends) |
+| Cast time | 0–3 s, starts the GCD; pushback when hit; interrupts cancel | `cast_base + cast_per_cost × units` (≤ `cast_max`); `cast_pushback` × up to `pushback_max_hits`; enemy casts interrupted by a commanded Ally hit on the enemy hero |
+| Swing timer | weapon speed (dagger ~1.8 s … 2H ~3.6 s), slow = bigger hits, off hand ~50 % | `WeaponData.swing_speed` (0 = `hero_swing`); damage × speed ÷ `hero_swing`; `offhand_swing` |
+| Ability cooldowns | per ability, 6 s … 2 min | deck cards single-use; skill-card cooldowns → TID-550 |
+| Resource regen | Classic five-second rule | regen pauses `mana_regen_delay` after any spend, then `mana_regen` pts/s |
+
+**Tuning:** every number above (21 knobs) lives in `game_logic/battle/CombatTuning.gd` `DEFS`. `RealtimeCombat`
+reads them each tick; `BattleRealtime` loads overrides from the `combat_tuning` setting. In a real-time fight,
+**⚙ Tune** (top-left, or T) opens `CombatTuningPanel`: grouped − / + rows, clock paused, changes apply at once
+and are saved on the device; Reset all restores defaults. Max-mana knobs apply from the next fight.

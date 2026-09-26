@@ -450,6 +450,7 @@ func _execute_attack(attacker: CardInstance, target: CardInstance) -> void:
 	else:
 		if _battle._capture_tracker != null:
 			_battle._capture_tracker.note_minion_attacked_hero(0)
+		_battle.realtime.on_ally_hit_enemy_hero()  # real time: interrupts an enemy cast
 		var hero := _battle._state.players[_battle._opp_idx()].hero
 		hero.take_damage(attacker_dmg)
 		attacker.take_damage(BattlefieldRules.modify_damage(hero.attack, _battle._state.battlefield_biome))

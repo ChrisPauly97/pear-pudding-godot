@@ -369,7 +369,7 @@ the BattleScene script (see "Typed back-references" below):
 | `BattleArena.gd` (`arena`) | Backdrop, battlefield label/banner, slot highlights, co-op ally panels |
 | `BattleTargeting.gd` (`targeting`) | Board drop zone, spell/ally/slot targeting modes, resolving chosen targets |
 | `BattleInput.gd` (`card_input`) | Hand/board/enemy taps, cast confirm, attacks |
-| `BattleRealtime.gd` (`realtime`) | Real-time combat (setting-gated): drives `RealtimeCombat` clock, GCD gate, player cast bars (`run_cast`), enemy casts, focus target; presentation in `RealtimeVisuals.gd` (diagonal arena via `DiagonalBoard.gd`, hero tokens holding the hero strips, unit bars, lunges) |
+| `BattleRealtime.gd` (`realtime`) | Real-time combat (setting-gated): drives `RealtimeCombat` clock, GCD gate, player cast bars (`run_cast`), enemy casts, focus target; presentation in `RealtimeVisuals.gd` (diagonal arena via `DiagonalBoard.gd`, hero tokens holding the hero strips, unit bars, lunges); every timing comes from `game_logic/battle/CombatTuning.gd` (edited live by `CombatTuningPanel.gd`, ⚙ Tune / T) — add knobs there, not constants |
 
 Keep `_find_nearby_*` finders on WorldScene even when the spawn moves —
 `test_interact_priority` reads the interaction chains by those names. Likewise

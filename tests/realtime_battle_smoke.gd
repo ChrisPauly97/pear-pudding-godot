@@ -81,6 +81,8 @@ func _run() -> bool:
 		await _check_commanded_attack(battle, state, fails)
 	if not state.is_game_over():
 		await _check_cast_time(battle, fails)
+	if not state.is_game_over():
+		await _check_tuning_panel(battle, fails)
 	for f: String in fails:
 		print("  [FAIL] " + f)
 	if fails.is_empty():
@@ -113,11 +115,19 @@ func _check_commanded_attack(battle: Node, state: _GameState, fails: Array[Strin
 	for c: _CardInstance in state.players[1].board.get_cards():
 		state.players[1].board.remove_card(c)  # clear Wards so the hero is a legal target
 	var hp: int = state.players[1].hero.health
+	# Put the enemy mid-cast: an Ally hitting the enemy hero must interrupt it.
+	var foe_card := _CardInstance.new({"id": "smoke_cast", "name": "Smoke Cast", "cost": 1, "attack": 1,
+		"health": 1, "card_class": "minion", "description": ""})
+	state.players[1].hand.append(foe_card)
+	rt.set("enemy_casting", foe_card)
+	rt.set("enemy_cast_remaining", 5.0)
 	(battle.get("card_input") as Node).call("_attempt_attack", ally, null)
 	for _i in range(90):
 		await process_frame
 	if ally.attack_count != 0 or state.players[1].hero.health > hp - 3:
 		fails.append("commanded Ally attack did not land during the global cooldown")
+	if rt.get("enemy_casting") != null:
+		fails.append("Ally hit on the enemy hero did not interrupt its cast")
 
 ## A 3-cost spell shows a cast bar: the play is deferred, then resolves.
 func _check_cast_time(battle: Node, fails: Array[String]) -> void:
@@ -158,3 +168,28 @@ func _check_diagonal_layout(battle: Node, fails: Array[String]) -> void:
 				fails.append("%s slots are not on a top-left → bottom-right diagonal" % key)
 				break
 			prev = c.position
+
+## The Tune panel pauses the clock, edits the live tuning and persists it.
+func _check_tuning_panel(battle: Node, fails: Array[String]) -> void:
+	var rt_mod: Node = battle.get("realtime") as Node
+	rt_mod.call("open_tuning")
+	await process_frame
+	var panels: Array[Node] = get_nodes_in_group("modal_popup")
+	if panels.is_empty() or not bool(rt_mod.call("is_blocked")):
+		fails.append("tuning panel did not open / pause the clock")
+		return
+	var tune: Object = (rt_mod.get("rt") as Object).get("tune")
+	var before: float = float(tune.call("get_f", "player_gcd"))
+	panels[0].call("_nudge", "player_gcd", 1)
+	if not float(tune.call("get_f", "player_gcd")) > before:
+		fails.append("tuning panel nudge did not change the live value")
+	var save_manager: Object = root.get_node("SceneManager").get("save_manager")
+	var saved: Dictionary = save_manager.call("get_setting", "combat_tuning", {})
+	if not saved.has("player_gcd"):
+		fails.append("tuning change was not saved")
+	panels[0].call("_reset_all")
+	panels[0].call("_close")
+	await process_frame
+	await process_frame
+	if bool(rt_mod.call("is_blocked")):
+		fails.append("clock still paused after closing the tuning panel")

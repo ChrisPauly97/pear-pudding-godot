@@ -6,6 +6,10 @@ const GameState = preload("res://game_logic/battle/GameState.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const _BattleRealtime = preload("res://scenes/battle/modules/BattleRealtime.gd")
+const CombatTuning = preload("res://game_logic/battle/CombatTuning.gd")
+
+## Default tuning — what every RealtimeCombat below runs with.
+var _tune := CombatTuning.new()
 
 func _card(attack: int = 2, health: int = 3, cost: int = 1, keywords: Array = []) -> CardInstance:
 	return CardInstance.new({
@@ -33,17 +37,18 @@ func _run(rt: RealtimeCombat, seconds: float) -> Array[Dictionary]:
 func test_player_pinned_and_start_mana() -> void:
 	var rt := _rt()
 	assert_eq(rt.state.current_player_idx, 0)
-	assert_eq(rt.state.players[0].hero.max_mana, RealtimeCombat.BASE_MAX_MANA)
+	assert_eq(rt.state.players[0].hero.max_mana, _tune.get_i("base_max_mana"))
 	assert_eq(rt.state.players[0].hero.mana, rt.state.players[0].hero.max_mana, "starts full")
 
 func test_mana_regenerates_on_clock() -> void:
 	var rt := _rt()
 	var h := rt.state.players[0].hero
+	rt.tune.set_value("mana_regen_delay", 0.0)  # isolate the regen rate from the spend pause
 	h.mana = 0
 	_run(rt, 1.0)
 	# MANA_REGEN_PER_SEC in small steps (0.1 s ticks + one slack step).
-	assert_gte(h.mana, int(RealtimeCombat.MANA_REGEN_PER_SEC) - 5)
-	assert_lte(h.mana, int(RealtimeCombat.MANA_REGEN_PER_SEC * 1.2) + 5)
+	assert_gte(h.mana, int(_tune.get_f("mana_regen")) - 5)
+	assert_lte(h.mana, int(_tune.get_f("mana_regen") * 1.2) + 5)
 
 func test_max_mana_fixed_during_fight() -> void:
 	var rt := _rt()
@@ -53,10 +58,10 @@ func test_max_mana_fixed_during_fight() -> void:
 	assert_eq(rt.state.players[0].hero.max_mana, start_max)
 
 func test_max_mana_from_level_and_bonus() -> void:
-	assert_eq(RealtimeCombat.max_mana_for(1), RealtimeCombat.BASE_MAX_MANA)
-	assert_eq(RealtimeCombat.max_mana_for(2), RealtimeCombat.BASE_MAX_MANA + RealtimeCombat.MANA_PER_LEVEL,
+	assert_eq(RealtimeCombat.max_mana_for(1), _tune.get_i("base_max_mana"))
+	assert_eq(RealtimeCombat.max_mana_for(2), _tune.get_i("base_max_mana") + _tune.get_i("mana_per_level"),
 		"each level adds a small step")
-	assert_eq(RealtimeCombat.max_mana_for(1, 2), RealtimeCombat.BASE_MAX_MANA + 2 * RealtimeCombat.MANA_SCALE,
+	assert_eq(RealtimeCombat.max_mana_for(1, 2), _tune.get_i("base_max_mana") + 2 * RealtimeCombat.MANA_SCALE,
 		"gear/skill bonus_mana is in cost units")
 	assert_eq(RealtimeCombat.max_mana_for(99, 5), RealtimeCombat.MANA_CAP)
 
@@ -66,7 +71,7 @@ func test_levels_passed_to_constructor() -> void:
 	var levels: Array[int] = [7, 1]
 	var rt := RealtimeCombat.new(gs, levels)
 	assert_eq(rt.state.players[0].hero.max_mana, RealtimeCombat.max_mana_for(7, 1))
-	assert_eq(rt.state.players[1].hero.max_mana, RealtimeCombat.BASE_MAX_MANA)
+	assert_eq(rt.state.players[1].hero.max_mana, _tune.get_i("base_max_mana"))
 
 func test_draw_on_clock_respects_hand_cap() -> void:
 	var rt := _rt()
@@ -74,17 +79,17 @@ func test_draw_on_clock_respects_hand_cap() -> void:
 	rt.state.players[1].hero.health = 100000  # outlast the auto-attack
 	for i in range(10):
 		p.draw_deck.append(_card())
-	_run(rt, RealtimeCombat.DRAW_INTERVAL)
+	_run(rt, _tune.get_f("draw_interval"))
 	assert_eq(p.hand.size(), 1)
-	_run(rt, RealtimeCombat.DRAW_INTERVAL * 20.0)
-	assert_eq(p.hand.size(), RealtimeCombat.HAND_CAP)
+	_run(rt, _tune.get_f("draw_interval") * 20.0)
+	assert_eq(p.hand.size(), _tune.get_i("hand_cap"))
 
 func test_gcd_blocks_then_clears() -> void:
 	var rt := _rt()
 	assert_true(rt.gcd_ready(0))
 	rt.start_gcd(0)
 	assert_false(rt.gcd_ready(0))
-	_run(rt, RealtimeCombat.PLAYER_GCD)
+	_run(rt, _tune.get_f("player_gcd"))
 	assert_true(rt.gcd_ready(0))
 
 func test_ally_readies_but_waits_for_command() -> void:
@@ -94,12 +99,12 @@ func test_ally_readies_but_waits_for_command() -> void:
 	rt.state.players[1].board.add_card(_card(0, 50))  # absorb nothing; keeps enemy hero out of it
 	assert_false(ally.can_attack(), "fresh Ally is not ready")
 	var types: Array[String] = []
-	for e: Dictionary in _run(rt, RealtimeCombat.ALLY_READY_INTERVAL):
+	for e: Dictionary in _run(rt, _tune.get_f("ally_ready")):
 		types.append(str(e.get("type", "")))
 	assert_true(types.has("ally_ready"))
 	assert_true(ally.can_attack(), "ready after one interval")
 	var foe_hp: int = rt.state.players[1].board.get_cards()[0].health
-	_run(rt, RealtimeCombat.ALLY_READY_INTERVAL * 3.0)
+	_run(rt, _tune.get_f("ally_ready") * 3.0)
 	assert_eq(rt.state.players[1].board.get_cards()[0].health, foe_hp - 0,
 		"Ally never auto-attacks (hero swings go to the hero, not the minion)")
 	assert_true(ally.can_attack(), "stays ready until commanded")
@@ -108,12 +113,12 @@ func test_ally_timer_restarts_after_attack() -> void:
 	var rt := _rt()
 	var ally := _card(2, 3)
 	rt.state.players[0].board.add_card(ally)
-	_run(rt, RealtimeCombat.ALLY_READY_INTERVAL)
+	_run(rt, _tune.get_f("ally_ready"))
 	assert_true(ally.can_attack())
 	ally.attack_count -= 1  # what the attack path does
-	_run(rt, RealtimeCombat.ALLY_READY_INTERVAL * 0.5)
+	_run(rt, _tune.get_f("ally_ready") * 0.5)
 	assert_false(ally.can_attack(), "cooling down")
-	_run(rt, RealtimeCombat.ALLY_READY_INTERVAL * 0.5)
+	_run(rt, _tune.get_f("ally_ready") * 0.5)
 	assert_true(ally.can_attack(), "ready again")
 
 func test_enemy_minion_auto_swings_on_slower_timer() -> void:
@@ -122,7 +127,7 @@ func test_enemy_minion_auto_swings_on_slower_timer() -> void:
 	var foe := _card(3, 5)
 	rt.state.players[1].board.add_card(foe)
 	var hp: int = rt.state.players[0].hero.health
-	_run(rt, RealtimeCombat.ENEMY_SWING_INTERVAL - 0.3)
+	_run(rt, _tune.get_f("enemy_swing") - 0.3)
 	assert_eq(rt.state.players[0].hero.health, hp, "not yet")
 	_run(rt, 0.3)
 	assert_eq(rt.state.players[0].hero.health, hp - 3)
@@ -132,7 +137,7 @@ func test_ward_is_hit_first() -> void:
 	var warden := _card(0, 9, 1, ["ward"])
 	rt.state.players[1].board.add_card(warden)
 	var hero_hp: int = rt.state.players[1].hero.health
-	_run(rt, RealtimeCombat.HERO_SWING_INTERVAL)
+	_run(rt, _tune.get_f("hero_swing"))
 	assert_eq(warden.health, 9 - rt.main_hand_damage(0), "hero auto-attack must hit the Ward")
 	assert_eq(rt.state.players[1].hero.health, hero_hp)
 
@@ -142,7 +147,7 @@ func test_focus_target_is_hit_and_cleared_on_death() -> void:
 	var foe := _card(0, 4)
 	rt.state.players[1].board.add_card(foe)
 	rt.focus_target = foe
-	_run(rt, RealtimeCombat.HERO_SWING_INTERVAL)
+	_run(rt, _tune.get_f("hero_swing"))
 	assert_false(foe.is_alive())
 	assert_false(rt.state.players[1].board.get_cards().has(foe))
 	assert_null(rt.focus_target)
@@ -155,7 +160,7 @@ func test_enemy_telegraphs_then_casts() -> void:
 	assert_eq(str(ev[ev.size() - 1].get("type", "")), "enemy_cast_start")
 	assert_false(rt.state.players[1].board.get_cards().has(minion), "not played during the cast bar")
 	var types: Array[String] = []
-	for e: Dictionary in _run(rt, RealtimeCombat.ENEMY_CAST_TIME):
+	for e: Dictionary in _run(rt, _tune.get_f("enemy_cast")):
 		types.append(str(e.get("type", "")))
 	assert_true(types.has("enemy_cast"))
 	assert_true(rt.state.players[1].board.get_cards().has(minion))
@@ -183,19 +188,19 @@ func test_player_auto_attacks_with_no_mana_or_units() -> void:
 	var rt := _rt()
 	rt.state.players[0].hero.mana = 0
 	var hp: int = rt.state.players[1].hero.health
-	_run(rt, RealtimeCombat.HERO_SWING_INTERVAL)
-	assert_eq(rt.state.players[1].hero.health, hp - RealtimeCombat.UNARMED_DAMAGE)
+	_run(rt, _tune.get_f("hero_swing"))
+	assert_eq(rt.state.players[1].hero.health, hp - _tune.get_i("unarmed"))
 
 func test_weapon_attack_adds_to_main_hand() -> void:
 	var rt := _rt()
 	rt.state.players[0].hero.attack = 3
-	assert_eq(rt.main_hand_damage(0), 3 + RealtimeCombat.UNARMED_DAMAGE)
+	assert_eq(rt.main_hand_damage(0), 3 + _tune.get_i("unarmed"))
 
 func test_offhand_swings_on_its_own_timer() -> void:
 	var rt := _rt()
 	rt.offhand_damage[0] = 1
 	var hands: Array[String] = []
-	for e: Dictionary in _run(rt, RealtimeCombat.HERO_SWING_INTERVAL):
+	for e: Dictionary in _run(rt, _tune.get_f("hero_swing")):
 		if str(e.get("type", "")) == "swing" and e.get("attacker") == null and int(e.get("side", -1)) == 0:
 			hands.append(str(e.get("hand", "")))
 	assert_true(hands.has("off"), "off hand swung")
@@ -206,14 +211,14 @@ func test_enemy_hero_without_attack_does_not_swing() -> void:
 	rt.state.players[1].hero.attack = 0
 	rt.unarmed[1] = 0
 	var hp: int = rt.state.players[0].hero.health
-	_run(rt, RealtimeCombat.HERO_SWING_INTERVAL * 3.0)
+	_run(rt, _tune.get_f("hero_swing") * 3.0)
 	assert_eq(rt.state.players[0].hero.health, hp)
 
 func test_frozen_hero_does_not_swing() -> void:
 	var rt := _rt()
 	rt.state.players[0].hero.status_effects["freeze"] = 1
 	var hp: int = rt.state.players[1].hero.health
-	_run(rt, RealtimeCombat.HERO_SWING_INTERVAL)
+	_run(rt, _tune.get_f("hero_swing"))
 	assert_eq(rt.state.players[1].hero.health, hp)
 
 func test_card_costs_scale_with_mana() -> void:
@@ -251,8 +256,8 @@ func test_turn_based_scale_unchanged() -> void:
 func test_enemy_hero_auto_attacks_with_unarmed_damage() -> void:
 	var rt := _rt()
 	var hp: int = rt.state.players[0].hero.health
-	_run(rt, RealtimeCombat.HERO_SWING_INTERVAL)
-	assert_eq(rt.state.players[0].hero.health, hp - RealtimeCombat.ENEMY_UNARMED_DAMAGE)
+	_run(rt, _tune.get_f("hero_swing"))
+	assert_eq(rt.state.players[0].hero.health, hp - _tune.get_i("enemy_unarmed"))
 
 func test_unit_caps() -> void:
 	var rt := _rt()
@@ -268,20 +273,20 @@ func test_unit_caps() -> void:
 func test_enemy_minions_alternate_hero_and_weakest_ally() -> void:
 	var rt := _rt()
 	rt.unarmed[1] = 0
-	rt.state.players[0].hero.attack = -RealtimeCombat.UNARMED_DAMAGE  # player hero idle
+	rt.state.players[0].hero.attack = -_tune.get_i("unarmed")  # player hero idle
 	var tough := _card(0, 20)
 	var weak := _card(0, 10)
 	rt.state.players[0].board.add_card(tough)
 	rt.state.players[0].board.add_card(weak)
 	rt.state.players[1].board.add_card(_card(2, 50))
 	var hp: int = rt.state.players[0].hero.health
-	_run(rt, RealtimeCombat.ENEMY_SWING_INTERVAL)
+	_run(rt, _tune.get_f("enemy_swing"))
 	assert_eq(weak.health, 8, "first swing hits the weakest Ally")
-	_run(rt, RealtimeCombat.ENEMY_SWING_INTERVAL)
+	_run(rt, _tune.get_f("enemy_swing"))
 	assert_eq(rt.state.players[0].hero.health, hp - 2, "second swing goes at the hero")
 	assert_eq(tough.health, 20)
 
 func test_cast_time_scales_with_cost() -> void:
-	assert_eq(RealtimeCombat.cast_time_for(0), 0.0, "0-cost is instant")
-	assert_true(RealtimeCombat.cast_time_for(3) > RealtimeCombat.cast_time_for(1))
-	assert_eq(RealtimeCombat.cast_time_for(99), RealtimeCombat.CAST_MAX)
+	assert_eq(_rt().cast_time_for(0), 0.0, "0-cost is instant")
+	assert_true(_rt().cast_time_for(3) > _rt().cast_time_for(1))
+	assert_eq(_rt().cast_time_for(99), _tune.get_f("cast_max"))

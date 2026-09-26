@@ -19,6 +19,8 @@ Raised by the user (2026-09-26), inspired by WoW: "key thing will be making card
 | TID-546 | Real-Time Combat Prototype | agent | review | TID-540 |
 | TID-547 | Real-Time Combat — Full Mode | agent | pending | TID-546 |
 | TID-548 | Remote Attack Replay in Multiplayer Battles | agent | done | — |
+| TID-549 | Combat Tuning Panel + WoW-Style Timers | agent | done | TID-546 |
+| TID-550 | Skill Cards as Reusable Abilities with Cooldowns | agent | pending | TID-549, TID-537 |
 | TID-528 | Fight In Place — Camera Zoom Into Battle | agent | done | TID-527 |
 | TID-529 | Snappy Enemy Turns | agent | superseded | TID-527 |
 | TID-530 | Input Flow — Spell Queue & One-Tap Targeting | agent | pending | TID-546 |

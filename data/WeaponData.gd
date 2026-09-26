@@ -13,3 +13,6 @@ extends Resource
 @export var injected_card_id: String = ""
 ## Number of copies to inject (deck_inject only).
 @export var injected_card_count: int = 0
+## Real-time main-hand swing interval in seconds (0 = unarmed speed from the
+## combat tuning). Slower weapons hit proportionally harder per swing (GID-135).
+@export var swing_speed: float = 0.0

@@ -280,7 +280,7 @@ func _update_enemy_cast(rt: RealtimeCombat) -> void:
 	_enemy_cast_panel.visible = true
 	var cost: int = _battle._state.players[RealtimeCombat.ENEMY].effective_cost(c)
 	_enemy_cast_lbl.text = "Enemy casts %s  (%d mana)" % [c.name, cost]
-	_enemy_cast_bar.value = clampf(1.0 - rt.enemy_cast_remaining / RealtimeCombat.ENEMY_CAST_TIME, 0.0, 1.0)
+	_enemy_cast_bar.value = clampf(1.0 - rt.enemy_cast_remaining / rt.tune.get_f("enemy_cast"), 0.0, 1.0)
 	# Right under the enemy token, right-aligned with it.
 	var tok_r := Rect2(_token_home[RealtimeCombat.ENEMY], _tokens[RealtimeCombat.ENEMY].size)
 	var sz: Vector2 = _enemy_cast_panel.get_combined_minimum_size()
