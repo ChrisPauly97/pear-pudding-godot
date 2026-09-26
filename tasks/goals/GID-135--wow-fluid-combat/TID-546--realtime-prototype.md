@@ -42,6 +42,12 @@ See `docs/agent/combat-model.md` → Real-Time Combat. Battle state is pure (`Ga
 - Mana ×100 (user follow-up): `HeroState.mana_scale` + `gain_mana`/`drain_mana`; `PlayerState.effective_cost` /
   `base_cost` scale; all mana mutation sites (companion, consumables, spells, PvP hero power, attuned) converted;
   continuous 65 pt/s regen; max = 400 + 35/level + 100/bonus unit, cap 1000. 22 unit tests; PvP smoke passes.
+- Playtest round 1 (user): costs shown as their own "N mana" line (blue/green/red) on card faces, inspect overlay
+  and enemy cast banner (fixes a freshly built card showing the unscaled cost); Allies are commanded (ready timer,
+  off-GCD attack via the normal attack path) instead of auto-swinging; slower pace (enemy GCD 3.5 s, cast 1.5 s,
+  minion swing 4.5 s, hero 3 s, regen 50/s, draw 6 s); clock stops under pause/inspect/tutorial popups and during
+  lunges; Turn label hidden, bars labelled. `_can_local_act(ignore_gcd)`. Smoke test covers popup freeze +
+  commanded attack on GCD. 26 unit tests.
 - **Awaiting user playtest** (Settings > Battle Mode > Real-time). Mark done on approval; tuning notes go to TID-547.
 
 ## Documentation Updates

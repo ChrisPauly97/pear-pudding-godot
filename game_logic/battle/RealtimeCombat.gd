@@ -21,9 +21,9 @@ const ENEMY: int = 1
 
 ## Seconds after any card play before that side can play again.
 const PLAYER_GCD: float = 1.5
-const ENEMY_GCD: float = 2.5
+const ENEMY_GCD: float = 3.5
 ## Enemy "cast bar": telegraph time between choosing a card and playing it.
-const ENEMY_CAST_TIME: float = 1.0
+const ENEMY_CAST_TIME: float = 1.5
 ## Mana runs in points: MANA_SCALE points per card-cost unit (a 3-cost card costs
 ## 300), so regen, level and gear can move in small steps (HeroState.mana_scale).
 const MANA_SCALE: int = 100
@@ -33,19 +33,24 @@ const MANA_SCALE: int = 100
 const BASE_MAX_MANA: int = 400
 const MANA_PER_LEVEL: int = 35
 const MANA_CAP: int = 1000
-## You start full, then regenerate continuously at MANA_REGEN_PER_SEC (≈1 cost unit / 1.5 s).
-const MANA_REGEN_PER_SEC: float = 65.0
+## You start full, then regenerate continuously at MANA_REGEN_PER_SEC (1 cost unit / 2 s).
+const MANA_REGEN_PER_SEC: float = 50.0
 ## One card drawn every DRAW_INTERVAL while the hand is below HAND_CAP.
-const DRAW_INTERVAL: float = 5.0
+const DRAW_INTERVAL: float = 6.0
 const HAND_CAP: int = 7
-## Seconds between a unit's auto-attacks; a fresh unit waits one full swing.
-const SWING_INTERVAL: float = 3.0
+## Player Allies don't auto-attack: they become *ready* every ALLY_READY_INTERVAL
+## (a fresh Ally waits one interval; Surge is ready at once) and the player
+## commands the attack — tap the Ally, then a target — off the global cooldown,
+## through the normal attack path (lunge + retaliation). Ready Allies wait.
+const ALLY_READY_INTERVAL: float = 3.0
+## Enemy minions auto-attack on their own, slower, schedule.
+const ENEMY_SWING_INTERVAL: float = 4.5
 ## Hero auto-attack (WoW-style, always on): main hand every HERO_SWING_INTERVAL,
 ## off hand on its own OFFHAND_SWING_INTERVAL timer when `offhand_damage` > 0.
 ## The player's main hand always deals at least UNARMED_DAMAGE on top of
 ## `hero.attack` (weapon/passive bonuses), so an empty mana bar is never idle.
 ## Enemy heroes swing only with `hero.attack` > 0 (summoners fight through units).
-const HERO_SWING_INTERVAL: float = 2.5
+const HERO_SWING_INTERVAL: float = 3.0
 const OFFHAND_SWING_INTERVAL: float = 2.0
 const UNARMED_DAMAGE: int = 2
 
@@ -81,7 +86,7 @@ func _init(s: GameState, levels: Array[int] = [1, 1]) -> void:
 	# Units already on the board (pack encounters, resumed state) start mid-swing.
 	for i in range(2):
 		for c: CardInstance in state.players[i].board.get_cards():
-			_swing[c.instance_id] = SWING_INTERVAL * 0.5
+			_swing[c.instance_id] = _unit_interval(i) * 0.5
 
 ## Pure: fixed max mana (points) for a character level plus gear/skill bonus
 ## mana (cost units, ×MANA_SCALE).
@@ -105,12 +110,17 @@ func gcd_fraction(side: int) -> float:
 func swing_fraction(unit: CardInstance) -> float:
 	if not _swing.has(unit.instance_id):
 		return 0.0
-	return clampf(1.0 - float(_swing[unit.instance_id]) / SWING_INTERVAL, 0.0, 1.0)
+	var side: int = PLAYER if state.players[PLAYER].board.get_cards().has(unit) else ENEMY
+	return clampf(1.0 - float(_swing[unit.instance_id]) / _unit_interval(side), 0.0, 1.0)
+
+func _unit_interval(side: int) -> float:
+	return ALLY_READY_INTERVAL if side == PLAYER else ENEMY_SWING_INTERVAL
 
 ## Advance the clock. Returns events in the order they happened:
 ##   {"type": "mana"} / {"type": "draw", "side"} /
 ##   {"type": "swing", "side", "attacker": CardInstance|null (hero), "target": CardInstance|null (hero)} /
-##   {"type": "enemy_cast_start", "card"} / {"type": "enemy_cast", "card"}
+##   {"type": "enemy_cast_start", "card"} / {"type": "enemy_cast", "card"} /
+##   {"type": "ally_ready", "card"}
 ## Swings are resolved here (damage applied, dead units removed to discard).
 func advance(delta: float) -> Array[Dictionary]:
 	var events: Array[Dictionary] = []
@@ -151,8 +161,8 @@ func _tick_swings(delta: float, events: Array[Dictionary]) -> void:
 		for c: CardInstance in state.players[side].board.get_cards():
 			live[c.instance_id] = true
 			if not _swing.has(c.instance_id):
-				# Newly played: Surge swings soon, everything else waits a full swing.
-				_swing[c.instance_id] = 0.5 if c.keywords.has(Keywords.SURGE) else SWING_INTERVAL
+				# Newly played: Surge acts soon, everything else waits a full interval.
+				_swing[c.instance_id] = 0.5 if c.keywords.has(Keywords.SURGE) else _unit_interval(side)
 	for k: Variant in _swing.keys():
 		if not live.has(k):
 			_swing.erase(k)
@@ -163,17 +173,35 @@ func _tick_swings(delta: float, events: Array[Dictionary]) -> void:
 				return
 			if not c.is_alive() or c.out_of_play > 0 or c.has_status("freeze"):
 				continue
+			if side == PLAYER:
+				_tick_ally(c, delta, events)
+				continue
 			var left: float = float(_swing[c.instance_id]) - delta
 			if left > 0.0:
 				_swing[c.instance_id] = left
 				continue
-			_swing[c.instance_id] = SWING_INTERVAL + left
+			_swing[c.instance_id] = ENEMY_SWING_INTERVAL + left
 			if c.attack <= 0:
 				continue
 			var target: CardInstance = pick_target(side)
 			_resolve_swing(side, c, c.attack, target)
 			events.append({"type": "swing", "side": side, "attacker": c, "target": target})
 		_tick_hero(side, delta, events)
+
+## Ally readiness: a ready Ally (can_attack) waits for the player's command;
+## otherwise its timer runs and, on expiry, the Ally becomes ready.
+func _tick_ally(c: CardInstance, delta: float, events: Array[Dictionary]) -> void:
+	if c.can_attack():
+		_swing[c.instance_id] = ALLY_READY_INTERVAL
+		return
+	var left: float = float(_swing[c.instance_id]) - delta
+	if left > 0.0:
+		_swing[c.instance_id] = left
+		return
+	_swing[c.instance_id] = ALLY_READY_INTERVAL
+	c.summoning_sick = false
+	c.attack_count = maxi(1, c.attack_count)
+	events.append({"type": "ally_ready", "card": c})
 
 ## Main-hand damage for `side` (0 = this hero doesn't auto-attack).
 func main_hand_damage(side: int) -> int:

@@ -57,7 +57,7 @@ func _bind_card_input(panel: PanelContainer, card: CardInstance, zone_id: String
 		# be dropped onto an enemy card panel or the enemy hero view.
 		panel.set_drag_forwarding(
 			func(_pos: Vector2) -> Variant:
-				if not _battle._can_local_act() or not card.can_attack():
+				if not _battle._can_local_act(true) or not card.can_attack():
 					return null
 				return {"attacker": card},
 			func(_pos: Vector2, _data: Variant) -> bool: return false,
@@ -243,7 +243,7 @@ func _on_board_card_input(event: InputEvent, my_card: CardInstance) -> void:
 		return
 	var mb := event as InputEventMouseButton
 	if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
-		if not _battle._can_local_act() or _inspect_open():
+		if not _battle._can_local_act(true) or _inspect_open():
 			return
 		if _battle._targeting_active and _battle._targeting_friendly:
 			_battle.targeting._on_target_chosen_card(my_card)
@@ -293,12 +293,17 @@ func _on_enemy_card_input(event: InputEvent, target: CardInstance) -> void:
 		return
 	var mb := event as InputEventMouseButton
 	if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
-		# Real-time mode: a plain tap focuses the minion for Ally/hero swings,
-		# even during the global cooldown (targeting a spell still wins).
-		if _battle.realtime.is_active() and not _battle._targeting_active:
+		# Real-time mode: with no Ally selected, a tap sets the hero's auto-attack
+		# focus (even on global cooldown); a selected Ally attacks instead.
+		if _is_realtime_focus_tap():
 			_battle.realtime.set_focus(target)
-		elif _battle._can_local_act():
+		elif _battle._can_local_act(true):
 			_on_enemy_card_tap(target)
+
+## Real time, nothing selected, not aiming a spell: an enemy tap sets focus.
+func _is_realtime_focus_tap() -> bool:
+	return (_battle.realtime.is_active() and not _battle._targeting_active
+			and _battle._dragged_card.is_empty())
 
 func _on_enemy_card_tap(target: CardInstance) -> void:
 	if _battle._targeting_active and not _battle._targeting_friendly:
@@ -324,9 +329,9 @@ func _on_enemy_hero_input(event: InputEvent) -> void:
 	if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
 		if _battle._targeting_active and not _battle._targeting_friendly:
 			_battle.targeting._on_target_chosen_hero()
-		elif _battle.realtime.is_active():
-			_battle.realtime.set_focus(null)  # auto-attacks go back to the enemy hero
-		elif _battle._can_local_act() and not _battle._dragged_card.is_empty():
+		elif _is_realtime_focus_tap():
+			_battle.realtime.set_focus(null)  # hero auto-attack goes back to the enemy hero
+		elif _battle._can_local_act(true) and not _battle._dragged_card.is_empty():
 			_on_enemy_hero_tap()
 
 func _on_enemy_hero_tap() -> void:
@@ -388,7 +393,7 @@ func _on_empty_slot_input(event: InputEvent, slot_idx: int) -> void:
 ## locally via _execute_attack (which broadcasts through _check_game_over).
 func _attempt_attack(attacker: CardInstance, target: CardInstance) -> void:
 	# One attack per tap: while a lunge resolves, further taps/drops are ignored.
-	if not _battle._can_local_act() or not attacker.can_attack():
+	if not _battle._can_local_act(true) or not attacker.can_attack():
 		return
 	if _battle._is_pvp_client():
 		var a_slot: int = _battle._state.players[_battle._my_idx()].board.slots.find(attacker)

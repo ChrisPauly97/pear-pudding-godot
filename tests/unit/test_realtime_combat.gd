@@ -41,9 +41,9 @@ func test_mana_regenerates_on_clock() -> void:
 	var h := rt.state.players[0].hero
 	h.mana = 0
 	_run(rt, 1.0)
-	# ~65 points/s in small steps (0.1 s ticks + one slack step).
-	assert_gte(h.mana, 60)
-	assert_lte(h.mana, 80)
+	# MANA_REGEN_PER_SEC in small steps (0.1 s ticks + one slack step).
+	assert_gte(h.mana, int(RealtimeCombat.MANA_REGEN_PER_SEC) - 5)
+	assert_lte(h.mana, int(RealtimeCombat.MANA_REGEN_PER_SEC * 1.2) + 5)
 
 func test_max_mana_fixed_during_fight() -> void:
 	var rt := _rt()
@@ -87,35 +87,61 @@ func test_gcd_blocks_then_clears() -> void:
 	_run(rt, RealtimeCombat.PLAYER_GCD)
 	assert_true(rt.gcd_ready(0))
 
-func test_ally_swings_enemy_hero_without_retaliation() -> void:
+func test_ally_readies_but_waits_for_command() -> void:
 	var rt := _rt()
 	var ally := _card(2, 3)
 	rt.state.players[0].board.add_card(ally)
-	rt.state.players[1].hero.attack = 0
-	var hp_before: int = rt.state.players[1].hero.health
-	_run(rt, RealtimeCombat.SWING_INTERVAL)
-	# One ally swing (2) + one main-hand hero swing (2.5 s) inside the window.
-	assert_eq(rt.state.players[1].hero.health, hp_before - 2 - rt.main_hand_damage(0),
-		"fresh ally swings after one interval")
-	assert_eq(ally.health, 3, "no retaliation in real time")
+	rt.state.players[1].board.add_card(_card(0, 50))  # absorb nothing; keeps enemy hero out of it
+	assert_false(ally.can_attack(), "fresh Ally is not ready")
+	var types: Array[String] = []
+	for e: Dictionary in _run(rt, RealtimeCombat.ALLY_READY_INTERVAL):
+		types.append(str(e.get("type", "")))
+	assert_true(types.has("ally_ready"))
+	assert_true(ally.can_attack(), "ready after one interval")
+	var foe_hp: int = rt.state.players[1].board.get_cards()[0].health
+	_run(rt, RealtimeCombat.ALLY_READY_INTERVAL * 3.0)
+	assert_eq(rt.state.players[1].board.get_cards()[0].health, foe_hp - 0,
+		"Ally never auto-attacks (hero swings go to the hero, not the minion)")
+	assert_true(ally.can_attack(), "stays ready until commanded")
+
+func test_ally_timer_restarts_after_attack() -> void:
+	var rt := _rt()
+	var ally := _card(2, 3)
+	rt.state.players[0].board.add_card(ally)
+	_run(rt, RealtimeCombat.ALLY_READY_INTERVAL)
+	assert_true(ally.can_attack())
+	ally.attack_count -= 1  # what the attack path does
+	_run(rt, RealtimeCombat.ALLY_READY_INTERVAL * 0.5)
+	assert_false(ally.can_attack(), "cooling down")
+	_run(rt, RealtimeCombat.ALLY_READY_INTERVAL * 0.5)
+	assert_true(ally.can_attack(), "ready again")
+
+func test_enemy_minion_auto_swings_on_slower_timer() -> void:
+	var rt := _rt()
+	var foe := _card(3, 5)
+	rt.state.players[1].board.add_card(foe)
+	var hp: int = rt.state.players[0].hero.health
+	_run(rt, RealtimeCombat.ENEMY_SWING_INTERVAL - 0.3)
+	assert_eq(rt.state.players[0].hero.health, hp, "not yet")
+	_run(rt, 0.3)
+	assert_eq(rt.state.players[0].hero.health, hp - 3)
 
 func test_ward_is_hit_first() -> void:
 	var rt := _rt()
-	rt.state.players[0].board.add_card(_card(2, 3))
 	var warden := _card(0, 9, 1, ["ward"])
 	rt.state.players[1].board.add_card(warden)
 	var hero_hp: int = rt.state.players[1].hero.health
-	_run(rt, RealtimeCombat.SWING_INTERVAL)
-	assert_eq(warden.health, 9 - 2 - rt.main_hand_damage(0), "ally and hero auto-attack both hit the Ward")
+	_run(rt, RealtimeCombat.HERO_SWING_INTERVAL)
+	assert_eq(warden.health, 9 - rt.main_hand_damage(0), "hero auto-attack must hit the Ward")
 	assert_eq(rt.state.players[1].hero.health, hero_hp)
 
 func test_focus_target_is_hit_and_cleared_on_death() -> void:
 	var rt := _rt()
-	rt.state.players[0].board.add_card(_card(5, 3))
+	rt.state.players[0].hero.attack = 10
 	var foe := _card(0, 4)
 	rt.state.players[1].board.add_card(foe)
 	rt.focus_target = foe
-	_run(rt, RealtimeCombat.SWING_INTERVAL)
+	_run(rt, RealtimeCombat.HERO_SWING_INTERVAL)
 	assert_false(foe.is_alive())
 	assert_false(rt.state.players[1].board.get_cards().has(foe))
 	assert_null(rt.focus_target)

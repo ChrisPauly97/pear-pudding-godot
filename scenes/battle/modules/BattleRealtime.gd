@@ -13,6 +13,7 @@ const RealtimeCombat = preload("res://game_logic/battle/RealtimeCombat.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
+const _TutorialPopup = preload("res://scenes/ui/TutorialPopup.gd")
 
 var rt: RealtimeCombat = null
 var _battle: _BattleScene
@@ -44,7 +45,10 @@ func maybe_start(is_fresh: bool) -> void:
 func _build_ui() -> void:
 	var vh: float = _battle._vh
 	_battle._end_turn_btn.visible = false
+	_battle._turn_label.visible = false  # no turns in real time
 	var side: Control = _battle.get_node("SidePanel") as Control
+	var small: int = int(_battle._font(0.018))
+	_UiUtil.make_label("Cooldown", small, Color(0.75, 0.85, 1.0), HORIZONTAL_ALIGNMENT_CENTER, side)
 	_gcd_bar = ProgressBar.new()
 	_gcd_bar.min_value = 0.0
 	_gcd_bar.max_value = 1.0
@@ -52,6 +56,7 @@ func _build_ui() -> void:
 	_gcd_bar.custom_minimum_size = Vector2(vh * 0.16, vh * 0.03)
 	_gcd_bar.tooltip_text = "Global cooldown — full bar = ready to play a card"
 	side.add_child(_gcd_bar)
+	_UiUtil.make_label("Auto-attack", small, Color(1.0, 0.8, 0.55), HORIZONTAL_ALIGNMENT_CENTER, side)
 	_swing_bar = ProgressBar.new()
 	_swing_bar.min_value = 0.0
 	_swing_bar.max_value = 1.0
@@ -69,6 +74,15 @@ func _build_ui() -> void:
 static func enemy_level_for_tier(tier: int) -> int:
 	return 1 + maxi(0, tier - 1) * 3
 
+## The clock stops while the player is reading something: pause menu, card
+## inspect (long-press), the first-battle tip, or any tutorial popup.
+func is_blocked() -> bool:
+	if _battle._pause_ui.is_paused():
+		return true
+	if is_instance_valid(_battle._inspect_overlay) or is_instance_valid(_battle._tutorial_overlay):
+		return true
+	return not get_tree().get_nodes_in_group(_TutorialPopup.MODAL_GROUP).is_empty()
+
 ## True while the local player is on global cooldown (blocks plays).
 func on_cooldown() -> bool:
 	return rt != null and not rt.gcd_ready(RealtimeCombat.PLAYER)
@@ -78,8 +92,8 @@ func note_player_play(player_idx: int) -> void:
 	if rt != null and player_idx == RealtimeCombat.PLAYER:
 		rt.start_gcd(RealtimeCombat.PLAYER)
 
-## Tap on an enemy minion (when not targeting a spell): focus it for Ally and hero
-## swings; tapping it again, or tapping the enemy hero (null), goes back to the hero.
+## Tap on an enemy minion with no Ally selected: focus it for the hero's auto-attack;
+## tapping it again, or tapping the enemy hero (null), goes back to the hero.
 func set_focus(target: CardInstance) -> void:
 	if rt == null:
 		return
@@ -93,7 +107,9 @@ func _update_focus_label() -> void:
 	_focus_lbl.text = "Target: %s" % (t.name if t != null else "enemy hero")
 
 func _process(delta: float) -> void:
-	if rt == null or _battle._state.is_game_over() or _battle._pause_ui.is_paused():
+	# Also hold the clock during a commanded Ally attack's lunge (`_action_busy`):
+	# a swing landing mid-resolution could remove its attacker or target.
+	if rt == null or _battle._state.is_game_over() or is_blocked() or _battle._action_busy:
 		return
 	var snap: Array[Dictionary] = _battle._fx.snapshot()
 	var events: Array[Dictionary] = rt.advance(delta * _speed_factor())
@@ -114,7 +130,8 @@ func _process(delta: float) -> void:
 				swung = true
 			"enemy_cast_start":
 				var c: CardInstance = ev["card"] as CardInstance
-				_battle._fx.show_intent_banner("Casting %s…" % c.name)
+				var cost: int = _battle._state.players[RealtimeCombat.ENEMY].effective_cost(c)
+				_battle._fx.show_intent_banner("Casting %s (%d mana)…" % [c.name, cost])
 			"enemy_cast":
 				_battle._fx.hide_intent_banner()
 				_after_enemy_play(ev["card"] as CardInstance)

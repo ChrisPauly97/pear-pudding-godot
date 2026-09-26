@@ -683,6 +683,7 @@ func _show_card_inspect(card: CardInstance) -> void:
 	if _inspect_overlay != null and is_instance_valid(_inspect_overlay):
 		return
 	var overlay: CardInspectOverlay = CardInspectOverlay.new()
+	overlay.mana_scale = _state.players[_my_idx()].hero.mana_scale
 	overlay.present(self, card, func() -> void: _inspect_overlay = null)
 	_inspect_overlay = overlay
 
@@ -1318,12 +1319,13 @@ func _is_pvp_client() -> bool:
 
 ## True when local input is allowed: it's our turn, AI/round-trip not pending,
 ## and we have a local player (not the headless referee, _local_player_idx = -1).
-func _can_local_act() -> bool:
+## `ignore_gcd`: Ally attack commands are off the real-time global cooldown.
+func _can_local_act(ignore_gcd: bool = false) -> bool:
 	if _pvp_spectating:
 		return false  # spectators never act
 	if _local_player_idx < 0:
 		return false  # dedicated-server referee has no local player
-	if _ai_thinking or _action_busy or (realtime != null and realtime.on_cooldown()):
+	if _ai_thinking or _action_busy or (not ignore_gcd and realtime != null and realtime.on_cooldown()):
 		return false  # busy, or on the real-time global cooldown (TID-546)
 	if _state == null:
 		return false
