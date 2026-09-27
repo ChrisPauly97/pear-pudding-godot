@@ -325,8 +325,7 @@ func shows_card_tips() -> bool:
 	return onboarding == null or onboarding.shows_hand()
 
 func toast(text: String) -> void:
-	if _visuals != null:
-		_visuals.toast(text)
+	if _visuals != null: _visuals.toast(text)
 
 ## Your hero token lunges at a unit (or enemy `side`'s token when `target` is null).
 func lunge_at(target: CardInstance, side: int) -> void:
