@@ -6,8 +6,11 @@ extends Node
 const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
+const SkillBar = preload("res://game_logic/battle/SkillBar.gd")
 
 const _DUEL_PANEL_BG := Color(0.08, 0.08, 0.18, 0.96)
+## TID-557: fixed enemy id for the town training dummy fight — see EnemyRegistry.gd.
+const _TRAINING_DUMMY_ENEMY_TYPE: String = "training_dummy"
 
 var _world: _WorldScene = null
 
@@ -30,6 +33,10 @@ func interact(npc: Dictionary) -> void:
 			_world.mounts.show_stable_panel()
 		"duelist":
 			show_duel_offer_panel(npc)
+		"trainer":
+			show_trainer_panel()
+		"training_dummy":
+			_offer_training_dummy_fight()
 		"rest_site":
 			_world._dungeon_session_ui.show_rest_site_panel(npc)
 		"event_room":
@@ -140,3 +147,92 @@ func show_duel_offer_panel(npc: Dictionary) -> void:
 			}, wager)
 		_UiUtil.make_button("Duel!", btn_size, font, duel, row)
 	_UiUtil.make_button("Decline", btn_size, font, layer.queue_free, row)
+
+## TID-537: the trainer's teach panel — every learnable skill-bar ability with
+## its level/coin requirement, a description, and a Learn button. Learning
+## rebuilds the panel in place (via `show_trainer_panel` again) so the row
+## flips to "Known" without the player having to reopen it.
+func show_trainer_panel() -> void:
+	var sm := SceneManager.save_manager
+	var vh: float = _world.get_viewport().get_visible_rect().size.y
+	var modal: Dictionary = _world._build_modal(0.75, 0.7, _DUEL_PANEL_BG, 0.018, 0.03, 0.5)
+	var layer: CanvasLayer = modal["layer"]
+	var vbox: VBoxContainer = modal["vbox"]
+	var font: int = int(vh * 0.024)
+
+	_UiUtil.make_label("Skill Trainer", int(vh * 0.032), Color(1.0, 0.92, 0.6),
+			HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	_UiUtil.make_label("Strike, Mend and Kick are yours already. Coins: %d  ·  Level %d" % [sm.coins, sm.level],
+			int(vh * 0.02), Color(0.8, 0.8, 0.85), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+
+	for id: String in SkillBar.learnable_ids():
+		vbox.add_child(_trainer_row(id, sm, layer, font, vh))
+
+	var close_row := _UiUtil.make_hbox(0, vbox)
+	close_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_UiUtil.make_button("Close", Vector2(vh * 0.18, vh * 0.06), font, layer.queue_free, close_row)
+
+func _trainer_row(id: String, sm: SaveManager, layer: CanvasLayer, font: int, vh: float) -> Control:
+	var a: Dictionary = SkillBar.def(id)
+	var level_req: int = int(a.get("level_req", 0))
+	var cost: int = int(a.get("learn_cost", 0))
+	var known: bool = sm.learned_abilities.has(id)
+
+	var row := _UiUtil.make_hbox(int(vh * 0.015))
+	var info := _UiUtil.make_vbox(int(vh * 0.003), row)
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_UiUtil.make_label("%s — Lvl %d · %d coins" % [str(a.get("name", id)), level_req, cost],
+			int(vh * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, info)
+	var desc := _UiUtil.make_label(str(a.get("desc", "")), int(vh * 0.018), Color(0.75, 0.75, 0.8),
+			HORIZONTAL_ALIGNMENT_LEFT, info)
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+
+	if known:
+		_UiUtil.make_label("Known", int(vh * 0.02), Color(0.5, 0.9, 0.55), HORIZONTAL_ALIGNMENT_RIGHT, row)
+		return row
+
+	var can: bool = SkillBar.can_learn(id, sm.level, sm.coins, sm.learned_abilities)
+	var learn_btn := _UiUtil.make_button("Learn", Vector2(vh * 0.14, vh * 0.055), font)
+	learn_btn.disabled = not can
+	learn_btn.pressed.connect(func() -> void:
+		if sm.learn_ability(id, cost):
+			layer.queue_free()
+			show_trainer_panel())
+	row.add_child(learn_btn)
+	return row
+
+## TID-557: interacting with the town training dummy — a free-of-consequence
+## real-time practice fight. No deck-size gate, no gambit picker, no coin
+## wager and (via EnemyRegistry.is_passive / RealtimeCombat.set_passive) no
+## enemy actions at all. GameBus.duel_requested with an empty duel_npc_id
+## skips every reward/record path in SceneManager._on_duel_won/_on_duel_lost —
+## nothing is ever marked defeated and nothing is granted. Leaving is the
+## existing "Flee Battle" pause-menu button, unconditionally available in
+## every battle kind. BattleOnboarding.begin(count=false) keeps it from
+## advancing SaveManager.realtime_fights.
+func _offer_training_dummy_fight() -> void:
+	var vh: float = _world.get_viewport().get_visible_rect().size.y
+	var modal: Dictionary = _world._build_modal(0.6, 0.32, _DUEL_PANEL_BG, 0.022, 0.03, 0.5)
+	var layer: CanvasLayer = modal["layer"]
+	var vbox: VBoxContainer = modal["vbox"]
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	var font: int = int(vh * 0.028)
+	var lbl := _UiUtil.make_label(
+			"Practice against the dummy? It never fights back — leave any time from the pause menu.",
+			font, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var row := _UiUtil.make_hbox(int(vh * 0.03), vbox)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	var btn_size := Vector2(vh * 0.18, vh * 0.07)
+	var start := func() -> void:
+		layer.queue_free()
+		GameBus.duel_requested.emit({
+			"enemy_type": _TRAINING_DUMMY_ENEMY_TYPE,
+			"enemy_deck": EnemyRegistry.get_deck(_TRAINING_DUMMY_ENEMY_TYPE),
+			"is_boss": true,
+			"boss_hp": EnemyRegistry.get_boss_hp(_TRAINING_DUMMY_ENEMY_TYPE),
+			"duel_npc_id": "",
+			"champion_reward_card": "",
+		}, 0)
+	_UiUtil.make_button("Practice", btn_size, font, start, row)
+	_UiUtil.make_button("Not now", btn_size, font, layer.queue_free, row)

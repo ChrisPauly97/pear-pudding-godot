@@ -264,6 +264,43 @@ Buttons are sized relative to viewport height (18 % × 7 %) for mobile parity.
 | `duelist_adept` | Ghost×2, Skeleton×2, Zombie×2, Ghoul×2, Mend, Wither, SurgeSpirit, EmberImp | 25 | blancogov (tile 35,50) |
 | `duelist_champion` | Ghoul×2, BlitzGhoul×2, ShroudedWraith, VoidWyrm, Wither×2, SoulRend, DarkPact | 50 | blancogov (tile 55,50) — gated behind adept |
 
+### Skill Trainer & Training Dummy (GID-136 / TID-537, TID-557)
+
+Two more `npc_type` values on plain `MapNpc` entries — no dedicated scene,
+wired entirely through `NpcInteractions.gd`'s dispatch table. Both are placed
+in Madrian next to the stable (`trainer_madrian` at 78,44;
+`training_dummy_madrian` at 81,44).
+
+**`"trainer"`** (`NpcInteractions.show_trainer_panel`): opens a panel listing
+every ability in `SkillBar.learnable_ids()` (the 5 trainer-taught abilities
+beyond the always-known strike/mend/kick — see `docs/agent/combat-model.md`
+"Learning abilities & the loadout") with its display name, level requirement,
+coin cost and description. Each row shows a **Learn** button (disabled when
+`SkillBar.can_learn()` says no — wrong level or not enough coins) or a
+"Known" label once learned. Learning calls `SaveManager.learn_ability(id,
+cost)` and rebuilds the panel in place. No per-NPC data is needed — the
+trainer always offers the full learnable set.
+
+**`"training_dummy"`** (`NpcInteractions._offer_training_dummy_fight`): a
+confirm prompt ("Practice against the dummy?"), then
+`GameBus.duel_requested({"enemy_type": "training_dummy", ...}, 0)` — the same
+signal a duelist NPC uses, with an empty `duel_npc_id` so
+`SceneManager._on_duel_won`/`_on_duel_lost` skip every reward/record path
+(nothing is ever added to `defeated_duelists`, no coins or cards change
+hands). `EnemyRegistry`'s `"training_dummy"` entry is `is_boss: true` with
+`boss_hp: 500` (a long fight, never a real threat), an empty `deck` and the
+`passive: true` flag: `EnemyRegistry.is_passive()` is read by
+`BattleRealtime.maybe_start()` and forwarded to
+`RealtimeCombat.set_passive(RealtimeCombat.ENEMY)`, which skips that side's
+`_tick_enemy` (no casts) and `_tick_hero` (no auto-attack) outright —
+independent of the enemy's own unarmed/deck data, since real-time enemy heroes
+otherwise auto-attack for `tune.get_i("enemy_unarmed")` by default.
+`BattleOnboarding.begin(count=false)` keeps the fight from advancing
+`SaveManager.realtime_fights` (the new-player control ramp). Leaving the fight
+is the existing "Flee Battle" pause-menu button (`BattlePauseUI.gd`),
+unconditionally available in every battle kind, so no dummy-specific UI was
+needed.
+
 ### Traveling Merchant Event
 
 Spawned by `WorldEventManager` via `game_logic/WorldEvents.gd` on a 10–20 minute randomised interval of overworld play. Only fires when no other world event is active.

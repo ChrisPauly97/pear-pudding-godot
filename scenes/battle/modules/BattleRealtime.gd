@@ -64,11 +64,14 @@ func maybe_start(is_fresh: bool) -> void:
 	if not eligible(mode, is_fresh, networked, _battle._state.puzzle_mode, _battle._state.scripted_battle):
 		return
 	var player_level: int = SceneManager.save_manager.level
-	var tier: int = _EnemyRegistry.get_difficulty_tier(str(_battle.enemy_data.get("enemy_type", "")))
+	var enemy_type: String = str(_battle.enemy_data.get("enemy_type", ""))
+	var tier: int = _EnemyRegistry.get_difficulty_tier(enemy_type)
 	var saved: Variant = SceneManager.save_manager.get_setting(TUNING_SETTING, {})
 	var tuning := CombatTuning.new(saved as Dictionary if saved is Dictionary else {})
 	rt = RealtimeCombat.new(_battle._state, [player_level, enemy_level_for_tier(tier)], tuning)
 	rt.weapon_speed[RealtimeCombat.PLAYER] = equipped_weapon_speed()
+	if _EnemyRegistry.is_passive(enemy_type):
+		rt.set_passive(RealtimeCombat.ENEMY)
 	_last_player_hp = _battle._state.players[RealtimeCombat.PLAYER].hero.health
 	_enemy_tier = tier
 	_apply_live_tuning()
@@ -77,8 +80,9 @@ func maybe_start(is_fresh: bool) -> void:
 	_visuals.build(str(_battle.enemy_data.get("enemy_type", "")), bool(_battle.enemy_data.get("is_boss", false)))
 	_visuals.set_action_strip(_strip)
 	onboarding = _BattleOnboarding.new(_battle, self)
-	onboarding.begin()
-	var bar_ids: Array[String] = SkillBar.new(SceneManager.save_manager.skill_bar).ids
+	onboarding.begin(not _EnemyRegistry.is_passive(enemy_type))
+	var sm := SceneManager.save_manager
+	var bar_ids: Array[String] = SkillBar.new(sm.skill_bar, sm.learned_abilities).ids
 	skills = _BattleSkillBar.new(_battle, self, onboarding.filter_skills(bar_ids))
 	skills.build(_strip)
 	_battle._refresh_all()

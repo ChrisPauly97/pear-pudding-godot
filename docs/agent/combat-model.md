@@ -229,6 +229,41 @@ buttons.
 - **Tuning:** `skill_cooldown` multiplier knob (Skill bar group).
 - Real time only; turn-based keeps the once-per-battle hero power.
 
+### Learning abilities & the loadout (TID-537, TID-556)
+
+`ABILITIES` also holds **5 trainer-taught abilities** beyond the always-known
+Strike/Mend/Kick (`SkillBar.ALWAYS_KNOWN`), each weaker than a typical deck
+spell (value ≤ 9, enforced by `test_skill_bar.gd`):
+
+| Ability | Effect | Level / coins |
+|---|---|---|
+| Guard | Shield: absorbs the next 6 damage (`hero.apply_status("armor", …)`) | 3 / 40 |
+| Ember Lance | A slower, heavier strike (9 dmg, 1 s cast) | 5 / 60 |
+| Mana Tap | Light hit (2 dmg) that restores 1 mana unit | 4 / 50 |
+| Sweep | Hits every enemy minion for 3 | 6 / 70 |
+| Daze | A weak stun — cancels an in-flight enemy cast and applies `"stun"` | 7 / 80 |
+
+- **Learning:** `SkillBar.can_learn(id, level, coins, learned)` gates on level,
+  coins and "not already learned"; `SaveManager.learn_ability(id, cost)`
+  performs the purchase into `SaveManager.learned_abilities: Array[String]`
+  (the always-known trio never appear in this list). `SkillBar.new(bar,
+  learned)` filters a saved bar id through both `ABILITIES` and `learned` (or
+  `ALWAYS_KNOWN`) — an id that was never learned can't surface in a fight even
+  if it ends up in `skill_bar` (a stale/tampered save).
+- **Trainer NPC:** `npc_type = "trainer"` (`NpcInteractions.show_trainer_panel`)
+  — no per-NPC data needed, since every trainer offers the same learnable set.
+  Lists each ability with level/cost/description and a Learn button (disabled
+  until eligible; replaced with "Known" once learned). Placed in Madrian next
+  to the stable. See `docs/agent/enemies-and-npcs.md`.
+- **Loadout picker (TID-556):** a dedicated screen for choosing which 3
+  learned abilities occupy the bar, reachable from the trainer panel and from
+  the deck/inventory screen; writes via `SaveManager.set_skill_bar(bar)`. See
+  `docs/agent/inventory-and-deck.md`.
+- **Training dummy (TID-557):** a practice fight against an `EnemyRegistry`
+  enemy with `passive: true` (never casts or swings —
+  `RealtimeCombat.set_passive()`), huge HP, no rewards and no defeat record.
+  Exercises the bar risk-free. See `docs/agent/enemies-and-npcs.md`.
+
 ### One-glance layout (2026-09-26)
 
 Everything you act on is in one bottom band: skill strip + hand, with your cast bar above the hand.

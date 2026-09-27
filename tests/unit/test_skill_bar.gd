@@ -84,3 +84,89 @@ func test_cooldown_multiplier_and_sweep() -> void:
 	assert_almost_eq(bar.cooldown_left(0), full * 0.5, 0.001)
 	bar.advance(full * 0.25)
 	assert_almost_eq(bar.fraction(0), 0.5, 0.01)
+
+## GID-136 / TID-537: trainer-taught abilities beyond the always-known trio.
+
+func test_learnable_ids_exclude_always_known() -> void:
+	var learnable: Array[String] = SkillBar.learnable_ids()
+	assert_eq(learnable.size(), 5, "5 new trainer-taught abilities")
+	for id: String in SkillBar.ALWAYS_KNOWN:
+		assert_false(learnable.has(id))
+	for id: String in learnable:
+		assert_true(SkillBar.ABILITIES.has(id))
+
+func test_every_learnable_ability_is_weaker_than_a_typical_deck_spell() -> void:
+	# House rule (user's design): the bar stays a set of weak, reliable
+	# abilities. Deck spells commonly hit for 5-10+; keep every bar ability's
+	# primary value at or below that band.
+	for id: String in SkillBar.learnable_ids():
+		var a: Dictionary = SkillBar.def(id)
+		assert_true(int(a.get("value", 0)) <= 9, "%s value should stay modest" % id)
+
+func test_can_learn_gates_on_level_and_coins() -> void:
+	assert_false(SkillBar.can_learn("guard", 1, 1000, []))
+	assert_false(SkillBar.can_learn("guard", 3, 0, []))
+	assert_true(SkillBar.can_learn("guard", 3, 40, []))
+	assert_false(SkillBar.can_learn("guard", 3, 40, ["guard"]), "already learned")
+	assert_false(SkillBar.can_learn("strike", 99, 9999, []), "always known, not learnable")
+
+func test_unlearned_ability_is_dropped_from_a_saved_bar() -> void:
+	# Without `learned`, only the always-known trio can populate the bar —
+	# an id copied into save data by mistake (or from a stale save) can't
+	# surface a trainer-taught ability the player never actually learned.
+	var bar := SkillBar.new(["guard", "mend"])
+	assert_eq(bar.ids, ["mend"] as Array[String])
+
+func test_learned_ability_can_populate_the_bar() -> void:
+	var bar := SkillBar.new(["guard", "mend"], ["guard"])
+	assert_eq(bar.ids, ["guard", "mend"] as Array[String])
+
+func test_guard_stacks_armor_and_absorbs_damage() -> void:
+	var rt := _rt()
+	var bar := SkillBar.new(["guard"], ["guard"])
+	var caster: PlayerState = rt.state.players[0]
+	bar.apply(0, rt)
+	assert_eq(caster.hero.get_status_value("armor"), int(SkillBar.def("guard")["value"]))
+	var before: int = caster.hero.health
+	caster.hero.take_damage(4)
+	assert_eq(caster.hero.health, before, "armor absorbed it")
+
+func test_mana_tap_deals_damage_and_restores_mana() -> void:
+	var rt := _rt()
+	var bar := SkillBar.new(["mana_tap"], ["mana_tap"])
+	var caster: PlayerState = rt.state.players[0]
+	var enemy: PlayerState = rt.state.players[1]
+	caster.hero.mana = 0
+	var before_hp: int = enemy.hero.health
+	bar.apply(0, rt)
+	assert_eq(enemy.hero.health, before_hp - int(SkillBar.def("mana_tap")["value"]))
+	assert_true(caster.hero.mana > 0)
+
+func test_sweep_hits_every_enemy_minion() -> void:
+	var rt := _rt()
+	var bar := SkillBar.new(["sweep"], ["sweep"])
+	var enemy: PlayerState = rt.state.players[1]
+	var a := CardInstance.new({"id": "a", "name": "A", "cost": 1, "attack": 1, "health": 10, "card_class": "minion"})
+	var b := CardInstance.new({"id": "b", "name": "B", "cost": 1, "attack": 1, "health": 2, "card_class": "minion"})
+	enemy.board.add_card(a)
+	enemy.board.add_card(b)
+	bar.apply(0, rt)
+	assert_eq(a.health, 10 - int(SkillBar.def("sweep")["value"]))
+	assert_false(enemy.board.get_cards().has(b), "3 damage kills a 2-health minion")
+
+func test_daze_stuns_and_interrupts_the_enemy_hero() -> void:
+	var rt := _rt()
+	var bar := SkillBar.new(["daze"], ["daze"])
+	var enemy: PlayerState = rt.state.players[1]
+	var spell := CardInstance.new({"id": "s", "name": "Bolt", "cost": 2, "card_class": "spell"})
+	rt.casting[1] = spell
+	bar.apply(0, rt)
+	assert_true(enemy.hero.has_status("stun"))
+	assert_null(rt.casting[1], "daze also interrupts an in-flight cast")
+
+func test_daze_without_a_target_hits_the_default_enemy() -> void:
+	var rt := _rt()
+	var bar := SkillBar.new(["daze"], ["daze"])
+	var result: Dictionary = bar.apply(0, rt)
+	assert_eq(int(result.get("side")), 1)
+	assert_true(rt.state.players[1].hero.has_status("stun"))

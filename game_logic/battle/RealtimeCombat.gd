@@ -1,10 +1,8 @@
 ## Real-time combat driver (GID-135 / TID-546, multi-enemy TID-551).
-##
 ## Runs a solo GameState without turns: every side acts on its own global
 ## cooldown (GCD), mana regenerates on a clock, cards are drawn on a clock, and
 ## every unit on the board (plus each hero) swings on its own timer. Pure logic
 ## — no rendering — so tests can drive `advance()`.
-##
 ## Sides: players[0] is you; players[1..] are enemies. A second enemy can join a
 ## running fight (`add_enemy`, a WoW "add"); the state then becomes a team
 ## battle (teams [0, 1, 1, …]) so GameState's win rules end the fight only when
@@ -90,6 +88,8 @@ var _last_hp: Array[int] = []
 var _swing: Dictionary = {}
 ## enemy minion instance_id -> true when its next swing goes at an Ally
 var _hit_ally_next: Dictionary = {}
+## TID-557: sides marked via `set_passive()` never cast or swing (dummy).
+var _passive_sides: Dictionary = {}
 
 ## `levels` = [player character level, enemy level-equivalent].
 func _init(s: GameState, levels: Array[int] = [1, 1], tuning: CombatTuning = null) -> void:
@@ -150,6 +150,10 @@ func add_enemy(ps: PlayerState, level: int = 1) -> int:
 	_hero_swing[idx] = swing_speed(idx) * 0.5
 	start_gcd(idx)
 	return idx
+func set_passive(side: int) -> void:
+	_passive_sides[side] = true
+func is_passive(side: int) -> bool:
+	return bool(_passive_sides.get(side, false))
 
 ## Every enemy side, alive or not.
 func enemy_sides() -> Array[int]:
@@ -232,7 +236,7 @@ func advance(delta: float) -> Array[Dictionary]:
 	for side: int in enemy_sides():
 		if state.is_game_over():
 			break
-		if is_alive(side):
+		if is_alive(side) and not is_passive(side):
 			_tick_enemy(side, delta, events)
 	_clear_fallen_enemies(events)
 	return events
@@ -276,7 +280,7 @@ func _tick_swings(delta: float, events: Array[Dictionary]) -> void:
 		if not live.has(k):
 			_swing.erase(k)
 	for side in range(state.players.size()):
-		if not is_alive(side):
+		if not is_alive(side) or is_passive(side):
 			continue
 		var board_cards: Array[CardInstance] = state.players[side].board.get_cards().duplicate()
 		for c: CardInstance in board_cards:

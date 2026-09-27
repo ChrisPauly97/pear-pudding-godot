@@ -217,6 +217,26 @@ static func _ensure_loaded() -> void:
 					+ "disciplined where the raiders are reckless. It fights a measured, armored battle — testing "
 					+ "exactly how ready the alliance really is."),
 		},
+		# GID-136 / TID-557: the town training dummy. `passive` is read by
+		# `EnemyRegistry.is_passive()` / `BattleRealtime.maybe_start()` and
+		# forwarded to `RealtimeCombat.set_passive()` — the dummy never casts
+		# or swings, regardless of its (empty) deck or hero.attack. Huge HP, no
+		# coin/card reward, not bestiary-eligible; started via
+		# `NpcInteractions._offer_training_dummy_fight()` outside the normal
+		# engage/duel record paths, so it's never marked defeated.
+		"training_dummy": {
+			"display_name": "Training Dummy",
+			"deck": [],
+			"drop_pool": [],
+			"coin_reward": 0,
+			"is_boss": true,
+			"boss_hp": 500,
+			"phase2_deck": [],
+			"difficulty_tier": 1,
+			"ai_persona": "basic",
+			"passive": true,
+			"lore_text": "A straw-stuffed dummy, scarred by countless practice swings. It never fights back.",
+		},
 		"duelist_novice": {
 			"display_name": "Novice Duelist",
 			"deck": ["ghost", "ghost", "ghost", "skeleton", "skeleton", "skeleton", "zombie", "zombie", "ghoul",
@@ -531,6 +551,16 @@ static func get_ai_persona(type_id: String) -> String:
 		var data: Dictionary = _enemies[type_id]
 		return str(data.get("ai_persona", "basic"))
 	return "basic"
+
+## TID-557: true for enemies that never cast or swing in real-time combat (the
+## training dummy). `BattleRealtime.maybe_start` forwards this to
+## `RealtimeCombat.set_passive`.
+static func is_passive(type_id: String) -> bool:
+	_ensure_loaded()
+	if _enemies.has(type_id):
+		var data: Dictionary = _enemies[type_id]
+		return bool(data.get("passive", false))
+	return false
 
 ## Returns the difficulty tier (1–4) for an enemy type. Falls back to 1 if unknown.
 static func get_difficulty_tier(type_id: String) -> int:
