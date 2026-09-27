@@ -4,19 +4,59 @@
 class_name ObjectiveTracker
 extends RefCounted
 
+const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
+
+## Where the current objective is in the stitched realm (GID-138): a stitched
+## town's tile moved into the overworld ("main"), an open-world beat's fixed
+## road site, else the objective as authored (an interior / other named map).
+static func realm_objective(flags: Dictionary) -> Dictionary:
+	var obj: Dictionary = current_objective(flags)
+	if obj.is_empty():
+		return {}
+	var out: Dictionary = obj.duplicate()
+	var site: String = str(obj.get("site", ""))
+	var map: String = str(obj.get("map", ""))
+	if site != "":
+		var t: Vector2i = _RealmLayout.STORY_SITES[site]
+		out["map"] = "main"
+		out["tx"] = t.x
+		out["tz"] = t.y
+	elif _RealmLayout.is_stitched(map):
+		var w: Vector2i = _RealmLayout.to_world_tile(map, Vector2i(int(obj["tx"]), int(obj["tz"])))
+		out["map"] = "main"
+		out["tx"] = w.x
+		out["tz"] = w.y
+	return out
+
 ## The active objective, but only when it is a real place on `map_name` the
-## player can be pointed at — {} when there is none, when it belongs to another
-## map, or when it is a scripted open-world event carrying the (−1, −1) wildcard.
+## player can be pointed at — {} when there is none or it belongs to another map.
+## In the overworld an objective inside an interior points at that interior's
+## door, and stitched-town / road-site objectives are in overworld tiles.
 ##
 ## Single source for every "where is the objective" caller (compass marker,
 ## in-world beacon), so they can never disagree about which map or tile it is on.
 static func objective_for_map(flags: Dictionary, map_name: String) -> Dictionary:
-	var obj: Dictionary = current_objective(flags)
+	var obj: Dictionary = realm_objective(flags) if _RealmLayout.is_overworld(map_name) \
+			else current_objective(flags)
 	if obj.is_empty():
 		return {}
-	if str(obj.get("map", "")) != map_name:
+	var obj_map: String = str(obj.get("map", ""))
+	if _RealmLayout.is_overworld(obj_map) and _RealmLayout.is_overworld(map_name):
+		obj_map = map_name  # "main" and "infinite" are the same overworld
+	if obj_map != map_name and _RealmLayout.is_overworld(map_name):
+		# The objective is inside an interior: point at the door that leads in.
+		var door: Dictionary = _RealmLayout.door_into(obj_map)
+		if door.is_empty():
+			return {}
+		var out: Dictionary = obj.duplicate()
+		out["map"] = map_name
+		out["tx"] = int(floor(float(door["x"]) / IsoConst.TILE_SIZE))
+		out["tz"] = int(floor(float(door["z"]) / IsoConst.TILE_SIZE))
+		return out
+	if obj_map != map_name:
 		return {}
-	if int(obj.get("tx", -1)) < 0 or int(obj.get("tz", -1)) < 0:
+	# Named maps use the (−1, −1) wildcard for "no fixed tile"; overworld tiles can be negative.
+	if not _RealmLayout.is_overworld(map_name) and (int(obj.get("tx", -1)) < 0 or int(obj.get("tz", -1)) < 0):
 		return {}
 	return obj
 
@@ -43,14 +83,15 @@ static func current_objective(flags: Dictionary) -> Dictionary:
 	if flags.get("chapter2_siege_won", false):
 		return {"label": "Search the hold for clues", "map": "marsax_hold", "tx": 52, "tz": 62}
 	if flags.get("chapter2_ambush_survived", false):
-		return {"label": "Defend Marsax Hold", "map": "marsax_hold", "tx": 50, "tz": 90}
+		return {"label": "Defend Marsax Hold", "map": "marsax_hold", "tx": 50, "tz": 77}
 	if flags.get("chapter2_found_letter", false):
-		# The scripted ambush is an open-world event with no fixed tile.
-		return {"label": "Continue west toward Marsax Hold", "map": "main", "tx": -1, "tz": -1}
+		# The scout ambush waits on the road north from Larik.
+		return {"label": "Continue west toward Marsax Hold", "map": "main", "tx": -1, "tz": -1,
+			"site": "scout_ambush"}
 	if flags.get("chapter2_reached_larik", false):
 		return {"label": "Search Larik for answers", "map": "larik", "tx": 59, "tz": 58}
 	if flags.get("chapter2_charged", false):
-		return {"label": "Travel west to Larik", "map": "larik", "tx": 50, "tz": 90}
+		return {"label": "Travel west to Larik", "map": "larik", "tx": 64, "tz": 50}
 	if flags.get("chapter1_complete", false):
 		return {"label": "Speak to King Eldar", "map": "blancogov_temple", "tx": 42, "tz": 15}
 	if flags.get("chapter1_temple_council", false):
@@ -61,16 +102,17 @@ static func current_objective(flags: Dictionary) -> Dictionary:
 	if flags.get("chapter1_received_letter", false):
 		return {"label": "Reach Blancogov", "map": "blancogov", "tx": 49, "tz": 9}
 	if flags.get("chapter1_warned_farsyth", false):
-		# Isfig encounter is a scripted open-world event with no fixed tile.
-		return {"label": "Encounter Isfig", "map": "main", "tx": -1, "tz": -1}
+		# Isfig waits on the road to Blancogov (RealmLayout.STORY_SITES).
+		return {"label": "Encounter Isfig", "map": "main", "tx": -1, "tz": -1, "site": "isfig_road"}
 	if flags.get("chapter1_learned_fire", false):
 		return {"label": "Find Lord Farsyth", "map": "farsyth_mansion", "tx": 49, "tz": 20}
 	if flags.get("chapter1_camp_night", false):
-		# Fire-making lesson is a scripted open-world event with no fixed tile.
-		return {"label": "Learn to make fire", "map": "main", "tx": -1, "tz": -1}
+		# Fire-making lesson happens at the road camp.
+		return {"label": "Learn to make fire", "map": "main", "tx": -1, "tz": -1, "site": "wilderness_camp"}
 	if flags.get("chapter1_left_madrian", false):
-		# Rabbit-hunt camp is a scripted open-world event with no fixed tile.
-		return {"label": "Make camp for the night", "map": "main", "tx": -1, "tz": -1}
+		# Rabbit-hunt camp sits on the road south of Madrian.
+		return {"label": "Make camp for the night", "map": "main", "tx": -1, "tz": -1,
+			"site": "wilderness_camp"}
 	if flags.get("story_intro_complete", false):
-		return {"label": "Leave Madrian", "map": "madrian", "tx": 50, "tz": 99}
+		return {"label": "Leave Madrian", "map": "main", "tx": -1, "tz": -1, "site": "madrian_south_road"}
 	return {"label": "Speak to Maiteln", "map": "madrian", "tx": 45, "tz": 36}

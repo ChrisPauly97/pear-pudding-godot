@@ -30,7 +30,7 @@ const TOWNS: Dictionary = {
 	"maykalene": {"crop": Rect2i(3, 0, 80, 100), "offset": Vector2i(-37, 66), "data": _MAYKALENE},
 	"blancogov": {"crop": Rect2i(0, 2, 100, 98), "offset": Vector2i(43, 222), "data": _BLANCOGOV},
 	"larik": {"crop": Rect2i(33, 35, 33, 29), "offset": Vector2i(-167, 232), "data": _LARIK},
-	"marsax_hold": {"crop": Rect2i(22, 22, 57, 57), "offset": Vector2i(-167, 100), "data": _MARSAX_HOLD},
+	"marsax_hold": {"crop": Rect2i(18, 22, 61, 57), "offset": Vector2i(-167, 100), "data": _MARSAX_HOLD},
 }
 
 ## Road polylines in overworld tiles. Each starts/ends at a town gate.
@@ -67,6 +67,7 @@ const POS_TOKEN_PREFIX: String = "pos:"
 ## Fixed overworld tiles for the story beats that used to spawn "a few tiles
 ## from the player" (TID-572): each sits on the road the story sends you along.
 const STORY_SITES: Dictionary = {
+	"madrian_south_road": Vector2i(13, 30),
 	"wilderness_camp": Vector2i(17, 42),
 	"isfig_road": Vector2i(80, 180),
 	"scout_ambush": Vector2i(-114, 222),

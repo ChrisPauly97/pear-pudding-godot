@@ -37,8 +37,7 @@ func _set_town(town: String) -> void:
 	_world.current_town = town
 	var sm := SceneManager.save_manager
 	if prev == "madrian" and town == "" and sm.get_story_flag("story_intro_complete"):
-		sm.set_story_flag("chapter1_left_madrian")
-		_world.story_cast.spawn_wilderness_camp()
+		sm.set_story_flag("chapter1_left_madrian")  # the camp appears via story_flag_set
 	if town == "":
 		if _world._current_biome >= 0:
 			_world._on_player_chunk_changed(Vector2i.ZERO, _world._current_biome)

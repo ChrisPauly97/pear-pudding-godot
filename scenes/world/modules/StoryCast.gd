@@ -67,8 +67,18 @@ func refresh_maiteln_presence() -> void:
 	_world._maiteln_node = node
 
 # ── Open-world story encounters ──────────────────────────────────────────────
-# No fixed position: each spawns a few tiles from the player on every fresh
-# open-world load until its completion flag is set.
+# Each stands at a fixed spot on the road the story sends you along
+# (RealmLayout.STORY_SITES, GID-138) — so the objective can point at it — from
+# the moment its opening flag is set until its completion flag is.
+
+## Places whichever road beats the current flags call for. Idempotent: runs on
+## every overworld load and on every story flag change.
+func spawn_open_world_beats() -> void:
+	if not _world._is_infinite or _world._player == null:
+		return
+	spawn_open_world_rival()
+	spawn_wilderness_camp()
+	spawn_scout_ambush()
 
 ## First-night wilderness camp (GID-108 / TID-402). Gone for good once
 ## chapter1_learned_fire is set (the entity frees itself on that transition).
@@ -78,7 +88,7 @@ func spawn_wilderness_camp() -> void:
 		return
 	if is_instance_valid(_world._wilderness_camp_node):
 		return
-	_world._wilderness_camp_node = _spawn_near_player(_WildernessCampScene, Vector2(3.0, -4.0))
+	_world._wilderness_camp_node = _spawn_at_site(_WildernessCampScene, "wilderness_camp")
 
 ## Chapter 2 beat 3 scripted ambush (GID-108 / TID-407). One-shot: interacting
 ## starts the battle, and victory sets chapter2_ambush_survived.
@@ -88,12 +98,13 @@ func spawn_scout_ambush() -> void:
 		return
 	if is_instance_valid(_world._scout_ambush_node):
 		return
-	_world._scout_ambush_node = _spawn_near_player(_ScoutAmbushScene, Vector2(-3.0, 4.0))
+	_world._scout_ambush_node = _spawn_at_site(_ScoutAmbushScene, "scout_ambush")
 
-## Instantiates `scene` on the terrain `tile_offset` tiles (x, z) from the player.
-func _spawn_near_player(scene: PackedScene, tile_offset: Vector2) -> Node3D:
-	var wx: float = _world._player.position.x + tile_offset.x * IsoConst.TILE_SIZE
-	var wz: float = _world._player.position.z + tile_offset.y * IsoConst.TILE_SIZE
+## Instantiates `scene` on the terrain at RealmLayout story site `site`.
+func _spawn_at_site(scene: PackedScene, site: String) -> Node3D:
+	var p: Vector3 = RealmLayout.site_pos(site)
+	var wx: float = p.x
+	var wz: float = p.z
 	var node := scene.instantiate() as Node3D
 	_world._entity_root.add_child(node)
 	node.position = Vector3(wx, _world.get_terrain_height(wx, wz), wz)
@@ -146,9 +157,8 @@ func spawn_open_world_rival() -> void:
 	if sm.rival_encounters_won >= 2:
 		return
 	var rival_type: String = RivalSystem.get_rival_type(sm.rival_encounters_won, sm.level)
-	var wx: float = _world._player.position.x + 3.0 * IsoConst.TILE_SIZE
-	var wz: float = _world._player.position.z + 5.0 * IsoConst.TILE_SIZE
-	_spawn_rival_at("rival_enc2", wx, wz, rival_type,
+	var p: Vector3 = RealmLayout.site_pos("isfig_road")
+	_spawn_rival_at("rival_enc2", p.x, p.z, rival_type,
 		"Maiteln's sent word of the Martarquas. I aim to warn him you're no mere apprentice.")
 
 ## `tile` is local to the story place; a stitched town's is moved into the overworld.

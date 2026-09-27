@@ -617,9 +617,7 @@ func _populate_world(server_ref_pos: Vector3) -> void:
 		var _inf_ref: Vector3 = _player.position if _player != null else server_ref_pos
 		_csm.build_initial_infinite(_inf_ref)
 		if not NetworkManager.is_dedicated_server():
-			story_cast.spawn_open_world_rival()
-			story_cast.spawn_wilderness_camp()
-			story_cast.spawn_scout_ambush()
+			story_cast.spawn_open_world_beats()
 			named_props.spawn_realm()
 	else:
 		# Named map: load all chunks covering the 100×100 tile map synchronously
@@ -1257,6 +1255,7 @@ func _find_nearby_maiteln(px: float, pz: float, range_dist: float) -> Node3D:
 ## map load — the player is standing right there when it flips.
 func _on_story_flag_set_for_cast(_key: String) -> void:
 	story_cast.refresh_maiteln_presence()
+	story_cast.spawn_open_world_beats()
 	_despawn_flag_hidden_npcs()
 	_refresh_objective_beacon()
 
