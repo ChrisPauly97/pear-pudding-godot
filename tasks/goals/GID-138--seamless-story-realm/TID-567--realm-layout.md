@@ -2,7 +2,7 @@
 
 **Goal:** GID-138
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -28,6 +28,20 @@ origins in story order and defines the roads joining them.
 
 ## Plan
 
+Static `game_logic/world/RealmLayout.gd`: `TOWNS` table (crop rect + tile offset +
+preloaded MapData), `ROADS` polylines, `STORY_SITES`, and helpers for tile/world
+translation, town lookup, road distance, chunk tests, tile stamping and entity lists.
+
 ## Changes Made
 
+- New `game_logic/world/RealmLayout.gd` (+ `.uid`). Layout (world = local + offset):
+  madrian (−37,−33) — spawn lands at world tile (3,3), the old overworld default;
+  maykalene (−37,66); blancogov (43,222); larik (−167,232); marsax_hold (−167,100).
+- `stamp_tile()` (town tile > road path > noise faded over `BLEND_MARGIN`),
+  `entities(kind)` / `entities_in_chunk()` (ids kept; overworld-target doors dropped).
+- `tests/unit/test_realm_layout.gd` (10 tests).
+- `tests/runner.gd`: optional `TEST_FILTER=<substring>` env var to run matching suites.
+
 ## Documentation Updates
+
+- Deferred to TID-573.
