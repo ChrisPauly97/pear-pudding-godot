@@ -141,6 +141,7 @@
 | [GID-135](goals/GID-135--wow-fluid-combat/goal.md) | WoW-Fluid Card Combat | in-progress | 16 / 22 |
 | [GID-136](goals/GID-136--wow-rpg-loop/goal.md) | WoW-Style RPG Loop | in-progress | 3 / 11 |
 | [GID-137](goals/GID-137--paper-doll-hero/goal.md) | Paper-Doll Player Hero | in-progress | 4 / 6 |
+| [GID-138](goals/GID-138--seamless-story-realm/goal.md) | Seamless Story Realm | in-progress | 1 / 8 |
 
 ## Backlog
 

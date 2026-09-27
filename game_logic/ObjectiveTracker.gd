@@ -72,5 +72,5 @@ static func current_objective(flags: Dictionary) -> Dictionary:
 		# Rabbit-hunt camp is a scripted open-world event with no fixed tile.
 		return {"label": "Make camp for the night", "map": "main", "tx": -1, "tz": -1}
 	if flags.get("story_intro_complete", false):
-		return {"label": "Leave Madrian", "map": "madrian", "tx": 50, "tz": 50}
+		return {"label": "Leave Madrian", "map": "madrian", "tx": 50, "tz": 99}
 	return {"label": "Speak to Maiteln", "map": "madrian", "tx": 45, "tz": 36}
