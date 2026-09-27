@@ -217,8 +217,10 @@ minions flee and its token greys out.
 - **Each enemy runs its own clocks** — GCD, cast bar (inside its token), pushback, minion swings, hero swing.
 - **Targeting:** tap an enemy's hero strip to point your auto-attack at it (`focus_enemy`); hero-targeted spells
   and Ally attacks go at the tapped enemy (`_on_target_chosen_hero(pidx)`, `_execute_attack(…, defender)`);
-  minion targets resolve against their owner (`SpellEffectResolver._explicit_opponent`). Untargeted AoE spells
-  still hit the lowest-HP enemy's side only (`GameState.opponent()`).
+  minion targets resolve against their owner (`SpellEffectResolver._explicit_opponent`). Untargeted board-wide
+  AoE spells (`deal_damage_all`, `apply_poison_all`, `freeze_all`, `debuff_attack`, `destroy_low_hp`) hit
+  **every** living enemy side (`GameState.enemy_sides(caster_pid)`, TID-554) — previously only the lowest-HP
+  one, same bug `opponent()` has for a co-op boss's AoE against the whole party.
 - **Layout:** the add's token stacks under the first enemy's on the right, its row attached to its left.
 - **Victory:** `BattleVictory._reward_joined_enemies` marks each joined enemy defeated and pays its coins/XP,
   bestiary and bounty progress. Turn-based fights still refuse a second engage.
