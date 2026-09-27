@@ -108,12 +108,6 @@ const PROP_SETS: Array = [
 	["boulder", "lichen", "rock"],               # Mountains
 ]
 
-# World-unit size of each prop billboard (TID-522; everything was 0.5).
-const PROP_SIZES: Dictionary = {
-	"flower": 0.55, "rock": 0.85, "fern": 0.7, "boulder": 1.0, "mushroom": 0.6,
-	"lichen": 0.6, "cactus": 1.1, "thorn": 0.8, "ash_pile": 0.7, "ember": 0.5,
-}
-
 # Props that grow in clumps: each spawn adds this many neighbours in its tile.
 const PROP_CLUMPS: Dictionary = {"flower": 3, "mushroom": 2, "fern": 1}
 

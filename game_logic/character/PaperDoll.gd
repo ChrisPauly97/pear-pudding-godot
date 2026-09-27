@@ -32,6 +32,8 @@
 ## fails if an item in a `VISIBLE_SLOTS` slot of WeaponRegistry has none.
 extends "res://game_logic/character/PaperDollGear.gd"
 
+const _PixelPalette = preload("res://game_logic/PixelPalette.gd")
+
 const FRAME_W: int = 32
 const FRAME_H: int = 28
 ## Left edge of the 16-px body column inside the frame.
@@ -83,42 +85,42 @@ const ANIMS: Dictionary = {
 const VISIBLE_SLOTS: Array[String] = ["armor", "shoulders", "weapon", "offhand", "trinket"]
 
 const DEFAULT_APPEARANCE: Dictionary = {
-	"skin": Color(0.76, 0.58, 0.46),
-	"hair": Color(0.23, 0.16, 0.11),
-	"eyes": Color(0.1, 0.09, 0.1),
-	"shirt": Color(0.5, 0.45, 0.36),
-	"trousers": Color(0.27, 0.24, 0.2),
-	"boots": Color(0.21, 0.15, 0.11),
-	"belt": Color(0.17, 0.12, 0.09),
+	"skin": Color8(252, 203, 163),
+	"hair": Color8(143, 64, 41),
+	"eyes": Color8(34, 34, 34),
+	"shirt": Color8(181, 128, 87),
+	"trousers": Color8(82, 96, 124),
+	"boots": Color8(104, 70, 48),
+	"belt": Color8(118, 59, 54),
 }
 
 ## Item id → how it draws. `style` picks the draw routine; colours are the
 ## item's palette (`main`, optional `trim`).
 const GEAR_VISUALS: Dictionary = {
 	# Armour — replaces the shirt on the torso (and sleeves where noted).
-	"leather_vest": {"style": "vest", "main": Color(0.4, 0.28, 0.17), "trim": Color(0.25, 0.17, 0.1)},
-	"chainmail": {"style": "mail", "main": Color(0.52, 0.53, 0.55), "trim": Color(0.33, 0.34, 0.37)},
-	"warded_cloak": {"style": "cloak", "main": Color(0.2, 0.22, 0.28), "trim": Color(0.55, 0.45, 0.26)},
+	"leather_vest": {"style": "vest", "main": Color8(138, 80, 62), "trim": Color8(84, 54, 38)},
+	"chainmail": {"style": "mail", "main": Color8(139, 155, 180), "trim": Color8(82, 96, 124)},
+	"warded_cloak": {"style": "cloak", "main": Color8(49, 65, 82), "trim": Color8(250, 203, 62)},
 	# Shoulders.
-	"leather_pauldrons": {"style": "pauldron", "main": Color(0.38, 0.26, 0.16), "trim": Color(0.22, 0.15, 0.09)},
-	"iron_pauldrons": {"style": "plate", "main": Color(0.5, 0.51, 0.53), "trim": Color(0.3, 0.3, 0.32)},
-	"spiked_spaulders": {"style": "spiked", "main": Color(0.24, 0.23, 0.24), "trim": Color(0.62, 0.62, 0.6)},
+	"leather_pauldrons": {"style": "pauldron", "main": Color8(138, 80, 62), "trim": Color8(84, 54, 38)},
+	"iron_pauldrons": {"style": "plate", "main": Color8(123, 137, 148), "trim": Color8(82, 96, 124)},
+	"spiked_spaulders": {"style": "spiked", "main": Color8(72, 59, 58), "trim": Color8(211, 191, 169)},
 	# Main hand.
-	"rusty_dagger": {"style": "dagger", "main": Color(0.5, 0.4, 0.32), "trim": Color(0.26, 0.18, 0.11)},
-	"dusk_blade": {"style": "sword", "main": Color(0.68, 0.64, 0.82), "trim": Color(0.24, 0.19, 0.28)},
-	"berserker_axe": {"style": "axe", "main": Color(0.55, 0.54, 0.54), "trim": Color(0.3, 0.2, 0.12)},
-	"dawn_staff": {"style": "staff", "main": Color(0.34, 0.25, 0.16), "trim": Color(0.85, 0.66, 0.3)},
-	"ember_wand": {"style": "wand", "main": Color(0.26, 0.17, 0.11), "trim": Color(0.95, 0.45, 0.15)},
-	"mana_crystal": {"style": "crystal", "main": Color(0.38, 0.62, 0.72), "trim": Color(0.75, 0.9, 0.95)},
-	"iron_shield": {"style": "shield", "main": Color(0.45, 0.46, 0.48), "trim": Color(0.28, 0.2, 0.13)},
+	"rusty_dagger": {"style": "dagger", "main": Color8(189, 108, 74), "trim": Color8(84, 54, 38)},
+	"dusk_blade": {"style": "sword", "main": Color8(192, 203, 220), "trim": Color8(95, 45, 86)},
+	"berserker_axe": {"style": "axe", "main": Color8(139, 155, 180), "trim": Color8(84, 54, 38)},
+	"dawn_staff": {"style": "staff", "main": Color8(104, 70, 48), "trim": Color8(250, 203, 62)},
+	"ember_wand": {"style": "wand", "main": Color8(84, 54, 38), "trim": Color8(228, 110, 51)},
+	"mana_crystal": {"style": "crystal", "main": Color8(86, 152, 204), "trim": Color8(192, 203, 220)},
+	"iron_shield": {"style": "shield", "main": Color8(123, 137, 148), "trim": Color8(84, 54, 38)},
 	# Off hand.
-	"buckler": {"style": "buckler", "main": Color(0.36, 0.25, 0.15), "trim": Color(0.52, 0.52, 0.54)},
-	"parrying_dagger": {"style": "dagger", "main": Color(0.62, 0.63, 0.66), "trim": Color(0.24, 0.17, 0.11)},
-	"arcane_focus": {"style": "orb", "main": Color(0.5, 0.36, 0.68), "trim": Color(0.82, 0.72, 0.95)},
+	"buckler": {"style": "buckler", "main": Color8(104, 70, 48), "trim": Color8(139, 155, 180)},
+	"parrying_dagger": {"style": "dagger", "main": Color8(192, 203, 220), "trim": Color8(84, 54, 38)},
+	"arcane_focus": {"style": "orb", "main": Color8(146, 86, 190), "trim": Color8(247, 134, 151)},
 	# Trinkets — small accents on the belt or neck.
-	"bone_charm": {"style": "necklace", "main": Color(0.8, 0.77, 0.66)},
-	"ember_flask": {"style": "flask", "main": Color(0.85, 0.4, 0.15), "trim": Color(0.45, 0.46, 0.48)},
-	"lucky_coin": {"style": "coin", "main": Color(0.8, 0.66, 0.28)},
+	"bone_charm": {"style": "necklace", "main": Color8(226, 182, 148)},
+	"ember_flask": {"style": "flask", "main": Color8(218, 78, 56), "trim": Color8(123, 137, 148)},
+	"lucky_coin": {"style": "coin", "main": Color8(250, 203, 62)},
 }
 
 static var _frames_cache: Dictionary = {}  # look key → SpriteFrames
@@ -244,6 +246,8 @@ static func render_pose(gear: Dictionary, appearance: Dictionary, p: Dictionary)
 	_draw_held(img, _visual(gear, "offhand"), back_hand, look, true, 0.0)
 	if not behind:
 		_draw_held(img, _visual(gear, "weapon"), front_hand, look, false, float(p["wpn"]))
+	# Snap derived shades and grime onto the pack palette the other sprites use.
+	_PixelPalette.quantize(img)
 	return img
 
 
@@ -307,7 +311,7 @@ static func _draw_torso(img: Image, look: Dictionary, armor: Dictionary, bob: in
 			_rect(img, 5, y, 1, 8, _shadow(dark))
 			_rect(img, 5, y + 7, 6, 1, _shadow(dark, 0.15))       # hem
 	_rect(img, 5, y + 7, 6, 1, _col(look, "belt"))
-	_px(img, 8, y + 7, Color(0.55, 0.48, 0.3))                    # dull buckle
+	_px(img, 8, y + 7, Color8(181, 128, 87))                       # buckle
 	_rect(img, 7, 9 + bob, 2, 1, _shadow(_col(look, "skin"), 0.2))  # neck
 
 

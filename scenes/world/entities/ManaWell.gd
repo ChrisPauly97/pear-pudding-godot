@@ -4,9 +4,6 @@ extends Node3D
 
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 
-## Fountain sprite target height — waist-high shrine object.
-const _WELL_HEIGHT: float = 1.1
-
 static var _well_mat: StandardMaterial3D
 static var _well_mesh: CylinderMesh
 static var _crystal_mat: StandardMaterial3D
@@ -40,7 +37,7 @@ func _ready() -> void:
 	var tex: Texture2D = _SpriteRegistry.mana_well_texture()
 	if tex != null:
 		var sprite := Sprite3D.new()
-		_SpriteRegistry.setup_sprite_height(sprite, tex, _WELL_HEIGHT)
+		_SpriteRegistry.setup_sprite(sprite, tex)  # drawn at its height in px (tools/generate_sprites.py)
 		_SpriteRegistry.apply_billboard_flags(sprite)
 		add_child(sprite)
 		return

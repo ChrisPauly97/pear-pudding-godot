@@ -23,13 +23,16 @@ func test_idle_breath_is_occasional() -> void:
 	assert_lt(up, 40, "but mostly stands still")
 
 
-func test_glow_warms_the_outline() -> void:
+func test_glow_is_a_ring_outside_a_dark_outline() -> void:
 	var s := Sprite3D.new()
 	SO.apply(s)
+	var mat := s.material_override as ShaderMaterial
 	SO.set_glow(s, 1.0)
-	var c: Color = (s.material_override as ShaderMaterial).get_shader_parameter("outline_color")
-	assert_true(c.is_equal_approx(SO.GLOW_COLOR))
+	assert_almost_eq(float(mat.get_shader_parameter("glow_amount")), 1.0, 0.001)
+	var c: Color = mat.get_shader_parameter("outline_color")
+	assert_true(c.is_equal_approx(SO.OUTLINE_COLOR), "the outline stays dark while glowing")
+	var g: Color = mat.get_shader_parameter("glow_color")
+	assert_true(g.is_equal_approx(SO.GLOW_COLOR))
 	SO.set_glow(s, 0.0)
-	c = (s.material_override as ShaderMaterial).get_shader_parameter("outline_color")
-	assert_true(c.is_equal_approx(SO.OUTLINE_COLOR))
+	assert_almost_eq(float(mat.get_shader_parameter("glow_amount")), 0.0, 0.001)
 	s.free()

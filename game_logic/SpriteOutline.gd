@@ -18,6 +18,8 @@ static func apply(sprite: SpriteBase3D) -> void:
 		return
 	var mat := ShaderMaterial.new()
 	mat.shader = _SHADER
+	mat.set_shader_parameter("outline_color", OUTLINE_COLOR)
+	mat.set_shader_parameter("glow_color", GLOW_COLOR)
 	sprite.material_override = mat
 	sprite.set_meta(META_OUTLINED, true)
 	var anim := sprite as AnimatedSprite3D
@@ -27,13 +29,13 @@ static func apply(sprite: SpriteBase3D) -> void:
 	refresh(sprite)
 
 
-## Blends an outlined sprite's edge from the dark outline (0) to the warm
-## interact glow (1).
+## Fades the warm interact-glow ring (outside the dark outline) in (1) or
+## out (0). The dark outline itself never changes colour.
 static func set_glow(sprite: SpriteBase3D, amount: float) -> void:
 	var mat := sprite.material_override as ShaderMaterial if sprite != null else null
 	if mat == null:
 		return
-	mat.set_shader_parameter("outline_color", OUTLINE_COLOR.lerp(GLOW_COLOR, clampf(amount, 0.0, 1.0)))
+	mat.set_shader_parameter("glow_amount", clampf(amount, 0.0, 1.0))
 
 
 ## Current texture of a sprite (the playing frame for AnimatedSprite3D).

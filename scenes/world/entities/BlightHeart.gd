@@ -47,7 +47,7 @@ func _ready() -> void:
 	var core: Node3D
 	if tex != null:
 		var sprite := Sprite3D.new()
-		_SpriteRegistry.setup_sprite_height(sprite, tex, _HEART_HEIGHT)
+		_SpriteRegistry.setup_sprite(sprite, tex)  # drawn at its height in px (tools/generate_sprites.py)
 		_SpriteRegistry.apply_billboard_flags(sprite)
 		add_child(sprite)
 		core = sprite

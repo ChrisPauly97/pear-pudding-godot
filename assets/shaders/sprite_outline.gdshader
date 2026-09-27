@@ -10,6 +10,9 @@
 //
 // A transparent texel next to an opaque one (4-neighbourhood, one texel)
 // becomes outline colour, so every sprite gets a crisp 1-texel dark edge.
+// The interact glow (SpriteOutline.set_glow) is a separate gold ring one
+// texel further out that fades with `glow_amount`; the dark edge never changes
+// colour (blending dark→gold passed through brown and read as a brown outline).
 // depth_prepass_alpha keeps the alpha-cut depth behaviour sprites rely on
 // (a rider drawn over its mount by a tiny depth nudge; CLAUDE.md).
 shader_type spatial;
@@ -18,6 +21,8 @@ render_mode unshaded, depth_prepass_alpha, cull_disabled, shadows_disabled;
 uniform sampler2D sprite_tex : source_color, filter_nearest, repeat_disable;
 uniform vec4 outline_color : source_color = vec4(0.07, 0.05, 0.09, 1.0);
 uniform float outline_alpha : hint_range(0.0, 1.0) = 0.9;
+uniform vec4 glow_color : source_color = vec4(1.0, 0.82, 0.35, 1.0);
+uniform float glow_amount : hint_range(0.0, 1.0) = 0.0;
 
 void vertex() {
 	float sx = length(MODEL_MATRIX[0].xyz);
@@ -37,6 +42,21 @@ void fragment() {
 	float edge = step(0.5, n) * (1.0 - step(0.5, c.a));
 	vec3 col = mix(c.rgb, outline_color.rgb, edge);
 	float a = max(c.a, edge * outline_alpha);
+	if (glow_amount > 0.001 && c.a < 0.5 && edge < 0.5) {
+		// Second ring: opaque texel two steps away (4-neighbourhood + diagonals).
+		float g = 0.0;
+		g = max(g, texture(sprite_tex, UV + vec2(2.0 * px.x, 0.0)).a);
+		g = max(g, texture(sprite_tex, UV - vec2(2.0 * px.x, 0.0)).a);
+		g = max(g, texture(sprite_tex, UV + vec2(0.0, 2.0 * px.y)).a);
+		g = max(g, texture(sprite_tex, UV - vec2(0.0, 2.0 * px.y)).a);
+		g = max(g, texture(sprite_tex, UV + px).a);
+		g = max(g, texture(sprite_tex, UV - px).a);
+		g = max(g, texture(sprite_tex, UV + vec2(px.x, -px.y)).a);
+		g = max(g, texture(sprite_tex, UV + vec2(-px.x, px.y)).a);
+		float ring = step(0.5, g) * glow_amount;
+		col = mix(col, glow_color.rgb, ring);
+		a = max(a, ring);
+	}
 	ALBEDO = col * COLOR.rgb;
 	ALPHA = a * COLOR.a;
 }

@@ -9,9 +9,6 @@ const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 
-## Gravestone-on-mound sprite target height — knee-to-waist-high marker.
-const _MOUND_HEIGHT: float = 0.95
-
 static var _mound_mat: StandardMaterial3D
 static var _mound_mesh: CylinderMesh
 
@@ -31,7 +28,7 @@ func _ready() -> void:
 	var tex: Texture2D = _SpriteRegistry.burial_mound_texture()
 	if tex != null:
 		var sprite := Sprite3D.new()
-		_SpriteRegistry.setup_sprite_height(sprite, tex, _MOUND_HEIGHT)
+		_SpriteRegistry.setup_sprite(sprite, tex)  # drawn at its height in px (tools/generate_sprites.py)
 		_SpriteRegistry.apply_billboard_flags(sprite)
 		add_child(sprite)
 		return

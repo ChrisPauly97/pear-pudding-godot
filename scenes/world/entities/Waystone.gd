@@ -3,10 +3,6 @@ extends Node3D
 const _WEB = preload("res://scenes/world/entities/WorldEntityBase.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 
-## Obelisk sprite target height (world units) — a monument, taller than
-## the 1.4-unit player but well below boss scale.
-const _OBELISK_HEIGHT: float = 1.9
-
 static var _dormant_mat: StandardMaterial3D
 static var _active_mat: StandardMaterial3D
 static var _pillar_mesh: BoxMesh
@@ -31,7 +27,7 @@ func _ready() -> void:
 	var tex: Texture2D = _SpriteRegistry.waystone_texture(bool(waystone_data.get("active", false)))
 	if tex != null:
 		_sprite = Sprite3D.new()
-		_SpriteRegistry.setup_sprite_height(_sprite, tex, _OBELISK_HEIGHT)
+		_SpriteRegistry.setup_sprite(_sprite, tex)  # drawn at its height in px (tools/generate_sprites.py)
 		_SpriteRegistry.apply_billboard_flags(_sprite)
 		add_child(_sprite)
 		if mi:
