@@ -232,16 +232,17 @@ func note_skill_used(effect: String) -> void:
 
 ## Real time: starts a visible cast for `card` and runs `finish` when it
 ## completes (the GCD starts now — it is only the minimum between actions).
-## Returns false when the caller should resolve immediately: turn-based mode,
-## or a 0-cost instant. A unit `target` that dies mid-cast fizzles the spell
-## (card stays in hand, no mana spent). `cast_time` >= 0 overrides the
-## cost-based time (skill bar abilities).
+## Returns false only in turn-based mode (rt == null) or while already casting,
+## when the caller should resolve immediately. An instant (0-cast-time) play
+## still goes through here (TID-555): queued inside the spell-queue window, it
+## waits for the GCD to actually end instead of firing early, exactly like a
+## cast-time spell's queued cast does. A unit `target` that dies mid-cast
+## fizzles the spell (card stays in hand, no mana spent). `cast_time` >= 0
+## overrides the cost-based time (skill bar abilities).
 func run_cast(card: CardInstance, finish: Callable, target: CardInstance = null, cast_time: float = -1.0) -> bool:
 	if rt == null or _cast_card != null:
 		return false
-	var t: float = cast_time if cast_time >= 0.0 else rt.cast_time_for(card.cost)
-	if t <= 0.0:
-		return false
+	var t: float = maxf(0.0, cast_time if cast_time >= 0.0 else rt.cast_time_for(card.cost))
 	_cast_card = card
 	_cast_total = t
 	_cast_left = t
@@ -249,7 +250,8 @@ func run_cast(card: CardInstance, finish: Callable, target: CardInstance = null,
 	_cast_target = target
 	_cast_pushbacks = 0
 	# Queued inside the spell queue window: the cast (and its GCD) starts when
-	# the current GCD runs out.
+	# the current GCD runs out. For an instant play (t == 0) this is the whole
+	# job — it resolves on the very next tick once the delay clears.
 	_cast_delay = rt.gcd[RealtimeCombat.PLAYER]
 	if _cast_delay <= 0.0:
 		rt.start_gcd(RealtimeCombat.PLAYER)
@@ -304,6 +306,10 @@ func _cast_info() -> Dictionary:
 	if _cast_card.has_meta("cost_points"):
 		cost = int(_cast_card.get_meta("cost_points"))
 	if _cast_delay > 0.0:
+		return {"name": _cast_card.name + " (queued)", "fraction": 0.0, "cost": cost}
+	# An instant play (_cast_total == 0) is still shown as "queued" for the single
+	# tick between its GCD delay clearing and _tick_cast resolving it.
+	if _cast_total <= 0.0:
 		return {"name": _cast_card.name + " (queued)", "fraction": 0.0, "cost": cost}
 	return {"name": _cast_card.name, "fraction": 1.0 - _cast_left / _cast_total, "cost": cost}
 

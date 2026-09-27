@@ -31,6 +31,7 @@ const DEFS: Array = [
 	["enemy_swing", "Enemy minion swing (s)", 4.5, 1.0, 10.0, 0.25, "Units"],
 	["enemy_gcd", "Enemy global cooldown (s)", 3.5, 0.5, 8.0, 0.25, "Enemy"],
 	["enemy_cast", "Enemy cast time (s)", 1.5, 0.25, 5.0, 0.25, "Enemy"],
+	["round_seconds", "Status/upkeep pulse per side (s)", 6.0, 1.0, 15.0, 0.5, "Status effects"],
 ]
 
 var _values: Dictionary = {}

@@ -1,3 +1,4 @@
+# gdlint: disable=max-file-lines
 ## Real-time combat driver (GID-135 / TID-546, multi-enemy TID-551).
 ## Runs a solo GameState without turns: every side acts on its own global
 ## cooldown (GCD), mana regenerates on a clock, cards are drawn on a clock, and
@@ -84,6 +85,8 @@ var _offhand_swing: Array[float] = []
 var _regen_pause: Array[float] = []
 var _last_mana: Array[int] = []
 var _last_hp: Array[int] = []
+## Seconds left until each side's next "combat round" upkeep pulse (TID-547).
+var _round_timer: Array[float] = []
 ## instance_id -> seconds until next swing
 var _swing: Dictionary = {}
 ## enemy minion instance_id -> true when its next swing goes at an Ally
@@ -122,6 +125,7 @@ func _init_side(i: int, level: int) -> void:
 	h.mana = h.max_mana
 	_last_mana.append(h.mana)
 	_last_hp.append(h.health)
+	_round_timer.append(tune.get_f("round_seconds"))
 	# Units already on the board (pack encounters, resumed state) start mid-swing.
 	for c: CardInstance in p.board.get_cards():
 		_swing[c.instance_id] = _unit_interval(i) * 0.5
@@ -221,7 +225,7 @@ func _unit_interval(side: int) -> float:
 ##   {"type": "mana", "side"} / {"type": "draw", "side"} /
 ##   {"type": "swing", "side", "attacker": CardInstance|null (hero), "target": CardInstance|null (hero),
 ##    "target_side"} / {"type": "enemy_cast_start", "side", "card"} / {"type": "enemy_cast", "side", "card"} /
-##   {"type": "ally_ready", "card"} / {"type": "enemy_down", "side"}
+##   {"type": "ally_ready", "card"} / {"type": "enemy_down", "side"} / {"type": "round", "side"} (TID-547)
 ## Swings are resolved here (damage applied, dead units removed to discard).
 func advance(delta: float) -> Array[Dictionary]:
 	var events: Array[Dictionary] = []
@@ -231,6 +235,7 @@ func advance(delta: float) -> Array[Dictionary]:
 		gcd[side] = maxf(0.0, gcd[side] - delta)
 		if is_alive(side):
 			_tick_resources(side, delta, events)
+			_tick_round(side, delta, events)
 	_track_enemy_hits()
 	_tick_swings(delta, events)
 	for side: int in enemy_sides():
@@ -267,6 +272,85 @@ func _tick_resources(side: int, delta: float, events: Array[Dictionary]) -> void
 		if p.hand.size() < tune.get_i("hand_cap"):
 			p.draw_card(false)
 			events.append({"type": "draw", "side": side})
+
+## Per-side "combat round" pulse (TID-547): runs the turn-based upkeep real time
+## doesn't already own via a continuous clock (status-effect decay, first-card
+## discount, summoning sickness/attack-count reset, desert-biome scorch) on a
+## periodic timer, `tune.round_seconds` (default 6 s), independently per side.
+## Mirrors, in order: CardInstance.start_turn() (attack_count/summoning_sick
+## reset, stun/out_of_play decay), BattleFx.process_start_of_turn_statuses()
+## (poison/freeze decay on cards + hero poison), PlayerState.start_turn()'s
+## grasslands_card_played reset, and BattleModifiers._apply_desert_scorch().
+## Turn-based fights are unaffected — they still run that upkeep from
+## GameState.end_turn()/BattleScene._on_turn_ended().
+func _tick_round(side: int, delta: float, events: Array[Dictionary]) -> void:
+	_round_timer[side] -= delta
+	if _round_timer[side] > 0.0:
+		return
+	_round_timer[side] += tune.get_f("round_seconds")
+	_run_round_upkeep(side)
+	events.append({"type": "round", "side": side})
+
+func _run_round_upkeep(side: int) -> void:
+	var p: PlayerState = state.players[side]
+	p.grasslands_card_played = false
+	for c: CardInstance in p.board.get_cards().duplicate():
+		c.start_turn()
+		_tick_card_status(p, c)
+	_tick_hero_status(p.hero)
+	if state.battlefield_biome == BattlefieldRules.BIOME_DESERT and not state.is_night:
+		_scorch_leftmost(p)
+
+## Poison damage-then-decay and freeze decay, mirroring BattleFx._tick_statuses_on_card.
+## Unlike the turn-based original, a card poisoned to 0 HP is swept off the board —
+## real time has no later turn boundary to lazily clean it up on.
+func _tick_card_status(p: PlayerState, c: CardInstance) -> void:
+	if c.has_status("poison"):
+		var dmg: int = c.get_status_value("poison")
+		c.take_damage(dmg)
+		var nv: int = dmg - 1
+		if nv <= 0:
+			c.clear_status("poison")
+		else:
+			c.apply_status("poison", nv)
+		if not c.is_alive():
+			p.board.remove_card(c)
+			p.discard.append(c)
+			if focus_target == c:
+				focus_target = null
+			return
+	if c.has_status("freeze"):
+		var dur: int = c.get_status_value("freeze") - 1
+		if dur <= 0:
+			c.clear_status("freeze")
+		else:
+			c.apply_status("freeze", dur)
+
+## Hero poison damage-then-decay, mirroring BattleFx._tick_statuses_on_hero.
+func _tick_hero_status(hero: HeroState) -> void:
+	if hero.has_status("poison"):
+		var dmg: int = hero.get_status_value("poison")
+		hero.take_damage(dmg)
+		var nv: int = dmg - 1
+		if nv <= 0:
+			hero.clear_status("poison")
+		else:
+			hero.apply_status("poison", nv)
+
+## Desert biome rule: damage `p`'s own leftmost minion, mirroring
+## BattleModifiers._apply_desert_scorch() for this side only (each side pulses on
+## its own round timer in real time, rather than both boards on every turn end).
+func _scorch_leftmost(p: PlayerState) -> void:
+	for si in range(5):
+		var c: CardInstance = p.board.slots[si]
+		if c != null:
+			c.take_damage(1)
+			if not c.is_alive():
+				p.board.remove_card(c)
+				p.discard.append(c)
+				if focus_target == c:
+					focus_target = null
+			return
 
 func _tick_swings(delta: float, events: Array[Dictionary]) -> void:
 	var live: Dictionary = {}

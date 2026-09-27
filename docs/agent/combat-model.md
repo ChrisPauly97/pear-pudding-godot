@@ -197,13 +197,29 @@ allow_overflow)` / `drain_mana(units)` so every effect scales. Card `.tres` cost
 finer cost (e.g. 150) needs `CardData.cost` in points, planned with the full mode (TID-547). The `mana` event
 fires only when a whole unit is crossed; the module updates hero/mana labels every frame.
 
+### Round pulse (TID-547)
+
+Turn-keyed rules (status durations, first-card discount, summoning sickness/attack-count reset, the
+desert-biome scorch tick) don't fit either continuous clock, so `RealtimeCombat` runs them on a third,
+per-side timer: `tune.round_seconds` (6 s default, tunable from the Tune panel). Each side's pulse fires
+independently (mirrors the per-side GCD/mana/draw shape, and grows with adds — TID-551) and runs
+`_run_round_upkeep(side)`, which mirrors — in the same order the turn-based path runs them —
+`CardInstance.start_turn()`, `BattleFx.process_start_of_turn_statuses()` (poison/freeze),
+`PlayerState.start_turn()`'s `grasslands_card_played` reset, and `BattleModifiers._apply_desert_scorch()`.
+Turn-based fights are unaffected — those originals are unedited and still run only from
+`GameState.end_turn()`/`BattleScene._on_turn_ended()`. One deliberate difference: a card poisoned to 0 HP
+is removed from the board immediately (real time has no later turn boundary to lazily clean it up on,
+unlike the turn-based version, which is left as-is). Desert scorch applies to each side's own leftmost
+minion on that side's own pulse, rather than both boards on every turn-end (the turn-based version's
+quirk of scorching both boards twice per full round). Gambits have no periodic per-turn rule to replicate
+(only turn-1 one-offs, already handled at battle setup).
+
 ### Known prototype gaps (follow-ups)
 
-- Turn-keyed effects don't tick: status durations (poison/freeze/stun), once-per-turn passives, weather
-  per-turn effects, gambit per-turn rules. Needs a periodic "pulse" (e.g. every 6 s) — TID-547.
 - Enemy spells are skipped (the turn-based AI also plays them without an effect); enemy ability cards
   arrive with TID-541. Enemy card choice is "most expensive affordable unit".
-- No input queue during GCD/cast (TID-530). No interrupts yet. Summons have no cast time.
+- One-tap targeting and a fuller input queue (spell-queued *targeted* plays, not just instant ones —
+  TID-555 covers the instant/skill-bar case) are still TID-530.
 - Mid-battle save/resume restores into turn-based mode.
 
 
@@ -237,8 +253,10 @@ minions flee and its token greys out.
 - **Each enemy runs its own clocks** — GCD, cast bar (inside its token), pushback, minion swings, hero swing.
 - **Targeting:** tap an enemy's hero strip to point your auto-attack at it (`focus_enemy`); hero-targeted spells
   and Ally attacks go at the tapped enemy (`_on_target_chosen_hero(pidx)`, `_execute_attack(…, defender)`);
-  minion targets resolve against their owner (`SpellEffectResolver._explicit_opponent`). Untargeted AoE spells
-  still hit the lowest-HP enemy's side only (`GameState.opponent()`).
+  minion targets resolve against their owner (`SpellEffectResolver._explicit_opponent`). Untargeted board-wide
+  AoE spells (`deal_damage_all`, `apply_poison_all`, `freeze_all`, `debuff_attack`, `destroy_low_hp`) hit
+  **every** living enemy side (`GameState.enemy_sides(caster_pid)`, TID-554) — previously only the lowest-HP
+  one, same bug `opponent()` has for a co-op boss's AoE against the whole party.
 - **Layout:** the add's token stacks under the first enemy's on the right, its row attached to its left.
 - **Victory:** `BattleVictory._reward_joined_enemies` marks each joined enemy defeated and pays its coins/XP,
   bestiary and bounty progress. Turn-based fights still refuse a second engage.
