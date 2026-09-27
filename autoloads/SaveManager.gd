@@ -45,8 +45,8 @@ const PERSISTED_FIELDS: Dictionary = {
 	"time_of_day": 0.4, "world_seed": 42, "starting_biome": 0,
 	"story_flags": {}, "days_elapsed": 0, "last_respawn_day": 0,
 	"equipped_weapon": "", "owned_weapons": [],
-	"equipped_armor": "", "equipped_ring": "", "equipped_trinket": "",
-	"owned_armor": [], "owned_rings": [], "owned_trinkets": [],
+	"equipped_armor": "", "equipped_ring": "", "equipped_trinket": "", "equipped_offhand": "",
+	"owned_armor": [], "owned_rings": [], "owned_trinkets": [], "owned_offhands": [],
 	"collected_scrolls": [], "settings": {},
 	"achievement_progress": {}, "unlocked_achievements": [],
 	"visited_biomes": [], "visited_dungeon_rooms": [],
@@ -157,9 +157,11 @@ var owned_weapons: Array[Dictionary] = []
 var equipped_armor: String = ""
 var equipped_ring: String = ""
 var equipped_trinket: String = ""
+var equipped_offhand: String = ""
 var owned_armor: Array[String] = []
 var owned_rings: Array[String] = []
 var owned_trinkets: Array[String] = []
+var owned_offhands: Array[String] = []
 
 # World generation — set when starting a new game from the biome selection screen
 var world_seed: int = 42
@@ -475,9 +477,11 @@ func new_game(head_start: bool = false) -> void:
 	equipped_armor = ""
 	equipped_ring = ""
 	equipped_trinket = ""
+	equipped_offhand = ""
 	owned_armor = []
 	owned_rings = []
 	owned_trinkets = []
+	owned_offhands = []
 	collected_scrolls = []
 	achievement_progress = {}
 	unlocked_achievements = []
@@ -1083,6 +1087,9 @@ func add_equipment(item_id: String, slot: String) -> void:
 		"trinket":
 			if not owned_trinkets.has(item_id):
 				owned_trinkets.append(item_id)
+		"offhand":
+			if not owned_offhands.has(item_id):
+				owned_offhands.append(item_id)
 	_dirty = true
 
 ## Equips an item into its slot. Pass "" to unequip.
@@ -1092,6 +1099,7 @@ func equip_item(item_id: String, slot: String) -> void:
 		"armor":    equipped_armor   = item_id
 		"ring":     equipped_ring    = item_id
 		"trinket":  equipped_trinket = item_id
+		"offhand":  equipped_offhand = item_id
 	_dirty = true
 
 ## Returns the owned array for the given slot.
@@ -1106,6 +1114,7 @@ func get_owned_by_slot(slot: String) -> Array[String]:
 		"armor":   return owned_armor
 		"ring":    return owned_rings
 		"trinket": return owned_trinkets
+		"offhand": return owned_offhands
 	return []
 
 ## Returns the owned_weapons instance dict for weapon_id, or a default level-0 dict if absent.
@@ -1162,6 +1171,7 @@ func get_equipped_by_slot(slot: String) -> String:
 		"armor":   return equipped_armor
 		"ring":    return equipped_ring
 		"trinket": return equipped_trinket
+		"offhand": return equipped_offhand
 	return ""
 
 static func xp_for_level(lvl: int) -> int:

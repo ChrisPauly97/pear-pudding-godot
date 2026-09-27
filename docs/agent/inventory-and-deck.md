@@ -159,7 +159,7 @@ Extends `BaseOverlay.gd`. Renders `SaveManager.mailbox.get_mailbox_instances()` 
 
 ### Overview
 
-The player can equip items across four slots: **weapon**, **armor**, **ring**, and **trinket**. Each slot holds one item ID (empty string = nothing equipped). At battle start `BattleScene.modifiers._apply_equipment_effects()` loops over all four slots, resolves each item via `WeaponRegistry`, and applies its effect to `PlayerState[0]` before the opening hand is drawn. All four slot types use the same `WeaponData` resource and registry — the `slot` field distinguishes them.
+The player can equip items across five slots: **weapon**, **offhand**, **armor**, **ring**, and **trinket**. Each slot holds one item ID (empty string = nothing equipped). At battle start `BattleScene.modifiers._apply_equipment_effects()` loops over all five slots, resolves each item via `WeaponRegistry`, and applies its effect to `PlayerState[0]` before the opening hand is drawn. All five slot types use the same `WeaponData` resource and registry — the `slot` field distinguishes them.
 
 Mana cap invariant: max_mana never permanently exceeds 10. The `starting_mana` effect grants a one-time turn-1 burst; `PlayerState.gain_mana_for_turn(turn)` resets `max_mana = min(10, turn)` on every subsequent turn, naturally undoing the boost.
 
@@ -174,7 +174,7 @@ All equipment types share this resource class.
 | `id` | String | Unique identifier (matches filename without `.tres`) |
 | `display_name` | String | Human-readable item name |
 | `description` | String | Flavour / tooltip text |
-| `slot` | String | `"weapon"` \| `"armor"` \| `"ring"` \| `"trinket"` (default `"weapon"`) |
+| `slot` | String | `"weapon"` \| `"offhand"` \| `"armor"` \| `"ring"` \| `"trinket"` (default `"weapon"`) |
 | `battle_effect_type` | String | One of the effect types below |
 | `battle_effect_value` | int | Numeric bonus (unused for `deck_inject`) |
 | `injected_card_id` | String | Card ID to inject (deck_inject only) |
@@ -201,6 +201,8 @@ WeaponRegistry.get_by_slot(slot: String) -> Array[String] # filter by slot field
 | `starting_mana` | Adds `battle_effect_value` to `hero.mana` and `hero.max_mana` on turn 1. Naturally reset by `gain_mana_for_turn()` on turn 2+. |
 | `starting_hp` | Adds `battle_effect_value` to both `hero.health` and `hero.max_health` (permanent for the battle). |
 | `passive_atk` | Adds `battle_effect_value` to `hero.attack` (permanent for the battle). |
+| `starting_armor` | Grants `battle_effect_value` armor (`hero.apply_status("armor", value)`) at battle start. Shares the single `"armor"` status key with the Maiteln companion's `hero_armor` passive — whichever applies later (equipment before companion) overwrites rather than stacks. |
+| `offhand_atk` (off-hand slot only, GID-135 / TID-545) | **Real time:** sets `RealtimeCombat.offhand_damage[PLAYER]` to `battle_effect_value` — the off-hand swings on its own `offhand_swing` `CombatTuning` timer, independent of the main hand. **Turn-based:** there is no off-hand swing timer, so it instead adds a smaller always-on bonus, `UpgradeDefs.offhand_turnbased_bonus(value)` = `max(1, value / 2)`, to `hero.attack` for the whole fight. `BattleModifiers._apply_equipment_effects` picks the turn-based path only when `battle_mode` doesn't start with `"realtime"`, so the two never double-count. |
 
 ### SaveManager Equipment Fields
 
@@ -210,10 +212,12 @@ WeaponRegistry.get_by_slot(slot: String) -> Array[String] # filter by slot field
 | `equipped_armor` | String | ID of currently equipped armor |
 | `equipped_ring` | String | ID of currently equipped ring |
 | `equipped_trinket` | String | ID of currently equipped trinket |
+| `equipped_offhand` | String | ID of currently equipped off-hand item (GID-135 / TID-545) |
 | `owned_weapons` | Array[Dictionary] | Weapon instances: `{weapon_id: String, upgrade_level: int}` (GID-052) |
 | `owned_armor` | Array[String] | All armor IDs owned |
 | `owned_rings` | Array[String] | All ring IDs owned |
 | `owned_trinkets` | Array[String] | All trinket IDs owned |
+| `owned_offhands` | Array[String] | All off-hand item IDs owned — plain strings like armor/ring/trinket, no upgrade-level dict (off-hand items don't upgrade) |
 
 Helper API:
 ```gdscript
@@ -230,6 +234,14 @@ SaveManager.get_equipped_by_slot(slot) -> String
 | ID | Effect |
 |---|---|
 | `rusty_dagger` | `deck_inject` — injects 3× `dagger_throw` (cost-0 auto-resolve spell) |
+
+### Built-in Off-Hand Items (GID-135 / TID-545)
+
+| ID | Effect |
+|---|---|
+| `parrying_dagger` | `offhand_atk` 4 — off-hand swing damage in real time; +2 hero attack in turn-based |
+| `buckler` | `starting_armor` 5 — 5 armor at battle start, both modes |
+| `arcane_focus` | `starting_mana` 1 — reuses the existing mana-bonus effect, both modes |
 
 ---
 

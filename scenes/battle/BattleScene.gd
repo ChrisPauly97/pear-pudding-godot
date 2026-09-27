@@ -1232,6 +1232,13 @@ func _show_standard_victory() -> void:
 			var _ct_text: String = _capture_tracker.condition_text() if _capture_tracker != null else ""
 			_result_ui.show_victory(reward_card_id, "", _ct_sig, _ct_text, false, rolled_rarity, rolled_stats,
 					coins_win, xp_win, hero_hp_win, currency_win, rt_tip)
+		elif in_world:
+			# GID-135 / TID-531: a routine in-world win (no soulbind hunt to show)
+			# skips the blocking result card — rewards are granted immediately and
+			# surface as floating toasts over the world once it's reattached
+			# (BattleVictory._show_reward_toasts), so the player keeps moving.
+			_emit_routine_victory_toast(reward_card_id, rolled_rarity, rolled_stats, hero_hp_win, currency_win,
+					rt_tip)
 		else:
 			_result_ui.show_victory(reward_card_id, "", "", "", false, rolled_rarity, rolled_stats, coins_win, xp_win,
 					hero_hp_win, currency_win, rt_tip)
@@ -1239,6 +1246,25 @@ func _show_standard_victory() -> void:
 		# first time an uncaptured signature surfaces on a victory screen.
 		if not _ct_sig.is_empty() and not _ct_captured:
 			GameBus.tutorial_popup_requested.emit("soulbinding")
+
+## Emits the same battle_won payload show_victory's "Collect" button would,
+## without waiting for a tap — the routine in-world path (see above). Coins/XP
+## aren't passed in: BattleVictory computes the gambit-adjusted final amounts
+## itself and reads them for the toast right where it grants them.
+func _emit_routine_victory_toast(reward_card_id: String, reward_rarity: String, reward_stats: Dictionary,
+		hero_hp: int, currency_earned: Dictionary, tip: String = "") -> void:
+	GameBus.battle_won.emit({
+		"card_reward": reward_card_id,
+		"weapon_reward": "",
+		"hero_hp": hero_hp,
+		"veterancy": _collect_veterancy_data(),
+		"reward_rarity": reward_rarity,
+		"reward_stats": reward_stats,
+		"corruption_earned": int(currency_earned.get("corruption", 0)),
+		"redemption_earned": int(currency_earned.get("redemption", 0)),
+		"in_world_toast": true,
+		"rt_tip": tip,  # TID-559 coaching line, shown as a toast instead of on the card
+	})
 
 func _collect_veterancy_data() -> Dictionary:
 	var data: Dictionary = {}

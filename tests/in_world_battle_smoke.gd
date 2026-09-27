@@ -12,6 +12,7 @@ extends SceneTree
 
 const _WORLD_SCENE_PATH: String = "res://scenes/world/WorldScene.tscn"
 const _SceneFlow = preload("res://game_logic/SceneFlow.gd")
+const _RewardToastFx = preload("res://scenes/world/RewardToastFx.gd")
 
 func _initialize() -> void:
 	_go()
@@ -89,7 +90,47 @@ func _run() -> Array[String]:
 		fails.append("SceneManager not back in WORLD state")
 	await _check_double_engage(sm, save_manager, fails)
 	await _check_add_joins(sm, save_manager, fails)
+	await _check_routine_win_toast(sm, save_manager, fails)
 	return fails
+
+## GID-135 / TID-531: a routine in-world win (no boss, no soulbind hunt) skips
+## the blocking result card entirely — rewards land immediately and a floating
+## toast appears over the world once it's reattached, instead of a button tap.
+func _check_routine_win_toast(sm: Node, save_manager: Object, fails: Array[String]) -> void:
+	# undead_basic's signature (sig_wanderer) would otherwise route to the
+	# (unchanged) soulbind-hunt result card; mark it captured so this is the
+	# plain routine-win case the toast path targets.
+	save_manager.call("mark_signature_captured", "sig_wanderer")
+	var data := {"id": "smoke_toast", "enemy_type": "undead_basic", "is_boss": false,
+		"enemy_deck": ["ghost", "ghost", "skeleton", "skeleton", "ghost", "ghost"]}
+	sm.call("_on_enemy_engaged", data.duplicate())
+	await _wait(500)
+	var battle: Node = current_scene
+	if battle == null or not bool(battle.get("in_world")):
+		fails.append("routine-win check did not get an in-world battle")
+		return
+	var state: Object = battle.get("_state")
+	var players: Array = state.get("players")
+	var enemy_hero: Object = (players[1] as Object).get("hero")
+	enemy_hero.set("health", 0)
+	battle.call("_check_game_over")
+	await process_frame
+	# The point of the toast is that the player is never blocked by a button.
+	for n: Node in root.find_children("*", "Button", true, false):
+		var b := n as Button
+		if b.is_visible_in_tree() and b.text in ["Continue", "Collect", "Collect All"]:
+			fails.append("routine in-world win still showed a blocking result button (%s)" % b.text)
+	await _wait(400)
+	if int(sm.call("current_state")) != _SceneFlow.State.WORLD:
+		fails.append("routine in-world win did not return to the world on its own")
+		return
+	var world: Node = current_scene
+	var found_toast: bool = false
+	for c: Node in world.get_children():
+		if c.get_script() == _RewardToastFx:
+			found_toast = true
+	if not found_toast:
+		fails.append("no floating reward toast appeared over the world after a routine win")
 
 ## TID-551: a second enemy engaging mid-fight joins it; beating both through the
 ## real victory screen returns to the world and marks both defeated.

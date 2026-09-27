@@ -34,7 +34,14 @@ func _apply_equipment_effects(player: PlayerState) -> void:
 		sm.equipped_armor,
 		sm.equipped_ring,
 		sm.equipped_trinket,
+		sm.equipped_offhand,
 	]
+	# Off-hand attack gear swings on its own timer in real time (TID-545,
+	# RealtimeCombat.offhand_damage — set from the same equipped item by
+	# BattleRealtime.maybe_start()). Turn-based has no off-hand swing, so it
+	# gets a smaller always-on attack bonus instead (documented in
+	# docs/agent/combat-model.md).
+	var realtime_mode: bool = str(sm.get_setting("battle_mode", "turn")).begins_with("realtime")
 	var injected_any: bool = false
 	for item_id in slot_ids:
 		if item_id == "":
@@ -63,6 +70,12 @@ func _apply_equipment_effects(player: PlayerState) -> void:
 				player.hero.max_health += hp_bonus
 			"passive_atk":
 				player.hero.attack += UpgradeDefs.effective_stat(weapon, level)
+			"starting_armor":
+				player.hero.apply_status("armor", UpgradeDefs.effective_stat(weapon, level))
+			"offhand_atk":
+				if not realtime_mode:
+					var offhand_val: int = UpgradeDefs.effective_stat(weapon, level)
+					player.hero.attack += UpgradeDefs.offhand_turnbased_bonus(offhand_val)
 	if injected_any:
 		player.draw_deck.shuffle()
 
