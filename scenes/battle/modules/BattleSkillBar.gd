@@ -117,6 +117,8 @@ func _resolve(slot: int) -> void:
 	if out.is_empty():
 		return
 	bar.start_cooldown(slot, rt.tune.get_f("skill_cooldown"))
+	# GID-135 / TID-558/559: real skill-use + interrupt-landed tracking.
+	_realtime.note_skill_used(str(bar.def_at(slot).get("effect", "")))
 	AudioManager.play_sfx("attack" if str(bar.def_at(slot)["effect"]) == "damage" else "spell_resolve")
 	var side: int = int(out.get("side", RealtimeCombat.ENEMY))
 	if side == RealtimeCombat.PLAYER:

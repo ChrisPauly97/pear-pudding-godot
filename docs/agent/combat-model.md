@@ -268,3 +268,40 @@ real-time fight starts; skipped for level > `MAX_LEVEL` = 2):
 | `rt_add` | a second enemy joins | its token |
 
 Smoke tests that aren't about onboarding set `realtime_fights = 99` and mark the `rt_*` tips seen.
+
+## Mentor coaching barks & post-fight tip (TID-558 / TID-559)
+
+Two small pieces ride the same clock, both owned by `BattleRealtime` (`scenes/battle/modules/BattleRealtime.gd`)
+and distinct from the one-shot `TutorialRegistry` popups above:
+
+- **Mentor barks** (`mentor_barks`, `scenes/battle/modules/MentorBarks.gd`): short, non-blocking Maiteln
+  speech bubbles (portrait + fading label, top-center — clear of the top-left `SidePanel`, the top-right enemy
+  hero token, and the bottom action strip / hand / onboarding spotlight). Built only when
+  `BarkRules.is_eligible(SaveManager.active_companion, onboarding.stage)` is true: Maiteln equipped as Mentor
+  (today's `active_companion`) **and** still on the `CombatOnboarding` ramp (`stage >= 0` — the same fight-count
+  gate TID-552/553 already use, not a new counter). Pure rules (rate limit 8 s, 2 uses per line per fight,
+  priority order, line text) live in `game_logic/battle/BarkRules.gd`; the module turns real moments into
+  candidates each frame:
+  | Moment | Source |
+  |---|---|
+  | Enemy starts a cast | `RealtimeCombat` "enemy_cast_start" event |
+  | An ally is ready | `RealtimeCombat` "ally_ready" event |
+  | A skill comes off cooldown | `BattleSkillBar`'s `SkillBar.ready(slot)` false → true transition |
+  | You land an interrupt | `BattleSkillBar._resolve` reports a successful `Kick` (`SkillBar.ABILITIES.kick`,
+    effect `"interrupt"`) via `BattleRealtime.note_skill_used("interrupt")` — a real, mechanical interrupt
+    (`RealtimeCombat.interrupt_enemy_cast`), not flavor text |
+  | Low HP / empty mana | Hero state read directly each frame |
+- **Post-fight tip** (`fight_stats`, `game_logic/battle/FightStats.gd`): per-fight accumulators (duration,
+  skill uses — deck cards **and** skill-bar presses, enemy casts completed, interrupts landed, mana-full/-empty
+  time, potions used while low, best-effort auto-attack damage) fed from `FightStats.record_frame` (called from
+  `BattleRealtime._process` with `rt` and the frame's events) plus `note_skill_used` and `GameBus.potion_used`.
+  `BattleRealtime.fight_tip()` reads the pure `FightStats.pick_tip(data)` rule; it does **not** touch
+  `SaveManager.realtime_fights` (already counted once by `BattleOnboarding.begin()`). The win overlay
+  (`BattleScene._show_standard_victory` → `BattleResultUI.show_victory` / `show_soulbind` / `show_victory_boss`,
+  each with an optional `tip_text` param, default `""`) renders it directly; the loss overlay has no payload on
+  `GameBus.battle_lost` and is built later by a different autoload, so the tip is handed off through
+  `SceneManager.set_pending_realtime_tip` / `get_and_clear_pending_realtime_tip`, read by
+  `BattleDefeat._show_defeat_overlay`. Neither task touches `BattleVictory.gd` (edited concurrently elsewhere).
+
+Gap: `FightStats.card_damage` has no feed yet (spell effects don't report damage back to the driver), so the
+"auto-attack neglected" tip rule is inert until something feeds it.

@@ -24,6 +24,7 @@ func _go() -> void:
 	await process_frame
 	var ok: bool = await _run()
 	ok = await _run_onboarding() and ok
+	ok = await _run_mentor_barks_scenario() and ok
 	print("\nrealtime_battle_smoke: %s" % ("PASS" if ok else "FAIL"))
 	quit(0 if ok else 1)
 
@@ -134,6 +135,43 @@ func _run_onboarding() -> bool:
 		print("  [PASS] onboarding: first fight is Strike-only with the intro tip")
 	battle.queue_free()
 	await process_frame
+	return fails.is_empty()
+
+## GID-135 / TID-558: Maiteln equipped + still on the onboarding ramp should
+## build mentor_barks and run a fight without a SCRIPT ERROR.
+func _run_mentor_barks_scenario() -> bool:
+	var save_manager: Object = root.get_node("SceneManager").get("save_manager")
+	save_manager.set("active_companion", "maiteln")
+	save_manager.set("realtime_fights", 0)
+	save_manager.set("level", 1)
+	Engine.time_scale = 4.0
+
+	var battle: Node = (load(_BATTLE_SCENE_PATH) as PackedScene).instantiate()
+	battle.set("enemy_data", {"enemy_type": "undead_basic", "is_boss": false, "enemy_deck": _ENEMY_DECK})
+	root.add_child(battle)
+	await process_frame
+	await process_frame
+
+	var fails: Array[String] = []
+	var rt_mod: Node = battle.get("realtime")
+	if rt_mod == null or not bool(rt_mod.call("is_active")):
+		fails.append("real-time module did not start")
+	elif rt_mod.get("mentor_barks") == null:
+		fails.append("mentor_barks was not built for an eligible Maiteln fight")
+	_dismiss_popups(battle)
+	var state: _GameState = battle.get("_state")
+	var start_ms: int = Time.get_ticks_msec()
+	while Time.get_ticks_msec() - start_ms < _MAX_WAIT_MS and not state.is_game_over():
+		await process_frame
+		_dismiss_popups(battle)
+	Engine.time_scale = 1.0
+	for f: String in fails:
+		print("  [FAIL] mentor_barks: " + f)
+	if fails.is_empty():
+		print("  [PASS] mentor_barks: ran the length of a fight without a SCRIPT ERROR")
+	battle.queue_free()
+	await process_frame
+	save_manager.set("active_companion", "")
 	return fails.is_empty()
 
 func _dismiss_popups(battle: Node) -> void:

@@ -4,6 +4,12 @@
 ## Settings > Battle Mode = Real-time / Real-time (slow), solo PvE only (no PvP, co-op, team,
 ## puzzle, scripted or resumed battles).
 ##
+## Also owns two small onboarding/analytics pieces layered on the same clock:
+## `mentor_barks` (`MentorBarks.gd`, TID-558) — built only for an eligible new
+## player (`BarkRules.is_eligible`, Maiteln + still on the `CombatOnboarding`
+## ramp) — and `fight_stats` (`FightStats.gd`, TID-559), built for every
+## real-time fight and read via `fight_tip()` for the victory/defeat card.
+##
 ## A child of BattleScene (`BattleScene.realtime`), created by
 ## `_ensure_battle_modules()`. Reach the scene as `_battle.<name>`.
 extends Node
@@ -22,6 +28,9 @@ const _CombatTuningPanel = preload("res://scenes/battle/modules/CombatTuningPane
 const _BattleSkillBar = preload("res://scenes/battle/modules/BattleSkillBar.gd")
 const _BattleOnboarding = preload("res://scenes/battle/modules/BattleOnboarding.gd")
 const SkillBar = preload("res://game_logic/battle/SkillBar.gd")
+const _MentorBarks = preload("res://scenes/battle/modules/MentorBarks.gd")
+const _BarkRules = preload("res://game_logic/battle/BarkRules.gd")
+const FightStats = preload("res://game_logic/battle/FightStats.gd")
 ## Settings key holding the tuning panel's overrides (per device).
 const TUNING_SETTING: String = "combat_tuning"
 
@@ -30,6 +39,12 @@ var rt: RealtimeCombat = null
 var skills: _BattleSkillBar = null
 ## New-player ramp + first-time tips (TID-552 / TID-553); null outside real time.
 var onboarding: _BattleOnboarding = null
+## Maiteln's coaching barks (GID-135 / TID-558) — only built for an eligible
+## new player; null otherwise (checked, never assumed present).
+var mentor_barks: _MentorBarks = null
+## Per-fight stats feeding the post-fight tip (GID-135 / TID-559) — built for
+## every real-time fight, not just onboarding ones.
+var fight_stats: FightStats = null
 var _battle: _BattleScene
 var _strip: HBoxContainer = null
 var _visuals: _RealtimeVisuals = null
@@ -81,8 +96,19 @@ func maybe_start(is_fresh: bool) -> void:
 	var bar_ids: Array[String] = SkillBar.new(SceneManager.save_manager.skill_bar).ids
 	skills = _BattleSkillBar.new(_battle, self, onboarding.filter_skills(bar_ids))
 	skills.build(_strip)
+	fight_stats = FightStats.new()
+	if _BarkRules.is_eligible(SceneManager.save_manager.active_companion, onboarding.stage):
+		mentor_barks = _MentorBarks.new(_battle, self)
+	GameBus.potion_used.connect(_on_potion_used)
 	_battle._refresh_all()
 	onboarding.apply()
+
+func _on_potion_used(_potion_id: String) -> void:
+	if fight_stats == null:
+		return
+	var hero := _battle._state.players[RealtimeCombat.PLAYER].hero
+	var fraction: float = float(hero.health) / float(maxi(1, hero.max_health))
+	fight_stats.record_potion_used(fraction)
 
 func _build_ui() -> void:
 	var vh: float = _battle._vh
@@ -170,6 +196,20 @@ func on_ally_hit_enemy_hero(side: int = RealtimeCombat.ENEMY) -> void:
 func note_player_play(player_idx: int) -> void:
 	if rt != null and player_idx == RealtimeCombat.PLAYER and not _resolving_cast:
 		rt.start_gcd(RealtimeCombat.PLAYER)
+		if fight_stats != null:
+			fight_stats.record_skill_use()
+
+## Reported by `BattleSkillBar._resolve` right after a successful ability use
+## (GID-135 / TID-559 stats; TID-558 barks). `effect` is the ability's
+## `SkillBar.ABILITIES` effect id — "interrupt" is a real, successful `Kick`.
+func note_skill_used(effect: String) -> void:
+	if fight_stats != null:
+		fight_stats.record_skill_use()
+	if effect == "interrupt":
+		if fight_stats != null:
+			fight_stats.record_interrupt()
+		if mentor_barks != null:
+			mentor_barks.queue("interrupt")
 
 ## Real time: starts a visible cast for `card` and runs `finish` when it
 ## completes (the GCD starts now — it is only the minimum between actions).
@@ -361,6 +401,10 @@ func _process(delta: float) -> void:
 		return
 	var snap: Array[Dictionary] = _battle._fx.snapshot()
 	var events: Array[Dictionary] = rt.advance(dt)
+	if fight_stats != null:
+		fight_stats.record_frame(dt, rt, events)
+	if mentor_barks != null:
+		mentor_barks.on_frame(dt, events)
 	# Global cooldown: a sweep drains down the hand cards (full shade while casting).
 	var gcd_frac: float = 0.0 if _cast_card != null else rt.gcd_fraction(RealtimeCombat.PLAYER)
 	_visuals.update_hand_sweep(gcd_frac)
@@ -424,3 +468,9 @@ func _speed_factor() -> float:
 	if mode == "realtime_slow" or (onboarding != null and onboarding.slow_clock()):
 		return 0.6
 	return 1.25 if _battle._speed_scale < 1.0 else 1.0
+
+## The one coaching line for this fight's result card, or "" — see
+## `FightStats.pick_tip`. `SaveManager.realtime_fights` is already counted by
+## `BattleOnboarding.begin()`; this only reads stats, no side effects.
+func fight_tip() -> String:
+	return FightStats.pick_tip(fight_stats.to_dict()) if fight_stats != null else ""
