@@ -126,7 +126,7 @@ var _resolver: SpellEffectResolver
 var _pause_ui: BattlePauseUI
 var _result_ui: BattleResultUI
 var _scripted_data_ref: Resource = null  # retained for turn-keyed tutorial popups
-var _scripted_tutorial_turns_shown: Dictionary = {}  # int turn_number -> true, dedupe
+var _scripted_tutorial_turns_shown: Dictionary = {}  # step key ("1", "played") -> true, dedupe
 
 # ── Ghost duels (GID-102 / TID-377) ──────────────────────────────────────────
 # All inert unless SceneManager sets _ghost_duel = true before _ready (via

@@ -898,7 +898,7 @@ Chapter 1 rabbit-hunt battle (TID-402); second: the Chapter 2 ambush (TID-407).
 | `enemy_deck_order` | Array[String] | Fixed weak enemy deck, same draw-order convention |
 | `enemy_opening_hand_count` | int | Enemy opening hand size |
 | `enemy_hero_hp` | int | Enemy hero HP |
-| `tutorial_steps` | Array[String] | `"<player_turn_number>:<text>"` — Maiteln guidance shown once at the start of the player's Nth turn |
+| `tutorial_steps` | Array[String] | `"<player_turn_number>:<text>"` — Maiteln guidance shown once at the start of the player's Nth turn; or `"<event>:<text>"` for an event key in `TUTORIAL_EVENT_KEYS` (`played` = right after the player's first minion lands) |
 | `reward_card_id` | String | Card awarded on victory ("" = none) |
 | `completion_flag` | String | Story flag set on victory ("" = none) |
 
@@ -942,6 +942,11 @@ authored.
 - The generic first-battle tutorial overlay and the `"tap_and_hold"` tutorial
   popup are skipped for scripted battles (the scripted battle teaches via its
   own turn-keyed popups instead).
+- **Event-keyed popups (TID-575):** `BattleTargeting._do_play_card_at_slot` calls
+  `tutorials.show_scripted_event_step("played")` for the local player in a scripted
+  battle — the moment "minions can't strike the turn they're summoned" is true.
+  rabbit_hunt: `1` drag the ghost → `played` can't strike yet, press End Turn → `2` attack.
+  Dedupe (`_scripted_tutorial_turns_shown`) is keyed by the step key string.
 - **Turn-keyed tutorial popups:** `BattleScene.tutorials._maybe_show_scripted_tutorial_step(player_turn_number)`
   matches `tutorial_steps` entries against `_state.player_turn_numbers[0]` and
   shows a direct `TutorialPopup` instantiation (title = `ScriptedBattleData.title`,

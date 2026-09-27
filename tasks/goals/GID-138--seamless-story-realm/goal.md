@@ -27,6 +27,7 @@ interiors (temple, mansion, home, guildhall) stay door-entered.
 | TID-572 | Objectives on the Realm | agent | done | TID-571 |
 | TID-573 | Docs & Human Story Note | agent | done | TID-572 |
 | TID-574 | Script-Spawned Enemies Unreachable by Interact (Isfig) | agent | done | TID-572 |
+| TID-575 | Rabbit Hunt Tutorial — Sickness Line on Play, End Turn Prompt | agent | done | — |
 
 ## Acceptance Criteria
 

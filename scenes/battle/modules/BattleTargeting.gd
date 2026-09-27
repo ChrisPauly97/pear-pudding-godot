@@ -220,6 +220,8 @@ func _do_play_card_at_slot(card: CardInstance, player_idx: int, slot_idx: int) -
 	if ok:
 		GameBus.card_played.emit(card.template_id, "board", slot_idx)
 		_battle.realtime.note_player_play(player_idx)
+		if _battle._state.scripted_battle and player_idx == _battle._my_idx():
+			_battle.tutorials.show_scripted_event_step("played")
 	return ok
 
 ## Local minion placement (drag-drop and tap-to-slot share it). In real time it
