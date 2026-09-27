@@ -7,9 +7,9 @@
 // still come from uniforms. Atlas: tools/generate_hd_terrain.py.
 
 uniform sampler2D tuft_atlas : filter_nearest, hint_default_transparent;
-uniform vec4  color_base       : source_color = vec4(0.18, 0.38, 0.13, 1.0);
-uniform vec4  color_mid        : source_color = vec4(0.32, 0.58, 0.19, 1.0);
-uniform vec4  color_tip        : source_color = vec4(0.56, 0.80, 0.30, 1.0);
+uniform vec4  color_base       : source_color = vec4(0.12, 0.23, 0.07, 1.0);
+uniform vec4  color_mid        : source_color = vec4(0.22, 0.35, 0.11, 1.0);
+uniform vec4  color_tip        : source_color = vec4(0.34, 0.46, 0.16, 1.0);
 instance uniform vec4 grass_recolor = vec4(1.0, 1.0, 1.0, 0.0);
 uniform float wind_strength  : hint_range(0.0, 1.0) = 0.28;
 uniform vec2  wind_direction                         = vec2(1.0, 0.35);

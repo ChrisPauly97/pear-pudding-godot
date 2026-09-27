@@ -26,7 +26,7 @@ const PARAMS: Array = [
 
 # Flat-ground surface tint per biome (multiplied over base grass texture).
 const GRASS_TINT: Array[Color] = [
-	Color(0.70, 0.80, 0.30),   # Grasslands — soft warm meadow green (GID-134: was a neon 0.72, 0.94, 0.38)
+	Color(0.64, 0.64, 0.16),   # Grasslands — muted meadow green (was 0.70, 0.80, 0.30)
 	Color(0.22, 0.50, 0.14),   # Forest      — deep pine green
 	Color(0.87, 0.72, 0.38),   # Desert      — warm sand
 	Color(0.46, 0.30, 0.20),   # Scorched    — charred earth (0.22/0.09/0.03 read as black, fog turned it navy)
@@ -52,7 +52,7 @@ const GRASS_RECOLOR: Array[Color] = [
 
 # Hill surface tint per biome.
 const HILL_TINT: Array[Color] = [
-	Color(0.58, 0.66, 0.26),   # Grasslands
+	Color(0.52, 0.52, 0.14),   # Grasslands (muted with GRASS_TINT)
 	Color(0.18, 0.42, 0.10),   # Forest
 	Color(0.74, 0.60, 0.28),   # Desert
 	Color(0.40, 0.24, 0.16),   # Scorched

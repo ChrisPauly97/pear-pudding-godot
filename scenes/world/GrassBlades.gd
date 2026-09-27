@@ -20,7 +20,11 @@ const TRAMPLE_UPDATE_INTERVAL: float = 0.2  # ~5 Hz — was 15 Hz, barely visibl
 # the character sprites' pixel size so the grass matches the rest of the art.
 # This replaced 3-D blades (7 verts each, 16-40 per tile) plus spiky cluster
 # quads: ~5x fewer vertices for a fuller, less jagged field.
-const TUFTS_PER_TILE      := 7    # short tufts on an ordinary grass tile
+# Ordinary grass is patchy, not a carpet: a hash per SHORT_PATCH_CELL picks
+# 0..TUFTS_PER_TILE_MAX tufts for the tiles in it (mean ~1.25), so the meadow
+# has bare stretches, sparse ones and a few fuller clumps.
+const TUFTS_PER_TILE_MAX  := 4
+const SHORT_PATCH_CELL: float = 4.0   # world units (2 tiles)
 const TUFTS_TALL_PER_TILE := 6    # tall tufts on a tall-patch tile (plus 2 short)
 const PIXEL: float = 0.05         # world units per texel — Player.PIXEL_SIZE
 const TUFT_W: float  = 16.0 * PIXEL
@@ -151,6 +155,13 @@ static func compute_centres(chunk_data: _ChunkData, chunk_origin: Vector3) -> Ar
 			))
 	return centres
 
+# Short-tuft count for an ordinary grass tile: squared hash, so bare and
+# sparse cells are common and full ones rare.
+static func _short_tufts(centre: Vector2) -> int:
+	var r: float = _hash_pos(snapped(centre.x + 1000.0, SHORT_PATCH_CELL),
+			snapped(centre.y + 1000.0, SHORT_PATCH_CELL))
+	return int(floorf(r * r * float(TUFTS_PER_TILE_MAX + 1)))
+
 # Build the tuft PackedFloat32Array buffer — no scene tree or GPU calls.
 # Returns {} if centres is empty, otherwise the data commit_grass_buffers needs.
 static func prepare_buffers(centres: Array[Vector2], chunk_key: Vector2i) -> Dictionary:
@@ -168,15 +179,17 @@ static func prepare_buffers(centres: Array[Vector2], chunk_key: Vector2i) -> Dic
 		var is_tall: bool = _hash_pos(snapped(centre.x, TALL_PATCH_CELL),
 				snapped(centre.y, TALL_PATCH_CELL)) < TALL_PATCH_DENSITY
 		tall_flags[ci] = is_tall
-		total += TUFTS_TALL_PER_TILE + 2 if is_tall else TUFTS_PER_TILE
+		total += TUFTS_TALL_PER_TILE + 2 if is_tall else _short_tufts(centre)
 
+	if total == 0:
+		return {}
 	var buf := PackedFloat32Array()
 	buf.resize(total * 12)
 	var i: int = 0
 	for ci in range(centres.size()):
 		var centre: Vector2 = centres[ci]
 		var is_tall: bool = tall_flags[ci]
-		var n: int = TUFTS_TALL_PER_TILE + 2 if is_tall else TUFTS_PER_TILE
+		var n: int = TUFTS_TALL_PER_TILE + 2 if is_tall else _short_tufts(centre)
 		# Stratified on a 3x3 grid (random start cell) so tufts cover the tile
 		# evenly instead of clumping; jitter may spill a little past the edge.
 		var start: int = rng.randi_range(0, 8)
