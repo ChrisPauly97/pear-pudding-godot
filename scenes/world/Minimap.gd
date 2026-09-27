@@ -16,6 +16,8 @@ const VIEW_RADIUS: float = 64.0
 const SUPERSAMPLE: int = 2
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _GrassBlades = preload("res://scenes/world/GrassBlades.gd")
+const _WorldScene = preload("res://scenes/world/WorldScene.gd")
+const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
 
 
 # ── Circle-clip shader: cuts the rectangular texture into a disc ───────────────
@@ -35,6 +37,7 @@ var _mini_cam: Camera3D
 var _mini_viewport: SubViewport
 var _dot_layer: _DotLayer
 var _player: CharacterBody3D
+var _world: _WorldScene
 var _enemy_nodes: Dictionary
 var _chest_nodes: Dictionary
 var _door_nodes: Dictionary
@@ -77,6 +80,7 @@ func setup(world: Node3D, hud: CanvasLayer, player: CharacterBody3D,
 		enemies: Dictionary, chests: Dictionary, doors: Dictionary,
 		npcs: Dictionary) -> void:
 	_player  = player
+	_world = world as _WorldScene
 	_enemy_nodes = enemies
 	_chest_nodes = chests
 	_door_nodes  = doors
@@ -208,6 +212,7 @@ func _on_draw(canvas: Control) -> void:
 	_draw_group(canvas, _door_nodes,  origin, Color(0.55, 0.75, 1.00), 4.0)
 	_draw_group(canvas, _npc_nodes,   origin, Color(0.30, 0.95, 0.45), 4.0)
 	_draw_waypoint(canvas, origin)
+	_draw_quests(canvas, origin)
 
 	# Roaming boss: larger dot in range, edge indicator when outside
 	if _enemy_nodes.has("roaming_boss"):
@@ -250,6 +255,36 @@ func _draw_waypoint(canvas: Control, origin: Vector3) -> void:
 		dot = center + (dot - center).normalized() * (_half * 0.88)
 	canvas.draw_circle(dot, 5.0, Color(0.20, 0.80, 1.00), true, -1.0, true)
 	canvas.draw_arc(dot, 7.0, 0.0, TAU, 12, Color(0.20, 0.80, 1.00, 0.70), 1.5, true)
+
+
+## Quest pins (GID-139): a diamond per active quest with a place on this map; the
+## tracked one is larger with an outline. Off-disc pins stick to the rim so the
+## player can always read which way to go.
+func _draw_quests(canvas: Control, origin: Vector3) -> void:
+	if _world == null:
+		return
+	var center := Vector2(_half, _half)
+	var tracked_id: String = str(_world.tracked_quest().get("id", ""))
+	var tracked_dot := Vector2.INF
+	for q: Dictionary in _world.active_quests():
+		var raw: Variant = _world.quest_pos(q)
+		if raw == null:
+			continue
+		var dot: Vector2 = _to_minimap(raw as Vector3, origin)
+		if not _inside_minimap(dot, center):
+			dot = center + (dot - center).normalized() * (_half * 0.86)
+		var col: Color = _QuestLog.kind_color(str(q.get("kind", "")))
+		if str(q.get("id", "")) == tracked_id:
+			tracked_dot = dot
+			continue
+		_draw_diamond(canvas, dot, 4.0, Color(col, 0.8))
+	if tracked_dot != Vector2.INF:
+		_draw_diamond(canvas, tracked_dot, 8.0, Color(0.0, 0.0, 0.0, 0.8))
+		_draw_diamond(canvas, tracked_dot, 6.0, _QuestLog.kind_color(str(_world.tracked_quest().get("kind", ""))))
+
+static func _draw_diamond(canvas: Control, at: Vector2, r: float, col: Color) -> void:
+	canvas.draw_colored_polygon(PackedVector2Array([
+		at + Vector2(0.0, -r), at + Vector2(r, 0.0), at + Vector2(0.0, r), at + Vector2(-r, 0.0)]), col)
 
 
 func _draw_group(canvas: Control, nodes: Dictionary, origin: Vector3,

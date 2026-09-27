@@ -7,7 +7,7 @@ extends Node
 # Created and owned by WorldScene; WorldScene keeps @onready tscn-defined nodes.
 
 const CompassRibbon    = preload("res://scenes/ui/CompassRibbon.gd")
-const ObjectiveTracker = preload("res://game_logic/ObjectiveTracker.gd")
+const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
 const SaveManager      = preload("res://autoloads/SaveManager.gd")
 const CantripManager   = preload("res://game_logic/world/CantripManager.gd")
 const UiFx             = preload("res://scenes/ui/UiFx.gd")
@@ -455,16 +455,27 @@ func _create_compass(map_name: String) -> void:
 		return Vector3(float(tx) * IsoConst.TILE_SIZE, 0.0, float(tz) * IsoConst.TILE_SIZE)
 	)
 	# Primary marker: drawn as a labelled chevron with a live distance, not as a
-	# dot lost among the tick marks. Same ObjectiveTracker helpers the in-world
-	# beacon uses (WorldScene._refresh_objective_beacon), so the two agree.
-	var objective_pos: Callable = func() -> Variant:
-		return ObjectiveTracker.objective_world_pos(
-			SceneManager.save_manager.story_flags, captured_map)
+	# dot lost among the tick marks. It follows the tracked quest (GID-139) through
+	# the same WorldScene helpers the in-world beacon uses, so the two agree.
+	var ws: _WorldScene = _world_scene
 	var objective_label: Callable = func() -> String:
-		var obj: Dictionary = ObjectiveTracker.objective_for_map(
-			SceneManager.save_manager.story_flags, captured_map)
-		return str(obj.get("label", ""))
-	cr.add_marker("objective", Color(1.0, 0.82, 0.15), objective_pos, objective_label, true)
+		return str(ws.tracked_quest().get("label", "")) if ws.tracked_quest_pos() != null else ""
+	cr.add_marker("objective", Color(1.0, 0.82, 0.15), ws.tracked_quest_pos, objective_label, true)
+	# The other quests with a place get a plain dot in their kind's colour.
+	for kind: String in ["story", "treasure", "bounty"]:
+		cr.add_marker("quest_" + kind, _QuestLog.kind_color(kind), func() -> Variant:
+			return _untracked_quest_pos(ws, kind))
+
+## Nearest target of the first untracked quest of `kind`, or null.
+static func _untracked_quest_pos(ws: _WorldScene, kind: String) -> Variant:
+	var tracked_id: String = str(ws.tracked_quest().get("id", ""))
+	for q: Dictionary in ws.active_quests():
+		if str(q.get("kind", "")) != kind or str(q.get("id", "")) == tracked_id:
+			continue
+		var p: Variant = ws.quest_pos(q)
+		if p != null:
+			return p
+	return null
 
 # ── Public display API ─────────────────────────────────────────────────────
 

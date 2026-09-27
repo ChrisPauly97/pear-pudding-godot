@@ -38,7 +38,9 @@ const _TexPath:      Texture2D = preload("res://assets/textures/pixel_art/path_p
 const _OverworldPauseOverlay = preload("res://scenes/ui/OverworldPauseOverlay.gd")
 const _PlayerScene       = preload("res://scenes/world/entities/Player.tscn")
 const _ObjectiveBeacon   = preload("res://scenes/world/entities/ObjectiveBeacon.gd")
-const _ObjectiveTracker  = preload("res://game_logic/ObjectiveTracker.gd")
+const _QuestLog          = preload("res://game_logic/quests/QuestLog.gd")
+## How often the cached quest list is re-read (ms) — see _refresh_quests.
+const QUEST_REFRESH_MS: int = 250
 const _Player            = preload("res://scenes/world/entities/Player.gd")
 # Party panel (GID-107 / TID-395): consolidated entry point for the always-on
 # co-op HUD affordances (Roster, Loot Mode, Stash, Leaderboard, Ghost Duels,
@@ -362,6 +364,11 @@ var _map_overlay: MapViewOverlay = null
 # Story objective beacon (one at most, on the objective's tile — see
 # _refresh_objective_beacon).
 var _objective_beacon: _ObjectiveBeacon = null
+# Active quests + the tracked one (GID-139), re-read by _refresh_quests at most
+# every QUEST_REFRESH_MS — the compass and minimap poll them every frame.
+var _quests: Array[Dictionary] = []
+var _tracked: Dictionary = {}
+var _quests_read_ms: int = -QUEST_REFRESH_MS
 
 @onready var _camera: Camera3D = $Camera3D
 @onready var _hud: CanvasLayer = $HUD
@@ -739,6 +746,7 @@ func _wire_gamebus_signals() -> void:
 	# single-player used to see the change only after a map reload.
 	if not NetworkManager.is_dedicated_server():
 		GameBus.story_flag_set.connect(_on_story_flag_set_for_cast)
+		GameBus.quest_tracking_changed.connect(func(_id: String) -> void: _refresh_quests(true))
 
 	# Auto-remount when returning to the overworld from a named map
 	if map_name == "main":
@@ -1266,18 +1274,49 @@ func _on_story_flag_set_for_cast(_key: String) -> void:
 	_despawn_flag_hidden_npcs()
 	_refresh_objective_beacon()
 
-## Plants (or moves, or clears) the in-world beacon over the current story
-## objective. The compass ribbon only gives a bearing; standing in the right
-## street still left the player guessing which hut or which NPC was the target,
-## so the objective also gets a marker on the thing itself.
-##
-## Story flags are what move the objective, so this runs on map entry and on
-## every flag change — never per frame.
+## Every active quest (QuestLog), story first — cached, see _refresh_quests.
+func active_quests() -> Array[Dictionary]:
+	_refresh_quests(false)
+	return _quests
+
+## The quest the compass chevron, beacon and minimap pin follow.
+func tracked_quest() -> Dictionary:
+	_refresh_quests(false)
+	return _tracked
+
+## World position of the tracked quest's nearest target on this map, or null.
+func tracked_quest_pos() -> Variant:
+	return quest_pos(tracked_quest())
+
+func quest_pos(quest: Dictionary) -> Variant:
+	if quest.is_empty() or _player == null:
+		return null
+	return _QuestLog.world_pos(quest, map_name, _player.position)
+
+## Re-reads the quest list when stale (or `force`d by a story / tracking change)
+## and moves the beacon along with it — a claimed bounty or a nearer board moves
+## the target without any story flag changing.
+func _refresh_quests(force: bool) -> void:
+	var now: int = Time.get_ticks_msec()
+	if not force and now - _quests_read_ms < QUEST_REFRESH_MS:
+		return
+	_quests_read_ms = now
+	var sm := SceneManager.save_manager
+	_quests = sm.active_quests()
+	_tracked = _QuestLog.tracked(_quests, sm.tracked_quest)
+	_place_objective_beacon()
+
+## Plants (or moves, or clears) the in-world beacon over the tracked quest. The
+## compass ribbon only gives a bearing; standing in the right street still left
+## the player guessing which hut or which NPC was the target, so the objective
+## also gets a marker on the thing itself.
 func _refresh_objective_beacon() -> void:
+	_refresh_quests(true)
+
+func _place_objective_beacon() -> void:
 	if NetworkManager.is_dedicated_server():
 		return
-	var raw: Variant = _ObjectiveTracker.objective_world_pos(
-		SceneManager.save_manager.story_flags, map_name)
+	var raw: Variant = tracked_quest_pos()
 	if raw == null:
 		if is_instance_valid(_objective_beacon):
 			_objective_beacon.queue_free()
@@ -1289,7 +1328,9 @@ func _refresh_objective_beacon() -> void:
 		_objective_beacon.name = "ObjectiveBeacon"
 		add_child(_objective_beacon)
 		_objective_beacon.setup(_player)
-	_objective_beacon.position = Vector3(pos.x, get_terrain_height(pos.x, pos.z), pos.z)
+	var at := Vector3(pos.x, get_terrain_height(pos.x, pos.z), pos.z)
+	if not _objective_beacon.position.is_equal_approx(at):
+		_objective_beacon.position = at
 
 ## Removes already-spawned NPCs whose MapNpc.hide_flag_key is now set. The spawn
 ## side of the same rule lives in ChunkRenderer, which skips them outright.
@@ -1497,6 +1538,7 @@ func _process(delta: float) -> void:
 
 	if _player == null:
 		return
+	_refresh_quests(false)
 	# Software floor: rescue the player only when physics has genuinely lost
 	# the terrain (chunk collider not built yet, or tunneled through). Never
 	# fire while is_on_floor() — the analytic smoothstep height sits up to

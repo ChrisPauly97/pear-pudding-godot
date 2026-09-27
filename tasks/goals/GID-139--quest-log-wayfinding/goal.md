@@ -21,7 +21,7 @@ no quest log, and after Chapter 2 the objective went blank.
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-576 | Quest Model — Story Steps Table & QuestLog | agent | done | — |
-| TID-577 | Tracked Quest Drives Compass, Beacon & Minimap | agent | pending | TID-576 |
+| TID-577 | Tracked Quest Drives Compass, Beacon & Minimap | agent | done | TID-576 |
 | TID-578 | Realm Map in the Overworld | agent | pending | TID-576 |
 | TID-579 | Journal Quests Tab & Quest-Updated Toasts | agent | pending | TID-577 |
 | TID-580 | Docs | agent | pending | TID-579 |
