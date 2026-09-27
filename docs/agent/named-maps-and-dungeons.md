@@ -202,6 +202,73 @@ exit_map_via_door(door):
 
 Supports arbitrary nesting: overworld → ruin dungeon → inner chamber → …
 
+Leaving the overworld pushes a `pos:x:z` token (not a door id) so the way back lands
+the player where they went in; see "Stitched Story Realm" below.
+
+---
+
+## Stitched Story Realm (GID-138)
+
+The five **outdoor** story towns — `madrian`, `maykalene`, `blancogov`, `larik`,
+`marsax_hold` — are no longer entered by door. Their `.tres` files stay the
+authoring source (the map editor still edits them), but at runtime each is cropped
+and stamped into the infinite overworld (`main`) at a fixed tile offset, joined by
+paved roads. The player walks between them with no transition. **Interiors**
+(`blancogov_temple`, `farsyth_mansion`, `player_home`, `guildhall`, dungeons, spire)
+are still door-entered named maps.
+
+### `game_logic/world/RealmLayout.gd` (static, no autoloads)
+
+| Table / helper | Purpose |
+|---|---|
+| `TOWNS[town] = {crop, offset, data}` | `crop`: part of the 100×100 source stamped (local tiles). `offset`: world tile = local tile + offset. `data`: preloaded MapData |
+| `ROADS` | Polylines (world tiles) gate-to-gate; tiles within `ROAD_HALF_WIDTH` are `TILE_PATH` |
+| `BLEND_MARGIN` | Hills fade flat over this many tiles around towns and roads |
+| `OVERWORLD_TARGETS`, `DROPPED_DOORS` | Doors not stitched: town-to-town / to-overworld exits, and Madrian's debug shortcuts (`door_11`, `door_13`) into the mansion/temple |
+| `STORY_SITES` | Fixed road tiles for the open-world story beats (`madrian_south_road`, `wilderness_camp`, `isfig_road`, `scout_ambush`) |
+| `town_at_tile/world`, `world_rect`, `to_world_tile/pos`, `world_shift` | Coordinate helpers |
+| `stamp_tile(wtx, wtz, noise_tile, noise_h)` | Town tile > road path > faded noise |
+| `entities(kind)`, `entities_in_chunk(kind, cx, cz)` | Town entity dicts in world coords (cached; copies handed out). Generic `npc_N` ids become `<town>:npc_N` (every town has an `npc_1`); every other id is kept so save state carries over |
+| `door_into(map)`, `return_pos_for(map)` | The stitched door into an interior; where you stand after leaving it |
+| `pos_token(x, z)` / `parse_pos_token()` | `pos:x:z` tokens stored in `SceneManager.door_stack` |
+
+Current layout (world = local + offset): madrian (−37,−33) — its spawn lands on
+world tile (3,3), the old overworld default; maykalene (−37,66) south of it;
+blancogov (43,222) south-east; larik (−167,232) west; marsax_hold (−167,100) north of Larik.
+`test_realm_layout` checks towns don't overlap (incl. blend margin), roads end at towns,
+sites sit on roads between towns, and doors/ids are stitched correctly.
+
+### Runtime flow
+
+- **Generation** (`InfiniteWorldGen`): `_stamp_realm()` after noise; ruins, landmarks,
+  chunk scrolls, blight hearts skip realm chunks; random spawns keep `REALM_CLEARANCE`
+  tiles off towns/roads; `_append_realm_entities()` adds enemies/chests/doors/NPCs/waystones;
+  town chunks are always grasslands; `WaterMath.intensity` keeps towns/roads dry.
+- **Props** (`NamedMapProps.spawn_realm()`): scrolls, shrines, injected `map:<town>`
+  waystones and mailboxes, placed once on overworld load.
+- **Region** (`scenes/world/modules/RealmRegions.gd`): per tile change, sets
+  `WorldScene.current_town`; town entry sets the HUD name, music, entry toast, rivals,
+  siege, `chapter1_reached_blancogov` / `chapter2_reached_larik`; leaving Madrian after
+  the intro sets `chapter1_left_madrian`. **Use `WorldScene.story_place()`, not
+  `map_name`,** for "is the player in town X" checks. `realm_regions.siege_gate(town)`
+  shifts `SiegeDefs.TOWN_GATES` into the overworld.
+- **Navigation** (`SceneManager`): new game → `enter_map("main")` (Madrian spawn);
+  leaving the overworld pushes a `pos:` token so `exit_map` lands you where you went in;
+  an interior with an empty stack steps out of its stitched door; `map:<town>` waystones
+  teleport within the overworld (`_teleport_overworld`).
+- **Saves**: v43 `SaveMigrations._m43_stitched_towns` moves a save in a stitched town to
+  `main` at the shifted spot, collapses stitched stack entries into one `main` entry with a
+  return token, and translates the player waypoint.
+- **Co-op** still hosts on the named `madrian` map (BID-063).
+
+### Adding / moving a stitched town
+
+1. Add a `TOWNS` row (crop must include every entity you want stitched and the
+   objective tiles in `ObjectiveTracker`; `test_town_objectives_sit_inside_their_stitched_town`).
+2. Add a road from an existing town's edge to the new town's gate.
+3. Doors to it from other towns go in `OVERWORLD_TARGETS`.
+4. Run `test_realm_layout` / `test_objective_tracker`.
+
 ---
 
 ## Endless Spire Floors

@@ -9,6 +9,7 @@ extends Node
 
 const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const WorldMap = preload("res://game_logic/world/WorldMap.gd")
+const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const _MailboxScene = preload("res://scenes/world/entities/MailboxNPC.tscn")
 const _PuzzleShrineScene = preload("res://scenes/world/entities/PuzzleShrine.tscn")
 const _StoryScrollScene = preload("res://scenes/world/entities/StoryScroll.tscn")
@@ -23,6 +24,8 @@ const NAMED_MAP_WAYSTONE_LABELS: Dictionary = {
 	"blancogov": "Blancogov",
 	"farsyth_mansion": "Farsyth Mansion",
 	"blancogov_temple": "Temple of Blancogov",
+	"larik": "Larik",
+	"marsax_hold": "Marsax Hold",
 }
 ## Maps that get an injected mailbox (there is no MailboxData on the .tres maps).
 const MAILBOX_MAPS: Array[String] = ["madrian", "maykalene", "blancogov", "player_home"]
@@ -45,10 +48,26 @@ var _fast_travel_layer: CanvasLayer = null
 func spawn_all() -> void:
 	if _world.world_map == null:
 		return
-	_spawn_scrolls()
-	_spawn_shrines()
-	_spawn_waystones()
-	_spawn_mailbox()
+	_spawn_scrolls(_world.world_map.scrolls)
+	_spawn_shrines(_world.world_map.shrines)
+	_spawn_waystones(_world.map_name, _world.world_map, Vector2.ZERO, _world.world_map.waystones)
+	_spawn_mailbox(_world.map_name, _world.world_map, Vector2.ZERO)
+
+## The stitched story towns' props in the overworld (GID-138). Enemies, chests,
+## doors, NPCs and authored waystones stream in with their chunks; these few
+## are placed once, at the town's overworld position, keeping their old ids so
+## collected scrolls, solved shrines and activated waystones carry over.
+func spawn_realm() -> void:
+	_spawn_scrolls(RealmLayout.entities("scrolls"))
+	_spawn_shrines(RealmLayout.entities("shrines"))
+	for town: String in RealmLayout.town_names():
+		var wm: WorldMap = RealmLayout.town_map(town)
+		var shift: Vector2 = RealmLayout.world_shift(town)
+		# Authored waystones stream in with their chunk; only a town without one
+		# gets the injected fallback here.
+		if wm.waystones.is_empty():
+			_spawn_waystones(town, wm, shift, [])
+		_spawn_mailbox(town, wm, shift)
 
 ## Instantiates `scene` on the terrain at (wx, wz), `lift` units up.
 func _place(scene: PackedScene, wx: float, wz: float, lift: float) -> Node3D:
@@ -57,27 +76,29 @@ func _place(scene: PackedScene, wx: float, wz: float, lift: float) -> Node3D:
 	node.position = Vector3(wx, _world.get_terrain_height(wx, wz) + lift, wz)
 	return node
 
-func _spawn_scrolls() -> void:
-	for entry: Dictionary in _world.world_map.scrolls:
+func _spawn_scrolls(entries: Array[Dictionary]) -> void:
+	for entry: Dictionary in entries:
 		var node: Node3D = _place(_StoryScrollScene, float(entry["x"]), float(entry["z"]), 0.1)
 		node.call("setup", str(entry["scroll_id"]), _world._player)
 		if not node.is_queued_for_deletion():   # setup frees an already-collected scroll
 			_world._scroll_nodes.append(node)
 
-func _spawn_shrines() -> void:
-	for entry: Dictionary in _world.world_map.shrines:
+func _spawn_shrines(entries: Array[Dictionary]) -> void:
+	for entry: Dictionary in entries:
 		var node: Node3D = _place(_PuzzleShrineScene, float(entry["x"]), float(entry["z"]), 0.1)
 		node.call("setup", str(entry["puzzle_id"]), _world._player)
 		if not node.is_queued_for_deletion():
 			_world._shrine_nodes.append(node)
 
-func _spawn_waystones() -> void:
+## `authored` empty → the town's injected fallback waystone (if it gets one).
+## `shift` moves town-local positions into the overworld (zero on a named map).
+func _spawn_waystones(town: String, wm: WorldMap, shift: Vector2, authored: Array[Dictionary]) -> void:
 	var sm := SceneManager.save_manager
-	var entries: Array[Dictionary] = _world.world_map.waystones
+	var entries: Array[Dictionary] = authored
 	if entries.is_empty():
-		entries = _injected_waystone()
+		entries = _injected_waystone(town, wm, shift)
 	for entry: Dictionary in entries:
-		var wid: String = str(entry.get("id", "map:%s" % _world.map_name))
+		var wid: String = str(entry.get("id", "map:%s" % town))
 		var w_dict: Dictionary = entry.duplicate()
 		w_dict["active"] = sm.is_waystone_activated(wid)
 		var node: Node3D = _place(_WaystoneScene, float(entry["x"]), float(entry["z"]), 0.75)
@@ -86,35 +107,36 @@ func _spawn_waystones() -> void:
 		_world._active_waystone_data[wid] = w_dict
 
 ## A town map without authored waystones gets one three tiles east of spawn.
-func _injected_waystone() -> Array[Dictionary]:
-	var map_name: String = _world.map_name
+func _injected_waystone(map_name: String, wm: WorldMap, shift: Vector2) -> Array[Dictionary]:
 	if not NAMED_MAP_WAYSTONE_LABELS.has(map_name):
 		return []
-	var wm: WorldMap = _world.world_map
 	var tx: int = clampi(wm.player_spawn_x + 3 if wm.has_player_spawn() else 8, 1, WorldMap.MAP_WIDTH - 2)
 	var tz: int = clampi(wm.player_spawn_z if wm.has_player_spawn() else 8, 1, WorldMap.MAP_HEIGHT - 2)
 	return [{
 		"id": "map:%s" % map_name,
-		"x": float(tx) * WorldMap.TILE_SIZE,
-		"z": float(tz) * WorldMap.TILE_SIZE,
+		"x": float(tx) * WorldMap.TILE_SIZE + shift.x,
+		"z": float(tz) * WorldMap.TILE_SIZE + shift.y,
 		"label": str(NAMED_MAP_WAYSTONE_LABELS[map_name]),
 	}]
 
-func _spawn_mailbox() -> void:
-	var map_name: String = _world.map_name
+func _spawn_mailbox(map_name: String, wm: WorldMap, shift: Vector2) -> void:
 	if not MAILBOX_MAPS.has(map_name):
 		return
 	if map_name == "player_home" and not SceneManager.save_manager.home_owned:
 		return
 	# Waystones come from _active_waystone_data rather than world_map.waystones:
 	# town maps get theirs injected, and they were spawned just before this.
-	var tile: Vector2i = _world.world_map.pick_free_tile_near_spawn(
-		MAILBOX_TILE_OFFSETS, MAILBOX_CLEARANCE_TILES, _world._active_waystone_data.values())
+	# Its positions are overworld ones for a stitched town, so shift them back.
+	var placed: Array = []
+	for w: Variant in _world._active_waystone_data.values():
+		var wd: Dictionary = w
+		placed.append({"x": float(wd.get("x", 0.0)) - shift.x, "z": float(wd.get("z", 0.0)) - shift.y})
+	var tile: Vector2i = wm.pick_free_tile_near_spawn(MAILBOX_TILE_OFFSETS, MAILBOX_CLEARANCE_TILES, placed)
 	var mid: String = "map:%s" % map_name
 	var m_dict: Dictionary = {
 		"id": mid,
-		"x": float(tile.x) * WorldMap.TILE_SIZE,
-		"z": float(tile.y) * WorldMap.TILE_SIZE,
+		"x": float(tile.x) * WorldMap.TILE_SIZE + shift.x,
+		"z": float(tile.y) * WorldMap.TILE_SIZE + shift.y,
 	}
 	var node: Node3D = _place(_MailboxScene, m_dict["x"], m_dict["z"], 0.55)
 	node.call("init_from_data", m_dict)

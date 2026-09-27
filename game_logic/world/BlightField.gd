@@ -1,5 +1,7 @@
 extends RefCounted
 
+const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
+
 # Super-region is SUPER_SIZE × SUPER_SIZE chunks; each super-region may have one Blight Heart.
 const SUPER_SIZE: int = 12
 # Approximately 1 in HEART_DENSITY super-regions gets a heart (~33 %).
@@ -35,6 +37,9 @@ static func get_heart_for_super(sx: int, sz: int, world_seed: int) -> Dictionary
 	var heart_cz: int = sz * SUPER_SIZE + heart_lz
 	# Skip super-regions that place the heart inside the origin safe zone.
 	if (abs(heart_cx) + abs(heart_cz)) <= SAFE_CHUNK_RADIUS:
+		return {}
+	# No heart inside a stitched story town or on its road (GID-138).
+	if RealmLayout.chunk_touches_realm(heart_cx, heart_cz):
 		return {}
 	return {
 		"id": "heart_%d_%d" % [sx, sz],

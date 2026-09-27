@@ -2,6 +2,7 @@
 extends "res://tests/framework/test_case.gd"
 
 const ObjectiveTracker = preload("res://game_logic/ObjectiveTracker.gd")
+const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 
 # Helper: build a flags dict with only the listed keys set to true.
 func _flags(keys: Array) -> Dictionary:
@@ -27,7 +28,7 @@ func test_intro_complete_returns_leave_madrian() -> void:
 	var obj: Dictionary = ObjectiveTracker.current_objective(
 		_flags(["story_intro_complete"]))
 	assert_eq(obj.get("label", ""), "Leave Madrian", "After intro, objective is to leave madrian")
-	assert_eq(obj.get("map", ""), "madrian", "Still in madrian map")
+	assert_eq(obj.get("site", ""), "madrian_south_road", "Points down the road out of town (GID-138)")
 
 
 # ── chapter1_left_madrian ─────────────────────────────────────────────────────
@@ -150,8 +151,8 @@ func test_chapter2_charged_returns_travel_to_larik() -> void:
 		_flags(_ch2_flags(["chapter2_charged"])))
 	assert_eq(obj.get("label", ""), "Travel west to Larik")
 	assert_eq(obj.get("map", ""), "larik")
-	assert_eq(int(obj.get("tx", -99)), 50)
-	assert_eq(int(obj.get("tz", -99)), 90)
+	assert_eq(int(obj.get("tx", -99)), 64, "Larik's east edge, where the road arrives (GID-138)")
+	assert_eq(int(obj.get("tz", -99)), 50)
 
 
 func test_chapter2_reached_larik_returns_search_larik() -> void:
@@ -210,11 +211,36 @@ func test_objective_for_map_empty_on_other_map() -> void:
 		"An objective on another map gives nothing to point at here")
 
 
-func test_objective_for_map_empty_for_wildcard_tile() -> void:
-	# "Make camp for the night" is a scripted open-world event: map main, tile (−1, −1).
+func test_road_beat_points_at_its_site() -> void:
+	# "Make camp for the night" stands on the road south of Madrian (GID-138).
 	var flags: Dictionary = _flags(["story_intro_complete", "chapter1_left_madrian"])
-	assert_true(ObjectiveTracker.objective_for_map(flags, "main").is_empty(),
-		"A wildcard-tile objective has no place to mark")
+	var obj: Dictionary = ObjectiveTracker.objective_for_map(flags, "main")
+	var site: Vector2i = RealmLayout.STORY_SITES["wilderness_camp"]
+	assert_eq(Vector2i(int(obj.get("tx", -1)), int(obj.get("tz", -1))), site, "camp site is marked")
+
+
+func test_every_objective_is_pointable_from_the_overworld() -> void:
+	# Walk the whole story: in the overworld every objective (until the end)
+	# must give the compass/beacon something to point at — the original bug.
+	var order: Array[String] = ["story_intro_complete", "chapter1_left_madrian", "chapter1_camp_night",
+		"chapter1_learned_fire", "chapter1_warned_farsyth", "chapter1_received_letter",
+		"chapter1_reached_blancogov", "chapter1_temple_council", "chapter1_complete",
+		"chapter2_charged", "chapter2_reached_larik", "chapter2_found_letter",
+		"chapter2_ambush_survived", "chapter2_siege_won", "chapter2_traitor_seal"]
+	var flags: Dictionary = {}
+	for i: int in range(order.size() + 1):
+		var obj: Dictionary = ObjectiveTracker.current_objective(flags)
+		if not obj.is_empty():
+			assert_true(ObjectiveTracker.objective_world_pos(flags, "main") != null,
+				"'%s' is marked in the overworld" % str(obj.get("label", "")))
+		if i < order.size():
+			flags[order[i]] = true
+
+
+func test_stitched_town_objective_in_world_tiles() -> void:
+	var obj: Dictionary = ObjectiveTracker.objective_for_map({}, "main")
+	var w: Vector2i = RealmLayout.to_world_tile("madrian", Vector2i(45, 36))
+	assert_eq(Vector2i(int(obj["tx"]), int(obj["tz"])), w, "Maiteln's tile moved into the overworld")
 
 
 func test_objective_world_pos_is_tile_centre() -> void:
@@ -237,3 +263,21 @@ func test_chapter2_complete_returns_empty() -> void:
 			"chapter2_ambush_survived", "chapter2_siege_won", "chapter2_traitor_seal",
 			"chapter2_warcamp_cleared", "chapter2_complete"])))
 	assert_true(obj.is_empty())
+
+
+func test_town_objectives_sit_inside_their_stitched_town() -> void:
+	# A town-local objective tile outside the town's crop lands in the wilds.
+	var order: Array[String] = ["story_intro_complete", "chapter1_left_madrian", "chapter1_camp_night",
+		"chapter1_learned_fire", "chapter1_warned_farsyth", "chapter1_received_letter",
+		"chapter1_reached_blancogov", "chapter1_temple_council", "chapter1_complete",
+		"chapter2_charged", "chapter2_reached_larik", "chapter2_found_letter",
+		"chapter2_ambush_survived", "chapter2_siege_won", "chapter2_traitor_seal"]
+	var flags: Dictionary = {}
+	for i: int in range(order.size() + 1):
+		var obj: Dictionary = ObjectiveTracker.current_objective(flags)
+		var town: String = str(obj.get("map", ""))
+		if RealmLayout.is_stitched(town):
+			assert_true(RealmLayout.crop_of(town).has_point(Vector2i(int(obj["tx"]), int(obj["tz"]))),
+				"'%s' tile is inside %s's crop" % [str(obj.get("label", "")), town])
+		if i < order.size():
+			flags[order[i]] = true

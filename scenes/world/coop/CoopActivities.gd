@@ -22,7 +22,6 @@ const _RunSummaryScene   = preload("res://scenes/ui/RunSummaryScene.tscn")
 const _RunSummarySceneScript = preload("res://scenes/ui/RunSummaryScene.gd")
 const _LeaderboardOverlay = preload("res://scenes/ui/LeaderboardOverlay.gd")
 const _SessionState      = preload("res://game_logic/net/SessionState.gd")
-const _SiegeDefs         = preload("res://game_logic/SiegeDefs.gd")
 const _SpireDraft        = preload("res://game_logic/spire/SpireDraft.gd")
 const _SpireDraftScene   = preload("res://scenes/ui/SpireDraftScene.tscn")
 const _SpireDraftSceneScript = preload("res://scenes/ui/SpireDraftScene.gd")
@@ -46,7 +45,7 @@ var _pending_coop_spire_draft_floor: int = -1
 var _pending_coop_spire_run_ended_payload: Dictionary = {}
 
 func _coop_update_night_hunts(_delta: float) -> void:
-	if not _world._coop_active or _world._is_infinite or not _CoopNightHunts.supports_map(_world.map_name):
+	if not _world._coop_active or not _CoopNightHunts.supports_map(_world.story_place()):
 		return
 	var is_night: bool = _world._dnc != null and _world._dnc.is_night_now()
 	var days: int = _world.coop_session._coop_current_days_elapsed()
@@ -65,8 +64,8 @@ func _coop_spawn_night_hunt(days: int) -> void:
 		_coop_despawn_night_hunt()
 	_coop_night_hunt_active = true
 	_coop_night_hunt_day = days
-	var gate: Vector3 = _SiegeDefs.TOWN_GATES.get(_world.map_name, Vector3.ZERO)
-	var plan: Array[Dictionary] = _CoopNightHunts.generate_hunt(_world.map_name, days)
+	var gate: Vector3 = _world.realm_regions.siege_gate(_world.story_place())
+	var plan: Array[Dictionary] = _CoopNightHunts.generate_hunt(_world.story_place(), days)
 	var spawned_any: bool = false
 	for entry: Dictionary in plan:
 		var eid: String = str(entry.get("id", ""))
@@ -733,7 +732,7 @@ func _on_coop_spire_summary_continue() -> void:
 func _start_coop_siege() -> void:
 	if not NetworkManager.is_host() or _world._net_sync == null:
 		return
-	if not _world._coop_active or _world._coop_siege_active or not _CoopSiege.supports_map(_world.map_name):
+	if not _world._coop_active or _world._coop_siege_active or not _CoopSiege.supports_map(_world.story_place()):
 		return
 	var siege_id: int = randi()
 	if SessionStore.is_open():
@@ -758,8 +757,8 @@ func _on_siege_started_received(siege_id: int) -> void:
 ## Spawn the current wave's deterministic raiders (identical on every peer).
 
 func _coop_spawn_siege_wave() -> void:
-	var gate: Vector3 = _SiegeDefs.TOWN_GATES.get(_world.map_name, Vector3.ZERO)
-	var plan: Array[Dictionary] = _CoopSiege.generate_wave(_world.map_name, _coop_siege_id, _world._coop_siege_wave)
+	var gate: Vector3 = _world.realm_regions.siege_gate(_world.story_place())
+	var plan: Array[Dictionary] = _CoopSiege.generate_wave(_world.story_place(), _coop_siege_id, _world._coop_siege_wave)
 	_world._coop_siege_wave_nodes.clear()
 	for entry: Dictionary in plan:
 		var eid: String = str(entry.get("id", ""))
@@ -799,7 +798,7 @@ func _on_siege_boss_phase_received(siege_id: int) -> void:
 	var boss_id: String = _CoopSiege.boss_id(siege_id)
 	if _world._coop_removed_enemies.has(boss_id):
 		return  # already resolved (e.g. a re-delivered broadcast on late reconciliation)
-	var gate: Vector3 = _SiegeDefs.TOWN_GATES.get(_world.map_name, Vector3.ZERO)
+	var gate: Vector3 = _world.realm_regions.siege_gate(_world.story_place())
 	var node: Node3D = _EnemyScene.instantiate() as Node3D
 	if node == null:
 		return

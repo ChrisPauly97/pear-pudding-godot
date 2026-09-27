@@ -69,7 +69,8 @@ NPC x z FLAG:flag_key before_text || after_text
 
 ### Starting Story Mode
 
-`SceneManager.start_story_mode()` loads `madrian` as the first map instead of the infinite-world `main`. Recommended implementation: a separate story save slot so the sandbox world is untouched.
+New Game enters the overworld (`main`) at Madrian's spawn: the outdoor story towns are
+stitched into it (GID-138, see `named-maps-and-dungeons.md` "Stitched Story Realm").
 
 ### Objective Tracking
 
@@ -82,22 +83,36 @@ static func current_objective(flags: Dictionary) -> Dictionary:
 
 It checks flags in reverse-progression order (most-advanced first) and returns the *next* objective the player should pursue.
 
+Coordinates are authored in the objective's own map; `realm_objective()` moves a
+stitched town's tile into overworld tiles, and a `site` key names a fixed road tile in
+`RealmLayout.STORY_SITES`.
+
 | Flags state (most advanced) | Label | Map | Coords |
 |---|---|---|---|
 | _(none)_ | Speak to Maiteln | madrian | (45, 36) |
-| `story_intro_complete` | Leave Madrian | madrian | (50, 50) |
-| `chapter1_left_madrian` | Make camp for the night | main | (−1, −1) wildcard |
-| `chapter1_camp_night` | Learn to make fire | main | (−1, −1) wildcard |
+| `story_intro_complete` | Leave Madrian | main | site `madrian_south_road` |
+| `chapter1_left_madrian` | Make camp for the night | main | site `wilderness_camp` |
+| `chapter1_camp_night` | Learn to make fire | main | site `wilderness_camp` |
 | `chapter1_learned_fire` | Find Lord Farsyth | farsyth_mansion | (49, 20) |
-| `chapter1_warned_farsyth` | Encounter Isfig | main | (−1, −1) wildcard |
+| `chapter1_warned_farsyth` | Encounter Isfig | main | site `isfig_road` |
 | `chapter1_received_letter` | Reach Blancogov | blancogov | (49, 9) |
 | `chapter1_reached_blancogov` | Enter the Temple | blancogov_temple | (42, 15) |
-| `chapter1_temple_council` | _(empty — chapter ending)_ | — | — |
-| `chapter1_complete` | _(empty)_ | — | — |
+| `chapter1_temple_council` | Speak with the Queen and Scargroth, then the King | blancogov_temple | (42, 15) |
+| `chapter1_complete` | Speak to King Eldar | blancogov_temple | (42, 15) |
+| `chapter2_charged` | Travel west to Larik | larik | (64, 50) |
+| `chapter2_reached_larik` | Search Larik for answers | larik | (59, 58) |
+| `chapter2_found_letter` | Continue west toward Marsax Hold | main | site `scout_ambush` |
+| `chapter2_ambush_survived` | Defend Marsax Hold | marsax_hold | (50, 77) |
+| `chapter2_siege_won` | Search the hold for clues | marsax_hold | (52, 62) |
+| `chapter2_traitor_seal` | Infiltrate the war-camp | marsax_hold | (20, 50) |
 
-**Wildcard objectives** (`tx == -1, tz == -1`) are open-world events with no fixed tile (e.g., the Isfig roadside encounter). Neither the compass marker nor the in-world beacon shows them; the map overlay label still shows the objective text.
+**In the overworld every objective is pointable** (`test_every_objective_is_pointable_from_the_overworld`):
+stitched-town tiles and sites are overworld tiles, and an objective inside an interior
+points at the stitched door leading in (`RealmLayout.door_into`). On a named map the
+`(−1, −1)` wildcard still means "nothing to mark here". The original bug (GID-138):
+"Leave Madrian" pointed at empty grass (50, 50) and the camp/fire/Isfig beats had no tile.
 
-**Pointing at the objective — one pair of helpers, two consumers.** `ObjectiveTracker.objective_for_map(flags, map_name)` returns the objective only when it is a real place on *this* map (empty otherwise: no objective, another map, or a wildcard tile), and `objective_world_pos()` turns that into the tile's **centre** in world space (entities sit on tile centres, so corner coordinates would put the marker a tile off-diagonal). Both consumers go through them, so they cannot disagree:
+**Pointing at the objective — one pair of helpers, two consumers.** `ObjectiveTracker.objective_for_map(flags, map_name)` returns the objective only when it is a real place on *this* map (empty otherwise: no objective, another map, or a named-map wildcard tile; in the overworld see above), and `objective_world_pos()` turns that into the tile's **centre** in world space (entities sit on tile centres, so corner coordinates would put the marker a tile off-diagonal). Both consumers go through them, so they cannot disagree:
 
 | Consumer | What it draws |
 |---|---|
@@ -112,9 +127,11 @@ The beacon is rebuilt on map entry and on every `GameBus.story_flag_set`; the co
 
 The first-night camp (`docs/human/story.md` Chapter 1 beat 2) is a two-stage interactable
 entity, `scenes/world/entities/WildernessCamp.gd` (+ `.tscn`), spawned by
-`StoryCast.spawn_wilderness_camp()` right alongside `StoryCast.spawn_open_world_rival()` — same
-"no fixed position, spawns near the player once per open-world load" pattern, gated on
-`chapter1_left_madrian` being set and `chapter1_learned_fire` not yet set. Procedural visuals
+`StoryCast.spawn_wilderness_camp()` via `StoryCast.spawn_open_world_beats()` (with the Isfig
+rival and scout ambush) — placed at `RealmLayout.STORY_SITES["wilderness_camp"]` on the road
+south of Madrian, re-checked on every overworld load and every `story_flag_set`, gated on
+`chapter1_left_madrian` being set and `chapter1_learned_fire` not yet set.
+`chapter1_left_madrian` is set by `RealmRegions` when the player walks out of Madrian after the intro. Procedural visuals
 (unshaded log + emissive flame meshes — see `scenes/world/entities/WorldItem.gd`'s note that
 all geometry in this game is unshaded, so no `OmniLight3D` is used).
 
@@ -142,10 +159,9 @@ directly from `ScriptedBattleData.enemy_deck_order`, so an `EnemyRegistry` entry
 `scenes/world/entities/MaitelnFollower.gd` (+ `.tscn`) is a visual/narrative companion avatar,
 distinct from the battle-companion system (`data/companions/maiteln.tres`). `WorldScene` owns
 all spawn/despawn gating via `StoryCast.maiteln_should_be_present()`: present whenever
-`story_intro_complete` is set and `chapter1_complete` is not, AND either the current map is one
-of `madrian` / `maykalene` / `farsyth_mansion` / `blancogov` / `blancogov_temple`, or the map is
-`main` during the TID-402 camp-beat window (`chapter1_left_madrian` set,
-`chapter1_learned_fire` not yet set) — never general open-world sandbox presence.
+`story_intro_complete` is set and `chapter1_complete` is not, AND either the story place is one
+of `madrian` / `maykalene` / `farsyth_mansion` / `blancogov` / `blancogov_temple`, or the player
+is anywhere in the overworld — since GID-138 the Chapter 1 towns and roads *are* the overworld.
 `StoryCast.refresh_maiteln_presence()` (spawn-or-free to match the gate) runs once at the tail of
 `_ready()` and again from `WorldScene._on_story_flag_set_for_cast()`, so he appears/disappears
 immediately when a relevant flag flips mid-session, not just on the next map load.
