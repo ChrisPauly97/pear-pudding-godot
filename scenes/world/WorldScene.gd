@@ -55,6 +55,8 @@ const _PixelSnap = preload("res://game_logic/PixelSnap.gd")
 const _FakeVolumetrics = preload("res://scenes/world/modules/FakeVolumetrics.gd")
 const _CharacterPresence = preload("res://scenes/world/modules/CharacterPresence.gd")
 const _NamedMapProps = preload("res://scenes/world/modules/NamedMapProps.gd")
+const _RealmRegions = preload("res://scenes/world/modules/RealmRegions.gd")
+const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const _TownSiege = preload("res://scenes/world/modules/TownSiege.gd")
 const _SunRaysFx = preload("res://scenes/world/SunRaysFx.gd")
 const _TapToMove = preload("res://scenes/world/modules/TapToMove.gd")
@@ -176,6 +178,8 @@ var player_home: _PlayerHome = null   # modules/PlayerHome.gd
 var npc_interactions: _NpcInteractions = null   # modules/NpcInteractions.gd
 var town_siege: _TownSiege = null   # modules/TownSiege.gd (GID-054)
 var named_props: _NamedMapProps = null   # modules/NamedMapProps.gd
+var realm_regions: _RealmRegions = null   # modules/RealmRegions.gd (GID-138)
+var current_town: String = ""  # stitched town the player is in; see story_place()
 var chest_loot: _ChestLoot = null    # modules/ChestLoot.gd
 var night_lights: _NightLights = null  # modules/NightLights.gd (TID-489)
 var ambient: _AmbientTouches = null  # modules/AmbientTouches.gd (TID-493)
@@ -613,11 +617,8 @@ func _populate_world(server_ref_pos: Vector3) -> void:
 		var _inf_ref: Vector3 = _player.position if _player != null else server_ref_pos
 		_csm.build_initial_infinite(_inf_ref)
 		if not NetworkManager.is_dedicated_server():
-			story_cast.spawn_open_world_rival()
-			story_cast.spawn_wilderness_camp()
-			story_cast.spawn_scout_ambush()
-			if map_name == "main":
-				_spawn_return_portal()
+			story_cast.spawn_open_world_beats()
+			named_props.spawn_realm()
 	else:
 		# Named map: load all chunks covering the 100×100 tile map synchronously
 		var max_cx: int = (WorldMap.MAP_WIDTH + IsoConst.CHUNK_SIZE - 1) / IsoConst.CHUNK_SIZE
@@ -862,6 +863,7 @@ func _ensure_world_modules() -> void:
 	fake_volumetrics = _ensure_world_module(fake_volumetrics, _FakeVolumetrics, "FakeVolumetrics") as _FakeVolumetrics
 	character_presence = _ensure_world_module(
 		character_presence, _CharacterPresence, "CharacterPresence") as _CharacterPresence
+	realm_regions = _ensure_world_module(realm_regions, _RealmRegions, "RealmRegions") as _RealmRegions
 
 func _ensure_world_module(existing: Node, script: GDScript, node_name: String) -> Node:
 	if existing != null and is_instance_valid(existing):
@@ -969,7 +971,14 @@ func _spawn_player() -> void:
 	var pz: float = 3.0 * IsoConst.TILE_SIZE
 
 	if _is_infinite:
-		if SceneManager.save_manager.current_map == map_name and \
+		var madrian: Vector3 = _RealmLayout.spawn_pos("madrian")  # new game (GID-138)
+		px = madrian.x
+		pz = madrian.z
+		var back: Variant = _RealmLayout.parse_pos_token(target_door_id)  # leaving an interior
+		if back is Vector3:
+			px = (back as Vector3).x
+			pz = (back as Vector3).z
+		elif SceneManager.save_manager.current_map == map_name and \
 				(SceneManager.save_manager.player_x != 0.0 or SceneManager.save_manager.player_z != 0.0):
 			px = SceneManager.save_manager.player_x
 			pz = SceneManager.save_manager.player_z
@@ -1038,8 +1047,9 @@ func get_terrain_height(wx: float, wz: float) -> float:
 
 func _on_player_chunk_changed(_chunk: Vector2i, biome_id: int) -> void:
 	_current_biome = biome_id
-	_map_label.text = _PlaceNames.biome_title(biome_id)
-	AudioManager.play_music(_BIOME_MUSIC[biome_id])
+	if current_town == "":  # a stitched town's name + music win (RealmRegions)
+		_map_label.text = _PlaceNames.biome_title(biome_id)
+		AudioManager.play_music(_BIOME_MUSIC[biome_id])
 	AudioManager.set_ambience(biome_id)
 	SceneManager.save_manager.visit_biome(biome_id)
 	WeatherManager.set_biome(biome_id)
@@ -1222,6 +1232,11 @@ func _data_in_range(d: Dictionary, px: float, pz: float, range_dist: float) -> b
 func _find_nearby_garden_plot(px: float, pz: float, range_dist: float) -> Node3D:
 	return _first_node_in_range(_garden_plot_nodes, px, pz, range_dist)
 
+## Stitched town the player walks through, else the map itself (GID-138).
+## Use this — not `map_name` — for "is the player in Maykalene?" checks.
+func story_place() -> String:
+	return current_town if current_town != "" else map_name
+
 func _find_nearby_scroll(px: float, pz: float, range_dist: float) -> Node3D:
 	return _first_node_in_range(_scroll_nodes, px, pz, range_dist)
 
@@ -1240,6 +1255,7 @@ func _find_nearby_maiteln(px: float, pz: float, range_dist: float) -> Node3D:
 ## map load — the player is standing right there when it flips.
 func _on_story_flag_set_for_cast(_key: String) -> void:
 	story_cast.refresh_maiteln_presence()
+	story_cast.spawn_open_world_beats()
 	_despawn_flag_hidden_npcs()
 	_refresh_objective_beacon()
 
@@ -1507,6 +1523,7 @@ func _process(delta: float) -> void:
 		_tick_traveling_merchant(delta)
 		_tick_card_shower()
 		nocturnal.tick(delta)
+		realm_regions.tick()
 		_csm.process_streaming(_player.position, _player.velocity, _camera.get_frustum())
 
 	# Only update save position when player moves > 1 unit (not every frame)
@@ -2105,62 +2122,6 @@ func _valid_node(v) -> Node:
 	if is_instance_valid(v):
 		return v
 	return null
-
-# ── Return portal (TID-339) ───────────────────────────────────────────────
-# Spawns a visible "Return to Town" portal in the main overworld near the
-# player's initial spawn so there is always an exit that doesn't require a
-# waystone. Registers itself in _active_door_data with target_map = "" so
-# _handle_interact → exit_map() pops the map stack back to madrian.
-
-func _spawn_return_portal() -> void:
-	const PORTAL_TX: int = 3
-	const PORTAL_TZ: int = 6  # 3 tiles south of the default infinite-world spawn
-	var wx: float = (float(PORTAL_TX) + 0.5) * IsoConst.TILE_SIZE
-	var wz: float = (float(PORTAL_TZ) + 0.5) * IsoConst.TILE_SIZE
-	var wy: float = get_terrain_height(wx, wz)
-
-	# Visual: glowing golden pillar with a label above it.
-	var root := Node3D.new()
-	root.name = "ReturnPortal"
-	root.position = Vector3(wx, wy, wz)
-	_entity_root.add_child(root)
-
-	var mesh_inst := MeshInstance3D.new()
-	var cyl := CylinderMesh.new()
-	cyl.top_radius    = 0.20
-	cyl.bottom_radius = 0.20
-	cyl.height        = 2.0
-	mesh_inst.mesh = cyl
-	mesh_inst.position = Vector3(0.0, 1.0, 0.0)
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.albedo_color = Color(1.0, 0.85, 0.20, 0.90)
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.emission_enabled = true
-	mat.emission = Color(1.0, 0.75, 0.10)
-	mat.emission_energy_multiplier = 2.0
-	mesh_inst.material_override = mat
-	root.add_child(mesh_inst)
-
-	var lbl := Label3D.new()
-	lbl.text = "Return to Town"
-	lbl.font_size = 24
-	lbl.modulate = Color(1.0, 0.95, 0.60)
-	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	lbl.position = Vector3(0.0, 2.5, 0.0)
-	root.add_child(lbl)
-
-	# Register as a door with empty target_map so _handle_interact calls exit_map().
-	var portal_data: Dictionary = {
-		"id":             "return_portal",
-		"x":              wx,
-		"z":              wz,
-		"target_map":     "",
-		"target_door_id": "",
-	}
-	_active_door_data["return_portal"] = portal_data
-	_door_nodes["return_portal"] = root
-
 
 # ── GID-101: Social & Rewards ─────────────────────────────────────────────────
 # TID-365: Emotes & map pings

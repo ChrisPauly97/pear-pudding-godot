@@ -65,6 +65,19 @@ After the tile grid is finalised:
 - **NPCs (0–1):** ~25% chance; dialogue line selected from the biome's dialogue pool in `BiomeDef`
 - Entities are placed only on TILE_GRASS tiles not already occupied
 
+#### 4. Stitched Story Realm (GID-138)
+
+Chunks within `RealmLayout.BLEND_MARGIN` of a stitched story town or road
+(`RealmLayout.chunk_touches_realm`) are post-processed: `_stamp_realm()` writes the
+town's own tiles/heights, `TILE_PATH` roads, and fades noise hills flat across the
+margin. Such chunks get no ruin, landmark, chunk scroll or blight heart; random
+enemies/chests/NPCs/mounds/waystones/wells keep `REALM_CLEARANCE` (4) tiles off towns
+and roads; the town's authored entities are appended via
+`_append_realm_entities()`. `biome_for_chunk` returns GRASSLANDS for chunks overlapping
+a town. Chunk (0, 0) is inside Madrian — noise-only tests sample far chunks
+(`test_infinite_world_gen.WILD`). Full design: `named-maps-and-dungeons.md`
+"Stitched Story Realm".
+
 ### BiomeDef (`game_logic/world/BiomeDef.gd`)
 
 Defines each biome as a resource with:

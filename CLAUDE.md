@@ -26,6 +26,13 @@ Maps are `.tres` files in `assets/maps/`, preloaded by `autoloads/MapRegistry.gd
 2. Add `const _NAME := preload("res://assets/maps/<name>.tres")` to `MapRegistry.gd`
 3. Add name to `_BUNDLED` dictionary in `MapRegistry.gd`
 
+**Outdoor story towns are stitched into the overworld** (GID-138): `madrian`,
+`maykalene`, `blancogov`, `larik`, `marsax_hold` are cropped and stamped into `main`
+by `game_logic/world/RealmLayout.gd` (offsets, roads, story sites); only interiors are
+door-entered. Their `.tres` stay the authoring source. Use `WorldScene.story_place()`
+(not `map_name`) for "is the player in town X", and translate town-local tiles with
+`RealmLayout.to_world_tile()`. See `docs/agent/named-maps-and-dungeons.md`.
+
 ---
 
 ## GDScript: Variant Inference — Use Explicit Types
@@ -357,6 +364,7 @@ created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
 | `AmbientTouches.gd` (`ambient`) | Weather visuals (particle rig, sky/fog look, grass wind; Settings > Weather Effects filter via `WeatherManager.shown()`), night fireflies, forest leaves, ground mist, player dust knobs + wet-ground footstep splashes |
 | `CharacterPresence.gd` (`character_presence`) | Per-frame character presentation: contact-shadow shader globals (GID-131), wall-cutaway `occlusion_focus`, idle breathe/bob/float of registered sprites (GID-132) |
 | `FakeVolumetrics.gd` (`fake_volumetrics`) | Mobile-safe volumetric stand-ins: dawn/dusk fake light shafts, depth-fog post pass (GID-130) |
+| `RealmRegions.gd` (`realm_regions`) | Which stitched story town the player walks through (`current_town`): HUD name, music, entry flags, rivals, siege on town entry; `siege_gate(town)` (GID-138) |
 
 BattleScene's single-player clusters live under `scenes/battle/modules/`, created by
 `BattleScene._ensure_battle_modules()`. Each has a `_battle` back-reference typed as

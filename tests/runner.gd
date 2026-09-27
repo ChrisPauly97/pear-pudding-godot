@@ -35,6 +35,10 @@ func _initialize() -> void:
 			fname = dir.get_next()
 		dir.list_dir_end()
 	files.sort()
+	# Optional TEST_FILTER=<substring> runs only matching suites (local iteration).
+	var only: String = OS.get_environment("TEST_FILTER")
+	if only != "":
+		files.assign(files.filter(func(f: String) -> bool: return f.contains(only)))
 
 	for fname in files:
 		var path := "res://tests/unit/" + fname

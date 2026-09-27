@@ -8,14 +8,15 @@ const W = preload("res://game_logic/world/WaterMath.gd")
 func test_intensity_is_bounded_and_deterministic() -> void:
 	var wet: int = 0
 	for i in 400:
-		var x: float = float(i % 20) * 7.3 - 70.0
+		# Offset into the wilds: stitched towns and roads stay dry (GID-138).
+		var x: float = float(i % 20) * 7.3 - 70.0 + 2000.0
 		var z: float = float(i / 20) * 6.1 - 60.0
 		var v: float = W.intensity(x, z, 42)
 		assert_true(v >= 0.0 and v <= 1.0, "intensity %f in range" % v)
 		assert_almost_eq(W.intensity(x, z, 42), v, 0.0, "same seed, same water")
 		if W.is_wet(x, z, 42):
 			wet += 1
-	assert_gt(wet, 0, "some water near the origin")
+	assert_gt(wet, 0, "some water in the wilds")
 	assert_lt(wet, 200, "water is a feature, not the whole map")
 
 

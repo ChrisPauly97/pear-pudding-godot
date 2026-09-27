@@ -1,0 +1,47 @@
+# TID-567: RealmLayout — Town Placement & Roads
+
+**Goal:** GID-138
+**Type:** agent
+**Status:** done
+**Depends On:** —
+
+## Lock
+
+**Session:** none
+**Acquired:** —
+**Expires:** —
+
+## Context
+
+Pure-logic table that places the cropped outdoor towns at fixed overworld tile
+origins in story order and defines the roads joining them.
+
+## Research Notes
+
+- Stitched towns: madrian, maykalene, blancogov, larik, marsax_hold. Interiors
+  (blancogov_temple, farsyth_mansion, player_home, guildhall, dungeons) stay separate.
+- Used bboxes (non-grass): madrian x5–92 z8–44 (door_9 at 50,99 is the old edge exit),
+  maykalene 5–80 × 6–94, blancogov 0–99 × 5–94, larik 36–62 × 38–60, marsax 25–75 × 25–75.
+- Overworld = `main`/`infinite`, chunks of `IsoConst.CHUNK_SIZE` (16) tiles, spawn safe
+  zone `InfiniteWorldGen.SAFE_ZONE_DIST`.
+- Must be usable from worker threads (chunk gen) → static, no autoload refs.
+
+## Plan
+
+Static `game_logic/world/RealmLayout.gd`: `TOWNS` table (crop rect + tile offset +
+preloaded MapData), `ROADS` polylines, `STORY_SITES`, and helpers for tile/world
+translation, town lookup, road distance, chunk tests, tile stamping and entity lists.
+
+## Changes Made
+
+- New `game_logic/world/RealmLayout.gd` (+ `.uid`). Layout (world = local + offset):
+  madrian (−37,−33) — spawn lands at world tile (3,3), the old overworld default;
+  maykalene (−37,66); blancogov (43,222); larik (−167,232); marsax_hold (−167,100).
+- `stamp_tile()` (town tile > road path > noise faded over `BLEND_MARGIN`),
+  `entities(kind)` / `entities_in_chunk()` (ids kept; overworld-target doors dropped).
+- `tests/unit/test_realm_layout.gd` (10 tests).
+- `tests/runner.gd`: optional `TEST_FILTER=<substring>` env var to run matching suites.
+
+## Documentation Updates
+
+- Deferred to TID-573.

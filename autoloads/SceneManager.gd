@@ -25,6 +25,7 @@ const _TutorialPopupScript = preload("res://scenes/ui/TutorialPopup.gd")
 const TutorialRegistry = preload("res://game_logic/TutorialRegistry.gd")
 const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
 const _SpireFloorGen = preload("res://game_logic/spire/SpireFloorGen.gd")
+const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const _CoopNightHunts = preload("res://game_logic/CoopNightHunts.gd")
 const Gambits = preload("res://game_logic/battle/Gambits.gd")
 const _GambitPickerOverlay = preload("res://scenes/battle/GambitPickerOverlay.gd")
@@ -404,7 +405,9 @@ func start_new_game_with_biome(biome_id: int, head_start: bool = false) -> void:
 	save_manager.new_game(head_start)
 	_apply_audio_settings()
 	_reset_session_stats()
-	enter_map("madrian", "")
+	# The story towns are stitched into the overworld (GID-138); a fresh save
+	# starts at Madrian's spawn, which sits by the overworld origin.
+	enter_map("main", "")
 
 func _apply_audio_settings() -> void:
 	var mv: float = float(save_manager.get_setting("music_volume", 0.5))
@@ -471,7 +474,11 @@ func enter_map(map_name: String, target_door_id: String = "") -> void:
 	_flush_position_save()
 	if current_map != "":
 		map_stack.push_back(current_map)
-		door_stack.push_back("")
+		# Leaving the overworld: remember where, so the way back lands there.
+		var back: String = ""
+		if _RealmLayout.is_overworld(current_map):
+			back = _RealmLayout.pos_token(save_manager.player_x, save_manager.player_z)
+		door_stack.push_back(back)
 	current_map = map_name
 	save_manager.sync_stacks(map_stack, door_stack)
 	save_manager.save()
@@ -513,8 +520,16 @@ func exit_map() -> void:
 	if NetworkManager.is_active() and current_map.begins_with("spire_floor_"):
 		return
 	if map_stack.is_empty():
-		go_to_menu()
-		return
+		# An interior with no way back recorded (respawned in bed, old save):
+		# step out of its stitched door into the overworld (GID-138).
+		var out: Variant = _RealmLayout.return_pos_for(current_map)
+		if out is Vector3:
+			var p: Vector3 = out
+			map_stack.push_back("main")
+			door_stack.push_back(_RealmLayout.pos_token(p.x, p.z))
+		else:
+			go_to_menu()
+			return
 	var parent: String = map_stack.pop_back()
 	var return_door: String = door_stack.pop_back()
 	current_map = parent
@@ -1190,23 +1205,31 @@ func teleport_to_waystone(waystone_id: String) -> void:
 	AudioManager.play_sfx("waystone_travel")
 	if waystone_id.begins_with("map:"):
 		var target_map: String = waystone_id.substr(4)
-		enter_map(target_map, "")
+		if _RealmLayout.is_stitched(target_map):
+			# The town is part of the overworld now (GID-138): walk out at its spawn.
+			var p: Vector3 = _RealmLayout.spawn_pos(target_map)
+			_teleport_overworld(p.x, p.z)
+		else:
+			enter_map(target_map, "")
 	elif waystone_id.begins_with("world:"):
 		var parts: PackedStringArray = waystone_id.split(":")
 		if parts.size() >= 3:
 			var tx: int = int(parts[1])
 			var tz: int = int(parts[2])
-			var wx: float = float(tx) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-			var wz: float = float(tz) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-			save_manager.player_x = wx
-			save_manager.player_z = wz
-			save_manager.current_map = "main"
-			map_stack.clear()
-			door_stack.clear()
-			current_map = "main"
-			save_manager.sync_stacks(map_stack, door_stack)
-			save_manager.save()
-			_load_world("main", "")
+			_teleport_overworld(float(tx) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5,
+				float(tz) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5)
+
+## Loads the overworld with the player at world (wx, wz), clearing the map stack.
+func _teleport_overworld(wx: float, wz: float) -> void:
+	save_manager.player_x = wx
+	save_manager.player_z = wz
+	save_manager.current_map = "main"
+	map_stack.clear()
+	door_stack.clear()
+	current_map = "main"
+	save_manager.sync_stacks(map_stack, door_stack)
+	save_manager.save()
+	_load_world("main", "")
 
 ## Restores map position to the pre-Spire entry point (e.g. madrian) before ending
 ## a run, so that continuing after death/retreat loads the entrance map, not a spire floor.
@@ -1218,8 +1241,8 @@ func _restore_spire_entry_point() -> void:
 		current_map = entry_map
 		save_manager.current_map = entry_map
 	else:
-		current_map = "madrian"
-		save_manager.current_map = "madrian"
+		current_map = "main"
+		save_manager.current_map = "main"
 
 # ── Co-op Endless Spire (GID-106 / TID-390) ─────────────────────────────────
 # Mirrors the single-player enter_spire/start_spire_run/advance_spire_floor/

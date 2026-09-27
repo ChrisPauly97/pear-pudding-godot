@@ -52,12 +52,15 @@ func _spawn_if_active(p_map_name: String) -> void:
 func _spawn_raiders(p_map_name: String, stage: int) -> void:
 	if not _SiegeDefs.TOWN_GATES.has(p_map_name):
 		return
-	var gate: Vector3 = _SiegeDefs.TOWN_GATES[p_map_name]
+	var gate: Vector3 = _world.realm_regions.siege_gate(p_map_name)
 	var enemy_type: String = "martarquas_raider_%d" % (stage + 1)
 	for i: int in range(RAIDER_OFFSETS.size()):
 		var wx: float = gate.x + RAIDER_OFFSETS[i].x
 		var wz: float = gate.z + RAIDER_OFFSETS[i].y
 		var raider_id: String = "siege_raider_%d_%d" % [stage, i]
+		# Walking back into a stitched town re-runs entry (GID-138): keep the live ones.
+		if is_instance_valid(_world._enemy_nodes.get(raider_id)):
+			continue
 		var node: _EnemyNPC = _EnemyScene.instantiate() as _EnemyNPC
 		node.position = Vector3(wx, _world.get_terrain_height(wx, wz) + 0.5, wz)
 		# BID-041: the enemy type must go through init_from_data — EnemyNPC has
@@ -76,7 +79,7 @@ func _spawn_raiders(p_map_name: String, stage: int) -> void:
 
 ## "<Town> Under Attack!" across the top of the HUD while the siege runs.
 func _setup_banner(p_map_name: String) -> void:
-	if _world._hud == null:
+	if _world._hud == null or is_instance_valid(_world._siege_banner):
 		return
 	var vp: Vector2 = _world.get_viewport().get_visible_rect().size
 	var banner := _UiUtil.make_label("%s Under Attack!" % p_map_name.capitalize().replace("_", " "),
