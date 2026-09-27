@@ -25,7 +25,11 @@ var _shades: Array[ColorRect] = []
 func _init(battle: _BattleScene, realtime: _BattleRealtime, saved_bar: Array) -> void:
 	_battle = battle
 	_realtime = realtime
-	bar = SkillBar.new(saved_bar)
+	# `saved_bar` (from BattleRealtime.maybe_start) is already resolved against
+	# SaveManager.learned_abilities and onboarding's stage filter, so every id
+	# in it is already known — re-check against the live save here too (in
+	# case a caller passes raw ids) rather than dropping newly learned ones.
+	bar = SkillBar.new(saved_bar, SceneManager.save_manager.learned_abilities)
 
 func build(parent: Control) -> void:
 	var vh: float = _battle._vh

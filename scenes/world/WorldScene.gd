@@ -130,7 +130,7 @@ const _NPC_PROMPT_LABELS: Dictionary = {
 	"merchant": "SHOP", "traveling_merchant": "SHOP",
 	"blacksmith": "FORGE", "bounty_board": "BOARD", "stable": "STABLE",
 	"duelist": "DUEL", "rest_site": "REST", "bed": "REST",
-	"stash_chest": "STASH",
+	"stash_chest": "STASH", "trainer": "TRAIN", "training_dummy": "PRACTICE",
 }
 
 const LANDMARK_DISCOVERY_RANGE: float = 9.0

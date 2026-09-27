@@ -51,6 +51,7 @@ const PERSISTED_FIELDS: Dictionary = {
 	"achievement_progress": {}, "unlocked_achievements": [],
 	"visited_biomes": [], "visited_dungeon_rooms": [],
 	"xp": 0, "skill_points": 0, "unlocked_skills": [], "skill_bar": [], "realtime_fights": 0,
+	"learned_abilities": [],
 	"magic_type": "", "corruption_points": 0, "redemption_points": 0,
 	"spire_run": {"active": false}, "spire_best_floor": 0, "solved_puzzles": [],
 	"world_events": {}, "weather": {"id": "", "duration": 0.0, "biome_id": 0},
@@ -188,6 +189,11 @@ var unlocked_skills: Array[String] = []
 var skill_bar: Array[String] = []
 ## Real-time fights started — drives the new-player control ramp (CombatOnboarding, TID-552).
 var realtime_fights: int = 0
+## Skill-bar abilities learned from town trainers (GID-136 / TID-537), beyond
+## the always-known strike/mend/kick (SkillBar.ALWAYS_KNOWN never appears
+## here). `skill_bar` is the player's chosen loadout (TID-556) — see
+## SkillBar.new(bar, learned_abilities).
+var learned_abilities: Array[String] = []
 
 # Magic progression
 ## "light", "dark", or "" (not yet chosen)
@@ -1197,6 +1203,25 @@ func unlock_skill(id: String) -> void:
 		return
 	unlocked_skills.append(id)
 	skill_points -= 1
+	_dirty = true
+
+## GID-136 / TID-537: learns a skill-bar ability from a trainer NPC, spending
+## coins. Gating (level, coins, already known) is `SkillBar.can_learn`'s job —
+## call it before offering the Learn button; this just performs the purchase.
+func learn_ability(id: String, cost: int) -> bool:
+	if learned_abilities.has(id) or coins < cost:
+		return false
+	learned_abilities.append(id)
+	coins -= cost
+	_dirty = true
+	return true
+
+## TID-556: writes the player's chosen 3-slot loadout. Callers should already
+## have validated each id via SkillBar (known + not a duplicate); this stores
+## it verbatim — SkillBar.new(bar, learned_abilities) re-validates defensively
+## at read time, so a stale/invalid saved id can never surface in a fight.
+func set_skill_bar(bar: Array) -> void:
+	skill_bar.assign(bar)
 	_dirty = true
 
 func unlock_cross_skill(id: String, cost: int, currency: String) -> void:

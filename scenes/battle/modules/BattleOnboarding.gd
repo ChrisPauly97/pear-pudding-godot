@@ -34,12 +34,15 @@ func _init(battle: _BattleScene, realtime: _BattleRealtime) -> void:
 	_battle = battle
 	_realtime = realtime
 
-## Picks this fight's stage and counts the fight towards the ramp.
-func begin() -> void:
+## Picks this fight's stage and counts the fight towards the ramp. `count`
+## is false for the training dummy (TID-557) — it should exercise whatever
+## stage the player is already on without advancing (or completing) the ramp.
+func begin(count: bool = true) -> void:
 	var sm := SceneManager.save_manager
 	stage = CombatOnboarding.stage_for(sm.realtime_fights, sm.level)
-	sm.realtime_fights += 1
-	sm.mark_dirty()
+	if count:
+		sm.realtime_fights += 1
+		sm.mark_dirty()
 
 ## The skill ids this fight's bar may hold.
 func filter_skills(ids: Array[String]) -> Array[String]:
