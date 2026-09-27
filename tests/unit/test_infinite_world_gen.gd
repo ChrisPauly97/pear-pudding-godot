@@ -13,6 +13,9 @@ const SEED: int = 12345
 # Helpers
 # ---------------------------------------------------------------------------
 
+## A chunk far from the stitched story towns and roads (GID-138).
+const WILD: int = 40
+
 func _gen(cx: int = 0, cz: int = 0, world_seed: int = SEED) -> ChunkData:
 	return InfiniteWorldGen.generate_chunk(cx, cz, world_seed) as ChunkData
 
@@ -70,7 +73,8 @@ func test_cx_cz_set_correctly_for_non_origin_chunk() -> void:
 # ---------------------------------------------------------------------------
 
 func test_all_tiles_are_valid_types() -> void:
-	var c := _gen()
+	# Chunk (0, 0) is inside stitched Madrian (GID-138), which has path tiles — use open wilds.
+	var c := _gen(WILD, -WILD)
 	var valid := [IsoConst.TILE_GRASS, IsoConst.TILE_WALL, IsoConst.TILE_HILL]
 	for i in range(c.tiles.size()):
 		var t: int = c.tiles[i]
@@ -114,8 +118,8 @@ func test_generate_chunk_is_deterministic() -> void:
 
 
 func test_different_seeds_produce_different_tiles() -> void:
-	var c1 := _gen(0, 0, 111)
-	var c2 := _gen(0, 0, 222)
+	var c1 := _gen(WILD, -WILD, 111)
+	var c2 := _gen(WILD, -WILD, 222)
 	# Almost certain to differ with different seeds; if they somehow match that
 	# is a collision and not a test failure in the strict sense, so we just warn.
 	var differ := false

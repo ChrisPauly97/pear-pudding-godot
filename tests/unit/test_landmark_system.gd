@@ -19,7 +19,8 @@ func test_landmark_density_in_range() -> void:
 	var world_seed: int = SEED
 	var count: int = 0
 	var total: int = 0
-	for cx in range(-50, 50):
+	# Sampled away from the stitched story towns, which suppress landmarks (GID-138).
+	for cx in range(100, 200):
 		for cz in range(-50, 50):
 			total += 1
 			var d: Dictionary = InfiniteWorldGen.landmark_for_chunk(cx, cz, world_seed)

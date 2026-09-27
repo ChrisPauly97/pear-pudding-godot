@@ -4,6 +4,7 @@ const ChunkData = preload("res://game_logic/world/ChunkData.gd")
 const BiomeDef  = preload("res://game_logic/world/BiomeDef.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const TerrainMath = preload("res://game_logic/TerrainMath.gd")
+const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 
 # Base noise frequency — biome freq_scale multiplies the sampling coordinates
 const NOISE_FREQ: float = 0.08
@@ -32,6 +33,8 @@ const LANDMARK_VARIANTS: Array[String] = [
 
 # Approximately 1 in SCROLL_CHUNK_RARITY chunks gets an infinite-world scroll.
 const SCROLL_CHUNK_RARITY: int = 200
+## Random spawns stay this many tiles clear of stitched towns and roads (GID-138).
+const REALM_CLEARANCE: float = 4.0
 
 # ── Terrain noise (cached per seed) ────────────────────────────────────────
 static var _cached_noise: FastNoiseLite
@@ -68,6 +71,9 @@ static func _get_biome_noise(world_seed: int) -> FastNoiseLite:
 # Returns the biome ID for a given chunk coordinate.
 static func biome_for_chunk(p_cx: int, p_cz: int, world_seed: int) -> int:
 	var dist: int = abs(p_cx) + abs(p_cz)
+	# Stitched story towns sit in grasslands whatever the biome noise says (GID-138).
+	if dist > SAFE_ZONE_DIST and RealmLayout.chunk_in_town(p_cx, p_cz):
+		return BiomeDef.GRASSLANDS
 	if dist <= SAFE_ZONE_DIST:
 		# Respect biome selection: use forced_start_biome if set, else default to Grasslands.
 		return forced_start_biome if forced_start_biome >= 0 else BiomeDef.GRASSLANDS
@@ -84,6 +90,8 @@ static func landmark_for_chunk(p_cx: int, p_cz: int, world_seed: int) -> Diction
 	# Skip safe zone
 	var dist: int = abs(p_cx) + abs(p_cz)
 	if dist <= LANDMARK_SAFE_DIST:
+		return {}
+	if RealmLayout.chunk_touches_realm(p_cx, p_cz):
 		return {}
 	# Independent hash so we never disturb existing RNG streams
 	var h: int = (p_cx * 16769023) ^ (p_cz * 6972593) ^ world_seed
@@ -139,8 +147,18 @@ static func get_chunk_scroll_id(p_cx: int, p_cz: int, world_seed: int) -> String
 	h = h & 0x7FFFFFFF  # ensure positive
 	if h % SCROLL_CHUNK_RARITY != 0:
 		return ""
+	if RealmLayout.chunk_touches_realm(p_cx, p_cz):
+		return ""
 	var eligible: Array[String] = ["scroll_martarquas_survivors"]
 	return eligible[h % eligible.size()]
+
+## Stitched-town entities whose position falls in this chunk (GID-138).
+static func _append_realm_entities(chunk: ChunkData, p_cx: int, p_cz: int) -> void:
+	chunk.enemies.append_array(RealmLayout.entities_in_chunk("enemies", p_cx, p_cz))
+	chunk.chests.append_array(RealmLayout.entities_in_chunk("chests", p_cx, p_cz))
+	chunk.doors.append_array(RealmLayout.entities_in_chunk("doors", p_cx, p_cz))
+	chunk.npcs.append_array(RealmLayout.entities_in_chunk("npcs", p_cx, p_cz))
+	chunk.waystones.append_array(RealmLayout.entities_in_chunk("waystones", p_cx, p_cz))
 
 # Generate full chunk with entities
 static func generate_chunk(p_cx: int, p_cz: int, world_seed: int) -> ChunkData:
@@ -190,12 +208,27 @@ static func _gen_tile_data(p_cx: int, p_cz: int, world_seed: int) -> ChunkData:
 				chunk.set_tile(lx, lz, IsoConst.TILE_GRASS)
 				chunk.set_height(lx, lz, 0)
 
+	_stamp_realm(chunk, p_cx, p_cz)
 	return chunk
+
+## Overlays the stitched story towns and their roads (GID-138): town tiles inside
+## a town, paved road, and hills faded flat across the blend margin.
+static func _stamp_realm(chunk: ChunkData, p_cx: int, p_cz: int) -> void:
+	if not RealmLayout.chunk_touches_realm(p_cx, p_cz):
+		return
+	for lz in range(IsoConst.CHUNK_SIZE):
+		for lx in range(IsoConst.CHUNK_SIZE):
+			var st: Vector2i = RealmLayout.stamp_tile(p_cx * IsoConst.CHUNK_SIZE + lx,
+					p_cz * IsoConst.CHUNK_SIZE + lz, chunk.get_tile(lx, lz), chunk.get_height(lx, lz))
+			chunk.set_tile(lx, lz, st.x)
+			chunk.set_height(lx, lz, st.y)
 
 static func _gen_ruins(chunk: ChunkData, p_cx: int, p_cz: int, world_seed: int) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = _chunk_seed(p_cx, p_cz, world_seed) + 2
 
+	if RealmLayout.chunk_touches_realm(p_cx, p_cz):
+		return
 	# ~33% chance of a ruin per chunk
 	if rng.randi_range(0, 2) != 0:
 		return
@@ -301,6 +334,15 @@ static func _gen_entities(chunk: ChunkData, p_cx: int, p_cz: int, world_seed: in
 					break
 			if not adj_wall:
 				grass_tiles.append(Vector2i(lx, lz))
+
+	# Stitched towns bring their own authored entities; random spawns keep clear
+	# of towns and roads (GID-138).
+	var realm_chunk: bool = RealmLayout.chunk_touches_realm(p_cx, p_cz)
+	if realm_chunk:
+		_append_realm_entities(chunk, p_cx, p_cz)
+		grass_tiles = grass_tiles.filter(func(t: Vector2i) -> bool:
+			return RealmLayout.reserved_distance(p_cx * IsoConst.CHUNK_SIZE + t.x,
+					p_cz * IsoConst.CHUNK_SIZE + t.y) > REALM_CLEARANCE)
 
 	if grass_tiles.is_empty():
 		return
@@ -409,6 +451,8 @@ static func _gen_entities(chunk: ChunkData, p_cx: int, p_cz: int, world_seed: in
 				continue
 			var wtx2: int = p_cx * IsoConst.CHUNK_SIZE + lx2
 			var wtz2: int = p_cz * IsoConst.CHUNK_SIZE + lz2
+			if realm_chunk and not grass_tiles.has(Vector2i(lx2, lz2)):
+				continue
 			var wx2: float = float(wtx2) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 			var wz2: float = float(wtz2) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 			var s: float = TerrainMath.ley_intersection_strength(wx2, wz2, world_seed)

@@ -8,6 +8,8 @@
 ## paths — and only in biomes that have it.
 extends RefCounted
 
+const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
+
 const STREAM_FREQUENCY: float = 0.011
 const STREAM_WIDTH: float = 0.045     # |noise| below this is in the stream
 const POND_FREQUENCY: float = 0.035
@@ -23,6 +25,8 @@ const WET_LEVEL: float = 0.3
 ## both chunks sharing a border see the same structure tiles: no water seams.
 const DRY_RADIUS: float = 2.5
 const DRY_FADE: float = 2.5
+## Water fades in over this many tiles from a stitched town or road (GID-138).
+const REALM_DRY_TILES: float = 4.0
 
 static var _stream: FastNoiseLite = null
 static var _pond: FastNoiseLite = null
@@ -41,7 +45,13 @@ static func intensity(wx: float, wz: float, world_seed: int) -> float:
 	var stream: float = clampf(1.0 - s / STREAM_WIDTH, 0.0, 1.0)
 	var p: float = _pond.get_noise_2d(wx, wz)
 	var pond: float = clampf((p - POND_LEVEL) / 0.12, 0.0, 1.0)
-	return maxf(stream, pond)
+	var w: float = maxf(stream, pond)
+	if w <= 0.0:
+		return 0.0
+	# Stitched story towns and their roads stay dry (GID-138).
+	var ts: float = IsoConst.TILE_SIZE
+	var d: float = RealmLayout.reserved_distance(int(floor(wx / ts)), int(floor(wz / ts)))
+	return w * smoothstep(1.0, REALM_DRY_TILES, d)
 
 
 ## Water fades out near structures (ruins, roads, doors): 0 within

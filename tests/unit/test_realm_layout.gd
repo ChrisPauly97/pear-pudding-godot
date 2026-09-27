@@ -2,6 +2,7 @@
 extends "res://tests/framework/test_case.gd"
 
 const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
+const InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
 
 func test_towns_do_not_overlap() -> void:
 	var names: Array[String] = RealmLayout.town_names()
@@ -82,3 +83,36 @@ func test_story_sites_on_roads() -> void:
 		var t: Vector2i = RealmLayout.STORY_SITES[site]
 		assert_true(RealmLayout.road_distance(float(t.x), float(t.y)) <= 6.0, "%s is by a road" % str(site))
 		assert_eq(RealmLayout.town_at_tile(t.x, t.y), "", "%s is between towns" % str(site))
+
+# ── Chunk generation (TID-568) ───────────────────────────────────────────────
+
+
+func _chunk_of_tile(t: Vector2i) -> Vector2i:
+	return Vector2i(int(floor(float(t.x) / IsoConst.CHUNK_SIZE)), int(floor(float(t.y) / IsoConst.CHUNK_SIZE)))
+
+func test_generated_chunk_carries_town_tiles_and_maiteln() -> void:
+	var wt: Vector2i = RealmLayout.to_world_tile("madrian", Vector2i(45, 36))
+	var ck: Vector2i = _chunk_of_tile(wt)
+	var chunk = InfiniteWorldGen.generate_chunk(ck.x, ck.y, 1234)
+	var found: bool = false
+	for n: Dictionary in chunk.npcs:
+		if str(n.get("id", "")) == "npc_1" and str(n.get("town", "")) == "madrian":
+			found = true
+	assert_true(found, "Maiteln spawns in the overworld chunk over Madrian")
+	var wm = RealmLayout.town_map("madrian")
+	var wall := Vector2i(33, 22)  # madrian inn wall
+	var ww: Vector2i = RealmLayout.to_world_tile("madrian", wall)
+	var wk: Vector2i = _chunk_of_tile(ww)
+	var c2 = InfiniteWorldGen.generate_chunk(wk.x, wk.y, 1234)
+	assert_eq(c2.get_tile(ww.x - wk.x * IsoConst.CHUNK_SIZE, ww.y - wk.y * IsoConst.CHUNK_SIZE),
+		wm.get_tile(wall.x, wall.y), "town wall stamped into chunk")
+
+func test_road_chunk_has_path_and_no_random_enemy_on_road() -> void:
+	var ck: Vector2i = _chunk_of_tile(Vector2i(13, 40))
+	var chunk = InfiniteWorldGen.generate_chunk(ck.x, ck.y, 99)
+	assert_eq(chunk.get_tile(13 - ck.x * IsoConst.CHUNK_SIZE, 40 - ck.y * IsoConst.CHUNK_SIZE),
+		IsoConst.TILE_PATH, "road tile is path")
+	for e: Dictionary in chunk.enemies:
+		var tx: int = int(floor(float(e["x"]) / IsoConst.TILE_SIZE))
+		var tz: int = int(floor(float(e["z"]) / IsoConst.TILE_SIZE))
+		assert_true(RealmLayout.reserved_distance(tx, tz) > 0.0 or e.has("town"), "no random enemy on the road")

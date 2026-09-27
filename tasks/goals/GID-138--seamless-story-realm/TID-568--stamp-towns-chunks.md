@@ -2,7 +2,7 @@
 
 **Goal:** GID-138
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-567
 
 ## Lock
@@ -25,6 +25,21 @@ entities. Town footprints must override tiles/heights and suppress random conten
 
 ## Plan
 
+`InfiniteWorldGen._stamp_realm()` after noise; suppress ruins/landmarks/chunk
+scrolls/blight hearts in realm chunks; keep random spawns `REALM_CLEARANCE` tiles
+off towns/roads; append stitched entities; force grasslands in town chunks; keep water out.
+
 ## Changes Made
 
+- `InfiniteWorldGen`: `_stamp_realm`, `_append_realm_entities` (enemies, chests,
+  doors, npcs, waystones), `REALM_CLEARANCE` filter on random spawns + mana wells,
+  realm skip in `_gen_ruins` / `landmark_for_chunk` / `get_chunk_scroll_id`,
+  `biome_for_chunk` → GRASSLANDS for town chunks.
+- `BlightField.get_heart_for_super`: no heart in realm chunks.
+- `WaterMath.intensity`: fades to dry within `REALM_DRY_TILES` of towns/roads.
+- Tests: 2 chunk tests in `test_realm_layout`; `test_infinite_world_gen`,
+  `test_landmark_system`, `test_water_math` now sample the wilds (chunk 0,0 is Madrian).
+
 ## Documentation Updates
+
+- Deferred to TID-573.
