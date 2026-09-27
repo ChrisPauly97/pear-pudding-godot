@@ -74,14 +74,17 @@ stitched into it (GID-138, see `named-maps-and-dungeons.md` "Stitched Story Real
 
 ### Objective Tracking
 
-`game_logic/ObjectiveTracker.gd` provides a single static function:
+The story's objectives are one ordered table, `game_logic/quests/StoryQuests.gd`
+`STEPS` (GID-139). Each step has `id`, `chapter` (title in `CHAPTERS`), `label`,
+`giver`, `summary` (a line or two of "why", shown in the Journal), `done_flag`, and a
+place (`map`, `tx`, `tz`, optional `site`). The current step is the one after the
+most advanced step whose `done_flag` is set (`current_index`), so a save missing an
+earlier flag still lands on the right step; `STORY_END_FLAGS` end the table.
+**Adding a story beat = one `STEPS` row** in story order.
 
-```gdscript
-static func current_objective(flags: Dictionary) -> Dictionary:
-    # Returns {label: String, map: String, tx: int, tz: int} or {} if done/unknown
-```
-
-It checks flags in reverse-progression order (most-advanced first) and returns the *next* objective the player should pursue.
+`ObjectiveTracker.current_objective(flags)` returns the current step (or `{}`), and
+its resolvers work for any target dict of the same shape: `to_realm`,
+`place_on_map(target, map)`, `target_world_pos(target, map)`.
 
 Coordinates are authored in the objective's own map; `realm_objective()` moves a
 stitched town's tile into overworld tiles, and a `site` key names a fixed road tile in
@@ -117,11 +120,54 @@ points at the stitched door leading in (`RealmLayout.door_into`). On a named map
 | Consumer | What it draws |
 |---|---|
 | `WorldHUD._create_compass()` → `CompassRibbon` primary marker | gold chevron on the ribbon + caption `"<label> — <distance>m"` |
-| `WorldScene._refresh_objective_beacon()` → `ObjectiveBeacon` | gold ring / light shaft / down-arrow on the objective's tile |
+| `QuestTracker` → `ObjectiveBeacon` | gold ring / light shaft / down-arrow on the tracked quest's tile |
 
-The beacon is rebuilt on map entry and on every `GameBus.story_flag_set`; the compass marker polls its callables per frame. See `docs/agent/ui-and-scene-management.md` for both.
+Since GID-139 both follow the **tracked quest** (below), not only the story step. See `docs/agent/ui-and-scene-management.md` for both.
 
-**MapViewOverlay integration**: When the overlay opens, it calls `current_objective()` once and shows `"Objective: <label>"` in gold above the close hint if an objective is active.
+**MapViewOverlay integration**: When the overlay opens it reads the quest list once, shows `"Objective: <tracked label>"` and draws a diamond pin per quest with a place on the map.
+
+### Quest Log & Tracked Quest (GID-139)
+
+`game_logic/quests/QuestLog.gd` (pure static) turns save data into a list of quest dicts
+`{id, kind, title, label, summary, giver, progress, targets}`:
+
+| Quest | id | Source | Targets |
+|---|---|---|---|
+| Main story | `story` | `StoryQuests.current_step` | the step's place |
+| Between chapters | `story` | past the last step | every bounty board (`bounty_board_targets()`) |
+| Treasure | `treasure` | `active_treasure` (not completed) | dig site (overworld tile) |
+| Bounty | `bounty:<id>` | `active_bounties` (unclaimed) | none while in progress; every bounty board once complete |
+
+A quest with several targets points at the **nearest** (`QuestLog.world_pos(quest, map, from)`).
+Kind colours: `QuestLog.KIND_COLORS` (story gold, treasure orange, bounty violet).
+Bounty text comes from `BountyGen.describe()` (shared with `BountyBoardScene`).
+
+**Tracked quest.** `SaveManager.tracked_quest` (persisted; `""` = story) is set by the
+Journal's Track button via `SaveManager.set_tracked_quest(id)`, which emits
+`GameBus.quest_tracking_changed`. `QuestLog.tracked()` falls back to the story quest
+when the tracked one is gone (bounty claimed, treasure dug). SaveManager wraps both:
+`active_quests()`, `tracked_quest_data()`.
+
+**World module `QuestTracker`** (`scenes/world/modules/QuestTracker.gd`, `WorldScene.quest_tracker`).
+`active_quests()` / `tracked_quest()` / `tracked_quest_pos()` / `quest_pos(q)` read a cache
+that `refresh(force)` rebuilds at most every `REFRESH_MS` (250 ms, from `WorldScene._process`)
+and immediately on `story_flag_set` (`on_story_changed`) / `quest_tracking_changed` / map
+load (`on_map_ready`). Each rebuild also moves the beacon (`_place_beacon`), so a claimed
+bounty or a nearer board moves the marker with no flag change. It also owns the realm map
+toggle (`toggle_realm_map`, called by `WorldScene._open_map_view` in the overworld).
+
+| Consumer | Shows |
+|---|---|
+| Compass (`WorldHUD._create_compass`) | gold chevron + caption for the tracked quest; kind-coloured dots for untracked quests with a place |
+| `ObjectiveBeacon` (`QuestTracker._place_beacon`) | on the tracked quest's nearest target |
+| Minimap (`Minimap._draw_quests`) | diamond per quest, tracked larger/outlined, clamped to the rim when off-disc |
+| Realm map (`RealmMapOverlay`) | diamond per quest, tracked labelled |
+| Journal Quests tab | active quests (★ tracked), detail (giver, summary, progress), Track button, "Story so far" by chapter |
+
+**New-objective tip.** `QuestTracker.announce_story_step()` shows `"New objective: <label>"`
+on the HUD tip line (not the dialogue line, so the NPC's last words stay up) when the
+story quest's label changes: on `story_flag_set`, and on `WorldScene._on_reattached` for a step
+that moved during a battle. The baseline is set on map load, so loading never toasts.
 
 ### Wilderness Camp (GID-108 / TID-402)
 

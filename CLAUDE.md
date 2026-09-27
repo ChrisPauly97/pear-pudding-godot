@@ -365,6 +365,7 @@ created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
 | `CharacterPresence.gd` (`character_presence`) | Per-frame character presentation: contact-shadow shader globals (GID-131), wall-cutaway `occlusion_focus`, idle breathe/bob/float of registered sprites (GID-132) |
 | `FakeVolumetrics.gd` (`fake_volumetrics`) | Mobile-safe volumetric stand-ins: dawn/dusk fake light shafts, depth-fog post pass (GID-130) |
 | `RealmRegions.gd` (`realm_regions`) | Which stitched story town the player walks through (`current_town`): HUD name, music, entry flags, rivals, siege on town entry; `siege_gate(town)` (GID-138) |
+| `QuestTracker.gd` (`quest_tracker`) | Cached quest list + tracked quest (QuestLog) for compass/minimap/realm map, objective beacon, "New objective" tip, overworld realm map on M (GID-139) |
 
 BattleScene's single-player clusters live under `scenes/battle/modules/`, created by
 `BattleScene._ensure_battle_modules()`. Each has a `_battle` back-reference typed as
@@ -647,7 +648,7 @@ Agent-owned feature docs. Each covers Key Features, How It Works, Integrations, 
 | [docs/agent/enemies-and-npcs.md](docs/agent/enemies-and-npcs.md) | Enemy types, wander/track/engage AI, NPC dialogue |
 | [docs/agent/ui-and-scene-management.md](docs/agent/ui-and-scene-management.md) | Scene stack, battle overlay, menus, HUD, day/night |
 | [docs/agent/signals-and-constants.md](docs/agent/signals-and-constants.md) | GameBus signals, IsoConst values, decoupling patterns |
-| [docs/agent/story-implementation.md](docs/agent/story-implementation.md) | Story flags, dialogue gating, SaveManager fields, SceneManager entry point |
+| [docs/agent/story-implementation.md](docs/agent/story-implementation.md) | Story flags, dialogue gating, StoryQuests step table, QuestLog + tracked quest wayfinding (GID-139) |
 | [docs/agent/story-narration-scrolls.md](docs/agent/story-narration-scrolls.md) | Lore scroll entities, ScrollRegistry, narration audio, Journal UI, achievement hook |
 | [docs/agent/magic-system.md](docs/agent/magic-system.md) | Magic cosmology (essence, veins, the four draws), four magic types + eight branches, MagicTypes registry, branch affinity, cross-magic currency, spell card rosters |
 | [docs/agent/skill-trees.md](docs/agent/skill-trees.md) | Branch skill trees, magic type selection, corruption/redemption currencies, cross-magic unlock |

@@ -10,7 +10,7 @@
 - All controls sized relative to viewport height (not fixed pixels) for resolution independence
 - In-game `MapEditorScene` for level design and debug
 - Mobile: `VirtualJoystick` overlay added at runtime when touchscreen detected
-- M key opens `MapViewOverlay` in named maps: full 100×100 tile grid as a color-coded image with entity dots; not available in infinite world mode
+- M key opens `MapViewOverlay` in named maps: full 100×100 tile grid as a color-coded image with entity dots and quest pins. In the overworld it opens `RealmMapOverlay` (GID-139): a north-up vector map of the stitched realm (`RealmLayout` towns + roads, waystones, player, quest pins with the tracked one labelled, custom waypoint), framed by `realm_bounds()` to include the player and quest targets; right-click / long-press sets the waypoint; M / Esc / tap outside / X closes
 - All modal overlay scenes extend `BaseOverlay` (GID-073); shared builder helpers in `UiUtil`
 
 ---
@@ -607,7 +607,7 @@ compass.set_current_map("maykalene")  # call on every map transition
 - `get_label: Callable` (optional) is polled for the caption text.
 - `primary` markers are drawn as a pulsing chevron in the upper half of the band plus a caption pill underneath carrying `"<label> — <distance>m"` (captions over ~34 chars are ellipsised). Plain markers are outlined dots. Only the story objective is primary.
 
-**Integration** — `WorldHUD._create_compass()` instantiates the ribbon, passes `_player`, calls `set_current_map(map_name)` and registers the waypoint and objective markers. The objective marker's callables go through `ObjectiveTracker.objective_world_pos()` / `objective_for_map()`, the same helpers `WorldScene._refresh_objective_beacon()` uses for the in-world beacon, so ribbon and beacon can never disagree about where the objective is.
+**Integration** — `WorldHUD._create_compass()` instantiates the ribbon, passes `_player`, calls `set_current_map(map_name)` and registers the waypoint and objective markers. The objective (primary) marker follows the **tracked quest** through `WorldScene.quest_tracker` (`tracked_quest_pos()` / `tracked_quest()`), the same cache the in-world beacon uses, so ribbon and beacon can never disagree; untracked quests with a place get plain `quest_<kind>` dots in `QuestLog.KIND_COLORS` (GID-139, see story-implementation.md).
 
 ### Objective Beacon (`scenes/world/entities/ObjectiveBeacon.gd`)
 
@@ -615,7 +615,7 @@ The in-world half of the same answer: the ribbon says which way to face, the bea
 
 Because it is an ordinary world node, it is on screen exactly when the objective is (the orthographic camera box is ~15 units).
 
-`WorldScene` owns at most one, in `_objective_beacon`. `_refresh_objective_beacon()` creates, moves or frees it and runs on map entry (`_ready`) and on every `GameBus.story_flag_set` (via `_on_story_flag_set_for_cast`) — story flags are the only thing that moves the objective, so it never runs per frame.
+The `QuestTracker` world module owns at most one (`_beacon`). `_place_beacon()` creates, moves or frees it on every quest-cache refresh (≤ 4×/s, forced on map entry, `story_flag_set` and `quest_tracking_changed`); it only writes the position when the target moved (GID-139).
 
 ### TutorialPopup (`scenes/ui/TutorialPopup.gd`)
 

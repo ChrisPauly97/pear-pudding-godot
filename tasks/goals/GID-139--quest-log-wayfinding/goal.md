@@ -24,13 +24,13 @@ no quest log, and after Chapter 2 the objective went blank.
 | TID-577 | Tracked Quest Drives Compass, Beacon & Minimap | agent | done | TID-576 |
 | TID-578 | Realm Map in the Overworld | agent | done | TID-576 |
 | TID-579 | Journal Quests Tab & Quest-Updated Toasts | agent | done | TID-577 |
-| TID-580 | Docs | agent | pending | TID-579 |
+| TID-580 | Docs | agent | done | TID-579 |
 
 ## Acceptance Criteria
 
-- [ ] Every story step carries a chapter, giver and a line of "why"
-- [ ] Active quests: story, treasure dig site, accepted bounties; never an empty story entry after Chapter 2
-- [ ] The tracked quest is persisted and drives compass chevron, beacon and minimap pin
-- [ ] M / minimap tap opens a realm map in the overworld with towns, roads, player and quest pins
-- [ ] Journal has a Quests tab (track button, story so far) — tap and keyboard reachable
-- [ ] A toast announces each new story step
+- [x] Every story step carries a chapter, giver and a line of "why"
+- [x] Active quests: story, treasure dig site, accepted bounties; never an empty story entry after Chapter 2
+- [x] The tracked quest is persisted and drives compass chevron, beacon and minimap pin
+- [x] M / minimap tap opens a realm map in the overworld with towns, roads, player and quest pins
+- [x] Journal has a Quests tab (track button, story so far) — tap and keyboard reachable
+- [x] A toast announces each new story step

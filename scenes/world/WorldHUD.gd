@@ -458,9 +458,13 @@ func _create_compass(map_name: String) -> void:
 	# dot lost among the tick marks. It follows the tracked quest (GID-139) through
 	# the same WorldScene helpers the in-world beacon uses, so the two agree.
 	var ws: _WorldScene = _world_scene
+	var objective_pos: Callable = func() -> Variant:
+		return ws.quest_tracker.tracked_quest_pos()
 	var objective_label: Callable = func() -> String:
-		return str(ws.tracked_quest().get("label", "")) if ws.tracked_quest_pos() != null else ""
-	cr.add_marker("objective", Color(1.0, 0.82, 0.15), ws.tracked_quest_pos, objective_label, true)
+		if ws.quest_tracker.tracked_quest_pos() == null:
+			return ""
+		return str(ws.quest_tracker.tracked_quest().get("label", ""))
+	cr.add_marker("objective", Color(1.0, 0.82, 0.15), objective_pos, objective_label, true)
 	# The other quests with a place get a plain dot in their kind's colour.
 	for kind: String in ["story", "treasure", "bounty"]:
 		cr.add_marker("quest_" + kind, _QuestLog.kind_color(kind), func() -> Variant:
@@ -468,11 +472,11 @@ func _create_compass(map_name: String) -> void:
 
 ## Nearest target of the first untracked quest of `kind`, or null.
 static func _untracked_quest_pos(ws: _WorldScene, kind: String) -> Variant:
-	var tracked_id: String = str(ws.tracked_quest().get("id", ""))
-	for q: Dictionary in ws.active_quests():
+	var tracked_id: String = str(ws.quest_tracker.tracked_quest().get("id", ""))
+	for q: Dictionary in ws.quest_tracker.active_quests():
 		if str(q.get("kind", "")) != kind or str(q.get("id", "")) == tracked_id:
 			continue
-		var p: Variant = ws.quest_pos(q)
+		var p: Variant = ws.quest_tracker.quest_pos(q)
 		if p != null:
 			return p
 	return null

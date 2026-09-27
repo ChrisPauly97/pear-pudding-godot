@@ -20,7 +20,7 @@ const _COL_TOWN_EDGE := Color(0.85, 0.75, 0.52)
 const _COL_WAYSTONE := Color(0.40, 0.90, 1.00)
 const _COL_WAYPOINT := Color(0.20, 0.80, 1.00)
 ## Tiles of wilderness shown around the realm's outline.
-const _MARGIN_TILES: float = 24.0
+const _MARGIN_TILES: float = 32.0
 const _LP_THRESHOLD: float = 0.5
 const _LP_SLOP_PX: float = 12.0
 
@@ -80,7 +80,7 @@ func setup(player: Node3D, map_name: String, quests: Array[Dictionary], tracked:
 	var title := _UiUtil.make_title_label("The Realm", vh)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.size = Vector2(side, vh * 0.045)
-	title.position = Vector2(_panel.position.x, _panel.position.y - vh * 0.05)
+	title.position = Vector2(_panel.position.x, _panel.position.y + vh * 0.008)
 	add_child(title)
 
 	var obj_text: String = str(tracked.get("label", ""))
@@ -98,7 +98,7 @@ func setup(player: Node3D, map_name: String, quests: Array[Dictionary], tracked:
 	hint.position = Vector2(_panel.position.x, _panel.end.y + vh * 0.04)
 
 	var close_btn := _UiUtil.make_button("X", Vector2(vh * 0.055, vh * 0.055), int(vh * 0.028), _close, self)
-	close_btn.position = Vector2(_panel.end.x - vh * 0.055, _panel.position.y - vh * 0.06)
+	close_btn.position = Vector2(_panel.end.x - vh * 0.065, _panel.position.y + vh * 0.01)
 
 
 ## Tile rect covering every town, road and story site, padded, grown to include
@@ -173,8 +173,8 @@ func _on_draw(c: Control) -> void:
 	_draw_quests(c, font)
 	if is_instance_valid(_player):
 		var pp: Vector2 = _tile_to_panel(_world_to_tile(_player.position))
-		c.draw_circle(pp, 7.0, Color.BLACK)
-		c.draw_circle(pp, 5.0, Color.WHITE)
+		c.draw_circle(pp, 8.0, Color.BLACK)
+		c.draw_circle(pp, 6.0, Color.WHITE)
 
 
 func _draw_waypoint(c: Control) -> void:

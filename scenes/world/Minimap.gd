@@ -261,13 +261,13 @@ func _draw_waypoint(canvas: Control, origin: Vector3) -> void:
 ## tracked one is larger with an outline. Off-disc pins stick to the rim so the
 ## player can always read which way to go.
 func _draw_quests(canvas: Control, origin: Vector3) -> void:
-	if _world == null:
+	if _world == null or _world.quest_tracker == null:
 		return
 	var center := Vector2(_half, _half)
-	var tracked_id: String = str(_world.tracked_quest().get("id", ""))
+	var tracked_id: String = str(_world.quest_tracker.tracked_quest().get("id", ""))
 	var tracked_dot := Vector2.INF
-	for q: Dictionary in _world.active_quests():
-		var raw: Variant = _world.quest_pos(q)
+	for q: Dictionary in _world.quest_tracker.active_quests():
+		var raw: Variant = _world.quest_tracker.quest_pos(q)
 		if raw == null:
 			continue
 		var dot: Vector2 = _to_minimap(raw as Vector3, origin)
@@ -280,7 +280,8 @@ func _draw_quests(canvas: Control, origin: Vector3) -> void:
 		_draw_diamond(canvas, dot, 4.0, Color(col, 0.8))
 	if tracked_dot != Vector2.INF:
 		_draw_diamond(canvas, tracked_dot, 8.0, Color(0.0, 0.0, 0.0, 0.8))
-		_draw_diamond(canvas, tracked_dot, 6.0, _QuestLog.kind_color(str(_world.tracked_quest().get("kind", ""))))
+		var kind: String = str(_world.quest_tracker.tracked_quest().get("kind", ""))
+		_draw_diamond(canvas, tracked_dot, 6.0, _QuestLog.kind_color(kind))
 
 static func _draw_diamond(canvas: Control, at: Vector2, r: float, col: Color) -> void:
 	canvas.draw_colored_polygon(PackedVector2Array([

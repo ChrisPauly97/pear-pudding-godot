@@ -132,11 +132,12 @@ func _run() -> bool:
 	ws.call("_open_map_view")
 	await process_frame
 	await process_frame
-	ok = _check(is_instance_valid(ws.get("_realm_overlay")), "M opens the realm map in the overworld") and ok
+	var qt: Object = ws.get("quest_tracker")
+	ok = _check(bool(qt.call("is_realm_map_open")), "M opens the realm map in the overworld") and ok
 	ws.call("_open_map_view")
 	await process_frame
-	ok = _check(ws.get("_realm_overlay") == null, "M again closes the realm map") and ok
-	ok = _check(not (ws.call("tracked_quest") as Dictionary).is_empty(), "a tracked quest exists") and ok
+	ok = _check(not bool(qt.call("is_realm_map_open")), "M again closes the realm map") and ok
+	ok = _check(not (qt.call("tracked_quest") as Dictionary).is_empty(), "a tracked quest exists") and ok
 	ok = _check(ws.get_node_or_null("WorldHUD") != null,
 		"WorldHUD child node present") and ok
 	ok = _check(ws.get_node_or_null("ChunkStreamingManager") != null,
