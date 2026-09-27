@@ -10,6 +10,8 @@ const _AvatarSprite = preload("res://scenes/world/entities/AvatarSprite.gd")
 const _ContactShadow = preload("res://game_logic/ContactShadow.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const _SpriteOutline = preload("res://game_logic/SpriteOutline.gd")
+const _PaperDoll = preload("res://game_logic/character/PaperDoll.gd")
+const _HeroAnim = preload("res://game_logic/character/HeroAnim.gd")
 
 const _INTERP_RATE: float = 12.0
 const _DOWNED_TINT: Color = Color(0.35, 0.38, 0.45, 0.75)
@@ -44,6 +46,9 @@ var _emote_timer: float = 0.0
 ## dungeon. Purely visual here — WorldScene owns the authoritative bookkeeping.
 var _is_downed: bool = false
 
+## The peer's visible gear (GID-137 / TID-561), set by CoopAppearance.
+var _gear: Dictionary = {}
+
 
 ## Called by WorldScene after instantiation. Expected keys: peer_id, x, z.
 func init_from_data(data: Dictionary) -> void:
@@ -51,6 +56,13 @@ func init_from_data(data: Dictionary) -> void:
 	_target_x = float(data.get("x", 0.0))
 	_target_z = float(data.get("z", 0.0))
 	position = Vector3(_target_x, 0.0, _target_z)
+
+
+## Dress the avatar in the peer's gear (slot → item id). Safe before or after _ready.
+func set_gear(gear: Dictionary) -> void:
+	_gear = gear
+	if _sprite != null:
+		_HeroAnim.wear(_sprite, _PaperDoll.build_frames(_gear))
 
 
 ## Apply the peer's display name + color (TID-342). Safe before or after _ready.
@@ -62,7 +74,7 @@ func set_player_identity(display_name: String, color: Color) -> void:
 
 
 func _ready() -> void:
-	_sprite = _AvatarSprite.build()
+	_sprite = _AvatarSprite.build(_gear)
 	add_child(_sprite)
 	_SpriteOutline.apply(_sprite)
 	_ContactShadow.register(self, _ContactShadow.radius_for_height(_SpriteRegistry.PLAYER_HEIGHT))

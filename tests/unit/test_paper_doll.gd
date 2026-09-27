@@ -148,3 +148,20 @@ func test_gear_of_record_reads_equipped_fields() -> void:
 	assert_eq(str(gear["armor"]), "leather_vest")
 	assert_eq(str(gear["weapon"]), "dusk_blade")
 	assert_eq(str(gear["offhand"]), "")
+
+
+func test_gear_payload_round_trips() -> void:
+	var gear: Dictionary = {"armor": "warded_cloak", "shoulders": "spiked_spaulders", "weapon": "dawn_staff",
+			"offhand": "", "trinket": "bone_charm"}
+	var back: Dictionary = _PaperDoll.decode_gear(_PaperDoll.encode_gear(gear))
+	for slot: String in _PaperDoll.VISIBLE_SLOTS:
+		assert_eq(str(back[slot]), str(gear[slot]), slot)
+
+
+func test_gear_payload_rejects_junk() -> void:
+	var g: Dictionary = _PaperDoll.decode_gear(["../evil", 42, "dusk_blade"])
+	assert_eq(str(g["armor"]), "", "unknown id dropped")
+	assert_eq(str(g["shoulders"]), "", "non-string dropped")
+	assert_eq(str(g["weapon"]), "dusk_blade")
+	assert_eq(str(g["trinket"]), "", "short payload pads with empty slots")
+	assert_eq(_PaperDoll.decode_gear("not an array").size(), _PaperDoll.VISIBLE_SLOTS.size())

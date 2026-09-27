@@ -324,7 +324,7 @@ data lives **only** in `EnemyRegistry._ensure_loaded()` — there are no
 ## Scene Modules (WorldScene / BattleScene)
 
 Both big scenes delegate their networked surface to child-node modules. The
-co-op/session surface lives in four siblings under `scenes/world/coop/`, and
+co-op/session surface lives in five siblings under `scenes/world/coop/`, and
 BattleScene's PvP/co-op surface in `scenes/battle/net/BattleNet.gd`:
 
 | Module | Owns |
@@ -333,6 +333,7 @@ BattleScene's PvP/co-op surface in `scenes/battle/net/BattleNet.gd`:
 | `CoopActivities.gd` | night hunts, loot rolls, co-op Spire, town siege, PvE leaderboards, party bounties |
 | `CoopPvP.gd` | challenge handshake + timeouts, team duels, referee routing, spectating, wagers, ranked/leaderboard, draft duels, tournaments |
 | `CoopSocial.gd` | emotes, pings, chat, trading/gifting, party stash, auction house |
+| `CoopAppearance.gd` | remote avatars wear each peer's gear: `recv_gear` sent with the identity handshake and on `GameBus.equipment_changed` (GID-137) |
 
 | `net/BattleNet.gd` | PvP duels, spectating, spectator wagers, co-op PvE joint battle, team duels (back-reference `_battle`); attack replay across screens in `net/NetBattleFx.gd` (fx carried in state mirrors) |
 

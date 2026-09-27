@@ -145,6 +145,25 @@ static func gear_of_record(record: Dictionary) -> Dictionary:
 	return gear
 
 
+## Gear → RPC payload: one item id per `VISIBLE_SLOTS` entry, in order.
+static func encode_gear(gear: Dictionary) -> Array:
+	var out: Array = []
+	for slot: String in VISIBLE_SLOTS:
+		out.append(str(gear.get(slot, "")))
+	return out
+
+
+## RPC payload → gear. Untrusted input: anything that isn't a known item id
+## becomes "" (nothing drawn), and extra entries are ignored.
+static func decode_gear(payload: Variant) -> Dictionary:
+	var gear: Dictionary = {}
+	var arr: Array = payload if payload is Array else []
+	for i: int in VISIBLE_SLOTS.size():
+		var id: String = str(arr[i]) if i < arr.size() else ""
+		gear[VISIBLE_SLOTS[i]] = id if GEAR_VISUALS.has(id) else ""
+	return gear
+
+
 ## Every `ANIMS` animation for this look (cached).
 static func build_frames(gear: Dictionary = {}, appearance: Dictionary = {}) -> SpriteFrames:
 	var key: String = _look_key(gear, appearance)

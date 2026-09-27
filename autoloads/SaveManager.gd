@@ -655,6 +655,9 @@ func adopt_session_character(record: Dictionary) -> void:
 	_dirty = false
 	coins_changed.emit(coins)
 	GameBus.essence_changed.emit(essence)
+	# The session character brings its own equipped items: redraw the hero and
+	# re-announce co-op gear (slot "" = several slots may have changed).
+	GameBus.equipment_changed.emit("", "")
 
 ## Snapshot the current in-memory character slice back into a session record dict
 ## (GID-095 / TID-346). The caller attaches token / display_name / position before

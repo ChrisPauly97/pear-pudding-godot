@@ -1725,8 +1725,33 @@ loot" framing.
 ## Asset Requirements
 
 No new art. RemotePlayer draws the procedural PaperDoll hero via
-`AvatarSprite.build(gear)` (GID-137; before that 0x72 `elf_m`). Remote gear is not
-synced yet — avatars render in base clothes until TID-561.
+`AvatarSprite.build(gear)` (GID-137; before that 0x72 `elf_m`).
+
+### Avatar gear sync (GID-137 / TID-561)
+
+`scenes/world/coop/CoopAppearance.gd` (`_world.coop_appearance`, registered with
+NetSync like the other coop modules) makes remote avatars wear each peer's gear.
+
+- **Wire:** `NetSync.recv_gear(payload)` — reliable, any_peer. Payload is
+  `PaperDoll.encode_gear()`: one item id per `PaperDoll.VISIBLE_SLOTS` entry
+  (armor, shoulders, weapon, offhand, trinket). `decode_gear()` treats it as
+  untrusted: non-strings and ids missing from `GEAR_VISUALS` become "".
+- **When sent:** alongside every identity packet
+  (`CoopSession._send_local_identity` → `send_local_gear(target)`), so the
+  initiator's broadcast and each reply carry gear; and on every
+  `GameBus.equipment_changed` (broadcast). `SaveManager.adopt_session_character`
+  emits `equipment_changed("", "")`, so adopting a session character re-announces
+  its gear and redraws the local hero. Dedicated servers never send.
+- **Receive:** stores `_remote_gear[pid]`, then `apply_to_avatar(pid)` →
+  `RemotePlayer.set_gear()` (`HeroAnim.wear` swaps frames). Gear can arrive
+  before the avatar spawns; `CoopSession._spawn_remote_player` calls
+  `apply_to_avatar` after spawning (same lazy order as identity). Cleared per
+  peer on `peer_disconnected` and fully on `session_ended`.
+- Not map-scoped: gear belongs to the peer, not to a map's world objects.
+- Remote avatars play idle/walk only (swing/jump are local-player animations).
+- Tests: `test_paper_doll` (payload round-trip + junk rejection),
+  `net_coop_smoke` (real ENet `recv_gear` round-trip), `world_scene_smoke`
+  (routes `_on_gear_received`).
 The name tag is a procedural `Label3D` and the roster/lobby swatches are procedural
 `ColorRect`/`StyleBoxFlat` — no textures. `RemotePlayer.tscn` and all new scripts
 (`MpProfile.gd`, `PlayerIdentity.gd`) have `.uid` sidecars.
