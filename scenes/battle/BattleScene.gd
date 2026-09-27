@@ -1161,12 +1161,18 @@ func _check_game_over() -> void:
 			_show_standard_victory()
 		else:
 			_play_outcome_feedback(false)
+			# GID-135 / TID-559: stash the coaching line for BattleDefeat's overlay —
+			# battle_lost carries no payload, so this is the hand-off.
+			if realtime.is_active():
+				SceneManager.set_pending_realtime_tip(realtime.fight_tip())
 			GameBus.battle_lost.emit()
 
 ## Rolls and presents the reward screen for an ordinary (non-puzzle, non-scripted,
 ## non-ghost, non-friendly) win. Boss fights drop the whole pool plus a weapon;
 ## everything else drops one card, with the soulbind capture check on top.
 func _show_standard_victory() -> void:
+	# GID-135 / TID-559: one coaching line for a real-time fight; "" otherwise.
+	var rt_tip: String = realtime.fight_tip() if realtime.is_active() else ""
 	var enemy_type: String = str(enemy_data.get("enemy_type", "undead_basic"))
 	var is_boss_win: bool = bool(enemy_data.get("is_boss", false))
 	var gambit_id_win: String = str(enemy_data.get("gambit_id", ""))
@@ -1204,7 +1210,7 @@ func _show_standard_victory() -> void:
 			boss_rarities.append(br)
 			boss_stats_list.append(CardDropUtil.roll_stats(cid, br))
 		_result_ui.show_victory_boss(pool, weapon_reward_id, boss_rarities, boss_stats_list, coins_win, xp_win,
-				hero_hp_win, currency_win)
+				hero_hp_win, currency_win, rt_tip)
 	else:
 		var reward_card_id: String = ""
 		if pool.size() > 0:
@@ -1221,14 +1227,14 @@ func _show_standard_victory() -> void:
 		var _ct_met: bool = _capture_tracker != null and not _ct_sig.is_empty() and _capture_tracker.is_satisfied(_state)
 		if not _ct_sig.is_empty() and not _ct_captured and _ct_met:
 			_result_ui.show_soulbind(reward_card_id, _ct_sig, _capture_tracker.condition_text(), hero_hp_win,
-					currency_win, rolled_rarity, rolled_stats)
+					currency_win, rolled_rarity, rolled_stats, rt_tip)
 		elif not _ct_sig.is_empty() and not _ct_captured:
 			var _ct_text: String = _capture_tracker.condition_text() if _capture_tracker != null else ""
 			_result_ui.show_victory(reward_card_id, "", _ct_sig, _ct_text, false, rolled_rarity, rolled_stats,
-					coins_win, xp_win, hero_hp_win, currency_win)
+					coins_win, xp_win, hero_hp_win, currency_win, rt_tip)
 		else:
 			_result_ui.show_victory(reward_card_id, "", "", "", false, rolled_rarity, rolled_stats, coins_win, xp_win,
-					hero_hp_win, currency_win)
+					hero_hp_win, currency_win, rt_tip)
 		# First-session soulbinding teaser (GID-117): explain the hunt line the
 		# first time an uncaptured signature surfaces on a victory screen.
 		if not _ct_sig.is_empty() and not _ct_captured:

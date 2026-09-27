@@ -105,6 +105,11 @@ var _proximity_engage_blocked: bool = false
 
 # Tracks which enemy triggered the current battle (for defeat marking)
 var _current_battle_enemy_id: String = ""
+# Real-time post-fight coaching line (GID-135 / TID-559): BattleScene stashes it
+# right before emitting battle_won/battle_lost since neither signal carries a
+# per-side tip payload; BattleDefeat's overlay (the win overlay is built earlier,
+# directly in BattleScene) reads it via `get_and_clear_pending_realtime_tip`.
+var _pending_realtime_tip: String = ""
 # Tracks which duelist NPC triggered the current duel (for defeat tracking)
 var _current_duel_npc_id: String = ""
 # Legendary card to award on first champion duel win ("" = none)
@@ -1163,6 +1168,18 @@ func _advance_spire_floor() -> void:
 
 func show_toast(title: String, desc: String) -> void:
 	_toast.show_text(title, desc)
+
+## Stashes one post-fight coaching line (GID-135 / TID-559). Call right before
+## `GameBus.battle_won` / `battle_lost` so the reader (built in the same frame
+## or the next) can pick it up.
+func set_pending_realtime_tip(tip: String) -> void:
+	_pending_realtime_tip = tip
+
+## Reads and clears the stashed tip; "" if none (or already consumed).
+func get_and_clear_pending_realtime_tip() -> String:
+	var tip: String = _pending_realtime_tip
+	_pending_realtime_tip = ""
+	return tip
 
 ## Teleports the player to an activated waystone.
 ## Named-map waystone (id = "map:mapname"): enters the named map.

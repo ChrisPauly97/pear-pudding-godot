@@ -117,6 +117,15 @@ func _show_defeat_overlay() -> void:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
 
+	# One coaching line for a real-time fight (GID-135 / TID-559); "" for every
+	# other loss (turn-based, PvP, co-op — those never stash one).
+	var tip_text: String = _sm.get_and_clear_pending_realtime_tip()
+	if tip_text != "":
+		var tip_lbl := _UiUtil.make_label(tip_text, int(vh * 0.024), Color(0.85, 0.7, 0.7),
+				HORIZONTAL_ALIGNMENT_CENTER, vbox)
+		tip_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		tip_lbl.custom_minimum_size = Vector2(vh * 0.4, 0.0)
+
 	var has_retry: bool = not _defeat_pending_enemy_data.is_empty()
 	if has_retry:
 		var retry_btn := _UiUtil.make_button("Retry Battle", Vector2(vh * 0.32, vh * 0.07), int(vh * 0.03),
