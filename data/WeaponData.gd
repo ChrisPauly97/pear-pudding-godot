@@ -3,9 +3,9 @@ extends Resource
 @export var id: String = ""
 @export var display_name: String = ""
 @export var description: String = ""
-## "weapon" | "armor" | "ring" | "trinket"
+## "weapon" | "armor" | "ring" | "trinket" | "offhand"
 @export var slot: String = "weapon"
-## "deck_inject" | "starting_mana" | "starting_hp" | "passive_atk"
+## "deck_inject" | "starting_mana" | "starting_hp" | "passive_atk" | "starting_armor" | "offhand_atk"
 @export var battle_effect_type: String = ""
 ## Bonus amount for starting_mana / starting_hp / passive_atk. Unused for deck_inject.
 @export var battle_effect_value: int = 0

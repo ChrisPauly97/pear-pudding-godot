@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://wp16qa3dz95u"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_arcane_focus"]
+
+[resource]
+script = ExtResource("1_arcane_focus")
+id = "arcane_focus"
+display_name = "Arcane Focus"
+description = "A softly glowing orb held in your off hand. You start each battle with 1 extra mana."
+slot = "offhand"
+battle_effect_type = "starting_mana"
+battle_effect_value = 1

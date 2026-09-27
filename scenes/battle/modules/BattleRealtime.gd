@@ -18,6 +18,7 @@ const _TutorialPopup = preload("res://scenes/ui/TutorialPopup.gd")
 const _RealtimeVisuals = preload("res://scenes/battle/modules/RealtimeVisuals.gd")
 const CombatTuning = preload("res://game_logic/battle/CombatTuning.gd")
 const _WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
+const _UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 const _CombatTuningPanel = preload("res://scenes/battle/modules/CombatTuningPanel.gd")
 const _BattleSkillBar = preload("res://scenes/battle/modules/BattleSkillBar.gd")
 const _BattleOnboarding = preload("res://scenes/battle/modules/BattleOnboarding.gd")
@@ -69,6 +70,7 @@ func maybe_start(is_fresh: bool) -> void:
 	var tuning := CombatTuning.new(saved as Dictionary if saved is Dictionary else {})
 	rt = RealtimeCombat.new(_battle._state, [player_level, enemy_level_for_tier(tier)], tuning)
 	rt.weapon_speed[RealtimeCombat.PLAYER] = equipped_weapon_speed()
+	rt.offhand_damage[RealtimeCombat.PLAYER] = offhand_damage_for_item(str(SceneManager.save_manager.equipped_offhand))
 	_last_player_hp = _battle._state.players[RealtimeCombat.PLAYER].hero.health
 	_enemy_tier = tier
 	_apply_live_tuning()
@@ -121,6 +123,19 @@ func on_cooldown() -> bool:
 static func equipped_weapon_speed() -> float:
 	var w := _WeaponRegistry.get_weapon(SceneManager.save_manager.equipped_weapon)
 	return w.swing_speed if w != null else 0.0
+
+## Off-hand swing damage for the given equipped offhand item id (TID-545), or
+## 0 for no item / an offhand item that isn't an attack type (armor/mana
+## offhand gear has no real-time swing). Pure so tests can drive it without an
+## autoload. The turn-based equivalent bonus (BattleModifiers) is skipped once
+## real time is active, so the two never double up.
+static func offhand_damage_for_item(item_id: String) -> int:
+	if item_id == "":
+		return 0
+	var weapon := _WeaponRegistry.get_weapon(item_id)
+	if weapon == null or weapon.battle_effect_type != "offhand_atk":
+		return 0
+	return _UpgradeDefs.effective_stat(weapon, 0)
 
 ## Opens the combat tuning panel over the battle (the clock pauses while it's open).
 func open_tuning() -> void:

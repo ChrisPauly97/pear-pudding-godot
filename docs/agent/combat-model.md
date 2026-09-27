@@ -117,7 +117,7 @@ team duels and resumed mid-battle saves stay turn-based.
 | Board caps | **3 Allies**, **2 enemy minions** (`PlayerState.max_units`); empty slots past the cap are hidden |
 | Allies (player units) | **commanded**: ready every 3 s (fresh Ally waits one interval; Surge at once). Tap a ready Ally, then a target — normal attack path (lunge, retaliation), **off the GCD**. Per-card bar: blue charging, green + pulse when ready |
 | Enemy minions | auto-attack every 4.5 s, **alternating** the player's weakest Ally and the hero (Ward Allies first); per-card orange bar; **wind-up** (grow + redden) over the last 30 %; lunge on the hit |
-| Hero auto-attack | both heroes, main hand every 3.0 s for `unarmed[side] + hero.attack` (player 3; enemy 2 + (tier − 1)); off hand every 2.0 s for `offhand_damage` (TID-545). Frozen/stunned heroes don't swing |
+| Hero auto-attack | both heroes, main hand every `swing_speed(side)` s (weapon's `WeaponData.swing_speed`, else `tune.hero_swing`) for `unarmed[side] + hero.attack`, scaled by speed ÷ unarmed speed; off hand every `tune.offhand_swing` s for `offhand_damage[side]` — set from the equipped **off-hand slot** item (GID-135 / TID-545, `inventory-and-deck.md` Equipment System) via `BattleRealtime.offhand_damage_for_item()`. Enemy heroes swing only with `hero.attack > 0`. Frozen/stunned heroes don't swing. Turn-based mode has no off-hand swing timer, so an off-hand attack item instead adds a smaller always-on `hero.attack` bonus there (`UpgradeDefs.offhand_turnbased_bonus`) |
 | Arena layout | **Diagonal, full width, centred**: your token bottom-left, the enemy's top-right; each side's slots step top-left → bottom-right and **hug their own hero** — your line just right of your token (bottom-aligned), theirs just left of theirs (top-aligned) — leaving open ground between the lines (`RealtimeVisuals.arena_layout`, `ROW_GAP` = token↔line gap; unit-tested at 16:9 and 20:9: no cross-group overlap, lines attached, ≥ 1 card width apart). `DiagonalBoard.gd` places the slots. The side panel (pause, Effects, battlefield info) moves to the top-left corner and your Cooldown / Auto-attack / Target box to the bottom-right (`_place_corner_panels`); the side mana label is hidden (mana is on your token). Re-laid out on viewport resize |
 | Hero tokens | boxes with the hero / enemy sprite; the scene's **hero strips are reparented into them** (HP bar, mana / hand count — still refreshed by CardViewBuilder and still the enemy-hero tap target), plus a swing bar; they **lunge** at the target on each auto-attack |
 | Auto-attack target | Ward first; else your **focus** (tap an enemy minion with no Ally selected); tap the enemy hero to clear |
@@ -137,6 +137,42 @@ detached one; `_restore_world` skips the wipe for an in-place world. The engaged
 `EnemyNPC.engage()` / `BlightHeart.engage()` call `SceneManager.free_after_battle(self)`, which frees at once on
 the wipe path, or on the next transition back to WORLD when fighting in place. `_exit_tree` frees the held world only
 when it has **no parent** (an in-place world is freed by the tree). Test: `tests/in_world_battle_smoke.gd` (CI).
+
+### In-world rewards (TID-531)
+
+A **routine** in-world win — not a boss, and no soulbind hunt to show (the enemy either has no
+signature card or it's already captured) — skips the blocking `BattleResultUI.show_victory()` card
+entirely. `BattleScene._show_standard_victory()` calls `_emit_routine_victory_toast()` instead of
+building the overlay: it fires the same `GameBus.battle_won` payload the "Collect" button would,
+immediately, so `BattleVictory._on_battle_won()` grants the rewards without waiting for a tap.
+Boss wins (`show_victory_boss`), soulbind-hunt wins (`show_soulbind` / the hint-text `show_victory`
+branch), and any win **not** fought in place (`in_world == false`, still on the classic wipe path)
+are unchanged — they keep the full card.
+
+The payload carries `"in_world_toast": true`. `BattleVictory._on_battle_won()` checks it right
+where it computes the gambit-adjusted `coins_won` and `xp_amount`, and — because
+`_restore_world(after)` runs `after` **inside** the reattach/transition callback, never on the next
+line (see the CLAUDE.md spire-draft learning) — passes `_show_reward_toasts.bind(coins_won,
+xp_amount, reward_card)` as that callback instead of calling `_restore_world()` bare.
+`_show_reward_toasts()` reads `get_tree().current_scene` (the just-reattached/thawed `WorldScene`)
+and `world.get_player()` for the anchor position, builds up to three lines ("+N Coins", "+N XP",
+the card's name) and hands them to a `scenes/world/RewardToastFx.gd` instance (`Node3D`, one
+`Label3D` per line, no `class_name` — preloaded) added as the world's child at the player's
+position: it rises `RISE_DISTANCE` over `DURATION` seconds while each label fades out, then frees
+itself with a `get_tree().create_timer` — no scene file, no state, gone once the animation ends.
+
+A win with joined enemies (TID-551 adds) still grants their coins/XP/bestiary progress via
+`_reward_joined_enemies()` as before; the toast only shows the primary enemy's numbers — showing
+every add's reward too is left for a follow-up if it turns out to matter in practice.
+
+Level-ups need no special handling here: `SaveManager.add_xp()` already emits
+`GameBus.level_up`, which `SceneManager._on_level_up()` already turns into its own toast
+(`_toast.show_text("Level Up!", …)`) — that fires independently of which result path granted the
+XP, so a level-up during a routine in-world win gets its own toast for free, on top of (not instead
+of) the reward toast. Test: `tests/in_world_battle_smoke.gd`'s `_check_routine_win_toast` (CI) —
+engages a signature-bearing enemy with the signature pre-marked captured (forcing the plain
+routine-win branch), kills it, asserts no `Continue`/`Collect` button ever appears, and that a
+`RewardToastFx` child lands on the world once it's back in `WORLD` state.
 
 ### Prototype (TID-546)
 
