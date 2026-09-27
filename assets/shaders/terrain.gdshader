@@ -17,8 +17,15 @@ uniform sampler2D wall_top_texture  : source_color, filter_nearest, hint_default
 uniform sampler2D path_texture      : source_color, filter_nearest, hint_default_white;
 uniform vec3 path_tint = vec3(1.0, 1.0, 1.0);
 
-// How many times the textures tile per world unit
-uniform float uv_scale : hint_range(0.05, 2.0) = 0.5;
+// How many times the textures tile per world unit. 20/128: 20 texels per world
+// unit, the character sprites' pixel density (PIXEL_SIZE 0.05), so the ground
+// and the sprites on it read as one pixel-art style.
+uniform float uv_scale : hint_range(0.05, 2.0) = 0.15625;
+// Per-texel relief: every terrain tile carries a height map in ALPHA
+// (tools/generate_hd_terrain.py); its one-texel gradient tilts the normal so
+// bricks, flagstones, pebbles and grass tufts catch the sun. 0 = flat.
+uniform float detail_bump : hint_range(0.0, 3.0) = 1.1;
+const float TEX_RES = 128.0;  // terrain tile resolution (texels per tile)
 
 // Per-chunk biome color tints — set per material instance by ChunkRenderer.
 // Default vec3(1,1,1) = no tint (original texture colors).
@@ -78,6 +85,16 @@ float fbm(vec2 p) {
 	p = p * 2.1 + vec2(1.7, 3.1);
 	v += 0.25 * vnoise(p);
 	return v;
+}
+
+// Sample a terrain tile and its one-texel height (alpha) gradient.
+// Returns rgb in .rgb; writes the (du, dv) height step to `grad`.
+vec3 tile_sample(sampler2D tex, vec2 uv, out vec2 grad, out float h) {
+	vec4 c = texture(tex, uv);
+	h = c.a;
+	grad = vec2(texture(tex, uv + vec2(1.0 / TEX_RES, 0.0)).a - c.a,
+	            texture(tex, uv + vec2(0.0, 1.0 / TEX_RES)).a - c.a);
+	return c.rgb;
 }
 
 void vertex() {
@@ -152,41 +169,80 @@ void fragment() {
 	float path_t = v_path > 0.001
 		? smoothstep(0.2, 0.7, v_path + (vnoise(v_world_xz * 1.7) - 0.5) * 0.45) : 0.0;
 	bool is_path = path_t > 0.99;
-	// Anti-tiling (TID-505): swap to a rotated, offset copy of the grass tile
-	// inside irregular noise blobs, so the 2-unit repeat never lines up. A hard
-	// switch (not a blend) keeps the pixel art crisp.
-	vec2 uv_grass = uv_xz;
-	if (vnoise(v_world_xz * 0.23) > 0.5) {
-		uv_grass = vec2(-uv_xz.y, uv_xz.x) + vec2(0.37, 0.61);
+	// Anti-tiling (TID-505): inside irregular noise blobs every ground layer
+	// swaps to one of four rotated, offset copies of its tile, so the repeat
+	// never lines up. A hard switch (not a blend) keeps the pixel art crisp.
+	// tan_u / tan_v are the world directions of the sampled tile's +u / +v
+	// axes (rows of the rotation), used to tilt the bump the same way.
+	int rot = int(vnoise(v_world_xz * 0.23) > 0.5) + 2 * int(vnoise(v_world_xz * 0.17 + vec2(31.0, 7.0)) > 0.5);
+	vec2 uv_ground = uv_xz;
+	vec3 tan_u = vec3(1.0, 0.0, 0.0);
+	vec3 tan_v = vec3(0.0, 0.0, 1.0);
+	if (rot == 1) {
+		uv_ground = vec2(-uv_xz.y, uv_xz.x) + vec2(0.37, 0.61);
+		tan_u = vec3(0.0, 0.0, -1.0);
+		tan_v = vec3(1.0, 0.0, 0.0);
+	} else if (rot == 2) {
+		uv_ground = -uv_xz + vec2(0.71, 0.13);
+		tan_u = vec3(-1.0, 0.0, 0.0);
+		tan_v = vec3(0.0, 0.0, -1.0);
+	} else if (rot == 3) {
+		uv_ground = vec2(uv_xz.y, -uv_xz.x) + vec2(0.19, 0.83);
+		tan_u = vec3(0.0, 0.0, 1.0);
+		tan_v = vec3(-1.0, 0.0, 0.0);
 	}
+	// Wall-side UV: U from the along-face horizontal axis, V from world Y so the
+	// texture tiles both horizontally and vertically on wall sides.
+	// X-facing wall (|normal.x|≈1): along-face axis is Z → U = world_Z
+	// Z-facing wall (|normal.z|≈1): along-face axis is X → U = world_X
+	float side_u = mix(v_world_xz.y, v_world_xz.x, abs(v_normal_world.z));
+	vec2 uv_side = vec2(side_u, v_world_y) * uv_scale;
 
+	vec2 hgrad = vec2(0.0);  // height step of the dominant tile
+	float tex_h = 0.5;       // its height (0 = crevice/mortar, 1 = raised)
+	vec2 g2;
+	float h2;
 	if (is_path) {
-		base_col = texture(path_texture, uv_xz).rgb;
+		base_col = tile_sample(path_texture, uv_ground, hgrad, tex_h);
 	} else if (is_wall) {
 		// Use surface normal to pick side vs top — no grass on wall tiles.
 		// slope=0: flat top → wall_top_texture; slope=1: vertical face → wall_side_texture.
 		float wall_slope = 1.0 - clamp(v_normal_world.y, 0.0, 1.0);
 		float t_wall_side = smoothstep(0.3, 0.7, wall_slope);
-		// Side UV: U from the along-face horizontal axis, V from world Y so the
-		// texture tiles both horizontally and vertically on wall sides.
-		// X-facing wall (|normal.x|≈1): along-face axis is Z → U = world_Z
-		// Z-facing wall (|normal.z|≈1): along-face axis is X → U = world_X
-		float side_u = mix(v_world_xz.y, v_world_xz.x, abs(v_normal_world.z));
-		vec2 uv_side = vec2(side_u, v_world_y) * uv_scale;
-		base_col = mix(texture(wall_top_texture, uv_xz).rgb,
-		               texture(wall_side_texture, uv_side).rgb, t_wall_side);
-	} else if (t_side < 0.01 && t_top < 0.01) {
-		// Pure flat grass — most common case
-		base_col = texture(grass_texture, uv_grass).rgb;
+		vec3 top_col = tile_sample(wall_top_texture, uv_ground, hgrad, tex_h);
+		if (t_wall_side > 0.01) {
+			vec3 side_col = tile_sample(wall_side_texture, uv_side, g2, h2);
+			base_col = mix(top_col, side_col, t_wall_side);
+			if (t_wall_side > 0.5) {
+				hgrad = g2;
+				tex_h = h2;
+				tan_u = mix(vec3(0.0, 0.0, 1.0), vec3(1.0, 0.0, 0.0), abs(v_normal_world.z));
+				tan_v = vec3(0.0, 1.0, 0.0);
+			}
+		} else {
+			base_col = top_col;
+		}
 	} else {
-		base_col = texture(grass_texture, uv_grass).rgb;
+		// Flat grass is the common case (~60-70% of terrain): one tile, no mixing.
+		base_col = tile_sample(grass_texture, uv_ground, hgrad, tex_h);
 		if (t_side > 0.01) {
-			base_col = mix(base_col, texture(hill_side_texture, uv_xz).rgb, t_side);
+			base_col = mix(base_col, tile_sample(hill_side_texture, uv_ground, g2, h2), t_side);
+			if (t_side > 0.5) {
+				hgrad = g2;
+				tex_h = h2;
+			}
 		}
 		if (t_top > 0.01) {
-			base_col = mix(base_col, texture(hill_texture, uv_xz).rgb, t_top);
+			base_col = mix(base_col, tile_sample(hill_texture, uv_ground, g2, h2), t_top);
+			if (t_top > 0.5) {
+				hgrad = g2;
+				tex_h = h2;
+			}
 		}
 	}
+	// Detail normal: the height-field normal tilted by the tile's relief.
+	vec3 n_geo = normalize(v_normal_world);
+	vec3 n_detail = normalize(n_geo - detail_bump * (hgrad.x * tan_u + hgrad.y * tan_v));
 
 	if (!is_wall && ground_desat > 0.0) {
 		base_col = mix(base_col, vec3(dot(base_col, vec3(0.299, 0.587, 0.114))) * 1.3, ground_desat);
@@ -202,7 +258,7 @@ void fragment() {
 		base_col = mix(base_col, base_col * vec3(0.80, 0.92, 0.88), smoothstep(0.42, 0.22, d1) * 0.6);
 	}
 	if (path_t > 0.001 && !is_path && !is_wall) {
-		base_col = mix(base_col, texture(path_texture, uv_xz).rgb * path_tint / max(grass_tint, vec3(0.01)), path_t);
+		base_col = mix(base_col, texture(path_texture, uv_ground).rgb * path_tint / max(grass_tint, vec3(0.01)), path_t);
 	}
 
 	// Hand the base colour to Godot's lighting pipeline.
@@ -211,7 +267,7 @@ void fragment() {
 	// have their projected winding flipped under isometric view, causing the GPU
 	// to treat them as back-faces; overriding NORMAL here fixes that without
 	// needing FRONT_FACING hacks or removing cull_disabled.
-	NORMAL = normalize((VIEW_MATRIX * vec4(normalize(v_normal_world), 0.0)).xyz);
+	NORMAL = normalize((VIEW_MATRIX * vec4(n_detail, 0.0)).xyz);
 
 	// Biome color tint: walls use wall_tint, paths use path_tint, hills blend grass→hill.
 	vec3 tint;
@@ -235,14 +291,22 @@ void fragment() {
 	// in a soft contact shadow and the top edge catches a little light.
 	if (is_wall) {
 		float side = smoothstep(0.3, 0.7, slope);
-		// Noise in face space (along-face axis × height) so moss forms patches
-		// on the bricks instead of diagonal streaks.
-		float su = mix(v_world_xz.y, v_world_xz.x, abs(v_normal_world.z));
-		float mn = mix(vnoise(v_world_xz * 0.8), vnoise(vec2(su * 0.9, v_world_y * 1.4)), side);
-		float moss = side * clamp(smoothstep(0.45, 0.0, v_blend) * 0.9 + smoothstep(0.6, 0.78, mn) * 0.7, 0.0, 1.0);
-		moss = max(moss, (1.0 - side) * smoothstep(0.55, 0.75, mn) * 0.75) * wall_moss;
-		vec3 moss_col = vec3(0.36, 0.52, 0.20) * (0.8 + 0.4 * mn);
-		tinted_col = mix(tinted_col * 1.3, moss_col, moss * 0.7);
+		// Moss is decided per texel of the tile under it (pixel-crisp, not a
+		// smooth smear) and prefers the mortar and crevices (low tile height).
+		vec2 texel = floor((side > 0.5 ? uv_side : uv_ground) * TEX_RES);
+		vec2 tq = (texel + 0.5) / (TEX_RES * uv_scale);
+		float mn = side > 0.5 ? vnoise(tq * vec2(0.9, 1.4)) : vnoise(tq * 0.8);
+		float crevice = (0.45 - tex_h) * 0.35;
+		float moss = side * (smoothstep(0.45, 0.0, v_blend) * 0.9 + smoothstep(0.6, 0.78, mn + crevice) * 0.7);
+		moss = max(moss, (1.0 - side) * smoothstep(0.55, 0.75, mn + crevice) * 0.8);
+		// Hard edge with only a little per-texel jitter, so moss grows in
+		// clumps with ragged pixel borders rather than a salt-and-pepper speckle.
+		float th = hash2(tq * 31.7 + vec2(side * 13.0));
+		moss = step(0.5 + (th - 0.5) * 0.3, clamp(moss, 0.0, 1.0) * wall_moss);
+		// Three moss tones picked per texel, lighter on raised stone.
+		float tone = floor(fract(th * 11.3) * 3.0) / 2.0;
+		vec3 moss_col = vec3(0.34, 0.50, 0.19) * (0.72 + 0.3 * tone + 0.25 * tex_h);
+		tinted_col = mix(tinted_col * 1.3, moss_col, moss * 0.8);
 		tinted_col *= mix(1.0, mix(0.6, 1.0, smoothstep(0.0, 0.3, v_blend)), side);
 		tinted_col += side * smoothstep(0.9, 1.0, v_blend) * vec3(0.10, 0.09, 0.07);
 	}
@@ -254,50 +318,53 @@ void fragment() {
 		tinted_col = mix(tinted_col, blight_col, blight_amount * 0.75);
 	}
 
-	// Wet ground: darker albedo, low roughness and more specular so the sun,
-	// sky and lightning glint off it. Upward-facing ground holds the water (wall
-	// faces barely darken); noise patches pool into glossier puddles. Uniform
-	// branch — dry weather skips it entirely.
+	// Water is pixel art like everything else: evaluated per world texel (the
+	// ground's 20 texels/unit = the sprites' density), animated in stepped
+	// frames, flat colour bands and blinking pixel glints — no smooth
+	// specular sheen, which read as glossy 3-D against the pixel art.
+	float px_per_unit = TEX_RES * uv_scale;
+	vec2 wq = (floor(v_world_xz * px_per_unit) + 0.5) / px_per_unit;
+	// Per-texel blink: each texel re-rolls a few times a second on its own phase.
+	float blink = hash2(wq * 17.3 + floor(TIME * 3.0 + hash2(wq * 3.1) * 3.0));
+
+	// Wet ground (rain): darker and slightly less rough; puddles in dips on
+	// level ground (TID-515) as flat pixel water with rain glints.
 	float wet_rough = 0.9;
 	float wet_spec = 0.1;
 	if (terrain_wetness > 0.001) {
 		float up = smoothstep(0.55, 0.95, v_normal_world.y);
 		float wet = terrain_wetness * mix(0.25, 1.0, up);
-		// Puddles stand in dips on level ground (TID-515), not on walls or hills.
 		float level_ground = up * (1.0 - smoothstep(0.02, 0.1, v_blend)) * (is_wall ? 0.0 : 1.0);
-		float puddle = puddle_mask(v_world_xz, v_dip, level_ground);
-		tinted_col *= 1.0 - 0.35 * wet - 0.1 * puddle;
-		// Standing water: darker, cooler, picks up a sky-grey sheen.
-		tinted_col = mix(tinted_col, vec3(0.30, 0.37, 0.46), puddle * 0.5);
-		wet_rough = mix(0.9, 0.35, wet);
-		wet_rough = mix(wet_rough, 0.04, puddle);
-		wet_spec = mix(0.1, 0.45, max(wet, puddle));
-		if (puddle > 0.01) {
-			vec2 rip = puddle_ripple(v_world_xz, TIME) * puddle * 0.35;
-			vec3 n_world = normalize(vec3(-rip.x, 1.0, -rip.y));
-			NORMAL = normalize((VIEW_MATRIX * vec4(mix(normalize(v_normal_world), n_world, puddle), 0.0)).xyz);
-		}
+		float puddle = step(0.5, puddle_mask(wq, puddle_dip(wq), level_ground));
+		tinted_col *= 1.0 - 0.3 * wet;
+		tinted_col = mix(tinted_col, vec3(0.30, 0.37, 0.46), puddle * 0.7);
+		tinted_col = mix(tinted_col, vec3(0.70, 0.78, 0.86), puddle * step(1.0 - 0.06 * terrain_rain, blink));
+		wet_rough = mix(0.9, 0.6, wet);
+		wet_spec = mix(0.1, 0.25, max(wet, puddle));
 	}
 
-	// Streams and ponds (GID-134 / TID-524): level grass only, ragged banks, a
-	// lighter shoreline, deeper colour mid-channel and drifting ripples that
-	// catch the sky. Drawn after the wet block so standing water wins.
+	// Streams and ponds (GID-134 / TID-524): level grass only, ragged pixel
+	// banks with a one-texel shoreline, three depth bands, drifting ripple
+	// streaks and glints. Drawn after the wet block so standing water wins.
 	if (v_water > 0.01 && !is_wall && !is_path) {
-		float lg = smoothstep(0.55, 0.95, v_normal_world.y) * (1.0 - smoothstep(0.02, 0.1, v_blend));
-		float water = smoothstep(0.16, 0.36, v_water + (vnoise(v_world_xz * 1.3) - 0.5) * 0.12) * lg;
-		if (water > 0.001) {
-			float deep = smoothstep(0.35, 0.9, v_water);
-			vec2 wp = v_world_xz * 1.4 + vec2(TIME * 0.35, TIME * 0.2);
-			float r0 = vnoise(wp);
-			float rx = vnoise(wp + vec2(0.15, 0.0)) - r0;
-			float rz = vnoise(wp + vec2(0.0, 0.15)) - r0;
-			vec3 wcol = mix(vec3(0.24, 0.46, 0.48), vec3(0.10, 0.25, 0.36), deep) * (0.94 + r0 * 0.12);
-			float shore = smoothstep(0.0, 0.3, water) * (1.0 - smoothstep(0.3, 0.75, water));
-			tinted_col = mix(tinted_col, wcol, water * 0.9) + shore * vec3(0.10, 0.12, 0.10);
-			wet_rough = mix(wet_rough, 0.06, water);
-			wet_spec = mix(wet_spec, 0.6, water);
-			vec3 wn = normalize(vec3(-rx * 2.5, 1.0, -rz * 2.5));
-			NORMAL = normalize((VIEW_MATRIX * vec4(mix(normalize(v_normal_world), wn, water), 0.0)).xyz);
+		float lg = step(0.75, v_normal_world.y) * step(v_blend, 0.06);
+		float wv = v_water + (vnoise(wq * 1.3) - 0.5) * 0.12;
+		if (lg > 0.5 && wv > 0.24) {
+			float depth = wv - 0.24;
+			vec3 wcol = depth < 0.2 ? vec3(0.20, 0.40, 0.43)
+				: (depth < 0.45 ? vec3(0.14, 0.31, 0.40) : vec3(0.09, 0.22, 0.34));
+			// Ripple streaks, stretched along the flow and stepped in time.
+			float frame = floor(TIME * 4.0) / 4.0;
+			float rip = vnoise(wq * vec2(1.2, 3.0) + vec2(frame * 0.35, frame * 0.2));
+			wcol = mix(wcol, wcol * 1.3 + vec3(0.03), step(0.7, rip));
+			wcol = mix(wcol, vec3(0.80, 0.90, 0.93), step(0.992, blink) * step(0.05, depth));
+			// One-texel pale shoreline where the water meets the bank.
+			// fwidth(v_water) is its change per screen pixel; a texel spans ~2.5.
+			wcol = mix(wcol, vec3(0.48, 0.62, 0.58), step(depth, fwidth(v_water) * 2.5));
+			tinted_col = wcol;
+			wet_rough = 0.6;
+			wet_spec = 0.2;
+			NORMAL = normalize((VIEW_MATRIX * vec4(n_geo, 0.0)).xyz);
 		}
 	}
 

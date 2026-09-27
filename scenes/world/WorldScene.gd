@@ -1427,7 +1427,7 @@ func _make_terrain_material(_seed: int = 0) -> ShaderMaterial:
 	mat.set_shader_parameter("wall_side_texture", _TexWallSide)
 	mat.set_shader_parameter("wall_top_texture",  _TexWallTop)
 	mat.set_shader_parameter("path_texture",      _TexPath)
-	mat.set_shader_parameter("uv_scale", 0.5)
+	mat.set_shader_parameter("uv_scale", 20.0 / 128.0)  # sprite pixel density (see terrain.gdshader)
 	return mat
 
 func _create_player_node() -> _Player:

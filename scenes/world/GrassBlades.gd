@@ -1,9 +1,8 @@
 extends Node3D
 
-const _GrassShader   = preload("res://assets/shaders/grass_blade.gdshader")
-const _ClusterShader = preload("res://assets/shaders/grass_cluster.gdshader")
-const _GrassShaderLit   = preload("res://assets/shaders/grass_blade_lit.gdshader")
-const _ClusterShaderLit = preload("res://assets/shaders/grass_cluster_lit.gdshader")
+const _TuftShader    = preload("res://assets/shaders/grass_tuft.gdshader")
+const _TuftShaderLit = preload("res://assets/shaders/grass_tuft_lit.gdshader")
+const _TuftAtlas     = preload("res://assets/textures/pixel_art/grass_tufts.png")
 const WorldMap       = preload("res://game_logic/world/WorldMap.gd")
 const _ChunkData     = preload("res://game_logic/world/ChunkData.gd")
 
@@ -17,15 +16,20 @@ const TRAMPLE_FLOOR       := 0.3  # trampled grass never recovers past this
 const TRAMPLE_RAMP        := 1.5  # per-second ramp-up rate
 const TRAMPLE_UPDATE_INTERVAL: float = 0.2  # ~5 Hz — was 15 Hz, barely visible difference
 
-# Mobile-budget densities: real blade geometry is the single biggest GPU cost
-# in grass biomes (each blade = 7 shaded verts), so keep counts low and let the
-# 4-vert billboard clusters carry apparent density instead.
-const BLADES_PER_TILE      := 16   # short grass tiles
-const BLADES_TALL_PER_TILE := 40   # tall patch tiles
-const CLUSTERS_PER_TILE    := 6    # billboard cluster quads per tile
-const BLADE_WIDTH      := 0.20
-const BLADE_HEIGHT     := 0.40
-const SEGMENTS         := 3  # quads along the blade height
+# Grass is billboard tuft sprites from grass_tufts.png (4 verts each), drawn at
+# the character sprites' pixel size so the grass matches the rest of the art.
+# This replaced 3-D blades (7 verts each, 16-40 per tile) plus spiky cluster
+# quads: ~5x fewer vertices for a fuller, less jagged field.
+# Ordinary grass is patchy, not a carpet: a hash per SHORT_PATCH_CELL picks
+# 0..TUFTS_PER_TILE_MAX tufts for the tiles in it (mean ~1.25), so the meadow
+# has bare stretches, sparse ones and a few fuller clumps.
+const TUFTS_PER_TILE_MAX  := 4
+const SHORT_PATCH_CELL: float = 4.0   # world units (2 tiles)
+const TUFTS_TALL_PER_TILE := 6    # tall tufts on a tall-patch tile (plus 2 short)
+const PIXEL: float = 0.05         # world units per texel — Player.PIXEL_SIZE
+const TUFT_W: float  = 16.0 * PIXEL
+const SHORT_H: float = 12.0 * PIXEL
+const TALL_H: float  = 24.0 * PIXEL
 
 # Draw distance for grass MMIs. The orthogonal camera (size 15, offset
 # (20,20,20)) never sees ground further than ~45 units away, so anything past
@@ -45,11 +49,8 @@ const TALL_PATCH_DENSITY: float = 0.12  # fraction of cells that become tall pat
 static var _registered_global_params: Dictionary = {}
 
 var _mat: ShaderMaterial
-var _blade_mesh: ArrayMesh  # cached — identical for every chunk
-
-var _cluster_mat:  ShaderMaterial
 var _lit: bool = false
-var _cluster_mesh: ArrayMesh  # unit quad, billboard-rotated per instance
+var _tuft_mesh: ArrayMesh  # unit quad, billboarded per instance in the shader
 
 var _prev_pos:      Vector3 = Vector3(-9999, 0, -9999)
 var _last_move_dir: Vector2 = Vector2.ZERO
@@ -63,8 +64,7 @@ var _trample_origin_z: float = 0.0  # world-space Z of pixel (0,0) in trample ma
 var _trample_timer:    float = 0.0  # throttle trample updates
 
 # Per-chunk MultiMeshInstance3D nodes — keyed by Vector2i(cx, cz)
-var _chunk_mmis:   Dictionary = {}
-var _cluster_mmis: Dictionary = {}
+var _chunk_mmis: Dictionary = {}
 
 # Integer hash mapped to [0,1) — used for deterministic patch classification.
 static func _hash_pos(px: float, pz: float) -> float:
@@ -85,8 +85,7 @@ static func _ensure_global_param(name: String, type: RenderingServer.GlobalShade
 func set_lit(on: bool) -> void:
 	_lit = on
 	if _mat != null:
-		_mat.shader = _GrassShaderLit if on else _GrassShader
-		_cluster_mat.shader = _ClusterShaderLit if on else _ClusterShader
+		_mat.shader = _TuftShaderLit if on else _TuftShader
 
 func is_lit() -> bool:
 	return _lit
@@ -96,12 +95,9 @@ func _init_material() -> void:
 	if _mat:
 		return
 	_mat = ShaderMaterial.new()
-	_mat.shader = _GrassShaderLit if _lit else _GrassShader
-	_blade_mesh = _make_blade_mesh()
-
-	_cluster_mat = ShaderMaterial.new()
-	_cluster_mat.shader = _ClusterShaderLit if _lit else _ClusterShader
-	_cluster_mesh = _make_cluster_mesh()
+	_mat.shader = _TuftShaderLit if _lit else _TuftShader
+	_mat.set_shader_parameter("tuft_atlas", _TuftAtlas)
+	_tuft_mesh = _make_tuft_mesh()
 
 	# Register global shader parameters shared across all grass chunks.
 	# One set-call from update_player() reaches every chunk without per-chunk overhead.
@@ -159,92 +155,56 @@ static func compute_centres(chunk_data: _ChunkData, chunk_origin: Vector3) -> Ar
 			))
 	return centres
 
-# Build blade and cluster PackedFloat32Array buffers — no scene tree or GPU calls.
-# Returns {} if centres is empty, otherwise returns the data needed by commit_grass_buffers.
+# Short-tuft count for an ordinary grass tile: squared hash, so bare and
+# sparse cells are common and full ones rare.
+static func _short_tufts(centre: Vector2) -> int:
+	var r: float = _hash_pos(snapped(centre.x + 1000.0, SHORT_PATCH_CELL),
+			snapped(centre.y + 1000.0, SHORT_PATCH_CELL))
+	return int(floorf(r * r * float(TUFTS_PER_TILE_MAX + 1)))
+
+# Build the tuft PackedFloat32Array buffer — no scene tree or GPU calls.
+# Returns {} if centres is empty, otherwise the data commit_grass_buffers needs.
 static func prepare_buffers(centres: Array[Vector2], chunk_key: Vector2i) -> Dictionary:
 	if centres.is_empty():
 		return {}
-
-	var half: float = IsoConst.TILE_SIZE * 0.45
-	var blade_y: float = 0.01
-
+	var ts: float = IsoConst.TILE_SIZE
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 99887 ^ (chunk_key.x * 73856093) ^ (chunk_key.y * 19349663)
 
-	# Pre-classify tiles
 	var tall_flags: Array[bool] = []
 	tall_flags.resize(centres.size())
 	var total: int = 0
 	for ci in range(centres.size()):
 		var centre: Vector2 = centres[ci]
-		var patch_x: float = snapped(centre.x, TALL_PATCH_CELL)
-		var patch_z: float = snapped(centre.y, TALL_PATCH_CELL)
-		var is_tall: bool = _hash_pos(patch_x, patch_z) < TALL_PATCH_DENSITY
+		var is_tall: bool = _hash_pos(snapped(centre.x, TALL_PATCH_CELL),
+				snapped(centre.y, TALL_PATCH_CELL)) < TALL_PATCH_DENSITY
 		tall_flags[ci] = is_tall
-		total += BLADES_TALL_PER_TILE if is_tall else BLADES_PER_TILE
+		total += TUFTS_TALL_PER_TILE + 2 if is_tall else _short_tufts(centre)
 
-	var blade_buf := PackedFloat32Array()
-	blade_buf.resize(total * 12)
+	if total == 0:
+		return {}
+	var buf := PackedFloat32Array()
+	buf.resize(total * 12)
 	var i: int = 0
 	for ci in range(centres.size()):
 		var centre: Vector2 = centres[ci]
 		var is_tall: bool = tall_flags[ci]
-		var blade_count: int = BLADES_TALL_PER_TILE if is_tall else BLADES_PER_TILE
-		for _b in range(blade_count):
-			var px: float = centre.x + rng.randf_range(-half, half)
-			var pz: float = centre.y + rng.randf_range(-half, half)
-			var rot: float = rng.randf_range(0.0, PI)
-			var sy: float
-			var sx: float
-			if is_tall:
-				sy = rng.randf_range(2.2, 3.8)
-				sx = rng.randf_range(0.30, 0.50)
-			else:
-				sy = rng.randf_range(0.35, 0.85)
-				sx = rng.randf_range(0.30, 0.55)
-			var cr: float = cos(rot) * sx
-			var sr: float = sin(rot) * sx
-			var off: int  = i * 12
-			blade_buf[off]    =  cr;  blade_buf[off+1]  = 0.0; blade_buf[off+2]  =  sr;  blade_buf[off+3]  = px
-			blade_buf[off+4]  = 0.0;  blade_buf[off+5]  =  sy; blade_buf[off+6]  = 0.0;  blade_buf[off+7]  = blade_y
-			blade_buf[off+8]  = -sr;  blade_buf[off+9]  = 0.0; blade_buf[off+10] =  cr;  blade_buf[off+11] = pz
+		var n: int = TUFTS_TALL_PER_TILE + 2 if is_tall else _short_tufts(centre)
+		# Stratified on a 3x3 grid (random start cell) so tufts cover the tile
+		# evenly instead of clumping; jitter may spill a little past the edge.
+		var start: int = rng.randi_range(0, 8)
+		for k in range(n):
+			var cell: int = (start + k * 4) % 9
+			var px: float = centre.x + (float(cell % 3) - 1.0 + rng.randf_range(-0.5, 0.5)) * ts / 3.0
+			var pz: float = centre.y + (floorf(float(cell) / 3.0) - 1.0 + rng.randf_range(-0.5, 0.5)) * ts / 3.0
+			var h: float = TALL_H if is_tall and k >= 2 else SHORT_H
+			var off: int = i * 12
+			# Basis carries the tuft size (the shader billboards it); z unused.
+			buf[off] = TUFT_W;  buf[off + 1] = 0.0; buf[off + 2]  = 0.0; buf[off + 3]  = px
+			buf[off + 4] = 0.0; buf[off + 5] = h;   buf[off + 6]  = 0.0; buf[off + 7]  = 0.01
+			buf[off + 8] = 0.0; buf[off + 9] = 0.0; buf[off + 10] = 1.0; buf[off + 11] = pz
 			i += 1
-
-	# Cluster buffers — separate seeded RNG so blade count changes don't shift clusters
-	var crng := RandomNumberGenerator.new()
-	crng.seed = (chunk_key.x * 92821739) ^ (chunk_key.y * 31415927) ^ 0x5EED1234
-	var ctotal: int = centres.size() * CLUSTERS_PER_TILE
-	var cluster_buf := PackedFloat32Array()
-	cluster_buf.resize(ctotal * 12)
-	var idx: int = 0
-	for ci in range(centres.size()):
-		var centre: Vector2 = centres[ci]
-		var patch_x: float = snapped(centre.x, TALL_PATCH_CELL)
-		var patch_z: float = snapped(centre.y, TALL_PATCH_CELL)
-		var is_tall: bool = _hash_pos(patch_x, patch_z) < TALL_PATCH_DENSITY
-		for _c in range(CLUSTERS_PER_TILE):
-			var px: float = centre.x + crng.randf_range(-half, half)
-			var pz: float = centre.y + crng.randf_range(-half, half)
-			var sx: float
-			var sy: float
-			if is_tall:
-				sx = crng.randf_range(0.45, 0.65)
-				sy = crng.randf_range(0.50, 0.85)
-			else:
-				sx = crng.randf_range(0.45, 0.65)
-				sy = crng.randf_range(0.24, 0.38)
-			var off: int = idx * 12
-			cluster_buf[off]    = sx;  cluster_buf[off+1]  = 0.0; cluster_buf[off+2]  = 0.0; cluster_buf[off+3]  = px
-			cluster_buf[off+4]  = 0.0; cluster_buf[off+5]  = sy;  cluster_buf[off+6]  = 0.0; cluster_buf[off+7]  = 0.01
-			cluster_buf[off+8]  = 0.0; cluster_buf[off+9]  = 0.0; cluster_buf[off+10] = 1.0; cluster_buf[off+11] = pz
-			idx += 1
-
-	return {
-		"blade_buf":     blade_buf,
-		"blade_count":   total,
-		"cluster_buf":   cluster_buf,
-		"cluster_count": ctotal,
-	}
+	return {"tuft_buf": buf, "tuft_count": total}
 
 # Main-thread commit: create MultiMesh + MMI from pre-built buffers.
 func commit_grass_buffers(grass_data: Dictionary, chunk_key: Vector2i, recolor := Color(1, 1, 1, 0)) -> void:
@@ -252,88 +212,52 @@ func commit_grass_buffers(grass_data: Dictionary, chunk_key: Vector2i, recolor :
 		return
 	_init_material()
 	var chunk_world: float = IsoConst.CHUNK_SIZE * IsoConst.TILE_SIZE
-	var cx: int = chunk_key.x
-	var cz: int = chunk_key.y
-
-	var blade_count: int = grass_data["blade_count"]
 	var mm := MultiMesh.new()
-	mm.mesh = _blade_mesh
+	mm.mesh = _tuft_mesh
 	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.instance_count = blade_count
+	mm.instance_count = int(grass_data["tuft_count"])
 	mm.custom_aabb = AABB(
-		Vector3(cx * chunk_world, -0.5, cz * chunk_world),
-		Vector3(chunk_world, BLADE_HEIGHT + 2.0, chunk_world)
+		Vector3(chunk_key.x * chunk_world - 1.0, -0.5, chunk_key.y * chunk_world - 1.0),
+		Vector3(chunk_world + 2.0, TALL_H + 1.0, chunk_world + 2.0)
 	)
-	mm.buffer = grass_data["blade_buf"]
+	mm.buffer = grass_data["tuft_buf"]
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm
 	mmi.material_override = _mat
 	mmi.visibility_range_end = VISIBILITY_END
 	mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
-	# Thousands of 2px-wide blades re-rendered into the shadow map cost a full
-	# extra geometry pass for a shadow that reads as noise at 0.2 opacity.
+	# Billboard quads cast misshapen shadows, and a shadow pass over thousands
+	# of tufts is a full extra geometry pass for noise at 0.2 opacity.
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mmi.layers = RENDER_LAYER
-	mmi.set_instance_shader_parameter("grass_recolor", recolor)  # per-biome blade colour (GID-134)
+	mmi.set_instance_shader_parameter("grass_recolor", recolor)  # per-biome colour (GID-134)
 	add_child(mmi)
 	_chunk_mmis[chunk_key] = mmi
-
-	var cluster_count: int = grass_data["cluster_count"]
-	var cmm := MultiMesh.new()
-	cmm.mesh = _cluster_mesh
-	cmm.transform_format = MultiMesh.TRANSFORM_3D
-	cmm.instance_count = cluster_count
-	cmm.custom_aabb = AABB(
-		Vector3(cx * chunk_world, -0.5, cz * chunk_world),
-		Vector3(chunk_world, 1.5, chunk_world)
-	)
-	cmm.buffer = grass_data["cluster_buf"]
-	var cmmi := MultiMeshInstance3D.new()
-	cmmi.multimesh = cmm
-	cmmi.material_override = _cluster_mat
-	cmmi.visibility_range_end = VISIBILITY_END
-	cmmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
-	# Billboard quads cast misshapen shadows — disable to avoid diamond artifacts.
-	cmmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	cmmi.layers = RENDER_LAYER
-	cmmi.set_instance_shader_parameter("grass_recolor", recolor)
-	add_child(cmmi)
-	_cluster_mmis[chunk_key] = cmmi
 
 func remove_chunk(chunk_key: Vector2i) -> void:
 	if _chunk_mmis.has(chunk_key):
 		var mmi: MultiMeshInstance3D = _chunk_mmis[chunk_key]
 		mmi.queue_free()
 		_chunk_mmis.erase(chunk_key)
-	if _cluster_mmis.has(chunk_key):
-		var mmi: MultiMeshInstance3D = _cluster_mmis[chunk_key]
-		mmi.queue_free()
-		_cluster_mmis.erase(chunk_key)
 
-func _make_cluster_mesh() -> ArrayMesh:
-	# Unit quad: X from -0.5 to 0.5, Y from 0 to 1, facing +Z.
-	# billboard_fixed_y rotates it around Y to face the camera each frame.
+func _make_tuft_mesh() -> ArrayMesh:
+	# Unit quad: X from -0.5 to 0.5, Y from 0 to 1. The shader rebuilds the
+	# world position from the UVs, so only the UVs really matter.
 	var verts := PackedVector3Array([
-		Vector3(-0.5, 0.0, 0.0),
-		Vector3( 0.5, 0.0, 0.0),
-		Vector3( 0.5, 1.0, 0.0),
-		Vector3(-0.5, 1.0, 0.0),
+		Vector3(-0.5, 0.0, 0.0), Vector3(0.5, 0.0, 0.0),
+		Vector3(0.5, 1.0, 0.0), Vector3(-0.5, 1.0, 0.0),
 	])
 	var uvs := PackedVector2Array([
 		Vector2(0.0, 0.0), Vector2(1.0, 0.0),
 		Vector2(1.0, 1.0), Vector2(0.0, 1.0),
 	])
-	var normals := PackedVector3Array([
-		Vector3(0.0, 0.0, 1.0), Vector3(0.0, 0.0, 1.0),
-		Vector3(0.0, 0.0, 1.0), Vector3(0.0, 0.0, 1.0),
-	])
-	var indices := PackedInt32Array([0, 1, 2, 0, 2, 3])
+	var normals := PackedVector3Array([Vector3.BACK, Vector3.BACK, Vector3.BACK, Vector3.BACK])
 	var arrays: Array = []
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = verts
 	arrays[Mesh.ARRAY_TEX_UV] = uvs
 	arrays[Mesh.ARRAY_NORMAL] = normals
-	arrays[Mesh.ARRAY_INDEX]  = indices
+	arrays[Mesh.ARRAY_INDEX] = PackedInt32Array([0, 1, 2, 0, 2, 3])
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	return mesh
@@ -341,8 +265,6 @@ func _make_cluster_mesh() -> ArrayMesh:
 func set_wind_direction(dir: Vector2) -> void:
 	if _mat:
 		_mat.set_shader_parameter("wind_direction", dir)
-	if _cluster_mat:
-		_cluster_mat.set_shader_parameter("wind_direction", dir)
 
 func update_player(pos: Vector3, delta: float, is_grounded: bool) -> void:
 	if not _mat:
@@ -456,45 +378,3 @@ func _update_trample_map(pos: Vector3, delta: float) -> void:
 func _flush_trample_to_gpu() -> void:
 	_trample_img.set_data(TRAMPLE_RES, TRAMPLE_RES, false, Image.FORMAT_L8, _trample_bytes)
 	_trample_tex.update(_trample_img)
-
-func _make_blade_mesh() -> ArrayMesh:
-	var verts   := PackedVector3Array()
-	var uvs     := PackedVector2Array()
-	var normals := PackedVector3Array()
-	var indices := PackedInt32Array()
-
-	var width_profile: Array[float] = [1.0, 0.62, 0.24]
-
-	for row in range(SEGMENTS):
-		var t := float(row) / float(SEGMENTS)
-		var y := t * BLADE_HEIGHT
-		var w: float = BLADE_WIDTH * 0.5 * width_profile[row]
-		verts.append(Vector3(-w, y, 0.0))
-		verts.append(Vector3( w, y, 0.0))
-		uvs.append(Vector2(0.0, t))
-		uvs.append(Vector2(1.0, t))
-		normals.append(Vector3(0.0, 0.0, 1.0))
-		normals.append(Vector3(0.0, 0.0, 1.0))
-
-	verts.append(Vector3(0.0, BLADE_HEIGHT, 0.0))
-	uvs.append(Vector2(0.5, 1.0))
-	normals.append(Vector3(0.0, 0.0, 1.0))
-
-	for row in range(SEGMENTS - 1):
-		var b := row * 2
-		indices.append_array([b, b+1, b+2,  b+1, b+3, b+2])
-
-	var last := (SEGMENTS - 1) * 2
-	var tip  := SEGMENTS * 2
-	indices.append_array([last, last+1, tip])
-
-	var arrays: Array = []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX]  = verts
-	arrays[Mesh.ARRAY_TEX_UV]  = uvs
-	arrays[Mesh.ARRAY_NORMAL]  = normals
-	arrays[Mesh.ARRAY_INDEX]   = indices
-
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	return mesh

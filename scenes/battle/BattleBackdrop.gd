@@ -86,7 +86,7 @@ const PALETTE: Dictionary = {
 	_BiomeDef.GRASSLANDS: {
 		"ground": _TEX_GRASS,
 		"ground_gain": 0.82,
-		"ground_scale": 11.0,
+		"ground_scale": 2.75,
 		"ground_desat": 0.10,
 		"props": [_PROP_ROCK, _PROP_FLOWER],
 		"prop_cells": 5.5,
@@ -99,7 +99,7 @@ const PALETTE: Dictionary = {
 	_BiomeDef.FOREST: {
 		"ground": _TEX_GRASS,
 		"ground_gain": 1.10,
-		"ground_scale": 11.0,
+		"ground_scale": 2.75,
 		"ground_desat": 0.15,
 		"props": [_PROP_MUSHROOM, _PROP_FERN],
 		"prop_cells": 5.0,
@@ -112,7 +112,7 @@ const PALETTE: Dictionary = {
 	_BiomeDef.DESERT: {
 		"ground": _TEX_HILL_SIDE,
 		"ground_gain": 1.00,
-		"ground_scale": 9.0,
+		"ground_scale": 2.25,
 		"ground_desat": 0.35,
 		"props": [_PROP_CACTUS, _PROP_THORN],
 		"prop_cells": 4.5,
@@ -125,7 +125,7 @@ const PALETTE: Dictionary = {
 	_BiomeDef.SCORCHED: {
 		"ground": _TEX_PATH,
 		"ground_gain": 2.40,
-		"ground_scale": 10.0,
+		"ground_scale": 2.5,
 		"ground_desat": 0.45,
 		"props": [_PROP_ASH_PILE, _PROP_EMBER],
 		"prop_cells": 5.5,
@@ -138,7 +138,7 @@ const PALETTE: Dictionary = {
 	_BiomeDef.MOUNTAINS: {
 		"ground": _TEX_HILL_SIDE,
 		"ground_gain": 1.00,
-		"ground_scale": 12.0,
+		"ground_scale": 3.0,
 		"ground_desat": 0.90,
 		"props": [_PROP_BOULDER, _PROP_LICHEN],
 		"prop_cells": 5.0,
@@ -153,7 +153,7 @@ const PALETTE: Dictionary = {
 		# dungeons, named maps, puzzles and PvP, which carry no world biome.
 		"ground": _TEX_WALL_TOP,
 		"ground_gain": 1.60,
-		"ground_scale": 6.5,
+		"ground_scale": 1.6,
 		"ground_desat": 0.55,
 		"props": [_PROP_BURIAL_MOUND, _PROP_BOULDER],
 		"prop_cells": 5.0,

@@ -15,10 +15,9 @@ func test_grass_swaps_shader_variant() -> void:
 	var g: GB = GB.new()
 	g.set_lit(true)
 	g._init_material()
-	assert_eq(g._mat.shader, GB._GrassShaderLit)
-	assert_eq(g._cluster_mat.shader, GB._ClusterShaderLit)
+	assert_eq(g._mat.shader, GB._TuftShaderLit)
 	g.set_lit(false)
-	assert_eq(g._mat.shader, GB._GrassShader)
+	assert_eq(g._mat.shader, GB._TuftShader)
 	assert_false(g.is_lit())
 	g.free()
 
