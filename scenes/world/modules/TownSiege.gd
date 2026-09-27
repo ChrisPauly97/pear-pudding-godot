@@ -75,7 +75,7 @@ func _spawn_raiders(p_map_name: String, stage: int) -> void:
 			"enemy_deck": EnemyRegistry.get_deck(enemy_type),
 		})
 		_world._entity_root.add_child(node)
-		_world._enemy_nodes[raider_id] = node
+		_world.register_loose_enemy(raider_id, node)
 
 ## "<Town> Under Attack!" across the top of the HUD while the siege runs.
 func _setup_banner(p_map_name: String) -> void:

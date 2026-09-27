@@ -87,7 +87,7 @@ func _coop_spawn_night_hunt(days: int) -> void:
 		})
 		node.position = Vector3(wx, wy, wz)
 		_world._entity_root.add_child(node)
-		_world._enemy_nodes[eid] = node
+		_world.register_loose_enemy(eid, node)
 		_coop_night_hunt_nodes[eid] = node
 		spawned_any = true
 	if spawned_any:
@@ -101,6 +101,7 @@ func _coop_despawn_night_hunt() -> void:
 		if is_instance_valid(n):
 			n.queue_free()
 		_world._enemy_nodes.erase(eid)
+		_world._loose_enemy_nodes.erase(eid)
 	_coop_night_hunt_nodes.clear()
 	_coop_night_hunt_active = false
 	_world._coop_night_hunt_kills = 0
@@ -774,7 +775,7 @@ func _coop_spawn_siege_wave() -> void:
 		node.call("init_from_data", {"id": eid, "enemy_type": str(entry.get("enemy_type", "martarquas_raider_1"))})
 		node.position = Vector3(wx, wy, wz)
 		_world._entity_root.add_child(node)
-		_world._enemy_nodes[eid] = node
+		_world.register_loose_enemy(eid, node)
 		_world._coop_siege_wave_nodes[eid] = node
 	GameBus.hud_message_requested.emit(
 		"Wave %d of %d: Siege intensifies…" % [_world._coop_siege_wave + 1, _CoopSiege.WAVE_COUNT])
@@ -806,7 +807,7 @@ func _on_siege_boss_phase_received(siege_id: int) -> void:
 	node.position = Vector3(gate.x, wy, gate.z)
 	node.call("init_from_data", {"id": boss_id, "enemy_type": _CoopSiege.boss_enemy_type(), "tracking": false})
 	_world._entity_root.add_child(node)
-	_world._enemy_nodes[boss_id] = node
+	_world.register_loose_enemy(boss_id, node)
 
 ## Host-only: watches the current wave's engage-lock state; called every frame
 ## from _process while a siege is active.

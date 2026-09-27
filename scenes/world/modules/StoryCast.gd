@@ -185,4 +185,4 @@ func _spawn_rival_at(rival_id: String, wx: float, wz: float, enemy_type: String,
 		"enemy_deck": EnemyRegistry.get_deck(enemy_type),
 		"pre_battle_dialogue": dialogue,
 	})
-	_world._enemy_nodes[rival_id] = node
+	_world.register_loose_enemy(rival_id, node)
