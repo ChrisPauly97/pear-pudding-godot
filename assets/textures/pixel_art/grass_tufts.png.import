@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://mv1i5mugyivg"
-path="res://.godot/imported/wall_side_pixel.png-101e1398529673ffd34555c2c84ac539.ctex"
+uid="uid://dvpwbv43a2ubl"
+path="res://.godot/imported/grass_tufts.png-c4f01da5686ecf0736ed2e7159284e82.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/textures/pixel_art/wall_side_pixel.png"
-dest_files=["res://.godot/imported/wall_side_pixel.png-101e1398529673ffd34555c2c84ac539.ctex"]
+source_file="res://assets/textures/pixel_art/grass_tufts.png"
+dest_files=["res://.godot/imported/grass_tufts.png-c4f01da5686ecf0736ed2e7159284e82.ctex"]
 
 [params]
 
