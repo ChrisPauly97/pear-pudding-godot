@@ -59,7 +59,12 @@ func test_entities_keep_ids_and_drop_overworld_doors() -> void:
 	var ids: Array[String] = []
 	for n: Dictionary in npcs:
 		ids.append(str(n.get("id", "")))
-	assert_true(ids.has("npc_1"), "madrian npc_1 (Maiteln) is stitched")
+	assert_true(ids.has("madrian:npc_1"), "madrian npc_1 (Maiteln) is stitched, town-prefixed")
+	assert_true(ids.has("duelist_1"), "unique ids are kept as-is")
+	var seen: Dictionary = {}
+	for id: String in ids:
+		assert_false(seen.has(id), "npc id %s is unique across towns" % id)
+		seen[id] = true
 	for d: Dictionary in RealmLayout.entities("doors"):
 		assert_false(RealmLayout.OVERWORLD_TARGETS.has(str(d.get("target_map", ""))),
 			"door %s to the overworld is dropped" % str(d.get("id", "")))
@@ -71,7 +76,7 @@ func test_entities_keep_ids_and_drop_overworld_doors() -> void:
 
 func test_maiteln_world_position() -> void:
 	for n: Dictionary in RealmLayout.entities("npcs"):
-		if str(n.get("town", "")) == "madrian" and str(n.get("id", "")) == "npc_1":
+		if str(n.get("id", "")) == "madrian:npc_1":
 			var expect: Vector2i = RealmLayout.to_world_tile("madrian", Vector2i(45, 36))
 			assert_eq(int(float(n["x"]) / IsoConst.TILE_SIZE), expect.x, "x shifted")
 			assert_eq(int(float(n["z"]) / IsoConst.TILE_SIZE), expect.y, "z shifted")
@@ -96,7 +101,7 @@ func test_generated_chunk_carries_town_tiles_and_maiteln() -> void:
 	var chunk = InfiniteWorldGen.generate_chunk(ck.x, ck.y, 1234)
 	var found: bool = false
 	for n: Dictionary in chunk.npcs:
-		if str(n.get("id", "")) == "npc_1" and str(n.get("town", "")) == "madrian":
+		if str(n.get("id", "")) == "madrian:npc_1":
 			found = true
 	assert_true(found, "Maiteln spawns in the overworld chunk over Madrian")
 	var wm = RealmLayout.town_map("madrian")

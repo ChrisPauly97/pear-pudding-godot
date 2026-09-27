@@ -233,6 +233,12 @@ static func entities(kind: String) -> Array[Dictionary]:
 				continue
 			var moved: Dictionary = _shift_entity(e, shift)
 			moved["town"] = town
+			# Every town numbers its townsfolk npc_1, npc_2…; WorldScene keys NPC
+			# nodes by id, so generic ids get the town prefix. Named ones (duelists,
+			# merchants, boards) are already unique and keep save state keyed on them.
+			var eid: String = str(e.get("id", ""))
+			if kind == "npcs" and eid.begins_with("npc_"):
+				moved["id"] = "%s:%s" % [town, eid]
 			out.append(moved)
 	_entity_cache[kind] = out
 	return out

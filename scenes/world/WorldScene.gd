@@ -616,6 +616,7 @@ func _populate_world(server_ref_pos: Vector3) -> void:
 			story_cast.spawn_open_world_rival()
 			story_cast.spawn_wilderness_camp()
 			story_cast.spawn_scout_ambush()
+			named_props.spawn_realm()
 			if map_name == "main":
 				_spawn_return_portal()
 	else:
