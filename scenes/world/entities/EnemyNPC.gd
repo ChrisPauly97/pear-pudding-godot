@@ -142,7 +142,7 @@ func init_from_data(data: Dictionary) -> void:
 ## false first, same as before, so re-entry (another interact/proximity hit
 ## while the beat is playing) is still a safe no-op.
 func engage() -> void:
-	if not _alive:
+	if not _alive or not SceneManager.accepts_engage():
 		return
 	var ambush: Dictionary = _EnemyAlertState.classify_ambush(_alert_state)
 	var player_ambush: bool = bool(ambush["player_ambush"])
@@ -152,6 +152,12 @@ func engage() -> void:
 	_show_alert()
 	AudioManager.play_sfx("enemy_alert")
 	await get_tree().create_timer(0.4, false).timeout
+	if not SceneManager.accepts_engage():
+		# Another fight started during the alert beat: stand down and stay
+		# fightable instead of being consumed by an engage nobody accepted.
+		_alive = true
+		enemy_data["alive"] = true
+		return
 	var edata := enemy_data.duplicate()
 	edata["player_ambush"] = player_ambush
 	edata["enemy_ambush"] = enemy_ambush
@@ -163,7 +169,8 @@ func engage() -> void:
 	edata["phase2_deck"] = EnemyRegistry.get_phase2_deck(etype)
 	AudioManager.play_sfx("enemy_engage")
 	GameBus.enemy_engaged.emit(edata)
-	queue_free()
+	# Fought in place, the enemy stays on screen until the battle ends (GID-135).
+	SceneManager.free_after_battle(self)
 
 func _show_alert() -> void:
 	if _sprite != null:

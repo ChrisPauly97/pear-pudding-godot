@@ -22,7 +22,8 @@ const _NamedMapProps = preload("res://scenes/world/modules/NamedMapProps.gd")
 
 func test_madrian_loads_twelve_npcs() -> void:
 	var wm := WorldMapScript.new("madrian")
-	assert_eq(wm.npcs.size(), 12, "madrian should define 12 NPCs (inc. bounty board + blacksmith)")
+	# GID-136 / TID-537 / TID-557: +2 for the skill trainer and training dummy.
+	assert_eq(wm.npcs.size(), 14, "madrian should define 14 NPCs (inc. bounty board + blacksmith + trainer + dummy)")
 
 
 func test_madrian_npc_ids_are_unique() -> void:

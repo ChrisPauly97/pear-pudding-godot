@@ -145,9 +145,34 @@ static func decode_intent(payload: Variant) -> Dictionary:
 ## Wrap a GameState.to_dict() with a monotonic sequence number for the broadcast.
 ## The state travels zstd-compressed under "z" (raw size in "n"): a full mirror is
 ## ~21 KB of Variant bytes but ~1.2 KB compressed, and one goes out per action.
-static func encode_state(state_dict: Dictionary, seq: int) -> Dictionary:
+## `fx`: presentation events since the previous mirror (see encode_attack_fx) so
+## other screens can replay what happened — the state alone only shows the result.
+static func encode_state(state_dict: Dictionary, seq: int, fx: Array = []) -> Dictionary:
 	var raw: PackedByteArray = var_to_bytes(state_dict)
-	return {"v": VERSION, "seq": seq, "z": raw.compress(FileAccess.COMPRESSION_ZSTD), "n": raw.size()}
+	var out: Dictionary = {"v": VERSION, "seq": seq, "z": raw.compress(FileAccess.COMPRESSION_ZSTD), "n": raw.size()}
+	if not fx.is_empty():
+		out["fx"] = fx.duplicate(true)
+	return out
+
+## One attack for remote screens to animate: attacker at (a_pid, a_slot) hit the
+## unit at (t_pid, t_slot), or that player's hero when t_slot == TARGET_HERO.
+static func encode_attack_fx(a_pid: int, a_slot: int, t_pid: int, t_slot: int) -> Dictionary:
+	return {"k": "attack", "ap": a_pid, "as": a_slot, "tp": t_pid, "ts": t_slot}
+
+## Well-formed attack fx entries only; anything else is dropped.
+static func decode_fx(raw: Variant) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if not (raw is Array):
+		return out
+	for e: Variant in (raw as Array):
+		if not (e is Dictionary):
+			continue
+		var d: Dictionary = e
+		if str(d.get("k", "")) != "attack":
+			continue
+		out.append({"k": "attack", "ap": int(d.get("ap", -1)), "as": int(d.get("as", -1)),
+			"tp": int(d.get("tp", -1)), "ts": int(d.get("ts", -1))})
+	return out
 
 
 ## Unwrap a mirror payload. Returns {valid, seq, state}; valid == false on garbage.
@@ -165,4 +190,4 @@ static func decode_state(payload: Variant) -> Dictionary:
 		raw_state = bytes_to_var(raw) if raw.size() == n else null
 	if not (raw_state is Dictionary):
 		return {"valid": false, "seq": -1, "state": {}}
-	return {"valid": true, "seq": int(d.get("seq", 0)), "state": raw_state}
+	return {"valid": true, "seq": int(d.get("seq", 0)), "state": raw_state, "fx": decode_fx(d.get("fx", []))}

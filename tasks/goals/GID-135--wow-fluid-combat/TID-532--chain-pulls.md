@@ -24,6 +24,9 @@ With fights in-world, nearby enemies can join or immediately follow, like pullin
 - Keep per-instance enemy ids unique (see Spire learnings) and `defeated_enemies` semantics.
 - Interacts with TID-541 (pack encounters).
 
+- Option (a) "a nearby enemy joins mid-battle" shipped as TID-551 (adds). Remaining here: (b) back-to-back
+  engages with no camera reset.
+
 ## Plan
 
 _Written during Plan phase._

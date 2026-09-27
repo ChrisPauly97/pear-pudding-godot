@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://cewy4blqtkpg"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_parrying_dagger"]
+
+[resource]
+script = ExtResource("1_parrying_dagger")
+id = "parrying_dagger"
+display_name = "Parrying Dagger"
+description = "A short off-hand blade. In real-time battle it swings on its own timer for 4 damage; in turn-based battle it adds a small attack bonus instead."
+slot = "offhand"
+battle_effect_type = "offhand_atk"
+battle_effect_value = 4

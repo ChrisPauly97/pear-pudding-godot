@@ -18,12 +18,12 @@ func _func_body(src: String, sig: String) -> String:
 	return src.substr(start, (end if end != -1 else src.length()) - start)
 
 func test_can_local_act_respects_action_busy() -> void:
-	var body: String = _func_body(_src("res://scenes/battle/BattleScene.gd"), "func _can_local_act()")
+	var body: String = _func_body(_src("res://scenes/battle/BattleScene.gd"), "func _can_local_act(")
 	assert_true(body.contains("_action_busy"), "_can_local_act must block input while an action animates")
 
 func test_attempt_attack_checks_lock_and_attack_budget() -> void:
 	var body: String = _func_body(_src("res://scenes/battle/modules/BattleInput.gd"), "func _attempt_attack(")
-	assert_true(body.contains("_can_local_act()"), "_attempt_attack must refuse while busy")
+	assert_true(body.contains("_can_local_act("), "_attempt_attack must refuse while busy")
 	assert_true(body.contains("can_attack()"), "_attempt_attack must refuse a spent attacker")
 
 func test_execute_attack_sets_and_clears_busy() -> void:

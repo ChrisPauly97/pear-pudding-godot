@@ -101,6 +101,36 @@ func opponent() -> PlayerState:
 func opponent_idx() -> int:
 	return players.find(opponent())
 
+## Every alive member of the side opposing `caster_pid`, for AoE effects that must
+## hit every enemy in an adds/team fight rather than just opponent()'s single
+## auto-target (TID-554). 2-player: the other player. Co-op: the boss (ally turn)
+## or every alive ally (boss turn — previously only the lowest-HP one, same bug).
+## Team battle (incl. a real-time "add", GID-135/TID-551): every alive member of
+## the other team. Falls back to [opponent()] when the whole opposing side is
+## dead (shouldn't happen mid-battle).
+func enemy_sides(caster_pid: int) -> Array[PlayerState]:
+	var result: Array[PlayerState] = []
+	if team_battle:
+		var my_team: int = player_teams[caster_pid] if caster_pid < player_teams.size() else 0
+		for i in range(players.size()):
+			if i < player_teams.size() and player_teams[i] == my_team:
+				continue
+			if players[i].hero.is_alive():
+				result.append(players[i])
+	elif coop_battle:
+		var boss_idx: int = players.size() - 1
+		if caster_pid == boss_idx:
+			for i in range(boss_idx):
+				if players[i].hero.is_alive():
+					result.append(players[i])
+		else:
+			result.append(players[boss_idx])
+	else:
+		result.append(players[1 - caster_pid])
+	if result.is_empty():
+		result.append(opponent())
+	return result
+
 ## Convenience accessor — always returns the boss PlayerState when coop_battle.
 func boss() -> PlayerState:
 	return players[players.size() - 1]

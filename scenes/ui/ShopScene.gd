@@ -159,6 +159,10 @@ func _refresh() -> void:
 	_shop_list.add_child(_make_section_header("— Trinkets —"))
 	_add_equipment_section("trinket", SceneManager.save_manager.owned_trinkets, coins, discounted)
 
+	# ---- Off Hands section (TID-545) --------------------------------------
+	_shop_list.add_child(_make_section_header("— Off Hands —"))
+	_add_equipment_section("offhand", SceneManager.save_manager.owned_offhands, coins, discounted)
+
 	# ---- Seeds section ---------------------------------------------------
 	_shop_list.add_child(_make_section_header("— Seeds —"))
 	for seed_id: String in GardenDefs.SEEDS:
@@ -233,16 +237,21 @@ func _make_section_header(text: String) -> Label:
 	return lbl
 
 func _weapon_price(weapon: WeaponData) -> int:
+	var price: int = 50
 	match weapon.battle_effect_type:
 		"deck_inject":
-			return 35 + weapon.injected_card_count * 5
+			price = 35 + weapon.injected_card_count * 5
 		"starting_mana":
-			return weapon.battle_effect_value * 30
+			price = weapon.battle_effect_value * 30
 		"starting_hp":
-			return weapon.battle_effect_value * 5
+			price = weapon.battle_effect_value * 5
 		"passive_atk":
-			return weapon.battle_effect_value * 25
-	return 50
+			price = weapon.battle_effect_value * 25
+		"starting_armor":
+			price = weapon.battle_effect_value * 15
+		"offhand_atk":
+			price = weapon.battle_effect_value * 20
+	return price
 
 func _make_card_row(id: String, tmpl: Dictionary, coins: int,
 		price: int = CARD_PRICE) -> HBoxContainer:

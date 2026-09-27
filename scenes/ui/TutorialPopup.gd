@@ -1,5 +1,8 @@
 extends "res://scenes/ui/BaseOverlay.gd"
 
+## Group of popups that freeze real-time battle clocks while open.
+const MODAL_GROUP: StringName = &"modal_popup"
+
 var _title: String = ""
 var _body: String = ""
 
@@ -9,6 +12,8 @@ func setup(title: String, body: String) -> void:
 
 func _ready() -> void:
 	super._ready()
+	# Real-time battles stop their clock while any modal popup is up (TID-546).
+	add_to_group(MODAL_GROUP)
 
 	_build_backdrop(0.65)
 

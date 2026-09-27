@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://fsiet7tkiai5"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_buckler"]
+
+[resource]
+script = ExtResource("1_buckler")
+id = "buckler"
+display_name = "Buckler"
+description = "A small round shield strapped to your off hand. Your hero starts each battle with 5 armor."
+slot = "offhand"
+battle_effect_type = "starting_armor"
+battle_effect_value = 5

@@ -123,6 +123,20 @@ func resolve_emergence(card: CardInstance, caster_pid: int) -> void:
 
 ## Resolves the effect of a spell card played by caster_pid against the opponent.
 ## explicit_target: optional dict with "type" ("minion"/"hero") and "card" (CardInstance).
+## The opponent an explicit target points at: the owner of a targeted enemy
+## minion, or the player named by "pidx" on a hero target; else `fallback`.
+func _explicit_opponent(explicit_target: Dictionary, caster_pid: int, fallback: PlayerState) -> PlayerState:
+	var card: Variant = explicit_target.get("card", null)
+	if card is CardInstance:
+		for i in range(_state.players.size()):
+			if i != caster_pid and _state.players[i].board.get_cards().has(card as CardInstance):
+				return _state.players[i]
+	if str(explicit_target.get("type", "")) == "hero" and explicit_target.has("pidx"):
+		var pidx: int = int(explicit_target["pidx"])
+		if pidx >= 0 and pidx < _state.players.size() and pidx != caster_pid:
+			return _state.players[pidx]
+	return fallback
+
 func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Dictionary = {}) -> void:
 	AudioManager.play_sfx("spell_resolve")
 	var _ct_board_before: int = _state.players[1 - caster_pid].board.get_cards().size() if caster_pid == 0 else 0
@@ -131,6 +145,9 @@ func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Diction
 	# old "_state.players[1 - caster_pid]" to co-op-PvE (boss) and team battles (lowest-HP
 	# enemy-team member) without changing 2-player behavior (opponent() == players[1-idx] there).
 	var opponent: PlayerState = _state.opponent()
+	# An explicit target decides which opponent: with several enemies (a real-time
+	# "add", GID-135) the targeted minion's owner or the named hero's player.
+	opponent = _explicit_opponent(explicit_target, caster_pid, opponent)
 	var caster: PlayerState = _state.players[caster_pid]
 	var power: int = card.spell_power
 	var _spell_dmg: int = BattlefieldRules.modify_damage(power, _state.battlefield_biome)
@@ -151,11 +168,15 @@ func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Diction
 				foe.take_damage(_spell_dmg)
 				_bury_if_dead(foe, opponent)
 		"deal_damage_all", "deal_damage_all_full":
-			for t in opponent.board.get_cards():
-				t.take_damage(_spell_dmg)
-			_sweep_dead(opponent)
-			if card.spell_effect == "deal_damage_all_full":
-				opponent.hero.take_damage(_spell_dmg)
+			# Hits every living enemy side in an adds/team fight, not just opponent()'s
+			# single auto-target (TID-554) — a no-op change for 2-player/duel fights,
+			# where enemy_sides() is always just [opponent()].
+			for side: PlayerState in _state.enemy_sides(caster_pid):
+				for t in side.board.get_cards():
+					t.take_damage(_spell_dmg)
+				_sweep_dead(side)
+				if card.spell_effect == "deal_damage_all_full":
+					side.hero.take_damage(_spell_dmg)
 		"deal_damage_random":
 			var targets := opponent.board.get_cards()
 			if targets.is_empty():
@@ -165,13 +186,15 @@ func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Diction
 				hit.take_damage(_spell_dmg)
 				_bury_if_dead(hit, opponent)
 		"debuff_attack":
-			for t in opponent.board.get_cards():
-				t.attack = maxi(0, t.attack - power)
+			for side: PlayerState in _state.enemy_sides(caster_pid):
+				for t in side.board.get_cards():
+					t.attack = maxi(0, t.attack - power)
 		"destroy_low_hp":
-			for t in opponent.board.get_cards().duplicate():
-				if t.health <= power:
-					opponent.board.remove_card(t)
-					opponent.discard.append(t)
+			for side: PlayerState in _state.enemy_sides(caster_pid):
+				for t in side.board.get_cards().duplicate():
+					if t.health <= power:
+						side.board.remove_card(t)
+						side.discard.append(t)
 		"resurrect_last":
 			_revive_last_minion(caster)
 		"heal_single":
@@ -224,8 +247,9 @@ func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Diction
 			if foe != null:
 				foe.apply_status("poison", power)
 		"apply_poison_all":
-			for t in opponent.board.get_cards():
-				t.apply_status("poison", power)
+			for side: PlayerState in _state.enemy_sides(caster_pid):
+				for t in side.board.get_cards():
+					t.apply_status("poison", power)
 		"grant_surge":
 			if friend != null:
 				_grant(friend, Keywords.SURGE)
@@ -267,8 +291,9 @@ func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Diction
 			if foe != null:
 				foe.apply_status("freeze", 1)
 		"freeze_all":
-			for t in opponent.board.get_cards():
-				t.apply_status("freeze", 1)
+			for side: PlayerState in _state.enemy_sides(caster_pid):
+				for t in side.board.get_cards():
+					t.apply_status("freeze", 1)
 		"drain_hero":
 			opponent.hero.take_damage(_spell_dmg)
 			caster.hero.heal(_spell_dmg)

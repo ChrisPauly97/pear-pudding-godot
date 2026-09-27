@@ -131,6 +131,16 @@ func _animate_count_up(lbl: Label, target: int, fmt: String, duration: float = _
 				AudioManager.play_sfx("ui_click")
 		)
 
+## Shared coaching-line row for the solo PvE victory overlays (GID-135 /
+## TID-559). A no-op for "" so every non-real-time call site is unaffected.
+func _add_tip_label(vbox: VBoxContainer, tip_text: String) -> void:
+	if tip_text == "":
+		return
+	var tip_lbl := _UiUtil.make_label(tip_text, int(_vh * 0.022), Color(0.75, 0.85, 1.0),
+			HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	tip_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	tip_lbl.custom_minimum_size = Vector2(_vh * 0.5, 0.0)
+
 func start_banner_fade(banner: Control) -> void:
 	var tween := _parent.create_tween()
 	tween.tween_interval(_BOSS_BANNER_DURATION - 0.5)
@@ -164,12 +174,14 @@ func _build_result_overlay(bg: Color, sep_frac: float = 0.03,
 	overlay.add_child(vbox)
 	return {"overlay": overlay, "vbox": vbox}
 
+## `tip_text` (GID-135 / TID-559): one coaching line for a real-time fight,
+## from `FightStats.pick_tip`; "" (every other call site) shows nothing.
 # gdlint:ignore = function-arguments-number
 func show_victory(reward_card_id: String, weapon_reward_id: String = "",
 		sig_card_id: String = "", condition_text_arg: String = "", condition_met: bool = false,
 		reward_rarity: String = "", reward_stats: Dictionary = {},
 		coins_earned: int = 0, xp_earned: int = 0, hero_hp: int = 0,
-		currency_earned: Dictionary = {}) -> void:
+		currency_earned: Dictionary = {}, tip_text: String = "") -> void:
 	var result: Dictionary = _build_result_overlay(Color(0.05, 0.05, 0.1, 0.92))
 	var overlay: PanelContainer = result["overlay"]
 	var vbox: VBoxContainer = result["vbox"]
@@ -223,6 +235,8 @@ func show_victory(reward_card_id: String, weapon_reward_id: String = "",
 				Color(0.7, 0.5, 1.0), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 		hunt_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
+	_add_tip_label(vbox, tip_text)
+
 	var btn := _UiUtil.make_button("Collect" if (reward_card_id != "" or weapon_reward_id != "") else "Continue",
 			Vector2(_vh * 0.18, _vh * 0.06), int(_vh * 0.025))
 	var final_card: String = reward_card_id
@@ -252,7 +266,7 @@ func show_victory(reward_card_id: String, weapon_reward_id: String = "",
 
 func show_soulbind(reward_card_id: String, sig_card_id: String, condition_text_arg: String, hero_hp: int = 0,
 		currency_earned: Dictionary = {},
-		reward_rarity: String = "", reward_stats: Dictionary = {}) -> void:
+		reward_rarity: String = "", reward_stats: Dictionary = {}, tip_text: String = "") -> void:
 	var result: Dictionary = _build_result_overlay(Color(0.05, 0.02, 0.12, 0.95), 0.028)
 	var overlay: PanelContainer = result["overlay"]
 	var vbox: VBoxContainer = result["vbox"]
@@ -275,6 +289,8 @@ func show_soulbind(reward_card_id: String, sig_card_id: String, condition_text_a
 	var stmpl: Dictionary = CardRegistry.get_template(sig_card_id)
 	var sig_lbl := _UiUtil.make_label("Signature captured: " + str(stmpl.get("name", sig_card_id)), int(_vh * 0.032),
 			Color(0.9, 0.5, 1.0), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+
+	_add_tip_label(vbox, tip_text)
 
 	var btn := _UiUtil.make_button("Collect All", Vector2(_vh * 0.22, _vh * 0.065), int(_vh * 0.028))
 	var fc: String = reward_card_id
@@ -306,7 +322,7 @@ func show_soulbind(reward_card_id: String, sig_card_id: String, condition_text_a
 func show_victory_boss(reward_cards: Array[String], weapon_reward_id: String = "",
 		rarities: Array[String] = [], stats_list: Array[Dictionary] = [],
 		coins_earned: int = 0, xp_earned: int = 0, hero_hp: int = 0,
-		currency_earned: Dictionary = {}) -> void:
+		currency_earned: Dictionary = {}, tip_text: String = "") -> void:
 	var result: Dictionary = _build_result_overlay(Color(0.05, 0.05, 0.1, 0.92), 0.025)
 	var overlay: PanelContainer = result["overlay"]
 	var vbox: VBoxContainer = result["vbox"]
@@ -356,6 +372,8 @@ func show_victory_boss(reward_cards: Array[String], weapon_reward_id: String = "
 		weapon_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		weapon_lbl.modulate = Color(0.8, 1.0, 0.5)
 		vbox.add_child(weapon_lbl)
+
+	_add_tip_label(vbox, tip_text)
 
 	var btn := _UiUtil.make_button("Collect" if (not reward_cards.is_empty() or weapon_reward_id != "") else "Continue",
 			Vector2(_vh * 0.18, _vh * 0.06), int(_vh * 0.025))

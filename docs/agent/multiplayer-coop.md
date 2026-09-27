@@ -3117,3 +3117,21 @@ entity script directly (same scope cut already accepted for other
 WorldScene-orchestrated entities in this file); the logic was instead
 manually traced against the shipped `RemotePlayer`/`AvatarSync` pattern it
 mirrors.
+
+
+## Attack replay across screens (GID-135 / TID-548)
+
+State mirrors carry presentation events so every other screen sees *how* the board changed, not just the result.
+
+- The authority records each attack **before** it mutates the board: `BattleNet.record_attack_fx(a_pid,
+  attacker, t_pid, target)` (host's own attacks from `BattleInput._execute_attack`; remote `INTENT_ATTACK`s in
+  `_apply_remote_intent`). `NetBattleFx.take()` drains the queue into the next `encode_state(state, seq, fx)`
+  for `sync_state`, `sync_coop_state` and `sync_team_state`.
+- Wire format: `fx: [{k: "attack", ap, as, tp, ts}]` (`ts = TARGET_HERO` for a hero). `decode_fx` drops
+  malformed entries; payloads without `fx` still decode.
+- Receivers (`_accept_state_mirror`): snapshot → `NetBattleFx.replay(fx)` lunges a ghost of each attacker's
+  panel at its target on the **old** board → adopt → deaths animate from the snapshot → refresh →
+  `trigger_fx(snap)` floats damage numbers. Units not on this screen's two rows (other co-op allies) are skipped.
+- The authority's screen gives a remote player's attack the same lunge / deaths / numbers
+  (`_show_remote_attack`).
+- Smoke: `tests/net_attack_replay_smoke.gd`.

@@ -65,6 +65,53 @@ const _DATA: Dictionary = {
 				+ "its button appears on the left of the screen.\n\n4+ Skeleton-family cards let you Dig buried "
 				+ "mounds for loot. 4+ Ghost-family cards let you Phase through walls."),
 	},
+	# Real-time combat onboarding (GID-135 / TID-553): one-shot, shown the first time each moment happens.
+	"rt_intro": {
+		"title": "Real-Time Combat",
+		"body": ("Fights happen live. Your weapon attacks on its own: watch the bar under your hero fill.\n\n"
+				+ "Press Strike (1) to hit harder. It costs a little mana, then recharges. A dark shade drains "
+				+ "off the button until it's ready again."),
+	},
+	"rt_skill_mend": {
+		"title": "New Skill: Mend",
+		"body": ("Mend (2) heals you. It takes a moment to cast: watch the cast bar, and don't get hit too "
+				+ "often or it slows down.\n\nYour health carries over between fights, so heal when you're low."),
+	},
+	"rt_skill_kick": {
+		"title": "New Skill: Kick",
+		"body": ("Enemies cast too: a bar fills on their portrait before they summon or cast.\n\nPress Kick (3) "
+				+ "while it's filling to interrupt it. Kick doesn't wait for your other skills to recharge."),
+	},
+	"rt_cards": {
+		"title": "Your Cards",
+		"body": ("Your deck joins the fight. You draw a card every few seconds.\n\nTap a card to play it: spells "
+				+ "hit hard, units fight beside you. After any card or skill, a shade sweeps down your hand "
+				+ "and skills — when it's gone you can act again."),
+	},
+	"rt_low_hp": {
+		"title": "Low Health!",
+		"body": "You're badly hurt. Press Mend (2) to heal before you fall.",
+	},
+	"rt_enemy_cast": {
+		"title": "The Enemy Is Casting!",
+		"body": ("See the bar filling on the enemy's portrait? Press Kick (3) now to interrupt it — the spell "
+				+ "fails and it has to start over."),
+	},
+	"rt_out_of_mana": {
+		"title": "Out of Mana",
+		"body": ("No mana for skills right now. Your weapon keeps attacking on its own, and mana refills a few "
+				+ "seconds after you stop spending it."),
+	},
+	"rt_ally": {
+		"title": "Command Your Ally",
+		"body": ("Your unit fights for you. When its bar turns green it's ready: tap it, then tap an enemy "
+				+ "to attack.\n\nHitting a casting enemy with an Ally also interrupts it."),
+	},
+	"rt_add": {
+		"title": "Another Enemy!",
+		"body": ("A second enemy has joined the fight. The gold ring shows who you're attacking: tap an enemy "
+				+ "or one of its minions to switch targets. Beat them all to win."),
+	},
 }
 
 static func get_entry(popup_id: String) -> Dictionary:

@@ -89,6 +89,8 @@ static func effect_summary(battle_effect_type: String, battle_effect_value: int,
 		"starting_mana": return "+%d starting mana" % battle_effect_value
 		"starting_hp":   return "+%d starting HP" % battle_effect_value
 		"passive_atk":   return "+%d hero ATK" % battle_effect_value
+		"starting_armor": return "+%d starting armor" % battle_effect_value
+		"offhand_atk":   return "Off hand: %d dmg (RT) / ATK (turn-based)" % battle_effect_value
 	return battle_effect_type
 
 # ---------------------------------------------------------------------------

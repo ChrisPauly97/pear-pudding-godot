@@ -58,4 +58,14 @@ static func get_display_string(weapon: WeaponData, level: int) -> String:
 			return "+%d starting HP" % effective_stat(weapon, level)
 		"passive_atk":
 			return "+%d hero ATK" % effective_stat(weapon, level)
+		"starting_armor":
+			return "+%d starting armor" % effective_stat(weapon, level)
+		"offhand_atk":
+			return "Off hand: %d dmg (real time) / +%d ATK (turn-based)" % [
+				effective_stat(weapon, level), offhand_turnbased_bonus(effective_stat(weapon, level))]
 	return weapon.battle_effect_type
+
+## Small turn-based stand-in for an off-hand weapon's real-time swing damage
+## (TID-545): half the off-hand value, rounded down, minimum 1.
+static func offhand_turnbased_bonus(offhand_value: int) -> int:
+	return maxi(1, offhand_value / 2)

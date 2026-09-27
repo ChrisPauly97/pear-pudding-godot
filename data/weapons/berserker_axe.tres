@@ -11,3 +11,4 @@ battle_effect_type = "passive_atk"
 battle_effect_value = 3
 injected_card_id = ""
 injected_card_count = 0
+swing_speed = 3.6

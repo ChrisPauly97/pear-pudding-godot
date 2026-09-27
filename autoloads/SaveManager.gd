@@ -45,12 +45,13 @@ const PERSISTED_FIELDS: Dictionary = {
 	"time_of_day": 0.4, "world_seed": 42, "starting_biome": 0,
 	"story_flags": {}, "days_elapsed": 0, "last_respawn_day": 0,
 	"equipped_weapon": "", "owned_weapons": [],
-	"equipped_armor": "", "equipped_ring": "", "equipped_trinket": "",
-	"owned_armor": [], "owned_rings": [], "owned_trinkets": [],
+	"equipped_armor": "", "equipped_ring": "", "equipped_trinket": "", "equipped_offhand": "",
+	"owned_armor": [], "owned_rings": [], "owned_trinkets": [], "owned_offhands": [],
 	"collected_scrolls": [], "settings": {},
 	"achievement_progress": {}, "unlocked_achievements": [],
 	"visited_biomes": [], "visited_dungeon_rooms": [],
-	"xp": 0, "skill_points": 0, "unlocked_skills": [],
+	"xp": 0, "skill_points": 0, "unlocked_skills": [], "skill_bar": [], "realtime_fights": 0,
+	"learned_abilities": [],
 	"magic_type": "", "corruption_points": 0, "redemption_points": 0,
 	"spire_run": {"active": false}, "spire_best_floor": 0, "solved_puzzles": [],
 	"world_events": {}, "weather": {"id": "", "duration": 0.0, "biome_id": 0},
@@ -157,9 +158,11 @@ var owned_weapons: Array[Dictionary] = []
 var equipped_armor: String = ""
 var equipped_ring: String = ""
 var equipped_trinket: String = ""
+var equipped_offhand: String = ""
 var owned_armor: Array[String] = []
 var owned_rings: Array[String] = []
 var owned_trinkets: Array[String] = []
+var owned_offhands: Array[String] = []
 
 # World generation — set when starting a new game from the biome selection screen
 var world_seed: int = 42
@@ -182,6 +185,15 @@ var xp: int = 0
 var level: int = 1
 var skill_points: int = 0
 var unlocked_skills: Array[String] = []
+## Real-time skill bar ability ids (SkillBar.ABILITIES); empty = the default bar (TID-550).
+var skill_bar: Array[String] = []
+## Real-time fights started — drives the new-player control ramp (CombatOnboarding, TID-552).
+var realtime_fights: int = 0
+## Skill-bar abilities learned from town trainers (GID-136 / TID-537), beyond
+## the always-known strike/mend/kick (SkillBar.ALWAYS_KNOWN never appears
+## here). `skill_bar` is the player's chosen loadout (TID-556) — see
+## SkillBar.new(bar, learned_abilities).
+var learned_abilities: Array[String] = []
 
 # Magic progression
 ## "light", "dark", or "" (not yet chosen)
@@ -471,9 +483,11 @@ func new_game(head_start: bool = false) -> void:
 	equipped_armor = ""
 	equipped_ring = ""
 	equipped_trinket = ""
+	equipped_offhand = ""
 	owned_armor = []
 	owned_rings = []
 	owned_trinkets = []
+	owned_offhands = []
 	collected_scrolls = []
 	achievement_progress = {}
 	unlocked_achievements = []
@@ -1079,6 +1093,9 @@ func add_equipment(item_id: String, slot: String) -> void:
 		"trinket":
 			if not owned_trinkets.has(item_id):
 				owned_trinkets.append(item_id)
+		"offhand":
+			if not owned_offhands.has(item_id):
+				owned_offhands.append(item_id)
 	_dirty = true
 
 ## Equips an item into its slot. Pass "" to unequip.
@@ -1088,6 +1105,7 @@ func equip_item(item_id: String, slot: String) -> void:
 		"armor":    equipped_armor   = item_id
 		"ring":     equipped_ring    = item_id
 		"trinket":  equipped_trinket = item_id
+		"offhand":  equipped_offhand = item_id
 	_dirty = true
 
 ## Returns the owned array for the given slot.
@@ -1102,6 +1120,7 @@ func get_owned_by_slot(slot: String) -> Array[String]:
 		"armor":   return owned_armor
 		"ring":    return owned_rings
 		"trinket": return owned_trinkets
+		"offhand": return owned_offhands
 	return []
 
 ## Returns the owned_weapons instance dict for weapon_id, or a default level-0 dict if absent.
@@ -1158,6 +1177,7 @@ func get_equipped_by_slot(slot: String) -> String:
 		"armor":   return equipped_armor
 		"ring":    return equipped_ring
 		"trinket": return equipped_trinket
+		"offhand": return equipped_offhand
 	return ""
 
 static func xp_for_level(lvl: int) -> int:
@@ -1183,6 +1203,25 @@ func unlock_skill(id: String) -> void:
 		return
 	unlocked_skills.append(id)
 	skill_points -= 1
+	_dirty = true
+
+## GID-136 / TID-537: learns a skill-bar ability from a trainer NPC, spending
+## coins. Gating (level, coins, already known) is `SkillBar.can_learn`'s job —
+## call it before offering the Learn button; this just performs the purchase.
+func learn_ability(id: String, cost: int) -> bool:
+	if learned_abilities.has(id) or coins < cost:
+		return false
+	learned_abilities.append(id)
+	coins -= cost
+	_dirty = true
+	return true
+
+## TID-556: writes the player's chosen 3-slot loadout. Callers should already
+## have validated each id via SkillBar (known + not a duplicate); this stores
+## it verbatim — SkillBar.new(bar, learned_abilities) re-validates defensively
+## at read time, so a stale/invalid saved id can never surface in a fight.
+func set_skill_bar(bar: Array) -> void:
+	skill_bar.assign(bar)
 	_dirty = true
 
 func unlock_cross_skill(id: String, cost: int, currency: String) -> void:

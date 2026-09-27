@@ -16,7 +16,7 @@ const _WorldItem = preload("res://scenes/world/entities/WorldItem.gd")
 ## Chance an infinite-world chest yields a treasure-map fragment instead of loot
 ## (only while no treasure hunt is active).
 const MAP_FRAGMENT_CHANCE: float = 0.20
-const EQUIPMENT_SLOTS: Array[String] = ["weapon", "armor", "ring", "trinket"]
+const EQUIPMENT_SLOTS: Array[String] = ["weapon", "armor", "ring", "trinket", "offhand"]
 ## The starter weapon never drops.
 const _STARTER_WEAPON: String = "rusty_dagger"
 

@@ -70,6 +70,9 @@ const _AMBUSH_HP_PCT: float = 0.2
 const _AMBUSH_HP_MIN: int = 10
 
 var enemy_data: Dictionary = {}
+## Set by SceneManager when the battle is fought over the live (frozen) world
+## (GID-135 / TID-528): the backdrop is skipped so the world shows through.
+var in_world: bool = false
 var duel_wager: int = 0
 var puzzle_data: Resource = null  # PuzzleData set by SceneManager before _ready
 
@@ -424,9 +427,13 @@ func _ready() -> void:
 		add_child(banner)
 		banner.setup(_battle_weather)
 
-	# Battlefield backdrop (GID-126) — unconditional: puzzle, scripted and PvP
-	# battles carry no world biome and get the neutral roofed-vault look.
-	arena._setup_backdrop()
+	# Battlefield backdrop (GID-126): puzzle, scripted and PvP battles carry no
+	# world biome and get the neutral roofed-vault look. Fought in place, the
+	# world itself is the backdrop — just dim it.
+	if in_world:
+		($Background as ColorRect).color = Color(0.03, 0.03, 0.06, 0.45)
+	else:
+		arena._setup_backdrop()
 
 	# Battlefield Resonance UI (GID-059)
 	if not _state.puzzle_mode and not _state.scripted_battle:
@@ -436,7 +443,8 @@ func _ready() -> void:
 
 	AudioManager.play_music("res://assets/audio/music/battle.ogg")
 
-	if not _state.scripted_battle:
+	# Real-time onboarding hides the hand at first; its own tips teach the fight.
+	if not _state.scripted_battle and realtime.shows_card_tips():
 		if not SceneManager.save_manager.get_story_flag("tutorial_battle_tip"):
 			tutorials._show_battle_tutorial()
 		# One popup per battle entry: tap_and_hold on the first, tap_to_cast on
@@ -445,7 +453,7 @@ func _ready() -> void:
 			GameBus.tutorial_popup_requested.emit("tap_to_cast")
 		else:
 			GameBus.tutorial_popup_requested.emit("tap_and_hold")
-	else:
+	elif _state.scripted_battle:
 		tutorials._maybe_show_scripted_tutorial_step(_state.player_turn_numbers[0])
 
 
@@ -683,6 +691,7 @@ func _show_card_inspect(card: CardInstance) -> void:
 	if _inspect_overlay != null and is_instance_valid(_inspect_overlay):
 		return
 	var overlay: CardInspectOverlay = CardInspectOverlay.new()
+	overlay.mana_scale = _state.players[_my_idx()].hero.mana_scale
 	overlay.present(self, card, func() -> void: _inspect_overlay = null)
 	_inspect_overlay = overlay
 
@@ -833,6 +842,8 @@ func _refresh_all() -> void:
 		arena._refresh_coop_ally_panels()
 	if _team_pvp:
 		battle_net._refresh_team_panels()
+	if realtime != null:
+		realtime.refresh_extra_views()  # enemies that joined a real-time fight
 
 func _refresh_player_board() -> void:
 	if _local_player_idx < 0:
@@ -1150,12 +1161,18 @@ func _check_game_over() -> void:
 			_show_standard_victory()
 		else:
 			_play_outcome_feedback(false)
+			# GID-135 / TID-559: stash the coaching line for BattleDefeat's overlay —
+			# battle_lost carries no payload, so this is the hand-off.
+			if realtime.is_active():
+				SceneManager.set_pending_realtime_tip(realtime.fight_tip())
 			GameBus.battle_lost.emit()
 
 ## Rolls and presents the reward screen for an ordinary (non-puzzle, non-scripted,
 ## non-ghost, non-friendly) win. Boss fights drop the whole pool plus a weapon;
 ## everything else drops one card, with the soulbind capture check on top.
 func _show_standard_victory() -> void:
+	# GID-135 / TID-559: one coaching line for a real-time fight; "" otherwise.
+	var rt_tip: String = realtime.fight_tip() if realtime.is_active() else ""
 	var enemy_type: String = str(enemy_data.get("enemy_type", "undead_basic"))
 	var is_boss_win: bool = bool(enemy_data.get("is_boss", false))
 	var gambit_id_win: String = str(enemy_data.get("gambit_id", ""))
@@ -1193,7 +1210,7 @@ func _show_standard_victory() -> void:
 			boss_rarities.append(br)
 			boss_stats_list.append(CardDropUtil.roll_stats(cid, br))
 		_result_ui.show_victory_boss(pool, weapon_reward_id, boss_rarities, boss_stats_list, coins_win, xp_win,
-				hero_hp_win, currency_win)
+				hero_hp_win, currency_win, rt_tip)
 	else:
 		var reward_card_id: String = ""
 		if pool.size() > 0:
@@ -1210,18 +1227,44 @@ func _show_standard_victory() -> void:
 		var _ct_met: bool = _capture_tracker != null and not _ct_sig.is_empty() and _capture_tracker.is_satisfied(_state)
 		if not _ct_sig.is_empty() and not _ct_captured and _ct_met:
 			_result_ui.show_soulbind(reward_card_id, _ct_sig, _capture_tracker.condition_text(), hero_hp_win,
-					currency_win, rolled_rarity, rolled_stats)
+					currency_win, rolled_rarity, rolled_stats, rt_tip)
 		elif not _ct_sig.is_empty() and not _ct_captured:
 			var _ct_text: String = _capture_tracker.condition_text() if _capture_tracker != null else ""
 			_result_ui.show_victory(reward_card_id, "", _ct_sig, _ct_text, false, rolled_rarity, rolled_stats,
-					coins_win, xp_win, hero_hp_win, currency_win)
+					coins_win, xp_win, hero_hp_win, currency_win, rt_tip)
+		elif in_world:
+			# GID-135 / TID-531: a routine in-world win (no soulbind hunt to show)
+			# skips the blocking result card — rewards are granted immediately and
+			# surface as floating toasts over the world once it's reattached
+			# (BattleVictory._show_reward_toasts), so the player keeps moving.
+			_emit_routine_victory_toast(reward_card_id, rolled_rarity, rolled_stats, hero_hp_win, currency_win,
+					rt_tip)
 		else:
 			_result_ui.show_victory(reward_card_id, "", "", "", false, rolled_rarity, rolled_stats, coins_win, xp_win,
-					hero_hp_win, currency_win)
+					hero_hp_win, currency_win, rt_tip)
 		# First-session soulbinding teaser (GID-117): explain the hunt line the
 		# first time an uncaptured signature surfaces on a victory screen.
 		if not _ct_sig.is_empty() and not _ct_captured:
 			GameBus.tutorial_popup_requested.emit("soulbinding")
+
+## Emits the same battle_won payload show_victory's "Collect" button would,
+## without waiting for a tap — the routine in-world path (see above). Coins/XP
+## aren't passed in: BattleVictory computes the gambit-adjusted final amounts
+## itself and reads them for the toast right where it grants them.
+func _emit_routine_victory_toast(reward_card_id: String, reward_rarity: String, reward_stats: Dictionary,
+		hero_hp: int, currency_earned: Dictionary, tip: String = "") -> void:
+	GameBus.battle_won.emit({
+		"card_reward": reward_card_id,
+		"weapon_reward": "",
+		"hero_hp": hero_hp,
+		"veterancy": _collect_veterancy_data(),
+		"reward_rarity": reward_rarity,
+		"reward_stats": reward_stats,
+		"corruption_earned": int(currency_earned.get("corruption", 0)),
+		"redemption_earned": int(currency_earned.get("redemption", 0)),
+		"in_world_toast": true,
+		"rt_tip": tip,  # TID-559 coaching line, shown as a toast instead of on the card
+	})
 
 func _collect_veterancy_data() -> Dictionary:
 	var data: Dictionary = {}
@@ -1318,12 +1361,13 @@ func _is_pvp_client() -> bool:
 
 ## True when local input is allowed: it's our turn, AI/round-trip not pending,
 ## and we have a local player (not the headless referee, _local_player_idx = -1).
-func _can_local_act() -> bool:
+## `ignore_gcd`: Ally attack commands are off the real-time global cooldown.
+func _can_local_act(ignore_gcd: bool = false) -> bool:
 	if _pvp_spectating:
 		return false  # spectators never act
 	if _local_player_idx < 0:
 		return false  # dedicated-server referee has no local player
-	if _ai_thinking or _action_busy or (realtime != null and realtime.on_cooldown()):
+	if _ai_thinking or _action_busy or (not ignore_gcd and realtime != null and realtime.on_cooldown()):
 		return false  # busy, or on the real-time global cooldown (TID-546)
 	if _state == null:
 		return false

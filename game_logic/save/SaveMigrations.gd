@@ -10,7 +10,7 @@ extends RefCounted
 
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 
-const CURRENT_VERSION: int = 41
+const CURRENT_VERSION: int = 42
 
 
 ## Upgrades `data` in place. `up_to` stops after that version's row. The game
@@ -144,5 +144,6 @@ static func table() -> Array:
 		[39, {"discovered_landmarks": []}],
 		[40, {"collected_mana_wells": []}],
 		[41, {"mailbox_cards": []}],
+		[42, {"equipped_offhand": "", "owned_offhands": []}],
 	]
 	return rows
