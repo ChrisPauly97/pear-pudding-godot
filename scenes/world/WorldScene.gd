@@ -371,6 +371,8 @@ var _objective_beacon: _ObjectiveBeacon = null
 var _quests: Array[Dictionary] = []
 var _tracked: Dictionary = {}
 var _quests_read_ms: int = -QUEST_REFRESH_MS
+# Story step label last announced with a "New objective" tip (see _announce_story_step).
+var _announced_step: String = ""
 
 @onready var _camera: Camera3D = $Camera3D
 @onready var _hud: CanvasLayer = $HUD
@@ -586,6 +588,7 @@ func _ready() -> void:
 	if not NetworkManager.is_dedicated_server():
 		story_cast.refresh_maiteln_presence()
 		_refresh_objective_beacon()
+		_announced_step = _story_step_label()
 
 	coop_session._setup_coop()
 	# Guildhall furnishings (GID-106 / TID-393): must run after _setup_coop() so
@@ -814,6 +817,7 @@ func _enter_tree() -> void:
 func _on_reattached() -> void:
 	if not is_inside_tree():
 		return
+	_announce_story_step()  # a story battle won while detached moved the story on
 	if not _coop_active and NetworkManager.is_active():
 		coop_session._setup_coop()
 	# GID-101 (TID-367/368): broadcast pvp-clear to spectators now that the world is
@@ -1275,6 +1279,22 @@ func _on_story_flag_set_for_cast(_key: String) -> void:
 	story_cast.spawn_open_world_beats()
 	_despawn_flag_hidden_npcs()
 	_refresh_objective_beacon()
+	_announce_story_step()
+
+func _story_step_label() -> String:
+	return str(_QuestLog.story_quest(SceneManager.save_manager.story_flags).get("label", ""))
+
+## Tells the player when the story hands them a new objective (GID-139). Uses
+## the tip line, not the dialogue line, so the NPC's last words stay readable.
+## Deferred to re-attach when the step changed during a battle.
+func _announce_story_step() -> void:
+	if not is_inside_tree() or NetworkManager.is_dedicated_server():
+		return
+	var label: String = _story_step_label()
+	if label == _announced_step:
+		return
+	_announced_step = label
+	_show_tip("New objective: " + label)
 
 ## Every active quest (QuestLog), story first — cached, see _refresh_quests.
 func active_quests() -> Array[Dictionary]:
