@@ -68,7 +68,8 @@ jobs:
             echo "KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
             echo "KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> $GITHUB_ENV
           else
-            echo "No keystore secrets — generating a debug keystore"
+            echo "::warning::No KEYSTORE_BASE64 secret — signing with a throwaway key. Each build gets a" \
+              "different signature, so phones with an older build must uninstall it first."
             keytool -genkey -v \
               -keystore "$GITHUB_WORKSPACE/android.keystore" \
               -alias key0 \
@@ -117,6 +118,7 @@ jobs:
             -e "s|keystore/release=\"\"|keystore/release=\"$KEYSTORE_PATH\"|" \
             -e "s|keystore/release_user=\"\"|keystore/release_user=\"$KEY_ALIAS\"|" \
             -e "s|keystore/release_password=\"\"|keystore/release_password=\"$KEYSTORE_PASSWORD\"|" \
+            -e "s|version/code=1$|version/code=${{ github.run_number }}|" \
             "$GITHUB_WORKSPACE/export_presets.cfg"
           echo "--- patched export_presets.cfg (keystore lines) ---"
           grep keystore "$GITHUB_WORKSPACE/export_presets.cfg"
@@ -144,6 +146,11 @@ jobs:
         run: |
           mkdir -p build
           godot --headless --path "$GITHUB_WORKSPACE" --export-release "Android" "$GITHUB_WORKSPACE/build/PearPuddingTCG.apk"
+
+      - name: Verify APK signature
+        run: |
+          # An unsigned or v1-only APK is rejected on install with "App not installed".
+          "$ANDROID_SDK_ROOT/build-tools/34.0.0/apksigner" verify --verbose build/PearPuddingTCG.apk | head -5
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
