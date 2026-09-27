@@ -12,6 +12,6 @@ player_hero_hp = 30
 enemy_deck_order = ["ghost", "ghost"]
 enemy_opening_hand_count = 1
 enemy_hero_hp = 8
-tutorial_steps = ["1:That wee ghost costs 1 mana — drag it to a slot.", "2:Minions cannae strike the turn they're summoned — patience.", "3:Now attack! Drag your ghost onto the beast."]
+tutorial_steps = ["1:That wee ghost costs 1 mana — drag it to a slot.", "played:Minions cannae strike the turn they're summoned — it'll be ready next turn. Ye've no mana left, so press End Turn.", "2:Now attack! Drag your ghost onto the beast."]
 reward_card_id = ""
 completion_flag = "chapter1_camp_night"

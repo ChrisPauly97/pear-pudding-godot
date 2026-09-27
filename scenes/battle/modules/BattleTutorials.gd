@@ -74,24 +74,30 @@ func _dismiss_battle_tutorial() -> void:
 ## the player's Nth turn, if any. Direct TutorialPopup instantiation — deliberately
 ## NOT routed through GameBus.tutorial_popup_requested / TutorialRegistry, which
 ## gate on a global "seen once ever" flag keyed to static tutorial ids and are the
-## wrong fit for one-off, per-battle scripted content. Dedupes per turn number so
+## wrong fit for one-off, per-battle scripted content. Dedupes per key so
 ## a re-entrant call (e.g. _ready() and _on_turn_ended both covering turn 1) never
 ## shows the same step twice.
 func _maybe_show_scripted_tutorial_step(player_turn_number: int) -> void:
+	_show_scripted_step(str(player_turn_number))
+
+## Event-keyed step (ScriptedBattleData.TUTORIAL_EVENT_KEYS), e.g. "played" right
+## after the player's first minion lands — the moment summoning sickness matters.
+func show_scripted_event_step(event_key: String) -> void:
+	_show_scripted_step(event_key)
+
+func _show_scripted_step(key: String) -> void:
 	if _battle._scripted_data_ref == null:
 		return
-	if _battle._scripted_tutorial_turns_shown.has(player_turn_number):
+	if _battle._scripted_tutorial_turns_shown.has(key):
 		return
 	var sdata: ScriptedBattleData = _battle._scripted_data_ref as ScriptedBattleData
 	if sdata == null:
 		return
 	for step: String in sdata.tutorial_steps:
 		var parts: PackedStringArray = step.split(":", true, 1)
-		if parts.size() != 2 or not parts[0].is_valid_int():
+		if parts.size() != 2 or parts[0] != key:
 			continue
-		if int(parts[0]) != player_turn_number:
-			continue
-		_battle._scripted_tutorial_turns_shown[player_turn_number] = true
+		_battle._scripted_tutorial_turns_shown[key] = true
 		var popup := _TutorialPopupScript.new()
 		popup.setup(sdata.title, parts[1])
 		popup.set_anchors_preset(Control.PRESET_FULL_RECT)

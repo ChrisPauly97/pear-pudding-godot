@@ -6,6 +6,9 @@ extends Resource
 ## tutorial popups. Used for scripted story tutorial battles (rabbit hunt,
 ## Chapter 2 ambush) where the player must be taught a mechanic with zero RNG.
 
+## Non-numeric `tutorial_steps` keys (events rather than turn numbers).
+const TUTORIAL_EVENT_KEYS: Array[String] = ["played"]
+
 @export var battle_id: String = ""
 @export var title: String = ""
 
@@ -21,8 +24,9 @@ extends Resource
 @export var enemy_opening_hand_count: int = 1
 @export var enemy_hero_hp: int = 10
 
-## Turn-keyed Maiteln guidance. Each entry is "<player_turn_number>:<text>" —
-## shown once, at the start of the player's Nth turn (player_turn_numbers[0] == N).
+## Maiteln guidance. Each entry is "<key>:<text>", shown once per battle:
+##   "<N>:"       — at the start of the player's Nth turn (player_turn_numbers[0] == N)
+##   "played:"    — right after the player first places a minion on the board
 @export var tutorial_steps: Array[String] = []
 
 ## Card ID awarded on victory. "" = no reward.
@@ -30,6 +34,11 @@ extends Resource
 
 ## Story flag set on victory. "" = no flag.
 @export var completion_flag: String = ""
+
+## True for a well-formed "<key>:<text>" step.
+static func is_valid_step(step: String) -> bool:
+	var parts: PackedStringArray = step.split(":", true, 1)
+	return parts.size() == 2 and (parts[0].is_valid_int() or TUTORIAL_EVENT_KEYS.has(parts[0]))
 
 ## Returns a list of validation errors. Empty list = valid.
 func validate() -> Array[String]:
@@ -56,7 +65,6 @@ func validate() -> Array[String]:
 	if reward_card_id != "" and CardReg.get_template(reward_card_id).is_empty():
 		errors.append("unknown reward_card_id: " + reward_card_id)
 	for step: String in tutorial_steps:
-		var parts: PackedStringArray = step.split(":", true, 1)
-		if parts.size() != 2 or not parts[0].is_valid_int():
+		if not is_valid_step(step):
 			errors.append("malformed tutorial_step: " + step)
 	return errors

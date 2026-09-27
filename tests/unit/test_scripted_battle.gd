@@ -7,6 +7,7 @@ const GameState = preload("res://game_logic/battle/GameState.gd")
 const ScriptedBattleData = preload("res://game_logic/battle/ScriptedBattleData.gd")
 const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
+const _RABBIT_HUNT = preload("res://data/scripted_battles/rabbit_hunt.tres")
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -180,3 +181,23 @@ func test_validate_accepts_wellformed_tutorial_step() -> void:
 func test_validate_passes_for_wellformed_data() -> void:
 	var sd := _sbd(["ghost", "skeleton"])
 	assert_eq(sd.validate().size(), 0)
+
+
+func test_event_keyed_tutorial_step_is_valid() -> void:
+	assert_true(ScriptedBattleData.is_valid_step("played:Minions cannae strike yet."), "'played' event key")
+	assert_false(ScriptedBattleData.is_valid_step("bogus:text"), "unknown key rejected")
+
+
+func test_rabbit_hunt_sickness_line_follows_the_play() -> void:
+	# The "can't attack yet" line must fire when the ghost lands, not a turn later,
+	# and the turn-2 line is the one that says attack (the ghost is ready by then).
+	var sd: Resource = _RABBIT_HUNT
+	var steps: Array[String] = []
+	steps.assign(sd.get("tutorial_steps"))
+	var by_key: Dictionary = {}
+	for s: String in steps:
+		var parts: PackedStringArray = s.split(":", true, 1)
+		by_key[parts[0]] = parts[1]
+	assert_true(str(by_key.get("played", "")).contains("summoned"), "sickness line is event-keyed")
+	assert_true(str(by_key.get("played", "")).contains("End Turn"), "first play also says to end the turn")
+	assert_true(str(by_key.get("2", "")).begins_with("Now attack"), "turn 2 prompts the attack")

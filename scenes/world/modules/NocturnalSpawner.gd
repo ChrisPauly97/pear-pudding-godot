@@ -83,7 +83,7 @@ func _spawn(pos: Vector3, enemy_type: String) -> void:
 	node.position = pos
 	_world._entity_root.add_child(node)
 	_enemies[spawn_id] = {"node": node, "chunk": _chunk_of(pos.x, pos.z)}
-	_world._enemy_nodes[spawn_id] = node
+	_world.register_loose_enemy(spawn_id, node)
 
 ## Once per session on the first night spawn, and only until the player has
 ## seen it once.
@@ -124,6 +124,7 @@ func _find_spawn_pos(origin: Vector3) -> Vector3:
 func despawn_all(fade: bool) -> void:
 	for sid: String in _enemies.keys():
 		_world._enemy_nodes.erase(sid)
+		_world._loose_enemy_nodes.erase(sid)
 		var entry: Dictionary = _enemies[sid]
 		var n: Node3D = _world._valid_node3d(entry.get("node"))
 		if n == null:
@@ -144,4 +145,5 @@ func evict_chunk(chunk_key: Vector2i) -> void:
 		if n != null:
 			n.queue_free()
 		_world._enemy_nodes.erase(sid)
+		_world._loose_enemy_nodes.erase(sid)
 		_enemies.erase(sid)

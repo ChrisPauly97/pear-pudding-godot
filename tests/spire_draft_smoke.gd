@@ -150,7 +150,47 @@ func _run() -> bool:
 	ok = _check(not save.call("get_story_flag", "spire_floor_2_%d_cleared" % RUN_SEED),
 		"floor 2 starts uncleared (its door is locked until the kill)") and ok
 
+	ok = await _check_battle_deck_keeps_starter(spire, picked_card) and ok
 	return _check_legacy_save_repair(save) and ok
+
+
+## The fight after a draft must use the starter plus every pick. draft_deck only
+## holds the picks, and BattleScene once used it as the whole deck — drafting one
+## card on floor 1 left a one-card deck from floor 2 on. Checked in both battle
+## modes, through the real BattleScene setup.
+func _check_battle_deck_keeps_starter(spire: Object, picked_card: String) -> bool:
+	var save: Object = spire.get("_save")
+	var starter: Array = spire.get("STARTER_DECK")
+	var expected: Array = starter.duplicate()
+	expected.append(picked_card)
+	expected.sort()
+	var ok: bool = true
+	for mode: String in ["turn", "realtime"]:
+		save.call("set_setting", "battle_mode", mode)
+		var bs: Node = (load("res://scenes/battle/BattleScene.tscn") as PackedScene).instantiate()
+		root.add_child(bs)
+		await process_frame
+		var ids: Array = _battle_card_ids(bs)
+		ids.sort()
+		ok = _check(ids == expected,
+			"%s battle deck is starter + pick (%d cards, got %d)" % [mode, expected.size(), ids.size()]) and ok
+		bs.free()
+	save.call("set_setting", "battle_mode", "turn")
+	return ok
+
+
+## Every card the local player owns in a battle: hand, draw pile, discard, board.
+func _battle_card_ids(bs: Node) -> Array:
+	var state: Object = bs.get("_state")
+	var p: Object = (state.get("players") as Array)[0]
+	var ids: Array = []
+	for c: Object in (p.get("hand") as Array) + (p.get("draw_deck") as Array) + (p.get("discard") as Array):
+		ids.append(c.get("template_id"))
+	var board: Object = p.get("board")
+	for c: Variant in (board.get("slots") as Array):
+		if c != null:
+			ids.append((c as Object).get("template_id"))
+	return ids
 
 
 ## Repairs-an-old-save check: a save written before SpireFloorGen.enemy_id_for()

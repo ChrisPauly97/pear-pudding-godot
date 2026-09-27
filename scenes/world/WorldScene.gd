@@ -193,6 +193,7 @@ var _is_infinite: bool = false
 var _player: _Player
 var _grass: GrassBlades
 var _enemy_nodes: Dictionary = {}   # id -> Node3D
+var _loose_enemy_nodes: Dictionary = {}  # id -> Node3D spawned outside chunks (register_loose_enemy)
 var _chest_nodes: Dictionary = {}   # id -> Node3D
 # Co-op multiplayer (GID-090) — guarded by _coop_active; inert in single-player
 var _remote_player_nodes: Dictionary = {}  # peer_id -> RemotePlayer Node3D
@@ -1125,6 +1126,12 @@ func _on_chunk_unloading(chunk_key: Vector2i, chunk_data: _ChunkData) -> void:
 func register_enemy(eid: String, node: Node3D) -> void:
 	_enemy_nodes[eid] = node
 
+## For enemies a script places outside the chunk pipeline (not in any
+## ChunkData.enemies), so `_find_nearby_enemy` can still reach them by interact.
+func register_loose_enemy(eid: String, node: Node3D) -> void:
+	_enemy_nodes[eid] = node
+	_loose_enemy_nodes[eid] = node
+
 func get_entity_root() -> Node3D:
 	return _entity_root
 
@@ -1387,7 +1394,8 @@ func _find_nearby_enemy(px: float, pz: float, range_dist: float) -> Node3D:
 			var node: Node3D = _node_in_range(_enemy_nodes.get(str(e_data.get("id", ""))), px, pz, range_dist)
 			if node != null:
 				return node
-	return null
+	# Rivals, siege raiders, spectres: never in a chunk's list, so the scan above misses them.
+	return _first_node_in_range(_loose_enemy_nodes, px, pz, range_dist)
 
 ## The first unopened chest within range, as its live `_active_chest_data` entry.
 func _find_nearby_chest(px: float, pz: float, range_dist: float) -> Dictionary:

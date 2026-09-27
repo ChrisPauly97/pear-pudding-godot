@@ -1020,6 +1020,7 @@ func _coop_remove_enemy_node(eid: String) -> void:
 		else:
 			node.queue_free()
 	_world._enemy_nodes.erase(eid)
+	_world._loose_enemy_nodes.erase(eid)
 
 ## Flip a shared chest node to opened locally (no loot — first-opener already took it).
 
