@@ -129,7 +129,8 @@ Uniforms set per material instance:
 - `grass_texture`, `hill_side_texture`, `hill_top_texture`, `wall_side_texture`, `wall_top_texture`, `path_texture`
 
 #### HD tiles, per-texel relief and crisp moss
-- `tile_sample(tex, uv, out grad, out h)` fetches a tile plus its one-texel alpha step in +u/+v (`TEX_RES = 64`). Only the **dominant** tile of a fragment (weight > 0.5) feeds the bump, so flat grass costs 3 fetches.
+- **Anti-tiling:** two slow noise fields pick one of four rotated + offset copies (`rot` 0–3) of every ground layer (grass, hills, path, wall tops) in irregular blobs; hard switch, no blend. `tan_u`/`tan_v` follow the rotation so the bump stays correct. Tiles are also drawn calm (no single distinctive feature) so the 6.4-unit repeat never reads.
+- `tile_sample(tex, uv, out grad, out h)` fetches a tile plus its one-texel alpha step in +u/+v (`TEX_RES = 128`). Only the **dominant** tile of a fragment (weight > 0.5) feeds the bump, so flat grass costs 3 fetches.
 - `tan_u` / `tan_v` are the world directions of the sampled tile's axes (ground: +X/+Z, rotated anti-tiling grass: −Z/+X, wall sides: along-face axis / +Y). `n_detail = normalize(n_geo − detail_bump·(grad.x·tan_u + grad.y·tan_v))` feeds `NORMAL`, and the puddle / stream blocks mix from `n_detail`. `detail_bump = 0` gives flat shading.
 - Wall moss is decided per tile texel (`floor(uv·TEX_RES)`), biased toward low height (mortar), with a hard threshold plus a little per-texel jitter — pixel-crisp clumps instead of smooth blobs.
 
@@ -140,15 +141,17 @@ Uniforms set per material instance:
 - **Ragged path edges:** `path_t = smoothstep(0.2, 0.7, v_path + (vnoise(xz × 1.7) − 0.5) × 0.45)`; `is_path` is now `path_t > 0.99`, and the fringe mixes the path texture over the ground (tint-corrected) instead of the old hard `v_path > 0.05` cut.
 - **Contact shadows (TID-503):** `ALBEDO` is multiplied by `contact_shadow(world pos)` from `contact_shadow.gdshaderinc` (see visual-polish.md).
 
-### Grass Blades & Clusters (`scenes/world/GrassBlades.gd`)
+### Grass Tufts (`scenes/world/GrassBlades.gd`)
 
-Per-chunk `MultiMeshInstance3D`s built on worker threads (infinite world only — named maps have no blade grass):
-- **Blades:** real 3-segment tapered meshes (7 verts each), 16 per short-grass tile / 40 per tall-patch tile (12% of 3-tile cells are tall). `grass_blade.gdshader` animates wind sway, player push, and persistent trample (sliding 64×64 trample map window) in the vertex stage.
-- **Clusters:** 6 billboard quads per tile (`grass_cluster.gdshader`, 5 blade silhouettes drawn in the fragment stage) carry most of the apparent density cheaply.
-- **Both shaders are `unshaded`** — per-pixel lighting on grass was the dominant mobile GPU cost. Day/night response comes from the `grass_day_tint` global shader parameter (sun + ambient + moon approximation) written at 2 Hz by `DayNightCycle`. Neither casts shadows, and both cull at 55 units (`VISIBILITY_END` — the ortho gameplay camera never sees ground past ~45 units).
-- Shared globals (`player_pos`, `player_move_dir`, `trample_*`, `grass_day_tint`) are registered via `GrassBlades._ensure_global_param()` so one `RenderingServer` write reaches every chunk.
+Per-chunk `MultiMeshInstance3D` of **billboard tuft sprites**, built on worker threads (infinite world only — named maps have no tuft grass):
+- **Art:** `assets/textures/pixel_art/grass_tufts.png` (from `tools/generate_hd_terrain.py`): 8 short tufts (16×12) and 8 tall tufts (16×24) at the character sprites' pixel size (`PIXEL = 0.05` = `Player.PIXEL_SIZE`). R = tone on the shader's base→mid→tip ramp (0 = dark outline), A = coverage. The shader picks the column and a mirror flip from a hash of the root, and reads the texel with `texelFetch` (no filtering bleed).
+- **Density:** 7 short tufts per grass tile, stratified on a 3×3 grid so coverage is even; tall-patch tiles (12 % of 3-tile cells) get 6 tall + 2 short. The instance basis carries the tuft size (x = width, y = height; tall is detected from the height).
+- **Cost:** 4 verts per tuft (~28 verts per tile vs ~136 for the old 7-vert 3-D blades + spiky 5-blade cluster quads). It replaced those because they looked jagged, and making them denser had hit the mobile vertex budget.
+- **Vertex stage (`grass_tuft.gdshaderinc`, `world_vertex_coords`):** Y-axis billboard rebuilt from the UVs (no per-vertex matrix inverse); wind sway, player push (while walking) and the persistent trample map lean the top edge sideways in billboard space and trample squashes it. Offsets snap to whole texels, so tufts move like pixel-art animation frames instead of smearing. Tufts in puddles sink.
+- **Unshaded by default** with the `grass_day_tint` global (sun + ambient + moon approximation, written at 2 Hz by `DayNightCycle`); no shadows cast; culled at 55 units (`VISIBILITY_END`).
+- Shared globals (`player_pos`, `player_move_dir`, `trample_*`, `grass_day_tint`, `grass_wind_*`) are registered via `GrassBlades._ensure_global_param()` so one `RenderingServer` write reaches every chunk.
 
-No geometry shader is used (Godot 4 does not support them). Keep blade counts at mobile budget — blade vertex work scales linearly with density and was the primary open-world frame cost when set higher.
+No geometry shader is used (Godot 4 does not support them).
 
 ---
 
@@ -171,16 +174,16 @@ No geometry shader is used (Godot 4 does not support them). Keep blade counts at
 |---|---|---|
 | Terrain shader | `assets/shaders/terrain.gdshader` | Multi-texture blending; requires companion `.uid` sidecar |
 | Grass shader | `assets/shaders/grass.gdshader` | FBM noise grass layer; requires `.uid` sidecar |
-| Grass blade shader | `assets/shaders/grass_blade.gdshader` | Variant for individual blade rendering |
-| Grass cluster shader | `assets/shaders/grass_cluster.gdshader` | Variant for cluster rendering |
-| Terrain tiles | `assets/textures/pixel_art/{grass,hill_side,hill_top,wall_side,wall_top,path}_pixel.png` | 64×64 RGBA, seamless, original art generated by `tools/generate_hd_terrain.py` (re-run it to regenerate). RGB is ordered-dither pixel art on small palettes, rescaled to the old tiles' mean colour so biome tints stay calibrated. **Alpha is a height map** (0 = mortar/soil/crevice, 1 = raised brick/pebble/blade tip) that drives `detail_bump`. Imports are lossless with `detect_3d/compress_to=0` — VRAM compression would smear the height alpha. Replaced the 16×16 Kenney / 0x72 tiles (GID-118) |
+| Grass tuft shaders | `assets/shaders/grass_tuft.gdshader` / `grass_tuft_lit.gdshader` + `grass_tuft.gdshaderinc` | Billboard pixel-art tufts (unshaded / High-tier lit) |
+| Grass tuft atlas | `assets/textures/pixel_art/grass_tufts.png` | 128×36 tone+coverage atlas, generated; lossless, `detect_3d/compress_to=0` |
+| Terrain tiles | `assets/textures/pixel_art/{grass,hill_side,hill_top,wall_side,wall_top,path}_pixel.png` | 128×128 RGBA, seamless, sampled at 20 texels per world unit (`uv_scale = 20/128`, set in `WorldScene._make_terrain_material`) — the character sprites' pixel density, so ground and sprites share one pixel scale; original art generated by `tools/generate_hd_terrain.py` (re-run it to regenerate). RGB is ordered-dither pixel art on small palettes, rescaled to the old tiles' mean colour so biome tints stay calibrated. **Alpha is a height map** (0 = mortar/soil/crevice, 1 = raised brick/pebble/blade tip) that drives `detail_bump`. Imports are lossless with `detect_3d/compress_to=0` — VRAM compression would smear the height alpha. Replaced the 16×16 Kenney / 0x72 tiles (GID-118) |
 | `.uid` sidecars | `assets/shaders/*.uid` | Required for Android export; must be committed alongside each shader |
 
 
 #### Lit grass variant (GID-131 / TID-508)
 
-Each grass shader is now a thin header plus a shared body include (`grass_blade.gdshaderinc`, `grass_cluster.gdshaderinc`). `grass_blade.gdshader` / `grass_cluster.gdshader` keep `render_mode ... unshaded` and the `grass_day_tint` approximation. `grass_blade_lit.gdshader` / `grass_cluster_lit.gdshader` use `diffuse_lambert_wrap, specular_disabled` and `#define GRASS_LIT`, so the body writes `ALBEDO = col × 1.3 × contact`, `EMISSION = ALBEDO × 0.08` and a world-up `NORMAL`. That way blades light like the ground under them and receive sun shadows. `GrassBlades.set_lit(on)` swaps `_mat` / `_cluster_mat` shaders (parameters carry over). WorldScene calls it from `apply_graphics_quality()` with the `lit_world` knob (High only). Grass still casts no shadows.
+The grass shader is a thin header plus a shared body include (`grass_tuft.gdshaderinc`). `grass_tuft.gdshader` keeps `render_mode ... unshaded` and the `grass_day_tint` approximation. `grass_tuft_lit.gdshader` uses `diffuse_lambert_wrap, specular_disabled` and `#define GRASS_LIT`, so the body writes `ALBEDO = col × 1.3 × contact`, `EMISSION = ALBEDO × 0.08` and a world-up `NORMAL`. That way blades light like the ground under them and receive sun shadows. `GrassBlades.set_lit(on)` swaps the `_mat` shader (parameters carry over). WorldScene calls it from `apply_graphics_quality()` with the `lit_world` knob (High only). Grass still casts no shadows.
 
 #### Grass colour (GID-131 / TID-506)
 
-Both `grass_blade.gdshader` and `grass_cluster.gdshader` shade each blade with a smooth gradient: `mix(color_base, color_mid, smoothstep(0, 0.45, UV.y))`, then toward `color_tip` over `smoothstep(0.4, 0.95, UV.y)`. That replaced three hard bands whose olive base read as dark spikes on the bright ground. New defaults are base (0.18, 0.38, 0.13), mid (0.32, 0.58, 0.19), tip (0.56, 0.80, 0.30). A hash of the blade root (`v_root_world`) jitters brightness ±10 %, and one in five blades gets a drier tint. Contact shadows darken the lower blade (`mix(contact_shadow(root), 1, UV.y × 0.6)`).
+Tufts map the atlas tone onto `color_base × 0.6 → color_mid → color_tip` (tones are quantised in the atlas, so the result stays flat pixel-art colour). (Historically the blades used a smooth gradient that replaced three hard bands whose olive base read as dark spikes.) New defaults are base (0.18, 0.38, 0.13), mid (0.32, 0.58, 0.19), tip (0.56, 0.80, 0.30). A hash of the blade root (`v_root_world`) jitters brightness ±10 %, and one in five blades gets a drier tint. Contact shadows darken the lower blade (`mix(contact_shadow(root), 1, UV.y × 0.6)`).

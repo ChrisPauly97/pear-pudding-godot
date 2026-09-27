@@ -55,7 +55,7 @@ Scenes (rendering + interaction)
   ui/         — MenuScene, InventoryScene, BiomeSelectionScene, GameOverScene, MapEditorScene
 
 Assets
-  assets/shaders/     — terrain.gdshader, grass.gdshader, grass_blade.gdshader
+  assets/shaders/     — terrain.gdshader, grass_tuft.gdshader
   assets/textures/    — pixel art sprites (player, terrain tiles)
   assets/maps/        — bundled named map text files
   data/cards/         — CardData .tres resources

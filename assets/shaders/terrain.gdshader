@@ -17,13 +17,15 @@ uniform sampler2D wall_top_texture  : source_color, filter_nearest, hint_default
 uniform sampler2D path_texture      : source_color, filter_nearest, hint_default_white;
 uniform vec3 path_tint = vec3(1.0, 1.0, 1.0);
 
-// How many times the textures tile per world unit
-uniform float uv_scale : hint_range(0.05, 2.0) = 0.5;
+// How many times the textures tile per world unit. 20/128: 20 texels per world
+// unit, the character sprites' pixel density (PIXEL_SIZE 0.05), so the ground
+// and the sprites on it read as one pixel-art style.
+uniform float uv_scale : hint_range(0.05, 2.0) = 0.15625;
 // Per-texel relief: every terrain tile carries a height map in ALPHA
 // (tools/generate_hd_terrain.py); its one-texel gradient tilts the normal so
 // bricks, flagstones, pebbles and grass tufts catch the sun. 0 = flat.
 uniform float detail_bump : hint_range(0.0, 3.0) = 1.1;
-const float TEX_RES = 64.0;  // terrain tile resolution (texels per tile)
+const float TEX_RES = 128.0;  // terrain tile resolution (texels per tile)
 
 // Per-chunk biome color tints — set per material instance by ChunkRenderer.
 // Default vec3(1,1,1) = no tint (original texture colors).
@@ -167,19 +169,27 @@ void fragment() {
 	float path_t = v_path > 0.001
 		? smoothstep(0.2, 0.7, v_path + (vnoise(v_world_xz * 1.7) - 0.5) * 0.45) : 0.0;
 	bool is_path = path_t > 0.99;
-	// Anti-tiling (TID-505): swap to a rotated, offset copy of the grass tile
-	// inside irregular noise blobs, so the 2-unit repeat never lines up. A hard
-	// switch (not a blend) keeps the pixel art crisp.
-	vec2 uv_grass = uv_xz;
-	// World directions of the sampled tile's +u / +v axes (for the bump tilt).
+	// Anti-tiling (TID-505): inside irregular noise blobs every ground layer
+	// swaps to one of four rotated, offset copies of its tile, so the repeat
+	// never lines up. A hard switch (not a blend) keeps the pixel art crisp.
+	// tan_u / tan_v are the world directions of the sampled tile's +u / +v
+	// axes (rows of the rotation), used to tilt the bump the same way.
+	int rot = int(vnoise(v_world_xz * 0.23) > 0.5) + 2 * int(vnoise(v_world_xz * 0.17 + vec2(31.0, 7.0)) > 0.5);
+	vec2 uv_ground = uv_xz;
 	vec3 tan_u = vec3(1.0, 0.0, 0.0);
 	vec3 tan_v = vec3(0.0, 0.0, 1.0);
-	vec3 grass_u = tan_u;
-	vec3 grass_v = tan_v;
-	if (vnoise(v_world_xz * 0.23) > 0.5) {
-		uv_grass = vec2(-uv_xz.y, uv_xz.x) + vec2(0.37, 0.61);
-		grass_u = vec3(0.0, 0.0, -1.0);
-		grass_v = vec3(1.0, 0.0, 0.0);
+	if (rot == 1) {
+		uv_ground = vec2(-uv_xz.y, uv_xz.x) + vec2(0.37, 0.61);
+		tan_u = vec3(0.0, 0.0, -1.0);
+		tan_v = vec3(1.0, 0.0, 0.0);
+	} else if (rot == 2) {
+		uv_ground = -uv_xz + vec2(0.71, 0.13);
+		tan_u = vec3(-1.0, 0.0, 0.0);
+		tan_v = vec3(0.0, 0.0, -1.0);
+	} else if (rot == 3) {
+		uv_ground = vec2(uv_xz.y, -uv_xz.x) + vec2(0.19, 0.83);
+		tan_u = vec3(0.0, 0.0, 1.0);
+		tan_v = vec3(-1.0, 0.0, 0.0);
 	}
 	// Wall-side UV: U from the along-face horizontal axis, V from world Y so the
 	// texture tiles both horizontally and vertically on wall sides.
@@ -193,13 +203,13 @@ void fragment() {
 	vec2 g2;
 	float h2;
 	if (is_path) {
-		base_col = tile_sample(path_texture, uv_xz, hgrad, tex_h);
+		base_col = tile_sample(path_texture, uv_ground, hgrad, tex_h);
 	} else if (is_wall) {
 		// Use surface normal to pick side vs top — no grass on wall tiles.
 		// slope=0: flat top → wall_top_texture; slope=1: vertical face → wall_side_texture.
 		float wall_slope = 1.0 - clamp(v_normal_world.y, 0.0, 1.0);
 		float t_wall_side = smoothstep(0.3, 0.7, wall_slope);
-		vec3 top_col = tile_sample(wall_top_texture, uv_xz, hgrad, tex_h);
+		vec3 top_col = tile_sample(wall_top_texture, uv_ground, hgrad, tex_h);
 		if (t_wall_side > 0.01) {
 			vec3 side_col = tile_sample(wall_side_texture, uv_side, g2, h2);
 			base_col = mix(top_col, side_col, t_wall_side);
@@ -214,25 +224,19 @@ void fragment() {
 		}
 	} else {
 		// Flat grass is the common case (~60-70% of terrain): one tile, no mixing.
-		base_col = tile_sample(grass_texture, uv_grass, hgrad, tex_h);
-		tan_u = grass_u;
-		tan_v = grass_v;
+		base_col = tile_sample(grass_texture, uv_ground, hgrad, tex_h);
 		if (t_side > 0.01) {
-			base_col = mix(base_col, tile_sample(hill_side_texture, uv_xz, g2, h2), t_side);
+			base_col = mix(base_col, tile_sample(hill_side_texture, uv_ground, g2, h2), t_side);
 			if (t_side > 0.5) {
 				hgrad = g2;
 				tex_h = h2;
-				tan_u = vec3(1.0, 0.0, 0.0);
-				tan_v = vec3(0.0, 0.0, 1.0);
 			}
 		}
 		if (t_top > 0.01) {
-			base_col = mix(base_col, tile_sample(hill_texture, uv_xz, g2, h2), t_top);
+			base_col = mix(base_col, tile_sample(hill_texture, uv_ground, g2, h2), t_top);
 			if (t_top > 0.5) {
 				hgrad = g2;
 				tex_h = h2;
-				tan_u = vec3(1.0, 0.0, 0.0);
-				tan_v = vec3(0.0, 0.0, 1.0);
 			}
 		}
 	}
@@ -254,7 +258,7 @@ void fragment() {
 		base_col = mix(base_col, base_col * vec3(0.80, 0.92, 0.88), smoothstep(0.42, 0.22, d1) * 0.6);
 	}
 	if (path_t > 0.001 && !is_path && !is_wall) {
-		base_col = mix(base_col, texture(path_texture, uv_xz).rgb * path_tint / max(grass_tint, vec3(0.01)), path_t);
+		base_col = mix(base_col, texture(path_texture, uv_ground).rgb * path_tint / max(grass_tint, vec3(0.01)), path_t);
 	}
 
 	// Hand the base colour to Godot's lighting pipeline.
@@ -289,7 +293,7 @@ void fragment() {
 		float side = smoothstep(0.3, 0.7, slope);
 		// Moss is decided per texel of the tile under it (pixel-crisp, not a
 		// smooth smear) and prefers the mortar and crevices (low tile height).
-		vec2 texel = floor((side > 0.5 ? uv_side : uv_xz) * TEX_RES);
+		vec2 texel = floor((side > 0.5 ? uv_side : uv_ground) * TEX_RES);
 		vec2 tq = (texel + 0.5) / (TEX_RES * uv_scale);
 		float mn = side > 0.5 ? vnoise(tq * vec2(0.9, 1.4)) : vnoise(tq * 0.8);
 		float crevice = (0.45 - tex_h) * 0.35;

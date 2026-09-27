@@ -3,13 +3,18 @@
 Generates the HD pixel-art terrain tiles used by assets/shaders/terrain.gdshader
 and the battle backdrop.
 
-Each tile is 64x64 (4x the old 16x16), seamlessly tileable, built from small
-hand-picked palettes with ordered dithering so it still reads as pixel art. The
+Each tile is 128x128, seamlessly tileable, and is sampled at 20 texels per world
+unit (terrain.gdshader uv_scale = 20/128) -- the same pixel density as the
+character sprites (PIXEL_SIZE 0.05), so ground, walls and sprites read as one
+style. Tiles use small hand-picked palettes with ordered dithering. The
 ALPHA channel carries a height map (0 = recessed mortar/soil, 1 = raised brick,
 pebble or blade tip); the terrain shader derives per-texel bump lighting from it.
 
 Every tile is rescaled so its mean RGB matches the tile it replaces, keeping the
 per-biome tints in ChunkRenderer / BattleBackdrop calibrated.
+
+It also writes grass_tufts.png, the billboard grass-tuft atlas drawn by
+grass_cluster.gdshaderinc (R = tone 0..1 on the shader's grass ramp, A = coverage).
 
 Usage:
   python3 tools/generate_hd_terrain.py            # writes assets/textures/pixel_art/*_pixel.png
@@ -24,7 +29,7 @@ import numpy as np
 from PIL import Image
 
 OUT = Path(__file__).parent.parent / "assets" / "textures" / "pixel_art"
-N = 64
+N = 128
 
 # Mean RGB of the 16x16 tiles these replace (biome tints are tuned against them).
 TARGET_MEAN = {
@@ -95,49 +100,46 @@ def to_image(rgb, height):
 
 
 # ── Grass ────────────────────────────────────────────────────────────────────
+# The ground tile is deliberately calm: soft clumps of tone and small leaf
+# marks, no long strokes. Anything distinctive becomes a visible repeat once
+# tiled; the billboard tufts (grass_tufts.png) carry the grass silhouette.
 
-def grass_tile(seed, palette, blades, dirt=None, dirt_amount=0.0):
+def leaf_mark(rgb, height, x, y, light, dark):
+    """A 3px 'v' of leaves with a dark pixel under it (pixel-art grass tick)."""
+    for dx, dy, c, h in ((-1, 0, light, 0.7), (1, 0, light, 0.7), (0, 1, dark, 0.15), (-1, -1, light, 0.8)):
+        xx, yy = (x + dx) % N, (y + dy) % N
+        rgb[yy, xx] = c
+        height[yy, xx] = h
+
+
+def grass_tile(seed, palette, marks, dirt=None, dirt_amount=0.0):
     rng = random.Random(seed)
-    base_v = fbm(seed)
-    height = base_v * 0.35
-    # Low spots can show bare earth (hill tops).
-    rgb = ramp(base_v * 0.8 + 0.1, palette)
+    v = fbm(seed, ((4, 0.4), (8, 0.3), (16, 0.2), (32, 0.1)))
+    rgb = ramp(v * 0.7 + 0.15, palette[:-1])
+    height = 0.25 + v * 0.35
     if dirt is not None:
-        d = fbm(seed + 99, ((4, 0.6), (8, 0.4)))
+        d = fbm(seed + 99, ((8, 0.3), (16, 0.4), (32, 0.3)))
         bare = d < dirt_amount
         drgb = ramp(fbm(seed + 7) * 0.8 + 0.1, dirt)
         rgb[bare] = drgb[bare]
-        height[bare] *= 0.3
-    # Blades: 1px strokes, dark root, lighter tip, leaning, with a shadow
-    # pixel under the root. Drawn with wraparound so the tile stays seamless.
-    for _ in range(blades):
-        x = rng.randrange(N)
-        y = rng.randrange(N)
-        length = rng.choice((2, 3, 3, 4, 4, 5))
-        lean = rng.choice((-1, 0, 0, 1))
-        tone = rng.random()
-        rgb[(y + 1) % N, x] = shade(palette[0], 0.9)
-        height[(y + 1) % N, x] = min(height[(y + 1) % N, x], 0.05)
-        for s in range(length):
-            yy = (y - s) % N
-            xx = (x + (lean if s >= length // 2 + 1 else 0)) % N
-            t = s / max(1, length - 1)
-            pi = int(round(1 + t * (len(palette) - 2) * (0.6 + 0.4 * tone)))
-            rgb[yy, xx] = palette[min(pi, len(palette) - 1)]
-            height[yy, xx] = 0.45 + 0.55 * t
+        height[bare] *= 0.4
+    for _ in range(marks):
+        x, y = rng.randrange(N), rng.randrange(N)
+        k = rng.randrange(1, len(palette) - 1)
+        leaf_mark(rgb, height, x, y, palette[k + 1], palette[max(0, k - 2)])
     return rgb, height
 
 
 def make_grass():
-    pal = [(62, 112, 52), (86, 146, 70), (112, 178, 88), (136, 204, 104), (160, 222, 118), (190, 238, 140)]
-    rgb, h = grass_tile(11, pal, 520)
+    pal = [(62, 112, 52), (92, 152, 74), (116, 182, 92), (136, 202, 104), (154, 216, 114), (184, 234, 136)]
+    rgb, h = grass_tile(11, pal, 260)
     return match_mean(rgb, TARGET_MEAN["grass"]), h
 
 
 def make_hill_top():
-    pal = [(40, 58, 18), (54, 76, 24), (70, 94, 32), (88, 112, 40), (108, 132, 50)]
+    pal = [(40, 58, 18), (56, 78, 26), (70, 94, 32), (86, 110, 40), (104, 128, 50)]
     dirt = [(58, 44, 24), (74, 56, 30), (90, 70, 40)]
-    rgb, h = grass_tile(23, pal, 420, dirt, 0.22)
+    rgb, h = grass_tile(23, pal, 200, dirt, 0.16)
     return match_mean(rgb, TARGET_MEAN["hill_top"]), h
 
 
@@ -162,21 +164,17 @@ def pebble(rgb, height, cx, cy, rx, ry, col, hl, sh):
                 height[y, x] = 0.55 + 0.45 * (1 - q)
             elif q <= 1.6 and dx + dy > 0:
                 # Contact shadow on the soil below/right of the stone.
-                rgb[y, x] = rgb[y, x] * 0.78
+                rgb[y, x] = rgb[y, x] * 0.8
                 height[y, x] = min(height[y, x], 0.12)
 
 
-def earth_tile(seed, palette, stones, stone_pal, roots=0, ruts=False):
+def earth_tile(seed, palette, stones, stone_pal, roots=0):
     rng = random.Random(seed)
-    v = fbm(seed, ((4, 0.45), (8, 0.3), (32, 0.25)))
-    if ruts:
-        # Soft wheel-worn bands along one axis (paths are drawn world-aligned).
-        y = np.arange(N)[:, None] / N
-        v = v * 0.8 + 0.2 * (0.5 + 0.5 * np.cos(y * np.pi * 4.0))
+    v = fbm(seed, ((4, 0.4), (8, 0.3), (16, 0.15), (32, 0.15)))
     rgb = ramp(v, palette)
     height = v * 0.4
-    # Tiny grit: scattered single light/dark pixels.
-    for _ in range(170):
+    # Grit: scattered single light/dark pixels.
+    for _ in range(420):
         x, y = rng.randrange(N), rng.randrange(N)
         light = rng.random() < 0.5
         rgb[y, x] = palette[-1] if light else palette[0]
@@ -206,14 +204,14 @@ def earth_tile(seed, palette, stones, stone_pal, roots=0, ruts=False):
 def make_hill_side():
     pal = [(150, 96, 58), (178, 118, 72), (204, 140, 88), (226, 160, 104), (244, 180, 122)]
     stones = [(120, 104, 96), (168, 150, 136), (196, 178, 160), (220, 204, 186), (246, 234, 214)]
-    rgb, h = earth_tile(31, pal, 22, stones, roots=6)
+    rgb, h = earth_tile(31, pal, 40, stones, roots=14)
     return match_mean(rgb, TARGET_MEAN["hill_side"]), h
 
 
 def make_path():
-    pal = [(196, 132, 84), (214, 148, 94), (230, 162, 106), (242, 176, 118), (252, 192, 134)]
+    pal = [(200, 136, 86), (216, 150, 96), (230, 162, 106), (242, 176, 118), (252, 190, 132)]
     stones = [(150, 118, 94), (200, 170, 140), (222, 196, 166), (238, 216, 188), (252, 238, 214)]
-    rgb, h = earth_tile(47, pal, 14, stones, ruts=True)
+    rgb, h = earth_tile(47, pal, 30, stones)
     return match_mean(rgb, TARGET_MEAN["path"]), h
 
 
@@ -244,7 +242,7 @@ def paint_block(rgb, height, rng, x0, y0, w, hgt, tones, mortar, speck):
                 c = np.clip(base * 1.1, 0, 255)
             rgb[y, x] = c
             height[y, x] = h
-    # Chipped corner or hairline crack on some blocks.
+    # Hairline crack on a few blocks.
     if rng.random() < 0.12 and w > 5 and hgt > 4:
         x, y = x0 + rng.randrange(2, w - 2), y0 + 1
         for _ in range(hgt - 2):
@@ -263,12 +261,12 @@ def make_wall_side():
     rgb[:] = mortar
     height = np.full((N, N), 0.1)
     speck = np.random.default_rng(5).random((N, N))
-    course = 8  # 8 courses per tile -> a quarter world unit each
+    course = 8  # 0.4 world units per course at 20 texels/unit
     for row in range(N // course):
-        x = rng.randrange(0, 16)
+        x = rng.randrange(0, 24)
         start = x
         while x < start + N:
-            w = rng.choice((12, 14, 16, 16, 18, 20))
+            w = rng.choice((14, 16, 18, 20, 22, 24))
             if x + w > start + N:
                 w = start + N - x
             # Brick fills w-1 x course-1; the remaining row/column is mortar.
@@ -286,25 +284,103 @@ def make_wall_top():
     rgb[:] = mortar
     height = np.full((N, N), 0.1)
     speck = np.random.default_rng(9).random((N, N))
-    # Flagstones on a 4x4 lattice of 16px cells; some merge into 2-cell slabs.
-    used = np.zeros((4, 4), dtype=bool)
-    cells = [(cy, cx) for cy in range(4) for cx in range(4)]
-    for cy, cx in cells:
-        if used[cy, cx]:
-            continue
-        w = h = 1
-        r = rng.random()
-        if r < 0.3 and not used[cy, (cx + 1) % 4]:
-            w = 2
-        elif r < 0.55 and not used[(cy + 1) % 4, cx]:
-            h = 2
-        for yy in range(h):
-            for xx in range(w):
-                used[(cy + yy) % 4, (cx + xx) % 4] = True
-        jx, jy = rng.randrange(0, 2), rng.randrange(0, 2)
-        paint_block(rgb, height, rng, cx * 16 + jx, cy * 16 + jy, w * 16 - 2 - jx, h * 16 - 2 - jy,
-                    tones, mortar, speck)
+    # Flagstones on an 8x8 lattice of 16px cells; some merge into 2-cell slabs.
+    k = N // 16
+    used = np.zeros((k, k), dtype=bool)
+    for cy in range(k):
+        for cx in range(k):
+            if used[cy, cx]:
+                continue
+            w = h = 1
+            r = rng.random()
+            if r < 0.3 and not used[cy, (cx + 1) % k]:
+                w = 2
+            elif r < 0.55 and not used[(cy + 1) % k, cx]:
+                h = 2
+            for yy in range(h):
+                for xx in range(w):
+                    used[(cy + yy) % k, (cx + xx) % k] = True
+            jx, jy = rng.randrange(0, 2), rng.randrange(0, 2)
+            paint_block(rgb, height, rng, cx * 16 + jx, cy * 16 + jy, w * 16 - 2 - jx, h * 16 - 2 - jy,
+                        tones, mortar, speck)
     return match_mean(rgb, TARGET_MEAN["wall_top"]), height
+
+
+# ── Grass tuft atlas ─────────────────────────────────────────────────────────
+# Row 0: 8 short tufts, 16x12. Row 1: 8 tall tufts, 16x24. Same pixel size as
+# the character sprites. R = tone (0 dark outline .. 1 sunlit tip), A = coverage.
+
+TUFT_W = 16
+SHORT_H = 12
+TALL_H = 24
+TONES = (0.0, 0.3, 0.5, 0.7, 0.85, 1.0)
+
+
+def tuft(seed, h, blades, min_len, max_len):
+    rng = random.Random(seed)
+    tone = np.zeros((h, TUFT_W))
+    cov = np.zeros((h, TUFT_W), dtype=bool)
+    spread = 3.0 if h == SHORT_H else 3.5
+    for bi in range(blades):
+        # Roots near the bottom centre; outer blades lean out and curl over.
+        # Back blades first (darker), front blades last (lighter, on top).
+        front = bi >= blades * 0.55
+        x = TUFT_W / 2 - 0.5 + rng.uniform(-spread, spread)
+        lean = (x - TUFT_W / 2 + 0.5) * rng.uniform(0.08, 0.16) + rng.uniform(-0.2, 0.2)
+        curl = lean * rng.uniform(0.02, 0.06)
+        length = rng.randint(min_len, max_len)
+        for s in range(length):
+            t = s / max(1, length - 1)
+            y = h - 1 - s
+            if y < 0:
+                break
+            xi = int(round(x))
+            if 0 <= xi < TUFT_W:
+                # Mostly mid greens; only the last few pixels of a front
+                # blade reach the sunlit tones.
+                lvl = (2 if front else 1) + int(t ** 1.6 * 2.6 + (0.5 if front else 0.0))
+                lvl = min(lvl, 4 if front else 3)
+                cov[y, xi] = True
+                tone[y, xi] = TONES[lvl]
+                # Blades are 2px wide near the root; the right pixel is in shade.
+                if s < length * 0.4 and xi + 1 < TUFT_W and not (front is False and cov[y, xi + 1]):
+                    cov[y, xi + 1] = True
+                    tone[y, xi + 1] = TONES[max(1, lvl - 1)]
+            x = min(max(x + lean, 0.0), TUFT_W - 1.0)
+            lean += curl
+    # Short gaps between blades near the root fill with shade, so the clump
+    # has a footing instead of reading as separate sticks.
+    for y in range(h - max(2, h // 5), h):
+        xs = np.nonzero(cov[y])[0]
+        for a, b in zip(xs[:-1], xs[1:]):
+            if 1 < b - a <= 3:
+                cov[y, a + 1:b] = True
+                tone[y, a + 1:b] = TONES[1]
+    # Dark outline on the silhouette's lower sides (like the sprites' outlines,
+    # without boxing in the airy tips).
+    out = cov.copy()
+    for y in range(int(h * 0.6), h):
+        xs = np.nonzero(cov[y])[0]
+        if xs.size:
+            for x in (xs.min() - 1, xs.max() + 1):
+                if 0 <= x < TUFT_W:
+                    out[y, x] = True
+                    tone[y, x] = TONES[0]
+    return tone, out
+
+
+def make_tufts():
+    atlas = np.zeros((SHORT_H + TALL_H, TUFT_W * 8, 4))
+    for i in range(8):
+        t, c = tuft(100 + i, SHORT_H, 10, 4, 11)
+        atlas[:SHORT_H, i * TUFT_W:(i + 1) * TUFT_W, 0] = t
+        atlas[:SHORT_H, i * TUFT_W:(i + 1) * TUFT_W, 3] = c
+        t, c = tuft(200 + i, TALL_H, 12, 9, 23)
+        atlas[SHORT_H:, i * TUFT_W:(i + 1) * TUFT_W, 0] = t
+        atlas[SHORT_H:, i * TUFT_W:(i + 1) * TUFT_W, 3] = c
+    atlas[..., 1] = atlas[..., 0]
+    atlas[..., 2] = atlas[..., 0]
+    return Image.fromarray((atlas * 255).round().astype(np.uint8), "RGBA")
 
 
 TILES = {
@@ -328,6 +404,8 @@ def main():
         img.save(OUT / f"{name}_pixel.png")
         imgs[name] = img
         print(f"  {name}_pixel.png  mean={np.asarray(img)[..., :3].reshape(-1, 3).mean(0).round(1)}")
+    make_tufts().save(OUT / "grass_tufts.png")
+    print("  grass_tufts.png")
     if args.preview:
         s = 4
         sheet = Image.new("RGB", (len(imgs) * N * 2 * s // 2, N * 2 * s // 2))

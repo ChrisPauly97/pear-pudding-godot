@@ -185,7 +185,7 @@ World module `fake_volumetrics` (created in `_ensure_world_modules`). Stand-ins 
 Soft dark pools under characters on every tier (Medium has no sun shadows, so billboards floated). **Not decal geometry:** a flat soft-disc quad was tried first and lost to the terrain shader's flat-ground vertex jitter (up to +0.12 y) and to dense grass. Instead the surfaces darken themselves:
 
 - `contact_shadow.gdshaderinc` declares six `global uniform vec4 contact_shadow_0..5` (world xyz + radius; radius 0 = unused) and `contact_shadow_opacity`, all in `project.godot` `[shader_globals]`. `contact_shadow(p)` multiplies `1 − opacity × (1 − smoothstep(0.15, 1, |Δxz/r|²)) × (1 − smoothstep(0.4, 1.4, |Δy|))` over the slots.
-- `terrain.gdshader` multiplies `ALBEDO` by it at the fragment's world position; `grass_blade` / `grass_cluster` by `mix(contact_shadow(blade root), 1, UV.y × 0.6)` so blades darken at the base and stay lighter at the tip.
+- `terrain.gdshader` multiplies `ALBEDO` by it at the fragment's world position; `grass_tuft` by `mix(contact_shadow(blade root), 1, UV.y × 0.6)` so blades darken at the base and stay lighter at the tip.
 - Casters call `ContactShadow.register(self, ContactShadow.radius_for_height(h))` in `_ready` (group `contact_shadow_caster` + radius meta): Player, RemotePlayer, MaitelnFollower, EnemyNPC, MerchantNPC, TownspersonNPC, ScoutAmbush. Radius = height × 0.45, clamped 0.35–1.6, × node scale (bosses).
 - `CharacterPresence` module (`character_presence`, formerly ContactShadows) writes the nearest six visible casters to the player each frame (`pick_slots`, only changed slots), clears the slots in `_exit_tree`, and `apply_knobs()` (from `apply_graphics_quality`) sets opacity 0.55, or 0.3 when `sun_shadows` is on.
 
