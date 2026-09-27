@@ -140,6 +140,7 @@
 | [GID-134](goals/GID-134--world-look-polish/goal.md) | World Look Polish | done | 10 / 10 |
 | [GID-135](goals/GID-135--wow-fluid-combat/goal.md) | WoW-Fluid Card Combat | in-progress | 16 / 22 |
 | [GID-136](goals/GID-136--wow-rpg-loop/goal.md) | WoW-Style RPG Loop | in-progress | 3 / 11 |
+| [GID-137](goals/GID-137--paper-doll-hero/goal.md) | Paper-Doll Player Hero | in-progress | 1 / 4 |
 
 ## Backlog
 

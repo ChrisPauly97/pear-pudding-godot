@@ -1724,9 +1724,9 @@ loot" framing.
 
 ## Asset Requirements
 
-No new art. RemotePlayer reuses the player-hero textures
-(`assets/textures/characters/player_hero{,_walk_1-4}.png`, 0x72 `elf_m` since
-GID-123) via `AvatarSprite.build()`.
+No new art. RemotePlayer draws the procedural PaperDoll hero via
+`AvatarSprite.build(gear)` (GID-137; before that 0x72 `elf_m`). Remote gear is not
+synced yet — avatars render in base clothes until TID-561.
 The name tag is a procedural `Label3D` and the roster/lobby swatches are procedural
 `ColorRect`/`StyleBoxFlat` — no textures. `RemotePlayer.tscn` and all new scripts
 (`MpProfile.gd`, `PlayerIdentity.gd`) have `.uid` sidecars.

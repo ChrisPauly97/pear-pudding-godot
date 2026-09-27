@@ -1076,6 +1076,7 @@ func _has_weapon_id(weapon_id: String) -> bool:
 func equip_weapon(weapon_id: String) -> void:
 	equipped_weapon = weapon_id
 	_dirty = true
+	GameBus.equipment_changed.emit("weapon", weapon_id)
 
 ## Adds an equipment item to the appropriate owned array based on its slot.
 ## slot must be "weapon", "armor", "ring", or "trinket".
@@ -1107,6 +1108,7 @@ func equip_item(item_id: String, slot: String) -> void:
 		"trinket":  equipped_trinket = item_id
 		"offhand":  equipped_offhand = item_id
 	_dirty = true
+	GameBus.equipment_changed.emit(slot, item_id)
 
 ## Returns the owned array for the given slot.
 ## For "weapon", extracts weapon_id strings from the dict instances.

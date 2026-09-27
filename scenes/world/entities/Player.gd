@@ -30,13 +30,9 @@ const _LAND_FALL_SPEED: float = 4.0   # min downward speed (u/s) to count as a "
 const _COYOTE_TIME: float = 0.12
 const _JUMP_BUFFER_TIME: float = 0.12
 
-# Player hero frames — 0x72 DungeonTilesetII "elf_m" (CC0): a young
-# adventurer matching Saimtar; Maiteln keeps the old-wizard sprite.
-const _IdleTex:  Texture2D = preload("res://assets/textures/characters/player_hero.png")
-const _WalkTex1: Texture2D = preload("res://assets/textures/characters/player_hero_walk_1.png")
-const _WalkTex2: Texture2D = preload("res://assets/textures/characters/player_hero_walk_2.png")
-const _WalkTex3: Texture2D = preload("res://assets/textures/characters/player_hero_walk_3.png")
-const _WalkTex4: Texture2D = preload("res://assets/textures/characters/player_hero_walk_4.png")
+# Player hero frames — drawn layer by layer by PaperDoll so equipped gear
+# shows on the body (GID-137); Maiteln keeps the old-wizard sprite.
+const _PaperDoll = preload("res://game_logic/character/PaperDoll.gd")
 const _ContactShadow = preload("res://game_logic/ContactShadow.gd")
 const _SpriteOutline = preload("res://game_logic/SpriteOutline.gd")
 
@@ -112,6 +108,7 @@ func _ready() -> void:
 	floor_constant_speed = true
 	_build_sprite()
 	GameBus.mount_state_changed.connect(_on_mount_state_changed)
+	GameBus.equipment_changed.connect(_on_equipment_changed)
 	_update_mount_visuals(SaveManager.is_mounted)
 	GameBus.enemy_engaged.connect(func(_d: Dictionary) -> void: cancel_path())
 
@@ -144,13 +141,9 @@ func cancel_path() -> void:
 	_path_wp_index = 0
 
 func _build_sprite() -> void:
-	# Build a SpriteFrames resource with idle (frame 0) and walk (all 4 frames).
-	var walk: Array[Texture2D] = [_WalkTex1, _WalkTex2, _WalkTex3, _WalkTex4]
-	var sf: SpriteFrames = _SpriteRegistry.make_idle_walk_frames(_IdleTex, walk, ANIM_FPS)
-
-
+	# Idle (frame 0) and a 4-frame walk, drawn in the currently equipped gear.
 	_sprite = AnimatedSprite3D.new()
-	_sprite.sprite_frames = sf
+	_sprite.sprite_frames = _PaperDoll.build_frames(_PaperDoll.gear_of(SaveManager), {}, ANIM_FPS)
 	_sprite.pixel_size = PIXEL_SIZE
 	_SpriteRegistry.apply_billboard_flags(_sprite)
 	_sprite.shaded = false
@@ -159,7 +152,7 @@ func _build_sprite() -> void:
 	_sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 	# Position sprite so bottom edge sits at y=0 (feet on the ground)
-	var frame_h: float = _WalkTex1.get_height() * PIXEL_SIZE
+	var frame_h: float = _PaperDoll.FRAME_H * PIXEL_SIZE
 	_sprite_base_pos = Vector3(0.0, frame_h * 0.5, 0.0)
 	_sprite.position = _sprite_base_pos
 	_sprite_pose_pos = _sprite_base_pos
@@ -492,6 +485,15 @@ func _set_mount_facing(flipped: bool) -> void:
 		return
 	_mount_sprite.flip_h = flipped
 	_mount_sprite.offset = Vector2(-_SADDLE_OFFSET_PX if flipped else _SADDLE_OFFSET_PX, 0.0)
+
+## Redraws the hero in the new gear, keeping the current animation and frame.
+func _on_equipment_changed(_slot: String, _item_id: String) -> void:
+	if _sprite == null:
+		return
+	var anim: StringName = _sprite.animation
+	_sprite.sprite_frames = _PaperDoll.build_frames(_PaperDoll.gear_of(SaveManager), {}, ANIM_FPS)
+	_sprite.play(anim)
+	_SpriteOutline.refresh(_sprite)
 
 func _on_mount_state_changed(mounted: bool, _mount_id: String) -> void:
 	_update_mount_visuals(mounted)

@@ -139,7 +139,44 @@ if player_chunk != last_chunk:
 | Asset | Path | Notes |
 |---|---|---|
 | Player scene | `scenes/world/entities/Player.tscn` | `CharacterBody3D` + `Sprite3D` + `CollisionShape3D` |
-| Hero frames | `assets/textures/characters/player_hero.png` (idle) + `player_hero_walk_1-4.png` | 0x72 `elf_m`, 16×28, GID-123 (old hand-made wizard frames remain on disk, unreferenced) |
+| Hero frames | none — drawn at runtime by `game_logic/character/PaperDoll.gd` | 16×28 idle + 4 walk, layered body + gear (GID-137); redrawn on `GameBus.equipment_changed` |
 | WorldScene | `scenes/world/WorldScene.tscn` | Contains `Camera3D`, `DirectionalLight3D`, player spawn marker |
 | ChunkRenderer scene | `scenes/world/ChunkRenderer.tscn` | Template instantiated per loaded chunk |
 | VirtualJoystick scene | `scenes/ui/VirtualJoystick.tscn` | Touchscreen overlay; added at runtime when touchscreen detected |
+
+## Paper-doll hero (GID-137)
+
+The player sprite is drawn in code by `game_logic/character/PaperDoll.gd`, so
+gear changes the body.
+
+**Frame:** 16×28 px (same as the old pack art, so `PLAYER_HEIGHT` 1.4, mount
+ride offsets and contact shadow keep their tuning). Facing right; `flip_h`
+mirrors it. Rows: hair 1–4, head 3–9, neck 10, torso/arms 11–17, hands 18,
+legs 18–24, boots 25–27. Row 0 is free for future helmets.
+
+**Poses:** 0 = idle; 1–4 = walk (left stride, pass, right stride, pass). A
+stride lifts one boot 1 px and steps it forward; arms swing opposite; pass
+frames drop the body 1 px.
+
+**Draw order:** cloak back → legs/boots → torso (shirt, armour recolour, belt)
+→ trinket → back arm, front arm (sleeves follow armour; darker seam against
+the torso) → head/hair → cloak mantle → off-hand item (behind back hand) →
+main-hand item (in front of front hand; hand redrawn over the grip).
+
+**Gear:** `GEAR_VISUALS` maps item id → `{style, main, trim}`. Styles: armour
+`vest`/`mail`/`cloak`; held `dagger`/`sword`/`axe`/`staff`/`wand`/`crystal`/
+`orb`/`buckler`/`shield`; trinket `necklace`/`flask`/`coin`. Rings are not
+drawn. Adding an item = one entry (reuse a style or add a `match` branch);
+`test_paper_doll` fails if an armour/weapon/offhand/trinket lacks one or draws
+nothing.
+
+**Appearance:** optional Dictionary overriding `DEFAULT_APPEARANCE` colours
+(skin, hair, eyes, shirt, trousers, boots, belt). Not persisted yet (TID-562).
+
+**API:** `build_frames(gear, appearance, fps)` (cached per look — co-op
+avatars in the same gear share textures), `idle_texture(gear)` (battle token),
+`gear_of(save_obj)`, `gear_of_record(record)`, `render_frame(gear, look, pose)`.
+
+**Live updates:** `SaveManager.equip_item/equip_weapon` emit
+`GameBus.equipment_changed(slot, id)`; `Player._on_equipment_changed` swaps
+`sprite_frames`, keeps the animation and calls `SpriteOutline.refresh()`.
