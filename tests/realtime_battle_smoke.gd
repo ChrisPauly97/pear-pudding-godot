@@ -168,7 +168,7 @@ func _run_mentor_barks_scenario() -> bool:
 	for f: String in fails:
 		print("  [FAIL] mentor_barks: " + f)
 	if fails.is_empty():
-		print("  [PASS] mentor_barks: ran the length of a fight without a SCRIPT ERROR")
+		print("  [PASS] mentor_barks: ran the length of a fight cleanly")
 	battle.queue_free()
 	await process_frame
 	save_manager.set("active_companion", "")
