@@ -20,6 +20,8 @@ const Gambits = preload("res://game_logic/battle/Gambits.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _WorldEventManager = preload("res://autoloads/WorldEventManager.gd")
 const _WorldMap = preload("res://game_logic/world/WorldMap.gd")
+const _WorldScene = preload("res://scenes/world/WorldScene.gd")
+const _RewardToastFx = preload("res://scenes/world/RewardToastFx.gd")
 
 var _sm: _SceneManager
 
@@ -114,10 +116,11 @@ func _on_battle_won(result: Dictionary) -> void:
 					int(r_stats.get("cost", -1)))
 			_sm._bump_session_stat("cards_earned", 1)
 	# Award coins based on enemy type, multiplied by active gambit reward factor.
+	var coins_won: int = 0
 	if enemy_type != "":
-		var coins: int = Gambits.apply_reward_multiplier(EnemyRegistry.get_coin_reward(enemy_type), gambit_id)
-		_sm.save_manager.add_coins(coins)
-		_sm._bump_session_stat("coins_earned", coins)
+		coins_won = Gambits.apply_reward_multiplier(EnemyRegistry.get_coin_reward(enemy_type), gambit_id)
+		_sm.save_manager.add_coins(coins_won)
+		_sm._bump_session_stat("coins_earned", coins_won)
 	# Award XP based on enemy type (table lives in EnemyRegistry).
 	var xp_amount: int = EnemyRegistry.get_xp_reward(enemy_type, is_boss)
 	_sm.save_manager.add_xp(xp_amount)
@@ -164,7 +167,14 @@ func _on_battle_won(result: Dictionary) -> void:
 		var wem: _WorldEventManager = get_node_or_null("/root/WorldEventManager") as _WorldEventManager
 		if wem != null:
 			wem.end_event("roaming_boss")
-	_sm._restore_world()
+	# GID-135 / TID-531: a routine in-world win skipped the blocking result
+	# card (BattleScene._emit_routine_victory_toast) — show the coins/XP/card
+	# news as floating toasts over the world instead, once it's reattached.
+	if bool(result.get("in_world_toast", false)):
+		var reward_card: String = str(result.get("card_reward", ""))
+		_sm._restore_world(_show_reward_toasts.bind(coins_won, xp_amount, reward_card))
+	else:
+		_sm._restore_world()
 	# Chapter 2 beats 6 → 7 (GID-108 / TID-407): defeating the war-camp boss sets
 	# chapter2_warcamp_cleared and immediately shows the cliffhanger narration
 	# (reuses TID-405's ChapterEndingOverlay verbatim); closing it sets
@@ -172,6 +182,32 @@ func _on_battle_won(result: Dictionary) -> void:
 	if enemy_type == "martarquas_warleader":
 		_sm.save_manager.set_story_flag("chapter2_warcamp_cleared")
 		_show_chapter2_cliffhanger()
+
+## Floating "+coins / +xp / card" toast over the fight location (GID-135 /
+## TID-531). Only ever called from `_restore_world`'s post-swap callback — see
+## the CLAUDE.md spire-draft learning for why building this on the next line
+## after `_restore_world()` instead would attach it to a scene about to die.
+func _show_reward_toasts(coins_won: int, xp_won: int, reward_card_id: String) -> void:
+	var world: _WorldScene = get_tree().current_scene as _WorldScene
+	if world == null:
+		return
+	var anchor: Node3D = world.get_player()
+	if anchor == null:
+		return
+	var lines: Array[Dictionary] = []
+	if coins_won > 0:
+		lines.append({"text": "+%d Coins" % coins_won, "color": Color(1.0, 0.85, 0.3)})
+	if xp_won > 0:
+		lines.append({"text": "+%d XP" % xp_won, "color": Color(0.5, 1.0, 0.7)})
+	if reward_card_id != "":
+		var tmpl: Dictionary = CardRegistry.get_template(reward_card_id)
+		lines.append({"text": str(tmpl.get("name", reward_card_id)), "color": Color(0.8, 0.9, 1.0)})
+	if lines.is_empty():
+		return
+	var fx := _RewardToastFx.new()
+	world.add_child(fx)
+	fx.global_position = anchor.global_position
+	fx.play(lines)
 
 ## Spire floor cleared: no card/coin rewards, save hero HP, show the draft.
 ## Enemies that joined the fight mid-way (TID-551) each count as a kill:
