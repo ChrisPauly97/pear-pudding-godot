@@ -449,13 +449,20 @@ func _build_grass(world_scene: _WorldScene, grass_data: Dictionary) -> void:
 	# Buffers were pre-built on the worker thread; just commit them to the scene tree.
 	grass.commit_grass_buffers(grass_data, _chunk_key, BiomeDef.grass_recolor(_chunk_data.biome_id))
 
-static func _get_prop_visual(key_str: String) -> Dictionary:
-	var cached: Dictionary = _prop_visual_cache.get(key_str, {})
+## Material + quad for one variant of a ground prop, cached per key#variant.
+## The quad is the texture's pixel size at CHAR_PIXEL_SIZE, so props share the
+## characters' and the ground's pixel scale.
+static func _get_prop_visual(key_str: String, variant: int = 0) -> Dictionary:
+	var cache_key: String = "%s#%d" % [key_str, variant]
+	var cached: Dictionary = _prop_visual_cache.get(cache_key, {})
 	if not cached.is_empty():
 		return cached
-	var tex: Texture2D = _SpriteRegistry.prop_texture(key_str)
+	var variants: Array = _SpriteRegistry.prop_variants(key_str)
+	var tex: Texture2D = variants[variant % variants.size()] as Texture2D if not variants.is_empty() else null
+	var px: float = _SpriteRegistry.CHAR_PIXEL_SIZE
 	if tex == null:
 		tex = TextureGen.prop(key_str)
+		px = 0.5 / 16.0  # procedural fallback: old 0.5-unit quad for a 16 px texture
 	if tex == null:
 		return {}
 	var mat := StandardMaterial3D.new()
@@ -464,15 +471,15 @@ static func _get_prop_visual(key_str: String) -> Dictionary:
 	mat.alpha_scissor_threshold = 0.5
 	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	mat.billboard_keep_scale = true  # per-instance size/flip variety (TID-522)
+	mat.billboard_keep_scale = true  # per-instance mirror (TID-522)
 	_apply_lit(mat)
 	var quad := QuadMesh.new()
-	var sz: float = float(BiomeDef.PROP_SIZES.get(key_str, 0.5))
-	quad.size = Vector2(sz, sz)
-	# Stand on the ground rather than half-buried at the quad's centre.
-	quad.center_offset = Vector3(0.0, sz * 0.45, 0.0)
+	var size := Vector2(float(tex.get_width()), float(tex.get_height())) * px
+	quad.size = size
+	# Stand on the ground (bottom row just below y=0 so it never floats).
+	quad.center_offset = Vector3(0.0, size.y * 0.5 - px * 0.5, 0.0)
 	var entry: Dictionary = {"mat": mat, "mesh": quad}
-	_prop_visual_cache[key_str] = entry
+	_prop_visual_cache[cache_key] = entry
 	return entry
 
 func _build_props(_biome: int, prop_positions: Dictionary) -> void:
@@ -483,31 +490,45 @@ func _build_props(_biome: int, prop_positions: Dictionary) -> void:
 		if positions.is_empty():
 			continue
 		var key_str: String = str(pt_key)
-		var visual: Dictionary = _get_prop_visual(key_str)
-		if visual.is_empty():
-			continue
-		var mat: StandardMaterial3D = visual["mat"]
-		var quad: QuadMesh = visual["mesh"]
-		var mm := MultiMesh.new()
-		mm.transform_format = MultiMesh.TRANSFORM_3D
-		mm.instance_count = positions.size()
-		mm.mesh = quad
-		for i in range(positions.size()):
-			var pos: Vector3 = positions[i] as Vector3
-			# Size and mirror variety hashed from the position (stable per prop).
+		# Split by variant (hashed from the position, so stable per prop); one
+		# MultiMesh per variant.
+		var n_var: int = maxi(1, _SpriteRegistry.prop_variants(key_str).size())
+		var by_variant: Array = []
+		for _v in range(n_var):
+			by_variant.append([])
+		for raw: Variant in positions:
+			var pos: Vector3 = raw as Vector3
 			var h: float = fposmod(sin(pos.x * 12.9898 + pos.z * 78.233) * 43758.5453, 1.0)
-			var s: float = lerpf(0.75, 1.25, h)
-			var flip: float = -1.0 if fposmod(h * 7.0, 1.0) > 0.5 else 1.0
-			mm.set_instance_transform(i, Transform3D(Basis.from_scale(Vector3(s * flip, s, s)), pos))
-		var mmi := MultiMeshInstance3D.new()
-		mmi.multimesh = mm
-		mmi.material_override = mat
-		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		# Range is measured to the whole chunk's prop AABB, so pad it by a chunk
-		# width or on-screen props in the next chunk over vanish (TID-522).
-		mmi.visibility_range_end = IsoConst.ENTITY_VISIBILITY_END + float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
-		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
-		add_child(mmi)
+			(by_variant[mini(int(h * n_var), n_var - 1)] as Array).append(pos)
+		for v in range(n_var):
+			var group: Array = by_variant[v] as Array
+			if not group.is_empty():
+				_add_prop_multimesh(key_str, v, group)
+
+func _add_prop_multimesh(key_str: String, variant: int, positions: Array) -> void:
+	var visual: Dictionary = _get_prop_visual(key_str, variant)
+	if visual.is_empty():
+		return
+	var mat: StandardMaterial3D = visual["mat"]
+	var quad: QuadMesh = visual["mesh"]
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.instance_count = positions.size()
+	mm.mesh = quad
+	for i in range(positions.size()):
+		var pos: Vector3 = positions[i] as Vector3
+		# Mirror variety only: scaling would break the shared pixel size.
+		var flip: float = -1.0 if fposmod(pos.x * 3.7 + pos.z * 1.3, 2.0) > 1.0 else 1.0
+		mm.set_instance_transform(i, Transform3D(Basis.from_scale(Vector3(flip, 1.0, 1.0)), pos))
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	mmi.material_override = mat
+	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# Range is measured to the whole chunk's prop AABB, so pad it by a chunk
+	# width or on-screen props in the next chunk over vanish (TID-522).
+	mmi.visibility_range_end = IsoConst.ENTITY_VISIBILITY_END + float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
+	mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+	add_child(mmi)
 
 # ── Entities ───────────────────────────────────────────────────────────────
 

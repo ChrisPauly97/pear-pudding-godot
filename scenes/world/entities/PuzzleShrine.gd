@@ -2,9 +2,6 @@ extends Node3D
 
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 
-## Idol sprite target height — shoulder-high stone shrine.
-const _SHRINE_HEIGHT: float = 1.3
-
 static var _shrine_mat: StandardMaterial3D
 static var _shrine_mesh: PrismMesh
 
@@ -27,7 +24,7 @@ func _ready() -> void:
 	var tex: Texture2D = _SpriteRegistry.puzzle_shrine_texture()
 	if tex != null:
 		_sprite = Sprite3D.new()
-		_SpriteRegistry.setup_sprite_height(_sprite, tex, _SHRINE_HEIGHT)
+		_SpriteRegistry.setup_sprite(_sprite, tex)  # drawn at its height in px (tools/generate_sprites.py)
 		_SpriteRegistry.apply_billboard_flags(_sprite)
 		add_child(_sprite)
 	else:

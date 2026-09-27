@@ -3,6 +3,8 @@
 ## drew every chunk but 0,0 a second origin away and nothing ever showed there.
 extends "res://tests/framework/test_case.gd"
 
+const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
+
 const _ChunkRenderer = preload("res://scenes/world/ChunkRenderer.gd")
 const _ChunkData = preload("res://game_logic/world/ChunkData.gd")
 const _BiomeDef = preload("res://game_logic/world/BiomeDef.gd")
@@ -29,10 +31,13 @@ func test_positions_are_chunk_local_away_from_the_origin() -> void:
 	assert_gt(total, 10, "a grass chunk gets a scatter of props")
 
 
-func test_every_prop_type_has_a_size() -> void:
+func test_every_prop_type_has_sprite_variants() -> void:
 	for set_arr: Array in _BiomeDef.PROP_SETS:
 		for key: String in set_arr:
-			assert_true(_BiomeDef.PROP_SIZES.has(key), "%s has a billboard size" % key)
+			var variants: Array = _SpriteRegistry.prop_variants(key)
+			assert_gt(variants.size(), 1, "%s has several sprite variants" % key)
+			for tex: Variant in variants:
+				assert_true(tex is Texture2D, "%s variant is a texture" % key)
 
 
 func test_biome_tables_cover_every_biome() -> void:

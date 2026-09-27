@@ -31,16 +31,16 @@ const _TEX_WALL_TOP = preload("res://assets/textures/pixel_art/wall_top_pixel.pn
 
 # Scatter props. One pair per biome, matching BiomeDef.PROP_SETS so the board
 # is dressed with exactly what the world scatters on that terrain.
-const _PROP_ROCK = preload("res://assets/textures/props/prop_rock.png")
-const _PROP_FLOWER = preload("res://assets/textures/props/prop_flower.png")
-const _PROP_MUSHROOM = preload("res://assets/textures/props/prop_mushroom.png")
-const _PROP_FERN = preload("res://assets/textures/props/prop_fern.png")
-const _PROP_CACTUS = preload("res://assets/textures/props/prop_cactus.png")
-const _PROP_THORN = preload("res://assets/textures/props/prop_thorn.png")
-const _PROP_ASH_PILE = preload("res://assets/textures/props/prop_ash_pile.png")
-const _PROP_EMBER = preload("res://assets/textures/props/prop_ember.png")
-const _PROP_BOULDER = preload("res://assets/textures/props/prop_boulder.png")
-const _PROP_LICHEN = preload("res://assets/textures/props/prop_lichen.png")
+const _PROP_ROCK = preload("res://assets/textures/props/prop_rock_0.png")
+const _PROP_FLOWER = preload("res://assets/textures/props/prop_flower_0.png")
+const _PROP_MUSHROOM = preload("res://assets/textures/props/prop_mushroom_0.png")
+const _PROP_FERN = preload("res://assets/textures/props/prop_fern_0.png")
+const _PROP_CACTUS = preload("res://assets/textures/props/prop_cactus_0.png")
+const _PROP_THORN = preload("res://assets/textures/props/prop_thorn_0.png")
+const _PROP_ASH_PILE = preload("res://assets/textures/props/prop_ash_pile_0.png")
+const _PROP_EMBER = preload("res://assets/textures/props/prop_ember_0.png")
+const _PROP_BOULDER = preload("res://assets/textures/props/prop_boulder_0.png")
+const _PROP_LICHEN = preload("res://assets/textures/props/prop_lichen_0.png")
 const _PROP_BURIAL_MOUND = preload("res://assets/textures/props/burial_mound.png")
 
 ## Screen-space y of the line between the two halves of the board. Matches
