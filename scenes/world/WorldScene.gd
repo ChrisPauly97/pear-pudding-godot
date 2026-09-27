@@ -19,6 +19,7 @@ const BiomeDef        = preload("res://game_logic/world/BiomeDef.gd")
 const TerrainMath     = preload("res://game_logic/TerrainMath.gd")
 const Minimap         = preload("res://scenes/world/Minimap.gd")
 const MapViewOverlay  = preload("res://scenes/ui/MapViewOverlay.gd")
+const _RealmMapOverlay = preload("res://scenes/ui/RealmMapOverlay.gd")
 const WeatherParticles   = preload("res://scenes/world/WeatherParticles.gd")
 const _TerrainShader: Shader = preload("res://assets/shaders/terrain.gdshader")
 const LandmarkNames  = preload("res://game_logic/world/LandmarkNames.gd")
@@ -360,6 +361,7 @@ var _world_hud: WorldHUD = null
 var _dungeon_session_ui: DungeonSessionUI = null
 var _minimap: Minimap
 var _map_overlay: MapViewOverlay = null
+var _realm_overlay: _RealmMapOverlay = null
 
 # Story objective beacon (one at most, on the objective's tile — see
 # _refresh_objective_beacon).
@@ -1716,6 +1718,7 @@ func _check_interactions() -> void:
 
 func _open_map_view() -> void:
 	if _is_infinite:
+		_toggle_realm_map()
 		return
 	if _map_overlay != null:
 		_map_overlay.queue_free()
@@ -1729,6 +1732,17 @@ func _open_map_view() -> void:
 		coop_session._build_rally_targets())
 	_map_overlay.closed.connect(func() -> void: _map_overlay = null)
 	_map_overlay.rally_requested.connect(coop_session._rally_to_peer)
+
+## The overworld has no tile grid to show, so M opens the realm map (GID-139).
+func _toggle_realm_map() -> void:
+	if is_instance_valid(_realm_overlay):
+		_realm_overlay.queue_free()
+		_realm_overlay = null
+		return
+	_realm_overlay = _RealmMapOverlay.new()
+	add_child(_realm_overlay)
+	_realm_overlay.setup(_player, map_name, active_quests(), tracked_quest())
+	_realm_overlay.closed.connect(func() -> void: _realm_overlay = null)
 
 func _open_pause() -> void:
 	if _pause_overlay != null:

@@ -142,7 +142,7 @@
 | [GID-136](goals/GID-136--wow-rpg-loop/goal.md) | WoW-Style RPG Loop | in-progress | 3 / 11 |
 | [GID-137](goals/GID-137--paper-doll-hero/goal.md) | Paper-Doll Player Hero | in-progress | 4 / 6 |
 | [GID-138](goals/GID-138--seamless-story-realm/goal.md) | Seamless Story Realm | done | 10 / 10 |
-| [GID-139](goals/GID-139--quest-log-wayfinding/goal.md) | Quest Log & Wayfinding | in-progress | 2 / 5 |
+| [GID-139](goals/GID-139--quest-log-wayfinding/goal.md) | Quest Log & Wayfinding | in-progress | 3 / 5 |
 
 ## Backlog
 

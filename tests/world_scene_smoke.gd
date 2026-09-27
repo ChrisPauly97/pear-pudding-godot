@@ -128,6 +128,15 @@ func _run() -> bool:
 	ok = _check(ws.get("_entity_root") != null, "_entity_root (Entities Node3D) built") and ok
 	var player: Object = ws.get("_player")
 	ok = _check(player != null and is_instance_valid(player), "_player spawned") and ok
+	# GID-139: the overworld map view is the realm map; it opens, draws, closes.
+	ws.call("_open_map_view")
+	await process_frame
+	await process_frame
+	ok = _check(is_instance_valid(ws.get("_realm_overlay")), "M opens the realm map in the overworld") and ok
+	ws.call("_open_map_view")
+	await process_frame
+	ok = _check(ws.get("_realm_overlay") == null, "M again closes the realm map") and ok
+	ok = _check(not (ws.call("tracked_quest") as Dictionary).is_empty(), "a tracked quest exists") and ok
 	ok = _check(ws.get_node_or_null("WorldHUD") != null,
 		"WorldHUD child node present") and ok
 	ok = _check(ws.get_node_or_null("ChunkStreamingManager") != null,
