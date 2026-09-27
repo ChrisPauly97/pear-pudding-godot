@@ -88,6 +88,34 @@ static func can_learn(id: String, player_level: int, coins: int, already_learned
 	var a: Dictionary = ABILITIES[id]
 	return player_level >= int(a.get("level_req", 0)) and coins >= int(a.get("learn_cost", 0))
 
+## Every ability the player can currently slot: the always-known trio plus
+## whatever they've learned from a trainer.
+static func known_ids(learned: Array) -> Array[String]:
+	var out: Array[String] = ALWAYS_KNOWN.duplicate()
+	for v: Variant in learned:
+		var id: String = str(v)
+		if ABILITIES.has(id) and not out.has(id):
+			out.append(id)
+	return out
+
+## TID-556: the loadout picker's editing state — always exactly `SLOTS`
+## entries. `bar`'s ids are kept in order where they're known; any remaining
+## slots are padded with unused known ids (default bar first, so a fresh save
+## still starts at strike/mend/kick).
+static func resolved_bar(bar: Array, learned: Array) -> Array[String]:
+	var known: Array[String] = known_ids(learned)
+	var out: Array[String] = []
+	for v: Variant in bar:
+		var id: String = str(v)
+		if known.has(id) and not out.has(id) and out.size() < SLOTS:
+			out.append(id)
+	for id: String in (DEFAULT_BAR + known):
+		if out.size() >= SLOTS:
+			break
+		if not out.has(id):
+			out.append(id)
+	return out
+
 static func def(id: String) -> Dictionary:
 	return ABILITIES.get(id, {}) as Dictionary
 

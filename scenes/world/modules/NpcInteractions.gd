@@ -168,8 +168,12 @@ func show_trainer_panel() -> void:
 	for id: String in SkillBar.learnable_ids():
 		vbox.add_child(_trainer_row(id, sm, layer, font, vh))
 
-	var close_row := _UiUtil.make_hbox(0, vbox)
+	var close_row := _UiUtil.make_hbox(int(vh * 0.02), vbox)
 	close_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	# TID-556: also reachable from the Menu Hub's "Skill Bar" tab at any time.
+	_UiUtil.make_button("Loadout", Vector2(vh * 0.18, vh * 0.06), font, func() -> void:
+		layer.queue_free()
+		SceneManager.open_menu_hub("loadout"), close_row)
 	_UiUtil.make_button("Close", Vector2(vh * 0.18, vh * 0.06), font, layer.queue_free, close_row)
 
 func _trainer_row(id: String, sm: SaveManager, layer: CanvasLayer, font: int, vh: float) -> Control:

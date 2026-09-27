@@ -258,7 +258,7 @@ spell (value ≤ 9, enforced by `test_skill_bar.gd`):
 - **Loadout picker (TID-556):** a dedicated screen for choosing which 3
   learned abilities occupy the bar, reachable from the trainer panel and from
   the deck/inventory screen; writes via `SaveManager.set_skill_bar(bar)`. See
-  `docs/agent/inventory-and-deck.md`.
+  `docs/agent/ui-and-scene-management.md` ("SkillBarScene — loadout picker").
 - **Training dummy (TID-557):** a practice fight against an `EnemyRegistry`
   enemy with `passive: true` (never casts or swings —
   `RealtimeCombat.set_passive()`), huge HP, no rewards and no defeat record.

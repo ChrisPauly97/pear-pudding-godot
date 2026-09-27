@@ -170,3 +170,35 @@ func test_daze_without_a_target_hits_the_default_enemy() -> void:
 	var result: Dictionary = bar.apply(0, rt)
 	assert_eq(int(result.get("side")), 1)
 	assert_true(rt.state.players[1].hero.has_status("stun"))
+
+## GID-136 / TID-556: the loadout picker's resolved/known helpers.
+
+func test_known_ids_is_always_known_plus_learned() -> void:
+	var known: Array[String] = SkillBar.known_ids(["guard", "daze"])
+	assert_eq(known.size(), 5)
+	for id: String in SkillBar.ALWAYS_KNOWN:
+		assert_true(known.has(id))
+	assert_true(known.has("guard"))
+	assert_true(known.has("daze"))
+	assert_false(known.has("sweep"), "not learned")
+
+func test_resolved_bar_is_always_exactly_slots_long() -> void:
+	assert_eq(SkillBar.resolved_bar([], []).size(), SkillBar.SLOTS)
+	assert_eq(SkillBar.resolved_bar(["guard"], []).size(), SkillBar.SLOTS)
+	assert_eq(SkillBar.resolved_bar(["guard", "sweep", "daze"], ["guard", "sweep", "daze"]).size(), SkillBar.SLOTS)
+
+func test_resolved_bar_fresh_save_is_the_default() -> void:
+	assert_eq(SkillBar.resolved_bar([], []), ["strike", "mend", "kick"] as Array[String])
+
+func test_resolved_bar_keeps_learned_choices_and_pads_with_unused_defaults() -> void:
+	var result: Array[String] = SkillBar.resolved_bar(["guard"], ["guard"])
+	assert_eq(result[0], "guard")
+	assert_eq(result.size(), 3)
+	# strike/mend/kick fill the rest, in DEFAULT_BAR order.
+	assert_eq(result, ["guard", "strike", "mend"] as Array[String])
+
+func test_resolved_bar_drops_unlearned_ids() -> void:
+	var result: Array[String] = SkillBar.resolved_bar(["guard", "sweep"], [])
+	assert_false(result.has("guard"))
+	assert_false(result.has("sweep"))
+	assert_eq(result, ["strike", "mend", "kick"] as Array[String])

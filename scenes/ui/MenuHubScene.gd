@@ -4,12 +4,14 @@ const _InventoryScenePacked  := preload("res://scenes/ui/InventoryScene.tscn")
 const _CharacterScenePacked  := preload("res://scenes/ui/CharacterScene.tscn")
 const _SkillTreeScenePacked  := preload("res://scenes/ui/SkillTreeScene.tscn")
 const _JournalScenePacked    := preload("res://scenes/ui/JournalScene.tscn")
+const _SkillBarScenePacked   := preload("res://scenes/ui/SkillBarScene.tscn")
 
-const _TABS: Array[String] = ["deck", "character", "skills", "journal"]
+const _TABS: Array[String] = ["deck", "character", "skills", "loadout", "journal"]
 const _TAB_LABELS: Dictionary = {
 	"deck":      "Deck / Bag",
 	"character": "Character",
 	"skills":    "Skills",
+	"loadout":   "Skill Bar",
 	"journal":   "Journal",
 }
 
@@ -45,8 +47,11 @@ func _build_ui() -> void:
 	var close_btn := _UiUtil.make_button("Close", Vector2(_ref * 0.15, _ref * 0.065), int(_ref * 0.022), _close,
 			tab_row)
 
+	# Shrinks per tab as more are added (5 tabs fit the same row the original
+	# 4-tab layout used) rather than a fixed width that would overflow.
+	var tab_w: float = _ref * (0.80 / float(_TABS.size()))
 	for tab_id: String in _TABS:
-		var btn := _UiUtil.make_button(_TAB_LABELS[tab_id], Vector2(_ref * 0.20, _ref * 0.065), int(_ref * 0.022),
+		var btn := _UiUtil.make_button(_TAB_LABELS[tab_id], Vector2(tab_w, _ref * 0.065), int(_ref * 0.019),
 				show_tab.bind(tab_id), tab_row)
 		_tab_buttons[tab_id] = btn
 
@@ -90,6 +95,11 @@ func _load_tab_content(tab_id: String) -> void:
 			sk.set("hub_mode", true)
 			_content_area.add_child(sk)
 			_active_page = sk
+		"loadout":
+			var lo: Node = _SkillBarScenePacked.instantiate()
+			lo.set("hub_mode", true)
+			_content_area.add_child(lo)
+			_active_page = lo
 		"journal":
 			var jn: Node = _JournalScenePacked.instantiate()
 			jn.set("hub_mode", true)
@@ -118,6 +128,9 @@ func _input(event: InputEvent) -> void:
 					get_viewport().set_input_as_handled()
 				KEY_K:
 					show_tab("skills")
+					get_viewport().set_input_as_handled()
+				KEY_L:
+					show_tab("loadout")
 					get_viewport().set_input_as_handled()
 				KEY_J:
 					show_tab("journal")
