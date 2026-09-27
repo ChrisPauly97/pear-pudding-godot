@@ -94,18 +94,20 @@ func press(slot: int) -> void:
 	if _realtime.is_casting():
 		return
 	var off_gcd: bool = bool(d.get("off_gcd", false))
-	if not off_gcd and _realtime.on_cooldown():
+	if off_gcd:
+		# Off-GCD actions (potions, interrupts) bypass the GCD/spell queue entirely.
+		_resolve(slot)
+		return
+	if _realtime.on_cooldown():
 		return
 	var cast: float = float(d.get("cast", 0.0))
-	if cast > 0.0:
-		var card := CardInstance.new({"id": "ability_" + bar.ids[slot], "name": str(d["name"]), "cost": 0,
-			"card_class": "spell"})
-		card.set_meta("cost_points", int(d["cost"]))
-		_realtime.run_cast(card, _resolve.bind(slot), null, cast)
-		return
-	if not off_gcd:
-		rt.start_gcd(RealtimeCombat.PLAYER)
-	_resolve(slot)
+	# An instant (cast == 0) ability still goes through run_cast (TID-555): pressed
+	# inside the spell-queue window, it must wait for the GCD to end rather than
+	# resolving early — the same rule a deck spell's instant play follows.
+	var card := CardInstance.new({"id": "ability_" + bar.ids[slot], "name": str(d["name"]), "cost": 0,
+		"card_class": "spell"})
+	card.set_meta("cost_points", int(d["cost"]))
+	_realtime.run_cast(card, _resolve.bind(slot), null, cast)
 
 func _resolve(slot: int) -> void:
 	var rt: RealtimeCombat = _realtime.rt

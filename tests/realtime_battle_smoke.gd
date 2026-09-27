@@ -87,6 +87,8 @@ func _run() -> bool:
 	if not state.is_game_over():
 		await _check_cast_time(battle, fails)
 	if not state.is_game_over():
+		await _check_spell_queue(battle, fails)
+	if not state.is_game_over():
 		await _check_skill_bar(battle, state, fails)
 	if not state.is_game_over():
 		await _check_tuning_panel(battle, fails)
@@ -196,6 +198,37 @@ func _check_cast_time(battle: Node, fails: Array[String]) -> void:
 	if rt == null:
 		fails.append("no RealtimeCombat")
 
+## Spell queue (TID-555): an instant (0-cast-time) play attempted inside the
+## queue-window tail of the GCD must wait for the GCD to actually end, not
+## resolve early. `run_cast` is the shared path for a deck spell's instant play
+## and the skill bar's instant on-GCD abilities (BattleSkillBar.press routes
+## every non-off_gcd press through it), so this covers both.
+func _check_spell_queue(battle: Node, fails: Array[String]) -> void:
+	var rt_mod: Node = battle.get("realtime") as Node
+	var rt: Object = rt_mod.get("rt")
+	for _i in range(200):  # let any running GCD / cast finish first
+		if not bool(rt_mod.call("on_cooldown")):
+			break
+		await process_frame
+	rt.call("start_gcd", 0)
+	var t0: int = Time.get_ticks_msec()
+	while not bool(rt.call("in_queue_window", 0)) and Time.get_ticks_msec() - t0 < 8000:
+		await process_frame
+	if not bool(rt.call("in_queue_window", 0)):
+		fails.append("spell queue: never entered the queue window")
+		return
+	var instant := _CardInstance.new({"id": "smoke_instant", "name": "Smoke Instant", "cost": 0, "attack": 0,
+		"health": 0, "card_class": "spell", "description": ""})
+	var resolved: Array[bool] = [false]
+	var queued: bool = bool(rt_mod.call("run_cast", instant, func() -> void: resolved[0] = true))
+	if not queued or resolved[0]:
+		fails.append("spell queue: an instant play inside the window fired immediately instead of queuing")
+	var t1: int = Time.get_ticks_msec()
+	while not resolved[0] and Time.get_ticks_msec() - t1 < 8000:
+		await process_frame
+	if not resolved[0]:
+		fails.append("spell queue: queued instant play never resolved")
+
 ## Skill bar (TID-550): Strike damages the enemy hero and goes on cooldown;
 ## Mend runs a cast bar and heals when it completes.
 func _check_skill_bar(battle: Node, state: _GameState, fails: Array[String]) -> void:
@@ -215,6 +248,14 @@ func _check_skill_bar(battle: Node, state: _GameState, fails: Array[String]) -> 
 	var enemy_hp: int = state.players[1].hero.health
 	var strike: int = ids.find("strike")
 	skills.call("press", strike)
+	# Strike is instant (0 cast time) but still goes through run_cast (TID-555),
+	# so it resolves on the next tick rather than inside this call — wait for it.
+	var t_strike: int = Time.get_ticks_msec()
+	while not bool(rt_mod.call("is_casting")) and state.players[1].hero.health >= enemy_hp \
+			and Time.get_ticks_msec() - t_strike < 2000:
+		await process_frame
+	while bool(rt_mod.call("is_casting")) and Time.get_ticks_msec() - t_strike < 8000:
+		await process_frame
 	if state.players[1].hero.health >= enemy_hp and not state.is_game_over():
 		fails.append("Strike did not damage the enemy hero")
 	if bool(bar.call("ready", strike)):
