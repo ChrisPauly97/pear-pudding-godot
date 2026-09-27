@@ -382,25 +382,7 @@ func _on_empty_slot_input(event: InputEvent, slot_idx: int) -> void:
 						_battle._send_intent(BattleNetProtocol.encode_play_card_at_slot(hi, slot_idx))
 						_battle.tutorials._dismiss_battle_tutorial()
 					return
-				var from_panel: Control = _battle._hand_panel_node(card)
-				var from_rect: Rect2 = from_panel.get_global_rect() if from_panel != null else Rect2()
-				var to_pos: Vector2 = _battle._slot_panel_center(_battle._player_board_view, slot_idx)
-				if _battle.targeting._do_play_card_at_slot(card, _battle._my_idx(), slot_idx):
-					AudioManager.play_sfx("card_play")
-					_battle._fx.haptic(20)
-					_battle._hide_hand_panel(from_panel)
-					if card.emergence_effect != "":
-						var snap_se := _battle._fx.snapshot()
-						_battle._resolver.resolve_emergence(card, _battle._my_idx())
-						_battle._fx.trigger_fx(snap_se)
-					else:
-						_battle.modifiers._apply_weather_to_summoned(card, _battle._my_idx())
-					_battle._action_busy = true
-					await _battle._animate_card_travel(card, from_rect, to_pos)
-					_battle._action_busy = false
-					_battle._refresh_all()
-					_battle._check_game_over()
-					_battle.tutorials._dismiss_battle_tutorial()
+				_battle.targeting.place_minion(card, slot_idx)
 				return
 			if _battle._slot_targeting_spell == null and _battle._slot_select_card == null:
 				clear_attacker_selection()

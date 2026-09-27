@@ -153,12 +153,12 @@ files in `tasks/archive/backlog/`.
 | [BID-024](backlog/BID-024--coop-map-has-no-enemies-chests.md) | Co-op map (madrian) has no enemies/chests, so GID-096 world sync is dormant in practice (system verified by smoke test) — **being addressed by GID-098** (multi-map co-op story) and **GID-102 / TID-380** (shared procedural dungeon crawl with real enemies/chests) | content-gap | GID-096 |
 | [BID-055](backlog/BID-055--worldscene-god-object.md) | `WorldScene.gd` god-object decomposition, slice 1/3 done (co-op/net cluster folded into `CoopSession.gd`, line-ceiling guardrail added); original 9154/401 census was stale — see file's Progress section for real numbers and slices 2-3 (`_spawn_*`, `_start_*`) | code-smell | GID-123 research |
 | [BID-061](backlog/BID-061--spec-says-no-xp-system.md) | Spec says "No XP system planned" but XP/levels/skill points shipped (GID-030) | spec-gap | Tracked by TID-539 |
-| [BID-062](backlog/BID-062--minion-placement-bypasses-gcd-queue.md) | Real-time minion card placement bypasses the GCD/spell queue (only spells go through `run_cast`) | design-inconsistency | TID-555 |
 
 ## Resolved Backlog
 
 | ID | Summary | Category | Discovered During |
 |----|---------|----------|-------------------|
+| [BID-062](archive/backlog/BID-062--minion-placement-bypasses-gcd-queue.md) | Real-time minion card placement bypassed the GCD/spell queue | design-inconsistency | Resolved: placement routed through `run_cast` as an instant play (`BattleTargeting.place_minion`) |
 | [BID-060](archive/backlog/BID-060--unshaded-world-ignores-lights.md) | Grass, props, landmarks and WorldItem are unshaded, so they ignore sun shadows and point lights — resolved on High by GID-131 / TID-508 | design-inconsistency | GID-129 research |
 | [BID-053](archive/backlog/BID-053--gdlint-debt-advisory-only.md) | CI `gdlint` job was `continue-on-error` — all 959 problems cleared (reorder, line wraps, renames, pragmas for oversized files); job now gating with gdtoolkit pinned | code-smell | GID-123 / TID-466 |
 | [BID-057](archive/backlog/BID-057--duplicate-tid-352.md) | TID-352 used by two completed tasks (GID-096, GID-097) | doc-gap | Resolved: cross-reference notes added + `test_task_id_uniqueness.gd` guardrail |

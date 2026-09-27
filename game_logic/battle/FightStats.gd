@@ -78,6 +78,17 @@ func record_frame(dt: float, rt: RealtimeCombat, events: Array[Dictionary]) -> v
 				if int(ev.get("side", -1)) == RealtimeCombat.PLAYER:
 					record_autoattack_damage(_swing_damage(ev, rt))
 
+## Total health on every enemy side (heroes + board units). A cast's damage is
+## the drop in this across its resolution (`BattleRealtime._tick_cast`).
+static func enemy_health(rt: RealtimeCombat) -> int:
+	var total: int = 0
+	for side: int in rt.enemy_sides():
+		var p := rt.state.players[side]
+		total += maxi(0, p.hero.health)
+		for c: CardInstance in p.board.get_cards():
+			total += maxi(0, c.health)
+	return total
+
 ## Best-effort damage estimate for a player-side swing event (pre-armor/biome
 ## modifiers, which `RealtimeCombat` applies internally and doesn't report) —
 ## good enough for the coaching-tip heuristic, not for exact combat logs.

@@ -72,7 +72,7 @@ func _apply_equipment_effects(player: PlayerState) -> void:
 			"passive_atk":
 				player.hero.attack += UpgradeDefs.effective_stat(weapon, level)
 			"starting_armor":
-				player.hero.apply_status("armor", UpgradeDefs.effective_stat(weapon, level))
+				player.hero.add_armor(UpgradeDefs.effective_stat(weapon, level))
 			"offhand_atk":
 				if not realtime_mode:
 					var offhand_val: int = UpgradeDefs.effective_stat(weapon, level)
@@ -112,7 +112,7 @@ func _apply_companion_battle_start(player: PlayerState) -> void:
 		"extra_mana":
 			player.hero.gain_mana(companion.passive_value, true)
 		"hero_armor":
-			player.hero.apply_status("armor", companion.passive_value)
+			player.hero.add_armor(companion.passive_value)
 
 ## Draw extra card(s) from the companion's draw_card passive.
 ## Called at the start of every player turn (initial setup + each subsequent player turn).
