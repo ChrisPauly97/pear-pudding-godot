@@ -9,8 +9,9 @@
 extends RefCounted
 
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
+const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 
-const CURRENT_VERSION: int = 42
+const CURRENT_VERSION: int = 43
 
 
 ## Upgrades `data` in place. `up_to` stops after that version's row. The game
@@ -35,6 +36,47 @@ static func apply(data: Dictionary, up_to: int = CURRENT_VERSION) -> void:
 
 
 ## `[target_version, payload]` rows in ascending version order.
+## GID-138: the outdoor story towns moved into the overworld. A save standing in
+## one moves to "main" at the same spot; stack entries for a stitched town become
+## the overworld with a `pos:` return token at the door into the next map down.
+static func _m43_stitched_towns(d: Dictionary) -> void:
+	var cur: String = str(d.get("current_map", ""))
+	if RealmLayout.is_stitched(cur):
+		var shift: Vector2 = RealmLayout.world_shift(cur)
+		d["player_x"] = float(d.get("player_x", 0.0)) + shift.x
+		d["player_z"] = float(d.get("player_z", 0.0)) + shift.y
+		d["current_map"] = "main"
+	var ms: Array = d.get("map_stack", [])
+	var ds: Array = d.get("door_stack", [])
+	var new_ms: Array = []
+	var new_ds: Array = []
+	for i: int in range(ms.size()):
+		var m: String = str(ms[i])
+		var door: String = str(ds[i]) if i < ds.size() else ""
+		if RealmLayout.is_stitched(m):
+			var child: String = str(ms[i + 1]) if i + 1 < ms.size() else str(d.get("current_map", ""))
+			var back: Variant = RealmLayout.return_pos_for(child)
+			var p: Vector3 = back if back is Vector3 else RealmLayout.spawn_pos(m)
+			m = "main"
+			door = RealmLayout.pos_token(p.x, p.z)
+		if not new_ms.is_empty() and str(new_ms[new_ms.size() - 1]) == m:
+			new_ds[new_ds.size() - 1] = door  # the deeper entry knows the way back
+			continue
+		new_ms.append(m)
+		new_ds.append(door)
+	if RealmLayout.is_overworld(str(d.get("current_map", ""))):
+		new_ms.clear()
+		new_ds.clear()
+	d["map_stack"] = new_ms
+	d["door_stack"] = new_ds
+	var wp: Dictionary = d.get("waypoint", {})
+	if RealmLayout.is_stitched(str(wp.get("map", ""))):
+		var local := Vector2i(int(wp.get("tx", 0)), int(wp.get("tz", 0)))
+		var t: Vector2i = RealmLayout.to_world_tile(str(wp["map"]), local)
+		d["waypoint"] = {"map": "main", "tx": t.x, "tz": t.y}
+	d["version"] = 43
+
+
 static func table() -> Array:
 	var _m1: Callable = func(d: Dictionary) -> void:
 		if not d.has("owned_cards"):
@@ -145,5 +187,6 @@ static func table() -> Array:
 		[40, {"collected_mana_wells": []}],
 		[41, {"mailbox_cards": []}],
 		[42, {"equipped_offhand": "", "owned_offhands": []}],
+		[43, _m43_stitched_towns],
 	]
 	return rows

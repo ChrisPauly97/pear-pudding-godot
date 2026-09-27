@@ -141,7 +141,7 @@
 | [GID-135](goals/GID-135--wow-fluid-combat/goal.md) | WoW-Fluid Card Combat | in-progress | 16 / 22 |
 | [GID-136](goals/GID-136--wow-rpg-loop/goal.md) | WoW-Style RPG Loop | in-progress | 3 / 11 |
 | [GID-137](goals/GID-137--paper-doll-hero/goal.md) | Paper-Doll Player Hero | in-progress | 4 / 6 |
-| [GID-138](goals/GID-138--seamless-story-realm/goal.md) | Seamless Story Realm | in-progress | 5 / 8 |
+| [GID-138](goals/GID-138--seamless-story-realm/goal.md) | Seamless Story Realm | in-progress | 6 / 8 |
 
 ## Backlog
 
@@ -155,6 +155,7 @@ files in `tasks/archive/backlog/`.
 | [BID-055](backlog/BID-055--worldscene-god-object.md) | `WorldScene.gd` god-object decomposition, slice 1/3 done (co-op/net cluster folded into `CoopSession.gd`, line-ceiling guardrail added); original 9154/401 census was stale — see file's Progress section for real numbers and slices 2-3 (`_spawn_*`, `_start_*`) | code-smell | GID-123 research |
 | [BID-061](backlog/BID-061--spec-says-no-xp-system.md) | Spec says "No XP system planned" but XP/levels/skill points shipped (GID-030) | spec-gap | Tracked by TID-539 |
 | [BID-062](backlog/BID-062--minion-placement-bypasses-gcd-queue.md) | Real-time minion card placement bypasses the GCD/spell queue (only spells go through `run_cast`) | design-inconsistency | TID-555 |
+| [BID-063](backlog/BID-063--coop-still-on-named-town-maps.md) | Co-op sessions still start on the named town maps, not the stitched overworld (GID-138) | design-inconsistency | TID-571 |
 
 ## Resolved Backlog
 

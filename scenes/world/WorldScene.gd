@@ -56,6 +56,7 @@ const _FakeVolumetrics = preload("res://scenes/world/modules/FakeVolumetrics.gd"
 const _CharacterPresence = preload("res://scenes/world/modules/CharacterPresence.gd")
 const _NamedMapProps = preload("res://scenes/world/modules/NamedMapProps.gd")
 const _RealmRegions = preload("res://scenes/world/modules/RealmRegions.gd")
+const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const _TownSiege = preload("res://scenes/world/modules/TownSiege.gd")
 const _SunRaysFx = preload("res://scenes/world/SunRaysFx.gd")
 const _TapToMove = preload("res://scenes/world/modules/TapToMove.gd")
@@ -972,7 +973,14 @@ func _spawn_player() -> void:
 	var pz: float = 3.0 * IsoConst.TILE_SIZE
 
 	if _is_infinite:
-		if SceneManager.save_manager.current_map == map_name and \
+		var madrian: Vector3 = _RealmLayout.spawn_pos("madrian")  # new game (GID-138)
+		px = madrian.x
+		pz = madrian.z
+		var back: Variant = _RealmLayout.parse_pos_token(target_door_id)  # leaving an interior
+		if back is Vector3:
+			px = (back as Vector3).x
+			pz = (back as Vector3).z
+		elif SceneManager.save_manager.current_map == map_name and \
 				(SceneManager.save_manager.player_x != 0.0 or SceneManager.save_manager.player_z != 0.0):
 			px = SceneManager.save_manager.player_x
 			pz = SceneManager.save_manager.player_z

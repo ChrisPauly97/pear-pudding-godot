@@ -73,6 +73,8 @@ func test_entities_keep_ids_and_drop_overworld_doors() -> void:
 		targets.append(str(d.get("target_map", "")))
 	assert_true(targets.has("blancogov_temple"), "temple door kept")
 	assert_true(targets.has("player_home"), "home door kept")
+	assert_eq(targets.count("blancogov_temple"), 1, "one way into the temple (Madrian shortcut dropped)")
+	assert_eq(targets.count("farsyth_mansion"), 1, "one way into the mansion")
 
 func test_maiteln_world_position() -> void:
 	for n: Dictionary in RealmLayout.entities("npcs"):

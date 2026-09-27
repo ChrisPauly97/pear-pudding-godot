@@ -56,6 +56,14 @@ const OVERWORLD_TARGETS: Array[String] = [
 	"", "main", "infinite", "madrian", "maykalene", "blancogov", "larik", "marsax_hold",
 ]
 
+## Madrian's debug shortcuts straight into far-off interiors; in the stitched
+## realm you walk to Maykalene / Blancogov and use their own doors.
+const DROPPED_DOORS: Array[String] = ["madrian:door_11", "madrian:door_13"]
+
+## Overworld spawn tokens ride in SceneManager's door_stack (in place of a door
+## id) so leaving an interior puts the player back where they went in.
+const POS_TOKEN_PREFIX: String = "pos:"
+
 ## Fixed overworld tiles for the story beats that used to spawn "a few tiles
 ## from the player" (TID-572): each sits on the road the story sends you along.
 const STORY_SITES: Dictionary = {
@@ -225,7 +233,8 @@ static func entities(kind: String) -> Array[Dictionary]:
 		var list: Array[Dictionary] = []
 		list.assign(wm.get(kind))
 		for e: Dictionary in list:
-			if kind == "doors" and OVERWORLD_TARGETS.has(str(e.get("target_map", ""))):
+			if kind == "doors" and (OVERWORLD_TARGETS.has(str(e.get("target_map", "")))
+					or DROPPED_DOORS.has("%s:%s" % [town, str(e.get("id", ""))])):
 				continue
 			var tx: int = int(floor(float(e.get("x", 0.0)) / IsoConst.TILE_SIZE))
 			var tz: int = int(floor(float(e.get("z", 0.0)) / IsoConst.TILE_SIZE))
@@ -270,3 +279,35 @@ static func spawn_pos(town: String) -> Vector3:
 static func site_pos(site: String) -> Vector3:
 	var t: Vector2i = STORY_SITES.get(site, Vector2i.ZERO)
 	return Vector3((float(t.x) + 0.5) * IsoConst.TILE_SIZE, 0.0, (float(t.y) + 0.5) * IsoConst.TILE_SIZE)
+
+## The stitched door leading into `map_name` (an interior), or {}.
+static func door_into(map_name: String) -> Dictionary:
+	for d: Dictionary in entities("doors"):
+		if str(d.get("target_map", "")) == map_name:
+			return d
+	return {}
+
+## Where the player stands in the overworld after leaving interior `map_name`:
+## one tile in front of (south of) the door that leads into it. null when no
+## stitched door leads there.
+static func return_pos_for(map_name: String) -> Variant:
+	var d: Dictionary = door_into(map_name)
+	if d.is_empty():
+		return null
+	return Vector3(float(d.get("x", 0.0)), 0.0, float(d.get("z", 0.0)) + IsoConst.TILE_SIZE)
+
+static func pos_token(x: float, z: float) -> String:
+	return "%s%.2f:%.2f" % [POS_TOKEN_PREFIX, x, z]
+
+## Vector3 for a `pos:` token, or null for anything else (e.g. a door id).
+static func parse_pos_token(token: String) -> Variant:
+	if not token.begins_with(POS_TOKEN_PREFIX):
+		return null
+	var parts: PackedStringArray = token.substr(POS_TOKEN_PREFIX.length()).split(":")
+	if parts.size() != 2 or not parts[0].is_valid_float() or not parts[1].is_valid_float():
+		return null
+	return Vector3(parts[0].to_float(), 0.0, parts[1].to_float())
+
+## True for the map ids that are the overworld (where the towns are stitched).
+static func is_overworld(map_name: String) -> bool:
+	return map_name == "main" or map_name == "infinite"
