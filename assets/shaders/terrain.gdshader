@@ -318,50 +318,53 @@ void fragment() {
 		tinted_col = mix(tinted_col, blight_col, blight_amount * 0.75);
 	}
 
-	// Wet ground: darker albedo, low roughness and more specular so the sun,
-	// sky and lightning glint off it. Upward-facing ground holds the water (wall
-	// faces barely darken); noise patches pool into glossier puddles. Uniform
-	// branch — dry weather skips it entirely.
+	// Water is pixel art like everything else: evaluated per world texel (the
+	// ground's 20 texels/unit = the sprites' density), animated in stepped
+	// frames, flat colour bands and blinking pixel glints — no smooth
+	// specular sheen, which read as glossy 3-D against the pixel art.
+	float px_per_unit = TEX_RES * uv_scale;
+	vec2 wq = (floor(v_world_xz * px_per_unit) + 0.5) / px_per_unit;
+	// Per-texel blink: each texel re-rolls a few times a second on its own phase.
+	float blink = hash2(wq * 17.3 + floor(TIME * 3.0 + hash2(wq * 3.1) * 3.0));
+
+	// Wet ground (rain): darker and slightly less rough; puddles in dips on
+	// level ground (TID-515) as flat pixel water with rain glints.
 	float wet_rough = 0.9;
 	float wet_spec = 0.1;
 	if (terrain_wetness > 0.001) {
 		float up = smoothstep(0.55, 0.95, v_normal_world.y);
 		float wet = terrain_wetness * mix(0.25, 1.0, up);
-		// Puddles stand in dips on level ground (TID-515), not on walls or hills.
 		float level_ground = up * (1.0 - smoothstep(0.02, 0.1, v_blend)) * (is_wall ? 0.0 : 1.0);
-		float puddle = puddle_mask(v_world_xz, v_dip, level_ground);
-		tinted_col *= 1.0 - 0.35 * wet - 0.1 * puddle;
-		// Standing water: darker, cooler, picks up a sky-grey sheen.
-		tinted_col = mix(tinted_col, vec3(0.30, 0.37, 0.46), puddle * 0.5);
-		wet_rough = mix(0.9, 0.35, wet);
-		wet_rough = mix(wet_rough, 0.04, puddle);
-		wet_spec = mix(0.1, 0.45, max(wet, puddle));
-		if (puddle > 0.01) {
-			vec2 rip = puddle_ripple(v_world_xz, TIME) * puddle * 0.35;
-			vec3 n_world = normalize(vec3(-rip.x, 1.0, -rip.y));
-			NORMAL = normalize((VIEW_MATRIX * vec4(mix(n_detail, n_world, puddle), 0.0)).xyz);
-		}
+		float puddle = step(0.5, puddle_mask(wq, puddle_dip(wq), level_ground));
+		tinted_col *= 1.0 - 0.3 * wet;
+		tinted_col = mix(tinted_col, vec3(0.30, 0.37, 0.46), puddle * 0.7);
+		tinted_col = mix(tinted_col, vec3(0.70, 0.78, 0.86), puddle * step(1.0 - 0.06 * terrain_rain, blink));
+		wet_rough = mix(0.9, 0.6, wet);
+		wet_spec = mix(0.1, 0.25, max(wet, puddle));
 	}
 
-	// Streams and ponds (GID-134 / TID-524): level grass only, ragged banks, a
-	// lighter shoreline, deeper colour mid-channel and drifting ripples that
-	// catch the sky. Drawn after the wet block so standing water wins.
+	// Streams and ponds (GID-134 / TID-524): level grass only, ragged pixel
+	// banks with a one-texel shoreline, three depth bands, drifting ripple
+	// streaks and glints. Drawn after the wet block so standing water wins.
 	if (v_water > 0.01 && !is_wall && !is_path) {
-		float lg = smoothstep(0.55, 0.95, v_normal_world.y) * (1.0 - smoothstep(0.02, 0.1, v_blend));
-		float water = smoothstep(0.16, 0.36, v_water + (vnoise(v_world_xz * 1.3) - 0.5) * 0.12) * lg;
-		if (water > 0.001) {
-			float deep = smoothstep(0.35, 0.9, v_water);
-			vec2 wp = v_world_xz * 1.4 + vec2(TIME * 0.35, TIME * 0.2);
-			float r0 = vnoise(wp);
-			float rx = vnoise(wp + vec2(0.15, 0.0)) - r0;
-			float rz = vnoise(wp + vec2(0.0, 0.15)) - r0;
-			vec3 wcol = mix(vec3(0.24, 0.46, 0.48), vec3(0.10, 0.25, 0.36), deep) * (0.94 + r0 * 0.12);
-			float shore = smoothstep(0.0, 0.3, water) * (1.0 - smoothstep(0.3, 0.75, water));
-			tinted_col = mix(tinted_col, wcol, water * 0.9) + shore * vec3(0.10, 0.12, 0.10);
-			wet_rough = mix(wet_rough, 0.06, water);
-			wet_spec = mix(wet_spec, 0.6, water);
-			vec3 wn = normalize(vec3(-rx * 2.5, 1.0, -rz * 2.5));
-			NORMAL = normalize((VIEW_MATRIX * vec4(mix(n_detail, wn, water), 0.0)).xyz);
+		float lg = step(0.75, v_normal_world.y) * step(v_blend, 0.06);
+		float wv = v_water + (vnoise(wq * 1.3) - 0.5) * 0.12;
+		if (lg > 0.5 && wv > 0.24) {
+			float depth = wv - 0.24;
+			vec3 wcol = depth < 0.2 ? vec3(0.20, 0.40, 0.43)
+				: (depth < 0.45 ? vec3(0.14, 0.31, 0.40) : vec3(0.09, 0.22, 0.34));
+			// Ripple streaks, stretched along the flow and stepped in time.
+			float frame = floor(TIME * 4.0) / 4.0;
+			float rip = vnoise(wq * vec2(1.2, 3.0) + vec2(frame * 0.35, frame * 0.2));
+			wcol = mix(wcol, wcol * 1.3 + vec3(0.03), step(0.7, rip));
+			wcol = mix(wcol, vec3(0.80, 0.90, 0.93), step(0.992, blink) * step(0.05, depth));
+			// One-texel pale shoreline where the water meets the bank.
+			// fwidth(v_water) is its change per screen pixel; a texel spans ~2.5.
+			wcol = mix(wcol, vec3(0.48, 0.62, 0.58), step(depth, fwidth(v_water) * 2.5));
+			tinted_col = wcol;
+			wet_rough = 0.6;
+			wet_spec = 0.2;
+			NORMAL = normalize((VIEW_MATRIX * vec4(n_geo, 0.0)).xyz);
 		}
 	}
 
