@@ -28,8 +28,9 @@ const LEARNABLE_ORDER: Array[String] = ["guard", "ember_lance", "mana_tap", "swe
 ## (test_skill_bar.gd checks this). `level_req`/`learn_cost` are 0 for the
 ## always-known three (never offered by a trainer — see `learnable_ids()`).
 const ABILITIES: Dictionary = {
-	"strike": {"name": "Strike", "cost": 60, "cooldown": 6.0, "cast": 0.0, "effect": "damage", "value": 3,
-		"off_gcd": false, "desc": "Hit your target for 3.", "level_req": 0, "learn_cost": 0},
+	"strike": {"name": "Strike", "cost": 0, "cooldown": 0.0, "cast": 0.0, "effect": "damage", "value": 2,
+		"off_gcd": false, "desc": "Hit your target for 2. Free, no cooldown: builds combo and siphons mana.",
+		"level_req": 0, "learn_cost": 0},
 	"mend": {"name": "Mend", "cost": 120, "cooldown": 20.0, "cast": 1.5, "effect": "heal", "value": 6,
 		"off_gcd": false, "desc": "Heal yourself for 6 (1.5 s cast).", "level_req": 0, "learn_cost": 0},
 	"kick": {"name": "Kick", "cost": 30, "cooldown": 12.0, "cast": 0.0, "effect": "interrupt", "value": 0,
@@ -190,6 +191,10 @@ func apply(slot: int, rt: RealtimeCombat) -> Dictionary:
 			rt.interrupt_enemy_cast(side)
 			out = {"text": "Dazed!", "side": side}
 	me.hero.mana = maxi(0, me.hero.mana - int(d.get("cost", 0)))
+	# GID-139: every damaging ability is a builder — siphon, a combo charge, a proc roll.
+	var dealt: int = int(out.get("dealt", 0))
+	if dealt > 0:
+		out["proc"] = rt.on_player_hit(dealt, true)
 	return out
 
 ## Hits every live minion on the targeted enemy's board for `value`.
@@ -206,7 +211,7 @@ func _sweep(rt: RealtimeCombat, value: int) -> Dictionary:
 			opp.discard.append(c)
 			if rt.focus_target == c:
 				rt.focus_target = null
-	return {"text": "Sweep! -%d ×%d" % [dmg, hit], "side": side}
+	return {"text": "Sweep! -%d ×%d" % [dmg, hit], "side": side, "dealt": dmg * hit}
 
 ## Hits the focused minion, else the targeted enemy hero (no retaliation).
 func _damage(rt: RealtimeCombat, value: int) -> Dictionary:
@@ -225,7 +230,7 @@ func _damage(rt: RealtimeCombat, value: int) -> Dictionary:
 			opp.board.remove_card(target)
 			opp.discard.append(target)
 			rt.focus_target = null
-	return {"text": "-%d" % dmg, "side": side, "target": target}
+	return {"text": "-%d" % dmg, "side": side, "target": target, "dealt": dmg}
 
 ## The enemy to interrupt: your target if it is casting, else any caster (-1 = none).
 func _casting_enemy(rt: RealtimeCombat) -> int:

@@ -261,6 +261,32 @@ minions flee and its token greys out.
 - **Victory:** `BattleVictory._reward_joined_enemies` marks each joined enemy defeated and pays its coins/XP,
   bestiary and bounty progress. Turn-based fights still refuse a second engage.
 
+## Momentum — always a button to press (GID-139)
+
+Problem (2026-09-27 playtest): with 400 mana at 20/s and a 2 s spend pause, a 3-cost card came
+every ~15 s and Strike (6 s cooldown) was the only filler, so most GCDs were idle and the fight
+played itself. The fix keeps real time but makes the loop **build → spend**:
+
+- **Strike is the filler:** 0 mana, no cooldown, 2 damage — the GCD (`player_gcd`, now 1.2 s) is its
+  only gate. Every damaging skill-bar ability is a *builder*.
+- **Essence siphon (lore: striking knocks essence loose and you draw it in — see magic-system.md
+  Cosmology):** `RealtimeCombat.on_player_hit(dmg, builder)` grants `siphon_per_damage` mana per damage
+  from your hero's swings and damaging skills.
+- **Auto-attack toggle** (`RealtimeCombat.auto_attack`, ⚔ Auto button / F, `MomentumHud`): on = swings
+  siphon but vein regen × `fighting_regen_mult` (0.4); off ("Focus") = no swings, regen ×
+  `focus_regen_mult` (2.0) — bank mana for a burst. Re-enabling restarts the swing timer.
+- **Combo charges:** each builder hit adds one (cap `combo_max` 3, pips ◆◇ under the toggle). The next
+  hand card spends them all for `combo_refund` mana each; a **full** combo makes that card instant.
+  Hook: `BattleRealtime.run_cast` → `MomentumHud.wrap_card` (skill pseudo-cards, marked by the
+  `cost_points` meta, are skipped); the combo is spent only once the card actually left the hand.
+- **Essence surge procs:** builder hits roll `proc_chance` (0.15), auto hits `auto_proc_chance` (0.05);
+  a proc banks `PlayerState.next_card_free` (effective_cost → 0, cleared by `play_card*`) so the next
+  card is free and instant. Auto-hit procs arrive as a `{"type": "proc"}` advance event, skill procs
+  as `out.proc` from `SkillBar.apply`. The hand pulses gold (free) or blue (full combo) via
+  `self_modulate`.
+- All numbers are **Momentum** rows in `CombatTuning` (⚙ Tune). Tests: `test_combat_momentum.gd`.
+- Next (GID-139 todo): telegraphed heavy enemy attacks (TID-579), real-time hit-stop/shake (TID-580).
+
 ## Skill bar — fixed abilities (TID-550)
 
 Decided 2026-09-26: a **small** fixed bar, not a full WoW action bar, so the deck stays the main
@@ -270,8 +296,8 @@ buttons.
 
 - **Logic:** `game_logic/battle/SkillBar.gd` — `ABILITIES` table (cost in mana points, cooldown,
   cast time, effect, `off_gcd`), `SLOTS = 3`, per-slot cooldowns, `blocker()` (reason it can't be
-  used), `apply()` (spends mana, applies the effect). Defaults: **Strike** (3 dmg to the focused
-  minion / targeted enemy hero, instant, 6 s), **Mend** (heal 6, 1.5 s cast, 20 s), **Kick**
+  used), `apply()` (spends mana, applies the effect). Defaults: **Strike** (2 dmg to the focused
+  minion / targeted enemy hero, instant, free, no cooldown — the GID-139 filler), **Mend** (heal 6, 1.5 s cast, 20 s), **Kick**
   (interrupt an enemy cast, off the GCD, 12 s).
 - **UI:** `scenes/battle/modules/BattleSkillBar.gd` (`BattleRealtime.skills`) — buttons in the bottom
   action strip just left of the hand, with a draining shade (own cooldown or the GCD, whichever is

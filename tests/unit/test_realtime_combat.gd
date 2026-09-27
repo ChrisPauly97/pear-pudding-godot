@@ -46,6 +46,8 @@ func test_mana_regenerates_on_clock() -> void:
 	var rt := _rt()
 	var h := rt.state.players[0].hero
 	rt.tune.set_value("mana_regen_delay", 0.0)  # isolate the regen rate from the spend pause
+	rt.tune.set_value("fighting_regen_mult", 1.0)  # ...and from the auto-attack stance (GID-139)
+	rt.tune.set_value("siphon_per_damage", 0.0)
 	h.mana = 0
 	_run(rt, 1.0)
 	# MANA_REGEN_PER_SEC in small steps (0.1 s ticks + one slack step).

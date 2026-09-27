@@ -296,8 +296,9 @@ func _check_skill_bar(battle: Node, state: _GameState, fails: Array[String]) -> 
 		await process_frame
 	if state.players[1].hero.health >= enemy_hp and not state.is_game_over():
 		fails.append("Strike did not damage the enemy hero")
-	if bool(bar.call("ready", strike)):
-		fails.append("Strike did not go on cooldown")
+	# GID-139: Strike is the free filler — no cooldown of its own, only the GCD.
+	if bool((rt_mod.get("rt") as Object).call("gcd_ready", 0)):
+		fails.append("Strike did not start the global cooldown")
 	for _i in range(200):
 		if not bool(rt_mod.call("on_cooldown")):
 			break

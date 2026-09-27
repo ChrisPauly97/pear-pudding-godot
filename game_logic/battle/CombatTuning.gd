@@ -9,7 +9,7 @@ extends RefCounted
 ## key → [label, default, min, max, step, group]. Ints are rows whose step is 1.0
 ## and whose default is whole; read them with get_i.
 const DEFS: Array = [
-	["player_gcd", "Your global cooldown (s)", 1.5, 0.5, 3.0, 0.1, "Global cooldown & casting"],
+	["player_gcd", "Your global cooldown (s)", 1.2, 0.5, 3.0, 0.1, "Global cooldown & casting"],
 	["spell_queue", "Spell queue window (s)", 0.4, 0.0, 1.0, 0.05, "Global cooldown & casting"],
 	["cast_base", "Cast time base (s)", 0.4, 0.0, 2.0, 0.05, "Global cooldown & casting"],
 	["cast_per_cost", "Cast time per 100 mana (s)", 0.35, 0.0, 1.0, 0.05, "Global cooldown & casting"],
@@ -17,7 +17,7 @@ const DEFS: Array = [
 	["cast_pushback", "Pushback per hit while casting (s)", 0.3, 0.0, 1.0, 0.05, "Global cooldown & casting"],
 	["pushback_max_hits", "Pushback hits per cast", 2.0, 0.0, 5.0, 1.0, "Global cooldown & casting"],
 	["mana_regen", "Mana regen (points / s)", 20.0, 0.0, 100.0, 1.0, "Mana & cards"],
-	["mana_regen_delay", "Regen pause after spending (s)", 2.0, 0.0, 6.0, 0.25, "Mana & cards"],
+	["mana_regen_delay", "Regen pause after spending (s)", 1.0, 0.0, 6.0, 0.25, "Mana & cards"],
 	["base_max_mana", "Max mana at level 1 (next fight)", 400.0, 100.0, 1000.0, 25.0, "Mana & cards"],
 	["mana_per_level", "Max mana per level (next fight)", 35.0, 0.0, 100.0, 5.0, "Mana & cards"],
 	["draw_interval", "Draw a card every (s)", 6.0, 1.0, 20.0, 0.5, "Mana & cards"],
@@ -31,6 +31,13 @@ const DEFS: Array = [
 	["enemy_swing", "Enemy minion swing (s)", 4.5, 1.0, 10.0, 0.25, "Units"],
 	["enemy_gcd", "Enemy global cooldown (s)", 3.5, 0.5, 8.0, 0.25, "Enemy"],
 	["enemy_cast", "Enemy cast time (s)", 1.5, 0.25, 5.0, 0.25, "Enemy"],
+	["siphon_per_damage", "Mana siphoned per damage you deal", 15.0, 0.0, 60.0, 1.0, "Momentum"],
+	["fighting_regen_mult", "Regen multiplier, auto-attack on", 0.4, 0.0, 2.0, 0.05, "Momentum"],
+	["focus_regen_mult", "Regen multiplier, auto-attack off", 2.0, 0.0, 4.0, 0.05, "Momentum"],
+	["combo_max", "Combo charges to fill", 3.0, 1.0, 5.0, 1.0, "Momentum"],
+	["combo_refund", "Mana back per charge a card spends", 60.0, 0.0, 200.0, 5.0, "Momentum"],
+	["proc_chance", "Free-cast chance per skill hit", 0.15, 0.0, 1.0, 0.01, "Momentum"],
+	["auto_proc_chance", "Free-cast chance per auto-attack hit", 0.05, 0.0, 1.0, 0.01, "Momentum"],
 	["round_seconds", "Status/upkeep pulse per side (s)", 6.0, 1.0, 15.0, 0.5, "Status effects"],
 ]
 

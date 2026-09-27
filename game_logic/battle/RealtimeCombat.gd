@@ -76,6 +76,15 @@ var enemy_pushbacks: int:
 	set(v):
 		pushbacks[ENEMY] = v
 
+## Momentum (GID-139) — player only. Auto-attack is a toggle: on, every blow
+## siphons essence (mana) out of what it hits but the veins' trickle slows; off,
+## the hero stands still and draws on the veins at a faster rate instead.
+var auto_attack: bool = true
+## Combo charges built by skill-bar hits; the next card spends them all.
+var combo: int = 0
+## Rolls free-cast procs; tests seed it or pin the chance knobs to 0 / 1.
+var rng := RandomNumberGenerator.new()
+
 ## Per-side resource and hero-swing timers.
 var _mana_carry: Array[float] = []
 var _draw_timer: Array[float] = []
@@ -98,6 +107,7 @@ var _passive_sides: Dictionary = {}
 func _init(s: GameState, levels: Array[int] = [1, 1], tuning: CombatTuning = null) -> void:
 	state = s
 	tune = tuning if tuning != null else CombatTuning.new()
+	rng.randomize()
 	state.current_player_idx = PLAYER
 	for i in range(state.players.size()):
 		_init_side(i, levels[i] if i < levels.size() else 1)
@@ -255,7 +265,7 @@ func _tick_resources(side: int, delta: float, events: Array[Dictionary]) -> void
 		_mana_carry[side] = 0.0
 	_regen_pause[side] = maxf(0.0, _regen_pause[side] - delta)
 	if h.mana < h.max_mana and _regen_pause[side] <= 0.0:
-		_mana_carry[side] += delta * tune.get_f("mana_regen")
+		_mana_carry[side] += delta * tune.get_f("mana_regen") * _regen_mult(side)
 		var whole: int = int(_mana_carry[side])
 		_mana_carry[side] -= whole
 		var before_units: int = h.mana / h.mana_scale
@@ -272,6 +282,12 @@ func _tick_resources(side: int, delta: float, events: Array[Dictionary]) -> void
 		if p.hand.size() < tune.get_i("hand_cap"):
 			p.draw_card(false)
 			events.append({"type": "draw", "side": side})
+
+## Player regen scales with the auto-attack stance (GID-139); enemies regen flat.
+func _regen_mult(side: int) -> float:
+	if side != PLAYER:
+		return 1.0
+	return tune.get_f("fighting_regen_mult") if auto_attack else tune.get_f("focus_regen_mult")
 
 ## Per-side "combat round" pulse (TID-547): runs the turn-based upkeep real time
 ## doesn't already own via a continuous clock (status-effect decay, first-card
@@ -423,6 +439,8 @@ func _tick_hero(side: int, delta: float, events: Array[Dictionary]) -> void:
 	var hero := state.players[side].hero
 	if not hero.is_alive() or hero.has_status("freeze") or hero.has_status("stun"):
 		return
+	if side == PLAYER and not auto_attack:
+		return
 	var main: int = main_hand_damage(side)
 	if main > 0:
 		_hero_swing[side] -= delta
@@ -441,6 +459,55 @@ func _hero_hit(side: int, dmg: int, hand: String, events: Array[Dictionary]) -> 
 	_resolve_swing(null, dmg, target, target_side)
 	events.append({"type": "swing", "side": side, "attacker": null, "hand": hand, "target": target,
 		"target_side": target_side})
+	if side == PLAYER and on_player_hit(dmg, false):
+		events.append({"type": "proc", "side": PLAYER})
+
+# ---------------------------------------------------------------------------
+# Momentum (GID-139): siphon, combo charges, free-cast procs
+# ---------------------------------------------------------------------------
+
+## Flips the player's auto-attack. A re-enabled swing starts from a full timer
+## so toggling can't be used to reset it early.
+func toggle_auto_attack() -> bool:
+	auto_attack = not auto_attack
+	_hero_swing[PLAYER] = swing_speed(PLAYER)
+	_offhand_swing[PLAYER] = tune.get_f("offhand_swing")
+	return auto_attack
+
+## The player's hero or skill dealt `dmg`: siphon essence back as mana, and —
+## for a skill-bar hit (`builder`) — add a combo charge. Rolls the free-cast
+## proc; returns true when it newly fires.
+func on_player_hit(dmg: int, builder: bool) -> bool:
+	var h := state.players[PLAYER].hero
+	var gain: int = maxi(0, dmg) * tune.get_i("siphon_per_damage")
+	h.mana = mini(h.max_mana, h.mana + gain)
+	if builder:
+		combo = mini(tune.get_i("combo_max"), combo + 1)
+	var p: PlayerState = state.players[PLAYER]
+	if p.next_card_free:
+		return false
+	var chance: float = tune.get_f("proc_chance") if builder else tune.get_f("auto_proc_chance")
+	if rng.randf() < chance:
+		p.next_card_free = true
+		return true
+	return false
+
+func combo_full() -> bool:
+	return combo >= tune.get_i("combo_max")
+
+## True while the next card is empowered: free (proc) or instant (full combo).
+func next_card_instant() -> bool:
+	return state.players[PLAYER].next_card_free or combo_full()
+
+## A card resolved: it spends every combo charge for a mana refund. Returns
+## the charges spent (0 = none).
+func spend_combo() -> int:
+	var n: int = combo
+	combo = 0
+	if n > 0:
+		var h := state.players[PLAYER].hero
+		h.mana = mini(h.max_mana, h.mana + n * tune.get_i("combo_refund"))
+	return n
 
 ## Who `side`'s hero hits (null = the opposing hero). You: a Ward minion on the
 ## targeted enemy's board first; else your focused minion; else that enemy's hero.
