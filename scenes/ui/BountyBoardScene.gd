@@ -3,6 +3,7 @@ extends Control
 signal closed
 
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
+const _BountyGen = preload("res://game_logic/BountyGen.gd")
 
 var _vh: float = 0.0
 var _vw: float = 0.0
@@ -169,16 +170,7 @@ func _get_state(_bounty_id: String, active_entry: Dictionary, count: int) -> Str
 	return "in_progress"
 
 func _format_bounty_desc(btype: String, target: String, count: int) -> String:
-	match btype:
-		"defeat_enemy_type":
-			var display: String = target.replace("_", " ").capitalize()
-			return "Defeat %d %s" % [count, display]
-		"defeat_in_biome":
-			var biome: String = target.capitalize()
-			return "Defeat %d enemies in the %s" % [count, biome]
-		"open_chests":
-			return "Open %d chest%s" % [count, "s" if count > 1 else ""]
-	return "Complete this contract"
+	return _BountyGen.describe(btype, target, count)
 
 func _on_accept_pressed(bounty_id: String, bounty: Dictionary) -> void:
 	var ok: bool = SceneManager.save_manager.bounties.accept_bounty(bounty_id)

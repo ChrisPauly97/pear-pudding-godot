@@ -117,6 +117,8 @@ signal waystone_activated(waystone_id: String)
 
 # Waypoint signals
 signal waypoint_changed(waypoint: Dictionary)
+## The quest the compass / beacon / minimap follow changed (GID-139).
+signal quest_tracking_changed(quest_id: String)
 
 # Mount signals
 signal mount_state_changed(mounted: bool, mount_id: String)
