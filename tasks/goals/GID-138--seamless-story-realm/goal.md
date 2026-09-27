@@ -25,13 +25,16 @@ interiors (temple, mansion, home, guildhall) stay door-entered.
 | TID-570 | Region Awareness Replaces Map-Name Checks | agent | done | TID-569 |
 | TID-571 | Entry Points & Save Migration | agent | done | TID-570 |
 | TID-572 | Objectives on the Realm | agent | done | TID-571 |
-| TID-573 | Docs & Human Story Note | agent | pending | TID-572 |
+| TID-573 | Docs & Human Story Note | agent | done | TID-572 |
 
 ## Acceptance Criteria
 
-- [ ] Every story objective with a place points at a reachable, meaningful tile
-- [ ] Madrian, Maykalene, Blancogov, Larik, Marsax Hold exist in the overworld, joined by roads
-- [ ] Walking between towns needs no door and no transition
-- [ ] Interiors still enter/exit by door, returning to the overworld at the door
-- [ ] Old saves inside a stitched town load at the translated overworld position
-- [ ] Tests, gdlint, unsafe-hits, smoke tests clean
+(Co-op still on the named maps — BID-063.)
+
+
+- [x] Every story objective with a place points at a reachable, meaningful tile
+- [x] Madrian, Maykalene, Blancogov, Larik, Marsax Hold exist in the overworld, joined by roads
+- [x] Walking between towns needs no door and no transition
+- [x] Interiors still enter/exit by door, returning to the overworld at the door
+- [x] Old saves inside a stitched town load at the translated overworld position
+- [x] Tests, gdlint, unsafe-hits, smoke tests clean
