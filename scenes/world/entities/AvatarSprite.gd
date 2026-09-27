@@ -10,7 +10,6 @@ extends RefCounted
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const _PaperDoll = preload("res://game_logic/character/PaperDoll.gd")
 
-const ANIM_FPS: float = 6.0
 const PIXEL_SIZE: float = 0.05
 
 
@@ -18,7 +17,7 @@ const PIXEL_SIZE: float = 0.05
 ## The sprite is not yet added to the scene tree — caller must add_child() it.
 static func build(gear: Dictionary = {}) -> AnimatedSprite3D:
 	var sprite := AnimatedSprite3D.new()
-	sprite.sprite_frames = _PaperDoll.build_frames(gear, {}, ANIM_FPS)
+	sprite.sprite_frames = _PaperDoll.build_frames(gear)
 	sprite.pixel_size = PIXEL_SIZE
 	_SpriteRegistry.apply_billboard_flags(sprite)
 	sprite.shaded = false

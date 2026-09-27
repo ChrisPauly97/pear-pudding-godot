@@ -35,6 +35,7 @@ func _apply_equipment_effects(player: PlayerState) -> void:
 		sm.equipped_ring,
 		sm.equipped_trinket,
 		sm.equipped_offhand,
+		sm.equipped_shoulders,
 	]
 	# Off-hand attack gear swings on its own timer in real time (TID-545,
 	# RealtimeCombat.offhand_damage — set from the same equipped item by

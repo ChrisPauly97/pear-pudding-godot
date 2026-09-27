@@ -25,6 +25,12 @@ const NUM_SAVE_SLOTS: int = 3
 # Named deck loadouts (up to MAX_LOADOUTS). Each entry: {name: String, cards: Array[String]}.
 const MAX_LOADOUTS: int = 5
 
+## Non-weapon slot → its owned-ids field (weapons are instance dicts, handled apart).
+const _OWNED_BY_SLOT: Dictionary = {
+	"armor": "owned_armor", "ring": "owned_rings", "trinket": "owned_trinkets",
+	"offhand": "owned_offhands", "shoulders": "owned_shoulders",
+}
+
 ## Every persisted field, mapped to the value a missing or malformed entry falls
 ## back to. `save()` and `load_save()` both walk this one table, so a field can
 ## no longer be written without being restored (or the reverse). The default's
@@ -47,6 +53,7 @@ const PERSISTED_FIELDS: Dictionary = {
 	"equipped_weapon": "", "owned_weapons": [],
 	"equipped_armor": "", "equipped_ring": "", "equipped_trinket": "", "equipped_offhand": "",
 	"owned_armor": [], "owned_rings": [], "owned_trinkets": [], "owned_offhands": [],
+	"equipped_shoulders": "", "owned_shoulders": [],
 	"collected_scrolls": [], "settings": {},
 	"achievement_progress": {}, "unlocked_achievements": [],
 	"visited_biomes": [], "visited_dungeon_rooms": [],
@@ -159,10 +166,12 @@ var equipped_armor: String = ""
 var equipped_ring: String = ""
 var equipped_trinket: String = ""
 var equipped_offhand: String = ""
+var equipped_shoulders: String = ""
 var owned_armor: Array[String] = []
 var owned_rings: Array[String] = []
 var owned_trinkets: Array[String] = []
 var owned_offhands: Array[String] = []
+var owned_shoulders: Array[String] = []
 
 # World generation — set when starting a new game from the biome selection screen
 var world_seed: int = 42
@@ -484,10 +493,12 @@ func new_game(head_start: bool = false) -> void:
 	equipped_ring = ""
 	equipped_trinket = ""
 	equipped_offhand = ""
+	equipped_shoulders = ""
 	owned_armor = []
 	owned_rings = []
 	owned_trinkets = []
 	owned_offhands = []
+	owned_shoulders = []
 	collected_scrolls = []
 	achievement_progress = {}
 	unlocked_achievements = []
@@ -1079,7 +1090,7 @@ func equip_weapon(weapon_id: String) -> void:
 	GameBus.equipment_changed.emit("weapon", weapon_id)
 
 ## Adds an equipment item to the appropriate owned array based on its slot.
-## slot must be "weapon", "armor", "ring", or "trinket".
+## slot must be "weapon", "armor", "ring", "trinket", "offhand" or "shoulders".
 func add_equipment(item_id: String, slot: String) -> void:
 	match slot:
 		"weapon":
@@ -1097,6 +1108,9 @@ func add_equipment(item_id: String, slot: String) -> void:
 		"offhand":
 			if not owned_offhands.has(item_id):
 				owned_offhands.append(item_id)
+		"shoulders":
+			if not owned_shoulders.has(item_id):
+				owned_shoulders.append(item_id)
 	_dirty = true
 
 ## Equips an item into its slot. Pass "" to unequip.
@@ -1107,6 +1121,7 @@ func equip_item(item_id: String, slot: String) -> void:
 		"ring":     equipped_ring    = item_id
 		"trinket":  equipped_trinket = item_id
 		"offhand":  equipped_offhand = item_id
+		"shoulders": equipped_shoulders = item_id
 	_dirty = true
 	GameBus.equipment_changed.emit(slot, item_id)
 
@@ -1119,11 +1134,11 @@ func get_owned_by_slot(slot: String) -> Array[String]:
 			for inst: Dictionary in owned_weapons:
 				ids.append(str(inst.get("weapon_id", "")))
 			return ids
-		"armor":   return owned_armor
-		"ring":    return owned_rings
-		"trinket": return owned_trinkets
-		"offhand": return owned_offhands
-	return []
+	var owned: Variant = _OWNED_BY_SLOT.get(slot, null)
+	var out: Array[String] = []
+	if owned is String:
+		out = get(str(owned))
+	return out
 
 ## Returns the owned_weapons instance dict for weapon_id, or a default level-0 dict if absent.
 func get_owned_weapon_by_id(weapon_id: String) -> Dictionary:
@@ -1174,12 +1189,8 @@ func salvage_weapon(weapon_id: String) -> Dictionary:
 
 ## Returns the currently equipped item id for the given slot ("" if none).
 func get_equipped_by_slot(slot: String) -> String:
-	match slot:
-		"weapon":  return equipped_weapon
-		"armor":   return equipped_armor
-		"ring":    return equipped_ring
-		"trinket": return equipped_trinket
-		"offhand": return equipped_offhand
+	if slot == "weapon" or _OWNED_BY_SLOT.has(slot):
+		return str(get("equipped_" + slot))
 	return ""
 
 static func xp_for_level(lvl: int) -> int:

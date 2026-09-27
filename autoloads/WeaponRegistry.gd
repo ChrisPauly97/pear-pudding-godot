@@ -12,6 +12,9 @@ const _W_EMBER_FLASK    := preload("res://data/weapons/ember_flask.tres")
 const _W_EMBER_WAND     := preload("res://data/weapons/ember_wand.tres")
 const _W_IRON_SHIELD    := preload("res://data/weapons/iron_shield.tres")
 const _W_LEATHER_VEST   := preload("res://data/weapons/leather_vest.tres")
+const _W_LEATHER_PAULDRONS := preload("res://data/weapons/leather_pauldrons.tres")
+const _W_IRON_PAULDRONS := preload("res://data/weapons/iron_pauldrons.tres")
+const _W_SPIKED_SPAULDERS := preload("res://data/weapons/spiked_spaulders.tres")
 const _W_LUCKY_COIN     := preload("res://data/weapons/lucky_coin.tres")
 const _W_MANA_CRYSTAL   := preload("res://data/weapons/mana_crystal.tres")
 const _W_OBSIDIAN_LOOP  := preload("res://data/weapons/obsidian_loop.tres")
@@ -34,6 +37,7 @@ static func _ensure_loaded() -> void:
 		_W_LEATHER_VEST, _W_LUCKY_COIN, _W_MANA_CRYSTAL, _W_OBSIDIAN_LOOP,
 		_W_PARRYING_DAGGER, _W_RING_OF_FOCUS, _W_RUSTY_DAGGER,
 		_W_SCHOLAR_BAND, _W_WARDED_CLOAK,
+		_W_LEATHER_PAULDRONS, _W_IRON_PAULDRONS, _W_SPIKED_SPAULDERS,
 	], "WeaponRegistry")
 
 ## Returns the WeaponData for the given id, or null if not found.
@@ -53,7 +57,7 @@ static func get_all_ids() -> Array[String]:
 	_ensure_loaded()
 	return RegistryUtil.get_all_ids(_weapons)
 
-## Returns all equipment IDs matching the given slot ("weapon", "armor", "ring", "trinket").
+## Returns all equipment IDs matching the given slot ("weapon", "armor", "shoulders", "ring", "trinket", "offhand").
 static func get_by_slot(slot: String) -> Array[String]:
 	_ensure_loaded()
 	var result: Array[String] = []

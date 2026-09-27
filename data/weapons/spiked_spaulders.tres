@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://5n2aw1l01dv5"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_spiked_spaulders"]
+
+[resource]
+script = ExtResource("1_spiked_spaulders")
+id = "spiked_spaulders"
+display_name = "Spiked Spaulders"
+description = "Blackened spaulders studded with spikes. Your hero gains +1 attack."
+slot = "shoulders"
+battle_effect_type = "passive_atk"
+battle_effect_value = 1
+injected_card_id = ""
+injected_card_count = 0

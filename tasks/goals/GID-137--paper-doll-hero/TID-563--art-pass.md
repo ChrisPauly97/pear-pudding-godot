@@ -1,5 +1,7 @@
 # TID-563: Art Pass — Helmets, Boots Slot, Directional Frames
 
+(Shoulders shipped in TID-564; the frame is now 32×28 with a centred 16-px body column.)
+
 **Goal:** GID-137
 **Type:** agent
 **Status:** pending
