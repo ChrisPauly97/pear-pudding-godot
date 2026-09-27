@@ -9,6 +9,7 @@
 ## lived in WorldScene itself. Everything world-side is reached via `_world`.
 extends Node
 
+const _SaveSpire = preload("res://autoloads/save_manager/SaveSpire.gd")
 const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const _CardDropUtil      = preload("res://game_logic/CardDropUtil.gd")
 const _CardInstanceUtil  = preload("res://game_logic/CardInstanceUtil.gd")
@@ -606,7 +607,9 @@ func _coop_start_spire_boss_battle(edata: Dictionary) -> void:
 		_world.coop_session._coop_remove_enemy_node(boss_eid)
 		_world._net_sync.rpc("recv_world_event", _WorldObjectSync.encode_event(
 			_WorldObjectSync.EV_ENEMY_REMOVED, boss_eid))
-	var shared_deck: Array = SceneManager.get_coop_spire_run().get("shared_deck", [])
+	# Starter + every shared pick — the picks alone would be a 1-card deck.
+	var shared_deck: Array = _SaveSpire.STARTER_DECK.duplicate()
+	shared_deck.append_array(SceneManager.get_coop_spire_run().get("shared_deck", []))
 	var abs_peer_ids: Array[int] = [multiplayer.get_unique_id()]
 	var clients: Array = multiplayer.get_peers()
 	clients.sort()

@@ -327,3 +327,20 @@ func test_end_does_not_set_spire_floor10_flag_below_threshold() -> void:
 		_sm.spire.advance_spire_floor()  # 9 floors cleared
 	_sm.spire.end_spire_run()
 	assert_false(_sm.get_story_flag("spire_reached_floor_10"))
+
+# ---------------------------------------------------------------------------
+# run_deck — a pick adds to the starter, never replaces it
+# ---------------------------------------------------------------------------
+
+func test_run_deck_is_starter_before_any_pick() -> void:
+	_sm.spire.start_spire_run(1)
+	assert_eq(_sm.spire.run_deck().size(), _sm.spire.STARTER_DECK.size())
+
+func test_run_deck_keeps_starter_after_picks() -> void:
+	_sm.spire.start_spire_run(1)
+	_sm.spire.add_drafted_card("wraith")
+	_sm.spire.add_drafted_card("lich")
+	var deck: Array[String] = _sm.spire.run_deck()
+	assert_eq(deck.size(), _sm.spire.STARTER_DECK.size() + 2)
+	assert_has(deck, "wraith")
+	assert_has(deck, "ghoul")
