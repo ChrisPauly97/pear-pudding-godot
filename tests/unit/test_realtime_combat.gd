@@ -1,10 +1,12 @@
-## GID-135 / TID-546: real-time combat driver (pure logic).
+# gdlint: disable=max-public-methods
+## GID-135 / TID-546/547: real-time combat driver (pure logic).
 extends "res://tests/framework/test_case.gd"
 
 const RealtimeCombat = preload("res://game_logic/battle/RealtimeCombat.gd")
 const GameState = preload("res://game_logic/battle/GameState.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
+const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
 const _BattleRealtime = preload("res://scenes/battle/modules/BattleRealtime.gd")
 const CombatTuning = preload("res://game_logic/battle/CombatTuning.gd")
 
@@ -290,3 +292,110 @@ func test_cast_time_scales_with_cost() -> void:
 	assert_eq(_rt().cast_time_for(0), 0.0, "0-cost is instant")
 	assert_true(_rt().cast_time_for(3) > _rt().cast_time_for(1))
 	assert_eq(_rt().cast_time_for(99), _tune.get_f("cast_max"))
+
+# ---------------------------------------------------------------------------
+# TID-547: round-pulse upkeep (status effects / per-turn rules in real time)
+# ---------------------------------------------------------------------------
+
+func test_round_pulse_fires_per_side_on_its_own_timer() -> void:
+	var rt := _rt()
+	rt.state.players[1].hero.health = 100000  # outlast the auto-attack
+	var sides: Array[int] = []
+	for e: Dictionary in _run(rt, _tune.get_f("round_seconds")):
+		if str(e.get("type", "")) == "round":
+			sides.append(int(e["side"]))
+	assert_true(sides.has(0))
+	assert_true(sides.has(1))
+
+func test_round_pulse_ticks_poison_on_card() -> void:
+	var rt := _rt()
+	rt.state.players[1].hero.health = 100000
+	var foe := _card(0, 20)
+	foe.apply_status("poison", 3)
+	rt.state.players[1].board.add_card(foe)
+	_run(rt, _tune.get_f("round_seconds"))
+	assert_eq(foe.health, 20 - 3, "poison ticks once per round, like once per turn")
+	assert_eq(foe.get_status_value("poison"), 2, "poison decays by 1 each pulse")
+
+func test_round_pulse_removes_card_poisoned_to_death() -> void:
+	var rt := _rt()
+	rt.state.players[1].hero.health = 100000
+	var foe := _card(0, 2)
+	foe.apply_status("poison", 5)
+	rt.state.players[1].board.add_card(foe)
+	rt.focus_target = foe
+	_run(rt, _tune.get_f("round_seconds"))
+	assert_false(rt.state.players[1].board.get_cards().has(foe))
+	assert_true(rt.state.players[1].discard.has(foe))
+	assert_null(rt.focus_target)
+
+func test_round_pulse_ticks_poison_on_hero() -> void:
+	var rt := _rt()
+	rt.state.players[1].hero.apply_status("poison", 4)
+	rt.unarmed[RealtimeCombat.PLAYER] = 0  # isolate the poison tick from auto-attack
+	var hp: int = rt.state.players[1].hero.health
+	_run(rt, _tune.get_f("round_seconds"))
+	assert_eq(rt.state.players[1].hero.health, hp - 4)
+	assert_eq(rt.state.players[1].hero.get_status_value("poison"), 3)
+
+func test_round_pulse_decays_freeze_and_stun() -> void:
+	var rt := _rt()
+	rt.state.players[1].hero.health = 100000
+	var foe := _card(2, 5)
+	foe.apply_status("freeze", 2)
+	foe.apply_status("stun", 2)
+	rt.state.players[1].board.add_card(foe)
+	_run(rt, _tune.get_f("round_seconds"))
+	assert_eq(foe.get_status_value("freeze"), 1)
+	assert_eq(foe.out_of_play, 1, "stun/out_of_play decays like CardInstance.start_turn()")
+
+func test_round_pulse_resets_first_card_discount_flag() -> void:
+	var rt := _rt()
+	rt.state.players[1].hero.health = 100000
+	rt.state.players[0].grasslands_card_played = true
+	_run(rt, _tune.get_f("round_seconds"))
+	assert_false(rt.state.players[0].grasslands_card_played)
+
+func test_round_pulse_applies_desert_scorch_to_own_leftmost() -> void:
+	var rt := _rt()
+	rt.state.players[1].hero.health = 100000
+	rt.state.battlefield_biome = BattlefieldRules.BIOME_DESERT
+	rt.state.is_night = false
+	var c := _card(1, 10)
+	rt.state.players[0].board.add_card(c)
+	_run(rt, _tune.get_f("round_seconds"))
+	assert_eq(c.health, 9)
+
+func test_round_pulse_skips_desert_scorch_at_night() -> void:
+	var rt := _rt()
+	rt.state.players[1].hero.health = 100000
+	rt.state.battlefield_biome = BattlefieldRules.BIOME_DESERT
+	rt.state.is_night = true
+	var c := _card(1, 10)
+	rt.state.players[0].board.add_card(c)
+	_run(rt, _tune.get_f("round_seconds"))
+	assert_eq(c.health, 10)
+
+func test_round_pulse_skips_desert_scorch_outside_desert() -> void:
+	var rt := _rt()
+	rt.state.players[1].hero.health = 100000
+	rt.state.battlefield_biome = -1
+	var c := _card(1, 10)
+	rt.state.players[0].board.add_card(c)
+	_run(rt, _tune.get_f("round_seconds"))
+	assert_eq(c.health, 10)
+
+func test_round_pulse_tuning_knob_changes_pulse_period() -> void:
+	var tune := CombatTuning.new()
+	tune.set_value("round_seconds", 1.0)
+	var gs := GameState.new()
+	for p: PlayerState in gs.players:
+		p.hand.clear()
+		p.draw_deck.clear()
+	var rt := RealtimeCombat.new(gs, [1, 1], tune)
+	rt.state.players[1].hero.health = 100000
+	var foe := _card(0, 20)
+	foe.apply_status("poison", 3)
+	rt.state.players[1].board.add_card(foe)
+	_run(rt, 1.0)
+	assert_eq(foe.health, 17, "a lower round_seconds knob pulses upkeep sooner")
