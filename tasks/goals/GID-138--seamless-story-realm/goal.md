@@ -22,7 +22,7 @@ interiors (temple, mansion, home, guildhall) stay door-entered.
 | TID-567 | RealmLayout — Town Placement & Roads | agent | done | — |
 | TID-568 | Stamp Towns & Roads into Chunk Generation | agent | done | TID-567 |
 | TID-569 | Town Entities in the Overworld | agent | done | TID-568 |
-| TID-570 | Region Awareness Replaces Map-Name Checks | agent | pending | TID-569 |
+| TID-570 | Region Awareness Replaces Map-Name Checks | agent | done | TID-569 |
 | TID-571 | Entry Points & Save Migration | agent | pending | TID-570 |
 | TID-572 | Objectives on the Realm | agent | pending | TID-571 |
 | TID-573 | Docs & Human Story Note | agent | pending | TID-572 |

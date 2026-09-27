@@ -9,6 +9,7 @@
 extends Node
 
 const _WorldScene = preload("res://scenes/world/WorldScene.gd")
+const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const RivalSystem = preload("res://game_logic/RivalSystem.gd")
 const _EnemyScene = preload("res://scenes/world/entities/EnemyNPC.tscn")
@@ -32,12 +33,11 @@ func maiteln_should_be_present() -> bool:
 	var sm := SceneManager.save_manager
 	if not sm.get_story_flag("story_intro_complete") or sm.get_story_flag("chapter1_complete"):
 		return false
-	var map_name: String = _world.map_name
-	if MAITELN_NAMED_MAPS.has(map_name):
+	if MAITELN_NAMED_MAPS.has(_world.story_place()):
 		return true
-	if map_name == "main":
-		return sm.get_story_flag("chapter1_left_madrian") and not sm.get_story_flag("chapter1_learned_fire")
-	return false
+	# The overworld is where Chapter 1 travels now (GID-138): the stitched towns
+	# and the roads between them. Maiteln walks it with you.
+	return _world._is_infinite
 
 ## Spawns/frees the Maiteln follower to match maiteln_should_be_present().
 ## Call on map load and whenever a relevant story flag changes mid-session.
@@ -126,10 +126,10 @@ func inject_warcamp_boss(wm: WorldMap) -> void:
 
 ## Encounters 1 and 3 live on fixed tiles in named maps.
 func spawn_named_map_rivals() -> void:
-	if _world.world_map == null:
+	if _world.world_map == null and _world.current_town == "":
 		return
 	var sm := SceneManager.save_manager
-	var map_name: String = _world.map_name
+	var map_name: String = _world.story_place()
 	if map_name == "maykalene" and sm.get_story_flag("chapter1_left_madrian") and sm.rival_encounters_won == 0:
 		_spawn_rival_on_tile("rival_enc1", Vector2i(50, 40), "rival_isfig_1",
 			"You again? Let's see if you're worth the effort, wee warrior.")
@@ -151,8 +151,12 @@ func spawn_open_world_rival() -> void:
 	_spawn_rival_at("rival_enc2", wx, wz, rival_type,
 		"Maiteln's sent word of the Martarquas. I aim to warn him you're no mere apprentice.")
 
+## `tile` is local to the story place; a stitched town's is moved into the overworld.
 func _spawn_rival_on_tile(rival_id: String, tile: Vector2i, enemy_type: String, dialogue: String) -> void:
-	_spawn_rival_at(rival_id, float(tile.x) * IsoConst.TILE_SIZE, float(tile.y) * IsoConst.TILE_SIZE,
+	var t: Vector2i = tile
+	if _world.current_town != "":
+		t = RealmLayout.to_world_tile(_world.current_town, tile)
+	_spawn_rival_at(rival_id, float(t.x) * IsoConst.TILE_SIZE, float(t.y) * IsoConst.TILE_SIZE,
 		enemy_type, dialogue)
 
 func _spawn_rival_at(rival_id: String, wx: float, wz: float, enemy_type: String, dialogue: String) -> void:
