@@ -150,6 +150,7 @@ func engage() -> void:
 	_alive = false
 	enemy_data["alive"] = false
 	_show_alert()
+	GameBus.player_attack_started.emit()
 	AudioManager.play_sfx("enemy_alert")
 	await get_tree().create_timer(0.4, false).timeout
 	if not SceneManager.accepts_engage():

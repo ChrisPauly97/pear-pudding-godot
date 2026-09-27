@@ -64,6 +64,14 @@ func recv_identity(payload: Array, is_reply: bool) -> void:
 	_route("_on_identity_received", [sender, payload, is_reply])
 
 
+## Co-op avatar gear (GID-137 / TID-561). payload is PaperDoll.encode_gear()
+## output: one item id per visible slot. Reliable — sent on handshake and equip.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_gear(payload: Array) -> void:
+	var sender: int = _sender_id()
+	_route("_on_gear_received", [sender, payload])
+
+
 ## Session character handshake (GID-095 / TID-346): host → client. Carries the
 ## resolved per-player character record (deck/inventory/coins/level/skills) for this
 ## session. `resume` is true when the record was matched to an existing member (a

@@ -62,7 +62,7 @@ and spire floors fall through to `dungeon.ogg`.
 
 - **Source:** https://0x72.itch.io/dungeontileset-ii
 - **License:** CC0-1.0 (Creative Commons Zero v1.0 Universal) — no attribution required; credited with thanks.
-- **Used for:** the player hero (`elf_m` idle/run frames), enemy sprites (skeleton/undead, undead elite recolor, swampy ghoul, masked-orc raider, ogre warleader, necromancer duelist, elf rival — a hostile recolor of `elf_m`, big-demon roaming terror, mimic chest), NPC sprites (townsperson variants, merchant, Maiteln), card illustrations (skeleton, zombie, ghoul), plus their walk frames under `assets/textures/characters/` and `assets/textures/cards/`; the chest closed/open sprites, the door sprite, the waystone obelisk (`column`, recolored — dormant/active gold-rune variants), and the blight heart's skull (`skull`, purple recolor on hand-pixelled crystal spikes).
+- **Used for:** enemy sprites (skeleton/undead, undead elite recolor, swampy ghoul, masked-orc raider, ogre warleader, necromancer duelist, elf rival — a hostile recolor of `elf_m`, big-demon roaming terror, mimic chest), NPC sprites (townsperson variants, merchant, Maiteln), card illustrations (skeleton, zombie, ghoul), plus their walk frames under `assets/textures/characters/` and `assets/textures/cards/`; the chest closed/open sprites, the door sprite, the waystone obelisk (`column`, recolored — dormant/active gold-rune variants), and the blight heart's skull (`skull`, purple recolor on hand-pixelled crystal spikes).
 
 ### Kenney — Tiny Town (1.1) & Tiny Dungeon (1.0)
 
@@ -97,7 +97,6 @@ remains as a runtime fallback wherever a slot's texture is missing.
 
 | Slot | File | Source |
 |---|---|---|
-| Player hero (idle + walk ×4) | `characters/player_hero{,_walk_1-4}.png` | 0x72 (`elf_m`) |
 | Enemy: undead / undead (horde) | `characters/enemy_undead.png` | 0x72 |
 | Enemy: undead elite | `characters/enemy_undead_elite.png` | 0x72 (recolor) |
 | Enemy: ghoul | `characters/enemy_ghoul.png` | 0x72 |

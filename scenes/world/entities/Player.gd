@@ -30,26 +30,19 @@ const _LAND_FALL_SPEED: float = 4.0   # min downward speed (u/s) to count as a "
 const _COYOTE_TIME: float = 0.12
 const _JUMP_BUFFER_TIME: float = 0.12
 
-# Player hero frames — 0x72 DungeonTilesetII "elf_m" (CC0): a young
-# adventurer matching Saimtar; Maiteln keeps the old-wizard sprite.
-const _IdleTex:  Texture2D = preload("res://assets/textures/characters/player_hero.png")
-const _WalkTex1: Texture2D = preload("res://assets/textures/characters/player_hero_walk_1.png")
-const _WalkTex2: Texture2D = preload("res://assets/textures/characters/player_hero_walk_2.png")
-const _WalkTex3: Texture2D = preload("res://assets/textures/characters/player_hero_walk_3.png")
-const _WalkTex4: Texture2D = preload("res://assets/textures/characters/player_hero_walk_4.png")
+# Player hero frames — drawn layer by layer by PaperDoll so equipped gear
+# shows on the body (GID-137); Maiteln keeps the old-wizard sprite.
+const _PaperDoll = preload("res://game_logic/character/PaperDoll.gd")
 const _ContactShadow = preload("res://game_logic/ContactShadow.gd")
 const _SpriteOutline = preload("res://game_logic/SpriteOutline.gd")
 
-const ANIM_FPS: float = 6.0        # walking animation speed
+const _HeroAnim = preload("res://game_logic/character/HeroAnim.gd")
 const PIXEL_SIZE: float = 0.05     # larger per-pixel size to match 32px sprite scale
 
 # ── Riding pose ───────────────────────────────────────────────────────────────
-# World sprites use ALPHA_CUT_OPAQUE_PREPASS (SpriteRegistry.apply_billboard_flags),
-# so two overlapping billboards are resolved by the depth buffer, not by blend
-# order. The mount sprite used to sit 1 cm *toward* the camera, which meant the
-# horse won every overlapping pixel and the rider vanished entirely.
-#
-# The iso camera is orthographic and permanently offset by (20, 20, 20), so a
+# World sprites use ALPHA_CUT_OPAQUE_PREPASS, so overlapping billboards are
+# resolved by the depth buffer, not blend order (a horse 1 cm nearer the camera
+# once hid the rider entirely). The iso camera is orthographic and permanently offset by (20, 20, 20), so a
 # translation along the normalised (1, 1, 1) axis is pure depth: it changes what
 # wins the depth test without moving a single pixel on screen. Lifting the rider
 # along that axis while mounted puts him in front of the horse and nothing else.
@@ -85,6 +78,7 @@ var _start_dust: GPUParticles3D       # move-start puff (TID-493)
 var _particle_knobs: Dictionary = {}  # GraphicsQuality knobs, pushed by AmbientTouches
 var _is_moving: bool = false
 var _was_on_floor: bool = true
+var _air_time: float = 0.0
 var _coyote_timer: float = 0.0
 var _jump_buffer_timer: float = 0.0
 
@@ -112,6 +106,8 @@ func _ready() -> void:
 	floor_constant_speed = true
 	_build_sprite()
 	GameBus.mount_state_changed.connect(_on_mount_state_changed)
+	GameBus.equipment_changed.connect(_on_equipment_changed)
+	GameBus.player_attack_started.connect(func() -> void: _sprite.play(&"swing"))
 	_update_mount_visuals(SaveManager.is_mounted)
 	GameBus.enemy_engaged.connect(func(_d: Dictionary) -> void: cancel_path())
 
@@ -144,13 +140,9 @@ func cancel_path() -> void:
 	_path_wp_index = 0
 
 func _build_sprite() -> void:
-	# Build a SpriteFrames resource with idle (frame 0) and walk (all 4 frames).
-	var walk: Array[Texture2D] = [_WalkTex1, _WalkTex2, _WalkTex3, _WalkTex4]
-	var sf: SpriteFrames = _SpriteRegistry.make_idle_walk_frames(_IdleTex, walk, ANIM_FPS)
-
-
+	# Idle (frame 0) and a 4-frame walk, drawn in the currently equipped gear.
 	_sprite = AnimatedSprite3D.new()
-	_sprite.sprite_frames = sf
+	_sprite.sprite_frames = _PaperDoll.build_frames(_PaperDoll.gear_of(SaveManager))
 	_sprite.pixel_size = PIXEL_SIZE
 	_SpriteRegistry.apply_billboard_flags(_sprite)
 	_sprite.shaded = false
@@ -159,7 +151,7 @@ func _build_sprite() -> void:
 	_sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 	# Position sprite so bottom edge sits at y=0 (feet on the ground)
-	var frame_h: float = _WalkTex1.get_height() * PIXEL_SIZE
+	var frame_h: float = _PaperDoll.FRAME_H * PIXEL_SIZE
 	_sprite_base_pos = Vector3(0.0, frame_h * 0.5, 0.0)
 	_sprite.position = _sprite_base_pos
 	_sprite_pose_pos = _sprite_base_pos
@@ -344,7 +336,9 @@ func _physics_process(delta: float) -> void:
 			_set_mount_facing(_sprite.flip_h)
 	# Mounted, the horse does the travelling — the rider sits still in the saddle
 	# instead of running on the spot.
-	var want_anim: StringName = &"walk" if _is_moving and not SaveManager.is_mounted else &"idle"
+	_air_time = 0.0 if is_on_floor() else _air_time + delta
+	var want_anim: StringName = _HeroAnim.pick(SaveManager.is_mounted, is_on_floor(), _velocity_y,
+			_air_time, _is_moving, _sprite.animation, _sprite.is_playing())
 	if _sprite.animation != want_anim:
 		_sprite.play(want_anim)
 
@@ -364,6 +358,8 @@ func _on_landed() -> void:
 	if _landing_dust != null:
 		_landing_dust.restart()
 	AudioManager.play_sfx("land")
+	if not SaveManager.is_mounted:
+		_sprite.play(&"land")
 	_squash_sprite(1.08, 0.9, 0.15)
 
 ## Quick squash/stretch beat on the sprite (landing thump, jump takeoff).
@@ -375,14 +371,14 @@ func _squash_sprite(sx: float, sy: float, duration: float) -> void:
 	tw.tween_property(_sprite, "scale", Vector3(sx, sy, 1.0), duration * 0.4)
 	tw.tween_property(_sprite, "scale", Vector3.ONE, duration * 0.6)
 
-## Footsteps locked to the walk animation's contact frames (0 and 2 of the
-## 4-frame cycle) instead of a fixed timer, so feet and sound stay in sync.
+## Footsteps locked to the walk animation's contact frames (0 and 4 of the
+## 8-frame cycle) instead of a fixed timer, so feet and sound stay in sync.
 func _on_sprite_frame_changed() -> void:
 	if SaveManager.is_mounted:
 		return
 	if _sprite.animation != &"walk":
 		return
-	if _sprite.frame == 0 or _sprite.frame == 2:
+	if _sprite.frame % 4 == 0:
 		_play_step()
 
 func _tick_hoofbeats(delta: float) -> void:
@@ -492,6 +488,11 @@ func _set_mount_facing(flipped: bool) -> void:
 		return
 	_mount_sprite.flip_h = flipped
 	_mount_sprite.offset = Vector2(-_SADDLE_OFFSET_PX if flipped else _SADDLE_OFFSET_PX, 0.0)
+
+## Redraws the hero in the new gear, keeping the current animation and frame.
+func _on_equipment_changed(_slot: String, _item_id: String) -> void:
+	if _sprite != null:
+		_HeroAnim.wear(_sprite, _PaperDoll.build_frames(_PaperDoll.gear_of(SaveManager)))
 
 func _on_mount_state_changed(mounted: bool, _mount_id: String) -> void:
 	_update_mount_visuals(mounted)

@@ -139,7 +139,70 @@ if player_chunk != last_chunk:
 | Asset | Path | Notes |
 |---|---|---|
 | Player scene | `scenes/world/entities/Player.tscn` | `CharacterBody3D` + `Sprite3D` + `CollisionShape3D` |
-| Hero frames | `assets/textures/characters/player_hero.png` (idle) + `player_hero_walk_1-4.png` | 0x72 `elf_m`, 16×28, GID-123 (old hand-made wizard frames remain on disk, unreferenced) |
+| Hero frames | none — drawn at runtime by `game_logic/character/PaperDoll.gd` | 16×28 idle + 4 walk, layered body + gear (GID-137); redrawn on `GameBus.equipment_changed` |
 | WorldScene | `scenes/world/WorldScene.tscn` | Contains `Camera3D`, `DirectionalLight3D`, player spawn marker |
 | ChunkRenderer scene | `scenes/world/ChunkRenderer.tscn` | Template instantiated per loaded chunk |
 | VirtualJoystick scene | `scenes/ui/VirtualJoystick.tscn` | Touchscreen overlay; added at runtime when touchscreen detected |
+
+## Paper-doll hero (GID-137)
+
+The player sprite is drawn in code so gear changes the body. Files (an
+`extends` chain, so statics are inherited unqualified):
+`game_logic/character/PaperDollPixels.gd` (pixel helpers, grime dither,
+shadow/highlight tones) ← `PaperDollGear.gd` (cloak, shoulders, trinkets,
+held items + rotation) ← `PaperDoll.gd` (tables, API, body parts).
+`HeroAnim.gd` picks the animation each physics frame.
+
+**Frame:** 32×28 px. The body is drawn in a centred 16-px column (`OX` = 8,
+applied by `_px` via static `_ox`), the same height as the old pack art, so
+`PLAYER_HEIGHT` 1.4, mount ride offsets and contact shadow keep their tuning;
+the spare width is room for a forward swing. Facing right; `flip_h` mirrors.
+Body-column rows: hair 1–3, head 3–8 (5 wide — small head, adult proportions),
+neck 9, torso/arms 10–17, hands 18, legs 18–24, boots 25–27.
+
+**Look (gritty, not cartoon):** muted palette, three-tone shading (`_shadow`
+darkens and cools, `_light` lightens and warms), and `_fill`'s deterministic
+per-pixel grime (`_grain(x, y)` hash, so walking frames don't shimmer). Face:
+brow shadow over a single dark eye pixel, stubble dither, set mouth, ear.
+
+**Animations (`ANIMS`: name → fps, loop, poses):** `idle` (1), `walk` (8 @ 12
+fps: contact, down, pass, reach per leg), `swing` (4 @ 12, one-shot: backswing
+held behind the body, strike, follow-through, recover), `jump` (crouch, rise;
+one-shot, holds rise), `fall` (1), `land` (2, one-shot). A pose overrides
+`_REST` keys: `bob` (body drop, may be −1), `leg_l/leg_r` (boot lift),
+`step_l/step_r` (foot shift), `hand_l/hand_r` (hand offsets — arms are 2-px
+Bresenham limbs from shoulder to hand, so raised/punching arms stay attached),
+`wpn` (main-hand angle, degrees clockwise from up; drawn upright in a 44-px
+scratch image and nearest-neighbour rotated about the grip), `wpn_behind`
+(draw the weapon before the torso). `l` = far/back side, `r` = near/front.
+
+**Driving it (Player.gd):** `HeroAnim.pick(mounted, on_floor, vel_y, air_time,
+moving, current, playing)`: mounted → idle; airborne → `jump` while rising,
+`fall` after `FALL_GRACE` (0.1 s, so slope hops don't flicker); a playing
+one-shot (`swing`, `land`) finishes; else walk/idle. `_on_landed` plays `land`
+(hard landings only). `GameBus.player_attack_started` (emitted by
+`EnemyNPC.engage()` at the start of its 0.4 s alert beat) plays `swing`.
+Footsteps fire on walk frames 0 and 4; `IdleLife.hero_bob` lifts the sprite
+on passing frames 2–3 / 6–7 (frames bake their own dip on 1 and 5).
+
+**Gear:** `GEAR_VISUALS` maps item id → `{style, main, trim}`. Styles: armour
+`vest`/`mail`/`cloak`; shoulders `pauldron`/`plate`/`spiked`; held
+`dagger`/`sword`/`axe`/`staff`/`wand`/`crystal`/`orb`/`buckler`/`shield`;
+trinket `necklace`/`flask`/`coin`. Rings are not drawn. Adding an item = one
+entry (reuse a style or add a `match` branch); `test_paper_doll` fails if an
+item in a `VISIBLE_SLOTS` slot lacks one or draws nothing.
+
+**Draw order:** cloak back → legs → (weapon if `wpn_behind`) → torso → trinket
+→ back arm, front arm → head → cloak mantle → shoulders → off-hand → weapon.
+
+**Appearance:** optional Dictionary overriding `DEFAULT_APPEARANCE` colours
+(skin, hair, eyes, shirt, trousers, boots, belt). Not persisted yet (TID-562).
+
+**API:** `build_frames(gear, appearance)` (every animation; cached per look —
+co-op avatars in the same gear share textures), `idle_texture(gear)` (battle
+token), `render_frame(gear, look, anim, index)`, `render_pose(gear, look,
+pose)`, `gear_of(save_obj)`, `gear_of_record(record)`.
+
+**Live updates:** `SaveManager.equip_item/equip_weapon` emit
+`GameBus.equipment_changed(slot, id)`; `Player._on_equipment_changed` calls
+`HeroAnim.wear()` (swap frames, keep animation, `SpriteOutline.refresh()`).

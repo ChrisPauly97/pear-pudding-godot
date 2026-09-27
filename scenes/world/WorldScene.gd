@@ -63,6 +63,7 @@ const _HomeGarden = preload("res://scenes/world/modules/HomeGarden.gd")
 const _Cantrips = preload("res://scenes/world/modules/Cantrips.gd")
 const _NocturnalSpawner = preload("res://scenes/world/modules/NocturnalSpawner.gd")
 const _CoopSocial = preload("res://scenes/world/coop/CoopSocial.gd")
+const _CoopAppearance = preload("res://scenes/world/coop/CoopAppearance.gd")
 const _CoopPvP = preload("res://scenes/world/coop/CoopPvP.gd")
 const _CoopActivities = preload("res://scenes/world/coop/CoopActivities.gd")
 const _CoopSession = preload("res://scenes/world/coop/CoopSession.gd")
@@ -156,6 +157,7 @@ var world_map: WorldMap
 # handler target, so the `_on_*` entry points resolve exactly as they did when
 # they lived here. See CLAUDE.md "WorldScene co-op modules".
 var coop_social: _CoopSocial = null
+var coop_appearance: _CoopAppearance = null
 var coop_pvp: _CoopPvP = null
 var coop_activities: _CoopActivities = null
 var coop_session: _CoopSession = null
@@ -880,6 +882,8 @@ func _ensure_coop_modules() -> void:
 	coop_pvp = _ensure_coop_module(coop_pvp, _CoopPvP, "CoopPvP") as _CoopPvP
 	coop_activities = _ensure_coop_module(coop_activities, _CoopActivities, "CoopActivities") as _CoopActivities
 	coop_session = _ensure_coop_module(coop_session, _CoopSession, "CoopSession") as _CoopSession
+	coop_appearance = _ensure_coop_module(
+			coop_appearance, _CoopAppearance, "CoopAppearance") as _CoopAppearance
 
 func _ensure_coop_module(existing: Node, script: GDScript, node_name: String) -> Node:
 	var mod: Node = existing

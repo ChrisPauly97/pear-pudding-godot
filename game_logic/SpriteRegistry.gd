@@ -77,7 +77,7 @@ const CHAR_PIXEL_SIZE: float = 0.05
 const FEET_MARGIN: float = 0.05
 
 ## Target world heights (units) so every entity is proportional to the
-## player (elf_m hero, 28 px at 0.05 = 1.4 units). A flat pixel size made
+## player (PaperDoll hero, 28 px at 0.05 = 1.4 units). A flat pixel size made
 ## 16 px pack sprites render at half the player's height — scale by target
 ## height instead, keeping an intentional hierarchy: chest-sized mimics,
 ## person-sized enemies/NPCs, towering bosses.

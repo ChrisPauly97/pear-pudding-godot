@@ -7,11 +7,12 @@ const CompanionData = preload("res://data/CompanionData.gd")
 const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 
-const _SLOTS: Array[String] = ["weapon", "offhand", "armor", "ring", "trinket"]
+const _SLOTS: Array[String] = ["weapon", "offhand", "armor", "shoulders", "ring", "trinket"]
 const _SLOT_LABELS: Dictionary = {
 	"weapon":  "Weapon",
 	"offhand": "Off Hand",
 	"armor":   "Armor",
+	"shoulders": "Shoulders",
 	"ring":    "Ring",
 	"trinket": "Trinket",
 }

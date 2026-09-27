@@ -159,7 +159,9 @@ Extends `BaseOverlay.gd`. Renders `SaveManager.mailbox.get_mailbox_instances()` 
 
 ### Overview
 
-The player can equip items across five slots: **weapon**, **offhand**, **armor**, **ring**, and **trinket**. Each slot holds one item ID (empty string = nothing equipped). At battle start `BattleScene.modifiers._apply_equipment_effects()` loops over all five slots, resolves each item via `WeaponRegistry`, and applies its effect to `PlayerState[0]` before the opening hand is drawn. All five slot types use the same `WeaponData` resource and registry — the `slot` field distinguishes them.
+The player can equip items across six slots: **weapon**, **offhand**, **armor**, **shoulders** (GID-137: leather/iron pauldrons, spiked spaulders), **ring**, and **trinket**. Each slot holds one item ID (empty string = nothing equipped). At battle start `BattleScene.modifiers._apply_equipment_effects()` loops over all five slots, resolves each item via `WeaponRegistry`, and applies its effect to `PlayerState[0]` before the opening hand is drawn. All five slot types use the same `WeaponData` resource and registry — the `slot` field distinguishes them.
+
+**Visuals (GID-137):** equipping emits `GameBus.equipment_changed(slot, id)` and the hero sprite redraws in the new gear. Every armour/shoulders/weapon/offhand/trinket item needs a `PaperDoll.GEAR_VISUALS` entry (see `camera-and-player.md` → Paper-doll hero); rings are not drawn.
 
 Mana cap invariant: max_mana never permanently exceeds 10. The `starting_mana` effect grants a one-time turn-1 burst; `PlayerState.gain_mana_for_turn(turn)` resets `max_mana = min(10, turn)` on every subsequent turn, naturally undoing the boost.
 

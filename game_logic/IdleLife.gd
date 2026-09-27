@@ -69,11 +69,12 @@ static func pose(style: int, t: float, phase: float, fast: bool, hop_age: float)
 
 
 ## Hero bob (GID-134 / TID-526), world units up: a one-step lift on the walk
-## cycle's passing frames (1 and 3) and, standing still, a brief breath every
+## cycle's passing frames (2–3 and 6–7 of the 8-frame PaperDoll walk, which
+## bakes its own dip on 1 and 5) and, standing still, a brief breath every
 ## few seconds. Stepped rather than smooth so it stays on whole pixels.
 static func hero_bob(walking: bool, frame: int, t: float) -> float:
 	if walking:
-		return HERO_STEP_LIFT if frame % 2 == 1 else 0.0
+		return HERO_STEP_LIFT if frame % 4 >= 2 else 0.0
 	return HERO_BREATH_LIFT if sin(t * 2.0) > 0.75 else 0.0
 
 

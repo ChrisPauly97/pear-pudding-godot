@@ -354,3 +354,10 @@ scope and remain procedural, because they aren't silhouette placeholders:
   a terrain shader parameter (`WorldScene.gd:4557`, `path_texture`). This is a
   procedural ground-texture pattern, not a sprite; GID-118 never scoped it and
   no licensed replacement was researched.
+
+### Paper-doll player hero (GID-137 / TID-560)
+
+The `elf_m` hero above was replaced by an original, code-drawn hero:
+`game_logic/character/PaperDoll.gd`. The `player_hero*.png` files were
+deleted (the rival's `elf_m` recolour stays). See `camera-and-player.md`
+→ "Paper-doll hero" for the layer model and how to add gear visuals.

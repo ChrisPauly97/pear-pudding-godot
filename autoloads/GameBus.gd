@@ -62,6 +62,10 @@ signal achievement_unlocked(achievement_id: String)
 # Economy signals
 signal essence_changed(new_amount: int)
 signal equipment_dropped(equip_id: String)
+## An item was equipped or removed ("" = empty slot); the hero sprite redraws (GID-137).
+signal equipment_changed(slot: String, item_id: String)
+## An enemy engage beat began; the hero plays its weapon swing (GID-137).
+signal player_attack_started
 signal bag_full
 signal card_routed_to_mailbox(template_id: String)
 

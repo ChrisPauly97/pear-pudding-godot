@@ -194,6 +194,7 @@ func _spawn_remote_player(pid: int) -> void:
 	# Apply identity if it already arrived before the avatar spawned (lazy ordering).
 	if _world._remote_identities.has(pid):
 		_apply_identity_to_avatar(pid)
+	_world.coop_appearance.apply_to_avatar(pid)
 
 func _on_coop_peer_connected(pid: int) -> void:
 	_spawn_remote_player(pid)
@@ -329,6 +330,7 @@ func _send_local_identity(is_reply: bool, target_peer: int) -> void:
 		_world._net_sync.rpc("recv_identity", payload, is_reply)
 	else:
 		_world._net_sync.rpc_id(target_peer, "recv_identity", payload, is_reply)
+	_world.coop_appearance.send_local_gear(target_peer)  # avatar gear rides the handshake
 
 ## Called by NetSync when a peer's identity packet arrives.
 

@@ -7,9 +7,11 @@ const SO = preload("res://game_logic/SpriteOutline.gd")
 
 func test_walk_bob_lifts_on_passing_frames_only() -> void:
 	assert_eq(IL.hero_bob(true, 0, 0.0), 0.0, "contact frame is grounded")
-	assert_eq(IL.hero_bob(true, 1, 0.0), IL.HERO_STEP_LIFT)
-	assert_eq(IL.hero_bob(true, 2, 0.0), 0.0)
+	assert_eq(IL.hero_bob(true, 1, 0.0), 0.0, "down frame is grounded")
+	assert_eq(IL.hero_bob(true, 2, 0.0), IL.HERO_STEP_LIFT)
 	assert_eq(IL.hero_bob(true, 3, 0.0), IL.HERO_STEP_LIFT)
+	assert_eq(IL.hero_bob(true, 4, 0.0), 0.0, "second contact is grounded")
+	assert_eq(IL.hero_bob(true, 6, 0.0), IL.HERO_STEP_LIFT)
 
 
 func test_idle_breath_is_occasional() -> void:

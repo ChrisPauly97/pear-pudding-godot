@@ -259,7 +259,8 @@ func _append_player_loadout(out: Array[Dictionary]) -> void:
 		elif sk.skill_type == "passive":
 			out.append({"title": "Passive: %s" % sk.display_name, "desc": sk.description, "color": _COL_SKILL})
 	for item_id: String in [
-			sm.equipped_weapon, sm.equipped_armor, sm.equipped_ring, sm.equipped_trinket, sm.equipped_offhand]:
+			sm.equipped_weapon, sm.equipped_armor, sm.equipped_ring, sm.equipped_trinket, sm.equipped_offhand,
+			sm.equipped_shoulders]:
 		var w: WeaponData = WeaponRegistry.get_weapon(item_id) if item_id != "" else null
 		if w != null and w.battle_effect_type != "":
 			out.append({"title": "Gear: %s" % w.display_name, "desc": w.description, "color": _COL_GEAR})

@@ -7,12 +7,14 @@
 ##
 ## Exit code 0 = pass, 1 = fail. Proves: a server and client ENet peer connect
 ## over 127.0.0.1, and an avatar payload sent via the real NetSync.gd RPC is
-## received and decoded on the other peer using AvatarSync.
+## received and decoded on the other peer using AvatarSync, and a gear payload
+## (GID-137 / TID-561) round-trips client → server through NetSync.recv_gear.
 extends SceneTree
 
 const _NetSync = preload("res://scenes/world/NetSync.gd")
 const _AvatarSync = preload("res://game_logic/net/AvatarSync.gd")
 const _Harness = preload("res://tests/net_harness.gd")
+const _PaperDoll = preload("res://game_logic/character/PaperDoll.gd")
 
 const _PORT: int = 24567
 
@@ -21,8 +23,11 @@ const _PORT: int = 24567
 class _StubWorld:
 	extends Node
 	var received: Dictionary = {}
+	var gear: Dictionary = {}
 	func _on_avatar_received(_sender: int, payload: Array) -> void:
 		received = _AvatarSync.decode(payload)
+	func _on_gear_received(_sender: int, payload: Array) -> void:
+		gear = _PaperDoll.decode_gear(payload)
 
 
 func _initialize() -> void:
@@ -52,7 +57,7 @@ func _run() -> bool:
 		return false
 	var mp_client: SceneMultiplayer = cli["mp"]
 	var client_root: Node = cli["root"]
-	_build_world(client_root)
+	var client_netsync: Node = _build_world(client_root)
 
 	# Poll both APIs until the client connects (or timeout).
 	if not _Harness.wait_connected(mp_server, mp_client):
@@ -76,10 +81,27 @@ func _run() -> bool:
 	var z_ok: bool = absf(float(d["z"]) - (-3.25)) < 0.001
 	var flip_ok: bool = bool(d["flip_h"])
 	var move_ok: bool = bool(d["moving"])
-	if x_ok and z_ok and flip_ok and move_ok:
-		print("  [PASS] avatar packet received and decoded correctly")
+	if not (x_ok and z_ok and flip_ok and move_ok):
+		print("  [FAIL] decoded packet mismatch: %s" % str(d))
+		return false
+	print("  [PASS] avatar packet received and decoded correctly")
+
+	return _check_gear(mp_server, mp_client, client_netsync, server_root)
+
+
+# Client sends its gear to the host; the host's stub should decode it.
+func _check_gear(mp_server: SceneMultiplayer, mp_client: SceneMultiplayer, client_netsync: Node,
+		server_root: Node) -> bool:
+	var sent: Dictionary = {"armor": "chainmail", "shoulders": "iron_pauldrons", "weapon": "dusk_blade"}
+	client_netsync.rpc_id(1, "recv_gear", _PaperDoll.encode_gear(sent))
+	var server_stub: _StubWorld = server_root.get_node("WorldScene/Stub") as _StubWorld
+	_Harness.pump([mp_server, mp_client], 200, 10, func() -> bool: return not server_stub.gear.is_empty())
+	var g: Dictionary = server_stub.gear
+	if str(g.get("armor", "")) == "chainmail" and str(g.get("shoulders", "")) == "iron_pauldrons" \
+			and str(g.get("weapon", "")) == "dusk_blade" and str(g.get("offhand", "?")) == "":
+		print("  [PASS] gear packet received and decoded correctly")
 		return true
-	print("  [FAIL] decoded packet mismatch: %s" % str(d))
+	print("  [FAIL] gear packet mismatch: %s" % str(g))
 	return false
 
 

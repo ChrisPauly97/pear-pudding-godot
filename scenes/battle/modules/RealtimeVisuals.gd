@@ -13,7 +13,7 @@ const RealtimeCombat = preload("res://game_logic/battle/RealtimeCombat.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
-const _PLAYER_TEX := preload("res://assets/textures/characters/player_hero.png")
+const _PaperDoll = preload("res://game_logic/character/PaperDoll.gd")
 const _DiagonalBoard = preload("res://scenes/battle/modules/DiagonalBoard.gd")
 
 const READY_COLOR := Color(0.35, 1.0, 0.45)
@@ -55,7 +55,8 @@ func build(enemy_type: String, is_boss: bool) -> void:
 	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_battle.add_child(_root)
-	_tokens[RealtimeCombat.PLAYER] = _make_token(_PLAYER_TEX, _battle._player_hero_view, RealtimeCombat.PLAYER)
+	_tokens[RealtimeCombat.PLAYER] = _make_token(
+			_PaperDoll.idle_texture(_PaperDoll.gear_of(SaveManager)), _battle._player_hero_view, RealtimeCombat.PLAYER)
 	_tokens[RealtimeCombat.ENEMY] = _make_token(
 			_SpriteRegistry.enemy_texture(enemy_type, false, is_boss), _battle._enemy_hero_view, RealtimeCombat.ENEMY)
 	var cast := _make_cast_panel(CHARGING_COLOR)
