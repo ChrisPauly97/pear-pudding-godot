@@ -109,25 +109,7 @@ func _board_drop(local_pos: Vector2, data: Variant) -> void:
 				_battle.tutorials._dismiss_battle_tutorial()
 			# gdlint:ignore = max-returns
 			return
-		var from_panel: Control = _battle._hand_panel_node(played_card)
-		var from_rect: Rect2 = from_panel.get_global_rect() if from_panel != null else Rect2()
-		var to_pos: Vector2 = _battle._slot_panel_center(_battle._player_board_view, target_slot_idx)
-		if _do_play_card_at_slot(played_card, _battle._my_idx(), target_slot_idx):
-			AudioManager.play_sfx("card_play")
-			_battle._fx.haptic(20)
-			_battle._hide_hand_panel(from_panel)
-			if played_card.emergence_effect != "":
-				var snap_em := _battle._fx.snapshot()
-				_battle._resolver.resolve_emergence(played_card, _battle._my_idx())
-				_battle._fx.trigger_fx(snap_em)
-			else:
-				_battle.modifiers._apply_weather_to_summoned(played_card, _battle._my_idx())
-			_battle._action_busy = true
-			await _battle._animate_card_travel(played_card, from_rect, to_pos)
-			_battle._action_busy = false
-			_battle._refresh_all()
-			_battle._check_game_over()
-			_battle.tutorials._dismiss_battle_tutorial()
+		place_minion(played_card, target_slot_idx)
 	else:
 		# Non-targeted spell: slot doesn't matter. Drag is a deliberate gesture,
 		# so no confirm step here (the tap path confirms via _show_cast_confirm).
@@ -239,6 +221,36 @@ func _do_play_card_at_slot(card: CardInstance, player_idx: int, slot_idx: int) -
 		GameBus.card_played.emit(card.template_id, "board", slot_idx)
 		_battle.realtime.note_player_play(player_idx)
 	return ok
+
+## Local minion placement (drag-drop and tap-to-slot share it). In real time it
+## goes through `run_cast` as an instant play (BID-062), so it waits out the GCD
+## inside the spell-queue window like instant spells do; if the slot filled or
+## the card became unaffordable by then, the play is dropped.
+func place_minion(card: CardInstance, slot_idx: int) -> void:
+	var finish := func() -> void:
+		var from_panel: Control = _battle._hand_panel_node(card)
+		var from_rect: Rect2 = from_panel.get_global_rect() if from_panel != null else Rect2()
+		var to_pos: Vector2 = _battle._slot_panel_center(_battle._player_board_view, slot_idx)
+		if not _do_play_card_at_slot(card, _battle._my_idx(), slot_idx):
+			_battle._refresh_all()
+			return
+		AudioManager.play_sfx("card_play")
+		_battle._fx.haptic(20)
+		_battle._hide_hand_panel(from_panel)
+		if card.emergence_effect != "":
+			var snap_em := _battle._fx.snapshot()
+			_battle._resolver.resolve_emergence(card, _battle._my_idx())
+			_battle._fx.trigger_fx(snap_em)
+		else:
+			_battle.modifiers._apply_weather_to_summoned(card, _battle._my_idx())
+		_battle._action_busy = true
+		await _battle._animate_card_travel(card, from_rect, to_pos)
+		_battle._action_busy = false
+		_battle._refresh_all()
+		_battle._check_game_over()
+		_battle.tutorials._dismiss_battle_tutorial()
+	if not _battle.realtime.run_cast(card, finish, null, 0.0):
+		finish.call()
 
 func _enter_slot_select_mode(card: CardInstance) -> void:
 	_battle._slot_select_card = card

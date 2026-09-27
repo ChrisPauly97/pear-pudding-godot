@@ -179,3 +179,16 @@ func test_spend_zero_mana_succeeds_without_change() -> void:
 	var ok := h.spend_mana(0)
 	assert_true(ok)
 	assert_eq(h.mana, 3)
+
+
+func test_add_armor_stacks_on_existing_armor() -> void:
+	var h = _hero()
+	h.add_armor(5)  # e.g. Buckler
+	h.add_armor(3)  # e.g. Maiteln's hero_armor passive
+	assert_eq(h.get_status_value("armor"), 8)
+
+
+func test_add_armor_ignores_non_positive() -> void:
+	var h = _hero()
+	h.add_armor(0)
+	assert_false(h.has_status("armor"))

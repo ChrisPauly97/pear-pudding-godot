@@ -68,6 +68,11 @@ func spend_mana(amount: int) -> bool:
 func apply_status(effect_id: String, value: int) -> void:
 	status_effects[effect_id] = value
 
+## Stacks on any armor already applied (gear + companion bonuses add up).
+func add_armor(amount: int) -> void:
+	if amount > 0:
+		apply_status("armor", get_status_value("armor") + amount)
+
 func has_status(effect_id: String) -> bool:
 	return status_effects.has(effect_id)
 

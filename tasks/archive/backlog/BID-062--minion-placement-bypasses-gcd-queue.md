@@ -27,3 +27,10 @@ When TID-530 (Input Flow — Spell Queue & One-Tap Targeting) or TID-545 (Hero K
 minion placement in real time, route it through `run_cast()` (or an equivalent instant-queue path) the same
 way TID-555 did for instant spells and skill-bar abilities, so every real-time play shares one GCD/queue
 mechanism.
+
+## Resolution
+
+Resolved on `claude/game-mechanics-known-gaps-qrvxs6`: both local placement paths (drag-drop and tap-to-slot)
+now call `BattleTargeting.place_minion()`, which runs the placement through `BattleRealtime.run_cast()` as an
+instant (0 s) play — queued inside the spell-queue window like instant spells. Turn-based falls through to an
+immediate play as before.

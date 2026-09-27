@@ -125,7 +125,8 @@ func _on_battle_won(result: Dictionary) -> void:
 	var xp_amount: int = EnemyRegistry.get_xp_reward(enemy_type, is_boss)
 	_sm.save_manager.add_xp(xp_amount)
 	_sm._bump_session_stat("xp_earned", xp_amount)
-	_reward_joined_enemies(gambit_id)
+	# Joined enemies' coins/XP ride the same floating toast as the main kill.
+	var joined: Vector2i = _reward_joined_enemies(gambit_id)
 	# Rival encounter win: don't count as standard kill; update rival progress instead.
 	if is_rival:
 		if enemy_type == "rival_isfig_3":
@@ -172,7 +173,7 @@ func _on_battle_won(result: Dictionary) -> void:
 	# news as floating toasts over the world instead, once it's reattached.
 	if bool(result.get("in_world_toast", false)):
 		var reward_card: String = str(result.get("card_reward", ""))
-		_sm._restore_world(_show_reward_toasts.bind(coins_won, xp_amount, reward_card,
+		_sm._restore_world(_show_reward_toasts.bind(coins_won + joined.x, xp_amount + joined.y, reward_card,
 				str(result.get("rt_tip", ""))))
 	else:
 		_sm._restore_world()
@@ -212,10 +213,11 @@ func _show_reward_toasts(coins_won: int, xp_won: int, reward_card_id: String, ti
 	fx.global_position = anchor.global_position
 	fx.play(lines)
 
-## Spire floor cleared: no card/coin rewards, save hero HP, show the draft.
 ## Enemies that joined the fight mid-way (TID-551) each count as a kill:
 ## defeated in the world, bestiary + bounty progress, their own coins and XP.
-func _reward_joined_enemies(gambit_id: String) -> void:
+## Returns the granted totals as (coins, xp) for the reward toast.
+func _reward_joined_enemies(gambit_id: String) -> Vector2i:
+	var total := Vector2i.ZERO
 	for data: Dictionary in _sm._joined_enemies:
 		var jid: String = str(data.get("id", ""))
 		var jtype: String = str(data.get("enemy_type", ""))
@@ -230,11 +232,15 @@ func _reward_joined_enemies(gambit_id: String) -> void:
 		var coins: int = Gambits.apply_reward_multiplier(EnemyRegistry.get_coin_reward(jtype), gambit_id)
 		_sm.save_manager.add_coins(coins)
 		_sm._bump_session_stat("coins_earned", coins)
+		total.x += coins
 		var xp: int = EnemyRegistry.get_xp_reward(jtype, bool(data.get("is_boss", false)))
 		_sm.save_manager.add_xp(xp)
 		_sm._bump_session_stat("xp_earned", xp)
+		total.y += xp
 	_sm._joined_enemies.clear()
+	return total
 
+## Spire floor cleared: no card/coin rewards, save hero HP, show the draft.
 func _spire_battle_won(result: Dictionary) -> bool:
 	if not _sm.save_manager.spire.is_spire_active():
 		return false

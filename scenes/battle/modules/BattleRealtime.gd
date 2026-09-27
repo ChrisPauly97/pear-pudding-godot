@@ -110,11 +110,8 @@ func maybe_start(is_fresh: bool) -> void:
 	onboarding.apply()
 
 func _on_potion_used(_potion_id: String) -> void:
-	if fight_stats == null:
-		return
 	var hero := _battle._state.players[RealtimeCombat.PLAYER].hero
-	var fraction: float = float(hero.health) / float(maxi(1, hero.max_health))
-	fight_stats.record_potion_used(fraction)
+	if fight_stats != null: fight_stats.record_potion_used(float(hero.health) / float(maxi(1, hero.max_health)))
 
 func _build_ui() -> void:
 	var vh: float = _battle._vh
@@ -213,10 +210,11 @@ func on_ally_hit_enemy_hero(side: int = RealtimeCombat.ENEMY) -> void:
 ## Called after any successful local card play. A cast's GCD already started
 ## when the cast began, so its resolution doesn't restart it.
 func note_player_play(player_idx: int) -> void:
-	if rt != null and player_idx == RealtimeCombat.PLAYER and not _resolving_cast:
+	if rt == null or player_idx != RealtimeCombat.PLAYER:
+		return
+	if not _resolving_cast:
 		rt.start_gcd(RealtimeCombat.PLAYER)
-		if fight_stats != null:
-			fight_stats.record_skill_use()
+	if fight_stats != null: fight_stats.record_skill_use()
 
 ## Reported by `BattleSkillBar._resolve` right after a successful ability use
 ## (GID-135 / TID-559 stats; TID-558 barks). `effect` is the ability's
@@ -287,8 +285,10 @@ func _tick_cast(dt: float) -> void:
 		_battle._refresh_all()
 		return
 	_resolving_cast = true
+	var foe_hp: int = FightStats.enemy_health(rt)
 	finish.call()
 	_resolving_cast = false
+	if fight_stats != null: fight_stats.record_card_damage(foe_hp - FightStats.enemy_health(rt))  # TID-559 tip
 
 func _target_on_board(c: CardInstance) -> bool:
 	for p: PlayerState in _battle._state.players:

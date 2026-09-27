@@ -2,6 +2,9 @@
 extends "res://tests/framework/test_case.gd"
 
 const FightStats = preload("res://game_logic/battle/FightStats.gd")
+const RealtimeCombat = preload("res://game_logic/battle/RealtimeCombat.gd")
+const GameState = preload("res://game_logic/battle/GameState.gd")
+const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 
 func test_record_tick_accumulates_duration_and_mana_time() -> void:
 	var s := FightStats.new()
@@ -84,3 +87,16 @@ func test_pick_tip_nothing_notable_returns_empty() -> void:
 		"lowest_hp_fraction": 0.9, "potions_used_low_hp": 0, "duration": 10.0, "skill_uses": 4,
 	})
 	assert_eq(tip, "")
+
+func test_enemy_health_sums_enemy_hero_and_board() -> void:
+	var gs := GameState.new()
+	var rt := RealtimeCombat.new(gs)
+	var foe := gs.players[RealtimeCombat.ENEMY]
+	var base: int = foe.hero.health
+	foe.board.slots[0] = CardInstance.new({
+		"id": "unit", "name": "Unit", "cost": 1, "attack": 1, "health": 4,
+		"card_class": "minion", "description": "", "keywords": [],
+	})
+	assert_eq(FightStats.enemy_health(rt), base + 4)
+	foe.hero.health -= 3
+	assert_eq(FightStats.enemy_health(rt), base + 1)
