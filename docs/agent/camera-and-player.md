@@ -160,7 +160,9 @@ the spare width is room for a forward swing. Facing right; `flip_h` mirrors.
 Body-column rows: hair 1–3, head 3–8 (5 wide — small head, adult proportions),
 neck 9, torso/arms 10–17, hands 18, legs 18–24, boots 25–27.
 
-**Look (gritty, not cartoon):** muted palette, three-tone shading (`_shadow`
+**Palette:** base/appearance and `GEAR_VISUALS` colours are picked from the master pixel palette (`game_logic/PixelPalette.gd`, the 0x72 pack's 49 colours + 3), and `render_pose` ends with `PixelPalette.quantize(img)`, so every derived shade and grime pixel lands on a pack colour — the hero shares colours with the NPC/enemy sprites (`test_pixel_palette` checks every frame). A custom `appearance` colour is snapped too.
+
+**Look (grounded, not cartoon):** three-tone shading (`_shadow`
 darkens and cools, `_light` lightens and warms), and `_fill`'s deterministic
 per-pixel grime (`_grain(x, y)` hash, so walking frames don't shimmer). Face:
 brow shadow over a single dark eye pixel, stubble dither, set mouth, ear.

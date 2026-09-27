@@ -9,3 +9,6 @@
 # Ephemeral git worktrees backing parallel/background Claude Code subagent sessions
 .claude/worktrees/
 /override.cfg
+
+# Python bytecode from tools/*.py
+__pycache__/
