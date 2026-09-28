@@ -87,6 +87,20 @@ do occasionally change. Anything marked *unconfirmed* below must be checked on-p
   - Loops seamlessly; downloadable as intro / loop / intro+loop — use the **loop** variant (AudioManager restarts the whole file on `finished`, so an intro would replay every loop).
   - Format/conversion needed: check page (loop variant format).
 
+## Siege Track (GID-141 / TID-590)
+
+`assets/audio/music/siege.ogg`: "Epic Boss Battle [Seamlessly Looping]" by Juhani
+Junkala (CC0), loudness-matched to `battle.ogg` (−10.4 LUFS), import `loop=true`.
+`TownSiege.music_for(town, town_track)` returns it while that town has an active
+solo siege (`save_manager.town_siege`) or a running co-op siege
+(`_coop_siege_active` at `story_place()`); the pure rule is the static
+`TownSiege.pick_music()` (tested in `test_siege_music`). It is applied on town
+entry (`RealmRegions._set_town`), on siege spawn (`TownSiege._spawn_if_active`),
+on co-op siege start/end (`CoopActivities`, via `refresh_music()`, which is
+skipped unless `SceneManager.is_in_world()`), and on the return from a won battle
+(`WorldScene._on_battle_won`, which now also restores a stitched town's track
+rather than the biome track).
+
 ## Acquired Files (TID-436, done 2026-07-16)
 
 TID-436 was completed by an agent session: unlike the TID-435 research session, its

@@ -12,31 +12,45 @@
 ## How It Works
 
 ```gdscript
-AudioManager.play_sfx("card_play")   # plays res://assets/audio/sfx/card_play.wav if it exists
-AudioManager.play_sfx("footstep")    # no-op if footstep.wav is missing
+AudioManager.play_sfx("card_play")   # plays res://assets/audio/sfx/card_play.ogg if it exists
+AudioManager.play_sfx("footstep")    # synth fallback if footstep.ogg is missing
 ```
 
 ### SFX Name → File Map
 
 | Name | File |
 |---|---|
-| `card_play` | `assets/audio/sfx/card_play.wav` |
-| `attack` | `assets/audio/sfx/attack.wav` |
-| `battle_win` | `assets/audio/sfx/battle_win.wav` |
-| `battle_lose` | `assets/audio/sfx/battle_lose.wav` |
-| `enemy_engage` | `assets/audio/sfx/enemy_engage.wav` |
-| `chest_open` | `assets/audio/sfx/chest_open.wav` |
-| `door_enter` | `assets/audio/sfx/door_enter.wav` |
-| `footstep` | `assets/audio/sfx/footstep.wav` (generic; fallback for unknown keys in `play_sfx_varied`) |
-| `footstep_grass` / `_sand` / `_stone` / `_snow` / `_wood` / `_water` | `assets/audio/sfx/footstep_<surface>.wav` |
-| `footstep_hoof` | `assets/audio/sfx/footstep_hoof.wav` |
-| `thunder` | `assets/audio/sfx/thunder.wav` (optional; `SfxGen._gen_thunder` synth fallback — crack + rolling rumble, 2.8 s). Played by WorldScene via `play_sfx_varied("thunder", pitch)` when `DayNightCycle.thunder_rumbled` fires (GID-129 / TID-487); pitch 1.05 close → 0.75 distant |
+| `card_play` | `assets/audio/sfx/card_play.ogg` |
+| `attack` | `assets/audio/sfx/attack.ogg` |
+| `battle_win` | `assets/audio/sfx/battle_win.ogg` |
+| `battle_lose` | `assets/audio/sfx/battle_lose.ogg` |
+| `enemy_engage` | `assets/audio/sfx/enemy_engage.ogg` |
+| `chest_open` | `assets/audio/sfx/chest_open.ogg` |
+| `door_enter` | `assets/audio/sfx/door_enter.ogg` |
+| `footstep` | `assets/audio/sfx/footstep.ogg` (generic; fallback for unknown keys in `play_sfx_varied`) |
+| `footstep_grass` / `_sand` / `_stone` / `_snow` / `_wood` / `_water` | `assets/audio/sfx/footstep_<surface>.ogg` |
+| `footstep_hoof` | `assets/audio/sfx/footstep_hoof.ogg` |
+| `thunder` | `assets/audio/sfx/thunder.ogg` ( `SfxGen._gen_thunder` synth fallback — crack + rolling rumble, 2.8 s). Played by WorldScene via `play_sfx_varied("thunder", pitch)` when `DayNightCycle.thunder_rumbled` fires (GID-129 / TID-487); pitch 1.05 close → 0.75 distant |
 
 ### Adding a New SFX
 
 1. Add an entry to `SFX_PATHS` in `AudioManager.gd`.
-2. Place the `.wav` file at the declared path.
-3. Open the project in the Godot editor once so it generates the `.import` sidecar.
+2. Place a mono `.ogg` (peak-normalised to −1 dBFS) at the declared path, plus
+   `<key>_2.ogg` … if it should vary (add the count to `SFX_TAKES`).
+3. Trim its level in `SFX_GAIN_DB` if it is frequent or background.
+4. Run the headless import so it generates the `.import` sidecar.
+   `test_sfx_assets` fails if a key has no file or a declared take is missing.
+
+### Real files, takes and mix (GID-141)
+
+- Every key is backed by a CC0 file (TID-587, sources in `CREDITS.md`). The
+  `SfxGen` / `FootstepSurface` synth stays as the fallback for a missing file.
+- `SFX_TAKES` (TID-588): `_load_sfx_takes()` builds an `AudioStreamRandomizer`
+  (`PLAYBACK_RANDOM_NO_REPEATS`, no pitch/volume randomisation of its own, since
+  `play_sfx_varied` already jitters) from the base file and its `_N` takes.
+- `SFX_GAIN_DB`: per-key trim, recorded in `_sfx_trim_db` only for file-backed
+  keys and added in `_play_pooled`. Footsteps sit at −9 dB, UI clicks −8 dB,
+  stingers −3 dB.
 
 ### Varied playback and terrain footsteps (GID-129 / TID-491)
 
@@ -198,7 +212,7 @@ TID-010 wires battle SFX; TID-011 wires world exploration SFX.
 | `AmbienceLayers.gd` | `game_logic/AmbienceLayers.gd` | Pure layer-selection rules + `LAYER_PATHS` |
 | `AmbienceGen.gd` | `game_logic/AmbienceGen.gd` | Procedural weather/wildlife loop fallbacks |
 | Weather/time loops | `assets/audio/ambience/{rain,heavy_rain,wind,sandstorm,crackle,birds,crickets,owls}.ogg` | Optional — synthesized fallback when absent (TID-492 sources real ones) |
-| SFX wav files | `assets/audio/sfx/*.wav` | Optional — missing files fall back to SfxGen / FootstepSurface synthesis |
+| SFX files | `assets/audio/sfx/*.ogg` (+ `_N` takes) | All shipped (GID-141); a missing file falls back to SfxGen / FootstepSurface synthesis |
 | `FootstepSurface.gd` | `game_logic/FootstepSurface.gd` | Surface table + footstep synth fallbacks |
 | Music ogg files | `assets/audio/music/*.ogg` | **Present** (7 tracks, GID-116). 4 are CC-BY — attribution in `CREDITS.md` is a licence condition |
 | Narration ogg files | `assets/audio/narration/<scroll_id>.ogg` | Optional — missing files are silent no-ops |
