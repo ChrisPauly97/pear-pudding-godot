@@ -55,6 +55,7 @@ const _CharacterPresence = preload("res://scenes/world/modules/CharacterPresence
 const _NamedMapProps = preload("res://scenes/world/modules/NamedMapProps.gd")
 const _RealmRegions = preload("res://scenes/world/modules/RealmRegions.gd")
 const _QuestTracker = preload("res://scenes/world/modules/QuestTracker.gd")
+const _StarterCamps = preload("res://scenes/world/modules/StarterCamps.gd")
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const _TownSiege = preload("res://scenes/world/modules/TownSiege.gd")
 const _SunRaysFx = preload("res://scenes/world/SunRaysFx.gd")
@@ -179,6 +180,7 @@ var town_siege: _TownSiege = null   # modules/TownSiege.gd (GID-054)
 var named_props: _NamedMapProps = null   # modules/NamedMapProps.gd
 var realm_regions: _RealmRegions = null   # modules/RealmRegions.gd (GID-138)
 var quest_tracker: _QuestTracker = null   # modules/QuestTracker.gd (GID-140)
+var starter_camps: _StarterCamps = null   # modules/StarterCamps.gd (GID-141)
 var current_town: String = ""  # stitched town the player is in; see story_place()
 var chest_loot: _ChestLoot = null    # modules/ChestLoot.gd
 var night_lights: _NightLights = null  # modules/NightLights.gd (TID-489)
@@ -874,6 +876,7 @@ func _ensure_world_modules() -> void:
 		character_presence, _CharacterPresence, "CharacterPresence") as _CharacterPresence
 	realm_regions = _ensure_world_module(realm_regions, _RealmRegions, "RealmRegions") as _RealmRegions
 	quest_tracker = _ensure_world_module(quest_tracker, _QuestTracker, "QuestTracker") as _QuestTracker
+	starter_camps = _ensure_world_module(starter_camps, _StarterCamps, "StarterCamps") as _StarterCamps
 
 func _ensure_world_module(existing: Node, script: GDScript, node_name: String) -> Node:
 	if existing != null and is_instance_valid(existing):
@@ -1516,6 +1519,7 @@ func _process(delta: float) -> void:
 		_tick_traveling_merchant(delta)
 		_tick_card_shower()
 		nocturnal.tick(delta)
+		starter_camps.tick(delta)
 		realm_regions.tick()
 		_csm.process_streaming(_player.position, _player.velocity, _camera.get_frustum())
 

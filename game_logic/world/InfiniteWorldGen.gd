@@ -5,6 +5,7 @@ const BiomeDef  = preload("res://game_logic/world/BiomeDef.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const TerrainMath = preload("res://game_logic/TerrainMath.gd")
 const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
+const StarterZone = preload("res://game_logic/world/StarterZone.gd")
 
 # Base noise frequency — biome freq_scale multiplies the sampling coordinates
 const NOISE_FREQ: float = 0.08
@@ -343,6 +344,10 @@ static func _gen_entities(chunk: ChunkData, p_cx: int, p_cz: int, world_seed: in
 		grass_tiles = grass_tiles.filter(func(t: Vector2i) -> bool:
 			return RealmLayout.reserved_distance(p_cx * IsoConst.CHUNK_SIZE + t.x,
 					p_cz * IsoConst.CHUNK_SIZE + t.y) > REALM_CLEARANCE)
+
+	# Madrian's old graveyard (GID-141): fixed mounds for the Gravedigger's lesson.
+	chunk.burial_mounds.append_array(StarterZone.mounds_in_chunk(p_cx, p_cz, IsoConst.CHUNK_SIZE,
+			IsoConst.TILE_SIZE))
 
 	if grass_tiles.is_empty():
 		return

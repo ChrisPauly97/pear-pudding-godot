@@ -109,6 +109,37 @@ own ladder decides what it sees.
   `TutorialRegistry` guide once (`_LEARNED_GUIDES`), and a gold pulse on the new HUD button (`WorldHUD.pulse_action`,
   `_LEARNED_BUTTONS`). Once nothing is pending the training quest disappears and tracking falls back to the story.
 
+### Starter zone — Madrian's outskirts (TID-591)
+
+`game_logic/world/StarterZone.gd` (pure data) + the `StarterCamps` world module
+(`scenes/world/modules/StarterCamps.gd`, `WorldScene.starter_camps`, ticked in the overworld branch next to
+`nocturnal`).
+
+| Camp | Overworld tile | Enemy | × | Lvl | Chases? |
+|---|---|---|---|---|---|
+| Grain-Store Field | (21, 17) | undead_basic | 3 | 1 | no |
+| South Field | (−7, 21) | undead_basic | 4 | 2 | no |
+| The Old Orchard | (47, 19) | undead_horde | 4 | 3 | yes |
+| North Barrow | (33, −21) | undead_horde | 4 | 4 | yes |
+| Hedge Ruins | (53, −27) | ghoul_pack | 3 | 5 | yes |
+| East Copse | (76, −2) | ghoul_pack | 4 | 6 | yes |
+| West Crossing | (−55, 4) | undead_horde | 5 | 7 | yes |
+| North Tor | (10, −62) | ghoul_pack | 4 | 8 | yes |
+| South Road Wreck | (40, 45) | ghoul_pack | 5 | 9 | yes |
+
+- Members stand in a ring of radius 3 around the camp tile (`slot_tile`), carry a preset `enemy_level` (so the
+  authored level wins over the distance-based zone level, TID-536), and ids `camp_<camp>_<slot>`.
+- **Refill:** every 1.5 s the module tops up camps within `ACTIVE_RANGE` (90 units) of the player; a fallen member
+  refills after `CAMP_RESPAWN_S` (45 s); camps out of range despawn. `SaveManager.mark_enemy_defeated` ignores
+  `camp_` ids, so they never enter the permanent defeated list. Solo only (inert in a network session).
+- **Graveyard** (Madrian local (8..18, 47..56), fenced, gate on the north side): the Gravedigger
+  (`gravedigger_madrian`, local (14,50)) and three fixed burial mounds (`GRAVEYARD_MOUNDS`, ids
+  `mound_graveyard_N`, appended by `InfiniteWorldGen._gen_entities` via `mounds_in_chunk`) — the first Skeleton Dig
+  targets.
+- **Sealed crypt** (local (22..26, 48..52), fully walled, no door): chest `sealed_crypt_chest` (shrouded_wraith,
+  dusk_seer) — reachable only with Ghost Phase; a visible tease from the south field long before level 12.
+- Fixed on the way: `WorldMap` dropped a `MapChest`'s `card_ids` (a `PackedStringArray` is not an `Array`).
+
 ## Integrations
 
 - Combat gates (TID-588), world/menu gates (TID-589), trainer flow (TID-590), starter zone (TID-591), quest chain

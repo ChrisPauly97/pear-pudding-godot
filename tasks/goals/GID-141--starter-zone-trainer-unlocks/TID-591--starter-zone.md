@@ -2,7 +2,7 @@
 
 **Goal:** GID-141
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-536
 
 ## Lock
@@ -36,12 +36,23 @@ with a trainer hub, safe paths, and enemy camps that ramp in level away from tow
 
 ## Plan
 
-_Written during Plan phase._
+Madrian's crop is mostly open grass and random spawns avoid the realm, so camps are authored data spawned by a
+world module (like night hunts) rather than chunk entities: authored level per camp (1..9 in rings), transient
+members that refill on a timer (a slay quest can never strand). Graveyard (fence, Gravedigger, fixed mounds) and a
+Phase-only sealed crypt authored into `madrian.tres`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `game_logic/world/StarterZone.gd`, `scenes/world/modules/StarterCamps.gd`.
+- `WorldScene.gd`: `starter_camps` module + tick (4 lines; 2131 / 2180 ceiling).
+- `SaveManager.mark_enemy_defeated`: ignores `camp_` ids.
+- `InfiniteWorldGen._gen_entities`: graveyard mounds.
+- `assets/maps/madrian.tres`: graveyard fence, sealed crypt walls, `sealed_crypt_chest` (MapChest ext_resource),
+  Gravedigger moved into the graveyard.
+- `WorldMap.gd`: MapChest `card_ids` PackedStringArray now loads (latent bug — no map had a chest before).
+- Tests: new `test_starter_zone.gd` (5); `world_scene_smoke.gd` checks camps spawn. Suite green, smokes clean,
+  gdlint + unsafe-hits clean.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`starter-zone-and-training.md` starter-zone section; CLAUDE.md world-module row.

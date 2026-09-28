@@ -1042,6 +1042,9 @@ func get_deck_template_ids() -> Array[String]:
 	return result
 
 func mark_enemy_defeated(enemy_id: String) -> void:
+	# Starter-zone camp members (GID-141) refill on a timer; never saved as dead.
+	if enemy_id.begins_with("camp_"):
+		return
 	if not defeated_enemies.has(enemy_id):
 		defeated_enemies.append(enemy_id)
 	_dirty = true

@@ -152,6 +152,11 @@ func _run() -> bool:
 	await process_frame
 	ok = _check(is_instance_valid(ws), "world survives trainer / quest panels") and ok
 	save_manager.set("level", 1)
+	# GID-141 / TID-591: starter camps near Madrian fill with levelled enemies.
+	var camps: Object = ws.get("starter_camps")
+	camps.call("tick", 2.0)
+	await process_frame
+	ok = _check(int(camps.call("alive_count")) > 0, "starter camps spawned near Madrian") and ok
 	var marks: Array[String] = []
 	var npc_nodes: Dictionary = ws.get("_npc_nodes")
 	for nid: Variant in npc_nodes:

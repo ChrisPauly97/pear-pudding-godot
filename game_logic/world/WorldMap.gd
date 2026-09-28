@@ -304,8 +304,9 @@ func load_from_resource(data: Resource) -> void:
 			var cid: Variant = r.get("entity_id")
 			var raw_card_ids: Variant = r.get("card_ids")
 			var card_ids_arr: Array[String] = []
-			if raw_card_ids is Array:
-				for card_id in raw_card_ids:
+			# MapChest.card_ids is a PackedStringArray, which is not an Array.
+			if raw_card_ids is Array or raw_card_ids is PackedStringArray:
+				for card_id: Variant in raw_card_ids:
 					card_ids_arr.append(str(card_id))
 			chests.append({
 				"id": str(cid) if cid != null and str(cid) != "" else "chest_%d" % uid_counter,
