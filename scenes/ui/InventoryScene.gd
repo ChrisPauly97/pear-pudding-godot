@@ -3,14 +3,14 @@
 extends "res://scenes/ui/CardBrowserOverlay.gd"
 
 const CardRegistry      = preload("res://autoloads/CardRegistry.gd")
-const CraftingRegistry  = preload("res://autoloads/CraftingRegistry.gd")
-const GardenDefs        = preload("res://game_logic/GardenDefs.gd")
-const _CardDropUtil     = preload("res://game_logic/CardDropUtil.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const VeterancyUtil     = preload("res://game_logic/VeterancyUtil.gd")
+const BagOps            = preload("res://game_logic/inventory/BagOps.gd")
+const _CardTile         = preload("res://scenes/ui/inventory/CardTile.gd")
+const _CraftPanel       = preload("res://scenes/ui/inventory/CraftPanel.gd")
+const _ItemsPanel       = preload("res://scenes/ui/inventory/ItemsPanel.gd")
 
 const DeckAutoFill = preload("res://game_logic/DeckAutoFill.gd")
-const _CraftingRecipe = preload("res://data/CraftingRecipe.gd")
 
 # -------------------------------------------------------------------------
 # Drag and drop between the collection and the deck
@@ -27,6 +27,9 @@ const _CraftingRecipe = preload("res://data/CraftingRecipe.gd")
 # -------------------------------------------------------------------------
 
 const _DRAG_KIND := "inv_card"
+const _WORKING_DECK_NAME := "this deck"
+const _ESSENCE := Color(0.5, 0.85, 1.0)
+const _GOLD := Color(1.0, 0.85, 0.3)
 
 # Set to true by MenuHubScene before add_child() so the scene skips its own
 # backdrop/panel and builds content directly into the hub's content area.
@@ -39,24 +42,31 @@ var _deck_list: VBoxContainer
 var _collection_scroll: ScrollContainer
 var _deck_scroll: ScrollContainer
 var _deck_count_label: Label
-var _coin_label: Label
-var _essence_label: Label
-var _slot_label: Label
+var _wallet_label: Label
+var _hint_label: Label
 
-# Collection filters (session-only state)
+# Collection filters, search, sort (session-only state)
 var _filter_class: String = ""    # "" = all, "minion", "spell"
 var _filter_cost: String = ""     # "" = all, "low" (0-2), "mid" (3-5), "high" (6+)
 var _filter_rarity: String = ""   # "" = all, "common", "rare", "epic", "legendary"
 var _filter_btns: Array[Button] = []
+var _query: String = ""
+var _sort: String = "name"
+var _sort_btn: Button
+
+# Bulk select (GID-144): tap toggles selection instead of adding to the deck.
+var _select_mode: bool = false
+var _selected: Dictionary = {}    # uid -> true
+var _select_btn: Button
+var _bulk_bar: HBoxContainer
+var _bulk_label: Label
+var _bulk_sell_btn: Button
+var _bulk_scrap_btn: Button
 
 var _cards_panel: Control
-var _tab_cards_btn: Button
-var _tab_craft_btn: Button
-var _craft_panel: Control
-var _craft_list: VBoxContainer
-var _craft_essence_label: Label
-var _craft_rarity_row: HBoxContainer
-var _craft_rarity: String = "common"
+var _tab_btns: Array[Button] = []
+var _craft_panel: _CraftPanel
+var _items_panel: _ItemsPanel
 
 var _loadout_tab_row: HBoxContainer
 var _loadout_action_row: HBoxContainer
@@ -97,14 +107,18 @@ func _build_ui() -> void:
 		var outer := _build_centered_panel(panel_w, panel_h)
 		wrapper = _build_margin_vbox(outer, 0.015, 0.008)
 
-	# ---- Tab bar ----
+	# ---- Tab bar + wallet (bag / gold / essence, shared by every tab) ----
 	var tab_bar := _UiUtil.make_hbox(int(_vw * 0.008), wrapper)
-
-	_tab_cards_btn = _UiUtil.make_button("Cards", Vector2(_ref * 0.14, _ref * 0.065), int(_ref * 0.022), _on_tab_cards,
+	var labels: Array[String] = ["Cards", "Craft", "Items"]
+	_tab_btns = _UiUtil.make_tab_row(tab_bar, labels, Vector2(_ref * 0.13, _ref * 0.06), int(_ref * 0.022),
+			_show_tab)
+	_wallet_label = _UiUtil.make_label("", int(_ref * 0.021), Color(0.9, 0.9, 0.9), HORIZONTAL_ALIGNMENT_RIGHT,
 			tab_bar)
-
-	_tab_craft_btn = _UiUtil.make_button("Craft", Vector2(_ref * 0.14, _ref * 0.065), int(_ref * 0.022), _on_tab_craft,
-			tab_bar)
+	_wallet_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_wallet_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	if not hub_mode:
+		_UiUtil.make_button("Close  [I]" if not OS.has_feature("android") else "Close",
+				Vector2(_ref * 0.14, _ref * 0.06), int(_ref * 0.020), _on_close, tab_bar)
 
 	var scroll_min_h: float = _ref * 0.25 if is_portrait else 0.0
 
@@ -123,41 +137,41 @@ func _build_ui() -> void:
 	wrapper.add_child(root_box)
 
 	# ---- Collection panel (left) ----
-	var left_vbox := VBoxContainer.new()
+	var left_vbox := _UiUtil.make_vbox(int(_ref * 0.005), root_box)
 	left_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	left_vbox.size_flags_stretch_ratio = 1.0
+	left_vbox.size_flags_stretch_ratio = 1.6
 	if is_portrait:
 		left_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	root_box.add_child(left_vbox)
 
-	var col_title := _UiUtil.make_label("Collection", int(_ref * 0.026), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER,
-			left_vbox)
-
-	_slot_label = Label.new()
-	_slot_label.add_theme_font_size_override("font_size", int(_ref * 0.020))
-	_slot_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_slot_label.modulate = Color(0.8, 0.8, 0.8)
-	left_vbox.add_child(_slot_label)
-
-	_coin_label = Label.new()
-	_coin_label.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	_coin_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_coin_label.modulate = Color(1.0, 0.85, 0.1)
-	left_vbox.add_child(_coin_label)
-
-	_essence_label = Label.new()
-	_essence_label.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	_essence_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_essence_label.modulate = Color(0.5, 0.85, 1.0)
-	left_vbox.add_child(_essence_label)
+	_build_toolbar(_UiUtil.make_hbox(int(_ref * 0.006), left_vbox))
 
 	# ---- Filter row ----
 	var filter_row := _UiUtil.make_hbox(int(_ref * 0.005), left_vbox)
 	_build_filter_buttons(filter_row)
 
+	_hint_label = _UiUtil.make_label("", int(_ref * 0.016), Color(0.65, 0.65, 0.7), HORIZONTAL_ALIGNMENT_CENTER,
+			left_vbox)
+
+	# ---- Bulk action bar (select mode only) ----
+	_bulk_bar = _UiUtil.make_hbox(int(_ref * 0.006), left_vbox)
+	_bulk_label = _UiUtil.make_label("", int(_ref * 0.019), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, _bulk_bar)
+	_bulk_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_bulk_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	var bb := Vector2(_ref * 0.12, _ref * 0.052)
+	var bfs: int = int(_ref * 0.018)
+	var extras_btn := _UiUtil.make_button("Extras", bb, bfs, _on_select_extras, _bulk_bar)
+	extras_btn.tooltip_text = ("Select spare copies: keeps your best copy of each card, and skips\n"
+			+ "cards in any deck, renamed cards and veterans")
+	_UiUtil.make_button("None", bb, bfs, _on_select_none, _bulk_bar)
+	_bulk_sell_btn = _UiUtil.make_button("Sell", bb, bfs, _on_bulk_action.bind("sell"), _bulk_bar)
+	_bulk_sell_btn.modulate = _GOLD
+	_bulk_scrap_btn = _UiUtil.make_button("Scrap", bb, bfs, _on_bulk_action.bind("scrap"), _bulk_bar)
+	_bulk_scrap_btn.modulate = _ESSENCE
+
 	_collection_scroll = ScrollContainer.new()
 	var left_scroll: ScrollContainer = _collection_scroll
 	left_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	left_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	if scroll_min_h > 0.0:
 		left_scroll.custom_minimum_size = Vector2(0.0, scroll_min_h)
 	left_vbox.add_child(left_scroll)
@@ -194,17 +208,16 @@ func _build_ui() -> void:
 			_loadout_action_row)
 	_del_btn.modulate = Color(1.0, 0.4, 0.4)
 
-	_deck_count_label = Label.new()
-	_deck_count_label.add_theme_font_size_override("font_size", int(_ref * 0.026))
-	_deck_count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	right_vbox.add_child(_deck_count_label)
-
-	var autofill_btn := _UiUtil.make_button("Auto-Fill", Vector2(_ref * 0.18, _ref * 0.055), int(_ref * 0.020),
-			_on_auto_fill, right_vbox)
+	var count_row := _UiUtil.make_hbox(int(_ref * 0.008), right_vbox)
+	_deck_count_label = _UiUtil.make_label("", int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, count_row)
+	_deck_count_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_UiUtil.make_button("Auto-Fill", Vector2(_ref * 0.14, _ref * 0.052), int(_ref * 0.019), _on_auto_fill, count_row)
+	_UiUtil.make_button("Save Deck", Vector2(_ref * 0.15, _ref * 0.052), int(_ref * 0.019), _on_save, count_row)
 
 	_deck_scroll = ScrollContainer.new()
 	var right_scroll: ScrollContainer = _deck_scroll
 	right_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	right_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	if scroll_min_h > 0.0:
 		right_scroll.custom_minimum_size = Vector2(0.0, scroll_min_h)
 	right_vbox.add_child(right_scroll)
@@ -214,57 +227,37 @@ func _build_ui() -> void:
 	_deck_list = _UiUtil.make_vbox(int(_ref * 0.008), right_scroll)
 	_deck_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	# ---- Buttons ----
-	if is_portrait:
-		var btn_hbox := _UiUtil.make_hbox(int(_vw * 0.04), root_box)
-		btn_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
-
-		var save_btn := _UiUtil.make_button("Save Deck", Vector2(_vw * 0.35, _ref * 0.065), int(_ref * 0.022), _on_save,
-				btn_hbox)
-
-		if not hub_mode:
-			var close_btn := _UiUtil.make_button("Close", Vector2(_vw * 0.35, _ref * 0.065), int(_ref * 0.022),
-					_on_close, btn_hbox)
-	else:
-		var btn_vbox := _UiUtil.make_vbox(int(_ref * 0.012), root_box)
-		btn_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-
-		var save_btn := _UiUtil.make_button("Save Deck", Vector2(_vw * 0.1, _ref * 0.065), int(_ref * 0.022), _on_save,
-				btn_vbox)
-
-		if not hub_mode:
-			var close_btn := _UiUtil.make_button("Close  [I]" if not OS.has_feature("android") else "Close",
-					Vector2(_vw * 0.1, _ref * 0.065), int(_ref * 0.022), _on_close, btn_vbox)
-
 	# ====================================================================
-	# CRAFT PANEL
+	# CRAFT + ITEMS PANELS
 	# ====================================================================
-	var craft_box := _UiUtil.make_vbox(int(_ref * 0.008))
-	craft_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	craft_box.visible = false
-	_craft_panel = craft_box
-	wrapper.add_child(craft_box)
+	_craft_panel = _CraftPanel.new()
+	_craft_panel.visible = false
+	wrapper.add_child(_craft_panel)
+	_craft_panel.setup(_ref)
+	_craft_panel.crafted.connect(_refresh_wallet)
 
-	_craft_essence_label = Label.new()
-	_craft_essence_label.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	_craft_essence_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_craft_essence_label.modulate = Color(0.5, 0.85, 1.0)
-	craft_box.add_child(_craft_essence_label)
+	_items_panel = _ItemsPanel.new()
+	_items_panel.visible = false
+	wrapper.add_child(_items_panel)
+	_items_panel.setup(_ref)
 
-	_craft_rarity_row = _UiUtil.make_hbox(int(_ref * 0.006), craft_box)
-	_craft_rarity_row.alignment = BoxContainer.ALIGNMENT_CENTER
-
-	var craft_scroll := ScrollContainer.new()
-	craft_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	craft_box.add_child(craft_scroll)
-	attach_drag_scroll(craft_scroll)
-
-	_craft_list = _UiUtil.make_vbox(int(_ref * 0.006), craft_scroll)
-	_craft_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-
-	if not hub_mode:
-		var craft_close_btn := _UiUtil.make_button("Close  [I]" if not OS.has_feature("android") else "Close",
-				Vector2(_vw * 0.1, _ref * 0.065), int(_ref * 0.022), _on_close, craft_box)
+## Search box, sort cycle and the Select toggle above the bag grid.
+func _build_toolbar(row: HBoxContainer) -> void:
+	var h: float = _ref * 0.052
+	var search := LineEdit.new()
+	search.placeholder_text = "Search name or text…"
+	search.clear_button_enabled = true
+	search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	search.custom_minimum_size = Vector2(_ref * 0.16, h)
+	search.add_theme_font_size_override("font_size", int(_ref * 0.019))
+	search.text_changed.connect(func(t: String) -> void:
+		_query = t
+		_refresh_cards())
+	row.add_child(search)
+	_sort_btn = _UiUtil.make_button("", Vector2(_ref * 0.17, h), int(_ref * 0.018), _on_cycle_sort, row)
+	_sort_btn.tooltip_text = "Change the bag's sort order"
+	_select_btn = _UiUtil.make_button("", Vector2(_ref * 0.13, h), int(_ref * 0.018), _on_toggle_select, row)
+	_select_btn.tooltip_text = "Pick several cards to sell or scrap at once"
 
 # -------------------------------------------------------------------------
 # Refresh
@@ -273,7 +266,9 @@ func _build_ui() -> void:
 func _refresh() -> void:
 	_refresh_cards()
 	if _craft_panel.visible:
-		_refresh_craft()
+		_craft_panel.refresh()
+	if _items_panel.visible:
+		_items_panel.refresh()
 
 func _rebuild_loadout_bar() -> void:
 	var sm := SceneManager.save_manager
@@ -306,8 +301,29 @@ func _rebuild_loadout_bar() -> void:
 	_del_btn.disabled = names.size() <= 1
 	_dup_btn.disabled = at_cap
 
+func _refresh_wallet() -> void:
+	var sm := SceneManager.save_manager
+	var used: int = sm.get_slot_count(_working_deck)
+	var cap: int = sm.bag_size
+	_wallet_label.text = "Bag %d/%d    %d gold    %d essence" % [used, cap, sm.coins, sm.essence]
+	_wallet_label.modulate = Color(1.0, 0.45, 0.45) if used >= cap else Color.WHITE
+
+func _template(tid: String) -> Dictionary:
+	return CardRegistry.get_template_for_face(tid, "dark" if CardRegistry.is_dark_aligned() else "light")
+
+## uid -> deck name for every card sitting in a deck (saved loadouts + the
+## working deck). Those cards are shown tagged and can't be bulk-selected.
+func _deck_membership() -> Dictionary:
+	var sm := SceneManager.save_manager
+	return BagOps.deck_membership(sm.loadouts, _working_deck, sm.active_loadout, _WORKING_DECK_NAME)
+
+func _is_selectable(inst: Dictionary, membership: Dictionary) -> bool:
+	return not membership.has(str(inst.get("uid", ""))) \
+		and not bool(_template(str(inst.get("template_id", ""))).get("is_unique", false))
+
 func _refresh_cards() -> void:
 	_rebuild_loadout_bar()
+	_refresh_wallet()
 	var col_scroll: int = _collection_scroll.scroll_vertical if _collection_scroll else 0
 	var deck_scroll: int = _deck_scroll.scroll_vertical if _deck_scroll else 0
 	for child in _collection_list.get_children():
@@ -316,75 +332,89 @@ func _refresh_cards() -> void:
 		child.queue_free()
 
 	var sm := SceneManager.save_manager
+	var membership: Dictionary = _deck_membership()
 
-	_coin_label.text    = "Coins: %d" % sm.coins
-	_essence_label.text = "Essence: %d" % sm.essence
-
-	var used: int   = sm.get_slot_count(_working_deck)
-	var cap: int    = sm.bag_size
-	_slot_label.text    = "Bag: %d / %d" % [used, cap]
-	_slot_label.modulate = Color(1.0, 0.35, 0.35) if used >= cap else Color(0.80, 0.80, 0.80)
-
-	var all_instances: Array[Dictionary] = sm.get_owned_instances()
-
-	# Every instance has its own rolled stats, so each takes its own tile/row —
-	# no more grouping same-template commons into a single stack.
+	# Every instance has its own rolled stats, so each takes its own tile/row.
 	var avail: Array[Dictionary] = []
 	var deck_insts: Array[Dictionary] = []
-
-	for inst: Dictionary in all_instances:
+	var bag_total: int = 0
+	for inst: Dictionary in sm.get_owned_instances():
 		var uid: String    = str(inst.get("uid", ""))
 		var tid: String    = str(inst.get("template_id", ""))
-		var rarity: String = str(inst.get("rarity", "common"))
 		if tid == "":
 			continue
 		if _working_deck.has(uid):
 			deck_insts.append(inst)
-		else:
-			if not _passes_filter(tid, rarity):
-				continue
+			continue
+		bag_total += 1
+		if _passes_filter(tid, str(inst.get("rarity", "common"))) and BagOps.matches_search(_template(tid), _query):
 			avail.append(inst)
 
-	var by_name_then_rarity := func(a: Dictionary, b: Dictionary) -> bool:
-		var ta: String = str(a.get("template_id", ""))
-		var tb: String = str(b.get("template_id", ""))
-		if ta != tb:
-			return ta < tb
-		return IsoConst.RARITY_ORDER.find(str(a.get("rarity", "common"))) > \
-		       IsoConst.RARITY_ORDER.find(str(b.get("rarity", "common")))
+	# Drop selections that no longer point at a pickable card.
+	for uid: String in _selected.keys():
+		var inst: Dictionary = sm.get_instance_by_uid(uid)
+		if inst.is_empty() or not _is_selectable(inst, membership):
+			_selected.erase(uid)
 
 	# ---- Backpack grid ----
 	if not avail.is_empty():
-		avail.sort_custom(by_name_then_rarity)
-		var grid := GridContainer.new()
-		var tile_size: float = _ref * 0.11
-		var cols: int = maxi(1, int(_collection_scroll.size.x / (tile_size + _ref * 0.01)))
-		grid.columns = cols if cols > 1 else 4
-		grid.add_theme_constant_override("h_separation", int(_ref * 0.010))
-		grid.add_theme_constant_override("v_separation", int(_ref * 0.010))
+		BagOps.sort_instances(avail, _sort, _template)
+		var grid := HFlowContainer.new()
+		grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		grid.add_theme_constant_override("h_separation", int(_ref * 0.008))
+		grid.add_theme_constant_override("v_separation", int(_ref * 0.008))
 		_collection_list.add_child(grid)
 		for inst: Dictionary in avail:
-			grid.add_child(_make_card_tile(inst, false))
+			grid.add_child(_make_card_tile(inst, membership))
 	else:
-		var empty_lbl := _UiUtil.make_label("No spare cards", int(_ref * 0.020), Color(0.6, 0.6, 0.6),
-				HORIZONTAL_ALIGNMENT_CENTER, _collection_list)
+		var msg: String = "Your bag is empty — cards not in a deck live here" if bag_total == 0 \
+				else "No cards match the search / filters"
+		_UiUtil.make_label(msg, int(_ref * 0.020), Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, _collection_list)
 
 	# ---- Deck list ----
 	if not deck_insts.is_empty():
-		deck_insts.sort_custom(by_name_then_rarity)
+		BagOps.sort_instances(deck_insts, "cost", _template)
 		for inst: Dictionary in deck_insts:
 			_deck_list.add_child(_make_deck_row_instance(str(inst.get("uid", "")), inst))
 
 	var deck_sz: int = _working_deck.size()
-	_deck_count_label.text = "Deck  (%d / %d)" % [deck_sz, IsoConst.DECK_MAX]
+	_deck_count_label.text = "Deck  %d / %d" % [deck_sz, IsoConst.DECK_MAX]
 	if deck_sz < IsoConst.DECK_MIN or deck_sz > IsoConst.DECK_MAX:
 		_deck_count_label.modulate = Color.RED
 	else:
 		_deck_count_label.modulate = Color.WHITE
+	_refresh_toolbar()
 	if _collection_scroll and col_scroll > 0:
 		_collection_scroll.scroll_vertical = col_scroll
 	if _deck_scroll and deck_scroll > 0:
 		_deck_scroll.scroll_vertical = deck_scroll
+
+func _refresh_toolbar() -> void:
+	_sort_btn.text = "Sort: %s" % str(BagOps.SORT_LABELS.get(_sort, _sort))
+	_select_btn.text = "Done" if _select_mode else "Select"
+	_select_btn.modulate = Color(0.55, 1.0, 0.6) if _select_mode else Color.WHITE
+	_bulk_bar.visible = _select_mode
+	if _select_mode:
+		_hint_label.text = "Tap cards to select them  ·  Extras = spare copies"
+	elif OS.has_feature("android"):
+		_hint_label.text = "Tap: add to deck  ·  Hold: details  ·  Swipe sideways: drag"
+	else:
+		_hint_label.text = "Click: add to deck  ·  Right-click / hold: details  ·  Drag sideways into the deck"
+	var picked: Array[Dictionary] = _selected_instances()
+	var value: Dictionary = BagOps.bulk_value(picked)
+	_bulk_label.text = "%d selected" % picked.size()
+	_bulk_sell_btn.text = "Sell +%dg" % int(value.get("gold", 0))
+	_bulk_scrap_btn.text = "Scrap +%de" % int(value.get("essence", 0))
+	_bulk_sell_btn.disabled = picked.is_empty()
+	_bulk_scrap_btn.disabled = picked.is_empty()
+
+func _selected_instances() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for uid: String in _selected:
+		var inst: Dictionary = SceneManager.save_manager.get_instance_by_uid(uid)
+		if not inst.is_empty():
+			out.append(inst)
+	return out
 
 # -------------------------------------------------------------------------
 # Filter helpers
@@ -474,56 +504,28 @@ func _on_auto_fill() -> void:
 # Row helpers
 # -------------------------------------------------------------------------
 
-
-# Diablo-3-style cube: one tile per owned instance. Hover (desktop) or
+# Card-face tile per owned instance (CardTile). Right-click (desktop) or
 # tap-and-hold (mobile) opens the detail popup with rolled stats + actions.
-# A plain tap adds the card to the working deck.
-func _make_card_tile(inst: Dictionary, in_deck: bool) -> Control:
+# A plain tap adds the card to the working deck — or toggles it in select mode.
+func _make_card_tile(inst: Dictionary, membership: Dictionary) -> Control:
 	var uid: String    = str(inst.get("uid", ""))
 	var tid: String    = str(inst.get("template_id", ""))
-	var rarity: String = str(inst.get("rarity", "common"))
-	var _face: String = "dark" if CardRegistry.is_dark_aligned() else "light"
-	var tmpl: Dictionary  = CardRegistry.get_template_for_face(tid, _face)
+	var tmpl: Dictionary  = _template(tid)
 	var card_color: Color = tmpl.get("color", Color(0.3, 0.3, 0.35))
-
-	var kills: int    = int(inst.get("kills", 0))
-	var survived: int = int(inst.get("battles_survived", 0))
-	var rank: int     = VeterancyUtil.rank_for(kills, survived)
-
-	var tile_size: float = _ref * 0.11
-	var cube := Button.new()
-	cube.custom_minimum_size = Vector2(tile_size, tile_size)
-	cube.focus_mode = Control.FOCUS_NONE
-
-	var sb := _UiUtil.make_style(card_color, int(_ref * 0.012), _UiUtil.rarity_color(rarity),
-			int(maxi(2, int(_ref * 0.006))))
-	cube.add_theme_stylebox_override("normal", sb)
-	cube.add_theme_stylebox_override("hover", sb)
-	cube.add_theme_stylebox_override("pressed", sb)
-	cube.add_theme_stylebox_override("focus", sb)
-
-	var badge_lbl := _UiUtil.make_label(_UiUtil.rarity_badge(rarity), int(_ref * 0.016), _UiUtil.rarity_color(rarity))
-	badge_lbl.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	badge_lbl.position = Vector2(_ref * 0.006, _ref * 0.004)
-	cube.add_child(badge_lbl)
-
-	if rank > 0:
-		var chev_lbl := _UiUtil.make_label(VeterancyUtil.rank_chevrons(rank), int(_ref * 0.014), Color(1.0, 0.82, 0.2))
-		chev_lbl.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-		chev_lbl.position = Vector2(tile_size - _ref * 0.03, tile_size - _ref * 0.022)
-		cube.add_child(chev_lbl)
+	var tag: String = "In %s" % str(membership[uid]) if membership.has(uid) else ""
+	var selectable: bool = _is_selectable(inst, membership)
+	var cube := _CardTile.build(inst, tmpl, _ref, tag, _selected.has(uid), _select_mode and not selectable)
 
 	# Scroll-safe tap (GID-120 / TID-454): a scroll gesture ending on a tile must
 	# not silently edit the working deck; a tile-started drag scrolls the grid.
-	var owning_scroll: ScrollContainer = _deck_scroll if in_deck else _collection_scroll
 	var on_tap: Callable = func() -> void:
-		if in_deck:
-			_on_remove_by_uid(uid)
+		if _select_mode:
+			_toggle_selected(uid, selectable)
 		else:
 			_on_add_by_uid(uid)
-	_UiUtil.bind_scroll_safe_press(cube, on_tap, owning_scroll)
+	_UiUtil.bind_scroll_safe_press(cube, on_tap, _collection_scroll)
 
-	_make_card_draggable(cube, uid, in_deck, card_color)
+	_make_card_draggable(cube, uid, false, card_color)
 
 	var lpd := LongPressDetector.new()
 	cube.add_child(lpd)
@@ -593,123 +595,115 @@ func _hide_instance_detail() -> void:
 		_detail_popup.queue_free()
 	_detail_popup = null
 
+
 func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 	_hide_instance_detail()
 
 	var uid: String    = str(inst.get("uid", ""))
 	var tid: String    = str(inst.get("template_id", ""))
 	var rarity: String = str(inst.get("rarity", "common"))
-	var _face: String = "dark" if CardRegistry.is_dark_aligned() else "light"
-	var tmpl: Dictionary  = CardRegistry.get_template_for_face(tid, _face)
-	var card_name: String = tmpl.get("name", tid)
-	var disp_name: String = VeterancyUtil.display_name(inst, card_name)
+	var tmpl: Dictionary  = _template(tid)
+	var disp_name: String = VeterancyUtil.display_name(inst, str(tmpl.get("name", tid)))
 	var is_dual: bool = str(tmpl.get("dual_card_id", "")) != ""
-	var illustration: Texture2D = tmpl.get("illustration") as Texture2D
-
-	var rolled_atk: int  = int(inst.get("attack", int(tmpl.get("attack", 0))))
-	var rolled_hp: int   = int(inst.get("health", int(tmpl.get("health", 0))))
-	var rolled_cost: int = int(inst.get("cost",   int(tmpl.get("cost",   0))))
+	var is_spell: bool = str(tmpl.get("card_class", "minion")) == "spell"
+	var membership: Dictionary = _deck_membership()
 
 	var popup := PopupPanel.new()
 	add_child(popup)
 	_detail_popup = popup
 
 	var vb := _UiUtil.make_vbox(int(_ref * 0.008), popup)
-	vb.custom_minimum_size = Vector2(_ref * 0.34, 0)
-
-	if illustration != null:
-		var art := TextureRect.new()
-		art.texture = illustration
-		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		art.custom_minimum_size = Vector2(0.0, _ref * 0.14)
-		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		vb.add_child(art)
+	vb.custom_minimum_size = Vector2(_ref * 0.36, 0)
 
 	var title_row := _UiUtil.make_hbox(int(_ref * 0.006), vb)
-
 	var name_lbl := _UiUtil.make_label(disp_name + (" ◑" if is_dual else ""), int(_ref * 0.024), Color.WHITE,
 			HORIZONTAL_ALIGNMENT_LEFT, title_row)
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_UiUtil.make_label(rarity.capitalize(), int(_ref * 0.020), _UiUtil.rarity_color(rarity),
+			HORIZONTAL_ALIGNMENT_RIGHT, title_row)
 
-	var badge_lbl := _UiUtil.make_label(_UiUtil.rarity_badge(rarity), int(_ref * 0.022), _UiUtil.rarity_color(rarity),
-			HORIZONTAL_ALIGNMENT_LEFT, title_row)
+	var kind: String = "Spell" if is_spell else "Minion  ⚔ %d  ♥ %d" % [int(inst.get("attack", 0)),
+			int(inst.get("health", 0))]
+	_UiUtil.make_label("%d mana  ·  %s" % [int(inst.get("cost", 0)), kind], int(_ref * 0.021),
+			_UiUtil.rarity_color(rarity).lerp(Color(0.85, 0.85, 0.85), 0.55), HORIZONTAL_ALIGNMENT_LEFT, vb)
 
-	var stats_lbl := _UiUtil.make_label("Cost %d  ATK %d  HP %d" % [rolled_cost, rolled_atk, rolled_hp],
-			int(_ref * 0.022), _UiUtil.rarity_color(rarity).lerp(Color(0.85, 0.85, 0.85), 0.55),
+	var desc := _UiUtil.make_label(str(tmpl.get("description", "")), int(_ref * 0.019), Color(0.8, 0.8, 0.8),
 			HORIZONTAL_ALIGNMENT_LEFT, vb)
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
-	var is_unique: bool = bool(tmpl.get("is_unique", false))
-	if not is_unique:
+	var kills: int = int(inst.get("kills", 0))
+	var survived: int = int(inst.get("battles_survived", 0))
+	if kills > 0 or survived > 0:
+		_UiUtil.make_label("%d kills  ·  %d battles survived" % [kills, survived], int(_ref * 0.017),
+				Color(1.0, 0.82, 0.2), HORIZONTAL_ALIGNMENT_LEFT, vb)
+	if membership.has(uid):
+		var warn := _UiUtil.make_label("In %s — selling or scrapping removes it from that deck."
+				% str(membership[uid]), int(_ref * 0.017), Color(1.0, 0.7, 0.4), HORIZONTAL_ALIGNMENT_LEFT, vb)
+		warn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+
+	var top_row := _UiUtil.make_hbox(int(_ref * 0.006), vb)
+	var add_btn := _UiUtil.make_button("Add to Deck", Vector2(_ref * 0.17, _ref * 0.058), int(_ref * 0.019),
+			_on_add_by_uid.bind(uid), top_row)
+	add_btn.disabled = _working_deck.size() >= IsoConst.DECK_MAX
+	_UiUtil.make_button("Inspect", Vector2(_ref * 0.14, _ref * 0.058), int(_ref * 0.019), func() -> void:
+		_hide_instance_detail()
+		_show_inspect(tid), top_row)
+
+	if not bool(tmpl.get("is_unique", false)):
 		var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(rarity, {})
-		var sell_gold: int  = int(cfg.get("sell_gold", 0))
-		var scrap_ess: int  = int(cfg.get("scrap_essence", 0))
-
 		var action_row := _UiUtil.make_hbox(int(_ref * 0.006), vb)
+		var sell_btn := _UiUtil.make_button("Sell +%dg" % int(cfg.get("sell_gold", 0)),
+				Vector2(_ref * 0.155, _ref * 0.058), int(_ref * 0.019), _detail_action.bind(uid, "sell"), action_row)
+		sell_btn.modulate = _GOLD
+		var scrap_btn := _UiUtil.make_button("Scrap +%de" % int(cfg.get("scrap_essence", 0)),
+				Vector2(_ref * 0.155, _ref * 0.058), int(_ref * 0.019), _detail_action.bind(uid, "scrap"), action_row)
+		scrap_btn.modulate = _ESSENCE
 
-		var sell_btn := _UiUtil.make_button("Sell +%dg" % sell_gold, Vector2(_ref * 0.14, _ref * 0.06),
-				int(_ref * 0.020))
-		sell_btn.modulate = Color(1.0, 0.9, 0.3)
-		sell_btn.pressed.connect(func() -> void:
-			SceneManager.save_manager.sell_card_instance(uid)
-			_hide_instance_detail()
-			_refresh_cards())
-		action_row.add_child(sell_btn)
-
-		var scrap_btn := _UiUtil.make_button("Scrap +%de" % scrap_ess, Vector2(_ref * 0.14, _ref * 0.06),
-				int(_ref * 0.020))
-		scrap_btn.modulate = Color(0.5, 0.85, 1.0)
-		scrap_btn.pressed.connect(func() -> void:
-			SceneManager.save_manager.scrap_card_instance(uid)
-			_hide_instance_detail()
-			_refresh_cards())
-		action_row.add_child(scrap_btn)
-
-		# Combine 3× same template+rarity → next tier (only offered for commons).
-		if rarity == "common":
+		# Combine 3× same template+rarity → next tier (not for legendaries).
+		var next_idx: int = IsoConst.RARITY_ORDER.find(rarity) + 1
+		if next_idx > 0 and next_idx < IsoConst.RARITY_ORDER.size():
 			var avail_count: int = 0
 			for other: Dictionary in SceneManager.save_manager.get_owned_instances():
-				if str(other.get("template_id", "")) == tid and str(other.get("rarity", "")) == "common" \
+				if str(other.get("template_id", "")) == tid and str(other.get("rarity", "")) == rarity \
+						and not SceneManager.save_manager.player_deck.has(str(other.get("uid", ""))) \
 						and not _working_deck.has(str(other.get("uid", ""))):
 					avail_count += 1
-			var next_idx: int = IsoConst.RARITY_ORDER.find("common") + 1
-			if next_idx < IsoConst.RARITY_ORDER.size():
-				var next_rarity: String = IsoConst.RARITY_ORDER[next_idx]
-				var combine_btn := _UiUtil.make_button("Combine 3× → %s" % _UiUtil.rarity_badge(next_rarity),
-						Vector2(_ref * 0.22, _ref * 0.06), int(_ref * 0.020))
-				combine_btn.modulate = _UiUtil.rarity_color(next_rarity)
-				combine_btn.disabled = avail_count < 3
-				combine_btn.pressed.connect(func() -> void:
-					SceneManager.save_manager.combine_cards(tid, "common")
-					_hide_instance_detail()
-					_refresh_cards())
-				vb.add_child(combine_btn)
+			var next_rarity: String = IsoConst.RARITY_ORDER[next_idx]
+			var combine_btn := _UiUtil.make_button("Combine 3 → %s  (%d/3)" % [next_rarity.capitalize(),
+					mini(avail_count, 3)], Vector2(_ref * 0.3, _ref * 0.058), int(_ref * 0.019), func() -> void:
+				SceneManager.save_manager.combine_cards(tid, rarity)
+				_prune_working_deck()
+				_hide_instance_detail()
+				_refresh_cards(), vb)
+			combine_btn.modulate = _UiUtil.rarity_color(next_rarity)
+			combine_btn.disabled = avail_count < 3
+			combine_btn.tooltip_text = "Merge three spare %s copies into one %s" % [rarity, next_rarity]
 
 		var rename_row := _UiUtil.make_hbox(int(_ref * 0.006), vb)
-
 		var rename_edit := LineEdit.new()
 		rename_edit.text = str(inst.get("custom_name", ""))
 		rename_edit.placeholder_text = disp_name
 		rename_edit.max_length = 24
 		rename_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		rename_edit.custom_minimum_size = Vector2(0, _ref * 0.06)
-		rename_edit.add_theme_font_size_override("font_size", int(_ref * 0.020))
+		rename_edit.custom_minimum_size = Vector2(0, _ref * 0.058)
+		rename_edit.add_theme_font_size_override("font_size", int(_ref * 0.019))
 		rename_row.add_child(rename_edit)
-
-		var rename_btn := _UiUtil.make_button("Rename", Vector2(_ref * 0.12, _ref * 0.06), int(_ref * 0.020))
-		rename_btn.pressed.connect(func() -> void:
+		_UiUtil.make_button("Rename", Vector2(_ref * 0.12, _ref * 0.058), int(_ref * 0.019), func() -> void:
 			SceneManager.save_manager.set_card_custom_name(uid, rename_edit.text)
 			_hide_instance_detail()
-			_refresh_cards())
-		rename_row.add_child(rename_btn)
+			_refresh_cards(), rename_row)
 
-	var close_btn := _UiUtil.make_button("Close", Vector2(_ref * 0.12, _ref * 0.055), int(_ref * 0.020),
+	var close_btn := _UiUtil.make_button("Close", Vector2(_ref * 0.12, _ref * 0.052), int(_ref * 0.019),
 		_hide_instance_detail, vb)
 	close_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 
 	# Beside the tile, not over it — the panel has buttons the player has to be
 	# able to travel to without crossing back out of it. Clamped so a tile near
 	# the right or bottom edge does not push the panel off screen.
-	var w: int = int(_ref * 0.34)
+	# Width from the content too: the combine / rename rows can be wider than the
+	# nominal width, and a popup that grows past it would overlap the tile.
+	var chrome: Vector2 = popup.get_theme_stylebox("panel").get_minimum_size()
+	var w: int = ceili(maxf(_ref * 0.36, vb.get_combined_minimum_size().x + chrome.x))
 	var tile_rect: Rect2 = anchor.get_screen_transform() * Rect2(Vector2.ZERO, anchor.size)
 	var screen: Vector2 = get_viewport().get_visible_rect().size
 	var px: float = tile_rect.end.x + _ref * 0.01
@@ -719,9 +713,112 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 	# on this frame and even a deferred read lands before the popup lays out, so
 	# clamping afterwards never actually moved it. Without this, a card low in
 	# the grid opens a panel whose Sell/Scrap row sits below the screen edge.
-	var content_h: float = vb.get_combined_minimum_size().y + _ref * 0.04
+	var content_h: float = vb.get_combined_minimum_size().y + chrome.y + _ref * 0.02
 	var py: float = clampf(tile_rect.position.y, 0.0, maxf(0.0, screen.y - content_h))
 	popup.popup(Rect2i(Vector2i(int(maxf(px, 0.0)), int(py)), Vector2i(w, 0)))
+	# popup() may grow the window to its content and nudge it left; pin the
+	# left edge back beside the tile.
+	if px > tile_rect.position.x and px + float(popup.size.x) > screen.x:
+		px = tile_rect.position.x - float(popup.size.x) - _ref * 0.01
+	popup.position.x = int(maxf(px, 0.0))
+
+func _detail_action(uid: String, action: String) -> void:
+	if action == "sell":
+		SceneManager.save_manager.sell_card_instance(uid)
+	else:
+		SceneManager.save_manager.scrap_card_instance(uid)
+	_selected.erase(uid)
+	_hide_instance_detail()
+	_refresh_cards()
+
+# -------------------------------------------------------------------------
+# Sort + bulk select
+# -------------------------------------------------------------------------
+
+func _on_cycle_sort() -> void:
+	_sort = BagOps.next_sort(_sort)
+	_refresh_cards()
+
+func _on_toggle_select() -> void:
+	_select_mode = not _select_mode
+	if not _select_mode:
+		_selected.clear()
+	_refresh_cards()
+
+func _toggle_selected(uid: String, selectable: bool) -> void:
+	if not selectable:
+		GameBus.hud_message_requested.emit("That card is in a deck or can't be sold")
+		return
+	if _selected.has(uid):
+		_selected.erase(uid)
+	else:
+		_selected[uid] = true
+	_refresh_cards()
+
+func _on_select_none() -> void:
+	_selected.clear()
+	_refresh_cards()
+
+func _on_select_extras() -> void:
+	var sm := SceneManager.save_manager
+	var picks: Array[String] = BagOps.pick_extras(sm.get_owned_instances(), _deck_membership(), _template)
+	_selected.clear()
+	for uid: String in picks:
+		_selected[uid] = true
+	if picks.is_empty():
+		GameBus.hud_message_requested.emit("No spare copies — you only hold your best copy of each card")
+	_refresh_cards()
+
+## Confirms, then sells or scraps every selected card in one go.
+func _on_bulk_action(action: String) -> void:
+	var picked: Array[Dictionary] = _selected_instances()
+	if picked.is_empty():
+		return
+	var value: Dictionary = BagOps.bulk_value(picked)
+	var reward: String = "+%d gold" % int(value.get("gold", 0)) if action == "sell" \
+			else "+%d essence" % int(value.get("essence", 0))
+	var by_rarity: Dictionary = {}
+	for inst: Dictionary in picked:
+		var r: String = str(inst.get("rarity", "common"))
+		by_rarity[r] = int(by_rarity.get(r, 0)) + 1
+	var parts: Array[String] = []
+	for r: String in IsoConst.RARITY_ORDER:
+		if by_rarity.has(r):
+			parts.append("%d %s" % [int(by_rarity[r]), r])
+
+	var popup := PopupPanel.new()
+	add_child(popup)
+	var vb := _UiUtil.make_vbox(int(_ref * 0.012), popup)
+	vb.custom_minimum_size = Vector2(_ref * 0.5, 0)
+	var lbl := _UiUtil.make_label("%s %d cards (%s) for %s?" % [action.capitalize(), picked.size(), ", ".join(parts),
+			reward], int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vb)
+	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var btn_row := _UiUtil.make_hbox(int(_ref * 0.012), vb)
+	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	var yes := _UiUtil.make_button(action.capitalize(), Vector2(_ref * 0.14, _ref * 0.065), int(_ref * 0.022),
+			func() -> void:
+				popup.queue_free()
+				_apply_bulk(action), btn_row)
+	yes.modulate = _GOLD if action == "sell" else _ESSENCE
+	_UiUtil.make_button("Cancel", Vector2(_ref * 0.14, _ref * 0.065), int(_ref * 0.022),
+			func() -> void: popup.queue_free(), btn_row)
+	popup.popup_centered()
+
+func _apply_bulk(action: String) -> void:
+	var sm := SceneManager.save_manager
+	var membership: Dictionary = _deck_membership()
+	for inst: Dictionary in _selected_instances():
+		# Re-check at apply time: a deck edit since selecting must not be undone by a sale.
+		if not _is_selectable(inst, membership):
+			continue
+		var uid: String = str(inst.get("uid", ""))
+		if action == "sell":
+			sm.sell_card_instance(uid)
+		else:
+			sm.scrap_card_instance(uid)
+	_selected.clear()
+	_select_mode = false
+	_refresh_cards()
 
 # Individual deck slot for a rare/epic/legendary card — shows its rolled stats.
 func _make_deck_row_instance(uid: String, inst: Dictionary) -> VBoxContainer:
@@ -798,99 +895,6 @@ func _make_deck_row_instance(uid: String, inst: Dictionary) -> VBoxContainer:
 
 	return vbox
 
-# -------------------------------------------------------------------------
-# Craft panel
-# -------------------------------------------------------------------------
-
-func _make_craft_row(recipe: _CraftingRecipe, player_essence: int) -> HBoxContainer:
-	var tid: String    = str(recipe.template_id)
-	var rarity: String = str(recipe.rarity)
-	var cost: int      = int(recipe.essence_cost)
-	var tmpl: Dictionary  = CardRegistry.get_template(tid)
-	var card_color: Color = tmpl.get("color", Color(0.3, 0.3, 0.35))
-	var card_name: String = tmpl.get("name", tid)
-
-	var row := _UiUtil.make_hbox(int(_vw * 0.008))
-
-	var swatch := ColorRect.new()
-	swatch.color = card_color
-	swatch.custom_minimum_size = Vector2(_ref * 0.028, _ref * 0.028)
-	row.add_child(swatch)
-
-	var name_lbl := _UiUtil.make_label(card_name, int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
-	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-
-	var badge_lbl := _UiUtil.make_label(_UiUtil.rarity_badge(rarity), int(_ref * 0.022), _UiUtil.rarity_color(rarity),
-			HORIZONTAL_ALIGNMENT_LEFT, row)
-
-	var cost_lbl := _UiUtil.make_label("%de" % cost, int(_ref * 0.022), Color(0.5, 0.85, 1.0),
-			HORIZONTAL_ALIGNMENT_RIGHT, row)
-	cost_lbl.custom_minimum_size = Vector2(_ref * 0.06, 0)
-
-	var craft_btn := _UiUtil.make_button("Craft", Vector2(_ref * 0.12, _ref * 0.065), int(_ref * 0.022),
-			_do_craft.bind(tid, rarity, cost), row)
-	craft_btn.disabled = player_essence < cost
-
-	return row
-
-func _do_craft(template_id: String, rarity: String, cost: int) -> void:
-	if not SceneManager.save_manager.spend_essence(cost):
-		return
-	var stats: Dictionary = _CardDropUtil.roll_stats(template_id, rarity)
-	SceneManager.save_manager.add_card_instance(
-		template_id, rarity,
-		int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1))
-	)
-	_refresh_craft()
-
-func _make_potion_craft_row(potion_id: String, recipe_data: Dictionary, player_essence: int) -> HBoxContainer:
-	var row := _UiUtil.make_hbox(int(_vw * 0.008))
-
-	var sm := SceneManager.save_manager
-	var display_name: String = str(recipe_data.get("display_name", potion_id))
-	var essence_cost: int = int(recipe_data.get("essence_cost", 0))
-	var ingredients: Dictionary = recipe_data.get("ingredients", {})
-
-	var parts: Array[String] = []
-	var can_afford_ingredients: bool = true
-	for ingredient_id: String in ingredients:
-		var required: int = int(ingredients[ingredient_id])
-		var owned: int = int(sm.plants.get(ingredient_id, 0))
-		var plant_info: Dictionary = GardenDefs.PLANTS.get(ingredient_id, {})
-		var plant_name: String = str(plant_info.get("display_name", ingredient_id))
-		parts.append("%d× %s" % [required, plant_name])
-		if owned < required:
-			can_afford_ingredients = false
-
-	var info_lbl := _UiUtil.make_label("%s  (%s)" % [display_name, ", ".join(parts)], int(_ref * 0.022), Color.WHITE,
-			HORIZONTAL_ALIGNMENT_LEFT, row)
-	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-
-	var cost_lbl := _UiUtil.make_label("%de" % essence_cost, int(_ref * 0.022), Color(0.5, 0.85, 1.0),
-			HORIZONTAL_ALIGNMENT_RIGHT, row)
-	cost_lbl.custom_minimum_size = Vector2(_ref * 0.06, 0)
-
-	var can_craft: bool = can_afford_ingredients and player_essence >= essence_cost
-	var craft_btn := _UiUtil.make_button("Craft", Vector2(_ref * 0.12, _ref * 0.065), int(_ref * 0.022),
-			_do_craft_potion.bind(potion_id, essence_cost, ingredients), row)
-	craft_btn.disabled = not can_craft
-
-	return row
-
-func _do_craft_potion(potion_id: String, essence_cost: int, ingredients: Dictionary) -> void:
-	var sm := SceneManager.save_manager
-	for ingredient_id: String in ingredients:
-		var required: int = int(ingredients[ingredient_id])
-		if not sm.garden.remove_plants(ingredient_id, required):
-			return
-	if not sm.spend_essence(essence_cost):
-		for ingredient_id: String in ingredients:
-			sm.garden.add_plants(ingredient_id, int(ingredients[ingredient_id]))
-		return
-	sm.garden.add_potions(potion_id, 1)
-	GameBus.potion_crafted.emit(potion_id)
-	_refresh_craft()
-
 
 # -------------------------------------------------------------------------
 # Deck mutation actions
@@ -914,66 +918,27 @@ func _on_remove_by_uid(uid: String) -> void:
 	_refresh_cards()
 
 # -------------------------------------------------------------------------
-# Tab + craft
+## Drops working-deck uids that no longer exist (combine can consume a copy
+## that is in the unsaved working deck but not the committed one).
+func _prune_working_deck() -> void:
+	var sm := SceneManager.save_manager
+	var kept: Array[String] = []
+	for uid: String in _working_deck:
+		if not sm.get_instance_by_uid(uid).is_empty():
+			kept.append(uid)
+	_working_deck = kept
+
+# -------------------------------------------------------------------------
+# Tabs
 # -------------------------------------------------------------------------
 
-func _on_tab_cards() -> void:
-	_cards_panel.visible = true
-	_craft_panel.visible = false
-	_refresh_cards()
-
-func _on_tab_craft() -> void:
-	_cards_panel.visible = false
-	_craft_panel.visible = true
-	_refresh_craft()
-
-func _refresh_craft() -> void:
-	for child in _craft_list.get_children():
-		child.queue_free()
-
-	_craft_essence_label.text = "Essence: %d" % SceneManager.save_manager.essence
-
-	# Rebuild rarity selector buttons.
-	for child in _craft_rarity_row.get_children():
-		child.queue_free()
-	for rarity: String in IsoConst.RARITY_ORDER:
-		var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(rarity, {})
-		var ess_cost: int = int(cfg.get("craft_essence", 0))
-		var sel_btn := _UiUtil.make_button("%s %de" % [_UiUtil.rarity_badge(rarity), ess_cost],
-				Vector2(_ref * 0.17, _ref * 0.058), int(_ref * 0.020))
-		if rarity == _craft_rarity:
-			sel_btn.modulate = _UiUtil.rarity_color(rarity)
-		else:
-			sel_btn.modulate = Color(0.50, 0.50, 0.50)
-		sel_btn.pressed.connect(func() -> void:
-			_craft_rarity = rarity
-			_refresh_craft())
-		_craft_rarity_row.add_child(sel_btn)
-
-	# Show only recipes for the selected rarity, sorted by card name.
-	var recipes: Array = CraftingRegistry.get_all_recipes()
-	var filtered: Array[_CraftingRecipe] = []
-	for recipe: _CraftingRecipe in recipes:
-		if str(recipe.rarity) == _craft_rarity:
-			filtered.append(recipe)
-	filtered.sort_custom(func(a: _CraftingRecipe, b: _CraftingRecipe) -> bool:
-		var na: String = str(CardRegistry.get_template(str(a.template_id)).get("name", str(a.template_id)))
-		var nb: String = str(CardRegistry.get_template(str(b.template_id)).get("name", str(b.template_id)))
-		return na < nb
-	)
-
-	var player_essence: int = SceneManager.save_manager.essence
-	for recipe: _CraftingRecipe in filtered:
-		_craft_list.add_child(_make_craft_row(recipe, player_essence))
-
-	# Potions section
-	var potion_header := _UiUtil.make_label("— Potions —", int(_ref * 0.022), Color(0.75, 0.85, 1.0),
-			HORIZONTAL_ALIGNMENT_CENTER, _craft_list)
-
-	var potion_recipes: Dictionary = GardenDefs.POTION_RECIPES
-	for potion_id: String in potion_recipes:
-		var recipe_data: Dictionary = potion_recipes[potion_id]
-		_craft_list.add_child(_make_potion_craft_row(potion_id, recipe_data, player_essence))
+## 0 = Cards, 1 = Craft, 2 = Items.
+func _show_tab(index: int) -> void:
+	_hide_instance_detail()
+	_cards_panel.visible = index == 0
+	_craft_panel.visible = index == 1
+	_items_panel.visible = index == 2
+	_refresh()
 
 func _on_save() -> void:
 	SceneManager.save_manager.set_active_deck(_working_deck)

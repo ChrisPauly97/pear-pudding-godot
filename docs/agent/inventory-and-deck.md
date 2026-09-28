@@ -51,7 +51,22 @@ SaveManager.is_bag_full() -> bool                          # get_slot_count() >=
 
 `InventoryScene` passes its unsaved `_working_deck` into `get_slot_count()` so the "Bag: X / Y" label updates live as cards are dragged between the collection grid and the deck list, before "Save Deck" commits `_working_deck` to `SaveManager.player_deck`. `add_card_instance()` rejects new cards (returns `""`, emits `GameBus.bag_full`) once `is_bag_full()` is true against the *committed* deck — battle rewards, chest drops, and crafted cards are silently dropped when the bag is full; there is no overflow mailbox/stash yet.
 
-The collection panel renders the backpack as a grid of Diablo-3-style cube tiles (`_make_card_tile`), one per instance. Hovering (desktop) or tap-and-holding (mobile, via `LongPressDetector`) opens a detail popup with rolled stats and the Sell/Scrap/Combine/Rename actions that used to live inline per-row. A plain tap/click adds the card to the working deck (or removes it, on the deck side).
+The collection panel renders the backpack as an `HFlowContainer` of card-face tiles (`_make_card_tile` → `scenes/ui/inventory/CardTile.gd`), one per instance: cost gem, rarity-coloured frame + rarity letter, illustration (or a monogram on the card colour), name, ⚔ATK ♥HP (or "Spell"), veterancy chevrons, and an "In <deck>" tag when the card sits in another loadout. Right-click (desktop) or tap-and-hold (mobile, via `LongPressDetector`) opens a detail popup: mana/class/stats, rules text, kills/battles, a warning if the card is in a deck, Add to Deck, Inspect (full `CardInspectOverlay`), Sell/Scrap, Combine 3 → next tier (any tier below legendary, with an n/3 count) and Rename. A plain tap/click adds the card to the working deck.
+
+#### Bag tools (GID-144)
+
+- **Tabs** — Cards / Craft / Items (`UiUtil.make_tab_row`), with one shared wallet line: `Bag used/cap  gold  essence` (red when the bag is full).
+- **Toolbar** — search (name, rules text, keywords), a sort cycle (Name → Rarity → Cost → Power → Newest) and a **Select** toggle. The class/cost/rarity filter row stays below it; a hint line explains the gestures for the current mode.
+- **Bulk select** — in Select mode a tap toggles a card's selection (green frame + ✓). The bulk bar shows `N selected`, **Extras**, **None**, `Sell +Xg`, `Scrap +Ye`; either action opens a confirm summarising the count per rarity and the payout, and re-checks each card at apply time. Cards in any deck (saved loadouts or the working deck) and unique cards can't be selected (dimmed).
+- **Extras** — `BagOps.pick_extras()` keeps the best copy of each card (rarity → ATK+HP → lower cost) and selects every other copy that isn't in a deck, unique, renamed or a veteran.
+
+Pure logic lives in `game_logic/inventory/BagOps.gd` (sort, search, deck membership, extras, bulk value; templates via a `tmpl_for` Callable) and is covered by `test_bag_ops`. `menu_hub_smoke` drives sort, search, the Craft/Items tabs and an Extras → bulk scrap in a live tree.
+
+#### Craft and Items panels
+
+`scenes/ui/inventory/CraftPanel.gd` (a `VBoxContainer`, `setup(ref)` / `refresh()`, emits `crafted`): rarity chips with the essence price, a recipe search, then one row per recipe with cost gem, name in rarity colour, Minion ⚔/♥ or Spell, rules text, `Owned ×N` and a `Craft  Ne` button (disabled with a tooltip reason when short on essence or the bag is full — the bag is checked **before** essence is spent, and refunded if `add_card_instance` still refuses). Potion rows show `have/need` per herb in green/red and a `Brew  Ne` button. A status line confirms each craft.
+
+`scenes/ui/inventory/ItemsPanel.gd` lists non-card bag contents: potions (count + battle effect) and herbs (count, description, which potions use them). Descriptions come from the `description` field on `GardenDefs.POTIONS` / `GardenDefs.PLANTS`.
 
 `DeckAutoFill.fill()` treats the highest-rarity owned copy of each template as the "primary" pick for that card and fills the whole deck from primary picks before falling back to lower-rarity duplicates of an already-represented card — so Auto-Fill favors card diversity plus best-copy-per-card over just piling in extra copies of the same name.
 
