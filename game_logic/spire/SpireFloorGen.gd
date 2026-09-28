@@ -10,6 +10,7 @@ extends RefCounted
 
 const _WorldMap = preload("res://game_logic/world/WorldMap.gd")
 const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
+const _RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
 
 # Full WorldMap grid dimensions (100×100).
 const MAP_W: int  = 100
@@ -62,7 +63,9 @@ static func is_boss_floor(floor: int) -> bool:
 
 ## Generates and saves a Spire floor arena map.
 ## Caller (WorldScene) should check MapRegistry first to avoid regeneration.
-static func generate(floor: int, run_seed: int) -> _WorldMap:
+## `run` is the rift run (`SaveManager.spire_run`): its `rift` / `tier` pick the
+## enemy and its level (GID-142). Without one the legacy ladder applies.
+static func generate(floor: int, run_seed: int, run: Dictionary = {}) -> _WorldMap:
 	var p_name: String = map_name_for(floor, run_seed)
 	var map: _WorldMap = _WorldMap.new(p_name, true)  # skip MapRegistry lookup
 
@@ -89,7 +92,8 @@ static func generate(floor: int, run_seed: int) -> _WorldMap:
 	# Enemy in the centre.
 	var ecx: int = room_x + ROOM_W / 2
 	var ecz: int = room_z + ROOM_H / 2
-	var etype: String = pick_enemy_type(floor)
+	var rift_id: String = str(run.get("rift", ""))
+	var etype: String = pick_enemy_type(floor) if rift_id == "" else _RiftDefs.enemy_type(rift_id, floor)
 	var deck: Array[String] = _EnemyRegistry.get_deck(etype)
 	var enemy_entry: Dictionary = {
 		"id": enemy_id_for(floor, run_seed),
@@ -99,7 +103,9 @@ static func generate(floor: int, run_seed: int) -> _WorldMap:
 		"enemy_type": etype,
 		"enemy_deck": deck,
 	}
-	if is_boss_floor(floor):
+	if rift_id != "":
+		enemy_entry["enemy_level"] = _RiftDefs.enemy_level(int(run.get("tier", 1)), floor)
+	if (rift_id == "" and is_boss_floor(floor)) or (rift_id != "" and _RiftDefs.is_guardian_floor(floor)):
 		enemy_entry["is_boss"] = true
 		var bhp: int = _EnemyRegistry.get_boss_hp(etype)
 		if bhp > 0:

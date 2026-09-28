@@ -26,6 +26,7 @@ const _TutorialPopupScript = preload("res://scenes/ui/TutorialPopup.gd")
 const TutorialRegistry = preload("res://game_logic/TutorialRegistry.gd")
 const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
 const _SpireFloorGen = preload("res://game_logic/spire/SpireFloorGen.gd")
+const _RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const _CoopNightHunts = preload("res://game_logic/CoopNightHunts.gd")
 const Gambits = preload("res://game_logic/battle/Gambits.gd")
@@ -1121,7 +1122,9 @@ func _on_tutorial_popup_requested(popup_id: String) -> void:
 # ── Endless Spire helpers ───────────────────────────────────────────────────
 
 ## Starts or resumes an Endless Spire run from the entrance door in a town map.
-func enter_spire() -> void:
+## GID-142: `rift_id` / `tier` pick the rift and tier (tier 0 = the highest
+## unlocked, clamped to best + 1). An active run resumes whatever was passed.
+func enter_spire(rift_id: String = "grasslands", tier: int = 0) -> void:
 	if not save_manager.has_learned(_UnlockLadder.FEAT_SPIRE):
 		GameBus.hud_message_requested.emit(_UnlockLadder.locked_message(_UnlockLadder.FEAT_SPIRE))
 		return
@@ -1132,7 +1135,7 @@ func enter_spire() -> void:
 		enter_map("spire_floor_%d_%d" % [floor, run_seed], "")
 	else:
 		var seed: int = randi()
-		save_manager.spire.start_spire_run(seed)
+		save_manager.spire.start_spire_run(seed, rift_id, tier)
 		GameBus.tutorial_popup_requested.emit("spire_intro")
 		enter_map("spire_floor_1_%d" % seed, "")
 
@@ -1182,6 +1185,9 @@ func _on_pack_open_closed() -> void:
 
 func _advance_spire_floor() -> void:
 	save_manager.spire.advance_spire_floor()
+	if save_manager.spire.tier_complete():
+		_complete_rift_tier()
+		return
 	var run: Dictionary = save_manager.spire.get_spire_run()
 	var next_floor: int = int(run.get("floor", 1))
 	var run_seed: int = int(run.get("seed", 0))
@@ -1190,6 +1196,17 @@ func _advance_spire_floor() -> void:
 	save_manager.sync_stacks(map_stack, door_stack)
 	save_manager.save()
 	_load_world(next_map, "")
+
+## GID-142: the guardian is down — the tier is cleared. End the run (records
+## the tier) and walk back out of the rift to where it was entered.
+func _complete_rift_tier() -> void:
+	var stats: Dictionary = save_manager.spire.end_spire_run()
+	GameBus.spire_run_ended.emit(stats)
+	save_manager.save()
+	exit_map()
+	show_toast("%s — Tier %d cleared!" % [_RiftDefs.rift_name(str(stats.get("rift", ""))), int(stats.get("tier", 1))],
+			("Tier %d is open to you." % (int(stats.get("tier", 1)) + 1)) if bool(stats.get("is_new_tier_record", false))
+			else "Tier already conquered.")
 
 func show_toast(title: String, desc: String) -> void:
 	_toast.show_text(title, desc)

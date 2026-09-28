@@ -23,6 +23,7 @@ const _WorldMap = preload("res://game_logic/world/WorldMap.gd")
 const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const _RewardToastFx = preload("res://scenes/world/RewardToastFx.gd")
 const _ZoneLevels = preload("res://game_logic/world/ZoneLevels.gd")
+const _RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
 
 var _sm: _SceneManager
 
@@ -274,6 +275,11 @@ func _spire_battle_won(result: Dictionary) -> bool:
 	_sm.save_manager.increment_progress("battles_won", 1)
 	_sm._bump_session_stat("battles_won", 1)
 	_sm._finish_battle()
+	# GID-142: the guardian ends the tier — no boon to draft; the exit door (now
+	# open) walks the player out and records the clear.
+	if _RiftDefs.is_guardian_floor(curr_floor):
+		_sm._restore_world()
+		return true
 	# The draft is deferred into _restore_world's post-swap callback so it parents
 	# to the live WorldScene rather than the dying battle overlay.
 	_sm._restore_world(_sm._show_spire_draft.bind(curr_floor))

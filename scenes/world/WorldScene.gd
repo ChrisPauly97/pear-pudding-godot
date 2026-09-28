@@ -711,7 +711,7 @@ func _load_named_map() -> void:
 		if MapRegistry.get_map(map_name) != null:
 			world_map = WorldMap.new(map_name)
 		else:
-			world_map = SpireFloorGen.generate(sp_floor, sp_seed)
+			world_map = SpireFloorGen.generate(sp_floor, sp_seed, SceneManager.save_manager.spire.get_spire_run())
 	else:
 		world_map = WorldMap.new(map_name)
 		if world_map.is_fallback:

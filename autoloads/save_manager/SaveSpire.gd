@@ -1,5 +1,8 @@
-## Endless Spire run: start, per-floor prep, advance, drafted cards, hero HP and run
-## end.
+## Rift run (the Spire, reworked as per-biome rifts — GID-142): start, per-floor
+## prep, advance, drafted cards, hero HP, tier clear and run end.
+##
+## A run carries `rift` (RiftDefs id) and `tier`; clearing the guardian floor
+## (RiftDefs.FLOORS_PER_TIER) clears the tier and raises `rift_best_tiers[rift]`.
 ##
 ## Owned by SaveManager (`SaveManager.spire`), created in its `_init`. The state
 ## stays on SaveManager because PERSISTED_FIELDS walks its properties, so this
@@ -8,6 +11,7 @@ extends RefCounted
 
 const _SaveManager = preload("res://autoloads/SaveManager.gd")
 const _SpireFloorGen = preload("res://game_logic/spire/SpireFloorGen.gd")
+const _RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
 ## Every run's base deck. `draft_deck` holds only the picks, so the battle deck
 ## is always starter + picks (`run_deck()`); a pick never replaces the deck.
 const STARTER_DECK: Array[String] = ["ghost", "ghost", "skeleton", "skeleton",
@@ -64,10 +68,23 @@ func run_deck() -> Array[String]:
 		deck.append(str(id))
 	return deck
 
-func start_spire_run(seed: int) -> void:
+## Best cleared tier of `rift_id` (0 = none yet).
+func best_tier(rift_id: String) -> int:
+	return int(_save.rift_best_tiers.get(rift_id, 0))
+
+## True once the run's guardian floor is cleared (the tier is done).
+func tier_complete() -> bool:
+	return is_spire_active() and int(_save.spire_run.get("floor", 1)) > _RiftDefs.FLOORS_PER_TIER
+
+func start_spire_run(seed: int, rift_id: String = _RiftDefs.DEFAULT_RIFT, tier: int = 0) -> void:
 	_clear_spire_enemy_defeats()
+	if _RiftDefs.def(rift_id).is_empty():
+		rift_id = _RiftDefs.DEFAULT_RIFT
+	var best: int = best_tier(rift_id)
 	_save.spire_run = {
 		"active": true,
+		"rift": rift_id,
+		"tier": _RiftDefs.clamp_tier(tier if tier > 0 else _RiftDefs.max_start_tier(best), best),
 		"floor": 1,
 		"draft_deck": [],
 		"hero_hp": 30,
@@ -115,6 +132,12 @@ func end_spire_run() -> Dictionary:
 	var is_record: bool = floors_cleared > _save.spire_best_floor
 	if is_record:
 		_save.spire_best_floor = floors_cleared
+	var rift_id: String = str(_save.spire_run.get("rift", _RiftDefs.DEFAULT_RIFT))
+	var tier: int = int(_save.spire_run.get("tier", 1))
+	var tier_cleared: bool = floors_cleared >= _RiftDefs.FLOORS_PER_TIER
+	var tier_record: bool = tier_cleared and tier > best_tier(rift_id)
+	if tier_record:
+		_save.rift_best_tiers[rift_id] = tier
 
 	var stats: Dictionary = {
 		"floors_cleared": floors_cleared,
@@ -125,6 +148,11 @@ func end_spire_run() -> Dictionary:
 		"is_new_record": is_record,
 		"best_floor": _save.spire_best_floor,
 		"draft_deck_ids": draft_deck_ids.duplicate(),
+		"rift": rift_id,
+		"tier": tier,
+		"tier_cleared": tier_cleared,
+		"is_new_tier_record": tier_record,
+		"best_tier": best_tier(rift_id),
 	}
 
 	_save.spire_run = {"active": false}

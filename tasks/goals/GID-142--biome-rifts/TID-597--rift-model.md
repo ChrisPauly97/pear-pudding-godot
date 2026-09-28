@@ -2,7 +2,7 @@
 
 **Goal:** GID-142
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -41,12 +41,21 @@ timer: pick a tier ≤ best + 1, clear N floors, beat the guardian → tier comp
 
 ## Plan
 
-_Written during Plan phase._
+Keep the Spire's machinery (map names, unique floor ids, cleared flags, exit door, SaveSpire module) and add a
+rift/tier layer: `RiftDefs` data, run carries rift + tier, floor gen reads them, guardian floor ends the tier,
+per-rift best tier saved, migration from the old best floor.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `game_logic/spire/RiftDefs.gd`.
+- `SaveSpire.gd`: `best_tier`, `tier_complete`, `start_spire_run(seed, rift, tier)`, tier stats in `end_spire_run`.
+- `SaveManager.gd`: `rift_best_tiers` field (+ PERSISTED_FIELDS, new_game reset).
+- `SaveMigrations.gd`: v45 `_m45_rifts`.
+- `SpireFloorGen.generate(floor, seed, run)`: rift enemy + `enemy_level`, guardian as boss floor.
+- `WorldScene.gd`: passes the run (same line). `SceneManager.gd`: `enter_spire(rift, tier)`,
+  `_complete_rift_tier()`. `BattleVictory.gd`: no draft after the guardian.
+- Tests: new `test_rift_defs.gd` (6). Suite green; smokes clean; gdlint + unsafe-hits clean.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+New `docs/agent/rifts.md`; CLAUDE.md docs row.

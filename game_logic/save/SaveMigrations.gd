@@ -11,8 +11,9 @@ extends RefCounted
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
+const RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
 
-const CURRENT_VERSION: int = 44
+const CURRENT_VERSION: int = 45
 
 
 ## Upgrades `data` in place. `up_to` stops after that version's row. The game
@@ -58,6 +59,23 @@ static func _m44_unlock_ladder(d: Dictionary) -> void:
 	flags["town_quests_done"] = true
 	d["story_flags"] = flags
 	d["version"] = 44
+
+
+## GID-142: the Spire became per-biome rifts. The old best floor maps onto the
+## Grasslands rift at FLOORS_PER_TIER floors per tier; an active run keeps going
+## in the Grasslands rift at tier 1.
+static func _m45_rifts(d: Dictionary) -> void:
+	var best: Dictionary = d.get("rift_best_tiers", {})
+	var old_tiers: int = int(d.get("spire_best_floor", 0)) / RiftDefs.FLOORS_PER_TIER
+	if old_tiers > int(best.get(RiftDefs.DEFAULT_RIFT, 0)):
+		best[RiftDefs.DEFAULT_RIFT] = old_tiers
+	d["rift_best_tiers"] = best
+	var run: Dictionary = d.get("spire_run", {})
+	if bool(run.get("active", false)) and not run.has("rift"):
+		run["rift"] = RiftDefs.DEFAULT_RIFT
+		run["tier"] = 1
+		d["spire_run"] = run
+	d["version"] = 45
 
 
 ## `[target_version, payload]` rows in ascending version order.
@@ -214,5 +232,6 @@ static func table() -> Array:
 		[42, {"equipped_offhand": "", "owned_offhands": []}],
 		[43, _m43_stitched_towns],
 		[44, _m44_unlock_ladder],
+		[45, _m45_rifts],
 	]
 	return rows
