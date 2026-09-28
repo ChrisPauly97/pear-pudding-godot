@@ -15,7 +15,7 @@ User decisions:
 - A core loop of simple quests (like WoW) in a fleshed-out starter zone around Madrian (the world origin, where new games spawn).
 - Level-ups add one thing at a time. The player is **forced to go to a trainer** for each new ability, and it **costs gold**, so they read what they are buying.
 - Dig and Phase come around level 10; Mount around level 40.
-- The starter chain sits between story steps `speak_maiteln` and `leave_madrian` (default proposed; not objected to).
+- **Maiteln is not in town at the start.** The game opens with townspeople quests; Maiteln only shows up (story step `speak_maiteln`) once several of them are done, then urges leaving (`leave_madrian`).
 
 Builds on GID-136 (TID-537 trainer + `learned_abilities` already shipped; TID-533 quest data, TID-534 quest givers and TID-536 zone levels are pending there and are prerequisites here) and GID-140 (QuestLog, tracked quest, NPC "!"/"?" marks).
 
@@ -34,7 +34,7 @@ Builds on GID-136 (TID-537 trainer + `learned_abilities` already shipped; TID-53
 | 9 | Night hunts | Bounty master |
 | 10 | Skeleton Dig | Gravedigger |
 | 12 | Ghost Phase | Gravedigger |
-| 15 | Endless Spire + card packs | Combat trainer / merchant |
+| 15 | Spire (rift-style, see GID-142) + card packs | Combat trainer / merchant |
 | 40 | Mount | Stablemaster |
 
 Co-op/PvP stay reachable from the main menu. "Head Start (debug)" learns everything.
@@ -63,7 +63,7 @@ Co-op/PvP stay reachable from the main menu. "Head Start (debug)" learns everyth
 - [ ] Each level-up names the newly available training and which trainer teaches it; the trainer shows a "!" and the compass can point at them.
 - [ ] Nothing on the ladder becomes usable until learned at its trainer for gold; the trainer panel shows the full how-to text.
 - [ ] Starter-zone quest gold covers each training cost on the intended path without grinding.
-- [ ] Starter chain (~10 quests) runs between `speak_maiteln` and `leave_madrian`, each quest exercising the most recent unlock.
+- [ ] A fresh save has no Maiteln in Madrian; townspeople quests (each exercising the most recent unlock) run first, and Maiteln appears only after they are done.
 - [ ] Existing saves keep everything they already had (no regression for players past the ladder).
 - [ ] Worst visual-finish gaps on the first-30-minutes path are fixed; game-appeal §6 #1 and #4 updated.
 - [ ] Tests, gdlint, unsafe-hits and scene smoke tests pass.

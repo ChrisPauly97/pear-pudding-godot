@@ -19,8 +19,8 @@
 
 Present to the user for `docs/human/specification.md` and `docs/human/story.md`:
 - New-player flow: starter zone around Madrian, unlock ladder, abilities learned at trainers for gold.
-- Story: the starter chain between "Speak to Maiteln" and "Leave Madrian" (Maiteln sends Saimtar to prove themselves
-  on the outskirts), new NPCs (gravedigger, bounty master, trainers).
+- Story: Chapter 1 now opens with townspeople quests in Madrian; Maiteln arrives only after they are done and urges
+  leaving. New NPCs (quest-giving townspeople, gravedigger, bounty master, trainers).
 - Coordinate with GID-136 / TID-539 (spec update for RPG loop, XP) so both land together.
 
 ## Plan
