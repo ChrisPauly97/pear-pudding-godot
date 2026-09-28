@@ -37,8 +37,6 @@ const _TexPath:      Texture2D = preload("res://assets/textures/pixel_art/path_p
 # Preload entity scenes — avoids filesystem hits during spawning
 const _OverworldPauseOverlay = preload("res://scenes/ui/OverworldPauseOverlay.gd")
 const _PlayerScene       = preload("res://scenes/world/entities/Player.tscn")
-const _ObjectiveBeacon   = preload("res://scenes/world/entities/ObjectiveBeacon.gd")
-const _ObjectiveTracker  = preload("res://game_logic/ObjectiveTracker.gd")
 const _Player            = preload("res://scenes/world/entities/Player.gd")
 # Party panel (GID-107 / TID-395): consolidated entry point for the always-on
 # co-op HUD affordances (Roster, Loot Mode, Stash, Leaderboard, Ghost Duels,
@@ -56,6 +54,7 @@ const _FakeVolumetrics = preload("res://scenes/world/modules/FakeVolumetrics.gd"
 const _CharacterPresence = preload("res://scenes/world/modules/CharacterPresence.gd")
 const _NamedMapProps = preload("res://scenes/world/modules/NamedMapProps.gd")
 const _RealmRegions = preload("res://scenes/world/modules/RealmRegions.gd")
+const _QuestTracker = preload("res://scenes/world/modules/QuestTracker.gd")
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const _TownSiege = preload("res://scenes/world/modules/TownSiege.gd")
 const _SunRaysFx = preload("res://scenes/world/SunRaysFx.gd")
@@ -179,6 +178,7 @@ var npc_interactions: _NpcInteractions = null   # modules/NpcInteractions.gd
 var town_siege: _TownSiege = null   # modules/TownSiege.gd (GID-054)
 var named_props: _NamedMapProps = null   # modules/NamedMapProps.gd
 var realm_regions: _RealmRegions = null   # modules/RealmRegions.gd (GID-138)
+var quest_tracker: _QuestTracker = null   # modules/QuestTracker.gd (GID-140)
 var current_town: String = ""  # stitched town the player is in; see story_place()
 var chest_loot: _ChestLoot = null    # modules/ChestLoot.gd
 var night_lights: _NightLights = null  # modules/NightLights.gd (TID-489)
@@ -359,9 +359,6 @@ var _dungeon_session_ui: DungeonSessionUI = null
 var _minimap: Minimap
 var _map_overlay: MapViewOverlay = null
 
-# Story objective beacon (one at most, on the objective's tile — see
-# _refresh_objective_beacon).
-var _objective_beacon: _ObjectiveBeacon = null
 
 @onready var _camera: Camera3D = $Camera3D
 @onready var _hud: CanvasLayer = $HUD
@@ -576,7 +573,7 @@ func _ready() -> void:
 
 	if not NetworkManager.is_dedicated_server():
 		story_cast.refresh_maiteln_presence()
-		_refresh_objective_beacon()
+		quest_tracker.on_map_ready()
 
 	coop_session._setup_coop()
 	# Guildhall furnishings (GID-106 / TID-393): must run after _setup_coop() so
@@ -739,6 +736,7 @@ func _wire_gamebus_signals() -> void:
 	# single-player used to see the change only after a map reload.
 	if not NetworkManager.is_dedicated_server():
 		GameBus.story_flag_set.connect(_on_story_flag_set_for_cast)
+		GameBus.quest_tracking_changed.connect(func(_id: String) -> void: quest_tracker.refresh(true))
 
 	# Auto-remount when returning to the overworld from a named map
 	if map_name == "main":
@@ -804,6 +802,7 @@ func _enter_tree() -> void:
 func _on_reattached() -> void:
 	if not is_inside_tree():
 		return
+	quest_tracker.announce_story_step()  # a story battle won while detached moved the story on
 	if not _coop_active and NetworkManager.is_active():
 		coop_session._setup_coop()
 	# GID-101 (TID-367/368): broadcast pvp-clear to spectators now that the world is
@@ -865,6 +864,7 @@ func _ensure_world_modules() -> void:
 	character_presence = _ensure_world_module(
 		character_presence, _CharacterPresence, "CharacterPresence") as _CharacterPresence
 	realm_regions = _ensure_world_module(realm_regions, _RealmRegions, "RealmRegions") as _RealmRegions
+	quest_tracker = _ensure_world_module(quest_tracker, _QuestTracker, "QuestTracker") as _QuestTracker
 
 func _ensure_world_module(existing: Node, script: GDScript, node_name: String) -> Node:
 	if existing != null and is_instance_valid(existing):
@@ -1264,32 +1264,7 @@ func _on_story_flag_set_for_cast(_key: String) -> void:
 	story_cast.refresh_maiteln_presence()
 	story_cast.spawn_open_world_beats()
 	_despawn_flag_hidden_npcs()
-	_refresh_objective_beacon()
-
-## Plants (or moves, or clears) the in-world beacon over the current story
-## objective. The compass ribbon only gives a bearing; standing in the right
-## street still left the player guessing which hut or which NPC was the target,
-## so the objective also gets a marker on the thing itself.
-##
-## Story flags are what move the objective, so this runs on map entry and on
-## every flag change — never per frame.
-func _refresh_objective_beacon() -> void:
-	if NetworkManager.is_dedicated_server():
-		return
-	var raw: Variant = _ObjectiveTracker.objective_world_pos(
-		SceneManager.save_manager.story_flags, map_name)
-	if raw == null:
-		if is_instance_valid(_objective_beacon):
-			_objective_beacon.queue_free()
-		_objective_beacon = null
-		return
-	var pos: Vector3 = raw as Vector3
-	if not is_instance_valid(_objective_beacon):
-		_objective_beacon = _ObjectiveBeacon.new()
-		_objective_beacon.name = "ObjectiveBeacon"
-		add_child(_objective_beacon)
-		_objective_beacon.setup(_player)
-	_objective_beacon.position = Vector3(pos.x, get_terrain_height(pos.x, pos.z), pos.z)
+	quest_tracker.on_story_changed()
 
 ## Removes already-spawned NPCs whose MapNpc.hide_flag_key is now set. The spawn
 ## side of the same rule lives in ChunkRenderer, which skips them outright.
@@ -1497,6 +1472,7 @@ func _process(delta: float) -> void:
 
 	if _player == null:
 		return
+	quest_tracker.refresh(false)
 	# Software floor: rescue the player only when physics has genuinely lost
 	# the terrain (chunk collider not built yet, or tunneled through). Never
 	# fire while is_on_floor() — the analytic smoothstep height sits up to
@@ -1674,6 +1650,7 @@ func _check_interactions() -> void:
 
 func _open_map_view() -> void:
 	if _is_infinite:
+		quest_tracker.toggle_realm_map()
 		return
 	if _map_overlay != null:
 		_map_overlay.queue_free()

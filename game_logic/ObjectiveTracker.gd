@@ -1,16 +1,20 @@
-## Derives the current Chapter 1 story objective from story flags.
-## Returns {label: String, map: String, tx: int, tz: int} or {} if no active objective.
-## Checks most-advanced flag first so the correct next step is always returned.
+## Where the current main-story objective is, on whichever map the player is on.
+## The steps themselves live in StoryQuests.STEPS; this resolves a step (or any
+## quest target of the same {map, tx, tz, site} shape — see QuestLog) to a tile.
 class_name ObjectiveTracker
 extends RefCounted
 
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
+const _StoryQuests = preload("res://game_logic/quests/StoryQuests.gd")
 
 ## Where the current objective is in the stitched realm (GID-138): a stitched
 ## town's tile moved into the overworld ("main"), an open-world beat's fixed
 ## road site, else the objective as authored (an interior / other named map).
 static func realm_objective(flags: Dictionary) -> Dictionary:
-	var obj: Dictionary = current_objective(flags)
+	return to_realm(current_objective(flags))
+
+## `realm_objective` for any target dict of the same shape.
+static func to_realm(obj: Dictionary) -> Dictionary:
 	if obj.is_empty():
 		return {}
 	var out: Dictionary = obj.duplicate()
@@ -36,8 +40,12 @@ static func realm_objective(flags: Dictionary) -> Dictionary:
 ## Single source for every "where is the objective" caller (compass marker,
 ## in-world beacon), so they can never disagree about which map or tile it is on.
 static func objective_for_map(flags: Dictionary, map_name: String) -> Dictionary:
-	var obj: Dictionary = realm_objective(flags) if _RealmLayout.is_overworld(map_name) \
-			else current_objective(flags)
+	return place_on_map(current_objective(flags), map_name)
+
+## `objective_for_map` for any target dict ({map, tx, tz[, site]}) — QuestLog
+## resolves treasure and bounty targets through the same rules.
+static func place_on_map(target: Dictionary, map_name: String) -> Dictionary:
+	var obj: Dictionary = to_realm(target) if _RealmLayout.is_overworld(map_name) else target
 	if obj.is_empty():
 		return {}
 	var obj_map: String = str(obj.get("map", ""))
@@ -64,7 +72,11 @@ static func objective_for_map(flags: Dictionary, map_name: String) -> Dictionary
 ## to point at (see `objective_for_map`). Entities are spawned on tile centres,
 ## so the beacon and the compass bearing both use the centre, not the corner.
 static func objective_world_pos(flags: Dictionary, map_name: String) -> Variant:
-	var obj: Dictionary = objective_for_map(flags, map_name)
+	return target_world_pos(current_objective(flags), map_name)
+
+## `objective_world_pos` for any target dict.
+static func target_world_pos(target: Dictionary, map_name: String) -> Variant:
+	var obj: Dictionary = place_on_map(target, map_name)
 	if obj.is_empty():
 		return null
 	return Vector3(
@@ -72,47 +84,6 @@ static func objective_world_pos(flags: Dictionary, map_name: String) -> Variant:
 		0.0,
 		(float(int(obj["tz"])) + 0.5) * IsoConst.TILE_SIZE)
 
+## The current main-story step (see StoryQuests.STEPS), or {} past the last one.
 static func current_objective(flags: Dictionary) -> Dictionary:
-	if flags.get("chapter2_complete", false):
-		return {}
-	if flags.get("chapter2_warcamp_cleared", false):
-		# Cliffhanger narration fires automatically on the boss win; no next objective yet.
-		return {}
-	if flags.get("chapter2_traitor_seal", false):
-		return {"label": "Infiltrate the war-camp", "map": "marsax_hold", "tx": 20, "tz": 50}
-	if flags.get("chapter2_siege_won", false):
-		return {"label": "Search the hold for clues", "map": "marsax_hold", "tx": 52, "tz": 62}
-	if flags.get("chapter2_ambush_survived", false):
-		return {"label": "Defend Marsax Hold", "map": "marsax_hold", "tx": 50, "tz": 77}
-	if flags.get("chapter2_found_letter", false):
-		# The scout ambush waits on the road north from Larik.
-		return {"label": "Continue west toward Marsax Hold", "map": "main", "tx": -1, "tz": -1,
-			"site": "scout_ambush"}
-	if flags.get("chapter2_reached_larik", false):
-		return {"label": "Search Larik for answers", "map": "larik", "tx": 59, "tz": 58}
-	if flags.get("chapter2_charged", false):
-		return {"label": "Travel west to Larik", "map": "larik", "tx": 64, "tz": 50}
-	if flags.get("chapter1_complete", false):
-		return {"label": "Speak to King Eldar", "map": "blancogov_temple", "tx": 42, "tz": 15}
-	if flags.get("chapter1_temple_council", false):
-		return {"label": "Speak with the Queen and Scargroth, then the King",
-			"map": "blancogov_temple", "tx": 42, "tz": 15}
-	if flags.get("chapter1_reached_blancogov", false):
-		return {"label": "Enter the Temple", "map": "blancogov_temple", "tx": 42, "tz": 15}
-	if flags.get("chapter1_received_letter", false):
-		return {"label": "Reach Blancogov", "map": "blancogov", "tx": 49, "tz": 9}
-	if flags.get("chapter1_warned_farsyth", false):
-		# Isfig waits on the road to Blancogov (RealmLayout.STORY_SITES).
-		return {"label": "Encounter Isfig", "map": "main", "tx": -1, "tz": -1, "site": "isfig_road"}
-	if flags.get("chapter1_learned_fire", false):
-		return {"label": "Find Lord Farsyth", "map": "farsyth_mansion", "tx": 49, "tz": 20}
-	if flags.get("chapter1_camp_night", false):
-		# Fire-making lesson happens at the road camp.
-		return {"label": "Learn to make fire", "map": "main", "tx": -1, "tz": -1, "site": "wilderness_camp"}
-	if flags.get("chapter1_left_madrian", false):
-		# Rabbit-hunt camp sits on the road south of Madrian.
-		return {"label": "Make camp for the night", "map": "main", "tx": -1, "tz": -1,
-			"site": "wilderness_camp"}
-	if flags.get("story_intro_complete", false):
-		return {"label": "Leave Madrian", "map": "main", "tx": -1, "tz": -1, "site": "madrian_south_road"}
-	return {"label": "Speak to Maiteln", "map": "madrian", "tx": 45, "tz": 36}
+	return _StoryQuests.current_step(flags)

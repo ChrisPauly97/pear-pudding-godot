@@ -12,7 +12,7 @@ extends Node3D
 ## The arrow draws through terrain (`no_depth_test`) so a hut or a hill between
 ## player and objective hides the target but never the pointer.
 ##
-## WorldScene owns exactly one instance — see `WorldScene._refresh_objective_beacon()`.
+## The QuestTracker world module owns exactly one instance — see `QuestTracker._place_beacon()`.
 
 const _WEB = preload("res://scenes/world/entities/WorldEntityBase.gd")
 

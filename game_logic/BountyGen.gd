@@ -9,6 +9,19 @@ const BIOME_NAMES: Array[String] = [
 	"grasslands", "forest", "desert", "scorched", "mountains"
 ]
 
+## Player-facing text for a bounty ("Defeat 3 Ghoul Pack").
+static func describe(btype: String, target: String, count: int) -> String:
+	match btype:
+		"defeat_enemy_type":
+			var display: String = target.replace("_", " ").capitalize()
+			return "Defeat %d %s" % [count, display]
+		"defeat_in_biome":
+			var biome: String = target.capitalize()
+			return "Defeat %d enemies in the %s" % [count, biome]
+		"open_chests":
+			return "Open %d chest%s" % [count, "s" if count > 1 else ""]
+	return "Complete this contract"
+
 ## Returns exactly 3 bounties for the given world seed and day index.
 ## The result is fully deterministic: same inputs always produce the same output.
 ## Each entry: { "id", "type", "target", "count", "reward", "offered_at_day" (added by SaveManager) }

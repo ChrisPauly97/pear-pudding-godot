@@ -2,11 +2,14 @@ extends "res://scenes/ui/BaseOverlay.gd"
 
 const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const LandmarkNames  = preload("res://game_logic/world/LandmarkNames.gd")
+const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
+const _StoryQuests = preload("res://game_logic/quests/StoryQuests.gd")
 
 var hub_mode: bool = false
 
 var _selected_id: String = ""
-var _active_tab: String = "scrolls"
+var _active_tab: String = "quests"
+var _quest_selected_id: String = ""
 var _bestiary_selected_id: String = ""
 
 var _scroll_list: VBoxContainer
@@ -15,14 +18,16 @@ var _lore_label: RichTextLabel
 var _replay_btn: Button
 var _header_label: Label
 var _treasure_label: Label
+var _tab_quests_btn: Button
 var _tab_scrolls_btn: Button
+var _track_btn: Button
 var _tab_bestiary_btn: Button
 var _tab_discoveries_btn: Button
 
 func _ready() -> void:
 	super._ready()
 	_build_ui()
-	_populate_scroll_list()
+	_on_tab_selected(_active_tab)
 	_refresh_treasure_panel()
 
 func _build_ui() -> void:
@@ -56,6 +61,11 @@ func _build_ui() -> void:
 
 	# ── Tab bar ───────────────────────────────────────────────────────────────
 	var tab_bar := _UiUtil.make_hbox(0, root_vbox)
+
+	_tab_quests_btn = _UiUtil.make_button("Quests", Vector2(0, _vh * 0.05), int(_vh * 0.022),
+			_on_tab_selected.bind("quests"), tab_bar)
+	_tab_quests_btn.flat = true
+	_tab_quests_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	_tab_scrolls_btn = _UiUtil.make_button("Scrolls", Vector2(0, _vh * 0.05), int(_vh * 0.022),
 			_on_tab_selected.bind("scrolls"), tab_bar)
@@ -133,6 +143,11 @@ func _build_ui() -> void:
 	_replay_btn.hide()
 	detail_vbox.add_child(_replay_btn)
 
+	_track_btn = _UiUtil.make_button("Track", Vector2(_vw * 0.18, _vh * 0.06), int(_vh * 0.025),
+			_on_track_pressed)
+	_track_btn.hide()
+	detail_vbox.add_child(_track_btn)
+
 	_show_empty_state()
 
 func _refresh_treasure_panel() -> void:
@@ -151,7 +166,12 @@ func _refresh_treasure_panel() -> void:
 		_treasure_label.text = "Map Fragments: 0 / 3 — Collect 3 to form a treasure map."
 
 func _show_empty_state() -> void:
-	if _active_tab == "bestiary":
+	if _track_btn != null:
+		_track_btn.hide()
+	if _active_tab == "quests":
+		_header_label.text = "Quests"
+		_title_label.text = "Select a quest"
+	elif _active_tab == "bestiary":
 		_update_bestiary_header()
 		_title_label.text = "Select an entry"
 	elif _active_tab == "discoveries":
@@ -204,12 +224,86 @@ func _on_replay_pressed() -> void:
 func _on_tab_selected(tab: String) -> void:
 	_active_tab = tab
 	_show_empty_state()
-	if tab == "scrolls":
+	if tab == "quests":
+		_populate_quest_list()
+	elif tab == "scrolls":
 		_populate_scroll_list()
 	elif tab == "bestiary":
 		_populate_bestiary_list()
 	else:
 		_populate_discoveries_list()
+
+# ── Quests tab (GID-140) ──────────────────────────────────────────────────────
+
+func _quests() -> Array[Dictionary]:
+	return SaveManager.active_quests()
+
+func _populate_quest_list() -> void:
+	for child in _scroll_list.get_children():
+		child.queue_free()
+	var tracked_id: String = str(SaveManager.tracked_quest_data().get("id", ""))
+	for q: Dictionary in _quests():
+		var qid: String = str(q.get("id", ""))
+		var mark: String = "★ " if qid == tracked_id else ""
+		var btn := _UiUtil.make_button(mark + str(q.get("label", "")), Vector2(_vw * 0.22, _vh * 0.06),
+				int(_vh * 0.020), _on_quest_selected.bind(qid), _scroll_list)
+		btn.flat = true
+		btn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		btn.add_theme_color_override("font_color", _QuestLog.kind_color(str(q.get("kind", ""))))
+	var done: Array[Dictionary] = _StoryQuests.completed_steps(SaveManager.story_flags)
+	if done.is_empty():
+		return
+	_UiUtil.make_label("Story so far", int(_vh * 0.022), Color(0.85, 0.85, 0.85), HORIZONTAL_ALIGNMENT_LEFT,
+			_scroll_list)
+	var chapter: int = 0
+	for step: Dictionary in done:
+		if int(step["chapter"]) != chapter:
+			chapter = int(step["chapter"])
+			_UiUtil.make_label(_StoryQuests.chapter_title(chapter), int(_vh * 0.018), Color(0.9, 0.8, 0.5),
+					HORIZONTAL_ALIGNMENT_LEFT, _scroll_list)
+		var sbtn := _UiUtil.make_button("✓ " + str(step["label"]), Vector2(_vw * 0.22, _vh * 0.05),
+				int(_vh * 0.018), _on_story_step_selected.bind(step), _scroll_list)
+		sbtn.flat = true
+		sbtn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		sbtn.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+
+func _on_quest_selected(quest_id: String) -> void:
+	_quest_selected_id = quest_id
+	var q: Dictionary = _QuestLog.tracked(_quests(), quest_id)
+	if str(q.get("id", "")) != quest_id:
+		_show_empty_state()
+		return
+	_title_label.text = str(q.get("title", ""))
+	_title_label.modulate = _QuestLog.kind_color(str(q.get("kind", "")))
+	var text: String = "[b]%s[/b]" % str(q.get("label", ""))
+	if str(q.get("giver", "")) != "":
+		text += "\n[color=gray]From: %s[/color]" % str(q.get("giver", ""))
+	text += "\n\n" + str(q.get("summary", ""))
+	if str(q.get("progress", "")) != "":
+		text += "\n\nProgress: " + str(q.get("progress", ""))
+	_lore_label.text = text
+	_replay_btn.hide()
+	var tracked: bool = str(SaveManager.tracked_quest_data().get("id", "")) == quest_id
+	var has_place: bool = _QuestLog.has_target(q)
+	_track_btn.text = "Tracking" if tracked else ("Track" if has_place else "No marker")
+	_track_btn.disabled = tracked or not has_place
+	_track_btn.show()
+
+func _on_story_step_selected(step: Dictionary) -> void:
+	_quest_selected_id = ""
+	_title_label.text = _StoryQuests.chapter_title(int(step["chapter"]))
+	_title_label.modulate = Color(0.75, 0.75, 0.75)
+	_lore_label.text = "[b]✓ %s[/b]\n[color=gray]From: %s[/color]\n\n%s" % [str(step["label"]),
+			str(step.get("giver", "")), str(step.get("summary", ""))]
+	_replay_btn.hide()
+	_track_btn.hide()
+
+func _on_track_pressed() -> void:
+	if _quest_selected_id == "":
+		return
+	SaveManager.set_tracked_quest(_quest_selected_id)
+	_populate_quest_list()
+	_on_quest_selected(_quest_selected_id)
 
 func _populate_discoveries_list() -> void:
 	for child in _scroll_list.get_children():

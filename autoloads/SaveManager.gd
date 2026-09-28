@@ -12,6 +12,7 @@ const _SpireFloorGen = preload("res://game_logic/spire/SpireFloorGen.gd")
 const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 const _SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
 const _SaveFile = preload("res://game_logic/save/SaveFile.gd")
+const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
 const _SaveGarden = preload("res://autoloads/save_manager/SaveGarden.gd")
 const _SaveBounties = preload("res://autoloads/save_manager/SaveBounties.gd")
 const _SaveLoadouts = preload("res://autoloads/save_manager/SaveLoadouts.gd")
@@ -66,7 +67,7 @@ const PERSISTED_FIELDS: Dictionary = {
 	"activated_waystones": [], "bestiary": {}, "bestiary_complete_rewarded": false,
 	"home_owned": false, "respawn_map": "", "respawn_x": 0.0, "respawn_z": 0.0,
 	"owned_mounts": [], "active_mount": "", "is_mounted": false,
-	"packs_since_legendary": 0, "active_companion": "", "waypoint": {},
+	"packs_since_legendary": 0, "active_companion": "", "waypoint": {}, "tracked_quest": "",
 	"bounty_day": 0, "offered_bounties": [], "active_bounties": [],
 	# 0 means "absent" — _restore_derived_fields substitutes IsoConst's default,
 	# which can't be referenced from a const expression (IsoConst is an autoload).
@@ -263,6 +264,8 @@ var active_companion: String = ""
 
 # Player-placed waypoint: {map: String, tx: int, tz: int} or {} when cleared
 var waypoint: Dictionary = {}
+# Quest id the compass / beacon / minimap follow ("" = the story) — GID-140.
+var tracked_quest: String = ""
 
 # Bounty system
 var bounty_day: int = 0
@@ -532,6 +535,7 @@ func new_game(head_start: bool = false) -> void:
 	packs_since_legendary = 0
 	active_companion = ""
 	waypoint = {}
+	tracked_quest = ""
 	bounty_day = 0
 	offered_bounties = []
 	active_bounties = []
@@ -805,6 +809,19 @@ func set_waypoint(wp: Dictionary) -> void:
 	waypoint = wp
 	_dirty = true
 	GameBus.waypoint_changed.emit(wp)
+
+func set_tracked_quest(quest_id: String) -> void:
+	tracked_quest = quest_id
+	_dirty = true
+	GameBus.quest_tracking_changed.emit(quest_id)
+
+## Every active quest (QuestLog), story first.
+func active_quests() -> Array[Dictionary]:
+	return _QuestLog.active_quests(story_flags, active_treasure, active_bounties)
+
+## The quest the markers follow (falls back to the story quest).
+func tracked_quest_data() -> Dictionary:
+	return _QuestLog.tracked(active_quests(), tracked_quest)
 
 func increment_pity() -> void:
 	packs_since_legendary += 1
