@@ -253,7 +253,7 @@ func show_trainer_panel() -> void:
 
 	_UiUtil.make_label("Skill Trainer", int(vh * 0.032), Color(1.0, 0.92, 0.6),
 			HORIZONTAL_ALIGNMENT_CENTER, vbox)
-	_UiUtil.make_label("Strike, Mend and Kick are yours already. Coins: %d  ·  Level %d" % [sm.coins, sm.level],
+	_UiUtil.make_label("Strike is yours already. Coins: %d  ·  Level %d" % [sm.coins, sm.level],
 			int(vh * 0.02), Color(0.8, 0.8, 0.85), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	for id: String in SkillBar.learnable_ids():

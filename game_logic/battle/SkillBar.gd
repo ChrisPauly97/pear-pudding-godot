@@ -18,39 +18,41 @@ const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
 const SLOTS: int = 3
 const DEFAULT_BAR: Array[String] = ["strike", "mend", "kick"]
 ## Ids that need no trainer/coins — every save knows them from the start.
-const ALWAYS_KNOWN: Array[String] = ["strike", "mend", "kick"]
+## GID-141: only Strike; Mend and Kick are taught at levels 2 and 3 (UnlockLadder).
+const ALWAYS_KNOWN: Array[String] = ["strike"]
 ## Trainer-taught ids (TID-537), in trainer-panel display order.
-const LEARNABLE_ORDER: Array[String] = ["guard", "ember_lance", "mana_tap", "sweep", "daze"]
+const LEARNABLE_ORDER: Array[String] = ["mend", "kick", "guard", "ember_lance", "mana_tap", "sweep", "daze"]
 
 ## id → {name, cost (mana points), cooldown (s), cast (s, 0 = instant),
 ## effect, value, off_gcd, desc, level_req, learn_cost}. Kept weaker than deck
 ## spells: reliable, not big — every learnable ability's `value` stays ≤ 9
 ## (test_skill_bar.gd checks this). `level_req`/`learn_cost` are 0 for the
-## always-known three (never offered by a trainer — see `learnable_ids()`).
+## always-known Strike (never offered by a trainer — see `learnable_ids()`).
+## Levels follow the GID-141 unlock ladder: one new thing per level.
 const ABILITIES: Dictionary = {
 	"strike": {"name": "Strike", "cost": 0, "cooldown": 0.0, "cast": 0.0, "effect": "damage", "value": 2,
 		"off_gcd": false, "desc": "Hit your target for 2. Free, no cooldown: builds combo and siphons mana.",
 		"level_req": 0, "learn_cost": 0},
 	"mend": {"name": "Mend", "cost": 120, "cooldown": 20.0, "cast": 1.5, "effect": "heal", "value": 6,
-		"off_gcd": false, "desc": "Heal yourself for 6 (1.5 s cast).", "level_req": 0, "learn_cost": 0},
+		"off_gcd": false, "desc": "Heal yourself for 6 (1.5 s cast).", "level_req": 2, "learn_cost": 15},
 	"kick": {"name": "Kick", "cost": 30, "cooldown": 12.0, "cast": 0.0, "effect": "interrupt", "value": 0,
 		"off_gcd": true, "desc": "Interrupt an enemy's cast. Off the global cooldown.",
-		"level_req": 0, "learn_cost": 0},
+		"level_req": 3, "learn_cost": 25},
 	"guard": {"name": "Guard", "cost": 80, "cooldown": 16.0, "cast": 0.0, "effect": "shield", "value": 6,
 		"off_gcd": false, "desc": "Raise your guard, absorbing the next 6 damage.",
-		"level_req": 3, "learn_cost": 40},
+		"level_req": 11, "learn_cost": 60},
 	"ember_lance": {"name": "Ember Lance", "cost": 90, "cooldown": 9.0, "cast": 1.0, "effect": "damage", "value": 9,
 		"off_gcd": false, "desc": "A slower, heavier strike for 9 (1 s cast).",
-		"level_req": 5, "learn_cost": 60},
+		"level_req": 13, "learn_cost": 90},
 	"mana_tap": {"name": "Mana Tap", "cost": 20, "cooldown": 14.0, "cast": 0.0, "effect": "manatap", "value": 2,
 		"off_gcd": false, "desc": "A light hit for 2 that siphons back a little mana.",
-		"level_req": 4, "learn_cost": 50, "mana_value": 1},
+		"level_req": 14, "learn_cost": 90, "mana_value": 1},
 	"sweep": {"name": "Sweep", "cost": 100, "cooldown": 18.0, "cast": 0.0, "effect": "sweep", "value": 3,
 		"off_gcd": false, "desc": "A wide strike that clips every enemy minion for 3.",
-		"level_req": 6, "learn_cost": 70},
+		"level_req": 16, "learn_cost": 120},
 	"daze": {"name": "Daze", "cost": 40, "cooldown": 20.0, "cast": 0.0, "effect": "stun", "value": 0,
 		"off_gcd": true, "desc": "A weak stun — briefly delays the enemy. Off the global cooldown.",
-		"level_req": 7, "learn_cost": 80},
+		"level_req": 18, "learn_cost": 150},
 }
 
 var ids: Array[String] = []
@@ -59,7 +61,7 @@ var _cd_total: Array[float] = []
 
 ## `bar` = saved ability ids; `learned` = `SaveManager.learned_abilities`.
 ## Unknown ids, and learnable ids not in `learned`, are dropped; empty falls
-## back to the default (always-known) bar.
+## back to the known ids of the default bar.
 func _init(bar: Array = [], learned: Array = []) -> void:
 	var known: Dictionary = {}
 	for id: String in ALWAYS_KNOWN:
@@ -71,7 +73,9 @@ func _init(bar: Array = [], learned: Array = []) -> void:
 		if ABILITIES.has(id) and known.has(id) and not ids.has(id) and ids.size() < SLOTS:
 			ids.append(id)
 	if ids.is_empty():
-		ids.assign(DEFAULT_BAR)
+		for id: String in DEFAULT_BAR:
+			if known.has(id):
+				ids.append(id)
 	for _i: int in ids.size():
 		_cd_left.append(0.0)
 		_cd_total.append(1.0)
@@ -100,7 +104,8 @@ static func known_ids(learned: Array) -> Array[String]:
 	return out
 
 ## TID-556: the loadout picker's editing state — always exactly `SLOTS`
-## entries. `bar`'s ids are kept in order where they're known; any remaining
+## entries; "" marks an empty slot while the player knows fewer abilities.
+## `bar`'s ids are kept in order where they're known; any remaining
 ## slots are padded with unused known ids (default bar first, so a fresh save
 ## still starts at strike/mend/kick).
 static func resolved_bar(bar: Array, learned: Array) -> Array[String]:
@@ -113,8 +118,10 @@ static func resolved_bar(bar: Array, learned: Array) -> Array[String]:
 	for id: String in (DEFAULT_BAR + known):
 		if out.size() >= SLOTS:
 			break
-		if not out.has(id):
+		if known.has(id) and not out.has(id):
 			out.append(id)
+	while out.size() < SLOTS:
+		out.append("")
 	return out
 
 static func def(id: String) -> Dictionary:

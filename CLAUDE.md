@@ -299,6 +299,15 @@ match its branch's owner.
 
 ---
 
+## Unlocks: UnlockLadder Is the Source of Truth
+
+Every system a new player unlocks (skills beyond Strike, the hand, spells, companion, Skills tab, bounties, night
+hunts, Dig, Phase, Rifts, packs, riding) is a row in `game_logic/progression/UnlockLadder.gd`, learned at a trainer
+for gold into `SaveManager.learned_abilities`. Gate a feature with `save_manager.has_learned(UnlockLadder.FEAT_X)`;
+never add a separate level check. See `docs/agent/starter-zone-and-training.md`.
+
+---
+
 ## Constants: IsoConst Is the Source of Truth
 
 All tile/size constants (`TILE_GRASS`, `TILE_SIZE`, `CHUNK_SIZE`, etc.) live in `autoloads/IsoConst.gd`. Reference as `IsoConst.TILE_SIZE`. Never add copies elsewhere.
@@ -672,4 +681,5 @@ Agent-owned feature docs. Each covers Key Features, How It Works, Integrations, 
 | [docs/agent/audio-soundtrack.md](docs/agent/audio-soundtrack.md) | Curated CC0/CC-BY music shortlist per slot (7 slots), acquisition/conversion steps, attribution requirements |
 | [docs/agent/art-sprites.md](docs/agent/art-sprites.md) | Curated CC0/CC-BY sprite shortlist: enemy archetypes, NPCs, props, mount, card art; manifest, acquisition steps, attribution |
 | [docs/agent/game-appeal.md](docs/agent/game-appeal.md) | Appeal analysis: player motivations, personas, differentiation, weaknesses, first-session hook visibility |
+| [docs/agent/starter-zone-and-training.md](docs/agent/starter-zone-and-training.md) | Unlock ladder (one system per level), trainer-taught unlocks for gold, starter zone + quest chain (GID-141) |
 | [docs/human/story.md](docs/human/story.md) | Story bible: characters, chapters, NPC dialogue, map specs (human-owned) |

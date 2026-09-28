@@ -72,6 +72,10 @@ signal card_routed_to_mailbox(template_id: String)
 # Progression signals
 signal level_up(new_level: int)
 signal xp_changed(new_xp: int, new_level: int)
+## GID-141 unlock ladder: entries a level-up just made available (learn at a trainer)…
+signal training_available(ids: Array[String])
+## …and one the player just learned (paid the trainer).
+signal feature_learned(id: String)
 signal skill_tree_requested
 signal corruption_points_changed(new_amount: int)
 signal redemption_points_changed(new_amount: int)

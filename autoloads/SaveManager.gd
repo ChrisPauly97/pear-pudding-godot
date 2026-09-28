@@ -13,6 +13,8 @@ const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 const _SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
 const _SaveFile = preload("res://game_logic/save/SaveFile.gd")
 const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
+const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
+const _SkillBar = preload("res://game_logic/battle/SkillBar.gd")
 const _SaveGarden = preload("res://autoloads/save_manager/SaveGarden.gd")
 const _SaveBounties = preload("res://autoloads/save_manager/SaveBounties.gd")
 const _SaveQuests = preload("res://autoloads/save_manager/SaveQuests.gd")
@@ -519,6 +521,10 @@ func new_game(head_start: bool = false) -> void:
 	level = 15 if head_start else 1
 	skill_points = 14 if head_start else 0
 	unlocked_skills = []
+	# GID-141: a new game knows only Strike; everything else is taught by trainers.
+	# Head start (debug) learns the whole unlock ladder.
+	learned_abilities.assign(_UnlockLadder.all_ids() if head_start else [])
+	skill_bar = []
 	magic_type = ""
 	corruption_points = 0
 	redemption_points = 0
@@ -1257,10 +1263,24 @@ func learn_ability(id: String, cost: int) -> bool:
 		return false
 	learned_abilities.append(id)
 	coins -= cost
+	# A newly learned skill takes a free slot on a customised bar (an empty bar
+	# already means "the default bar, filtered to what's known").
+	if _SkillBar.ABILITIES.has(id) and not skill_bar.is_empty() and not skill_bar.has(id):
+		var free: int = skill_bar.find("")
+		if free >= 0:
+			skill_bar[free] = id
+		elif skill_bar.size() < _SkillBar.SLOTS:
+			skill_bar.append(id)
 	_dirty = true
 	coins_changed.emit(coins)
 	quests.progress_event("learn", id)
+	GameBus.feature_learned.emit(id)
 	return true
+
+## True when ladder entry `id` (UnlockLadder) is usable — learned, or not a
+## ladder entry at all.
+func has_learned(id: String) -> bool:
+	return _UnlockLadder.is_learned(id, learned_abilities)
 
 ## TID-556: writes the player's chosen 3-slot loadout. Callers should already
 ## have validated each id via SkillBar (known + not a duplicate); this stores
@@ -1299,8 +1319,13 @@ func add_xp(amount: int) -> void:
 	var new_level: int = _compute_level(xp)
 	if new_level > level:
 		skill_points += new_level - level
+		var newly: Array[String] = []
+		for l: int in range(level + 1, new_level + 1):
+			newly.append_array(_UnlockLadder.available_at(l))
 		level = new_level
 		GameBus.level_up.emit(level)
+		if not newly.is_empty():
+			GameBus.training_available.emit(newly)
 	GameBus.xp_changed.emit(xp, level)
 	_dirty = true
 

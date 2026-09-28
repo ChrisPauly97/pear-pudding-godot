@@ -37,6 +37,9 @@ func _run() -> bool:
 	save_manager.call("set_setting", "battle_mode", "realtime")
 	save_manager.call("set_setting", "auto_skip_gambits", true)
 	save_manager.set("realtime_fights", 99)  # past the onboarding ramp; checked separately below
+	# GID-141: Mend / Kick are trainer-taught; this player has learned them (and the hand).
+	(save_manager.get("learned_abilities") as Array).append_array(
+			["mend", "kick", "feat_minions", "feat_spells", "feat_companion"])
 	for tip: String in ["rt_intro", "rt_skill_mend", "rt_skill_kick", "rt_cards", "rt_low_hp", "rt_enemy_cast",
 			"rt_out_of_mana", "rt_ally", "rt_add"]:
 		save_manager.call("set_story_flag", "seen_tutorial_" + tip)

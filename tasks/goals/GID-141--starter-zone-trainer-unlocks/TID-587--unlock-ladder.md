@@ -2,7 +2,7 @@
 
 **Goal:** GID-141
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -46,12 +46,27 @@ Single source of truth for "what unlocks when, where, for how much". Every other
 
 ## Plan
 
-_Written during Plan phase._
+1. `UnlockLadder.gd` with feature rows + skill rows (skill numbers stay in SkillBar).
+2. SkillBar: only Strike always known; Mend L2 / Kick L3 and the other trainer skills re-levelled into the ladder
+   gaps (11, 13, 14, 16, 18); bar fallback/padding respect what is known.
+3. SaveManager: `has_learned`, `learn_ability` slots skills + emits `feature_learned`, `add_xp` emits
+   `training_available`, `new_game` resets (head start learns all).
+4. Migration v44 keeps existing saves whole.
+5. XP curve: evaluated, kept (see doc "XP pacing").
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `game_logic/progression/UnlockLadder.gd`; `SkillBar.gd` levels/costs, `ALWAYS_KNOWN = ["strike"]`,
+  `LEARNABLE_ORDER` + mend/kick, `_init` fallback + `resolved_bar` padding (fixed a latent bug: it padded with
+  DEFAULT_BAR ids whether or not they were known).
+- `SaveManager.gd`: `has_learned`, learn_ability changes, `training_available` on level-up, `new_game` resets
+  `learned_abilities` / `skill_bar` (it never reset them before — a new game kept the last save's trainer skills).
+- `GameBus.gd`: `training_available(ids)`, `feature_learned(id)`.
+- `SaveMigrations.gd`: v44 `_m44_unlock_ladder`.
+- `NpcInteractions.gd`: trainer header text ("Strike is yours already").
+- Tests: new `test_unlock_ladder.gd` (10); `test_skill_bar.gd` updated for trainer-taught Mend/Kick;
+  `realtime_battle_smoke.gd` learns them first. Suite 2813 pass; all CI smokes clean; gdlint + unsafe-hits clean.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+New `docs/agent/starter-zone-and-training.md`; CLAUDE.md docs row + "Unlocks: UnlockLadder Is the Source of Truth".
