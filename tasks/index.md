@@ -144,7 +144,7 @@
 | [GID-138](goals/GID-138--seamless-story-realm/goal.md) | Seamless Story Realm | done | 10 / 10 |
 | [GID-139](goals/GID-139--combat-momentum/goal.md) | Combat Momentum — Always a Button to Press | in-progress | 3 / 5 |
 | [GID-140](goals/GID-140--quest-log-wayfinding/goal.md) | Quest Log & Wayfinding | done | 6 / 6 |
-| [GID-141](goals/GID-141--starter-zone-trainer-unlocks/goal.md) | Starter Zone & Trainer-Taught Unlocks | in-progress | 9 / 13 |
+| [GID-141](goals/GID-141--starter-zone-trainer-unlocks/goal.md) | Starter Zone & Trainer-Taught Unlocks | in-progress | 10 / 13 |
 | [GID-142](goals/GID-142--biome-rifts/goal.md) | Spire → Biome Rifts | pending | 0 / 6 |
 
 ## Backlog
@@ -159,6 +159,9 @@ files in `tasks/archive/backlog/`.
 | [BID-055](backlog/BID-055--worldscene-god-object.md) | `WorldScene.gd` god-object decomposition, slice 1/3 done (co-op/net cluster folded into `CoopSession.gd`, line-ceiling guardrail added); original 9154/401 census was stale — see file's Progress section for real numbers and slices 2-3 (`_spawn_*`, `_start_*`) | code-smell | GID-123 research |
 | [BID-061](backlog/BID-061--spec-says-no-xp-system.md) | Spec says "No XP system planned" but XP/levels/skill points shipped (GID-030) | spec-gap | Tracked by TID-539 |
 | [BID-063](backlog/BID-063--coop-still-on-named-town-maps.md) | Co-op sessions still start on the named town maps, not the stitched overworld (GID-138) | design-inconsistency | TID-571 |
+| [BID-065](backlog/BID-065--placeholder-starter-sprites.md) | Starter enemies (undead) and townsfolk use placeholder-grade sprites | design-inconsistency | GID-141 / TID-593 |
+| [BID-066](backlog/BID-066--graveyard-dressing.md) | Madrian graveyard / sealed crypt have no graveyard dressing | content-gap | GID-141 / TID-593 |
+| [BID-067](backlog/BID-067--menu-key-art.md) | Main menu has no key art | design-inconsistency | GID-141 / TID-593 |
 
 ## Resolved Backlog
 
