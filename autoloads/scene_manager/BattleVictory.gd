@@ -22,6 +22,7 @@ const _WorldEventManager = preload("res://autoloads/WorldEventManager.gd")
 const _WorldMap = preload("res://game_logic/world/WorldMap.gd")
 const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const _RewardToastFx = preload("res://scenes/world/RewardToastFx.gd")
+const _ZoneLevels = preload("res://game_logic/world/ZoneLevels.gd")
 
 var _sm: _SceneManager
 
@@ -123,7 +124,8 @@ func _on_battle_won(result: Dictionary) -> void:
 		_sm.save_manager.add_coins(coins_won)
 		_sm._bump_session_stat("coins_earned", coins_won)
 	# Award XP based on enemy type (table lives in EnemyRegistry).
-	var xp_amount: int = EnemyRegistry.get_xp_reward(enemy_type, is_boss)
+	var xp_amount: int = _level_scaled_xp(EnemyRegistry.get_xp_reward(enemy_type, is_boss),
+			_sm.save_manager.pending_battle_enemy_data)
 	_sm.save_manager.add_xp(xp_amount)
 	_sm._bump_session_stat("xp_earned", xp_amount)
 	# Joined enemies' coins/XP ride the same floating toast as the main kill.
@@ -214,6 +216,14 @@ func _show_reward_toasts(coins_won: int, xp_won: int, reward_card_id: String, ti
 	fx.global_position = anchor.global_position
 	fx.play(lines)
 
+## Zone-level XP (TID-536): scaled by the enemy's level and its con colour
+## against the player — grey enemies give none. Enemies without a level (story
+## set pieces, duels) keep their base XP.
+func _level_scaled_xp(base_xp: int, enemy_data: Dictionary) -> int:
+	if not enemy_data.has("enemy_level"):
+		return base_xp
+	return _ZoneLevels.scaled_xp(base_xp, int(enemy_data["enemy_level"]), _sm.save_manager.level)
+
 ## Enemies that joined the fight mid-way (TID-551) each count as a kill:
 ## defeated in the world, bestiary + bounty progress, their own coins and XP.
 ## Returns the granted totals as (coins, xp) for the reward toast.
@@ -235,7 +245,7 @@ func _reward_joined_enemies(gambit_id: String) -> Vector2i:
 		_sm.save_manager.add_coins(coins)
 		_sm._bump_session_stat("coins_earned", coins)
 		total.x += coins
-		var xp: int = EnemyRegistry.get_xp_reward(jtype, bool(data.get("is_boss", false)))
+		var xp: int = _level_scaled_xp(EnemyRegistry.get_xp_reward(jtype, bool(data.get("is_boss", false))), data)
 		_sm.save_manager.add_xp(xp)
 		_sm._bump_session_stat("xp_earned", xp)
 		total.y += xp

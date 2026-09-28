@@ -2,6 +2,7 @@
 # BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 extends Control
 
+const _ZoneLevels = preload("res://game_logic/world/ZoneLevels.gd")
 const GameState = preload("res://game_logic/battle/GameState.gd")
 const _BattleNet = preload("res://scenes/battle/net/BattleNet.gd")
 const _BattleNetSync = preload("res://scenes/battle/BattleNetSync.gd")
@@ -503,6 +504,8 @@ func _setup_solo_battle() -> void:
 	var _enemy_tier: int = EnemyRegistry.get_difficulty_tier(_enemy_type) if _enemy_type != "" else 1
 	if bool(enemy_data.get("is_boss", false)):
 		_enemy_tier = 4
+	var _enemy_level: int = int(enemy_data.get("enemy_level", 1))  # zone level (TID-536)
+	_enemy_tier = _ZoneLevels.scaled_tier(_enemy_tier, _enemy_level)
 	# Emboldened Foe gambit: set bonus before build_deck so it is applied to the draw_deck
 	# and persists for boss phase-2 rebuild via PlayerState.minion_attack_bonus.
 	var _gambit_id: String = str(enemy_data.get("gambit_id", ""))
@@ -521,6 +524,7 @@ func _setup_solo_battle() -> void:
 			_state.players[1].hero.health = bhp
 			_state.players[1].hero.max_health = bhp
 		_result_ui.show_boss_banner(enemy_data)
+	modifiers._apply_zone_level(_enemy_level)
 
 	# Blighted zone buff: non-blight-heart enemies get +5 HP in blighted chunks.
 	if bool(enemy_data.get("is_blighted", false)) and not enemy_data.has("blight_heart_id"):

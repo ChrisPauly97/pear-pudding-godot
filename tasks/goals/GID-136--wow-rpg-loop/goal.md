@@ -15,7 +15,7 @@ Raised by the user (2026-09-26): towns, NPCs with asks, tracked objectives like 
 | TID-533 | Quest Data & Registry (also prerequisite of GID-141) | agent | done | — |
 | TID-534 | Quest-Giver NPCs & First Madrian Chain (chain content delivered by GID-141 / TID-592) | agent | done | TID-533 |
 | TID-535 | Quest Log & On-Screen Tracker | agent | superseded | TID-533 |
-| TID-536 | Zone Level Ranges & Enemy Levels (also prerequisite of GID-141) | agent | pending | — |
+| TID-536 | Zone Level Ranges & Enemy Levels (also prerequisite of GID-141) | agent | done | — |
 | TID-537 | Class Trainers & Skill Cards | agent | done | TID-536, TID-540 |
 | TID-538 | Gear Rarity, Item Level & Quest Reward Choice | agent | pending | TID-533, TID-536 |
 | TID-542 | Consumables — Inventory Use & D3-Style Quick Slot | agent | pending | — |

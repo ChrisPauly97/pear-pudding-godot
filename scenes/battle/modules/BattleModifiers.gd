@@ -6,6 +6,7 @@
 ## `_battle.add_child` rather than a bare `add_child`.
 extends Node
 
+const _ZoneLevels = preload("res://game_logic/world/ZoneLevels.gd")
 const _BattleScene = preload("res://scenes/battle/BattleScene.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
@@ -188,6 +189,15 @@ func _apply_weather_to_summoned(card: CardInstance, _player_idx: int) -> void:
 		"sandstorm", "dust_devil":
 			if _battle._state.turn_number <= 2:
 				card.attack = maxi(0, card.attack - 1)
+
+## Zone level (TID-536): the enemy hero gains +6% HP per level above 1 (its card
+## tier is raised in BattleScene before the deck is built).
+func _apply_zone_level(level: int) -> void:
+	if level <= 1:
+		return
+	var hero_hp: int = _ZoneLevels.scaled_hero_hp(_battle._state.players[1].hero.max_health, level)
+	_battle._state.players[1].hero.health = hero_hp
+	_battle._state.players[1].hero.max_health = hero_hp
 
 func _apply_ambush_modifiers(edata: Dictionary) -> void:
 	if bool(edata.get("player_ambush", false)):

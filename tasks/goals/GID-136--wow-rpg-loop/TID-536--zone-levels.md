@@ -2,7 +2,7 @@
 
 **Goal:** GID-136
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -26,12 +26,21 @@ WoW zones have level ranges; enemies show a level coloured relative to yours (gr
 
 ## Plan
 
-_Written during Plan phase._
+1. Pure `ZoneLevels.gd`: distance-from-Madrian level ramp, con colours, XP / HP / tier scaling.
+2. `EnemyNPC`: level (preset → zone → player level), coloured "Lv N" tag, level on the engage payload.
+3. Battle: tier bump before deck build, HP scaling in `BattleModifiers`.
+4. XP scaling in `BattleVictory` (main + joined enemies); grey = 0.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `game_logic/world/ZoneLevels.gd`.
+- `scenes/world/entities/EnemyNPC.gd`: `enemy_level()`, `_add_level_tag()`, `_refresh_level_tag()` (on `level_up`),
+  `enemy_level` in the engage payload.
+- `scenes/battle/BattleScene.gd`: `scaled_tier` before `build_deck`; calls `modifiers._apply_zone_level()`.
+- `scenes/battle/modules/BattleModifiers.gd`: `_apply_zone_level()`.
+- `autoloads/scene_manager/BattleVictory.gd`: `_level_scaled_xp()` for main + joined enemies.
+- Tests: `tests/unit/test_zone_levels.gd` (6). Suite 2803 pass; smokes clean; gdlint + unsafe-hits clean.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`docs/agent/enemies-and-npcs.md`: "Zone Levels & Enemy Levels" section.

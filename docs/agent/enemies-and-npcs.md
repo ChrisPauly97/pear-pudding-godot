@@ -400,3 +400,22 @@ victory persists the defeat into the GID-095 session file instead of `save.json`
 behaviour is unchanged — the proximity-trigger AI, `EnemyRegistry` decks, and
 `SaveManager.defeated_enemies` are all untouched when no session is active. See
 [multiplayer-coop.md](multiplayer-coop.md) → *Shared World-Object Sync*.
+
+## Zone Levels & Enemy Levels (GID-136 / TID-536)
+
+`game_logic/world/ZoneLevels.gd` (pure static) gives the overworld WoW-style level ranges:
+
+- **Zone level** = distance from Madrian's centre (`ORIGIN_TILE` (8,-5)): level 1 inside `STARTER_RADIUS` (30 tiles),
+  then +1 per `LEVEL_STEP_TILES` (12), capped at `MAX_LEVEL` 60. Story towns land in story order (Madrian 1,
+  Maykalene ~8, Marsax Hold ~15, Blancogov / Larik ~22). `range_at_tile()` gives a ±1 display range.
+- **Enemy level** (`EnemyNPC.enemy_level()`): a preset `enemy_data["enemy_level"]` wins (Spire/rifts, events); else
+  the zone level where it stands on `main`; else (dungeons, interiors) the player's level. Cached into `enemy_data`
+  when its **"Lv N" tag** (Label3D above the sprite) is added a frame after spawn, and stamped on the engage payload.
+- **Con colour** vs the player's level: grey (≤ −5), green (−4..−2), yellow (±2), orange (+3..+4), red (≥ +5); the tag
+  recolours on `GameBus.level_up`.
+- **Battle:** `BattleScene` raises the card tier (`scaled_tier`: +1 per 10 levels, max 4) before the enemy deck is
+  built; `BattleModifiers._apply_zone_level()` scales enemy hero HP (+6 %/level).
+- **XP:** `BattleVictory._level_scaled_xp()` → `scaled_xp(base, enemy_level, player_level)` = base × (1 + 0.1·(L−1)) ×
+  con factor (grey 0, green 0.75, yellow 1, orange 1.2, red 1.4). Payloads without `enemy_level` (story set pieces,
+  duels, blight hearts) keep base XP and unscaled stats.
+- Tests: `tests/unit/test_zone_levels.gd`.
