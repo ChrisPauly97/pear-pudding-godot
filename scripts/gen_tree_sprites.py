@@ -99,7 +99,8 @@ def pine(seed, ramp, snow=False):
     w, h = k(24), k(46)
     px = blank(w, h)
     cx = w // 2
-    trunk(px, cx, k(36), h - 1, k(3), (70, 46, 34, 255), (100, 70, 48, 255), rng)
+    # Trunk starts high so a 4-tier canopy (which ends sooner) still covers its top.
+    trunk(px, cx, k(20), h - 1, k(3), (70, 46, 34, 255), (100, 70, 48, 255), rng)
     tiers = rng.choice([4, 5])
     top = 2
     for t in range(tiers):

@@ -66,3 +66,23 @@ func test_every_tree_key_has_sprites() -> void:
 	for set_arr: Array in _BiomeDef.TREE_SETS:
 		for key: String in set_arr:
 			assert_gt(_SpriteRegistry.prop_variants(key).size(), 1, "%s has sprite variants" % key)
+
+
+func test_tree_sprites_have_no_gap_between_trunk_and_canopy() -> void:
+	for set_arr: Array in _BiomeDef.TREE_SETS:
+		for key: String in set_arr:
+			for tex: Variant in _SpriteRegistry.prop_variants(key):
+				var img: Image = (tex as Texture2D).get_image()
+				var cx: int = img.get_width() / 2
+				var seen: bool = false
+				var gap: bool = false
+				var ended: bool = false
+				for y in range(img.get_height()):
+					var solid: bool = img.get_pixel(cx, y).a > 0.5
+					if solid and ended:
+						gap = true
+					if solid:
+						seen = true
+					elif seen:
+						ended = true
+				assert_false(gap, "%s: centre column is one solid run" % key)
