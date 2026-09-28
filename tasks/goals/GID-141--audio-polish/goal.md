@@ -24,16 +24,16 @@ there is no ffmpeg/sox, so ship `.ogg` as-is and repoint paths).
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-587 | Replace Synthesized SFX with CC0 Files | agent | pending | — |
-| TID-588 | Sound Variation — Random Takes for Repeated SFX | agent | pending | TID-587 |
-| TID-589 | Real Biome Ambience Beds + Weather/Time Loops | agent | pending | — |
-| TID-590 | Siege Music — Dedicated Track During Town Sieges | agent | pending | — |
+| TID-587 | Replace Synthesized SFX with CC0 Files | agent | done | — |
+| TID-588 | Sound Variation — Random Takes for Repeated SFX | agent | done | TID-587 |
+| TID-589 | Real Biome Ambience Beds + Weather/Time Loops | agent | done | — |
+| TID-590 | Siege Music — Dedicated Track During Town Sieges | agent | done | — |
 
 ## Acceptance Criteria
 
-- [ ] Every `AudioManager.SFX_PATHS` key resolves to a committed real file (synth fallback kept)
-- [ ] Footsteps, card and hit sounds vary between several takes
-- [ ] All 5 biome beds and 8 `AmbienceLayers.LAYER_PATHS` loops are real files that loop seamlessly
-- [ ] A siege plays its own music, and the town track returns on victory/defeat (solo and co-op)
-- [ ] Every new file has a `CREDITS.md` entry (source URL, author, CC0)
-- [ ] Total added audio stays ≤ ~8 MB; tests, gdlint and headless import are clean
+- [x] Every `AudioManager.SFX_PATHS` key resolves to a committed real file (synth fallback kept)
+- [x] Footsteps, card and hit sounds vary between several takes
+- [x] All 5 biome beds and 8 `AmbienceLayers.LAYER_PATHS` loops are real files that loop seamlessly
+- [x] A siege plays its own music, and the town track returns on victory/defeat (solo and co-op)
+- [x] Every new file has a `CREDITS.md` entry (source URL, author, CC0)
+- [x] Total added audio stays ≤ ~8 MB; tests, gdlint and headless import are clean

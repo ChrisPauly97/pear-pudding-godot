@@ -2,7 +2,7 @@
 
 **Goal:** GID-141
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -42,12 +42,22 @@ Biome beds and weather/time layers are synthesized noise loops
 
 ## Plan
 
-_Written during Plan phase._
+Convert the CC0 loops to mono Vorbis, derive the five biome beds from the wind loop with ffmpeg filters, and flag every import `loop=true`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `assets/audio/ambience/`: 12 files (1.1 MB). rain `Rain OGG/2`, heavy_rain
+  `3`+`4` mixed, wind the wind loop, sandstorm wind ×1.3 high-passed, crackle
+  `fire-1`, birds isaiah658, crickets Wolfgang_'s loop. Biome beds from the wind
+  loop: grasslands low-pass 900 Hz, forest ×0.85 low-pass 600 Hz, desert ×1.1
+  band 300–3500 Hz, scorched ×0.7 low-pass 260 Hz, mountains high-pass 120 Hz.
+  Each bed was rendered from three back-to-back copies with only the middle one
+  kept, so the filter state is continuous across the loop point.
+- Every `.ogg.import` sets `loop=true`; the per-frame restart in
+  `AudioManager._process` stays as a safety net.
+- Owls: no clean CC0 loop found, so the synth stays (BID-064).
+- `test_sfx_assets.test_ambience_files_exist_and_loop`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`assets/audio/ambience/README.md` (shipped-files section); `CREDITS.md`.

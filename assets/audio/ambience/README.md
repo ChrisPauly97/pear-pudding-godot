@@ -1,4 +1,4 @@
-# Ambience Placeholder Directory
+# Ambience Directory
 
 `AudioManager.AMBIENCE_PATHS` names one looping bed per biome (indices match
 `IsoConst` biome IDs). A missing file falls back to a procedurally synthesized
@@ -14,8 +14,6 @@ here always wins over the synthesized fallback.
 | 3 | `scorched.ogg` | Scorched |
 | 4 | `mountains.ogg` | Mountains |
 
-Replace any file with a real audio asset when available. The Godot editor will
-auto-generate `.import` sidecars on first scan.
 
 ## Weather and time-of-day layers (GID-129 / TID-490)
 
@@ -33,3 +31,13 @@ mono or stereo, a few seconds to a minute.
 | `birds.ogg` | time | daytime, grasslands/forest/mountains/outdoor towns, no weather |
 | `crickets.ogg` | time | night, grasslands/desert/outdoor towns |
 | `owls.ogg` | time | night, forest/mountains |
+
+## Shipped files (GID-141 / TID-589)
+
+Every slot except `owls.ogg` has a real CC0 loop (sources in `CREDITS.md`); owls
+still use the `AmbienceGen` synth. The five biome beds are the same wind loop
+run through different filters/playback rates (low-passed breeze for
+grasslands/forest, bright for desert, rumble for scorched, full for mountains),
+rendered from three back-to-back copies with only the middle copy kept, so the
+filter tail makes the loop seamless. Every `.ogg.import` here sets `loop=true`;
+`test_sfx_assets` fails if one doesn't.
