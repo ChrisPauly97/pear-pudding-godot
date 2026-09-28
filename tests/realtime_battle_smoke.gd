@@ -111,6 +111,10 @@ func _run_onboarding() -> bool:
 	var save_manager: Object = root.get_node("SceneManager").get("save_manager")
 	save_manager.set("realtime_fights", 0)
 	save_manager.set("level", 1)
+	# A fresh player: nothing learned from a trainer yet (GID-141).
+	var learned: Array = save_manager.get("learned_abilities")
+	var kept: Array = learned.duplicate()
+	learned.clear()
 	(save_manager.get("story_flags") as Dictionary).erase("seen_tutorial_rt_intro")
 	var battle: Node = (load(_BATTLE_SCENE_PATH) as PackedScene).instantiate()
 	battle.set("enemy_data", {"enemy_type": "undead_basic", "is_boss": false, "enemy_deck": _ENEMY_DECK})
@@ -138,6 +142,7 @@ func _run_onboarding() -> bool:
 		print("  [FAIL] onboarding: " + f)
 	if fails.is_empty():
 		print("  [PASS] onboarding: first fight is Strike-only with the intro tip")
+	learned.append_array(kept)
 	battle.queue_free()
 	await process_frame
 	return fails.is_empty()

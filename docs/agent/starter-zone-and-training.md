@@ -63,6 +63,12 @@ Curve unchanged: `xp_for_level(l) = 50·l²` (L2 50, L5 800, L10 4 500, L15 10 6
 starter quests (TID-592) plus level-1 kills at 20 XP; zone levels (TID-536) scale kill XP up by 10 %/level, so the
 same curve stretches naturally toward the long-term level-40 riding goal.
 
+### Combat gates (TID-588)
+
+Documented in `docs/agent/combat-model.md` → "New-player onboarding": bar = learned skills, hand from
+`feat_minions`, spell cards from `feat_spells`, companion from `feat_companion`, real-time forced until the hand
+exists (`SaveManager.battle_mode()`), Maiteln barks up to level 12.
+
 ## Integrations
 
 - Combat gates (TID-588), world/menu gates (TID-589), trainer flow (TID-590), starter zone (TID-591), quest chain

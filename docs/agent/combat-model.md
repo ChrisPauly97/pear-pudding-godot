@@ -352,17 +352,28 @@ cards (`RealtimeVisuals.update_hand_sweep`, pooled overlays on the root; full sh
 (`RealtimeVisuals._update_focus_ring`: focused minion, else the targeted enemy token). Enemy cast bars
 (inside their tokens) are larger, and a ready Kick pulses so you can react without looking up.
 
-## New-player onboarding (TID-552 / TID-553)
+## New-player onboarding (TID-552 / TID-553, ladder-based since GID-141 / TID-588)
 
-**Ramp** — `game_logic/battle/CombatOnboarding.gd`, keyed on `SaveManager.realtime_fights` (counted when a
-real-time fight starts; skipped for level > `MAX_LEVEL` = 2):
+**Ramp** — a fight contains only what the player has learned from a trainer (`UnlockLadder`, see
+`docs/agent/starter-zone-and-training.md`). `game_logic/battle/CombatOnboarding.gd` reads
+`SaveManager.learned_abilities`:
 
-| Fight | Bar | Hand / Allies | Clock |
+| Learned | Bar | Hand / Allies | Spell cards |
 |---|---|---|---|
-| 1 | Strike | hidden | slow (60 %) |
-| 2 | Strike, Mend | hidden | normal |
-| 3 | Strike, Mend, Kick | hidden | normal |
-| 4+ | full bar | shown | normal |
+| nothing (level 1) | Strike | hidden | — |
+| + `mend` (L2) | Strike, Mend | hidden | — |
+| + `kick` (L3) | Strike, Mend, Kick | hidden | — |
+| + `feat_minions` (L4) | as learned | shown | removed from the battle deck |
+| + `feat_spells` (L5) | as learned | shown | in the deck (full fight, `stage` −1) |
+
+- The bar needs no filter: `SkillBar` only holds learned ids.
+- Spells: `BattleModifiers._apply_combat_unlocks()` strips `card_class == "spell"` cards from the draw deck
+  (not in puzzle / scripted battles).
+- Slow clock (60 %): only the very first fight (`realtime_fights == 0`, nothing learned).
+- **Battle mode:** a hand-less player always fights in real time — `SaveManager.battle_mode()` (use it instead of
+  reading the `battle_mode` setting) returns `"realtime"` until `feat_minions`; after that the setting decides.
+- Companion: `BattleModifiers._active_companion()` is `""` until `feat_companion` is learned.
+- Migrated saves (v44) have all four unlocks → the full fight.
 
 `scenes/battle/modules/BattleOnboarding.gd` (`BattleRealtime.onboarding`) applies it; the turn-based card tips
 (`tutorial_battle_tip`, tap_and_hold / tap_to_cast) wait until the hand is shown (`realtime.shows_card_tips()`).
@@ -373,8 +384,8 @@ real-time fight starts; skipped for level > `MAX_LEVEL` = 2):
 
 | Tip | When | Spotlight |
 |---|---|---|
-| `rt_intro` | fight 1 starts | Strike |
-| `rt_skill_mend` / `rt_skill_kick` | the fight that unlocks it | that skill |
+| `rt_intro` | first real-time fight | Strike |
+| `rt_skill_mend` / `rt_skill_kick` | first fight with it on the bar | that skill |
 | `rt_cards` | first fight with the hand | hand |
 | `rt_low_hp` | HP ≤ 40 % with Mend on the bar | Mend |
 | `rt_enemy_cast` | an enemy casts with Kick on the bar | Kick |
@@ -392,9 +403,9 @@ and distinct from the one-shot `TutorialRegistry` popups above:
 - **Mentor barks** (`mentor_barks`, `scenes/battle/modules/MentorBarks.gd`): short, non-blocking Maiteln
   speech bubbles (portrait + fading label, top-center — clear of the top-left `SidePanel`, the top-right enemy
   hero token, and the bottom action strip / hand / onboarding spotlight). Built only when
-  `BarkRules.is_eligible(SaveManager.active_companion, onboarding.stage)` is true: Maiteln equipped as Mentor
-  (today's `active_companion`) **and** still on the `CombatOnboarding` ramp (`stage >= 0` — the same fight-count
-  gate TID-552/553 already use, not a new counter). Pure rules (rate limit 8 s, 2 uses per line per fight,
+  `BarkRules.is_eligible(companion, player_level)` is true: Maiteln learned + equipped as companion
+  (`BattleRealtime.modifiers_companion()`) **and** the player is still new (level ≤ `BarkRules.COACH_MAX_LEVEL`
+  = 12 — GID-141 moved the gate from the fight-count ramp, because Maiteln joins at level 6, after it). Pure rules (rate limit 8 s, 2 uses per line per fight,
   priority order, line text) live in `game_logic/battle/BarkRules.gd`; the module turns real moments into
   candidates each frame:
   | Moment | Source |

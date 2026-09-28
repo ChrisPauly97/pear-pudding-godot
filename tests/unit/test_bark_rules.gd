@@ -4,14 +4,13 @@ extends "res://tests/framework/test_case.gd"
 const BarkRules = preload("res://game_logic/battle/BarkRules.gd")
 
 func test_eligible_only_for_maiteln() -> void:
-	assert_true(BarkRules.is_eligible("maiteln", 0))
-	assert_false(BarkRules.is_eligible("", 0))
-	assert_false(BarkRules.is_eligible("other_companion", 0))
+	assert_true(BarkRules.is_eligible("maiteln", 6))
+	assert_false(BarkRules.is_eligible("", 6))
+	assert_false(BarkRules.is_eligible("other_companion", 6))
 
-func test_eligible_only_while_on_the_onboarding_ramp() -> void:
-	assert_true(BarkRules.is_eligible("maiteln", 0))
-	assert_true(BarkRules.is_eligible("maiteln", 2))
-	assert_false(BarkRules.is_eligible("maiteln", -1), "graduated (full fight) is not eligible")
+func test_eligible_only_while_new() -> void:
+	assert_true(BarkRules.is_eligible("maiteln", BarkRules.COACH_MAX_LEVEL))
+	assert_false(BarkRules.is_eligible("maiteln", BarkRules.COACH_MAX_LEVEL + 1), "veterans are not coached")
 
 func test_no_bark_before_start_delay() -> void:
 	assert_false(BarkRules.can_bark_now(BarkRules.START_DELAY_S - 0.1, -1.0))

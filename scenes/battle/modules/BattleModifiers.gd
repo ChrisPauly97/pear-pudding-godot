@@ -6,6 +6,8 @@
 ## `_battle.add_child` rather than a bare `add_child`.
 extends Node
 
+const _CombatOnboarding = preload("res://game_logic/battle/CombatOnboarding.gd")
+const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const _ZoneLevels = preload("res://game_logic/world/ZoneLevels.gd")
 const _BattleScene = preload("res://scenes/battle/BattleScene.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
@@ -43,7 +45,7 @@ func _apply_equipment_effects(player: PlayerState) -> void:
 	# BattleRealtime.maybe_start()). Turn-based has no off-hand swing, so it
 	# gets a smaller always-on attack bonus instead (documented in
 	# docs/agent/combat-model.md).
-	var realtime_mode: bool = str(sm.get_setting("battle_mode", "turn")).begins_with("realtime")
+	var realtime_mode: bool = sm.battle_mode().begins_with("realtime")
 	var injected_any: bool = false
 	for item_id in slot_ids:
 		if item_id == "":
@@ -103,7 +105,7 @@ func _apply_passive_skills(player: PlayerState) -> void:
 func _apply_companion_battle_start(player: PlayerState) -> void:
 	if _battle._state.puzzle_mode or _battle._state.friendly_duel:
 		return
-	var companion_id: String = SceneManager.save_manager.active_companion
+	var companion_id: String = _active_companion()
 	if companion_id == "" or not CompanionRegistry.is_unlocked(companion_id):
 		return
 	var companion: CompanionData = CompanionRegistry.get_companion(companion_id)
@@ -121,7 +123,7 @@ func _apply_companion_battle_start(player: PlayerState) -> void:
 func _apply_companion_turn_start() -> void:
 	if _battle._state.puzzle_mode or _battle._state.friendly_duel or _battle._state.scripted_battle:
 		return
-	var companion_id: String = SceneManager.save_manager.active_companion
+	var companion_id: String = _active_companion()
 	if companion_id == "" or not CompanionRegistry.is_unlocked(companion_id):
 		return
 	var companion: CompanionData = CompanionRegistry.get_companion(companion_id)
@@ -135,7 +137,7 @@ func _apply_companion_turn_start() -> void:
 func _add_companion_hud() -> void:
 	if _battle._state.puzzle_mode or _battle._state.scripted_battle:
 		return
-	var companion_id: String = SceneManager.save_manager.active_companion
+	var companion_id: String = _active_companion()
 	if companion_id == "" or not CompanionRegistry.is_unlocked(companion_id):
 		return
 	var companion: CompanionData = CompanionRegistry.get_companion(companion_id)
@@ -189,6 +191,25 @@ func _apply_weather_to_summoned(card: CardInstance, _player_idx: int) -> void:
 		"sandstorm", "dust_devil":
 			if _battle._state.turn_number <= 2:
 				card.attack = maxi(0, card.attack - 1)
+
+## GID-141 / TID-588: spell cards stay out of the battle deck until the player
+## has learned spells from the Combat Trainer.
+func _apply_combat_unlocks(player: PlayerState) -> void:
+	if _battle._state.puzzle_mode or _battle._state.scripted_battle:
+		return
+	if _CombatOnboarding.allows_spells(SceneManager.save_manager.learned_abilities):
+		return
+	var kept: Array[CardInstance] = []
+	for c: CardInstance in player.draw_deck:
+		if c.card_class != "spell":
+			kept.append(c)
+	player.draw_deck = kept
+
+## The active companion, or "" until the player has learned to fight beside one
+## (UnlockLadder feat_companion).
+func _active_companion() -> String:
+	var sm := SceneManager.save_manager
+	return sm.active_companion if sm.has_learned(_UnlockLadder.FEAT_COMPANION) else ""
 
 ## Zone level (TID-536): the enemy hero gains +6% HP per level above 1 (its card
 ## tier is raised in BattleScene before the deck is built).

@@ -47,7 +47,7 @@ Co-op/PvP stay reachable from the main menu. "Head Start (debug)" learns everyth
 | TID-534 | *(GID-136)* Quest-Giver NPCs (accept/turn-in flow) | agent | done | TID-533 |
 | TID-536 | *(GID-136)* Zone Level Ranges & Enemy Levels | agent | done | — |
 | TID-587 | Unlock Ladder Table & XP Curve | agent | done | — |
-| TID-588 | Combat Gates Follow the Ladder | agent | pending | TID-587 |
+| TID-588 | Combat Gates Follow the Ladder | agent | done | TID-587 |
 | TID-589 | World & Menu Gates Follow the Ladder | agent | pending | TID-587 |
 | TID-590 | Trainer Flow — Themed Trainers, Level-Up Notice, Learn-for-Gold | agent | pending | TID-588, TID-589 |
 | TID-591 | Starter Zone — Madrian Outskirts | agent | pending | TID-536 |

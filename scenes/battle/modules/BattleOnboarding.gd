@@ -1,5 +1,6 @@
-## Real-time onboarding in the fight (GID-135 / TID-552, TID-553): applies the
-## `CombatOnboarding` stage (skills on the bar, hidden hand, slow clock) and
+## Real-time onboarding in the fight (GID-135 / TID-552, TID-553; ladder-based
+## since GID-141 / TID-588): hides the hand until minions are learned, slows the
+## very first fight's clock, and
 ## shows one-shot tips the first time something happens — each a
 ## `TutorialRegistry` popup (pauses the clock, remembered via "seen_tutorial_*"
 ## story flags) plus a gold spotlight on the thing to press once it closes.
@@ -21,8 +22,10 @@ const SPOT_SECONDS: float = 3.5
 ## HP fraction that triggers the Mend tip.
 const LOW_HP: float = 0.4
 
-## -1 = full fight; otherwise the CombatOnboarding stage index.
+## -1 = full fight; otherwise how many combat unlocks are learned (CombatOnboarding).
 var stage: int = -1
+var _hand: bool = true
+var _slow: bool = false
 var _battle: _BattleScene
 var _realtime: _BattleRealtime
 var _fired: Dictionary = {}
@@ -34,25 +37,22 @@ func _init(battle: _BattleScene, realtime: _BattleRealtime) -> void:
 	_battle = battle
 	_realtime = realtime
 
-## Picks this fight's stage and counts the fight towards the ramp. `count`
-## is false for the training dummy (TID-557) — it should exercise whatever
-## stage the player is already on without advancing (or completing) the ramp.
+## Reads what this player has learned and counts the fight. `count` is false
+## for the training dummy (TID-557) — practice doesn't use up the slow first fight.
 func begin(count: bool = true) -> void:
 	var sm := SceneManager.save_manager
-	stage = CombatOnboarding.stage_for(sm.realtime_fights, sm.level)
+	stage = CombatOnboarding.stage_for(sm.learned_abilities)
+	_hand = CombatOnboarding.shows_hand(sm.learned_abilities)
+	_slow = CombatOnboarding.slow_clock(sm.realtime_fights, sm.learned_abilities)
 	if count:
 		sm.realtime_fights += 1
 		sm.mark_dirty()
 
-## The skill ids this fight's bar may hold.
-func filter_skills(ids: Array[String]) -> Array[String]:
-	return CombatOnboarding.filter_skills(ids, stage)
-
 func shows_hand() -> bool:
-	return CombatOnboarding.shows_hand(stage)
+	return _hand
 
 func slow_clock() -> bool:
-	return CombatOnboarding.slow_clock(stage)
+	return _slow
 
 ## After the UI is built: hide what isn't taught yet and show the opening tip.
 func apply() -> void:
@@ -60,10 +60,11 @@ func apply() -> void:
 		# No cards → no Allies either: hide the hand and your empty unit slots.
 		_battle._player_hand_view.visible = false
 		_battle._player_board_view.visible = false
-	if stage == 0:
-		tip("rt_intro", _realtime.skills.button_for("strike"))
-	for id: String in CombatOnboarding.new_skills(stage):
-		tip("rt_skill_" + id, _realtime.skills.button_for(id))
+	tip("rt_intro", _realtime.skills.button_for("strike"))
+	# First fight with a newly learned skill: its tip (each shows once ever).
+	for id: String in ["mend", "kick"]:
+		if _realtime.skills.button_for(id) != null:
+			tip("rt_skill_" + id, _realtime.skills.button_for(id))
 	if shows_hand():
 		tip("rt_cards", _battle._player_hand_view)
 

@@ -779,7 +779,7 @@ func _enter_battle(configure: Callable, networked: bool = false) -> void:
 func _in_world_battle_eligible(networked: bool) -> bool:
 	if networked or NetworkManager.is_active():
 		return false
-	if not str(save_manager.get_setting("battle_mode", "turn")).begins_with("realtime"):
+	if not save_manager.battle_mode().begins_with("realtime"):
 		return false
 	var world: Node = get_tree().current_scene
 	return world != null and world.get("_camera") is Camera3D

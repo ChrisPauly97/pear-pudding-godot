@@ -79,7 +79,7 @@ static func eligible(mode_setting: String, is_fresh: bool, networked: bool, puzz
 	return mode_setting.begins_with("realtime") and is_fresh and not networked and not puzzle and not scripted
 
 func maybe_start(is_fresh: bool) -> void:
-	var mode: String = str(SceneManager.save_manager.get_setting("battle_mode", "turn"))
+	var mode: String = SceneManager.save_manager.battle_mode()
 	var networked: bool = _battle._pvp or _battle._coop_pve or _battle._team_pvp or _battle._pvp_spectating
 	if not eligible(mode, is_fresh, networked, _battle._state.puzzle_mode, _battle._state.scripted_battle):
 		return
@@ -88,7 +88,8 @@ func maybe_start(is_fresh: bool) -> void:
 	var tier: int = _EnemyRegistry.get_difficulty_tier(enemy_type)
 	var saved: Variant = SceneManager.save_manager.get_setting(TUNING_SETTING, {})
 	var tuning := CombatTuning.new(saved as Dictionary if saved is Dictionary else {})
-	rt = RealtimeCombat.new(_battle._state, [player_level, enemy_level_for_tier(tier)], tuning)
+	var enemy_level: int = int(_battle.enemy_data.get("enemy_level", enemy_level_for_tier(tier)))
+	rt = RealtimeCombat.new(_battle._state, [player_level, enemy_level], tuning)
 	rt.weapon_speed[RealtimeCombat.PLAYER] = equipped_weapon_speed()
 	rt.offhand_damage[RealtimeCombat.PLAYER] = offhand_damage_for_item(str(SceneManager.save_manager.equipped_offhand))
 	if _EnemyRegistry.is_passive(enemy_type):
@@ -104,12 +105,12 @@ func maybe_start(is_fresh: bool) -> void:
 	onboarding.begin(not _EnemyRegistry.is_passive(enemy_type))
 	var sm := SceneManager.save_manager
 	var bar_ids: Array[String] = SkillBar.new(sm.skill_bar, sm.learned_abilities).ids
-	skills = _BattleSkillBar.new(_battle, self, onboarding.filter_skills(bar_ids))
+	skills = _BattleSkillBar.new(_battle, self, bar_ids)
 	skills.build(_strip)
 	momentum = _MomentumHud.new(_battle, self)
 	momentum.build(_strip)
 	fight_stats = FightStats.new()
-	if _BarkRules.is_eligible(SceneManager.save_manager.active_companion, onboarding.stage):
+	if _BarkRules.is_eligible(modifiers_companion(), SceneManager.save_manager.level):
 		mentor_barks = _MentorBarks.new(_battle, self)
 	GameBus.potion_used.connect(_on_potion_used)
 	_battle._refresh_all()
@@ -325,6 +326,10 @@ func _cast_info() -> Dictionary:
 		return {"name": _cast_card.name + " (queued)", "fraction": 0.0, "cost": cost}
 	return {"name": _cast_card.name, "fraction": 1.0 - _cast_left / _cast_total, "cost": cost}
 
+## The battle companion (Maiteln…), "" until learned (UnlockLadder feat_companion).
+func modifiers_companion() -> String:
+	return _battle.modifiers._active_companion()
+
 ## Hero token for `side` (onboarding spotlights), or null.
 func token(side: int) -> Control:
 	return _visuals.token(side) if _visuals != null else null
@@ -503,7 +508,7 @@ func _after_enemy_play(card: CardInstance, ai_idx: int = RealtimeCombat.ENEMY) -
 ## Clock rate: "realtime_slow" (tactical) runs at 60 %, and the Fast battle-speed
 ## setting runs real time 25 % quicker. Plain inverse of `_speed_scale` would be 2.2×.
 func _speed_factor() -> float:
-	var mode: String = str(SceneManager.save_manager.get_setting("battle_mode", "turn"))
+	var mode: String = SceneManager.save_manager.battle_mode()
 	if mode == "realtime_slow" or (onboarding != null and onboarding.slow_clock()):
 		return 0.6
 	return 1.25 if _battle._speed_scale < 1.0 else 1.0

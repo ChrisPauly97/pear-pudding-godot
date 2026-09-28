@@ -15,6 +15,7 @@ const _SaveFile = preload("res://game_logic/save/SaveFile.gd")
 const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
 const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const _SkillBar = preload("res://game_logic/battle/SkillBar.gd")
+const _CombatOnboarding = preload("res://game_logic/battle/CombatOnboarding.gd")
 const _SaveGarden = preload("res://autoloads/save_manager/SaveGarden.gd")
 const _SaveBounties = preload("res://autoloads/save_manager/SaveBounties.gd")
 const _SaveQuests = preload("res://autoloads/save_manager/SaveQuests.gd")
@@ -1276,6 +1277,11 @@ func learn_ability(id: String, cost: int) -> bool:
 	quests.progress_event("learn", id)
 	GameBus.feature_learned.emit(id)
 	return true
+
+## The Battle Mode to fight in: the setting, except that a player who hasn't
+## learned minions yet (no hand) always fights in real time (GID-141 / TID-588).
+func battle_mode() -> String:
+	return _CombatOnboarding.battle_mode(str(get_setting("battle_mode", "turn")), learned_abilities)
 
 ## True when ladder entry `id` (UnlockLadder) is usable — learned, or not a
 ## ladder entry at all.

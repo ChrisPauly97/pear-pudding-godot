@@ -2,7 +2,7 @@
 
 **Goal:** GID-141
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-587
 
 ## Lock
@@ -34,12 +34,28 @@ They must instead show only what the player has learned.
 
 ## Plan
 
-_Written during Plan phase._
+1. Rewrite `CombatOnboarding` to read `learned_abilities` (stage, hand, spells, slow first clock, forced
+   real-time mode) instead of counting fights.
+2. `BattleOnboarding` applies it; the bar is already learned-only.
+3. Spell cards stripped from the battle deck until `feat_spells`; companion passives until `feat_companion`.
+4. `SaveManager.battle_mode()` replaces direct `battle_mode` setting reads.
+5. Maiteln barks: eligibility by level (he joins at L6, after the ramp).
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/battle/CombatOnboarding.gd` rewritten (`stage_for(learned)`, `shows_hand`, `allows_spells`,
+  `slow_clock`, `battle_mode`).
+- `scenes/battle/modules/BattleOnboarding.gd`: ladder-based `begin`, no skill filtering, skill tips on first sight.
+- `scenes/battle/modules/BattleModifiers.gd`: `_apply_combat_unlocks()`, `_active_companion()` (used by the three
+  companion hooks), realtime check via `battle_mode()`.
+- `scenes/battle/BattleScene.gd`: one call to `_apply_combat_unlocks`.
+- `scenes/battle/modules/BattleRealtime.gd`: `modifiers_companion()`, bark eligibility by level, real-time enemy
+  level from the zone level when present (TID-536), mode via `battle_mode()`.
+- `autoloads/SaveManager.gd`: `battle_mode()`. `autoloads/SceneManager.gd`: in-world eligibility via it.
+- `game_logic/battle/BarkRules.gd`: `is_eligible(companion, level)`, `COACH_MAX_LEVEL`.
+- Tests: `test_combat_onboarding.gd` rewritten, `test_bark_rules.gd` updated, `realtime_battle_smoke.gd`
+  onboarding scenario clears learned abilities. Suite green, all CI smokes clean, gdlint + unsafe-hits clean.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`docs/agent/combat-model.md` onboarding + barks sections; `starter-zone-and-training.md`; CLAUDE.md BattleRealtime row.
