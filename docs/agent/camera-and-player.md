@@ -90,6 +90,18 @@ The `Sprite3D` uses `BILLBOARD_ENABLED` so it always faces the camera:
   - Formula: `pixel_height * pixel_size * 0.5 + margin = 48 * 0.04 * 0.5 + 0.14 ≈ 1.1`
 - Idle state shows frame 0
 
+### Occluded Silhouette (GID-142)
+
+Scenery is never cut away. `SpriteOutline.apply_xray(sprite)` chains
+`assets/shaders/sprite_xray.gdshader` as the `next_pass` of the sprite's outline
+material (local `Player` and `RemotePlayer`). The pass draws with depth testing
+off, reads `hint_depth_texture`, and paints only where the scene depth is more
+than `occlusion_bias` (0.8) nearer than the sprite: a two-texel warm rim around
+the silhouette plus a 15 % fill. `SpriteOutline.refresh` feeds both passes the
+current frame. The shader converts depth for Compatibility (`depth * 2 - 1`), as
+devices without Vulkan fall back to it. The old terrain-shader wall cutaway
+(`occlusion_focus` global) was removed.
+
 ### Chunk Streaming (`scenes/world/WorldScene.gd`)
 
 Every frame WorldScene checks if the player has crossed a chunk boundary:

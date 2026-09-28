@@ -362,10 +362,11 @@ created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
 | `ChestLoot.gd` (`chest_loot`) | Chest open (mimic, co-op sync, need/greed hand-off), card/coin scatter, equipment drop |
 | `NightLights.gd` (`night_lights`) | Night light rigs: lantern/waystone/mana-well/campfire glow dots + depth-based light pools, flicker, tier caps |
 | `AmbientTouches.gd` (`ambient`) | Weather visuals (particle rig, sky/fog look, grass wind; Settings > Weather Effects filter via `WeatherManager.shown()`), night fireflies, forest leaves, ground mist, player dust knobs + wet-ground footstep splashes |
-| `CharacterPresence.gd` (`character_presence`) | Per-frame character presentation: contact-shadow shader globals (GID-131), wall-cutaway `occlusion_focus`, idle breathe/bob/float of registered sprites (GID-132) |
+| `CharacterPresence.gd` (`character_presence`) | Per-frame character presentation: contact-shadow shader globals (GID-131), idle breathe/bob/float of registered sprites (GID-132) |
 | `FakeVolumetrics.gd` (`fake_volumetrics`) | Mobile-safe volumetric stand-ins: dawn/dusk fake light shafts, depth-fog post pass (GID-130) |
 | `RealmRegions.gd` (`realm_regions`) | Which stitched story town the player walks through (`current_town`): HUD name, music, entry flags, rivals, siege on town entry; `siege_gate(town)` (GID-138) |
 | `QuestTracker.gd` (`quest_tracker`) | Cached quest list + tracked quest (QuestLog) for compass/minimap/realm map, objective beacon, NPC "!" / "?" marks, "New objective" tip, overworld realm map on M (GID-140) |
+| `Critters.gd` (`critters`) | Ambient wildlife around the hero by biome (`CritterDef`, `entities/Critter.gd`): wander, flee, hover/hop; scenery only, not synced (GID-143) |
 
 BattleScene's single-player clusters live under `scenes/battle/modules/`, created by
 `BattleScene._ensure_battle_modules()`. Each has a `_battle` back-reference typed as

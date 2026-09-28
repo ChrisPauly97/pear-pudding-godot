@@ -46,6 +46,8 @@ See "Biome Enemy Pools" below for the current per-biome pool contents.
 | `undead_elite` | 5× Ghoul + 4× Zombie + 3× Skeleton | 20 | 4 | End game (mountains, very far) |
 | `wraith` (GID-021) | 6× Ghost + 2× Skeleton + 2× Ember Imp | 8 | 1 | Grasslands — fast, low-HP swarm |
 | `forest_shade` (GID-021) | 3× Skeleton + 2× Zombie + 2× Dusk Wraith + 2× Insight + Dusk Seer | 10 | 2 | Forest — evasive, card-advantage |
+| `cactus_worm` (GID-143) | 3× Skeleton + 3× Zombie + 2× Bramble Snare + Thorn Volley + Dagger Throw | 7 | 1 | Desert (near) — spiny ambusher, non-tracking |
+| `imbued_stag` (GID-143) | Ghost/Ghoul + Kinetic Bolt, Momentum, Thorn Volley, Germinate | 11 | 2 | Any enemy spawn standing on a ley line in grasslands/forest/mountains (`InfiniteWorldGen.enemy_type_at`, `BiomeDef.LEY_STAG_BIOMES`); tracking |
 | `sand_stalker` (GID-021) | 4× Skeleton + 3× Zombie + 2× Ghoul + Dagger Throw | 9 | 2 | Desert — aggressive rush |
 | `scorched_revenant` (GID-021) | 3× Zombie + 2× Ghoul + 2× Scorch + 2× Char + 2× Alight + Ember | 12 | 3 | Scorched — burn/board-wide damage |
 | `mountain_troll` (GID-021) | 6× Ghoul + 3× Zombie + 2× Restore + Wither | 15 | 3 | Mountains — high-HP, grindy |
@@ -62,7 +64,7 @@ deck is in `docs/human/story.md` "New Enemy Types".
 const ENEMY_POOLS: Array = [
     ["undead_basic", "undead_horde", "wraith"],        # Grasslands
     ["undead_basic", "forest_shade", "ghoul_pack"],     # Forest
-    ["sand_stalker", "undead_horde"],                   # Desert
+    ["cactus_worm", "sand_stalker", "undead_horde"],    # Desert
     ["scorched_revenant", "undead_elite"],              # Scorched
     ["mountain_troll", "stone_golem"],                  # Mountains
 ]
@@ -400,3 +402,15 @@ victory persists the defeat into the GID-095 session file instead of `save.json`
 behaviour is unchanged — the proximity-trigger AI, `EnemyRegistry` decks, and
 `SaveManager.defeated_enemies` are all untouched when no session is active. See
 [multiplayer-coop.md](multiplayer-coop.md) → *Shared World-Object Sync*.
+
+## Ambient Critters (GID-143)
+
+Scenery wildlife, not enemies: `scenes/world/modules/Critters.gd` keeps up to 10
+`entities/Critter.gd` nodes 8–22 units around the hero in the overworld and frees
+them past 32 units (or at night for day-only species). Species and tuning live in
+`game_logic/world/CritterDef.gd`: grasslands mice/rats/butterflies/bees, forest
+fawns, desert blackened adders, scorched larvae + adders, mountain snow rabbits.
+Ground critters wander within a radius of home on dry grass/hill and flee the hero
+inside 2.5 units; butterflies/bees hover, rabbits hop. No health, battles, saves
+or co-op sync. Sprites: `scripts/gen_creature_sprites.py` (also draws the cactus
+worm and imbued stag enemy sprites).

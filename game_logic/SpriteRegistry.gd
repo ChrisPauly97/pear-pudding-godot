@@ -22,6 +22,8 @@ const _ENEMY_RIVAL        := preload("res://assets/textures/characters/enemy_riv
 const _ENEMY_TERROR       := preload("res://assets/textures/characters/enemy_terror.png")
 const _ENEMY_MIMIC        := preload("res://assets/textures/characters/enemy_mimic.png")
 const _ENEMY_SPECTRE      := preload("res://assets/textures/characters/enemy_spectre.png")
+const _ENEMY_CACTUS_WORM  := preload("res://assets/textures/characters/enemy_cactus_worm.png")
+const _ENEMY_IMBUED_STAG  := preload("res://assets/textures/characters/enemy_imbued_stag.png")
 
 const _NPC_TOWNSPERSON    := preload("res://assets/textures/characters/npc_townsperson.png")
 const _NPC_TOWNSPERSON_2  := preload("res://assets/textures/characters/npc_townsperson_2.png")
@@ -71,6 +73,17 @@ const _PROP_BOULDER_2 := preload("res://assets/textures/props/prop_boulder_2.png
 const _PROP_LICHEN_0 := preload("res://assets/textures/props/prop_lichen_0.png")
 const _PROP_LICHEN_1 := preload("res://assets/textures/props/prop_lichen_1.png")
 const _PROP_LICHEN_2 := preload("res://assets/textures/props/prop_lichen_2.png")
+## Trees (scripts/gen_tree_sprites.py), scattered in groves by TreeScatter.
+const _PROP_TREE_OAK_0 := preload("res://assets/textures/props/prop_tree_oak_0.png")
+const _PROP_TREE_OAK_1 := preload("res://assets/textures/props/prop_tree_oak_1.png")
+const _PROP_TREE_OAK_2 := preload("res://assets/textures/props/prop_tree_oak_2.png")
+const _PROP_TREE_PINE_0 := preload("res://assets/textures/props/prop_tree_pine_0.png")
+const _PROP_TREE_PINE_1 := preload("res://assets/textures/props/prop_tree_pine_1.png")
+const _PROP_TREE_PINE_2 := preload("res://assets/textures/props/prop_tree_pine_2.png")
+const _PROP_TREE_SNOWPINE_0 := preload("res://assets/textures/props/prop_tree_snowpine_0.png")
+const _PROP_TREE_SNOWPINE_1 := preload("res://assets/textures/props/prop_tree_snowpine_1.png")
+const _PROP_TREE_DEAD_0 := preload("res://assets/textures/props/prop_tree_dead_0.png")
+const _PROP_TREE_DEAD_1 := preload("res://assets/textures/props/prop_tree_dead_1.png")
 const _PROP_VARIANTS: Dictionary = {
 	"rock": [_PROP_ROCK_0, _PROP_ROCK_1, _PROP_ROCK_2, _PROP_ROCK_3],
 	"flower": [_PROP_FLOWER_0, _PROP_FLOWER_1, _PROP_FLOWER_2, _PROP_FLOWER_3, _PROP_FLOWER_4],
@@ -82,6 +95,10 @@ const _PROP_VARIANTS: Dictionary = {
 	"ember": [_PROP_EMBER_0, _PROP_EMBER_1, _PROP_EMBER_2],
 	"boulder": [_PROP_BOULDER_0, _PROP_BOULDER_1, _PROP_BOULDER_2],
 	"lichen": [_PROP_LICHEN_0, _PROP_LICHEN_1, _PROP_LICHEN_2],
+	"tree_oak": [_PROP_TREE_OAK_0, _PROP_TREE_OAK_1, _PROP_TREE_OAK_2],
+	"tree_pine": [_PROP_TREE_PINE_0, _PROP_TREE_PINE_1, _PROP_TREE_PINE_2],
+	"tree_snowpine": [_PROP_TREE_SNOWPINE_0, _PROP_TREE_SNOWPINE_1],
+	"tree_dead": [_PROP_TREE_DEAD_0, _PROP_TREE_DEAD_1],
 }
 
 const _CARD_GHOST         := preload("res://assets/textures/cards/card_ghost.png")
@@ -127,6 +144,7 @@ const HEIGHT_RIVAL: float = 1.4           # rival duelist — mirrors the player
 const HEIGHT_BOSS: float = 1.9            # warleader/terror, before node scale
 const HEIGHT_NPC: float = 1.4             # townsfolk, Maiteln
 const HEIGHT_MERCHANT: float = 1.3
+const HEIGHT_STAG: float = 1.8             # antler tips; body sits around hero chest height
 
 ## Maps an EnemyRegistry type id to its archetype texture.
 ## Returns null for unknown/empty ids — caller falls back to TextureGen.enemy().
@@ -154,6 +172,10 @@ static func enemy_texture(etype: String, is_roaming_boss: bool = false, is_boss:
 			return _ENEMY_TERROR
 		"spectre_wisp", "spectre_haunt", "spectre_dread":
 			return _ENEMY_SPECTRE
+		"cactus_worm":
+			return _ENEMY_CACTUS_WORM
+		"imbued_stag":
+			return _ENEMY_IMBUED_STAG
 	if is_boss:
 		return _ENEMY_WARLEADER
 	return null
@@ -179,6 +201,10 @@ static func enemy_world_height(etype: String, is_roaming_boss: bool = false, is_
 			return HEIGHT_BOSS
 		"spectre_wisp", "spectre_haunt", "spectre_dread":
 			return HEIGHT_SPECTRE
+		"cactus_worm":
+			return HEIGHT_SOLDIER
+		"imbued_stag":
+			return HEIGHT_STAG
 	if is_boss:
 		return HEIGHT_BOSS
 	return HEIGHT_SOLDIER

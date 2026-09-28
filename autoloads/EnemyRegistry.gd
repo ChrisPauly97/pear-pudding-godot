@@ -140,6 +140,35 @@ static func _ensure_loaded() -> void:
 			"lore_text": ("Buried beneath the dunes until footsteps wake it, the Sand Stalker erupts in a burst of "
 					+ "grit and old bone. It presses the attack immediately, giving no quarter and no time to think."),
 		},
+		"cactus_worm": {
+			"display_name": "Cactus Worm",
+			"deck": ["skeleton", "skeleton", "skeleton", "zombie", "zombie", "zombie", "thorn_bramble_snare",
+					"thorn_bramble_snare", "thorn_thorn_volley", "dagger_throw"],
+			"drop_pool": ["skeleton", "zombie", "thorn_bramble_snare", "thorn_thorn_volley", "dagger_throw"],
+			"coin_reward": 7,
+			"is_boss": false,
+			"boss_hp": 0,
+			"phase2_deck": [],
+			"difficulty_tier": 1,
+			"ai_persona": "aggro",
+			"lore_text": ("A fat green worm armoured in cactus spines, it lies still among the dunes until something "
+					+ "warm brushes past, then rears up and lashes out. Its spines break off in whatever it strikes."),
+		},
+		"imbued_stag": {
+			"display_name": "Imbued Stag",
+			"deck": ["ghost", "ghost", "ghoul", "ghoul", "flux_kinetic_bolt", "flux_kinetic_bolt", "flux_momentum",
+					"flux_momentum", "thorn_thorn_volley", "bloom_germinate", "bloom_germinate"],
+			"drop_pool": ["flux_kinetic_bolt", "flux_momentum", "bloom_germinate", "thorn_thorn_volley",
+					"flux_displace"],
+			"coin_reward": 11,
+			"is_boss": false,
+			"boss_hp": 0,
+			"phase2_deck": [],
+			"difficulty_tier": 2,
+			"ai_persona": "control",
+			"lore_text": ("A stag that grazed too long on a ley line and drank the essence rising from it. Its antlers "
+					+ "burn with raw magic and it guards the line as its own, charging any who come to tap it."),
+		},
 		"scorched_revenant": {
 			"display_name": "Scorched Revenant",
 			"deck": ["zombie", "zombie", "zombie", "ghoul", "ghoul", "scorch", "scorch", "char", "char", "alight",
@@ -610,7 +639,7 @@ static func is_tracking(type_id: String) -> bool:
 	return type_id == "undead_elite" or type_id == "ghoul_pack" or type_id == "roaming_terror" \
 		or type_id == "spectre_wisp" or type_id == "spectre_haunt" or type_id == "spectre_dread" \
 		or type_id == "scorched_revenant" or type_id == "mountain_troll" or type_id == "stone_golem" \
-		or type_id == "hollow_steward" or type_id == "martarquas_vanguard"
+		or type_id == "hollow_steward" or type_id == "martarquas_vanguard" or type_id == "imbued_stag"
 
 ## Returns true if this enemy type boosts card drop rarity by one tier on defeat.
 static func get_night_drop_boost(type_id: String) -> bool:
