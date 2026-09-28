@@ -1,5 +1,7 @@
 extends "res://scenes/world/entities/WorldEntityBase.gd"
 
+const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
+const _SideQuests = preload("res://game_logic/quests/SideQuests.gd")
 const TextureGen = preload("res://game_logic/TextureGen.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const _ContactShadow = preload("res://game_logic/ContactShadow.gd")
@@ -49,6 +51,15 @@ func _extract_name() -> String:
 			return after.substr(0, end).strip_edges()
 	if npc_data.has("name"):
 		return str(npc_data["name"])
+	# GID-141: trainers and quest givers are found by name ("Combat Trainer",
+	# "Hilda the Baker"), not a random role.
+	var nid: String = str(npc_data.get("id", ""))
+	var trainer: String = _UnlockLadder.trainer_at(nid)
+	if trainer != "":
+		return _UnlockLadder.trainer_name(trainer)
+	var giver: String = _SideQuests.giver_name_for(nid)
+	if giver != "":
+		return giver.trim_prefix("The ")
 	# Unnamed extras get a role hashed from their spot, never the raw "NPC".
 	var roles: Array[String] = ["Traveller", "Wanderer", "Farmhand", "Pilgrim", "Herbalist", "Shepherd"]
 	return roles[absi(hash(Vector2i(int(npc_data.get("x", 0)), int(npc_data.get("z", 0))))) % roles.size()]

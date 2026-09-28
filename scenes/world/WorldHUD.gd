@@ -454,7 +454,8 @@ func _create_ley_indicator(vh: float) -> void:
 	# Explicit rect: anchors resolve against the CanvasLayer's viewport only once
 	# in the tree, which stretched the chip across the screen.
 	var chip_w: float = vh * 0.24
-	_ley_indicator.position = Vector2((_vw - chip_w) * 0.5, vh * 0.075)
+	# Below the compass ribbon's objective label (GID-141 / TID-594: it overlapped).
+	_ley_indicator.position = Vector2((_vw - chip_w) * 0.5, vh * 0.11)
 	_ley_indicator.size = Vector2(chip_w, vh * 0.04)
 	_ley_indicator.visible = false
 	_hud.add_child(_ley_indicator)
@@ -540,8 +541,8 @@ func refresh_xp_bar() -> void:
 		return
 	var sm := SceneManager.save_manager
 	var lvl: int = sm.level
-	var xp_prev: int = SaveManager.xp_for_level(lvl - 1)
-	var xp_next: int = SaveManager.xp_for_level(lvl)
+	var xp_prev: int = _level_start_xp(lvl)
+	var xp_next: int = SaveManager.xp_for_level(lvl + 1)
 	_level_label.text = "Lv.%d" % lvl
 	_xp_bar.max_value = xp_next - xp_prev
 	_xp_bar.value = sm.xp - xp_prev
@@ -550,9 +551,14 @@ func update_xp_label() -> void:
 	if _xp_label == null:
 		return
 	var sm := SceneManager.save_manager
-	_xp_label.text = "%d / %d XP" % [
-		sm.xp - SaveManager.xp_for_level(sm.level - 1),
-		SaveManager.xp_for_level(sm.level) - SaveManager.xp_for_level(sm.level - 1)]
+	var start: int = _level_start_xp(sm.level)
+	_xp_label.text = "%d / %d XP" % [sm.xp - start, SaveManager.xp_for_level(sm.level + 1) - start]
+
+## Total XP at which `lvl` was reached — `xp_for_level(lvl)` is the threshold to
+## *reach* a level (L2 = 200), so level 1 starts at 0 (GID-141 / TID-594: the
+## bar used to show the previous level's span, "0 / 50" at level 1).
+static func _level_start_xp(lvl: int) -> int:
+	return 0 if lvl <= 1 else SaveManager.xp_for_level(lvl)
 
 func set_ley_indicator_visible(v: bool) -> void:
 	if _ley_indicator:

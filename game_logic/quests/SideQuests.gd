@@ -177,6 +177,13 @@ static func turn_in_npc(q: Dictionary) -> String:
 	var t: String = str(q.get("turn_in", ""))
 	return t if t != "" else str(q.get("giver", ""))
 
+## Display name for a quest giver's NPC id, or "" (for the townsperson name tag).
+static func giver_name_for(npc_id: String) -> String:
+	for q: Dictionary in QUESTS:
+		if str(q.get("giver", "")) == npc_id and str(q.get("giver_name", "")) != "":
+			return str(q["giver_name"])
+	return ""
+
 static func turn_in_name(q: Dictionary) -> String:
 	var n: String = str(q.get("turn_in_name", ""))
 	if n == "":

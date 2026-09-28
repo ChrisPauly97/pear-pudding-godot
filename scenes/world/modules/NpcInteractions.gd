@@ -93,7 +93,7 @@ func show_quest_panel(npc: Dictionary) -> bool:
 func _quest_panel(npc: Dictionary, q: Dictionary, turn_in: bool) -> void:
 	var sm := SceneManager.save_manager
 	var vh: float = _world.get_viewport().get_visible_rect().size.y
-	var modal: Dictionary = _world._build_modal(0.7, 0.62, _DUEL_PANEL_BG, 0.016, 0.03, 0.5)
+	var modal: Dictionary = _world._build_modal(0.7, 0.42, _DUEL_PANEL_BG, 0.016, 0.03, 0.5)
 	var layer: CanvasLayer = modal["layer"]
 	var vbox: VBoxContainer = modal["vbox"]
 	var font: int = int(vh * 0.022)

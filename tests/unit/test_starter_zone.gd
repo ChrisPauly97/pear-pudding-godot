@@ -80,3 +80,12 @@ func test_sealed_crypt_needs_ghost_phase() -> void:
 	for z: int in range(48, 53):
 		assert_eq(wm.get_tile(22, z), IsoConst.TILE_WALL)
 		assert_eq(wm.get_tile(26, z), IsoConst.TILE_WALL)
+
+
+func test_named_npcs_stand_on_open_ground() -> void:
+	# TID-594: the Combat Trainer and dummy used to stand on the south fence wall.
+	var wm := WorldMapScript.new("madrian")
+	for npc: Dictionary in wm.npcs:
+		var tx: int = int(floor(float(npc["x"]) / IsoConst.TILE_SIZE))
+		var tz: int = int(floor(float(npc["z"]) / IsoConst.TILE_SIZE))
+		assert_ne(wm.get_tile(tx, tz), IsoConst.TILE_WALL, "%s is not standing in a wall" % str(npc["id"]))

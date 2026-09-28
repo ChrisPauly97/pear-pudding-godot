@@ -157,7 +157,7 @@ after_dialogue = ""
 [sub_resource type="Resource" id="MapNpc_8"]
 script = ExtResource("3_mapnpc")
 entity_id = "merchant_8"
-tile_x = 44
+tile_x = 42
 tile_z = 25
 dialogue = "Welcome, traveller! Browse my wares."
 npc_type = "merchant"
@@ -227,8 +227,8 @@ after_dialogue = ""
 [sub_resource type="Resource" id="MapNpc_13"]
 script = ExtResource("3_mapnpc")
 entity_id = "trainer_madrian"
-tile_x = 78
-tile_z = 44
+tile_x = 79
+tile_z = 41
 dialogue = "I can teach you a few reliable tricks for your skill bar — if you've the coin and the experience for them."
 npc_type = "trainer"
 flag_key = ""
@@ -237,8 +237,8 @@ after_dialogue = ""
 [sub_resource type="Resource" id="MapNpc_14"]
 script = ExtResource("3_mapnpc")
 entity_id = "training_dummy_madrian"
-tile_x = 81
-tile_z = 44
+tile_x = 82
+tile_z = 41
 dialogue = "A straw-stuffed dummy, scarred by countless practice swings."
 npc_type = "training_dummy"
 flag_key = ""

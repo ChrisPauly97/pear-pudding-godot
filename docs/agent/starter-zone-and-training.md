@@ -172,6 +172,15 @@ Quests live in `SideQuests.QUESTS` (see `story-implementation.md` → Side Quest
 - Pacing is asserted by `test_side_quests.test_starter_chain_paces_levels_and_gold`: quest kills only, real kill
   XP/coins, every training affordable when its quest asks for it, level 6 + companion gold at the end.
 
+### Visual finish pass (TID-593 / TID-594)
+
+xvfb audit of the first 30 minutes (findings table in TID-593). Fixed: XP bar showed the previous level's span
+("0 / 50" at L1 — `WorldHUD._level_start_xp`), trainers and quest givers wear their names
+(`TownspersonNPC._extract_name` → `UnlockLadder.trainer_name` / `SideQuests.giver_name_for`), Combat Trainer +
+dummy and the merchant moved off wall tiles (`test_starter_zone.test_named_npcs_stand_on_open_ground` guards every
+Madrian NPC), quest panel height hugs its text, Ley-Attuned chip moved below the compass label. Art-sized items are
+BID-065 (placeholder undead + townsfolk sprites), BID-066 (graveyard dressing), BID-067 (menu key art).
+
 ## Integrations
 
 - Combat gates (TID-588), world/menu gates (TID-589), trainer flow (TID-590), starter zone (TID-591), quest chain

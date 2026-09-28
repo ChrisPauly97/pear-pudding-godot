@@ -53,7 +53,7 @@ Co-op/PvP stay reachable from the main menu. "Head Start (debug)" learns everyth
 | TID-591 | Starter Zone — Madrian Outskirts | agent | done | TID-536 |
 | TID-592 | Starter Quest Chain | agent | done | TID-534, TID-590, TID-591 |
 | TID-593 | First-30-Minutes Visual Finish Audit | agent | done | TID-591 |
-| TID-594 | Visual Finish Fixes | agent | pending | TID-593 |
+| TID-594 | Visual Finish Fixes | agent | done | TID-593 |
 | TID-595 | Docs | agent | pending | TID-592, TID-594 |
 | TID-596 | Spec & Story Update — New-Player Flow | human-action | pending | TID-592 |
 
