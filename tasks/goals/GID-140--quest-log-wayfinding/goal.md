@@ -25,6 +25,7 @@ no quest log, and after Chapter 2 the objective went blank.
 | TID-583 | Realm Map in the Overworld | agent | done | TID-581 |
 | TID-584 | Journal Quests Tab & Quest-Updated Toasts | agent | done | TID-582 |
 | TID-585 | Docs | agent | done | TID-584 |
+| TID-586 | NPC "!" / "?" Quest Marks | agent | done | TID-585 |
 
 ## Acceptance Criteria
 
@@ -34,3 +35,4 @@ no quest log, and after Chapter 2 the objective went blank.
 - [x] M / minimap tap opens a realm map in the overworld with towns, roads, player and quest pins
 - [x] Journal has a Quests tab (track button, story so far) — tap and keyboard reachable
 - [x] A toast announces each new story step
+- [x] "!" / "?" over the story NPC and bounty boards

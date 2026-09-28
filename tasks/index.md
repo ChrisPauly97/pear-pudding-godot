@@ -143,7 +143,7 @@
 | [GID-137](goals/GID-137--paper-doll-hero/goal.md) | Paper-Doll Player Hero | in-progress | 4 / 6 |
 | [GID-138](goals/GID-138--seamless-story-realm/goal.md) | Seamless Story Realm | done | 10 / 10 |
 | [GID-139](goals/GID-139--combat-momentum/goal.md) | Combat Momentum — Always a Button to Press | in-progress | 3 / 5 |
-| [GID-140](goals/GID-140--quest-log-wayfinding/goal.md) | Quest Log & Wayfinding | done | 5 / 5 |
+| [GID-140](goals/GID-140--quest-log-wayfinding/goal.md) | Quest Log & Wayfinding | done | 6 / 6 |
 
 ## Backlog
 

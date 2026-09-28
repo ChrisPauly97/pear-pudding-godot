@@ -138,6 +138,15 @@ func _run() -> bool:
 	await process_frame
 	ok = _check(not bool(qt.call("is_realm_map_open")), "M again closes the realm map") and ok
 	ok = _check(not (qt.call("tracked_quest") as Dictionary).is_empty(), "a tracked quest exists") and ok
+	var marks: Array[String] = []
+	var npc_nodes: Dictionary = ws.get("_npc_nodes")
+	for nid: Variant in npc_nodes:
+		var n: Node = npc_nodes[nid] if is_instance_valid(npc_nodes[nid]) else null
+		var m: Label3D = n.get_node_or_null("QuestMark") as Label3D if n != null else null
+		if m != null:
+			marks.append("%s:%s" % [str(nid), m.text])
+	print("  quest marks: %s" % str(marks))
+	ok = _check(marks.size() > 0, "a quest-giver NPC wears a ! / ? mark (GID-140)") and ok
 	ok = _check(ws.get_node_or_null("WorldHUD") != null,
 		"WorldHUD child node present") and ok
 	ok = _check(ws.get_node_or_null("ChunkStreamingManager") != null,

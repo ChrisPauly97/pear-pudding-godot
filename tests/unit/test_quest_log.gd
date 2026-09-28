@@ -93,3 +93,23 @@ func test_tracked_falls_back_to_story() -> void:
 func test_targets_off_map_hide() -> void:
 	var qs: Array[Dictionary] = QuestLog.active_quests({}, {"site_x": 5, "site_z": 5}, [])
 	assert_null(QuestLog.world_pos(qs[1], "blancogov_temple", Vector3.ZERO), "no overworld marker indoors")
+
+
+func test_npc_mark_story_npc_gets_bang() -> void:
+	var npc: Dictionary = {"x": 45.5 * IsoConst.TILE_SIZE, "z": 36.5 * IsoConst.TILE_SIZE, "npc_type": "story"}
+	assert_eq(str(QuestLog.npc_mark(npc, Vector2i(45, 36), false, false).get("text", "")), "!")
+	assert_true(QuestLog.npc_mark(npc, Vector2i(60, 36), false, false).is_empty(), "far from the step: no mark")
+	assert_true(QuestLog.npc_mark(npc, null, false, false).is_empty(), "no step on this map: no mark")
+
+
+func test_npc_mark_bounty_board() -> void:
+	var board: Dictionary = {"x": 0.0, "z": 0.0, "npc_type": "bounty_board"}
+	assert_eq(str(QuestLog.npc_mark(board, null, true, true).get("text", "")), "?", "turn-in wins over offers")
+	assert_eq(str(QuestLog.npc_mark(board, null, false, true).get("text", "")), "!")
+	assert_true(QuestLog.npc_mark(board, null, false, false).is_empty())
+
+
+func test_bounty_turn_in_detection() -> void:
+	assert_true(QuestLog.has_bounty_turn_in([{"count": 2, "progress": 2}]))
+	assert_false(QuestLog.has_bounty_turn_in([{"count": 2, "progress": 2, "claimed": true}]))
+	assert_false(QuestLog.has_bounty_turn_in([{"count": 2, "progress": 1}]))

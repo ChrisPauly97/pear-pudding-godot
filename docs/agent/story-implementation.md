@@ -164,6 +164,14 @@ toggle (`toggle_realm_map`, called by `WorldScene._open_map_view` in the overwor
 | Realm map (`RealmMapOverlay`) | diamond per quest, tracked labelled |
 | Journal Quests tab | active quests (★ tracked), detail (giver, summary, progress), Track button, "Story so far" by chapter |
 
+**NPC marks "!" / "?" (TID-586).** Each quest refresh, `QuestTracker._refresh_npc_marks()`
+applies `QuestLog.npc_mark()` to every spawned NPC: a gold **!** over the NPC within one
+tile of the story step's tile on this map (`ObjectiveTracker.place_on_map`); on a bounty
+board a violet **?** when an accepted contract is ready to claim
+(`QuestLog.has_bounty_turn_in`), else **!** when the day's offers are up and fewer than
+3 are active. The mark is a `QuestMark` Label3D child, placed above the name tag and the
+beacon's bobbing arrow, and only rewritten when it changes.
+
 **New-objective tip.** `QuestTracker.announce_story_step()` shows `"New objective: <label>"`
 on the HUD tip line (not the dialogue line, so the NPC's last words stay up) when the
 story quest's label changes: on `story_flag_set`, and on `WorldScene._on_reattached` for a step

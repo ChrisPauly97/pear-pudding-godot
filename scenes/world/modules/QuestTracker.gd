@@ -11,6 +11,12 @@ const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
 const _ObjectiveBeacon = preload("res://scenes/world/entities/ObjectiveBeacon.gd")
 const _RealmMapOverlay = preload("res://scenes/ui/RealmMapOverlay.gd")
+const _ObjectiveTracker = preload("res://game_logic/ObjectiveTracker.gd")
+const _StoryQuests = preload("res://game_logic/quests/StoryQuests.gd")
+
+const _MARK_NAME: String = "QuestMark"
+## Most bounties a player can hold at once (SaveBounties.accept_bounty).
+const _MAX_BOUNTIES: int = 3
 
 ## How often the cached quest list is re-read (ms). The compass and minimap
 ## poll every frame; a forced refresh (story flag, tracking change) is immediate.
@@ -58,6 +64,7 @@ func refresh(force: bool) -> void:
 	_quests = sm.active_quests()
 	_tracked = _QuestLog.tracked(_quests, sm.tracked_quest)
 	_place_beacon()
+	_refresh_npc_marks()
 
 ## Map load: plant the beacon and take the current story step as already seen.
 func on_map_ready() -> void:
@@ -90,6 +97,63 @@ func _place_beacon() -> void:
 	var at := Vector3(pos.x, _world.get_terrain_height(pos.x, pos.z), pos.z)
 	if not _beacon.position.is_equal_approx(at):
 		_beacon.position = at
+
+## "!" / "?" over NPCs (GID-140): the story step's NPC, and bounty boards with a
+## contract to hand in ("?") or offers you have room for ("!"). Runs with every
+## quest refresh; only touches a node when its mark changes.
+func _refresh_npc_marks() -> void:
+	if NetworkManager.is_dedicated_server():
+		return
+	var sm := SceneManager.save_manager
+	var story_tile: Variant = null
+	var step: Dictionary = _StoryQuests.current_step(sm.story_flags)
+	if not step.is_empty():
+		var placed: Dictionary = _ObjectiveTracker.place_on_map(step, _world.map_name)
+		if not placed.is_empty():
+			story_tile = Vector2i(int(placed["tx"]), int(placed["tz"]))
+	var turn_in: bool = _QuestLog.has_bounty_turn_in(sm.active_bounties)
+	var offers: bool = (sm.active_bounties.size() < _MAX_BOUNTIES
+			and not sm.bounties.get_offered_bounties().is_empty())
+	for nid: Variant in _world._npc_nodes:
+		var node: Node3D = _world._valid_node3d(_world._npc_nodes[nid])
+		if node == null:
+			continue
+		var data: Dictionary = _world._active_npc_data.get(nid, {})
+		_set_mark(node, _QuestLog.npc_mark(data, story_tile, turn_in, offers))
+
+func _set_mark(node: Node3D, mark: Dictionary) -> void:
+	var lbl: Label3D = node.get_node_or_null(_MARK_NAME) as Label3D
+	if mark.is_empty():
+		if lbl != null:
+			lbl.queue_free()
+		return
+	var text: String = str(mark["text"])
+	var col: Color = _QuestLog.kind_color(str(mark["kind"]))
+	if lbl != null and lbl.text == text and lbl.modulate == col:
+		return
+	if lbl == null:
+		lbl = Label3D.new()
+		lbl.name = _MARK_NAME
+		lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		lbl.no_depth_test = true
+		lbl.font_size = 72
+		lbl.outline_size = 18
+		lbl.outline_modulate = Color(0.1, 0.07, 0.0)
+		lbl.pixel_size = 0.02
+		lbl.position = Vector3(0.0, _mark_height(node), 0.0)
+		node.add_child(lbl)
+	lbl.text = text
+	lbl.modulate = col
+
+## Above the NPC's name tag (its highest Label3D child) and clear of the
+## objective beacon's bobbing arrow, which often marks the same NPC.
+static func _mark_height(node: Node3D) -> float:
+	var top: float = 1.9
+	for c: Node in node.get_children():
+		var l := c as Label3D
+		if l != null and l.name != _MARK_NAME:
+			top = maxf(top, l.position.y)
+	return maxf(top + 0.7, _ObjectiveBeacon.ARROW_Y + _ObjectiveBeacon.BOB_AMPLITUDE + 0.8)
 
 func _story_step_label() -> String:
 	return str(_QuestLog.story_quest(SceneManager.save_manager.story_flags).get("label", ""))

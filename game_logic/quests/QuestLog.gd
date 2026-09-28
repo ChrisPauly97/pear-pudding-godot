@@ -138,6 +138,36 @@ static func bounty_board_targets() -> Array[Dictionary]:
 	out.assign(_board_targets)
 	return out
 
+## Overhead mark for an NPC (GID-140), WoW-style: "!" = go here / work waiting,
+## "?" = hand something in. `npc` is its spawn dict ({x, z, npc_type});
+## `story_tile` the story step's tile on this map (or null). Returns
+## {"text", "kind"} or {} for no mark.
+static func npc_mark(npc: Dictionary, story_tile: Variant, bounty_turn_in: bool,
+		bounty_offers: bool) -> Dictionary:
+	if str(npc.get("npc_type", "")) == "bounty_board":
+		if bounty_turn_in:
+			return {"text": "?", "kind": "bounty"}
+		if bounty_offers:
+			return {"text": "!", "kind": "bounty"}
+		return {}
+	if story_tile is Vector2i:
+		var st: Vector2i = story_tile
+		var tx: int = int(floor(float(npc.get("x", 0.0)) / IsoConst.TILE_SIZE))
+		var tz: int = int(floor(float(npc.get("z", 0.0)) / IsoConst.TILE_SIZE))
+		if absi(tx - st.x) <= 1 and absi(tz - st.y) <= 1:
+			return {"text": "!", "kind": "story"}
+	return {}
+
+## True when some accepted bounty is fulfilled but not yet claimed.
+static func has_bounty_turn_in(bounties: Array) -> bool:
+	for raw: Variant in bounties:
+		if raw is Dictionary:
+			var b: Dictionary = raw
+			if not bool(b.get("claimed", false)) and (bool(b.get("completed", false))
+					or int(b.get("progress", 0)) >= int(b.get("count", 1))):
+				return true
+	return false
+
 static func kind_color(kind: String) -> Color:
 	var c: Color = KIND_COLORS.get(kind, Color.WHITE)
 	return c

@@ -365,7 +365,7 @@ created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
 | `CharacterPresence.gd` (`character_presence`) | Per-frame character presentation: contact-shadow shader globals (GID-131), wall-cutaway `occlusion_focus`, idle breathe/bob/float of registered sprites (GID-132) |
 | `FakeVolumetrics.gd` (`fake_volumetrics`) | Mobile-safe volumetric stand-ins: dawn/dusk fake light shafts, depth-fog post pass (GID-130) |
 | `RealmRegions.gd` (`realm_regions`) | Which stitched story town the player walks through (`current_town`): HUD name, music, entry flags, rivals, siege on town entry; `siege_gate(town)` (GID-138) |
-| `QuestTracker.gd` (`quest_tracker`) | Cached quest list + tracked quest (QuestLog) for compass/minimap/realm map, objective beacon, "New objective" tip, overworld realm map on M (GID-140) |
+| `QuestTracker.gd` (`quest_tracker`) | Cached quest list + tracked quest (QuestLog) for compass/minimap/realm map, objective beacon, NPC "!" / "?" marks, "New objective" tip, overworld realm map on M (GID-140) |
 
 BattleScene's single-player clusters live under `scenes/battle/modules/`, created by
 `BattleScene._ensure_battle_modules()`. Each has a `_battle` back-reference typed as
