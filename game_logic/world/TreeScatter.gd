@@ -73,8 +73,8 @@ static func compute(chunk_data: _ChunkData, grid_tile_lookup: Callable, hfield: 
 				continue
 			# Tile corner: the height field is exact there, so the trunk sits flush
 			# on hills too (a small sink hides the facet gap).
-			var vi: int = mini(lz * nvx + lx, hfield.size() - 1)
-			var local := Vector3(float(lx) * IsoConst.TILE_SIZE, hfield[vi] - 0.1, float(lz) * IsoConst.TILE_SIZE)
+			var lxz := Vector2(float(lx) * IsoConst.TILE_SIZE, float(lz) * IsoConst.TILE_SIZE)
+			var local := Vector3(lxz.x, height_at_local(hfield, nvx, lxz.x, lxz.y) - 0.1, lxz.y)
 			var wp := Vector2(chunk_origin.x + local.x, chunk_origin.z + local.z)
 			if has_water and _WaterMath.wet_at(wp.x, wp.y, world_seed, dry_points):
 				continue
@@ -93,6 +93,29 @@ static func compute(chunk_data: _ChunkData, grid_tile_lookup: Callable, hfield: 
 			if placed >= MAX_PER_CHUNK:
 				return result
 	return result
+
+
+## Terrain height at a chunk-local xz, bilinear over the chunk height field
+## (TERRAIN_VDENSITY vertices per tile, nvx per row) — the same surface the mesh
+## draws, so props neither float nor sink.
+static func height_at_local(hfield: PackedFloat32Array, nvx: int, x: float, z: float) -> float:
+	if hfield.is_empty() or nvx <= 0:
+		return 0.0
+	var nvz: int = hfield.size() / nvx
+	var step: float = IsoConst.TILE_SIZE / float(IsoConst.TERRAIN_VDENSITY)
+	var fx: float = clampf(x / step, 0.0, float(nvx - 1))
+	var fz: float = clampf(z / step, 0.0, float(nvz - 1))
+	var ix: int = mini(int(fx), nvx - 2) if nvx > 1 else 0
+	var iz: int = mini(int(fz), nvz - 2) if nvz > 1 else 0
+	var tx: float = fx - float(ix)
+	var tz: float = fz - float(iz)
+	var ix1: int = mini(ix + 1, nvx - 1)
+	var iz1: int = mini(iz + 1, nvz - 1)
+	var h00: float = hfield[iz * nvx + ix]
+	var h10: float = hfield[iz * nvx + ix1]
+	var h01: float = hfield[iz1 * nvx + ix]
+	var h11: float = hfield[iz1 * nvx + ix1]
+	return lerpf(lerpf(h00, h10, tx), lerpf(h01, h11, tx), tz)
 
 
 ## A tree tile and its eight neighbours are all grass or hill.

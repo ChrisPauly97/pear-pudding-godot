@@ -287,10 +287,9 @@ static func _compute_prop_positions(
 			var ox: float = float(hash_s & 0xFF) / 255.0 * IsoConst.TILE_SIZE * 0.8 + IsoConst.TILE_SIZE * 0.1
 			hash_s = (hash_s * 1664525 + 1013904223) & 0x7FFFFFFF
 			var oz: float = float(hash_s & 0xFF) / 255.0 * IsoConst.TILE_SIZE * 0.8 + IsoConst.TILE_SIZE * 0.1
-			var vi: int = lz * nvx + lx
-			if vi >= hfield.size():
-				vi = hfield.size() - 1
-			var wy: float = hfield[vi]
+			var lpx: float = float(lx) * IsoConst.TILE_SIZE + ox
+			var lpz: float = float(lz) * IsoConst.TILE_SIZE + oz
+			var wy: float = _TreeScatter.height_at_local(hfield, nvx, lpx, lpz)
 			# Chunk-local: the MultiMeshInstance3D is a child of the chunk node, which
 			# already sits at the chunk origin (world coords here drew every chunk's
 			# props a second origin away, so only chunk 0,0 ever showed any).
@@ -304,7 +303,8 @@ static func _compute_prop_positions(
 				hash_s = (hash_s * 1664525 + 1013904223) & 0x7FFFFFFF
 				var dx: float = (float(hash_s & 0xFF) / 255.0 - 0.5) * 0.9
 				var dz: float = (float((hash_s >> 8) & 0xFF) / 255.0 - 0.5) * 0.9
-				arr.append(base + Vector3(dx, 0.0, dz))
+				arr.append(Vector3(base.x + dx, _TreeScatter.height_at_local(hfield, nvx, base.x + dx, base.z + dz),
+						base.z + dz))
 	return result
 
 # ── Main entry point (main thread only) ───────────────────────────────────

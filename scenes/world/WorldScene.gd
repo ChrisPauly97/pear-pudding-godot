@@ -55,6 +55,7 @@ const _CharacterPresence = preload("res://scenes/world/modules/CharacterPresence
 const _NamedMapProps = preload("res://scenes/world/modules/NamedMapProps.gd")
 const _RealmRegions = preload("res://scenes/world/modules/RealmRegions.gd")
 const _QuestTracker = preload("res://scenes/world/modules/QuestTracker.gd")
+const _Critters = preload("res://scenes/world/modules/Critters.gd")
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const _TownSiege = preload("res://scenes/world/modules/TownSiege.gd")
 const _SunRaysFx = preload("res://scenes/world/SunRaysFx.gd")
@@ -179,6 +180,7 @@ var town_siege: _TownSiege = null   # modules/TownSiege.gd (GID-054)
 var named_props: _NamedMapProps = null   # modules/NamedMapProps.gd
 var realm_regions: _RealmRegions = null   # modules/RealmRegions.gd (GID-138)
 var quest_tracker: _QuestTracker = null   # modules/QuestTracker.gd (GID-140)
+var critters: _Critters = null   # modules/Critters.gd (GID-143)
 var current_town: String = ""  # stitched town the player is in; see story_place()
 var chest_loot: _ChestLoot = null    # modules/ChestLoot.gd
 var night_lights: _NightLights = null  # modules/NightLights.gd (TID-489)
@@ -865,6 +867,7 @@ func _ensure_world_modules() -> void:
 		character_presence, _CharacterPresence, "CharacterPresence") as _CharacterPresence
 	realm_regions = _ensure_world_module(realm_regions, _RealmRegions, "RealmRegions") as _RealmRegions
 	quest_tracker = _ensure_world_module(quest_tracker, _QuestTracker, "QuestTracker") as _QuestTracker
+	critters = _ensure_world_module(critters, _Critters, "Critters") as _Critters
 
 func _ensure_world_module(existing: Node, script: GDScript, node_name: String) -> Node:
 	if existing != null and is_instance_valid(existing):

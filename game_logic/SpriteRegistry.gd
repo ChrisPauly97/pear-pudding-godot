@@ -22,6 +22,8 @@ const _ENEMY_RIVAL        := preload("res://assets/textures/characters/enemy_riv
 const _ENEMY_TERROR       := preload("res://assets/textures/characters/enemy_terror.png")
 const _ENEMY_MIMIC        := preload("res://assets/textures/characters/enemy_mimic.png")
 const _ENEMY_SPECTRE      := preload("res://assets/textures/characters/enemy_spectre.png")
+const _ENEMY_CACTUS_WORM  := preload("res://assets/textures/characters/enemy_cactus_worm.png")
+const _ENEMY_IMBUED_STAG  := preload("res://assets/textures/characters/enemy_imbued_stag.png")
 
 const _NPC_TOWNSPERSON    := preload("res://assets/textures/characters/npc_townsperson.png")
 const _NPC_TOWNSPERSON_2  := preload("res://assets/textures/characters/npc_townsperson_2.png")
@@ -142,6 +144,7 @@ const HEIGHT_RIVAL: float = 1.4           # rival duelist — mirrors the player
 const HEIGHT_BOSS: float = 1.9            # warleader/terror, before node scale
 const HEIGHT_NPC: float = 1.4             # townsfolk, Maiteln
 const HEIGHT_MERCHANT: float = 1.3
+const HEIGHT_STAG: float = 1.8             # antler tips; body sits around hero chest height
 
 ## Maps an EnemyRegistry type id to its archetype texture.
 ## Returns null for unknown/empty ids — caller falls back to TextureGen.enemy().
@@ -169,6 +172,10 @@ static func enemy_texture(etype: String, is_roaming_boss: bool = false, is_boss:
 			return _ENEMY_TERROR
 		"spectre_wisp", "spectre_haunt", "spectre_dread":
 			return _ENEMY_SPECTRE
+		"cactus_worm":
+			return _ENEMY_CACTUS_WORM
+		"imbued_stag":
+			return _ENEMY_IMBUED_STAG
 	if is_boss:
 		return _ENEMY_WARLEADER
 	return null
@@ -194,6 +201,10 @@ static func enemy_world_height(etype: String, is_roaming_boss: bool = false, is_
 			return HEIGHT_BOSS
 		"spectre_wisp", "spectre_haunt", "spectre_dread":
 			return HEIGHT_SPECTRE
+		"cactus_worm":
+			return HEIGHT_SOLDIER
+		"imbued_stag":
+			return HEIGHT_STAG
 	if is_boss:
 		return HEIGHT_BOSS
 	return HEIGHT_SOLDIER

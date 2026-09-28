@@ -78,10 +78,14 @@ const WALL_TINT: Array[Color] = [
 const ENEMY_POOLS: Array = [
 	["undead_basic", "undead_horde", "wraith"],        # Grasslands
 	["undead_basic", "forest_shade", "ghoul_pack"],     # Forest
-	["sand_stalker", "undead_horde"],                   # Desert
+	["cactus_worm", "sand_stalker", "undead_horde"],    # Desert
 	["scorched_revenant", "undead_elite"],              # Scorched
 	["mountain_troll", "stone_golem"],                  # Mountains
 ]
+
+# Biomes where an enemy standing on a ley line is an Imbued Stag instead of the
+# pool type (the stags drink the essence rising from the lines).
+const LEY_STAG_BIOMES: Array[int] = [GRASSLANDS, FOREST, MOUNTAINS]
 
 # Per-biome Environment.adjustment scalars (brightness, contrast, saturation).
 # Grasslands: vivid; Forest: cool/desaturated; Desert: bleached; Scorched: dark/muted; Mountains: crisp/cold.
