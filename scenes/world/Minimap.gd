@@ -257,7 +257,7 @@ func _draw_waypoint(canvas: Control, origin: Vector3) -> void:
 	canvas.draw_arc(dot, 7.0, 0.0, TAU, 12, Color(0.20, 0.80, 1.00, 0.70), 1.5, true)
 
 
-## Quest pins (GID-139): a diamond per active quest with a place on this map; the
+## Quest pins (GID-140): a diamond per active quest with a place on this map; the
 ## tracked one is larger with an outline. Off-disc pins stick to the rim so the
 ## player can always read which way to go.
 func _draw_quests(canvas: Control, origin: Vector3) -> void:

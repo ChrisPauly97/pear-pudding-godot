@@ -1,5 +1,5 @@
 # scenes/ui/RealmMapOverlay.gd
-# Realm map for the overworld (GID-139), toggled by M / a minimap tap. The
+# Realm map for the overworld (GID-140), toggled by M / a minimap tap. The
 # named-map MapViewOverlay draws a 100×100 tile grid; the overworld is infinite,
 # so this draws the stitched story realm (RealmLayout) as a vector map instead:
 # towns, the roads between them, waystones, the player and every quest pin.

@@ -1,4 +1,4 @@
-## Journal Quests tab (GID-139): lists active quests + story so far, Track button.
+## Journal Quests tab (GID-140): lists active quests + story so far, Track button.
 extends "res://tests/framework/test_case.gd"
 
 const JournalScene = preload("res://scenes/ui/JournalScene.gd")

@@ -1,4 +1,4 @@
-## StoryQuests — the main story as an ordered table of steps (GID-139).
+## StoryQuests — the main story as an ordered table of steps (GID-140).
 ##
 ## Each step is one objective the player is sent on. A step is finished once its
 ## `done_flag` story flag is set; the current step is the one after the most

@@ -1,9 +1,9 @@
-# TID-577: Tracked Quest Drives Compass, Beacon & Minimap
+# TID-582: Tracked Quest Drives Compass, Beacon & Minimap
 
-**Goal:** GID-139
+**Goal:** GID-140
 **Type:** agent
 **Status:** done
-**Depends On:** TID-576
+**Depends On:** TID-581
 
 ## Lock
 
@@ -33,4 +33,4 @@ WorldScene caches active quests + tracked quest (250 ms) and moves the beacon fr
 
 ## Documentation Updates
 
-Covered by TID-580.
+Covered by TID-585.

@@ -455,7 +455,7 @@ func _create_compass(map_name: String) -> void:
 		return Vector3(float(tx) * IsoConst.TILE_SIZE, 0.0, float(tz) * IsoConst.TILE_SIZE)
 	)
 	# Primary marker: drawn as a labelled chevron with a live distance, not as a
-	# dot lost among the tick marks. It follows the tracked quest (GID-139) through
+	# dot lost among the tick marks. It follows the tracked quest (GID-140) through
 	# the same WorldScene helpers the in-world beacon uses, so the two agree.
 	var ws: _WorldScene = _world_scene
 	var objective_pos: Callable = func() -> Variant:

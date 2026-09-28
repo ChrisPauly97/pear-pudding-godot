@@ -264,7 +264,7 @@ var active_companion: String = ""
 
 # Player-placed waypoint: {map: String, tx: int, tz: int} or {} when cleared
 var waypoint: Dictionary = {}
-# Quest id the compass / beacon / minimap follow ("" = the story) — GID-139.
+# Quest id the compass / beacon / minimap follow ("" = the story) — GID-140.
 var tracked_quest: String = ""
 
 # Bounty system

@@ -52,7 +52,7 @@ var _panel_size: float
 var _dot_layer: _DotLayer
 var _travel_panel: ScrollContainer
 var _map_name: String = ""
-# Active quests + tracked id, read once on open (GID-139).
+# Active quests + tracked id, read once on open (GID-140).
 var _quests: Array[Dictionary] = []
 var _tracked_id: String = ""
 ## Rally waystones (GID-105 / TID-388): connected session members eligible for
@@ -249,7 +249,7 @@ func _draw_waypoint(canvas: Control) -> void:
 	canvas.draw_line(tp + Vector2(-9.0, 0.0), tp + Vector2(9.0, 0.0), _DOT_WAYPOINT, 1.5)
 
 
-## Quest pins (GID-139): every active quest with a place on this map; the
+## Quest pins (GID-140): every active quest with a place on this map; the
 ## tracked one larger, outlined.
 func _draw_quests(canvas: Control) -> void:
 	if not is_instance_valid(_player):

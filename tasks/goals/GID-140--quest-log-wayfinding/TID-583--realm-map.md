@@ -1,9 +1,9 @@
-# TID-578: Realm Map in the Overworld
+# TID-583: Realm Map in the Overworld
 
-**Goal:** GID-139
+**Goal:** GID-140
 **Type:** agent
 **Status:** done
-**Depends On:** TID-576
+**Depends On:** TID-581
 
 ## Lock
 
@@ -32,4 +32,4 @@ Vector realm map (towns, roads, waystones, player, quest pins, waypoint) opened 
 
 ## Documentation Updates
 
-Covered by TID-580.
+Covered by TID-585.

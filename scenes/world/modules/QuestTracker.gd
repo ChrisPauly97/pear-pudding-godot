@@ -1,4 +1,4 @@
-## Quest wayfinding in the world (GID-139): the cached quest list and tracked
+## Quest wayfinding in the world (GID-140): the cached quest list and tracked
 ## quest the compass, minimap and realm map poll, the in-world objective beacon,
 ## the "New objective" tip, and the overworld realm map (M).
 ##

@@ -365,7 +365,7 @@ created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
 | `CharacterPresence.gd` (`character_presence`) | Per-frame character presentation: contact-shadow shader globals (GID-131), wall-cutaway `occlusion_focus`, idle breathe/bob/float of registered sprites (GID-132) |
 | `FakeVolumetrics.gd` (`fake_volumetrics`) | Mobile-safe volumetric stand-ins: dawn/dusk fake light shafts, depth-fog post pass (GID-130) |
 | `RealmRegions.gd` (`realm_regions`) | Which stitched story town the player walks through (`current_town`): HUD name, music, entry flags, rivals, siege on town entry; `siege_gate(town)` (GID-138) |
-| `QuestTracker.gd` (`quest_tracker`) | Cached quest list + tracked quest (QuestLog) for compass/minimap/realm map, objective beacon, "New objective" tip, overworld realm map on M (GID-139) |
+| `QuestTracker.gd` (`quest_tracker`) | Cached quest list + tracked quest (QuestLog) for compass/minimap/realm map, objective beacon, "New objective" tip, overworld realm map on M (GID-140) |
 
 BattleScene's single-player clusters live under `scenes/battle/modules/`, created by
 `BattleScene._ensure_battle_modules()`. Each has a `_battle` back-reference typed as
@@ -379,7 +379,7 @@ the BattleScene script (see "Typed back-references" below):
 | `BattleArena.gd` (`arena`) | Backdrop, battlefield label/banner, slot highlights, co-op ally panels |
 | `BattleTargeting.gd` (`targeting`) | Board drop zone, spell/ally/slot targeting modes, resolving chosen targets |
 | `BattleInput.gd` (`card_input`) | Hand/board/enemy taps, cast confirm, attacks |
-| `BattleRealtime.gd` (`realtime`) | Real-time combat (setting-gated): drives `RealtimeCombat` clock, GCD gate, player cast bars (`run_cast`), enemy casts, focus target; presentation in `RealtimeVisuals.gd` (diagonal arena via `DiagonalBoard.gd`, hero tokens holding the hero strips, unit bars, lunges); a second enemy can join mid-fight (`join_enemy`, team battle — TID-551); fixed 3-slot skill bar in `BattleSkillBar.gd` over `game_logic/battle/SkillBar.gd` (TID-550); new-player ramp + first-time tips in `BattleOnboarding.gd` over `game_logic/battle/CombatOnboarding.gd` (TID-552/553); Maiteln coaching barks in `MentorBarks.gd` over `game_logic/battle/BarkRules.gd` (TID-558) and the post-fight coaching line in `game_logic/battle/FightStats.gd` (TID-559), both riding the same clock; every timing comes from `game_logic/battle/CombatTuning.gd` (edited live by `CombatTuningPanel.gd`, ⚙ Tune / T) — add knobs there, not constants |
+| `BattleRealtime.gd` (`realtime`) | Real-time combat (setting-gated): drives `RealtimeCombat` clock, GCD gate, player cast bars (`run_cast`), enemy casts, focus target; presentation in `RealtimeVisuals.gd` (diagonal arena via `DiagonalBoard.gd`, hero tokens holding the hero strips, unit bars, lunges); a second enemy can join mid-fight (`join_enemy`, team battle — TID-551); fixed 3-slot skill bar in `BattleSkillBar.gd` over `game_logic/battle/SkillBar.gd` (TID-550); auto-attack toggle, combo pips + free-cast glow in `MomentumHud.gd` over `RealtimeCombat.on_player_hit`/`spend_combo` (GID-139); new-player ramp + first-time tips in `BattleOnboarding.gd` over `game_logic/battle/CombatOnboarding.gd` (TID-552/553); Maiteln coaching barks in `MentorBarks.gd` over `game_logic/battle/BarkRules.gd` (TID-558) and the post-fight coaching line in `game_logic/battle/FightStats.gd` (TID-559), both riding the same clock; every timing comes from `game_logic/battle/CombatTuning.gd` (edited live by `CombatTuningPanel.gd`, ⚙ Tune / T) — add knobs there, not constants |
 
 Keep `_find_nearby_*` finders on WorldScene even when the spawn moves —
 `test_interact_priority` reads the interaction chains by those names. Likewise
@@ -648,7 +648,7 @@ Agent-owned feature docs. Each covers Key Features, How It Works, Integrations, 
 | [docs/agent/enemies-and-npcs.md](docs/agent/enemies-and-npcs.md) | Enemy types, wander/track/engage AI, NPC dialogue |
 | [docs/agent/ui-and-scene-management.md](docs/agent/ui-and-scene-management.md) | Scene stack, battle overlay, menus, HUD, day/night |
 | [docs/agent/signals-and-constants.md](docs/agent/signals-and-constants.md) | GameBus signals, IsoConst values, decoupling patterns |
-| [docs/agent/story-implementation.md](docs/agent/story-implementation.md) | Story flags, dialogue gating, StoryQuests step table, QuestLog + tracked quest wayfinding (GID-139) |
+| [docs/agent/story-implementation.md](docs/agent/story-implementation.md) | Story flags, dialogue gating, StoryQuests step table, QuestLog + tracked quest wayfinding (GID-140) |
 | [docs/agent/story-narration-scrolls.md](docs/agent/story-narration-scrolls.md) | Lore scroll entities, ScrollRegistry, narration audio, Journal UI, achievement hook |
 | [docs/agent/magic-system.md](docs/agent/magic-system.md) | Magic cosmology (essence, veins, the four draws), four magic types + eight branches, MagicTypes registry, branch affinity, cross-magic currency, spell card rosters |
 | [docs/agent/skill-trees.md](docs/agent/skill-trees.md) | Branch skill trees, magic type selection, corruption/redemption currencies, cross-magic unlock |

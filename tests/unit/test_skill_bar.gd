@@ -25,22 +25,20 @@ func test_bar_uses_saved_ids_or_default() -> void:
 	var many: Array = SkillBar.ABILITIES.keys() + SkillBar.ABILITIES.keys()
 	assert_true(SkillBar.new(many).ids.size() <= SkillBar.SLOTS)
 
-func test_strike_hits_enemy_hero_and_goes_on_cooldown() -> void:
+func test_strike_is_a_free_filler_that_hits_enemy_hero() -> void:
 	var rt := _rt()
 	var bar := SkillBar.new()
 	var i: int = _slot(bar, "strike")
 	var enemy: PlayerState = rt.state.players[1]
 	var hp: int = enemy.hero.health
-	var mana: int = rt.state.players[0].hero.mana
 	assert_eq(bar.blocker(i, rt), "")
 	bar.apply(i, rt)
 	bar.start_cooldown(i)
-	assert_eq(enemy.hero.health, hp - 3)
-	assert_eq(rt.state.players[0].hero.mana, mana - int(SkillBar.def("strike")["cost"]))
-	assert_false(bar.ready(i))
-	assert_eq(bar.blocker(i, rt), "Not ready yet")
-	bar.advance(float(SkillBar.def("strike")["cooldown"]) + 0.01)
-	assert_true(bar.ready(i), "reusable once the cooldown runs out")
+	assert_eq(enemy.hero.health, hp - int(SkillBar.def("strike")["value"]))
+	assert_eq(int(SkillBar.def("strike")["cost"]), 0, "GID-139: Strike is the free filler")
+	assert_true(bar.ready(i), "no cooldown of its own — only the GCD gates it")
+	rt.state.players[0].hero.mana = 0
+	assert_eq(bar.blocker(i, rt), "", "usable at zero mana")
 
 func test_strike_hits_focused_minion_and_kills_it() -> void:
 	var rt := _rt()
@@ -79,11 +77,11 @@ func test_kick_interrupts_only_a_casting_enemy() -> void:
 
 func test_cooldown_multiplier_and_sweep() -> void:
 	var bar := SkillBar.new()
-	bar.start_cooldown(0, 0.5)
-	var full: float = float(bar.def_at(0)["cooldown"])
-	assert_almost_eq(bar.cooldown_left(0), full * 0.5, 0.001)
+	bar.start_cooldown(1, 0.5)
+	var full: float = float(bar.def_at(1)["cooldown"])
+	assert_almost_eq(bar.cooldown_left(1), full * 0.5, 0.001)
 	bar.advance(full * 0.25)
-	assert_almost_eq(bar.fraction(0), 0.5, 0.01)
+	assert_almost_eq(bar.fraction(1), 0.5, 0.01)
 
 ## GID-136 / TID-537: trainer-taught abilities beyond the always-known trio.
 

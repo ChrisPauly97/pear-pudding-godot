@@ -233,7 +233,7 @@ func _on_tab_selected(tab: String) -> void:
 	else:
 		_populate_discoveries_list()
 
-# ── Quests tab (GID-139) ──────────────────────────────────────────────────────
+# ── Quests tab (GID-140) ──────────────────────────────────────────────────────
 
 func _quests() -> Array[Dictionary]:
 	return SaveManager.active_quests()

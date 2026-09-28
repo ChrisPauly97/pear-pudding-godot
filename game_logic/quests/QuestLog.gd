@@ -1,4 +1,4 @@
-## QuestLog — every quest the player has going right now, in one shape (GID-139).
+## QuestLog — every quest the player has going right now, in one shape (GID-140).
 ##
 ## Gathers the main story (StoryQuests), an assembled treasure map and accepted
 ## bounty contracts into a list of quest dicts, so the compass, beacon, minimap,

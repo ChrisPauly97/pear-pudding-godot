@@ -75,7 +75,7 @@ stitched into it (GID-138, see `named-maps-and-dungeons.md` "Stitched Story Real
 ### Objective Tracking
 
 The story's objectives are one ordered table, `game_logic/quests/StoryQuests.gd`
-`STEPS` (GID-139). Each step has `id`, `chapter` (title in `CHAPTERS`), `label`,
+`STEPS` (GID-140). Each step has `id`, `chapter` (title in `CHAPTERS`), `label`,
 `giver`, `summary` (a line or two of "why", shown in the Journal), `done_flag`, and a
 place (`map`, `tx`, `tz`, optional `site`). The current step is the one after the
 most advanced step whose `done_flag` is set (`current_index`), so a save missing an
@@ -122,11 +122,11 @@ points at the stitched door leading in (`RealmLayout.door_into`). On a named map
 | `WorldHUD._create_compass()` → `CompassRibbon` primary marker | gold chevron on the ribbon + caption `"<label> — <distance>m"` |
 | `QuestTracker` → `ObjectiveBeacon` | gold ring / light shaft / down-arrow on the tracked quest's tile |
 
-Since GID-139 both follow the **tracked quest** (below), not only the story step. See `docs/agent/ui-and-scene-management.md` for both.
+Since GID-140 both follow the **tracked quest** (below), not only the story step. See `docs/agent/ui-and-scene-management.md` for both.
 
 **MapViewOverlay integration**: When the overlay opens it reads the quest list once, shows `"Objective: <tracked label>"` and draws a diamond pin per quest with a place on the map.
 
-### Quest Log & Tracked Quest (GID-139)
+### Quest Log & Tracked Quest (GID-140)
 
 `game_logic/quests/QuestLog.gd` (pure static) turns save data into a list of quest dicts
 `{id, kind, title, label, summary, giver, progress, targets}`:

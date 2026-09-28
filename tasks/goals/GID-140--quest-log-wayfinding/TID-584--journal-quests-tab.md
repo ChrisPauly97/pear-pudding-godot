@@ -1,9 +1,9 @@
-# TID-579: Journal Quests Tab & Quest-Updated Toasts
+# TID-584: Journal Quests Tab & Quest-Updated Toasts
 
-**Goal:** GID-139
+**Goal:** GID-140
 **Type:** agent
 **Status:** done
-**Depends On:** TID-577
+**Depends On:** TID-582
 
 ## Lock
 
@@ -32,4 +32,4 @@ Journal gets a default Quests tab (active quests coloured by kind, ★ tracked, 
 
 ## Documentation Updates
 
-Covered by TID-580.
+Covered by TID-585.

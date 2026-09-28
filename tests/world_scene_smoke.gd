@@ -128,7 +128,7 @@ func _run() -> bool:
 	ok = _check(ws.get("_entity_root") != null, "_entity_root (Entities Node3D) built") and ok
 	var player: Object = ws.get("_player")
 	ok = _check(player != null and is_instance_valid(player), "_player spawned") and ok
-	# GID-139: the overworld map view is the realm map; it opens, draws, closes.
+	# GID-140: the overworld map view is the realm map; it opens, draws, closes.
 	ws.call("_open_map_view")
 	await process_frame
 	await process_frame

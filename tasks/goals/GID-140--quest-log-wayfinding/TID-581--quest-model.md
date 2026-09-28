@@ -1,6 +1,6 @@
-# TID-576: Quest Model — Story Steps Table & QuestLog
+# TID-581: Quest Model — Story Steps Table & QuestLog
 
-**Goal:** GID-139
+**Goal:** GID-140
 **Type:** agent
 **Status:** done
 **Depends On:** —
@@ -36,4 +36,4 @@ Ordered StoryQuests.STEPS table (same most-advanced-flag semantics); ObjectiveTr
 
 ## Documentation Updates
 
-Covered by TID-580.
+Covered by TID-585.

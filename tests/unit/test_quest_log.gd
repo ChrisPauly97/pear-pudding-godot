@@ -1,4 +1,4 @@
-## StoryQuests step table + QuestLog aggregation (GID-139).
+## StoryQuests step table + QuestLog aggregation (GID-140).
 extends "res://tests/framework/test_case.gd"
 
 const StoryQuests = preload("res://game_logic/quests/StoryQuests.gd")

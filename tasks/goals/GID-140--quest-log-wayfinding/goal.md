@@ -1,4 +1,4 @@
-# GID-139: Quest Log & Wayfinding
+# GID-140: Quest Log & Wayfinding
 
 ## Objective
 
@@ -20,11 +20,11 @@ no quest log, and after Chapter 2 the objective went blank.
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-576 | Quest Model — Story Steps Table & QuestLog | agent | done | — |
-| TID-577 | Tracked Quest Drives Compass, Beacon & Minimap | agent | done | TID-576 |
-| TID-578 | Realm Map in the Overworld | agent | done | TID-576 |
-| TID-579 | Journal Quests Tab & Quest-Updated Toasts | agent | done | TID-577 |
-| TID-580 | Docs | agent | done | TID-579 |
+| TID-581 | Quest Model — Story Steps Table & QuestLog | agent | done | — |
+| TID-582 | Tracked Quest Drives Compass, Beacon & Minimap | agent | done | TID-581 |
+| TID-583 | Realm Map in the Overworld | agent | done | TID-581 |
+| TID-584 | Journal Quests Tab & Quest-Updated Toasts | agent | done | TID-582 |
+| TID-585 | Docs | agent | done | TID-584 |
 
 ## Acceptance Criteria
 

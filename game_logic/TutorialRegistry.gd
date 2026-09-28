@@ -68,9 +68,10 @@ const _DATA: Dictionary = {
 	# Real-time combat onboarding (GID-135 / TID-553): one-shot, shown the first time each moment happens.
 	"rt_intro": {
 		"title": "Real-Time Combat",
-		"body": ("Fights happen live. Your weapon attacks on its own: watch the bar under your hero fill.\n\n"
-				+ "Press Strike (1) to hit harder. It costs a little mana, then recharges. A dark shade drains "
-				+ "off the button until it's ready again."),
+		"body": ("Fights happen live. Your weapon attacks on its own (Auto, or F, turns it off to focus).\n\n"
+				+ "Press Strike (1) every time the shade clears: it's free, siphons mana from your foe and "
+				+ "builds combo (◆). Your next card spends the combo for mana back — a full combo casts it "
+				+ "instantly. A gold glow on your hand means your next card is free."),
 	},
 	"rt_skill_mend": {
 		"title": "New Skill: Mend",
