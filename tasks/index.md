@@ -144,6 +144,7 @@
 | [GID-138](goals/GID-138--seamless-story-realm/goal.md) | Seamless Story Realm | done | 10 / 10 |
 | [GID-139](goals/GID-139--combat-momentum/goal.md) | Combat Momentum — Always a Button to Press | in-progress | 3 / 5 |
 | [GID-140](goals/GID-140--quest-log-wayfinding/goal.md) | Quest Log & Wayfinding | done | 6 / 6 |
+| [GID-141](goals/GID-141--starter-zone-trainer-unlocks/goal.md) | Starter Zone & Trainer-Taught Unlocks | pending | 0 / 13 |
 
 ## Backlog
 
@@ -157,6 +158,7 @@ files in `tasks/archive/backlog/`.
 | [BID-055](backlog/BID-055--worldscene-god-object.md) | `WorldScene.gd` god-object decomposition, slice 1/3 done (co-op/net cluster folded into `CoopSession.gd`, line-ceiling guardrail added); original 9154/401 census was stale — see file's Progress section for real numbers and slices 2-3 (`_spawn_*`, `_start_*`) | code-smell | GID-123 research |
 | [BID-061](backlog/BID-061--spec-says-no-xp-system.md) | Spec says "No XP system planned" but XP/levels/skill points shipped (GID-030) | spec-gap | Tracked by TID-539 |
 | [BID-063](backlog/BID-063--coop-still-on-named-town-maps.md) | Co-op sessions still start on the named town maps, not the stitched overworld (GID-138) | design-inconsistency | TID-571 |
+| [BID-064](backlog/BID-064--tid-535-overlaps-gid-140.md) | GID-136 / TID-535 (Quest Log & Tracker) largely shipped by GID-140; re-scope or close | design-inconsistency | GID-141 research |
 
 ## Resolved Backlog
 
