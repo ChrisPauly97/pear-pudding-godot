@@ -169,8 +169,20 @@ WoW-style NPC asks, separate from the story chain.
   enemies; Spire kills excluded); `flag` from `SaveManager.set_story_flag`; `learn` from `SaveManager.learn_ability`.
   `talk`, `use_skill`, `explore`, `rift_tier` are wired by the tasks that add their sources (TID-534, GID-141, GID-142).
 - **Signals:** `GameBus.quest_accepted / quest_progressed / quest_ready / quest_turned_in / quest_abandoned(id)`.
-- **Tests:** `tests/unit/test_side_quests.gd` (table integrity, gating, accept → progress → turn-in, JSON round trip,
-  QuestLog entry).
+- **Givers (TID-534):** any NPC can give quests — no special `npc_type`. `NpcInteractions.interact()` first counts a
+  `talk` event for the NPC id, then `show_quest_panel(npc)`: a ready hand-in (done_text, rewards, **Complete**) wins
+  over an offer (summary, objectives, rewards, **Accept** / **Decline**). Accepting tracks the quest
+  (`set_tracked_quest("side:<id>")`). NPCs with a service type also get **Other business** →
+  `interact_service(npc)` (the old `interact` body). Toasts via `GameBus.hud_message_requested`.
+- **Marks:** `SaveQuests.npc_state(npc_id)` → `"turn_in" | "offer" | "upcoming" | ""`, passed to
+  `QuestLog.npc_mark(..., side)`: yellow **?** (outranks the story "!"), yellow **!**, grey **!** (`side_upcoming`,
+  offered after a level-up). `QuestTracker.on_side_quest_ready` toasts "<title> — done! Return to <npc>".
+  WorldScene refreshes the tracker on every `quest_*` signal.
+- **Placing NPCs:** `scripts/add_map_npc.py <map> <entity_id> <tx> <tz> <dialogue> [npc_type] [flag_key]
+  [--hide flag] [--after text]` appends a `MapNpc` to a map `.tres` (idempotent). First giver: `hilda_baker` at
+  Madrian (50,38), quest `rats_in_grain`.
+- **Tests:** `tests/unit/test_side_quests.gd` (table integrity, every giver placed in a stitched town, gating,
+  accept → progress → turn-in, JSON round trip, QuestLog entry, marks/npc_state).
 
 **World module `QuestTracker`** (`scenes/world/modules/QuestTracker.gd`, `WorldScene.quest_tracker`).
 `active_quests()` / `tracked_quest()` / `tracked_quest_pos()` / `quest_pos(q)` read a cache

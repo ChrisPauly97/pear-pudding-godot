@@ -737,6 +737,12 @@ func _wire_gamebus_signals() -> void:
 	if not NetworkManager.is_dedicated_server():
 		GameBus.story_flag_set.connect(_on_story_flag_set_for_cast)
 		GameBus.quest_tracking_changed.connect(func(_id: String) -> void: quest_tracker.refresh(true))
+		# Side quests (TID-534): marks and tracker follow accept / progress / hand-in.
+		GameBus.quest_accepted.connect(func(_id: String) -> void: quest_tracker.refresh(true))
+		GameBus.quest_progressed.connect(func(_id: String) -> void: quest_tracker.refresh(true))
+		GameBus.quest_ready.connect(quest_tracker.on_side_quest_ready)
+		GameBus.quest_turned_in.connect(func(_id: String) -> void: quest_tracker.refresh(true))
+		GameBus.quest_abandoned.connect(func(_id: String) -> void: quest_tracker.refresh(true))
 
 	# Auto-remount when returning to the overworld from a named map
 	if map_name == "main":

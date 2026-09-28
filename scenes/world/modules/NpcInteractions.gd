@@ -7,6 +7,8 @@ const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const SkillBar = preload("res://game_logic/battle/SkillBar.gd")
+const _SideQuests = preload("res://game_logic/quests/SideQuests.gd")
+const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
 
 const _DUEL_PANEL_BG := Color(0.08, 0.08, 0.18, 0.96)
 ## TID-557: fixed enemy id for the town training dummy fight — see EnemyRegistry.gd.
@@ -15,7 +17,19 @@ const _TRAINING_DUMMY_ENEMY_TYPE: String = "training_dummy"
 var _world: _WorldScene = null
 
 ## Runs the interaction for whichever NPC type the player is standing at.
+## Side quests (TID-534) come first: a quest to hand in or to offer opens the
+## quest panel, whose "Other business" button falls through to the NPC's
+## usual interaction.
 func interact(npc: Dictionary) -> void:
+	var npc_id: String = str(npc.get("id", ""))
+	if npc_id != "":
+		SceneManager.save_manager.quests.progress_event("talk", npc_id)
+	if show_quest_panel(npc):
+		return
+	interact_service(npc)
+
+## The NPC's own interaction (shop, trainer, dialogue…), without quests.
+func interact_service(npc: Dictionary) -> void:
 	match str(npc.get("npc_type", "")):
 		"traveling_merchant":
 			var stock: Array[String] = []
@@ -51,6 +65,83 @@ func interact(npc: Dictionary) -> void:
 			_world.coop_social._toggle_stash_overlay()
 		_:
 			_speak(npc)
+
+# ── Side quests (GID-136 / TID-534) ─────────────────────────────────────────
+
+## Opens the quest panel when `npc` has a quest ready to hand in (first) or one
+## to offer. Returns false when it has neither.
+func show_quest_panel(npc: Dictionary) -> bool:
+	var sm := SceneManager.save_manager
+	var npc_id: String = str(npc.get("id", ""))
+	var turn_ins: Array[Dictionary] = sm.quests.turn_ins_for(npc_id)
+	if not turn_ins.is_empty():
+		_quest_panel(npc, turn_ins[0], true)
+		return true
+	var offers: Array[Dictionary] = sm.quests.offers_for(npc_id)
+	if not offers.is_empty():
+		_quest_panel(npc, offers[0], false)
+		return true
+	return false
+
+func _quest_panel(npc: Dictionary, q: Dictionary, turn_in: bool) -> void:
+	var sm := SceneManager.save_manager
+	var vh: float = _world.get_viewport().get_visible_rect().size.y
+	var modal: Dictionary = _world._build_modal(0.7, 0.62, _DUEL_PANEL_BG, 0.016, 0.03, 0.5)
+	var layer: CanvasLayer = modal["layer"]
+	var vbox: VBoxContainer = modal["vbox"]
+	var font: int = int(vh * 0.022)
+	var id: String = str(q.get("id", ""))
+
+	var title := _UiUtil.make_label(str(q.get("title", "")), int(vh * 0.032), Color(1.0, 0.92, 0.45),
+			HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	title.theme_type_variation = &"TitleLabel"
+	var who: String = _SideQuests.turn_in_name(q) if turn_in else str(q.get("giver_name", ""))
+	_UiUtil.make_label(who, int(vh * 0.02), Color(0.8, 0.8, 0.85), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var body_text: String = str(q.get("done_text", "")) if turn_in else str(q.get("summary", ""))
+	var body := _UiUtil.make_label(body_text, font, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, vbox)
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if not turn_in:
+		for o: Dictionary in _SideQuests.objectives(q):
+			_UiUtil.make_label("• %s  (%d)" % [str(o.get("label", "")), int(o.get("count", 1))],
+					int(vh * 0.02), Color(0.85, 0.9, 1.0), HORIZONTAL_ALIGNMENT_LEFT, vbox)
+	_UiUtil.make_label("Reward: " + reward_text(q.get("rewards", {})), int(vh * 0.02),
+			Color(1.0, 0.85, 0.4), HORIZONTAL_ALIGNMENT_LEFT, vbox)
+
+	var row := _UiUtil.make_hbox(int(vh * 0.02), vbox)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	var btn_size := Vector2(vh * 0.18, vh * 0.06)
+	if turn_in:
+		_UiUtil.make_button("Complete", btn_size, font, func() -> void:
+			layer.queue_free()
+			var rewards: Dictionary = sm.quests.turn_in(id)
+			if not rewards.is_empty():
+				GameBus.hud_message_requested.emit("Quest complete: %s  (%s)" % [str(q.get("title", "")),
+						reward_text(rewards)])
+			_world.quest_tracker.refresh(true), row)
+	else:
+		_UiUtil.make_button("Accept", btn_size, font, func() -> void:
+			layer.queue_free()
+			if sm.quests.accept(id):
+				sm.set_tracked_quest(_QuestLog.SIDE_PREFIX + id)
+				GameBus.hud_message_requested.emit("Quest accepted: " + str(q.get("title", "")))
+			_world.quest_tracker.refresh(true), row)
+		_UiUtil.make_button("Decline", btn_size, font, layer.queue_free, row)
+	if str(npc.get("npc_type", "")) != "":
+		_UiUtil.make_button("Other business", btn_size, font, func() -> void:
+			layer.queue_free()
+			interact_service(npc), row)
+
+## "40 XP · 20 coins · 1 card" for a rewards dict.
+static func reward_text(rewards: Dictionary) -> String:
+	var parts: Array[String] = []
+	if int(rewards.get("xp", 0)) > 0:
+		parts.append("%d XP" % int(rewards["xp"]))
+	if int(rewards.get("coins", 0)) > 0:
+		parts.append("%d coins" % int(rewards["coins"]))
+	var cards: Array = rewards.get("cards", [])
+	if not cards.is_empty():
+		parts.append("%d card%s" % [cards.size(), "" if cards.size() == 1 else "s"])
+	return " · ".join(parts) if not parts.is_empty() else "their thanks"
 
 ## The generic path: a live NPC node picks its line from story flags (and
 ## setting its flag_key marks the conversation as had); otherwise the map's text.

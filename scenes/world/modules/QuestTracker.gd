@@ -13,6 +13,7 @@ const _ObjectiveBeacon = preload("res://scenes/world/entities/ObjectiveBeacon.gd
 const _RealmMapOverlay = preload("res://scenes/ui/RealmMapOverlay.gd")
 const _ObjectiveTracker = preload("res://game_logic/ObjectiveTracker.gd")
 const _StoryQuests = preload("res://game_logic/quests/StoryQuests.gd")
+const _SideQuests = preload("res://game_logic/quests/SideQuests.gd")
 
 const _MARK_NAME: String = "QuestMark"
 ## Most bounties a player can hold at once (SaveBounties.accept_bounty).
@@ -65,6 +66,14 @@ func refresh(force: bool) -> void:
 	_tracked = _QuestLog.tracked(_quests, sm.tracked_quest)
 	_place_beacon()
 	_refresh_npc_marks()
+
+## A side quest's objectives are all met: say where to hand it in.
+func on_side_quest_ready(quest_id: String) -> void:
+	refresh(true)
+	var q: Dictionary = _SideQuests.def(quest_id)
+	if not q.is_empty():
+		GameBus.hud_message_requested.emit("%s — done! Return to %s." % [str(q.get("title", "")),
+				_SideQuests.turn_in_name(q)])
 
 ## Map load: plant the beacon and take the current story step as already seen.
 func on_map_ready() -> void:
@@ -119,7 +128,8 @@ func _refresh_npc_marks() -> void:
 		if node == null:
 			continue
 		var data: Dictionary = _world._active_npc_data.get(nid, {})
-		_set_mark(node, _QuestLog.npc_mark(data, story_tile, turn_in, offers))
+		_set_mark(node, _QuestLog.npc_mark(data, story_tile, turn_in, offers,
+				sm.quests.npc_state(str(nid))))
 
 func _set_mark(node: Node3D, mark: Dictionary) -> void:
 	var lbl: Label3D = node.get_node_or_null(_MARK_NAME) as Label3D

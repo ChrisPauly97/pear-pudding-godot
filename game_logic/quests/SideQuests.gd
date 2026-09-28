@@ -8,7 +8,8 @@
 ## Quest keys:
 ##   id        — stable id (saved)
 ##   title     — shown in the Journal / accept prompt
-##   giver     — entity id of the NPC that offers it (stitched-town ids, e.g. "madrian:npc_2")
+##   giver     — entity id of the NPC that offers it (stitched-town ids: named ids as
+##               authored, generic npc_N become "madrian:npc_2")
 ##   giver_name— display name of the giver
 ##   turn_in   — entity id of the NPC that takes it back ("" = giver)
 ##   turn_in_name — display name of the turn-in NPC ("" = giver_name)
@@ -33,7 +34,7 @@ extends RefCounted
 const OBJECTIVE_TYPES: Array[String] = ["kill", "use_skill", "learn", "talk", "flag", "explore", "rift_tier"]
 
 const QUESTS: Array[Dictionary] = [
-	{"id": "rats_in_grain", "title": "Rats in the Grain Store", "giver": "madrian:baker",
+	{"id": "rats_in_grain", "title": "Rats in the Grain Store", "giver": "hilda_baker",
 		"giver_name": "Hilda the Baker",
 		"summary": ("Rats have got into my grain store again — big ones, bold as brass. Clear three of them "
 			+ "out and there's coin and a warm loaf in it for you."),

@@ -31,6 +31,7 @@ const KIND_COLORS: Dictionary = {
 	"treasure": Color(1.0, 0.60, 0.15),
 	"bounty": Color(0.85, 0.55, 1.0),
 	"side": Color(1.0, 0.95, 0.45),
+	"side_upcoming": Color(0.6, 0.6, 0.6),
 }
 
 static var _board_targets: Array[Dictionary] = []
@@ -192,8 +193,14 @@ static func bounty_board_targets() -> Array[Dictionary]:
 ## "?" = hand something in. `npc` is its spawn dict ({x, z, npc_type});
 ## `story_tile` the story step's tile on this map (or null). Returns
 ## {"text", "kind"} or {} for no mark.
+##
+## `side` (TID-534) is the NPC's side-quest state: "turn_in" (a quest of theirs is
+## ready → yellow "?"), "offer" (yellow "!"), "upcoming" (grey "!" — offered once
+## you level up) or "". A hand-in outranks the story mark; an offer does not.
 static func npc_mark(npc: Dictionary, story_tile: Variant, bounty_turn_in: bool,
-		bounty_offers: bool) -> Dictionary:
+		bounty_offers: bool, side: String = "") -> Dictionary:
+	if side == "turn_in":
+		return {"text": "?", "kind": "side"}
 	if str(npc.get("npc_type", "")) == "bounty_board":
 		if bounty_turn_in:
 			return {"text": "?", "kind": "bounty"}
@@ -206,6 +213,10 @@ static func npc_mark(npc: Dictionary, story_tile: Variant, bounty_turn_in: bool,
 		var tz: int = int(floor(float(npc.get("z", 0.0)) / IsoConst.TILE_SIZE))
 		if absi(tx - st.x) <= 1 and absi(tz - st.y) <= 1:
 			return {"text": "!", "kind": "story"}
+	if side == "offer":
+		return {"text": "!", "kind": "side"}
+	if side == "upcoming":
+		return {"text": "!", "kind": "side_upcoming"}
 	return {}
 
 ## True when some accepted bounty is fulfilled but not yet claimed.

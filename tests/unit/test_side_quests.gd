@@ -4,6 +4,7 @@ extends "res://tests/framework/test_case.gd"
 const SideQuests = preload("res://game_logic/quests/SideQuests.gd")
 const QuestLog = preload("res://game_logic/quests/QuestLog.gd")
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
+const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 
 const Q_ID: String = "rats_in_grain"
 
@@ -117,3 +118,36 @@ func test_quest_log_lists_side_quests() -> void:
 		sm.quests.progress_event("kill", "")
 	var ready: Dictionary = QuestLog.side_quest(sm.quests.log_entries()[0])
 	assert_true(str(ready["label"]).begins_with("Return to"), "points back at the giver once ready")
+
+
+func test_every_giver_stands_in_a_stitched_town() -> void:
+	var ids: Dictionary = {}
+	for npc: Dictionary in RealmLayout.entities("npcs"):
+		ids[str(npc.get("id", ""))] = true
+	for q: Dictionary in SideQuests.all():
+		assert_true(ids.has(str(q["giver"])), "%s giver %s is placed" % [str(q["id"]), str(q["giver"])])
+		assert_true(ids.has(SideQuests.turn_in_npc(q)), "%s turn-in NPC is placed" % str(q["id"]))
+
+
+func test_npc_state_and_marks() -> void:
+	var sm := _fresh()
+	var giver: String = str(SideQuests.def(Q_ID)["giver"])
+	assert_eq(sm.quests.npc_state(giver), "offer")
+	assert_eq(str(QuestLog.npc_mark({}, null, false, false, "offer")["text"]), "!")
+	sm.quests.accept(Q_ID)
+	assert_eq(sm.quests.npc_state(giver), "")
+	for i: int in range(5):
+		sm.quests.progress_event("kill", "")
+	assert_eq(sm.quests.npc_state(giver), "turn_in")
+	var story_tile := Vector2i(0, 0)
+	var mark: Dictionary = QuestLog.npc_mark({"x": 0.0, "z": 0.0}, story_tile, false, false, "turn_in")
+	assert_eq(str(mark["text"]), "?", "hand-in outranks the story mark")
+	var story: Dictionary = QuestLog.npc_mark({"x": 0.0, "z": 0.0}, story_tile, false, false, "offer")
+	assert_eq(str(story["kind"]), "story", "story mark outranks a new offer")
+	assert_eq(str(QuestLog.npc_mark({}, null, false, false, "upcoming")["kind"]), "side_upcoming")
+
+
+func test_talk_objective() -> void:
+	var q: Dictionary = {"objectives": [{"type": "talk", "target": "bob", "count": 1}]}
+	assert_true(SideQuests.objective_matches(SideQuests.objectives(q)[0], "talk", "bob"))
+	assert_false(SideQuests.objective_matches(SideQuests.objectives(q)[0], "talk", "alice"))

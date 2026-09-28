@@ -37,6 +37,17 @@ func offers_for(npc_id: String) -> Array[Dictionary]:
 	return _SideQuests.offers_for(npc_id, _save.level, _save.story_flags, _save.quests_active,
 			_save.quests_completed)
 
+## Overhead-mark state for `npc_id` (QuestLog.npc_mark's `side`).
+func npc_state(npc_id: String) -> String:
+	if not turn_ins_for(npc_id).is_empty():
+		return "turn_in"
+	if not offers_for(npc_id).is_empty():
+		return "offer"
+	if not _SideQuests.upcoming_for(npc_id, _save.level, _save.story_flags, _save.quests_active,
+			_save.quests_completed).is_empty():
+		return "upcoming"
+	return ""
+
 ## Active quests `npc_id` takes back that are ready to hand in.
 func turn_ins_for(npc_id: String) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
