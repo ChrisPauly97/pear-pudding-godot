@@ -69,3 +69,11 @@ func test_flyers_hover() -> void:
 	c._process(0.05)
 	assert_gt(c.position.y, 0.5, "butterfly flies above the ground")
 	c.free()
+
+
+func test_flyers_are_drawn_larger() -> void:
+	var c := _make("bee", Vector3(1000.0, 0.0, 1000.0))
+	var m := _make("mouse", Vector3(1000.0, 0.0, 1000.0))
+	assert_gt(c._sprite.pixel_size, m._sprite.pixel_size, "bees drawn at a larger texel size")
+	c.free()
+	m.free()

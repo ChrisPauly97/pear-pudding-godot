@@ -51,11 +51,12 @@ func _ready() -> void:
 	_sprite = AnimatedSprite3D.new()
 	_sprite.sprite_frames = frames
 	_sprite.animation = &"move"
-	_sprite.pixel_size = _SpriteRegistry.CHAR_PIXEL_SIZE
+	var px: float = _SpriteRegistry.CHAR_PIXEL_SIZE * float(_params.get("scale", 1.0))
+	_sprite.pixel_size = px
 	_SpriteRegistry.apply_billboard_flags(_sprite)
 	_sprite.shaded = false
 	_sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_sprite.position.y = float(h_px) * _SpriteRegistry.CHAR_PIXEL_SIZE * 0.5 + 0.02
+	_sprite.position.y = float(h_px) * px * 0.5 + 0.02
 	if species == "butterfly":
 		_sprite.modulate = _CritterDef.WING_TINTS[_rng.randi() % _CritterDef.WING_TINTS.size()]
 	add_child(_sprite)

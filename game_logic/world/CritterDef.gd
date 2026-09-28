@@ -35,13 +35,15 @@ const FRAMES: Dictionary = {
 }
 
 ## speed (units/s), wander radius around home, pause range (s) between moves,
-## `fly` hovers above the ground, `hop` arcs while moving, `day_only` hides at night.
+## `fly` hovers above the ground, `hop` arcs while moving, `day_only` hides at night,
+## optional `scale` multiplies the texel size (tiny flyers read as dots at 1x).
 const SPECIES: Dictionary = {
 	"mouse": {"speed": 2.2, "radius": 3.0, "pause": Vector2(0.6, 2.5), "fly": false, "hop": false, "day_only": false},
 	"rat": {"speed": 2.6, "radius": 4.0, "pause": Vector2(0.5, 2.0), "fly": false, "hop": false, "day_only": false},
 	"butterfly": {"speed": 1.3, "radius": 3.5, "pause": Vector2(0.0, 0.6), "fly": true, "hop": false,
-			"day_only": true},
-	"bee": {"speed": 2.0, "radius": 2.5, "pause": Vector2(0.0, 0.4), "fly": true, "hop": false, "day_only": true},
+			"day_only": true, "scale": 2.0},
+	"bee": {"speed": 2.0, "radius": 2.5, "pause": Vector2(0.0, 0.4), "fly": true, "hop": false, "day_only": true,
+			"scale": 2.0},
 	"scorched_larva": {"speed": 0.45, "radius": 1.5, "pause": Vector2(1.5, 4.0), "fly": false, "hop": false,
 			"day_only": false},
 	"fawn": {"speed": 1.6, "radius": 5.0, "pause": Vector2(2.0, 5.0), "fly": false, "hop": false, "day_only": true},
