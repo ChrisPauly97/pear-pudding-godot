@@ -5,6 +5,8 @@ const UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const SkillBar = preload("res://game_logic/battle/SkillBar.gd")
 const SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
+const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
+const QuestLog = preload("res://game_logic/quests/QuestLog.gd")
 
 
 func test_rows_well_formed() -> void:
@@ -123,3 +125,24 @@ func test_has_learned_gates_fresh_save() -> void:
 	assert_true(sm.has_learned("not_on_the_ladder"))
 	sm.set_setting("battle_mode", "turn")
 	assert_eq(sm.battle_mode(), "realtime", "no hand yet → real time")
+
+
+func test_every_trainer_has_an_npc_in_town() -> void:
+	var ids: Dictionary = {}
+	for npc: Dictionary in RealmLayout.entities("npcs"):
+		ids[str(npc.get("id", ""))] = true
+	for trainer: Variant in UnlockLadder.TRAINERS:
+		if str(trainer) == "maiteln":
+			continue  # his follower node teaches
+		var npc_id: String = str(UnlockLadder.TRAINER_NPCS.get(trainer, ""))
+		assert_true(ids.has(npc_id), "%s trainer NPC %s is placed" % [str(trainer), npc_id])
+		assert_eq(UnlockLadder.trainer_at(npc_id), str(trainer))
+
+
+func test_training_quest_points_at_trainers() -> void:
+	var q: Dictionary = QuestLog.training_quest(["mend", UnlockLadder.FEAT_BOUNTIES])
+	assert_eq(str(q["kind"]), "training")
+	assert_true(str(q["label"]).contains("Mend"))
+	assert_eq((q["targets"] as Array).size(), 2, "combat trainer + bounty master")
+	var mark: Dictionary = QuestLog.npc_mark({}, null, false, false, "", true)
+	assert_eq(str(mark["kind"]), "training")

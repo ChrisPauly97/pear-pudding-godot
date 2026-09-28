@@ -14,6 +14,19 @@ const _RealmMapOverlay = preload("res://scenes/ui/RealmMapOverlay.gd")
 const _ObjectiveTracker = preload("res://game_logic/ObjectiveTracker.gd")
 const _StoryQuests = preload("res://game_logic/quests/StoryQuests.gd")
 const _SideQuests = preload("res://game_logic/quests/SideQuests.gd")
+const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
+const _NpcInteractions = preload("res://scenes/world/modules/NpcInteractions.gd")
+
+## First-time guide (TutorialRegistry id) opened when a ladder entry is learned.
+const _LEARNED_GUIDES: Dictionary = {
+	"feat_spells": "tap_to_cast", "feat_minions": "soulbinding", "feat_skills": "skill_tree",
+	"feat_night_hunts": "night_hunts", "feat_dig": "cantrips", "feat_phase": "cantrips",
+	"feat_spire": "spire_intro",
+}
+## HUD action to pulse after learning (the new button to press).
+const _LEARNED_BUTTONS: Dictionary = {
+	"feat_dig": "cantrip_skeleton_dig", "feat_phase": "cantrip_ghost_phase", "feat_mount": "mount",
+}
 
 const _MARK_NAME: String = "QuestMark"
 ## Most bounties a player can hold at once (SaveBounties.accept_bounty).
@@ -66,6 +79,26 @@ func refresh(force: bool) -> void:
 	_tracked = _QuestLog.tracked(_quests, sm.tracked_quest)
 	_place_beacon()
 	_refresh_npc_marks()
+
+## GID-141: a level-up made training available — say who teaches it and point
+## the tracker at them.
+func on_training_available(ids: Array[String]) -> void:
+	var parts: Array[String] = []
+	for id: String in ids:
+		parts.append("%s — see %s" % [str(_UnlockLadder.def(id).get("title", id)),
+				_UnlockLadder.trainer_name(_UnlockLadder.trainer_for(id))])
+	GameBus.hud_message_requested.emit("New training: " + "; ".join(parts))
+	SceneManager.save_manager.set_tracked_quest(_QuestLog.TRAINING_ID)
+	refresh(true)
+
+## Learned at a trainer: confirm it and open the matching guide once.
+func on_feature_learned(id: String) -> void:
+	GameBus.hud_message_requested.emit("Learned: " + str(_UnlockLadder.def(id).get("title", id)))
+	var guide: String = str(_LEARNED_GUIDES.get(id, ""))
+	if guide != "":
+		GameBus.tutorial_popup_requested.emit(guide)
+	_world._world_hud.pulse_action(str(_LEARNED_BUTTONS.get(id, "")))
+	refresh(true)
 
 ## A side quest's objectives are all met: say where to hand it in.
 func on_side_quest_ready(quest_id: String) -> void:
@@ -128,8 +161,14 @@ func _refresh_npc_marks() -> void:
 		if node == null:
 			continue
 		var data: Dictionary = _world._active_npc_data.get(nid, {})
+		var trainer: String = _UnlockLadder.trainer_at(str(nid))
+		var training: bool = trainer != "" and _NpcInteractions.trainer_has_pending(trainer)
 		_set_mark(node, _QuestLog.npc_mark(data, story_tile, turn_in, offers,
-				sm.quests.npc_state(str(nid))))
+				sm.quests.npc_state(str(nid)), training))
+	var maiteln: Node3D = _world._valid_node3d(_world._maiteln_node)
+	if maiteln != null:
+		_set_mark(maiteln, {"text": "!", "kind": "training"} if _NpcInteractions.trainer_has_pending("maiteln")
+				else {})
 
 func _set_mark(node: Node3D, mark: Dictionary) -> void:
 	var lbl: Label3D = node.get_node_or_null(_MARK_NAME) as Label3D

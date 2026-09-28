@@ -2,7 +2,7 @@
 
 **Goal:** GID-141
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-588, TID-589
 
 ## Lock
@@ -44,12 +44,27 @@ Level-up only makes training *available*; learning happens at a trainer, for gol
 
 ## Plan
 
-_Written during Plan phase._
+1. Trainer ids → NPC ids on the ladder; place Bounty Master + Gravedigger in Madrian (Gravedigger moves to the
+   graveyard in TID-591).
+2. Generic teach panel (read how_to, pay gold) replacing the skill-only one; service NPCs keep "Other business".
+3. Maiteln teaches via his follower.
+4. Level-up → toast + tracked "Training Available" quest pointing at the trainer; blue "!" marks.
+5. Learned → toast, guide popup, HUD pulse.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `UnlockLadder.gd`: `TRAINER_NPCS`, `trainer_at()`.
+- `NpcInteractions.gd`: new `show_trainer_panel(trainer, service_npc)`, `_trainer_row`, static
+  `trainer_has_pending()`; `interact()` routes trainers with pending training to the panel.
+- `MaitelnFollower.gd`: teaches when training is pending.
+- `QuestLog.gd`: `training_quest()`, `TRAINING_ID`, `training` kind colour, `npc_mark(..., training)`.
+- `SaveManager.active_quests()`: passes pending training.
+- `QuestTracker.gd`: trainer / Maiteln marks, `on_training_available()`, `on_feature_learned()`.
+- `WorldScene.gd`: wires both signals. `WorldHUD.gd`: `pulse_action()`.
+- `assets/maps/madrian.tres`: `bounty_master_madrian` (48,31), `gravedigger_madrian` (20,40).
+- Tests: `test_unlock_ladder.gd` +2 (trainer NPCs placed, training quest/mark); `test_named_map_npcs` count →
+  at-least; `world_scene_smoke.gd` builds every trainer panel, a quest panel, and learns Mend for gold.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`starter-zone-and-training.md` "Trainer flow" section.

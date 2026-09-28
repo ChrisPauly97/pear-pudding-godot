@@ -301,6 +301,18 @@ func _toggle_social_zone() -> void:
 		if child is Control:
 			(child as Control).visible = _social_expanded
 
+## GID-141: draws the eye to a newly unlocked button — a few gold pulses.
+func pulse_action(id: String) -> void:
+	if not _actions.has(id):
+		return
+	var btn: Button = (_actions[id] as Dictionary).get("button") as Button
+	if btn == null or not btn.visible:
+		return
+	var tw := btn.create_tween()
+	for _i: int in range(4):
+		tw.tween_property(btn, "modulate", Color(1.6, 1.35, 0.5), 0.35)
+		tw.tween_property(btn, "modulate", Color.WHITE, 0.35)
+
 func unregister_action(id: String) -> void:
 	var entry: Dictionary = _actions.get(id, {})
 	var btn: Button = entry.get("button") as Button

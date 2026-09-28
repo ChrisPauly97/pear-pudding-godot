@@ -89,6 +89,26 @@ Every gate calls `save_manager.has_learned(UnlockLadder.FEAT_X)`; a blocked acti
 Co-op / PvP stay reachable from the main menu (not on the ladder). Night hunts are a local spawner, so each peer's
 own ladder decides what it sees.
 
+### Trainer flow (TID-590)
+
+- **Trainers** (`UnlockLadder.TRAINER_NPCS`, `trainer_at(npc_id)`): combat → `trainer_madrian`, bounty →
+  `bounty_master_madrian` (by the board), gravedigger → `gravedigger_madrian`, merchant → `merchant_8`,
+  stable → `stable_master`; **Maiteln** teaches through his follower node (`MaitelnFollower.interact`).
+- **Panel** `NpcInteractions.show_trainer_panel(trainer, service_npc = {})`: every row the trainer teaches —
+  learned ✓, locked (grey "Come back at level N"), or available: full `how_to` + **Learn — N gold** (disabled with
+  "Need N more gold" when short). Learning rebuilds the panel. A service NPC (merchant, stable…) gets
+  **Other business** → `interact_service(npc)`.
+- **Talking to a trainer** (`NpcInteractions.interact`): quests first, then — when `trainer_has_pending(trainer)` —
+  the teach panel; otherwise the NPC's normal interaction. The combat trainer (`npc_type "trainer"`) always opens it.
+- **Level-up** → `GameBus.training_available(ids)` → `QuestTracker.on_training_available`: toast "New training:
+  Mend — see Combat Trainer", tracks the **Training Available** quest (`QuestLog.training_quest`, kind
+  `training`, light blue), which points compass/beacon/minimap at the trainer(s).
+- **Marks:** a trainer with pending training wears a blue **!** (`QuestLog.npc_mark(..., training)`; the story
+  "!" and a side-quest "?" outrank it); so does Maiteln's follower.
+- **Learned** → `GameBus.feature_learned(id)` → `QuestTracker.on_feature_learned`: "Learned: X" toast, the matching
+  `TutorialRegistry` guide once (`_LEARNED_GUIDES`), and a gold pulse on the new HUD button (`WorldHUD.pulse_action`,
+  `_LEARNED_BUTTONS`). Once nothing is pending the training quest disappears and tracking falls back to the story.
+
 ## Integrations
 
 - Combat gates (TID-588), world/menu gates (TID-589), trainer flow (TID-590), starter zone (TID-591), quest chain

@@ -27,6 +27,16 @@ const TRAINERS: Dictionary = {
 	"stable": "Stablemaster",
 }
 
+## Trainer id → the stitched-town NPC entity id that teaches it (TID-590).
+## Maiteln is his follower node (no fixed NPC), handled by MaitelnFollower.
+const TRAINER_NPCS: Dictionary = {
+	"combat": "trainer_madrian",
+	"bounty": "bounty_master_madrian",
+	"gravedigger": "gravedigger_madrian",
+	"merchant": "merchant_8",
+	"stable": "stable_master",
+}
+
 const FEAT_MINIONS: String = "feat_minions"
 const FEAT_SPELLS: String = "feat_spells"
 const FEAT_COMPANION: String = "feat_companion"
@@ -141,6 +151,13 @@ static func cost(id: String) -> int:
 
 static func trainer_for(id: String) -> String:
 	return str(def(id).get("trainer", ""))
+
+## The trainer NPC `npc_id` is, or "".
+static func trainer_at(npc_id: String) -> String:
+	for t: Variant in TRAINER_NPCS:
+		if str(TRAINER_NPCS[t]) == npc_id:
+			return str(t)
+	return ""
 
 static func trainer_name(trainer: String) -> String:
 	return str(TRAINERS.get(trainer, trainer.capitalize()))

@@ -9,6 +9,7 @@ const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const SkillBar = preload("res://game_logic/battle/SkillBar.gd")
 const _SideQuests = preload("res://game_logic/quests/SideQuests.gd")
 const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
+const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 
 const _DUEL_PANEL_BG := Color(0.08, 0.08, 0.18, 0.96)
 ## TID-557: fixed enemy id for the town training dummy fight — see EnemyRegistry.gd.
@@ -25,6 +26,12 @@ func interact(npc: Dictionary) -> void:
 	if npc_id != "":
 		SceneManager.save_manager.quests.progress_event("talk", npc_id)
 	if show_quest_panel(npc):
+		return
+	# GID-141: a trainer with training waiting teaches first; "Other business"
+	# (shop, stable, board) is one tap away on the trainer panel's NPC.
+	var trainer: String = _UnlockLadder.trainer_at(npc_id)
+	if trainer != "" and str(npc.get("npc_type", "")) != "trainer" and trainer_has_pending(trainer):
+		show_trainer_panel(trainer, npc)
 		return
 	interact_service(npc)
 
@@ -48,7 +55,7 @@ func interact_service(npc: Dictionary) -> void:
 		"duelist":
 			show_duel_offer_panel(npc)
 		"trainer":
-			show_trainer_panel()
+			show_trainer_panel(_UnlockLadder.trainer_at(str(npc.get("id", ""))))
 		"training_dummy":
 			_offer_training_dummy_fight()
 		"rest_site":
@@ -239,62 +246,95 @@ func show_duel_offer_panel(npc: Dictionary) -> void:
 		_UiUtil.make_button("Duel!", btn_size, font, duel, row)
 	_UiUtil.make_button("Decline", btn_size, font, layer.queue_free, row)
 
-## TID-537: the trainer's teach panel — every learnable skill-bar ability with
-## its level/coin requirement, a description, and a Learn button. Learning
-## rebuilds the panel in place (via `show_trainer_panel` again) so the row
-## flips to "Known" without the player having to reopen it.
-func show_trainer_panel() -> void:
+## GID-141 / TID-590: a trainer's teach panel. Lists every UnlockLadder entry
+## `trainer` teaches: learned ones ticked, locked ones greyed with their level,
+## and each one the player can learn now in full — its how-to text and a
+## "Learn — N gold" button, so the player reads what they are buying. Learning
+## rebuilds the panel in place so the row flips to "Learned".
+## `service_npc` (a merchant, stable, board…) adds an "Other business" button
+## that closes the panel and runs that NPC's usual interaction.
+func show_trainer_panel(trainer: String = "combat", service_npc: Dictionary = {}) -> void:
 	var sm := SceneManager.save_manager
 	var vh: float = _world.get_viewport().get_visible_rect().size.y
-	var modal: Dictionary = _world._build_modal(0.75, 0.7, _DUEL_PANEL_BG, 0.018, 0.03, 0.5)
+	var modal: Dictionary = _world._build_modal(0.8, 0.78, _DUEL_PANEL_BG, 0.014, 0.025, 0.5)
 	var layer: CanvasLayer = modal["layer"]
 	var vbox: VBoxContainer = modal["vbox"]
-	var font: int = int(vh * 0.024)
+	var font: int = int(vh * 0.022)
 
-	_UiUtil.make_label("Skill Trainer", int(vh * 0.032), Color(1.0, 0.92, 0.6),
+	var title := _UiUtil.make_label(_UnlockLadder.trainer_name(trainer), int(vh * 0.034), Color(1.0, 0.92, 0.6),
 			HORIZONTAL_ALIGNMENT_CENTER, vbox)
-	_UiUtil.make_label("Strike is yours already. Coins: %d  ·  Level %d" % [sm.coins, sm.level],
-			int(vh * 0.02), Color(0.8, 0.8, 0.85), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	title.theme_type_variation = &"TitleLabel"
+	_UiUtil.make_label("Coins: %d  ·  Level %d" % [sm.coins, sm.level], int(vh * 0.02),
+			Color(0.8, 0.8, 0.85), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
-	for id: String in SkillBar.learnable_ids():
-		vbox.add_child(_trainer_row(id, sm, layer, font, vh))
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(0.0, vh * 0.52)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	vbox.add_child(scroll)
+	var list := _UiUtil.make_vbox(int(vh * 0.018), scroll)
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for id: String in _UnlockLadder.for_trainer(trainer):
+		list.add_child(_trainer_row(id, trainer, service_npc, sm, layer, font, vh))
 
 	var close_row := _UiUtil.make_hbox(int(vh * 0.02), vbox)
 	close_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	# TID-556: also reachable from the Menu Hub's "Skill Bar" tab at any time.
-	_UiUtil.make_button("Loadout", Vector2(vh * 0.18, vh * 0.06), font, func() -> void:
-		layer.queue_free()
-		SceneManager.open_menu_hub("loadout"), close_row)
+	if trainer == "combat" and SkillBar.known_ids(sm.learned_abilities).size() > 1:
+		# TID-556: also reachable from the Menu Hub's "Skill Bar" tab at any time.
+		_UiUtil.make_button("Skill Bar", Vector2(vh * 0.18, vh * 0.06), font, func() -> void:
+			layer.queue_free()
+			SceneManager.open_menu_hub("loadout"), close_row)
+	if str(service_npc.get("npc_type", "")) != "":
+		_UiUtil.make_button("Other business", Vector2(vh * 0.2, vh * 0.06), font, func() -> void:
+			layer.queue_free()
+			interact_service(service_npc), close_row)
 	_UiUtil.make_button("Close", Vector2(vh * 0.18, vh * 0.06), font, layer.queue_free, close_row)
 
-func _trainer_row(id: String, sm: SaveManager, layer: CanvasLayer, font: int, vh: float) -> Control:
-	var a: Dictionary = SkillBar.def(id)
-	var level_req: int = int(a.get("level_req", 0))
-	var cost: int = int(a.get("learn_cost", 0))
-	var known: bool = sm.learned_abilities.has(id)
+func _trainer_row(id: String, trainer: String, service_npc: Dictionary, sm: SaveManager, layer: CanvasLayer,
+		font: int, vh: float) -> Control:
+	var row_def: Dictionary = _UnlockLadder.def(id)
+	var level_req: int = _UnlockLadder.level_req(id)
+	var cost: int = _UnlockLadder.cost(id)
+	var learned: bool = sm.learned_abilities.has(id)
+	var reached: bool = sm.level >= level_req
 
-	var row := _UiUtil.make_hbox(int(vh * 0.015))
-	var info := _UiUtil.make_vbox(int(vh * 0.003), row)
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_UiUtil.make_label("%s — Lvl %d · %d coins" % [str(a.get("name", id)), level_req, cost],
-			int(vh * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, info)
-	var desc := _UiUtil.make_label(str(a.get("desc", "")), int(vh * 0.018), Color(0.75, 0.75, 0.8),
-			HORIZONTAL_ALIGNMENT_LEFT, info)
-	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-
-	if known:
-		_UiUtil.make_label("Known", int(vh * 0.02), Color(0.5, 0.9, 0.55), HORIZONTAL_ALIGNMENT_RIGHT, row)
-		return row
-
-	var can: bool = SkillBar.can_learn(id, sm.level, sm.coins, sm.learned_abilities)
-	var learn_btn := _UiUtil.make_button("Learn", Vector2(vh * 0.14, vh * 0.055), font)
+	var box := _UiUtil.make_vbox(int(vh * 0.006))
+	var head := _UiUtil.make_hbox(int(vh * 0.015), box)
+	var name_col: Color = Color.WHITE if reached or learned else Color(0.55, 0.55, 0.6)
+	var name_lbl := _UiUtil.make_label("%s  —  Level %d · %d gold" % [str(row_def.get("title", id)), level_req, cost],
+			int(vh * 0.024), name_col, HORIZONTAL_ALIGNMENT_LEFT, head)
+	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if learned:
+		_UiUtil.make_label("Learned ✓", int(vh * 0.02), Color(0.5, 0.9, 0.55), HORIZONTAL_ALIGNMENT_RIGHT, head)
+		return box
+	if not reached:
+		_UiUtil.make_label("Come back at level %d" % level_req, int(vh * 0.019), Color(0.6, 0.6, 0.65),
+				HORIZONTAL_ALIGNMENT_RIGHT, head)
+		return box
+	var how := _UiUtil.make_label(str(row_def.get("how_to", "")), int(vh * 0.019), Color(0.86, 0.88, 0.95),
+			HORIZONTAL_ALIGNMENT_LEFT, box)
+	how.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var can: bool = _UnlockLadder.can_learn(id, sm.level, sm.coins, sm.learned_abilities)
+	var btn_row := _UiUtil.make_hbox(int(vh * 0.01), box)
+	btn_row.alignment = BoxContainer.ALIGNMENT_END
+	if not can:
+		_UiUtil.make_label("Need %d more gold" % (cost - sm.coins), int(vh * 0.019), Color(0.95, 0.45, 0.4),
+				HORIZONTAL_ALIGNMENT_RIGHT, btn_row)
+	var learn_btn := _UiUtil.make_button("Learn — %d gold" % cost, Vector2(vh * 0.24, vh * 0.055), font,
+			func() -> void:
+				if sm.learn_ability(id, cost):
+					layer.queue_free()
+					show_trainer_panel(trainer, service_npc), btn_row)
 	learn_btn.disabled = not can
-	learn_btn.pressed.connect(func() -> void:
-		if sm.learn_ability(id, cost):
-			layer.queue_free()
-			show_trainer_panel())
-	row.add_child(learn_btn)
-	return row
+	return box
+
+## True when `trainer` has something the player could learn now (level reached,
+## not yet learned) — the "!" over them and the reason talking opens the panel.
+static func trainer_has_pending(trainer: String) -> bool:
+	var sm := SceneManager.save_manager
+	for id: String in _UnlockLadder.pending(sm.level, sm.learned_abilities):
+		if _UnlockLadder.trainer_for(id) == trainer:
+			return true
+	return false
 
 ## TID-557: interacting with the town training dummy — a free-of-consequence
 ## real-time practice fight. No deck-size gate, no gambit picker, no coin

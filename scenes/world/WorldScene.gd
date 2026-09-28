@@ -743,6 +743,9 @@ func _wire_gamebus_signals() -> void:
 		GameBus.quest_ready.connect(quest_tracker.on_side_quest_ready)
 		GameBus.quest_turned_in.connect(func(_id: String) -> void: quest_tracker.refresh(true))
 		GameBus.quest_abandoned.connect(func(_id: String) -> void: quest_tracker.refresh(true))
+		# GID-141 / TID-590: level-up training notices and learn confirmations.
+		GameBus.training_available.connect(quest_tracker.on_training_available)
+		GameBus.feature_learned.connect(quest_tracker.on_feature_learned)
 
 	# Auto-remount when returning to the overworld from a named map
 	if map_name == "main":
