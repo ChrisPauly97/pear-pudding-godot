@@ -1,3 +1,4 @@
+# gdlint: disable=max-file-lines
 ## Real-time battle mode (GID-135 / TID-546 prototype): drives
 ## `RealtimeCombat` from `_process`, renders its events, and gates player
 ## plays on the global cooldown. Inert unless `maybe_start()` enabled it —
@@ -32,12 +33,15 @@ const SkillBar = preload("res://game_logic/battle/SkillBar.gd")
 const _MentorBarks = preload("res://scenes/battle/modules/MentorBarks.gd")
 const _BarkRules = preload("res://game_logic/battle/BarkRules.gd")
 const FightStats = preload("res://game_logic/battle/FightStats.gd")
+const _MomentumHud = preload("res://scenes/battle/modules/MomentumHud.gd")
 ## Settings key holding the tuning panel's overrides (per device).
 const TUNING_SETTING: String = "combat_tuning"
 
 var rt: RealtimeCombat = null
 ## The fixed ability bar (TID-550); null outside real time.
 var skills: _BattleSkillBar = null
+## Auto-attack toggle, combo pips, free-cast glow (GID-139); null outside real time.
+var momentum: _MomentumHud = null
 ## New-player ramp + first-time tips (TID-552 / TID-553); null outside real time.
 var onboarding: _BattleOnboarding = null
 ## Maiteln's coaching barks (GID-135 / TID-558) — only built for an eligible
@@ -102,6 +106,8 @@ func maybe_start(is_fresh: bool) -> void:
 	var bar_ids: Array[String] = SkillBar.new(sm.skill_bar, sm.learned_abilities).ids
 	skills = _BattleSkillBar.new(_battle, self, onboarding.filter_skills(bar_ids))
 	skills.build(_strip)
+	momentum = _MomentumHud.new(_battle, self)
+	momentum.build(_strip)
 	fight_stats = FightStats.new()
 	if _BarkRules.is_eligible(SceneManager.save_manager.active_companion, onboarding.stage):
 		mentor_barks = _MentorBarks.new(_battle, self)
@@ -184,6 +190,9 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if k.keycode == KEY_T:
 		open_tuning()
 		get_viewport().set_input_as_handled()
+	elif k.keycode == KEY_F:
+		momentum.toggle_auto()
+		get_viewport().set_input_as_handled()
 	elif k.keycode >= KEY_1 and k.keycode < KEY_1 + skills.bar.ids.size():
 		skills.press(k.keycode - KEY_1)
 		get_viewport().set_input_as_handled()
@@ -241,6 +250,9 @@ func run_cast(card: CardInstance, finish: Callable, target: CardInstance = null,
 	if rt == null or _cast_card != null:
 		return false
 	var t: float = maxf(0.0, cast_time if cast_time >= 0.0 else rt.cast_time_for(card.cost))
+	var hooked: Array = momentum.wrap_card(card, finish, t)  # GID-139: combo spend, empowered = instant
+	finish = hooked[0]
+	t = hooked[1]
 	_cast_card = card
 	_cast_total = t
 	_cast_left = t
@@ -418,6 +430,7 @@ func _process(delta: float) -> void:
 		return
 	var dt: float = delta * _speed_factor()
 	skills.update(dt)
+	momentum.update()
 	onboarding.update(dt)
 	_tick_cast(dt)
 	_last_player_hp = _battle._state.players[RealtimeCombat.PLAYER].hero.health
@@ -446,6 +459,8 @@ func _process(delta: float) -> void:
 				swings.append(ev)
 			"enemy_cast":
 				_after_enemy_play(ev["card"] as CardInstance, int(ev.get("side", RealtimeCombat.ENEMY)))
+			"proc":
+				momentum.on_proc()
 			"enemy_down":
 				if rt.enemy_sides().size() > 1 and not _battle._state.is_game_over():
 					_visuals.toast("An enemy falls — keep fighting!")

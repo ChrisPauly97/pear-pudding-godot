@@ -126,6 +126,8 @@ func _resolve(slot: int) -> void:
 	# GID-135 / TID-558/559: real skill-use + interrupt-landed tracking.
 	_realtime.note_skill_used(str(bar.def_at(slot).get("effect", "")))
 	AudioManager.play_sfx("attack" if str(bar.def_at(slot)["effect"]) == "damage" else "spell_resolve")
+	if bool(out.get("proc", false)):
+		_realtime.momentum.on_proc()
 	var side: int = int(out.get("side", RealtimeCombat.ENEMY))
 	if side == RealtimeCombat.PLAYER:
 		_battle._fx.spawn_float_label(_realtime.hero_screen_pos(RealtimeCombat.PLAYER), str(out["text"]),

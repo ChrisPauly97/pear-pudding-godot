@@ -36,6 +36,8 @@ var branch_cards_played: Dictionary = {}
 var battlefield_biome: int = -1
 var is_night: bool = false
 var grasslands_card_played: bool = false  # resets at start_turn(); tracks first-card discount
+## Real time (GID-139): an essence-surge proc makes the next card free; play_card clears it.
+var next_card_free: bool = false
 
 func _init(pid: int, ai: bool = false) -> void:
 	player_id = pid
@@ -144,6 +146,8 @@ func draw_opening_hand(count: int = 4) -> void:
 ## Returns the effective mana cost of a card in mana points (cost units ×
 ## `hero.mana_scale`), applying biome and time-of-day rules.
 func effective_cost(card: CardInstance) -> int:
+	if next_card_free:
+		return 0
 	return BattlefieldRules.effective_cost(
 		card.cost, card.magic_branch, battlefield_biome, is_night, grasslands_card_played) * hero.mana_scale
 
@@ -161,6 +165,7 @@ func play_card(card: CardInstance) -> bool:
 	if not can_play(card):
 		return false
 	var cost: int = effective_cost(card)
+	next_card_free = false
 	hand.erase(card)
 	hero.spend_mana(cost)
 	if card.card_class == "spell":
@@ -183,6 +188,7 @@ func play_card_at_slot(card: CardInstance, slot_idx: int) -> bool:
 	if not board.add_card_at_slot(card, slot_idx):
 		return false
 	var cost: int = effective_cost(card)
+	next_card_free = false
 	hand.erase(card)
 	hero.spend_mana(cost)
 	if card.card_class == "spell":
