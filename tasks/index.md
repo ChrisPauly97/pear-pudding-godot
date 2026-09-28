@@ -147,6 +147,7 @@
 | [GID-141](goals/GID-141--audio-polish/goal.md) | Audio Polish — Real SFX, Ambience & Siege Music | done | 4 / 4 |
 | [GID-142](goals/GID-142--living-overworld/goal.md) | Living Overworld — Rolling Terrain, Trees, Occluded Silhouette | done | 3 / 3 |
 | [GID-143](goals/GID-143--wildlife/goal.md) | Wildlife — Ambient Critters, Cactus Worms, Imbued Stags | done | 3 / 3 |
+| [GID-144](goals/GID-144--backpack-ux/goal.md) | Backpack / Inventory UX | done | 1 / 1 |
 
 ## Backlog
 

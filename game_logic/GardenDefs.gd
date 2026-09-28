@@ -24,15 +24,15 @@ const SEEDS: Dictionary = {
 }
 
 const PLANTS: Dictionary = {
-	"sunpetal_plant": {"display_name": "Sunpetal",  "sell_value": 20},
-	"moonroot_plant": {"display_name": "Moonroot",  "sell_value": 25},
-	"embercap_plant": {"display_name": "Embercap",  "sell_value": 25},
+	"sunpetal_plant": {"display_name": "Sunpetal",  "sell_value": 20, "description": "A warm golden bloom."},
+	"moonroot_plant": {"display_name": "Moonroot",  "sell_value": 25, "description": "A pale, cool-glowing root."},
+	"embercap_plant": {"display_name": "Embercap",  "sell_value": 25, "description": "A mushroom that smoulders."},
 }
 
 const POTIONS: Dictionary = {
-	"healing_draught": {"display_name": "Healing Draught", "essence_cost": 0},
-	"clarity_brew":    {"display_name": "Clarity Brew",    "essence_cost": 0},
-	"ember_tonic":     {"display_name": "Ember Tonic",     "essence_cost": 0},
+	"healing_draught": {"display_name": "Healing Draught", "essence_cost": 0, "description": "Battle: restore 8 HP."},
+	"clarity_brew":    {"display_name": "Clarity Brew",    "essence_cost": 0, "description": "Battle: draw 2 cards."},
+	"ember_tonic":     {"display_name": "Ember Tonic",     "essence_cost": 0, "description": "Battle: gain 1 mana."},
 }
 
 const POTION_RECIPES: Dictionary = {
