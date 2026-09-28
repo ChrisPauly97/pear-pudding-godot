@@ -183,9 +183,13 @@ BID-065 (placeholder undead + townsfolk sprites), BID-066 (graveyard dressing), 
 
 ## Integrations
 
-- Combat gates (TID-588), world/menu gates (TID-589), trainer flow (TID-590), starter zone (TID-591), quest chain
-  (TID-592) — see their sections as they land.
+- Quests: `SideQuests` / `SaveQuests` / `QuestLog` (`story-implementation.md`); story gate `help_townsfolk`.
+- Levels: `ZoneLevels` (`enemies-and-npcs.md`); camps preset their level.
+- Combat: `CombatOnboarding` / `BattleOnboarding` (`combat-model.md`).
+- World modules: `StarterCamps`, `QuestTracker` (training marks + notices), `StoryCast` (flag-shown NPCs).
 - Rifts (GID-142) are `feat_spire`.
+- Co-op: the ladder is per save; joiners' session characters carry their own `learned_abilities`. Starter camps are
+  solo-only; night-hunt spawns are local per peer.
 
 ## Asset Requirements
 

@@ -1,5 +1,7 @@
 # Battle System
 
+> **GID-141:** what a fight contains for a new player (skills, hand, spells, companion) follows the unlock ladder — see `combat-model.md` → New-player onboarding.
+
 ## Key Features
 
 - Turn-based collectible card game (TCG) battles between the player and an enemy

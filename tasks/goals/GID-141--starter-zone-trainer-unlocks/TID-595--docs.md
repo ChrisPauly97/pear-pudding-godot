@@ -2,7 +2,7 @@
 
 **Goal:** GID-141
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-592, TID-594
 
 ## Lock
@@ -25,12 +25,12 @@ Record the new-player flow for future agents.
 
 ## Plan
 
-_Written during Plan phase._
+Most docs landed with each task; close out game-appeal §6/§7, feature-doc pointers, integrations.
 
 ## Changes Made
 
-_Filled after Build phase._
+Docs only.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`game-appeal.md` §6 #1/#6 + GID-141 update; `skill-trees.md`, `battle-system.md` pointers; `starter-zone-and-training.md` integrations. (Earlier tasks: new `starter-zone-and-training.md`, CLAUDE.md rows, `combat-model.md`, `story-implementation.md`, `enemies-and-npcs.md`, `card-cantrips.md`, `rideable-mounts.md`, `bounty-board.md`, `night-hunts.md`.)

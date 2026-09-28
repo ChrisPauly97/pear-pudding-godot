@@ -1,5 +1,7 @@
 # Skill Trees
 
+> **GID-141:** the Skills tab (and magic-type choice) is learned from Maiteln at level 7 (`UnlockLadder.FEAT_SKILLS`); points bank from level-ups before then. See `starter-zone-and-training.md`.
+
 ## Key Features
 
 - **Eight branch-specific skill trees**, two per magic type:
