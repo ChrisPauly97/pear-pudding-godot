@@ -145,6 +145,7 @@
 | [GID-139](goals/GID-139--combat-momentum/goal.md) | Combat Momentum — Always a Button to Press | in-progress | 3 / 5 |
 | [GID-140](goals/GID-140--quest-log-wayfinding/goal.md) | Quest Log & Wayfinding | done | 6 / 6 |
 | [GID-141](goals/GID-141--audio-polish/goal.md) | Audio Polish — Real SFX, Ambience & Siege Music | done | 4 / 4 |
+| [GID-142](goals/GID-142--living-overworld/goal.md) | Living Overworld — Rolling Terrain, Trees, Occluded Silhouette | done | 3 / 3 |
 
 ## Backlog
 

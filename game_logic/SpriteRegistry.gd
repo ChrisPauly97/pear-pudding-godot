@@ -71,6 +71,17 @@ const _PROP_BOULDER_2 := preload("res://assets/textures/props/prop_boulder_2.png
 const _PROP_LICHEN_0 := preload("res://assets/textures/props/prop_lichen_0.png")
 const _PROP_LICHEN_1 := preload("res://assets/textures/props/prop_lichen_1.png")
 const _PROP_LICHEN_2 := preload("res://assets/textures/props/prop_lichen_2.png")
+## Trees (scripts/gen_tree_sprites.py), scattered in groves by TreeScatter.
+const _PROP_TREE_OAK_0 := preload("res://assets/textures/props/prop_tree_oak_0.png")
+const _PROP_TREE_OAK_1 := preload("res://assets/textures/props/prop_tree_oak_1.png")
+const _PROP_TREE_OAK_2 := preload("res://assets/textures/props/prop_tree_oak_2.png")
+const _PROP_TREE_PINE_0 := preload("res://assets/textures/props/prop_tree_pine_0.png")
+const _PROP_TREE_PINE_1 := preload("res://assets/textures/props/prop_tree_pine_1.png")
+const _PROP_TREE_PINE_2 := preload("res://assets/textures/props/prop_tree_pine_2.png")
+const _PROP_TREE_SNOWPINE_0 := preload("res://assets/textures/props/prop_tree_snowpine_0.png")
+const _PROP_TREE_SNOWPINE_1 := preload("res://assets/textures/props/prop_tree_snowpine_1.png")
+const _PROP_TREE_DEAD_0 := preload("res://assets/textures/props/prop_tree_dead_0.png")
+const _PROP_TREE_DEAD_1 := preload("res://assets/textures/props/prop_tree_dead_1.png")
 const _PROP_VARIANTS: Dictionary = {
 	"rock": [_PROP_ROCK_0, _PROP_ROCK_1, _PROP_ROCK_2, _PROP_ROCK_3],
 	"flower": [_PROP_FLOWER_0, _PROP_FLOWER_1, _PROP_FLOWER_2, _PROP_FLOWER_3, _PROP_FLOWER_4],
@@ -82,6 +93,10 @@ const _PROP_VARIANTS: Dictionary = {
 	"ember": [_PROP_EMBER_0, _PROP_EMBER_1, _PROP_EMBER_2],
 	"boulder": [_PROP_BOULDER_0, _PROP_BOULDER_1, _PROP_BOULDER_2],
 	"lichen": [_PROP_LICHEN_0, _PROP_LICHEN_1, _PROP_LICHEN_2],
+	"tree_oak": [_PROP_TREE_OAK_0, _PROP_TREE_OAK_1, _PROP_TREE_OAK_2],
+	"tree_pine": [_PROP_TREE_PINE_0, _PROP_TREE_PINE_1, _PROP_TREE_PINE_2],
+	"tree_snowpine": [_PROP_TREE_SNOWPINE_0, _PROP_TREE_SNOWPINE_1],
+	"tree_dead": [_PROP_TREE_DEAD_0, _PROP_TREE_DEAD_1],
 }
 
 const _CARD_GHOST         := preload("res://assets/textures/cards/card_ghost.png")

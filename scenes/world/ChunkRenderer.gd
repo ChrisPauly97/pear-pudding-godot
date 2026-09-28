@@ -6,6 +6,7 @@ const GrassBlades   = preload("res://scenes/world/GrassBlades.gd")
 const TerrainMath   = preload("res://game_logic/TerrainMath.gd")
 const BiomeDef      = preload("res://game_logic/world/BiomeDef.gd")
 const _WaterMath    = preload("res://game_logic/world/WaterMath.gd")
+const _TreeScatter  = preload("res://game_logic/world/TreeScatter.gd")
 const _ChunkStreamingManager = preload("res://scenes/world/ChunkStreamingManager.gd")
 const TextureGen    = preload("res://game_logic/TextureGen.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
@@ -175,6 +176,8 @@ static func prepare_terrain(
 	# Build per-biome prop positions (pure math, no scene tree).
 	var prop_positions: Dictionary = _compute_prop_positions(
 			chunk_data, grid_tile_lookup, hfield, chunk_origin, nvx, world_seed, dry_points)
+	prop_positions.merge(_TreeScatter.compute(
+			chunk_data, grid_tile_lookup, hfield, chunk_origin, nvx, world_seed, dry_points))
 
 	return {
 		"mesh":           terrain_res["mesh"],
@@ -517,8 +520,11 @@ func _add_prop_multimesh(key_str: String, variant: int, positions: Array) -> voi
 	mm.mesh = quad
 	for i in range(positions.size()):
 		var pos: Vector3 = positions[i] as Vector3
-		# Mirror variety only: scaling would break the shared pixel size.
+		# Mirror variety only: scaling would break the shared pixel size. Trees
+		# keep their baked upper-left light, so they never mirror.
 		var flip: float = -1.0 if fposmod(pos.x * 3.7 + pos.z * 1.3, 2.0) > 1.0 else 1.0
+		if _TreeScatter.is_tree_key(key_str):
+			flip = 1.0
 		mm.set_instance_transform(i, Transform3D(Basis.from_scale(Vector3(flip, 1.0, 1.0)), pos))
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm

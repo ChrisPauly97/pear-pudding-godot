@@ -12,16 +12,16 @@ const COUNT:      int = 5
 # max_hill_h   — maximum hill height in levels
 # freq_scale   — coordinate scale applied to noise sampling (>1 = choppier, <1 = broader)
 const PARAMS: Array = [
-	# GRASSLANDS — open meadows, gentle low hills
-	{"hill_thresh": 0.82, "max_hill_h": 2, "freq_scale": 0.9},
+	# GRASSLANDS — rolling meadows, low hills
+	{"hill_thresh": 0.66, "max_hill_h": 3, "freq_scale": 0.9},
 	# FOREST — dense hills (tall ruins stand like trees)
-	{"hill_thresh": 0.72, "max_hill_h": 3, "freq_scale": 1.1},
-	# DESERT — nearly flat, rare shallow dunes
-	{"hill_thresh": 0.91, "max_hill_h": 1, "freq_scale": 0.8},
+	{"hill_thresh": 0.60, "max_hill_h": 4, "freq_scale": 1.1},
+	# DESERT — dunes
+	{"hill_thresh": 0.74, "max_hill_h": 2, "freq_scale": 0.8},
 	# SCORCHED — jagged, tall spires
-	{"hill_thresh": 0.70, "max_hill_h": 5, "freq_scale": 1.2},
+	{"hill_thresh": 0.62, "max_hill_h": 5, "freq_scale": 1.2},
 	# MOUNTAINS — very hilly, great peaks
-	{"hill_thresh": 0.62, "max_hill_h": 7, "freq_scale": 1.0},
+	{"hill_thresh": 0.55, "max_hill_h": 7, "freq_scale": 1.0},
 ]
 
 # Flat-ground surface tint per biome (multiplied over base grass texture).
@@ -107,6 +107,18 @@ const PROP_SETS: Array = [
 	["ash_pile", "ember", "rock"],               # Scorched
 	["boulder", "lichen", "rock"],               # Mountains
 ]
+
+# Trees per biome (TreeScatter): prop keys (repeats weight a type), the chance
+# a tile inside a grove grows one, and the chance anywhere else (lone trees).
+const TREE_SETS: Array = [
+	["tree_oak", "tree_oak", "tree_oak", "tree_pine"],  # Grasslands
+	["tree_pine", "tree_oak", "tree_pine"],             # Forest
+	["tree_dead"],                                      # Desert
+	["tree_dead"],                                      # Scorched
+	["tree_snowpine", "tree_pine"],                     # Mountains
+]
+const TREE_GROVE_CHANCE: Array[float] = [0.22, 0.42, 0.03, 0.10, 0.16]
+const TREE_LONE_CHANCE: Array[float] = [0.012, 0.06, 0.004, 0.01, 0.02]
 
 # Props that grow in clumps: each spawn adds this many neighbours in its tile.
 const PROP_CLUMPS: Dictionary = {"flower": 3, "mushroom": 2, "fern": 1}

@@ -158,6 +158,7 @@ func _build_sprite() -> void:
 
 	add_child(_sprite)
 	_SpriteOutline.apply(_sprite)
+	_SpriteOutline.apply_xray(_sprite)
 	_ContactShadow.register(self, _ContactShadow.radius_for_height(_SpriteRegistry.PLAYER_HEIGHT))
 	_sprite.play("idle")
 	_sprite.frame_changed.connect(_on_sprite_frame_changed)
