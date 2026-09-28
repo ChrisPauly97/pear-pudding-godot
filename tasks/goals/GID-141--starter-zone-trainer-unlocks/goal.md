@@ -43,7 +43,7 @@ Co-op/PvP stay reachable from the main menu. "Head Start (debug)" learns everyth
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-533 | *(GID-136)* Quest Data & Registry | agent | pending | — |
+| TID-533 | *(GID-136)* Quest Data & Registry | agent | done | — |
 | TID-534 | *(GID-136)* Quest-Giver NPCs (accept/turn-in flow) | agent | pending | TID-533 |
 | TID-536 | *(GID-136)* Zone Level Ranges & Enemy Levels | agent | pending | — |
 | TID-587 | Unlock Ladder Table & XP Curve | agent | pending | — |

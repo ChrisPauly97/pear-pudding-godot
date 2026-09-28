@@ -69,6 +69,7 @@ func _on_battle_won(result: Dictionary) -> void:
 	if enemy_type != "" and not is_rival and not is_nocturnal:
 		_sm.save_manager.record_enemy_defeated(enemy_type)
 		_sm.save_manager.bounties.increment_bounty_progress("defeat_enemy_type", {"enemy_type": enemy_type})
+		_sm.save_manager.quests.progress_event("kill", enemy_type)
 	_sm.save_manager.increment_progress("battles_won", 1)
 	_sm.save_manager.check_deck_achievements(_sm.save_manager.player_deck)
 	_sm._bump_session_stat("battles_won", 1)
@@ -229,6 +230,7 @@ func _reward_joined_enemies(gambit_id: String) -> Vector2i:
 			continue
 		_sm.save_manager.record_enemy_defeated(jtype)
 		_sm.save_manager.bounties.increment_bounty_progress("defeat_enemy_type", {"enemy_type": jtype})
+		_sm.save_manager.quests.progress_event("kill", jtype)
 		var coins: int = Gambits.apply_reward_multiplier(EnemyRegistry.get_coin_reward(jtype), gambit_id)
 		_sm.save_manager.add_coins(coins)
 		_sm._bump_session_stat("coins_earned", coins)

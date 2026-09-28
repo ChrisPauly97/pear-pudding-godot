@@ -119,6 +119,12 @@ signal waystone_activated(waystone_id: String)
 signal waypoint_changed(waypoint: Dictionary)
 ## The quest the compass / beacon / minimap follow changed (GID-140).
 signal quest_tracking_changed(quest_id: String)
+## Side quests (GID-136 / TID-533) — emitted by SaveManager.quests.
+signal quest_accepted(quest_id: String)
+signal quest_progressed(quest_id: String)
+signal quest_ready(quest_id: String)
+signal quest_turned_in(quest_id: String)
+signal quest_abandoned(quest_id: String)
 
 # Mount signals
 signal mount_state_changed(mounted: bool, mount_id: String)

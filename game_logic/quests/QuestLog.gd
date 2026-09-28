@@ -18,24 +18,28 @@ const _StoryQuests = preload("res://game_logic/quests/StoryQuests.gd")
 const _ObjectiveTracker = preload("res://game_logic/ObjectiveTracker.gd")
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const _BountyGen = preload("res://game_logic/BountyGen.gd")
+const _SideQuests = preload("res://game_logic/quests/SideQuests.gd")
 
 const STORY_ID: String = "story"
 const TREASURE_ID: String = "treasure"
 const BOUNTY_PREFIX: String = "bounty:"
+const SIDE_PREFIX: String = "side:"
 
 ## Marker colour per quest kind (compass dots, minimap / realm-map pins).
 const KIND_COLORS: Dictionary = {
 	"story": Color(1.0, 0.82, 0.15),
 	"treasure": Color(1.0, 0.60, 0.15),
 	"bounty": Color(0.85, 0.55, 1.0),
+	"side": Color(1.0, 0.95, 0.45),
 }
 
 static var _board_targets: Array[Dictionary] = []
 
 
-## All active quests, story first.
+## All active quests, story first. `side` is SaveQuests.log_entries():
+## [{quest, progress, ready}].
 static func active_quests(flags: Dictionary, treasure: Dictionary,
-		bounties: Array) -> Array[Dictionary]:
+		bounties: Array, side: Array = []) -> Array[Dictionary]:
 	var out: Array[Dictionary] = [story_quest(flags)]
 	if not treasure.is_empty() and not bool(treasure.get("completed", false)):
 		out.append({
@@ -67,7 +71,53 @@ static func active_quests(flags: Dictionary, treasure: Dictionary,
 			"progress": "%d / %d" % [progress, count],
 			"targets": targets,
 		})
+	for raw: Variant in side:
+		if raw is Dictionary:
+			out.append(side_quest(raw as Dictionary))
 	return out
+
+## One active side quest (SideQuests) as a quest dict. It points at its first
+## unfinished objective's place, or at the turn-in NPC once every objective is met.
+static func side_quest(entry: Dictionary) -> Dictionary:
+	var q: Dictionary = entry.get("quest", {})
+	var progress: Array = entry.get("progress", [])
+	var ready: bool = bool(entry.get("ready", false))
+	var label: String = ""
+	var targets: Array[Dictionary] = []
+	var objs: Array[Dictionary] = _SideQuests.objectives(q)
+	if ready:
+		var npc_id: String = _SideQuests.turn_in_npc(q)
+		label = "Return to %s" % _SideQuests.turn_in_name(q)
+		var t: Dictionary = npc_target(npc_id)
+		if not t.is_empty():
+			targets.append(t)
+	else:
+		for i: int in range(objs.size()):
+			var have: int = int(progress[i]) if i < progress.size() else 0
+			if have >= int(objs[i].get("count", 1)):
+				continue
+			label = str(objs[i].get("label", ""))
+			if objs[i].has("map"):
+				targets.append(objs[i])
+			elif str(objs[i].get("type", "")) == "talk":
+				var nt: Dictionary = npc_target(str(objs[i].get("target", "")))
+				if not nt.is_empty():
+					targets.append(nt)
+			break
+	return {
+		"id": SIDE_PREFIX + str(q.get("id", "")), "kind": "side", "title": str(q.get("title", "")),
+		"label": label, "giver": str(q.get("giver_name", "")), "summary": str(q.get("summary", "")),
+		"progress": _SideQuests.progress_text(q, progress), "targets": targets,
+	}
+
+## Overworld tile target of the stitched-town NPC with entity id `npc_id`, or {}.
+static func npc_target(npc_id: String) -> Dictionary:
+	for npc: Dictionary in _RealmLayout.entities("npcs"):
+		if str(npc.get("id", "")) == npc_id:
+			return {"map": "main",
+				"tx": int(floor(float(npc.get("x", 0.0)) / IsoConst.TILE_SIZE)),
+				"tz": int(floor(float(npc.get("z", 0.0)) / IsoConst.TILE_SIZE))}
+	return {}
 
 ## The main-story entry. Past the last written step it becomes a standing
 ## "between chapters" quest pointing at the bounty boards, so the tracker is

@@ -15,6 +15,7 @@ const _SaveFile = preload("res://game_logic/save/SaveFile.gd")
 const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
 const _SaveGarden = preload("res://autoloads/save_manager/SaveGarden.gd")
 const _SaveBounties = preload("res://autoloads/save_manager/SaveBounties.gd")
+const _SaveQuests = preload("res://autoloads/save_manager/SaveQuests.gd")
 const _SaveLoadouts = preload("res://autoloads/save_manager/SaveLoadouts.gd")
 const _SaveSpire = preload("res://autoloads/save_manager/SaveSpire.gd")
 const _SaveSiege = preload("res://autoloads/save_manager/SaveSiege.gd")
@@ -69,6 +70,7 @@ const PERSISTED_FIELDS: Dictionary = {
 	"owned_mounts": [], "active_mount": "", "is_mounted": false,
 	"packs_since_legendary": 0, "active_companion": "", "waypoint": {}, "tracked_quest": "",
 	"bounty_day": 0, "offered_bounties": [], "active_bounties": [],
+	"quests_active": {}, "quests_completed": [],
 	# 0 means "absent" — _restore_derived_fields substitutes IsoConst's default,
 	# which can't be referenced from a const expression (IsoConst is an autoload).
 	"bag_size": 0,
@@ -95,6 +97,7 @@ const REDEMPTION_FLAG_AWARDS: Dictionary = {
 ## Feature APIs over the persisted fields (autoloads/save_manager/), built in `_init`.
 var garden: _SaveGarden
 var bounties: _SaveBounties
+var quests: _SaveQuests
 var decks: _SaveLoadouts
 var spire: _SaveSpire
 var town_siege: _SaveSiege
@@ -271,6 +274,9 @@ var tracked_quest: String = ""
 var bounty_day: int = 0
 var offered_bounties: Array[Dictionary] = []
 var active_bounties: Array[Dictionary] = []
+## Side quests (GID-136 / TID-533): {quest_id: {"progress": [int]}} and turned-in ids.
+var quests_active: Dictionary = {}
+var quests_completed: Array[String] = []
 
 # Siege system
 # Active siege: {town: String, stage: int, hero_hp: int, day_started: int} or {} when none.
@@ -333,6 +339,7 @@ var _achievement_dirty: bool = false
 func _init() -> void:
 	garden = _SaveGarden.new(self)
 	bounties = _SaveBounties.new(self)
+	quests = _SaveQuests.new(self)
 	decks = _SaveLoadouts.new(self)
 	spire = _SaveSpire.new(self)
 	town_siege = _SaveSiege.new(self)
@@ -539,6 +546,8 @@ func new_game(head_start: bool = false) -> void:
 	bounty_day = 0
 	offered_bounties = []
 	active_bounties = []
+	quests_active = {}
+	quests_completed = []
 	siege = {}
 	last_siege_day = 0
 	town_discounts = {}
@@ -817,7 +826,7 @@ func set_tracked_quest(quest_id: String) -> void:
 
 ## Every active quest (QuestLog), story first.
 func active_quests() -> Array[Dictionary]:
-	return _QuestLog.active_quests(story_flags, active_treasure, active_bounties)
+	return _QuestLog.active_quests(story_flags, active_treasure, active_bounties, quests.log_entries())
 
 ## The quest the markers follow (falls back to the story quest).
 func tracked_quest_data() -> Dictionary:
@@ -1070,6 +1079,8 @@ func set_story_flag(key: String, value: bool = true) -> void:
 	_dirty = true
 	GameBus.story_flag_set.emit(key)
 	if value:
+		quests.progress_event("flag", key)
+	if value:
 		check_flag_achievement(key)
 		if was_unset and REDEMPTION_FLAG_AWARDS.has(key):
 			add_redemption_points(int(REDEMPTION_FLAG_AWARDS[key]))
@@ -1247,6 +1258,8 @@ func learn_ability(id: String, cost: int) -> bool:
 	learned_abilities.append(id)
 	coins -= cost
 	_dirty = true
+	coins_changed.emit(coins)
+	quests.progress_event("learn", id)
 	return true
 
 ## TID-556: writes the player's chosen 3-slot loadout. Callers should already

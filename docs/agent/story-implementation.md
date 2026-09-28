@@ -137,9 +137,10 @@ Since GID-140 both follow the **tracked quest** (below), not only the story step
 | Between chapters | `story` | past the last step | every bounty board (`bounty_board_targets()`) |
 | Treasure | `treasure` | `active_treasure` (not completed) | dig site (overworld tile) |
 | Bounty | `bounty:<id>` | `active_bounties` (unclaimed) | none while in progress; every bounty board once complete |
+| Side quest | `side:<id>` | `SaveManager.quests.log_entries()` | first unfinished objective's `{map,tx,tz}` (or its `talk` NPC); the turn-in NPC once ready |
 
 A quest with several targets points at the **nearest** (`QuestLog.world_pos(quest, map, from)`).
-Kind colours: `QuestLog.KIND_COLORS` (story gold, treasure orange, bounty violet).
+Kind colours: `QuestLog.KIND_COLORS` (story gold, treasure orange, bounty violet, side pale yellow).
 Bounty text comes from `BountyGen.describe()` (shared with `BountyBoardScene`).
 
 **Tracked quest.** `SaveManager.tracked_quest` (persisted; `""` = story) is set by the
@@ -147,6 +148,29 @@ Journal's Track button via `SaveManager.set_tracked_quest(id)`, which emits
 `GameBus.quest_tracking_changed`. `QuestLog.tracked()` falls back to the story quest
 when the tracked one is gone (bounty claimed, treasure dug). SaveManager wraps both:
 `active_quests()`, `tracked_quest_data()`.
+
+### Side Quests (GID-136 / TID-533)
+
+WoW-style NPC asks, separate from the story chain.
+
+- **Data:** `game_logic/quests/SideQuests.gd` — pure static `QUESTS` table (code, not `.tres`, like
+  StoryQuests/EnemyRegistry — nothing to preload for Android). Keys: `id, title, giver, giver_name, turn_in,
+  turn_in_name, summary, done_text, objectives[{type, target, count, label[, map, tx, tz]}], prereqs, min_level,
+  req_flag, rewards{xp, coins, cards, flag}`. `giver`/`turn_in` are stitched-town NPC ids (`RealmLayout.entities`
+  prefixes generic `npc_N` ids with the town, e.g. `madrian:npc_2`). Helpers: `def`, `can_offer`, `offers_for`,
+  `upcoming_for`, `objective_matches`, `is_complete`, `progress_text`.
+- **Objective types:** `kill` (enemy type, `""` = any), `use_skill`, `learn`, `talk`, `flag`, `explore`, `rift_tier`.
+  A `target` of `""` matches any event of that type.
+- **Save:** `quests_active` (`{id: {"progress": [int]}}`) and `quests_completed` (`[id]`) in `PERSISTED_FIELDS`;
+  API module `autoloads/save_manager/SaveQuests.gd` (`SaveManager.quests`): `accept`, `abandon`,
+  `progress_event(type, target, amount)`, `is_ready`, `turn_in` (pays coins, cards, xp, sets `rewards.flag`),
+  `offers_for(npc)`, `turn_ins_for(npc)`, `log_entries()`. A `flag` objective already met counts at accept.
+- **Progress hooks:** `kill` from `BattleVictory` next to each bounty `defeat_enemy_type` increment (main + joined
+  enemies; Spire kills excluded); `flag` from `SaveManager.set_story_flag`; `learn` from `SaveManager.learn_ability`.
+  `talk`, `use_skill`, `explore`, `rift_tier` are wired by the tasks that add their sources (TID-534, GID-141, GID-142).
+- **Signals:** `GameBus.quest_accepted / quest_progressed / quest_ready / quest_turned_in / quest_abandoned(id)`.
+- **Tests:** `tests/unit/test_side_quests.gd` (table integrity, gating, accept → progress → turn-in, JSON round trip,
+  QuestLog entry).
 
 **World module `QuestTracker`** (`scenes/world/modules/QuestTracker.gd`, `WorldScene.quest_tracker`).
 `active_quests()` / `tracked_quest()` / `tracked_quest_pos()` / `quest_pos(q)` read a cache

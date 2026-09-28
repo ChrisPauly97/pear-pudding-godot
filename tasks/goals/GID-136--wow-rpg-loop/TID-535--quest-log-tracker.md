@@ -2,7 +2,7 @@
 
 **Goal:** GID-136
 **Type:** agent
-**Status:** pending
+**Status:** superseded
 **Depends On:** TID-533
 
 ## Lock
@@ -10,6 +10,11 @@
 **Session:** none
 **Acquired:** —
 **Expires:** —
+
+## Superseded
+
+GID-140 shipped the quest log (Journal Quests tab), tracked quest and compass/beacon/minimap pointing;
+TID-533 feeds side quests into the same `QuestLog`. Nothing left here (BID-064).
 
 ## Context
 

@@ -1,0 +1,139 @@
+## Side quests (SideQuests table): accept, progress, turn in (GID-136 / TID-533).
+##
+## Owned by SaveManager (`SaveManager.quests`), created in its `_init`. State stays
+## on SaveManager (PERSISTED_FIELDS walks its properties):
+##   quests_active    — {quest_id: {"progress": [int per objective]}}
+##   quests_completed — [quest_id] turned in
+extends RefCounted
+
+const _SaveManager = preload("res://autoloads/SaveManager.gd")
+const _SideQuests = preload("res://game_logic/quests/SideQuests.gd")
+
+var _save: _SaveManager
+
+
+func _init(save_manager: _SaveManager) -> void:
+	_save = save_manager
+
+
+func is_active(id: String) -> bool:
+	return _save.quests_active.has(id)
+
+func is_turned_in(id: String) -> bool:
+	return _save.quests_completed.has(id)
+
+func progress_of(id: String) -> Array:
+	var entry: Dictionary = _save.quests_active.get(id, {})
+	var p: Array = entry.get("progress", [])
+	return p
+
+## Every objective met, waiting to be handed in.
+func is_ready(id: String) -> bool:
+	if not is_active(id):
+		return false
+	return _SideQuests.is_complete(_SideQuests.def(id), progress_of(id))
+
+func offers_for(npc_id: String) -> Array[Dictionary]:
+	return _SideQuests.offers_for(npc_id, _save.level, _save.story_flags, _save.quests_active,
+			_save.quests_completed)
+
+## Active quests `npc_id` takes back that are ready to hand in.
+func turn_ins_for(npc_id: String) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for id: Variant in _save.quests_active.keys():
+		var q: Dictionary = _SideQuests.def(str(id))
+		if not q.is_empty() and _SideQuests.turn_in_npc(q) == npc_id and is_ready(str(id)):
+			out.append(q)
+	return out
+
+func accept(id: String) -> bool:
+	var q: Dictionary = _SideQuests.def(id)
+	if q.is_empty() or not _SideQuests.can_offer(q, _save.level, _save.story_flags,
+			_save.quests_active, _save.quests_completed):
+		return false
+	var progress: Array = []
+	for o: Dictionary in _SideQuests.objectives(q):
+		# A flag objective already met counts at once.
+		var met: bool = str(o.get("type", "")) == "flag" and _save.get_story_flag(str(o.get("target", "")))
+		progress.append(int(o.get("count", 1)) if met else 0)
+	_save.quests_active[id] = {"progress": progress}
+	_save._dirty = true
+	GameBus.quest_accepted.emit(id)
+	if _SideQuests.is_complete(q, progress):
+		GameBus.quest_ready.emit(id)
+	return true
+
+func abandon(id: String) -> void:
+	if _save.quests_active.erase(id):
+		_save._dirty = true
+		GameBus.quest_abandoned.emit(id)
+
+## Counts one (or `amount`) of an event toward every active quest objective it
+## matches. Returns true when any progress changed.
+func progress_event(event_type: String, target: String = "", amount: int = 1) -> bool:
+	var changed: bool = false
+	for idv: Variant in _save.quests_active.keys():
+		var id: String = str(idv)
+		var q: Dictionary = _SideQuests.def(id)
+		if q.is_empty():
+			continue
+		var was_ready: bool = _SideQuests.is_complete(q, progress_of(id))
+		var progress: Array = progress_of(id).duplicate()
+		var objs: Array[Dictionary] = _SideQuests.objectives(q)
+		var touched: bool = false
+		for i: int in range(objs.size()):
+			if not _SideQuests.objective_matches(objs[i], event_type, target):
+				continue
+			while progress.size() <= i:
+				progress.append(0)
+			var need: int = int(objs[i].get("count", 1))
+			if int(progress[i]) >= need:
+				continue
+			progress[i] = mini(int(progress[i]) + amount, need)
+			touched = true
+		if not touched:
+			continue
+		_save.quests_active[id] = {"progress": progress}
+		changed = true
+		GameBus.quest_progressed.emit(id)
+		if not was_ready and _SideQuests.is_complete(q, progress):
+			GameBus.quest_ready.emit(id)
+	if changed:
+		_save._dirty = true
+	return changed
+
+## Hands a ready quest in: pays its rewards, sets its flag and records it.
+## Returns the rewards dict granted, or {} when it can't be turned in.
+func turn_in(id: String) -> Dictionary:
+	if not is_ready(id):
+		return {}
+	var q: Dictionary = _SideQuests.def(id)
+	var rewards: Dictionary = q.get("rewards", {})
+	_save.quests_active.erase(id)
+	_save.quests_completed.append(id)
+	var coins: int = int(rewards.get("coins", 0))
+	if coins > 0:
+		_save.add_coins(coins)
+	var cards: Array = rewards.get("cards", [])
+	for c: Variant in cards:
+		_save.grant_card_reward(str(c), "common")
+	var flag: String = str(rewards.get("flag", ""))
+	if flag != "":
+		_save.set_story_flag(flag)
+	var xp: int = int(rewards.get("xp", 0))
+	if xp > 0:
+		_save.add_xp(xp)
+	_save._dirty = true
+	GameBus.quest_turned_in.emit(id)
+	return rewards
+
+## Active side quests as QuestLog entries.
+func log_entries() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for idv: Variant in _save.quests_active.keys():
+		var id: String = str(idv)
+		var q: Dictionary = _SideQuests.def(id)
+		if q.is_empty():
+			continue
+		out.append({"quest": q, "progress": progress_of(id), "ready": is_ready(id)})
+	return out
