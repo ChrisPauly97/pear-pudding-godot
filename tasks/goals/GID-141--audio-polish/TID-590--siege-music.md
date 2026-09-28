@@ -2,7 +2,7 @@
 
 **Goal:** GID-141
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -44,12 +44,23 @@ A town under siege plays the same peaceful town track as normal
 
 ## Plan
 
-_Written during Plan phase._
+Ship `siege.ogg`, add `TownSiege.music_for()` with a pure static rule, and apply it at every point that picks town music: entry, siege spawn, co-op start/end, and the return from battle.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `assets/audio/music/siege.ogg` (1.8 MB): Juhani Junkala, "Epic Boss Battle"
+  (CC0; the recommended option), loudness-matched to `battle.ogg`, `loop=true`.
+- `TownSiege.gd`: `SIEGE_MUSIC`, `music_for()`, static `pick_music()`,
+  `place_music()`, `refresh_music()` (a no-op unless `SceneManager.is_in_world()`,
+  so a siege event mid-battle never steals the battle track); `_spawn_if_active`
+  refreshes the music.
+- `RealmRegions._town_music` → public `town_music()`; town entry goes through `music_for`.
+- `CoopActivities`: refresh on co-op siege start and end.
+- `WorldScene._on_battle_won`: in the overworld inside a stitched town, restores
+  the town's (siege) track. Previously it always played the biome track, even in
+  a town. Named maps go through `music_for` too.
+- `tests/unit/test_siege_music.gd` (6 tests).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`docs/agent/audio-soundtrack.md` (Siege Track section); CLAUDE.md TownSiege module row.

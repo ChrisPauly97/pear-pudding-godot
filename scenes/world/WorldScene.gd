@@ -1946,14 +1946,18 @@ func _on_battle_won(_result: Dictionary) -> void:
 	# enemy returns on reconnect — matching single-player. Inert single-player.
 	coop_session._coop_persist_enemy_defeat()
 	if _is_infinite and _current_biome >= 0:
-		AudioManager.play_music(_BIOME_MUSIC[_current_biome])
+		if current_town != "":
+			# Back in a stitched town (possibly still besieged), not the biome bed.
+			AudioManager.play_music(town_siege.place_music())
+		else:
+			AudioManager.play_music(_BIOME_MUSIC[_current_biome])
 		AudioManager.set_ambience(_current_biome)
 		const BountyGen_cls = preload("res://game_logic/BountyGen.gd")
 		if _current_biome < BountyGen_cls.BIOME_NAMES.size():
 			var biome_name: String = BountyGen_cls.BIOME_NAMES[_current_biome]
 			SceneManager.save_manager.bounties.increment_bounty_progress("defeat_in_biome", {"biome_name": biome_name})
 	else:
-		AudioManager.play_music(_named_map_music_track())
+		AudioManager.play_music(town_siege.music_for(map_name, _named_map_music_track()))
 	var sm := SceneManager.save_manager
 	if sm.active_mount != "" and sm.current_map == "main":
 		sm.summon_mount(sm.active_mount)
