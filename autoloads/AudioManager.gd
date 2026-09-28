@@ -28,38 +28,58 @@ const DUCK_UP_TIME: float = 1.0
 
 # Map from SFX name → file path
 const SFX_PATHS: Dictionary = {
-	"card_draw":    "res://assets/audio/sfx/card_draw.wav",
-	"card_play":    "res://assets/audio/sfx/card_play.wav",
-	"spell_resolve": "res://assets/audio/sfx/spell_resolve.wav",
-	"attack":       "res://assets/audio/sfx/attack.wav",
-	"battle_win":   "res://assets/audio/sfx/battle_win.wav",
-	"battle_lose":  "res://assets/audio/sfx/battle_lose.wav",
-	"enemy_engage": "res://assets/audio/sfx/enemy_engage.wav",
-	"enemy_alert":  "res://assets/audio/sfx/enemy_alert.wav",
-	"chest_open":   "res://assets/audio/sfx/chest_open.wav",
-	"scroll_pickup": "res://assets/audio/sfx/scroll_pickup.wav",
-	"door_enter":   "res://assets/audio/sfx/door_enter.wav",
-	"footstep":       "res://assets/audio/sfx/footstep.wav",
+	"card_draw":    "res://assets/audio/sfx/card_draw.ogg",
+	"card_play":    "res://assets/audio/sfx/card_play.ogg",
+	"spell_resolve": "res://assets/audio/sfx/spell_resolve.ogg",
+	"attack":       "res://assets/audio/sfx/attack.ogg",
+	"battle_win":   "res://assets/audio/sfx/battle_win.ogg",
+	"battle_lose":  "res://assets/audio/sfx/battle_lose.ogg",
+	"enemy_engage": "res://assets/audio/sfx/enemy_engage.ogg",
+	"enemy_alert":  "res://assets/audio/sfx/enemy_alert.ogg",
+	"chest_open":   "res://assets/audio/sfx/chest_open.ogg",
+	"scroll_pickup": "res://assets/audio/sfx/scroll_pickup.ogg",
+	"door_enter":   "res://assets/audio/sfx/door_enter.ogg",
+	"footstep":       "res://assets/audio/sfx/footstep.ogg",
 	# Terrain-aware steps (GID-129 / TID-491); see FootstepSurface.
-	"footstep_grass": "res://assets/audio/sfx/footstep_grass.wav",
-	"footstep_sand":  "res://assets/audio/sfx/footstep_sand.wav",
-	"footstep_stone": "res://assets/audio/sfx/footstep_stone.wav",
-	"footstep_snow":  "res://assets/audio/sfx/footstep_snow.wav",
-	"footstep_wood":  "res://assets/audio/sfx/footstep_wood.wav",
-	"footstep_water": "res://assets/audio/sfx/footstep_water.wav",
-	"footstep_hoof":  "res://assets/audio/sfx/footstep_hoof.wav",
-	"nightfall_ambient": "res://assets/audio/sfx/nightfall.wav",
-	"ui_click":     "res://assets/audio/sfx/ui_click.wav",
-	"land":         "res://assets/audio/sfx/land.wav",
-	"dig_success":  "res://assets/audio/sfx/dig_success.wav",
-	"waystone_travel": "res://assets/audio/sfx/waystone_travel.wav",
+	"footstep_grass": "res://assets/audio/sfx/footstep_grass.ogg",
+	"footstep_sand":  "res://assets/audio/sfx/footstep_sand.ogg",
+	"footstep_stone": "res://assets/audio/sfx/footstep_stone.ogg",
+	"footstep_snow":  "res://assets/audio/sfx/footstep_snow.ogg",
+	"footstep_wood":  "res://assets/audio/sfx/footstep_wood.ogg",
+	"footstep_water": "res://assets/audio/sfx/footstep_water.ogg",
+	"footstep_hoof":  "res://assets/audio/sfx/footstep_hoof.ogg",
+	"nightfall_ambient": "res://assets/audio/sfx/nightfall_ambient.ogg",
+	"ui_click":     "res://assets/audio/sfx/ui_click.ogg",
+	"land":         "res://assets/audio/sfx/land.ogg",
+	"dig_success":  "res://assets/audio/sfx/dig_success.ogg",
+	"waystone_travel": "res://assets/audio/sfx/waystone_travel.ogg",
 	# Storm lightning (GID-129 / TID-487), played after the flash by WorldScene.
-	"thunder":      "res://assets/audio/sfx/thunder.wav",
+	"thunder":      "res://assets/audio/sfx/thunder.ogg",
+}
+## Extra takes per key (GID-141 / TID-588): `<key>_2.ogg` … `<key>_N.ogg` beside
+## the base file. Keys listed here play a random take (never the same twice in a
+## row) through an AudioStreamRandomizer.
+const SFX_TAKES: Dictionary = {
+	"card_draw": 4, "card_play": 4, "attack": 5, "scroll_pickup": 3, "door_enter": 2,
+	"footstep": 5, "footstep_grass": 5, "footstep_sand": 3, "footstep_stone": 5,
+	"footstep_snow": 5, "footstep_wood": 5, "footstep_water": 3, "footstep_hoof": 4,
+	"ui_click": 3, "land": 3,
+}
+## Mix trim per key. The files are peak-normalised (TID-587), so frequent or
+## background sounds sit below the one-off stingers.
+const SFX_GAIN_DB: Dictionary = {
+	"footstep": -9.0, "footstep_grass": -9.0, "footstep_sand": -9.0, "footstep_stone": -9.0,
+	"footstep_snow": -9.0, "footstep_wood": -9.0, "footstep_water": -9.0, "footstep_hoof": -8.0,
+	"ui_click": -8.0, "land": -6.0, "card_draw": -5.0, "card_play": -4.0,
+	"scroll_pickup": -3.0, "nightfall_ambient": -4.0, "battle_win": -3.0, "battle_lose": -3.0,
+	"thunder": -2.0,
 }
 const _POOL_SIZE: int = 8
 
 var _players: Array[AudioStreamPlayer] = []
 var _sfx_cache: Dictionary = {}
+## SFX_GAIN_DB for keys backed by a real file; synthesized fallbacks keep their own level.
+var _sfx_trim_db: Dictionary = {}
 var _sfx_db: float = 0.0   # SFX setting; per-play jitter never writes it back
 var _jitter_rng := RandomNumberGenerator.new()
 
@@ -98,10 +118,10 @@ var _layers_dirty: bool = false
 func _ready() -> void:
 	for key: String in SFX_PATHS:
 		var path: String = SFX_PATHS[key]
-		if ResourceLoader.exists(path):
-			var stream := load(path) as AudioStream
-			if stream != null:
-				_sfx_cache[key] = stream
+		var stream: AudioStream = _load_sfx_takes(path, int(SFX_TAKES.get(key, 1)))
+		if stream != null:
+			_sfx_cache[key] = stream
+			_sfx_trim_db[key] = float(SFX_GAIN_DB.get(key, 0.0))
 	# Any key without a real file asset falls back to a procedurally
 	# synthesized sound (game_logic/SfxGen.gd) — see CLAUDE.md "Android:
 	# Always preload()" and TID-425: no external audio assets required.
@@ -261,10 +281,32 @@ func play_sfx_varied(sfx_name: String, pitch: float = 1.0,
 		sfx_name = "footstep"
 	_play_pooled(sfx_name, p_scale, db)
 
+## The base file plus its `_2` … `_N` takes; several takes come back as one
+## AudioStreamRandomizer. Null when the base file is missing (synth fallback).
+func _load_sfx_takes(path: String, count: int) -> AudioStream:
+	if not ResourceLoader.exists(path):
+		return null
+	var base := load(path) as AudioStream
+	if base == null or count <= 1:
+		return base
+	var rnd := AudioStreamRandomizer.new()
+	rnd.playback_mode = AudioStreamRandomizer.PLAYBACK_RANDOM_NO_REPEATS
+	rnd.random_pitch = 1.0  # play_sfx_varied already jitters pitch
+	rnd.random_volume_offset_db = 0.0
+	rnd.add_stream(-1, base)
+	for i: int in range(2, count + 1):
+		var take_path: String = path.get_basename() + "_%d.ogg" % i
+		if ResourceLoader.exists(take_path):
+			var take := load(take_path) as AudioStream
+			if take != null:
+				rnd.add_stream(-1, take)
+	return rnd if rnd.streams_count > 1 else base
+
 func _play_pooled(sfx_name: String, pitch_scale: float, volume_db: float) -> void:
 	var stream: AudioStream = _sfx_cache.get(sfx_name, null) as AudioStream
 	if stream == null or _players.is_empty():
 		return
+	volume_db += float(_sfx_trim_db.get(sfx_name, 0.0))
 	var target: AudioStreamPlayer = _players[0]
 	for p in _players:
 		if not p.playing:

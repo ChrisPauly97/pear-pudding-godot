@@ -2,7 +2,7 @@
 
 **Goal:** GID-141
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -71,12 +71,29 @@ CC0 file per key so the game sounds finished.
 
 ## Plan
 
-_Written during Plan phase._
+Download the CC0 packs, pick one source per key, convert with ffmpeg (installed via `pip install imageio-ffmpeg`), repoint `SFX_PATHS` to `.ogg`, add a per-key gain table, credit everything.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `assets/audio/sfx/<key>.ogg` for all 26 keys: mono Vorbis q4, leading silence
+  stripped, peak-normalised to −1 dBFS (two-pass `volumedetect`). 692 KB with takes.
+- Final mapping: card_draw casino `card-slide-1..4`; card_play `card-place-1..4`;
+  spell_resolve `magical_1`; attack impact `impactPunch_medium_000..004`;
+  battle_win jingle `PIZZI02` (rising), battle_lose `PIZZI01` (falling; picked by a
+  pitch-trend scan); enemy_engage 80-RPG `creature_roar_01`; enemy_alert
+  `creature_misc_03`; chest_open rpg `metalLatch`+`creak1`; scroll_pickup
+  `bookFlip1..3`; door_enter `doorOpen_1/2`; footstep rpg `footstep00..04`;
+  footstep_grass/stone/snow/wood impact `footstep_{grass,concrete,snow,wood}_000..004`;
+  footstep_sand three slices of Peludo's sand take; footstep_water 100-SFX
+  `footstep_wet_01..03`; footstep_hoof four hoofbeats sliced from `Trot.ogg`;
+  nightfall_ambient jingle `STEEL06`; ui_click `click_001..003`; land
+  `impactSoft_medium_000..002`; dig_success `impactMining_000`+`item_coins_04`;
+  waystone_travel `magical_4`; thunder 100-SFX `thunder_01`.
+- `AudioManager`: `SFX_PATHS` → `.ogg` (`nightfall.wav` → `nightfall_ambient.ogg`);
+  `SFX_GAIN_DB` + `_sfx_trim_db` (trim applies to file-backed keys only).
+- `CREDITS.md`: new "Sound Effects & Ambience" section with authors and URLs.
+- `tests/unit/test_sfx_assets.gd`: every key has a file; gain/takes tables name real keys.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`docs/agent/audio-manager.md` (file map → .ogg, adding-a-sound steps, new "Real files, takes and mix" section); `assets/audio/sfx/README.md`.

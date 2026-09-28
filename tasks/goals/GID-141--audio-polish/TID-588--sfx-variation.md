@@ -2,7 +2,7 @@
 
 **Goal:** GID-141
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-587
 
 ## Lock
@@ -35,12 +35,17 @@ step sounds robotic. The Kenney packs ship 4–5 takes per sound.
 
 ## Plan
 
-_Written during Plan phase._
+Ship extra takes as `<key>_N.ogg`, declare counts in `SFX_TAKES`, and wrap them in an `AudioStreamRandomizer` at load time.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `AudioManager.SFX_TAKES` (15 keys) and `_load_sfx_takes(path, count)`:
+  randomizer with `PLAYBACK_RANDOM_NO_REPEATS`, `random_pitch` 1.0 (the caller's
+  jitter stays the only pitch variation). Falls back to the single stream if only
+  the base file exists, and to null (synth) if even that is missing.
+- 35 extra take files alongside the base files.
+- `test_sfx_assets.test_sfx_takes_exist_and_load_as_randomizer`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`docs/agent/audio-manager.md` (Real files, takes and mix).
