@@ -105,3 +105,21 @@ func test_migration_keeps_veterans_whole() -> void:
 	var d2: Dictionary = {"version": 43, "owned_mounts": ["horse"]}
 	SaveMigrations.apply(d2)
 	assert_true((d2["learned_abilities"] as Array).has(UnlockLadder.FEAT_MOUNT))
+
+
+func test_locked_message_names_trainer_and_level() -> void:
+	var msg: String = UnlockLadder.locked_message(UnlockLadder.FEAT_DIG)
+	assert_true(msg.contains("Gravedigger"), msg)
+	assert_true(msg.contains("10"), msg)
+
+
+func test_has_learned_gates_fresh_save() -> void:
+	var sm: SaveManagerScript = SaveManagerScript.new()
+	sm.new_game(false)
+	for id: String in [UnlockLadder.FEAT_DIG, UnlockLadder.FEAT_PHASE, UnlockLadder.FEAT_MOUNT,
+			UnlockLadder.FEAT_SKILLS, UnlockLadder.FEAT_BOUNTIES, UnlockLadder.FEAT_NIGHT_HUNTS,
+			UnlockLadder.FEAT_SPIRE, UnlockLadder.FEAT_PACKS, UnlockLadder.FEAT_COMPANION]:
+		assert_false(sm.has_learned(id), "fresh save has not learned %s" % id)
+	assert_true(sm.has_learned("not_on_the_ladder"))
+	sm.set_setting("battle_mode", "turn")
+	assert_eq(sm.battle_mode(), "realtime", "no hand yet → real time")

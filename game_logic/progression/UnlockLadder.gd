@@ -149,6 +149,11 @@ static func trainer_name(trainer: String) -> String:
 static func is_learned(id: String, learned: Array) -> bool:
 	return learned.has(id) or not has(id)
 
+## Toast for trying to use `id` before learning it.
+static func locked_message(id: String) -> String:
+	return "%s isn't learned yet — the %s teaches it at level %d." % [
+		str(def(id).get("title", id)), trainer_name(trainer_for(id)), level_req(id)]
+
 static func can_learn(id: String, level: int, coins: int, learned: Array) -> bool:
 	return has(id) and not learned.has(id) and level >= level_req(id) and coins >= cost(id)
 

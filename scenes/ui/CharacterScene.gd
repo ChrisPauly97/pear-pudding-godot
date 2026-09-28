@@ -1,5 +1,6 @@
 extends "res://scenes/ui/BaseOverlay.gd"
 
+const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
 const CompanionRegistry = preload("res://autoloads/CompanionRegistry.gd")
@@ -120,6 +121,10 @@ func _build_ui() -> void:
 	_companion_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_companion_btn.pressed.connect(_on_slot_pressed.bind("companion"))
 	left_vbox.add_child(_companion_btn)
+	# GID-141: no companion slot until Maiteln has agreed to fight beside you.
+	var has_companion: bool = SceneManager.save_manager.has_learned(_UnlockLadder.FEAT_COMPANION)
+	companion_hdr.visible = has_companion
+	_companion_btn.visible = has_companion
 
 	if not is_portrait:
 		content.add_child(VSeparator.new())

@@ -1,5 +1,6 @@
 extends "res://scenes/ui/CardBrowserOverlay.gd"
 
+const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
@@ -91,12 +92,14 @@ func _refresh() -> void:
 		return
 
 	# ---- Packs section ---------------------------------------------------
-	_shop_list.add_child(_make_section_header("— Packs —"))
-	for pack_id: String in PackDefs.get_all_pack_ids():
-		var pack_def: Dictionary = PackDefs.get_pack(pack_id)
-		if pack_def.is_empty():
-			continue
-		_shop_list.add_child(_make_pack_row(pack_id, pack_def, coins))
+	# GID-141: sealed packs are sold once the merchant has taught them (feat_packs).
+	if SceneManager.save_manager.has_learned(_UnlockLadder.FEAT_PACKS):
+		_shop_list.add_child(_make_section_header("— Packs —"))
+		for pack_id: String in PackDefs.get_all_pack_ids():
+			var pack_def: Dictionary = PackDefs.get_pack(pack_id)
+			if pack_def.is_empty():
+				continue
+			_shop_list.add_child(_make_pack_row(pack_id, pack_def, coins))
 
 	# ---- Cards section ---------------------------------------------------
 	var card_header: String = "— Cards (20% off — Town Discount) —" if discounted else "— Cards —"

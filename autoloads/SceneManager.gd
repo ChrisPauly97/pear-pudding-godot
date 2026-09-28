@@ -5,6 +5,7 @@ extends Node
 ## Every state change, after it is applied. `from == to` for a map reload.
 signal state_changed(from: State, to: State)
 
+const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const _SceneFlow = preload("res://game_logic/SceneFlow.gd")
 const _RendererOptIn = preload("res://game_logic/RendererOptIn.gd")
 const _UiTheme = preload("res://scenes/ui/UiTheme.gd")
@@ -1051,6 +1052,9 @@ func _on_traveling_shop_requested(stock: Array[String], price: int) -> void:
 		o.set("_custom_title", "Traveling Merchant's Rare Wares"))
 
 func _on_bounty_board_requested() -> void:
+	if not save_manager.has_learned(_UnlockLadder.FEAT_BOUNTIES):
+		GameBus.hud_message_requested.emit(_UnlockLadder.locked_message(_UnlockLadder.FEAT_BOUNTIES))
+		return
 	_open_overlay(_bounty_board_scene_packed, State.BOUNTY_BOARD)
 
 func _on_mailbox_requested() -> void:
@@ -1066,6 +1070,9 @@ func _on_character_requested() -> void:
 	open_menu_hub("character")
 
 func _on_skill_tree_requested() -> void:
+	if not save_manager.has_learned(_UnlockLadder.FEAT_SKILLS):
+		GameBus.hud_message_requested.emit(_UnlockLadder.locked_message(_UnlockLadder.FEAT_SKILLS))
+		return
 	GameBus.tutorial_popup_requested.emit("skill_tree")
 	open_menu_hub("skills")
 
@@ -1115,6 +1122,9 @@ func _on_tutorial_popup_requested(popup_id: String) -> void:
 
 ## Starts or resumes an Endless Spire run from the entrance door in a town map.
 func enter_spire() -> void:
+	if not save_manager.has_learned(_UnlockLadder.FEAT_SPIRE):
+		GameBus.hud_message_requested.emit(_UnlockLadder.locked_message(_UnlockLadder.FEAT_SPIRE))
+		return
 	if save_manager.spire.is_spire_active():
 		var run: Dictionary = save_manager.spire.get_spire_run()
 		var floor: int = int(run.get("floor", 1))

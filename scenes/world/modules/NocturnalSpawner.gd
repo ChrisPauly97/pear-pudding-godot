@@ -7,6 +7,7 @@
 ## created. The co-op variant is CoopActivities' deterministic night hunt.
 extends Node
 
+const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const _EnemyScene = preload("res://scenes/world/entities/EnemyNPC.tscn")
 const _ChunkData = preload("res://game_logic/world/ChunkData.gd")
@@ -31,6 +32,9 @@ var _tutorial_shown_session: bool = false
 func tick(delta: float) -> void:
 	var player: Node3D = _world._player
 	if not _world._is_infinite or player == null:
+		return
+	# GID-141: spectres only walk for players the Bounty Master has taught Night Hunts.
+	if not SceneManager.save_manager.has_learned(_UnlockLadder.FEAT_NIGHT_HUNTS):
 		return
 	if _world._dnc == null or not _world._dnc.is_night_now():
 		_spawn_timer = 0.0

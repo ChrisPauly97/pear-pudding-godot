@@ -2,7 +2,7 @@
 
 **Goal:** GID-141
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-587
 
 ## Lock
@@ -37,12 +37,23 @@ World and menu entry points are all visible from the first minute. Hide each unt
 
 ## Plan
 
-_Written during Plan phase._
+Gate each entry point on `has_learned`, toast `UnlockLadder.locked_message` on a refused key/tap, hide buttons and
+tabs until learned. Night hunts: local per peer (spawner runs on each client's world). Tests for the predicates.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `UnlockLadder.locked_message(id)`.
+- `WorldHUD.gd`: cantrip buttons visible only when learned (refresh on `feature_learned`), cantrip teaser only
+  after one is learned, Mount button needs `feat_mount`.
+- `Cantrips.gd`, `BurialMound.gd`: refuse unlearned Phase / Dig.
+- `Mounts.gd`: `LEVEL_REQ` 40, purchase + toggle need `feat_mount`.
+- `MenuHubScene.gd`: `visible_tabs()` (Skills / Skill Bar hidden until learned).
+- `SceneManager.gd`: skill tree, bounty board, Spire entry refuse until learned.
+- `NocturnalSpawner.gd`: no spectres until `feat_night_hunts`. `ShopScene.gd`: packs until `feat_packs`.
+- `CharacterScene.gd`: companion slot hidden until `feat_companion`.
+- Tests: `test_unlock_ladder.gd` +2; `test_mount_purchase_hud.gd` level 10 → 40. Suite green, smokes clean,
+  gdlint + unsafe-hits clean.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`starter-zone-and-training.md` gates table; GID-141 notes atop `card-cantrips.md`, `rideable-mounts.md`, `bounty-board.md`, `night-hunts.md`.

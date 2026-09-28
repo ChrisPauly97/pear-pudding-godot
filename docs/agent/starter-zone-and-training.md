@@ -69,6 +69,26 @@ Documented in `docs/agent/combat-model.md` → "New-player onboarding": bar = le
 `feat_minions`, spell cards from `feat_spells`, companion from `feat_companion`, real-time forced until the hand
 exists (`SaveManager.battle_mode()`), Maiteln barks up to level 12.
 
+### World & menu gates (TID-589)
+
+Every gate calls `save_manager.has_learned(UnlockLadder.FEAT_X)`; a blocked action toasts
+`UnlockLadder.locked_message(id)` ("<title> isn't learned yet — the <trainer> teaches it at level N.").
+
+| Feature | Gate |
+|---|---|
+| Ghost Phase / Skeleton Dig | HUD buttons hidden until learned (`WorldHUD.refresh_action_cluster`, re-run on `feature_learned`); `Cantrips.activate_*` and `BurialMound.interact` refuse; the deck-family rule still applies after |
+| Riding | `Mounts.LEVEL_REQ` = 40; stable purchase needs `feat_mount`; Mount button / T hidden or refused without it |
+| Skills tab | `MenuHubScene.visible_tabs()` hides it until `feat_skills`; `skill_tree_requested` refuses |
+| Skill Bar tab | hidden until the player knows more than Strike |
+| Companion | Character page companion slot hidden until `feat_companion` (battle side in TID-588) |
+| Bounty board | `SceneManager._on_bounty_board_requested` refuses until `feat_bounties` |
+| Night hunts | `NocturnalSpawner.tick` spawns nothing until `feat_night_hunts` |
+| Spire / Rifts | `SceneManager.enter_spire` refuses until `feat_spire` |
+| Card packs | `ShopScene` packs section hidden until `feat_packs` |
+
+Co-op / PvP stay reachable from the main menu (not on the ladder). Night hunts are a local spawner, so each peer's
+own ladder decides what it sees.
+
 ## Integrations
 
 - Combat gates (TID-588), world/menu gates (TID-589), trainer flow (TID-590), starter zone (TID-591), quest chain

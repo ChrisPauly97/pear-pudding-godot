@@ -11,6 +11,7 @@ const _Mounts = preload("res://scenes/world/modules/Mounts.gd")
 
 ## The stable panel reads both from here, so the tests exercise the real values.
 const MOUNT_LEVEL_REQ: int = _Mounts.LEVEL_REQ
+const UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 
 var _mount_price: int = _Mounts.price()
 
@@ -30,22 +31,22 @@ func _can_buy(level: int, coins: int) -> bool:
 	return level >= MOUNT_LEVEL_REQ and coins >= _mount_price
 
 func test_can_buy_true_when_level_and_coins_sufficient() -> void:
-	assert_true(_can_buy(10, 750))
+	assert_true(_can_buy(40, 750))
 
 func test_can_buy_true_above_minimum() -> void:
-	assert_true(_can_buy(15, 1000))
+	assert_true(_can_buy(45, 1000))
 
 func test_can_buy_false_when_level_too_low() -> void:
-	assert_false(_can_buy(9, 750))
+	assert_false(_can_buy(39, 750))
 
 func test_can_buy_false_when_level_one() -> void:
 	assert_false(_can_buy(1, 750))
 
 func test_can_buy_false_when_coins_insufficient() -> void:
-	assert_false(_can_buy(10, 749))
+	assert_false(_can_buy(40, 749))
 
 func test_can_buy_false_when_coins_zero() -> void:
-	assert_false(_can_buy(10, 0))
+	assert_false(_can_buy(40, 0))
 
 func test_can_buy_false_when_both_level_and_coins_fail() -> void:
 	assert_false(_can_buy(5, 100))
@@ -170,5 +171,7 @@ func test_stable_horse_registry_display_name_not_empty() -> void:
 func test_stable_horse_price_is_750() -> void:
 	assert_eq(_mount_price, 750)
 
-func test_stable_horse_level_req_is_ten() -> void:
-	assert_eq(MOUNT_LEVEL_REQ, 10)
+func test_stable_horse_level_req_is_forty() -> void:
+	# GID-141: riding is the level-40 rung of the unlock ladder.
+	assert_eq(MOUNT_LEVEL_REQ, 40)
+	assert_eq(MOUNT_LEVEL_REQ, UnlockLadder.level_req(UnlockLadder.FEAT_MOUNT))

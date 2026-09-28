@@ -6,6 +6,7 @@ extends Node
 # tracker, compass, ley indicator, dialogue/tip display.
 # Created and owned by WorldScene; WorldScene keeps @onready tscn-defined nodes.
 
+const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const CompassRibbon    = preload("res://scenes/ui/CompassRibbon.gd")
 const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
 const SaveManager      = preload("res://autoloads/SaveManager.gd")
@@ -116,6 +117,7 @@ func setup(hud: CanvasLayer, is_infinite: bool, map_name: String,
 	GameBus.bounty_progress_changed.connect(func(_id, _p, _c): refresh_bounty_tracker())
 	GameBus.bounty_completed.connect(func(_id): refresh_bounty_tracker())
 	GameBus.inventory_changed.connect(refresh_action_cluster)
+	GameBus.feature_learned.connect(func(_id: String) -> void: refresh_action_cluster())
 
 func _create_nav_buttons(_vh: float, _vw_unused: float, font_size: int,
 		btn_w: float, btn_h: float) -> void:
@@ -142,22 +144,19 @@ func _create_cantrip_buttons(vh: float, _font_size: int) -> void:
 	var cantrip_btn_w: float = vh * 0.16
 	var cantrip_btn_h: float = vh * 0.055
 
-	# BID-050: locked cantrips used to render no button at all, so a player
-	# who hadn't already engaged with the mechanic had no way to discover it
-	# exists. Both buttons are now always visible (Callable() = no
-	# visible_when toggle); _update_cantrip_button_state() dims them and adds
-	# a progress readout instead of hiding them.
+	# BID-050: a learned-but-locked cantrip (too few family cards) stays visible,
+	# dimmed with a progress readout, so the player can discover the deck rule.
+	# GID-141: the button itself appears only once the Gravedigger has taught it
+	# (refresh_action_cluster).
 	_ghost_btn = register_action("cantrip_ghost_phase", "[G] Phase", ZONE_ABILITY,
 		func() -> void: _world_scene.cantrips.activate_ghost_phase(),
 		Callable(), Vector2(cantrip_btn_w, cantrip_btn_h))
 	_ghost_btn.add_theme_font_size_override("font_size", int(vh * 0.025 * _ts))
-	_ghost_btn.visible = true
 
 	_dig_btn = register_action("cantrip_skeleton_dig", "[D] Dig", ZONE_ABILITY,
 		func() -> void: _world_scene.cantrips.activate_skeleton_dig(),
 		Callable(), Vector2(cantrip_btn_w, cantrip_btn_h))
 	_dig_btn.add_theme_font_size_override("font_size", int(vh * 0.025 * _ts))
-	_dig_btn.visible = true
 
 	refresh_action_cluster()
 
@@ -187,9 +186,18 @@ func _update_cantrip_button_state(btn: Button, cantrip_id: String, base_label: S
 		btn.tooltip_text = "Locked — needs %d+ family cards in your deck" % threshold
 
 func refresh_action_cluster() -> void:
+	# GID-141: a cantrip button only exists once its trainer has taught it.
+	var sm := SceneManager.save_manager
+	var ghost: bool = sm.has_learned(_UnlockLadder.FEAT_PHASE)
+	var dig: bool = sm.has_learned(_UnlockLadder.FEAT_DIG)
+	if _ghost_btn != null:
+		_ghost_btn.visible = ghost
+	if _dig_btn != null:
+		_dig_btn.visible = dig
 	_update_cantrip_button_state(_ghost_btn, "ghost_phase", "[G] Phase")
 	_update_cantrip_button_state(_dig_btn, "skeleton_dig", "[D] Dig")
-	_maybe_teach_cantrips()
+	if ghost or dig:
+		_maybe_teach_cantrips()
 
 ## First-session cantrip teaser (GID-117). Once-per-save dedupe lives in
 ## SceneManager._on_tutorial_popup_requested via the seen_tutorial_cantrips
@@ -586,7 +594,8 @@ func update_mount_btn() -> void:
 	if _mount_btn == null:
 		return
 	var sm := SceneManager.save_manager
-	var show: bool = sm.owned_mounts.size() > 0 and sm.current_map == "main"
+	var show: bool = (sm.owned_mounts.size() > 0 and sm.current_map == "main"
+			and sm.has_learned(_UnlockLadder.FEAT_MOUNT))
 	_mount_btn.visible = show
 	_mount_btn.text = "Dismount" if sm.is_mounted else "Mount"
 
