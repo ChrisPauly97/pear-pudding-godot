@@ -59,9 +59,11 @@ visit that thing's trainer, read what it does and pay gold to learn it. Nothing 
 
 ### XP pacing
 
-Curve unchanged: `xp_for_level(l) = 50·l²` (L2 50, L5 800, L10 4 500, L15 10 600, L40 78 400). Early levels come from
-starter quests (TID-592) plus level-1 kills at 20 XP; zone levels (TID-536) scale kill XP up by 10 %/level, so the
-same curve stretches naturally toward the long-term level-40 riding goal.
+Curve unchanged: level L is reached at a total of `xp_for_level(L) = 50·L²` XP (L2 200, L3 450, L4 800, L5 1 250,
+L6 1 800, L10 5 000, L15 11 250, L40 80 000). Early levels come from starter quests (TID-592) plus camp kills
+(20 XP at level 1); zone levels (TID-536) scale kill XP up by 10 %/level, so the same curve stretches toward the
+long-term level-40 riding goal. `test_side_quests.test_starter_chain_paces_levels_and_gold` walks the chain on
+the real numbers.
 
 ### Combat gates (TID-588)
 
@@ -139,6 +141,36 @@ own ladder decides what it sees.
 - **Sealed crypt** (local (22..26, 48..52), fully walled, no door): chest `sealed_crypt_chest` (shrouded_wraith,
   dusk_seer) — reachable only with Ghost Phase; a visible tease from the south field long before level 12.
 - Fixed on the way: `WorldMap` dropped a `MapChest`'s `card_ids` (a `PackedStringArray` is not an `Array`).
+
+### Starter quest chain (TID-592)
+
+Quests live in `SideQuests.QUESTS` (see `story-implementation.md` → Side Quests). Townsfolk givers are Madrian NPCs
+(`hilda_baker`, `wenna_herbalist`, `brother_aldo`, `old_tam`, `ivy_chandler`; trainers give the later ones).
+
+| # | Quest | Giver | Lvl | Teaches / asks | Camp | XP · gold |
+|---|---|---|---|---|---|---|
+| 1 | Rats in the Grain Store | Hilda | 1 | 3 kills (auto-attack + Strike) | Grain-Store Field | 150 · 20 |
+| 2 | Bruised and Battered | Wenna | 2 | learn Mend, Mend in a fight, 4 kills | South Field | 180 · 30 |
+| 3 | The Chanting in the Orchard | Brother Aldo | 3 | learn Kick, 2 interrupts, 3 kills | Old Orchard | 240 · 45 |
+| 4 | Raise the Fallen | Old Tam | 4 | learn minions, 4 kills | North Barrow | 270 · 60 |
+| 5 | First Spark | Ivy | 5 | learn spells, 3 kills → **`town_quests_done`** | Hedge Ruins | 350 · 80 |
+| — | *Maiteln arrives* (story `speak_maiteln`) — teaches companion (L6) and magic/skills (L7) | | | | | |
+| 6 | Trouble in the East Copse | Old Tam | 6 | 4 kills | East Copse | 400 · 80 |
+| 7 | Hold the West Crossing | Brother Aldo | 7 | 5 kills | West Crossing | 450 · 100 |
+| 8 | The Board by the Well | Bounty Master | 8 | learn Bounties, 4 kills | North Tor | 520 · 120 |
+| 9 | After Dark | Bounty Master | 9 | learn Night Hunts, 2 wisps | (night) | 560 · 140 |
+| 10 | The South Road Wreck | Hilda | 9 | 5 kills | South Road Wreck | 600 · 150 |
+| 11 | Old Bones | Gravedigger | 10 | learn Dig, dig a graveyard mound | Graveyard | 800 · 200 |
+| 12 | The Sealed Crypt | Gravedigger | 12 | learn Phase, open the crypt chest | Sealed crypt | 1000 · 250 |
+
+- **Story gate:** new first step `StoryQuests` `help_townsfolk` ("Help the townsfolk of Madrian", Hilda's tile,
+  done_flag `town_quests_done`). Madrian's Maiteln NPC (`npc_1`) carries `MapNpc.show_flag_key =
+  "town_quests_done"`: `ChunkRenderer` skips it until then and `StoryCast.spawn_flag_shown_npcs()` spawns it the
+  moment the flag flips. Migration v44 sets `town_quests_done` on existing saves.
+- **New progress hooks:** `use_skill` from `BattleSkillBar` on every successful skill (Kick only succeeds when it
+  interrupts), `use_skill "skeleton_dig"` from `BurialMound`, `open <chest id>` from `ChestLoot.open`.
+- Pacing is asserted by `test_side_quests.test_starter_chain_paces_levels_and_gold`: quest kills only, real kill
+  XP/coins, every training affordable when its quest asks for it, level 6 + companion gold at the end.
 
 ## Integrations
 

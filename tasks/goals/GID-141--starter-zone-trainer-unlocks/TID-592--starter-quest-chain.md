@@ -2,7 +2,7 @@
 
 **Goal:** GID-141
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-534, TID-590, TID-591
 
 ## Lock
@@ -49,12 +49,25 @@ the start — he only shows up once several townspeople quests are done, and the
 
 ## Plan
 
-_Written during Plan phase._
+1. `MapNpc.show_flag_key` (+ WorldMap, ChunkRenderer skip, live spawn in StoryCast) → Maiteln waits on
+   `town_quests_done`; new first story step `help_townsfolk`; migration marks existing saves done.
+2. Five townsfolk givers + five town quests (L1→6), seven optional L6–12 quests from townsfolk / Bounty Master /
+   Gravedigger, each asking the player to learn and then use the latest unlock at the next camp.
+3. Progress hooks for skill use, digging, chest opening.
+4. Pacing test on the real XP curve (found the curve's L2 is 200 XP, not 50 as its comment said).
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/quests/SideQuests.gd`: 12 quests; `open` objective type.
+- `game_logic/quests/StoryQuests.gd`: `help_townsfolk` step.
+- `game_logic/world/resources/MapNpc.gd` `show_flag_key`; `WorldMap.gd` parse/serialize; `ChunkRenderer.gd` skip;
+  `StoryCast.spawn_flag_shown_npcs()`.
+- `assets/maps/madrian.tres`: `wenna_herbalist`, `brother_aldo`, `old_tam`, `ivy_chandler`; Maiteln `show_flag_key`.
+- Hooks: `BattleSkillBar.gd` (use_skill), `BurialMound.gd` (dig), `ChestLoot.gd` (open).
+- `SaveMigrations._m44`: sets `town_quests_done` for existing saves. `SaveManager.xp_for_level` comment corrected.
+- Tests: `test_side_quests.gd` +2 (chain pacing walk, learn objectives vs ladder levels), kill targets updated;
+  `test_objective_tracker.gd` / `test_quest_log.gd` for the new first step. Suite green, smokes clean, lint clean.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`starter-zone-and-training.md` quest-chain section + XP pacing fix; `story-implementation.md` objective types, hooks, starter chain.

@@ -5,6 +5,10 @@ const SideQuests = preload("res://game_logic/quests/SideQuests.gd")
 const QuestLog = preload("res://game_logic/quests/QuestLog.gd")
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
+const UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
+const StarterZone = preload("res://game_logic/world/StarterZone.gd")
+const ZoneLevels = preload("res://game_logic/world/ZoneLevels.gd")
+const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 
 const Q_ID: String = "rats_in_grain"
 
@@ -88,7 +92,7 @@ func test_unrelated_event_does_not_progress() -> void:
 func test_save_round_trip() -> void:
 	var sm := _fresh()
 	sm.quests.accept(Q_ID)
-	sm.quests.progress_event("kill", "")
+	sm.quests.progress_event("kill", "undead_basic")
 	var data: Dictionary = JSON.parse_string(JSON.stringify(sm._collect_save_data()))
 	var sm2 := _fresh()
 	for key: String in SaveManagerScript.PERSISTED_FIELDS:
@@ -115,7 +119,7 @@ func test_quest_log_lists_side_quests() -> void:
 	assert_eq(str(side["kind"]), "side")
 	assert_true(str(side["progress"]).contains("0 / "), "progress text")
 	for i: int in range(5):
-		sm.quests.progress_event("kill", "")
+		sm.quests.progress_event("kill", "undead_basic")
 	var ready: Dictionary = QuestLog.side_quest(sm.quests.log_entries()[0])
 	assert_true(str(ready["label"]).begins_with("Return to"), "points back at the giver once ready")
 
@@ -137,7 +141,7 @@ func test_npc_state_and_marks() -> void:
 	sm.quests.accept(Q_ID)
 	assert_eq(sm.quests.npc_state(giver), "")
 	for i: int in range(5):
-		sm.quests.progress_event("kill", "")
+		sm.quests.progress_event("kill", "undead_basic")
 	assert_eq(sm.quests.npc_state(giver), "turn_in")
 	var story_tile := Vector2i(0, 0)
 	var mark: Dictionary = QuestLog.npc_mark({"x": 0.0, "z": 0.0}, story_tile, false, false, "turn_in")
@@ -151,3 +155,50 @@ func test_talk_objective() -> void:
 	var q: Dictionary = {"objectives": [{"type": "talk", "target": "bob", "count": 1}]}
 	assert_true(SideQuests.objective_matches(SideQuests.objectives(q)[0], "talk", "bob"))
 	assert_false(SideQuests.objective_matches(SideQuests.objectives(q)[0], "talk", "alice"))
+
+
+## GID-141 / TID-592: walk the starter chain through the save API — only the
+## quest's own kills (camp level, real kill XP + coins), learning each training
+## with the gold earned — and check the level and gold line up at every step.
+func test_starter_chain_paces_levels_and_gold() -> void:
+	var sm := _fresh()
+	sm.new_game(false)
+	var chain: Array[String] = ["rats_in_grain", "bruised_and_battered", "hedge_witch_chant",
+		"raise_the_fallen", "first_spark"]
+	for qid: String in chain:
+		var q: Dictionary = SideQuests.def(qid)
+		assert_gte(sm.level, int(q.get("min_level", 1)), "level reached for %s" % qid)
+		assert_true(sm.quests.accept(qid), "accepted %s" % qid)
+		for o: Dictionary in SideQuests.objectives(q):
+			var t: String = str(o["type"])
+			var target: String = str(o["target"])
+			for _i: int in range(int(o["count"])):
+				if t == "learn":
+					assert_true(UnlockLadder.can_learn(target, sm.level, sm.coins, sm.learned_abilities),
+							"%s: can afford + learn %s (level %d, %d gold)" % [qid, target, sm.level, sm.coins])
+					sm.learn_ability(target, UnlockLadder.cost(target))
+				elif t == "kill":
+					var camp: Dictionary = StarterZone.camp_for_level(sm.level)
+					for c: Dictionary in StarterZone.CAMPS:
+						if int(c["tile"].x) == int(o.get("tx", 0)) and int(c["tile"].y) == int(o.get("tz", 0)):
+							camp = c
+					assert_eq(str(camp["enemy_type"]), target, "%s kills at a camp of %s" % [qid, target])
+					sm.add_xp(ZoneLevels.scaled_xp(EnemyRegistry.get_xp_reward(target), int(camp["level"]), sm.level))
+					sm.add_coins(EnemyRegistry.get_coin_reward(target))
+					sm.quests.progress_event("kill", target)
+				else:
+					sm.quests.progress_event(t, target)
+		assert_false(sm.quests.turn_in(qid).is_empty(), "turned in %s" % qid)
+	assert_gte(sm.level, 6, "the townsfolk chain ends at level 6")
+	assert_true(sm.get_story_flag("town_quests_done"), "Maiteln is called")
+	assert_true(UnlockLadder.can_learn(UnlockLadder.FEAT_COMPANION, sm.level, sm.coins, sm.learned_abilities),
+			"…with gold to learn to fight beside him (%d gold)" % sm.coins)
+
+
+func test_starter_quest_targets_match_camps_and_learns() -> void:
+	for q: Dictionary in SideQuests.all():
+		for o: Dictionary in SideQuests.objectives(q):
+			if str(o["type"]) == "learn":
+				assert_true(UnlockLadder.has(str(o["target"])), "%s teaches a ladder entry" % str(q["id"]))
+				assert_gte(int(q.get("min_level", 1)), UnlockLadder.level_req(str(o["target"])),
+						"%s is offered no earlier than its training" % str(q["id"]))

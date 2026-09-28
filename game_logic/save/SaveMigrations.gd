@@ -39,7 +39,8 @@ static func apply(data: Dictionary, up_to: int = CURRENT_VERSION) -> void:
 ## GID-141: systems are now learned from trainers. An existing save had every
 ## system already, so it keeps them all — every ladder *feature* plus Mend and
 ## Kick (always known before). Riding stays level-gated unless it already owns a
-## mount; trainer skills it never bought stay unlearned.
+## mount; trainer skills it never bought stay unlearned. It also skips the new
+## townsfolk opening (`town_quests_done`) so Maiteln is where it left him.
 static func _m44_unlock_ladder(d: Dictionary) -> void:
 	var learned: Array = d.get("learned_abilities", [])
 	var grant: Array[String] = ["mend", "kick"]
@@ -52,6 +53,10 @@ static func _m44_unlock_ladder(d: Dictionary) -> void:
 		if not learned.has(id):
 			learned.append(id)
 	d["learned_abilities"] = learned
+	# Existing saves skip the new townsfolk opening (Maiteln waits on it).
+	var flags: Dictionary = d.get("story_flags", {})
+	flags["town_quests_done"] = true
+	d["story_flags"] = flags
 	d["version"] = 44
 
 

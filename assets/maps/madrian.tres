@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="MapData" load_steps=12 format=3 uid="uid://vvhdq8dkxxav"]
+[gd_resource type="Resource" script_class="MapData" load_steps=16 format=3 uid="uid://vvhdq8dkxxav"]
 
 [ext_resource type="Script" uid="uid://fycqebooc6ig" path="res://game_logic/world/resources/MapData.gd" id="1_mapdata"]
 [ext_resource type="Script" uid="uid://r18om43tz40b" path="res://game_logic/world/resources/MapDoor.gd" id="2_mapdoor"]
@@ -88,6 +88,7 @@ dialogue = "I am a wizard of old. If you come with me you will never have to wor
 npc_type = ""
 flag_key = "story_intro_complete"
 hide_flag_key = "story_intro_complete"
+show_flag_key = "town_quests_done"
 after_dialogue = "The road waits, wee Saimtar. South, past the wilds — Maykalene first."
 dialogue_group = "I am a wizard of old. If you will all come with me, none of you need worry about that master again — I will take you all on an adventure. My name is Maiteln. Will you join me?"
 
@@ -280,6 +281,46 @@ tile_x = 24
 tile_z = 50
 card_ids = PackedStringArray("shrouded_wraith", "dusk_seer")
 
+[sub_resource type="Resource" id="MapNpc_18"]
+script = ExtResource("3_mapnpc")
+entity_id = "wenna_herbalist"
+tile_x = 54
+tile_z = 36
+dialogue = "Nettle, yarrow, a pinch of feverfew… oh! Mind the drying racks, love."
+npc_type = ""
+flag_key = ""
+after_dialogue = ""
+
+[sub_resource type="Resource" id="MapNpc_19"]
+script = ExtResource("3_mapnpc")
+entity_id = "brother_aldo"
+tile_x = 58
+tile_z = 40
+dialogue = "Peace be on this house. Though of late the dead keep poor manners."
+npc_type = ""
+flag_key = ""
+after_dialogue = ""
+
+[sub_resource type="Resource" id="MapNpc_20"]
+script = ExtResource("3_mapnpc")
+entity_id = "old_tam"
+tile_x = 62
+tile_z = 36
+dialogue = "Forty years I carried a pike for the old lord. Still sleep with one eye open."
+npc_type = ""
+flag_key = ""
+after_dialogue = ""
+
+[sub_resource type="Resource" id="MapNpc_21"]
+script = ExtResource("3_mapnpc")
+entity_id = "ivy_chandler"
+tile_x = 46
+tile_z = 40
+dialogue = "Candles, wicks and tallow! Light's dear these nights, with what walks the dark."
+npc_type = ""
+flag_key = ""
+after_dialogue = ""
+
 [resource]
 script = ExtResource("1_mapdata")
 map_name = "madrian"
@@ -292,7 +333,7 @@ spawn_z = 36
 enemies = []
 chests = [SubResource("MapChest_1")]
 doors = [SubResource("MapDoor_1"), SubResource("MapDoor_2"), SubResource("MapDoor_3"), SubResource("MapDoor_4"), SubResource("MapDoor_5"), SubResource("MapDoor_6"), SubResource("MapDoor_7"), SubResource("MapDoor_8")]
-npcs = [SubResource("MapNpc_1"), SubResource("MapNpc_2"), SubResource("MapNpc_3"), SubResource("MapNpc_4"), SubResource("MapNpc_5"), SubResource("MapNpc_6"), SubResource("MapNpc_7"), SubResource("MapNpc_8"), SubResource("MapNpc_9"), SubResource("MapNpc_10"), SubResource("MapNpc_11"), SubResource("MapNpc_12"), SubResource("MapNpc_13"), SubResource("MapNpc_14"), SubResource("MapNpc_15"), SubResource("MapNpc_16"), SubResource("MapNpc_17")]
+npcs = [SubResource("MapNpc_1"), SubResource("MapNpc_2"), SubResource("MapNpc_3"), SubResource("MapNpc_4"), SubResource("MapNpc_5"), SubResource("MapNpc_6"), SubResource("MapNpc_7"), SubResource("MapNpc_8"), SubResource("MapNpc_9"), SubResource("MapNpc_10"), SubResource("MapNpc_11"), SubResource("MapNpc_12"), SubResource("MapNpc_13"), SubResource("MapNpc_14"), SubResource("MapNpc_15"), SubResource("MapNpc_16"), SubResource("MapNpc_17"), SubResource("MapNpc_18"), SubResource("MapNpc_19"), SubResource("MapNpc_20"), SubResource("MapNpc_21")]
 scrolls = [SubResource("MapScroll_1")]
 shrines = [SubResource("MapPuzzleShrine_1")]
 waystones = []

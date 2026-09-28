@@ -1236,7 +1236,7 @@ func get_equipped_by_slot(slot: String) -> String:
 	return ""
 
 static func xp_for_level(lvl: int) -> int:
-	return lvl * lvl * 50  # 1→2: 50xp, 2→3: 200xp, 3→4: 450xp
+	return lvl * lvl * 50  # total XP to *reach* level lvl (≥ 2): L2 200, L3 450, L4 800, L5 1250
 
 static func _compute_level(current_xp: int) -> int:
 	var lvl: int = 1

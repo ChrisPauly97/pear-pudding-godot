@@ -569,6 +569,9 @@ func _spawn_entities(world_scene: _WorldScene) -> void:
 		var hide_flag: String = str(n_data.get("hide_flag_key", ""))
 		if hide_flag != "" and SceneManager.save_manager.get_story_flag(hide_flag):
 			continue
+		var show_flag: String = str(n_data.get("show_flag_key", ""))
+		if show_flag != "" and not SceneManager.save_manager.get_story_flag(show_flag):
+			continue
 		var _npc_type_str: String = str(n_data.get("npc_type", ""))
 		var scene_to_use: PackedScene
 		if _npc_type_str == "merchant":

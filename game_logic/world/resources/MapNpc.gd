@@ -16,6 +16,9 @@ extends Resource
 ## leave their post once the story moves them on — Madrian's Maiteln joins the
 ## party as a follower, so the villager standing on his old tile has to go.
 @export var hide_flag_key: String = ""
+## Story flag this NPC waits for: not spawned until it is set (GID-141 — Maiteln
+## only arrives in Madrian once the townsfolk quests are done).
+@export var show_flag_key: String = ""
 ## Dialogue shown after flag_key has been set in SaveManager.
 @export var after_dialogue: String = ""
 ## For duelist NPCs: the EnemyRegistry type ID used in the duel battle.

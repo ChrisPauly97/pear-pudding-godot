@@ -26,6 +26,12 @@ const CHAPTERS: Dictionary = {
 const STORY_END_FLAGS: Array[String] = ["chapter2_warcamp_cleared", "chapter2_complete"]
 
 const STEPS: Array[Dictionary] = [
+	# GID-141: Chapter 1 opens with the townsfolk's asks (SideQuests starter chain);
+	# Maiteln only arrives once they are done.
+	{"id": "help_townsfolk", "chapter": 1, "label": "Help the townsfolk of Madrian", "giver": "Hilda the Baker",
+		"summary": ("Madrian's folk have troubles of their own — the dead walk the fields past the fence. Start "
+			+ "with Hilda the Baker; she always knows who needs a hand."),
+		"done_flag": "town_quests_done", "map": "madrian", "tx": 50, "tz": 38},
 	{"id": "speak_maiteln", "chapter": 1, "label": "Speak to Maiteln", "giver": "Maiteln",
 		"summary": "The old wizard Maiteln has come looking for you in Madrian. He has news that cannot wait.",
 		"done_flag": "story_intro_complete", "map": "madrian", "tx": 45, "tz": 36},

@@ -47,7 +47,7 @@ func test_story_quest_never_blank_after_last_step() -> void:
 func test_story_quest_carries_chapter_and_summary() -> void:
 	var q: Dictionary = QuestLog.story_quest({})
 	assert_eq(str(q["title"]), "Chapter 1: Into the Wild World")
-	assert_eq(str(q["label"]), "Speak to Maiteln")
+	assert_eq(str(q["label"]), "Help the townsfolk of Madrian")
 	assert_true(str(q["summary"]) != "")
 
 

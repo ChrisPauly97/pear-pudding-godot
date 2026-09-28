@@ -88,6 +88,7 @@ func interact() -> void:
 	_dug = true
 	if not sm.dug_mounds.has(_mound_id):
 		sm.dug_mounds.append(_mound_id)
+		sm.quests.progress_event("use_skill", "skeleton_dig")
 	sm.cantrip_cooldowns["skeleton_dig"] = current_time + CantripManager.get_cooldown("skeleton_dig")
 	sm.mark_dirty()
 
