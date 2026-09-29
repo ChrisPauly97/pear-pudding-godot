@@ -139,7 +139,7 @@ func enter_pvp_battle(local_player_idx: int, opponent_deck: Array, ante_coins: i
 ## consumes the override) but kept symmetric for correctness.
 func resume_pvp_battle(local_player_idx: int, opponent_deck: Array, ante_coins: int,
 		local_deck_override: Array = []) -> void:
-	_sm.enter_map_coop("madrian")
+	_sm.enter_map_coop("main")
 	while _sm.current_state() != State.WORLD:
 		await get_tree().process_frame
 	enter_pvp_battle(local_player_idx, opponent_deck, ante_coins, "", false, local_deck_override)

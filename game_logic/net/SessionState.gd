@@ -89,7 +89,7 @@ var session_id: String = ""
 var display_name: String = "Session"
 
 # --- Shared world progress (authority-owned, same for all members) ----------
-var current_map: String = "madrian"
+var current_map: String = "main"  # the stitched overworld (BID-063)
 var world_seed: int = 42
 var time_of_day: float = 0.4
 var days_elapsed: int = 0
@@ -200,7 +200,7 @@ func from_dict(data: Dictionary) -> void:
 	_apply_migrations(data)
 	session_id = str(data.get("session_id", ""))
 	display_name = str(data.get("display_name", "Session"))
-	current_map = str(data.get("current_map", "madrian"))
+	current_map = str(data.get("current_map", "main"))
 	world_seed = int(data.get("world_seed", 42))
 	time_of_day = float(data.get("time_of_day", 0.4))
 	days_elapsed = int(data.get("days_elapsed", 0))
@@ -510,7 +510,7 @@ static func make_starter_character(token: String, member_name: String) -> Dictio
 		"magic_type": "",
 		"corruption_points": 0,
 		"redemption_points": 0,
-		"map": "madrian",
+		"map": "main",
 		"x": 0.0,
 		"z": 0.0,
 		# Session-scoped equipment inventory (BID-033) — a fresh character owns

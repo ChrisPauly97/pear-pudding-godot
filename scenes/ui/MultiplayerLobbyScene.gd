@@ -1,12 +1,12 @@
 ## Co-op lobby overlay (GID-090).
 ##
 ## Opened from MenuScene. Lets a player host a session or join one by IP on the
-## same LAN, then routes both peers into the shared "madrian" map. Script-only
+## same LAN, then routes both peers into the shared overworld ("main", BID-063). Script-only
 ## overlay (instantiated via .new()), matching SettingsScene/DiagnosticsScene.
 extends "res://scenes/ui/BaseOverlay.gd"
 
 
-const _COOP_MAP: String = "madrian"
+const _COOP_MAP: String = "main"
 
 ## Touch-friendly preset tints for the avatar color swatches (TID-342).
 const _COLOR_PRESETS: Array[Color] = [

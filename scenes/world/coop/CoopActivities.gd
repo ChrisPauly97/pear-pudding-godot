@@ -731,8 +731,8 @@ func _on_coop_spire_summary_continue() -> void:
 	_world._coop_spire_summary_overlay = null
 	if _world._coop_active and _world._net_sync != null and not _world._coop_map_transitioning:
 		_world._coop_map_transitioning = true
-		_world._net_sync.rpc("recv_map_transition", "madrian", "")
-	SceneManager.enter_coop_map_no_stack("madrian", "")
+		_world._net_sync.rpc("recv_map_transition", "main", "")
+	SceneManager.enter_coop_map_no_stack("main", "")
 
 # ── Co-op Town Siege (GID-103 / TID-384) ──────────────────────────────────────
 #

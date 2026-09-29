@@ -45,3 +45,7 @@ purely index-based, seed-deterministic entity ids (see `docs/agent/multiplayer-c
 an *opt-in side trip* the host must trigger; it doesn't change madrian's own content. If a
 future task adds enemies/chests directly to madrian (the first option above), that would
 fully close this item. Leaving open, scoped down to "madrian itself has no content."
+
+## Resolution
+
+Co-op now starts on the stitched overworld (BID-063), whose chunk-streamed enemies and chests are live, so world sync is exercised in every session.

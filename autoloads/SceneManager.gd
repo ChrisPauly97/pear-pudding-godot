@@ -316,7 +316,7 @@ func _maybe_boot_dedicated_server() -> void:
 	if not args.has("--server"):
 		return
 	var port: int = NetworkManager.DEFAULT_PORT
-	var map_name: String = "madrian"
+	var map_name: String = "main"  # the stitched overworld (BID-063)
 	for i: int in range(args.size()):
 		var arg: String = args[i]
 		if arg == "--port" and i + 1 < args.size():

@@ -1,5 +1,13 @@
 # Co-op Multiplayer (Vertical Slice + PvP)
 
+> **Landing map (BID-063):** co-op now hosts, joins, resumes and returns on the stitched overworld **`main`**
+> (`MultiplayerLobbyScene._COOP_MAP`, `SessionState.current_map` / character `map` defaults, the discovery
+> reply, `NetBattles.resume_pvp_battle`, the co-op Spire summary, the dedicated server `--map` default).
+> Madrian is part of that map (GID-138), so "madrian" below means the town inside it; town-gated co-op
+> features already key off `WorldScene.story_place()`. Verified with a real two-process host + client run
+> (both on `main`, same seed, each sees the other's avatar). Old sessions saved on `madrian` still load it.
+
+
 > Status: up to **4 players** (GID-094 / TID-341) share one named map
 > (**madrian**) and see each other's avatar move (GID-090), and two players can
 > challenge each other to a real TCG **card battle** (GID-091, host-authoritative).
@@ -209,8 +217,8 @@ out-of-scope feature) — it is correctness: you only see a partner who is actua
 - `scenes/ui/MultiplayerLobbyScene.gd` (extends `BaseOverlay`, instantiated via
   `.new()` like SettingsScene): Host / Find Games (+ results list) / Join-by-IP /
   Close, viewport-relative, rebuilt on resize.
-- Host → `NetworkManager.host()` then `SceneManager.enter_map_coop("madrian")`
-  immediately. Client → on `connection_succeeded`, `enter_map_coop("madrian")`.
+- Host → `NetworkManager.host()` then `SceneManager.enter_map_coop("main")` (was `"madrian"` before BID-063)
+  immediately. Client → on `connection_succeeded`, `enter_map_coop("main")`.
   Both end up in madrian before any avatar RPCs flow.
 - `SceneManager.enter_map_coop(map_name)` clears any prior world/stack and reuses
   the normal `enter_map` path. `save()` is a no-op when no game is loaded, so this
@@ -1813,7 +1821,7 @@ session + world authority without rendering, a local player, a camera, or a HUD.
 godot --headless -- --server [--port N] [--map NAME]
 ```
 
-`--port` defaults to `24565`. `--map` defaults to `"madrian"`.
+`--port` defaults to `24565`. `--map` defaults to `"main"` (BID-063; was `"madrian"`).
 Connect clients with the normal "Join by IP" path in the lobby.
 
 ### How it works

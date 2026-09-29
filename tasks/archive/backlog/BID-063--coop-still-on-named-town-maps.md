@@ -24,3 +24,7 @@ co-op party plays the story through the old door-and-transition maps.
 Switch those defaults to `"main"` and verify the named-map-only co-op features
 (synced weather, night hunts, siege, world-object sync) against the infinite
 world with a real two-peer run; update `test_session_state` / co-op tests.
+
+## Resolution
+
+Co-op defaults switched to `"main"` (lobby, session defaults, discovery reply, PvP resume, co-op Spire return, dedicated server). A real two-process host + client run landed both peers on `main` with the same seed and each saw the other. Town-gated co-op features already used `WorldScene.story_place()`. Noted: host broadcasts that reach a client still generating the overworld are dropped with an engine "Node not found: WorldScene/NetSync" log line (harmless, same race as before but a longer window).
