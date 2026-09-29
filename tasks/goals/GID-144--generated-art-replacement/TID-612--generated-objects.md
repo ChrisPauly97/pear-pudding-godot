@@ -27,6 +27,8 @@ Chest/door in `generate_sprites.py` at the old pixel sizes (entities use a fixed
 
 New generators `chest_body`, `chest`, `door`, `pad`, `mimic`, `horse`; regenerated 5 PNGs. CREDITS: 0x72 and Tiny Creatures now unused.
 
+Follow-up (user review): Polish pass: planked chest with iron straps/corner bands and a small hasp lock (mimic inherits it).
+
 ## Documentation Updates
 
 `art-sprites.md` (B3 ✓), CREDITS.

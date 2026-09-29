@@ -46,10 +46,11 @@ ICONS = {
     "wager_challenge": (  # a sword planted beside a stack of coins
         f'<path {S} d="M80 60 L260 300 M170 290 L270 210 M260 300 L300 350"/>'
         + "".join(f'<rect {F} x="270" y="{y}" width="200" height="56" rx="28"/>' for y in (420, 350, 280))),
-    "draft_duel": (  # a fan of three cards
-        f'<rect {S} x="186" y="90" width="140" height="220" rx="20" transform="rotate(-24 256 420)"/>'
-        f'<rect {S} x="186" y="90" width="140" height="220" rx="20" transform="rotate(24 256 420)"/>'
-        f'<rect {F} x="186" y="80" width="140" height="220" rx="20"/>'),
+    "draft_duel": (  # three cards fanned from one hand-hold, the front one marked with a diamond
+        f'<rect {S} x="186" y="96" width="140" height="210" rx="18" transform="rotate(-28 256 440)"/>'
+        f'<rect {S} x="186" y="96" width="140" height="210" rx="18" transform="rotate(28 256 440)"/>'
+        f'<path {F} fill-rule="evenodd" d="M204 76 H308 a22 22 0 0 1 22 22 V304 a22 22 0 0 1 -22 22 H204 '
+        f'a22 22 0 0 1 -22 -22 V98 a22 22 0 0 1 22 -22z M256 140 L300 201 L256 262 L212 201z"/>'),
     "menu_hub": (  # an open book
         f'<path {S} d="M256 130 Q170 80 60 110 V410 Q170 380 256 430 Q342 380 452 410 V110 Q342 80 256 130z"/>'
         f'<path {S} d="M256 130 V430"/>'),

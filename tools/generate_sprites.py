@@ -475,31 +475,47 @@ def pad(img, w, h):
 
 
 def chest_body(c, lid_open=False, x0=1, y0=3):
-    """A 14-px iron-banded wooden chest; the lid is either shut or thrown back."""
+    """A 14-px planked chest in iron corner bands with a gold lock; the lid is shut or thrown back.
+
+    Rows y0..y0+4 are the lid, y0+5..y0+12 the box (the mimic reuses this and clears the lid rows).
+    """
     wood = P.WOOD
+    iron = [(42, 42, 58), (82, 96, 124), (123, 137, 148), (192, 203, 220)]
     base_top = y0 + 5
-    c.rect(x0, base_top, x0 + 13, y0 + 12, wood[1])       # box
-    c.rect(x0, base_top, x0 + 13, base_top, wood[2])
-    c.rect(x0 + 1, y0 + 12, x0 + 12, y0 + 12, wood[0])
-    for bx in (x0 + 2, x0 + 11):                          # gold straps
-        c.rect(bx, base_top, bx, y0 + 12, P.GOLD[1])
+    bottom = y0 + 12
+    # box: two planks with a dark seam, shaded darker to the right
+    c.rect(x0, base_top, x0 + 13, bottom, wood[1])
+    c.rect(x0 + 1, base_top, x0 + 6, bottom - 1, wood[2])
+    c.line(x0, base_top + 3, x0 + 13, base_top + 3, wood[0])
+    c.line(x0, bottom, x0 + 13, bottom, wood[0])
     if lid_open:
-        c.rect(x0, y0 - 1, x0 + 13, y0 + 3, wood[0])      # lid interior, tipped back
-        c.rect(x0 + 1, y0, x0 + 12, y0 + 2, wood[1])
-        c.rect(x0 + 1, base_top, x0 + 12, base_top + 1, P.GOLD[2])   # coins
-        for x, y in ((x0 + 3, base_top - 1), (x0 + 6, base_top - 1), (x0 + 9, base_top - 1),
-                     (x0 + 5, base_top - 2), (x0 + 8, base_top - 2)):
+        # lid thrown back: its dark underside above, loot heaped in the box mouth
+        c.rect(x0 + 1, y0 - 1, x0 + 12, y0 + 2, wood[0])
+        c.line(x0 + 1, y0 - 1, x0 + 12, y0 - 1, wood[1])
+        c.rect(x0 + 1, y0 + 3, x0 + 12, base_top, (42, 30, 26))          # shadowed interior
+        c.blob(x0 + 6.5, base_top - 0.5, 5.2, 2.0, P.GOLD)                # coin heap
+        for x, y in ((x0 + 3, base_top - 2), (x0 + 8, base_top - 2), (x0 + 5, base_top - 3)):
             c.set(x, y, P.GOLD[3])
-        c.set(x0 + 7, base_top - 1, P.BLUE[2])            # a gem
-        c.set(x0 + 4, base_top, P.RED[2])
+        c.set(x0 + 9, base_top - 1, P.BLUE[3])                            # gems
+        c.set(x0 + 3, base_top, P.RED[2])
+        c.line(x0, base_top + 1, x0 + 13, base_top + 1, wood[3])          # lit box rim
     else:
-        c.rect(x0, y0 + 1, x0 + 13, base_top - 1, wood[2])  # domed lid
-        c.rect(x0 + 1, y0, x0 + 12, y0, wood[2])
-        c.rect(x0 + 1, y0 + 1, x0 + 12, y0 + 1, wood[3])
-        for bx in (x0 + 2, x0 + 11):
-            c.rect(bx, y0, bx, base_top - 1, P.GOLD[2])
-        c.rect(x0 + 6, base_top - 1, x0 + 7, base_top + 1, P.GOLD[3])   # lock plate
-        c.set(x0 + 6.5, base_top + 1, P.OUTLINE)
+        # domed lid: highlight on top, a plank line, a dark lip over the box
+        c.rect(x0 + 1, y0, x0 + 12, y0, wood[3])
+        c.rect(x0, y0 + 1, x0 + 13, y0 + 3, wood[2])
+        c.line(x0 + 1, y0 + 1, x0 + 7, y0 + 1, wood[3])
+        c.line(x0, y0 + 4, x0 + 13, y0 + 4, wood[0])
+    top = y0 - 1 if lid_open else y0
+    for bx in (x0 + 2, x0 + 11):                                          # iron straps + rivets
+        c.line(bx, top if not lid_open else y0 + 3, bx, bottom, iron[1])
+        c.set(bx, base_top + 1, iron[3])
+        c.set(bx, bottom - 1, iron[3])
+    for bx in (x0, x0 + 13):                                              # corner bands
+        c.line(bx, base_top, bx, bottom, iron[0])
+    if not lid_open:
+        c.rect(x0 + 6, y0 + 4, x0 + 7, base_top + 1, P.GOLD[1])           # hasp + lock plate
+        c.set(x0 + 6, y0 + 4, P.GOLD[3])
+        c.set(x0 + 7, base_top + 1, P.OUTLINE)                            # keyhole
 
 
 def chest(lid_open):

@@ -82,22 +82,34 @@ def rune_dusk():
     return _fit(c.image())
 
 
+def _flame(c, cx, base, height, radius, ramp_idx, sway=1.5):
+    """Teardrop flame: sharp wavering tip, round belly sitting on `base`."""
+    tip = base - height
+    for y in range(int(tip), int(base) + 1):
+        t = (y - tip) / float(height)                         # 0 at the tip, 1 at the bottom
+        if t < 0.7:
+            w = radius * (t / 0.7) ** 0.9
+        else:
+            w = radius * math.sqrt(max(0.0, 1 - ((t - 0.7) / 0.3) ** 2))
+        lean = sway * math.sin(t * math.pi * 1.6) * (1 - t)
+        c.line(cx + lean - w, y, cx + lean + w, y, ramp_idx)
+
+
 def rune_ember():
-    """Ember: a flame on a glowing ring, sparks rising."""
+    """Ember: a layered flame (red rim, orange body, white-hot core) over glowing coals."""
     c = Canvas(S, S)
-    for x in range(6, 27):
-        t = (x - 16) / 10.0
-        c.set(x, 26 + round(t * t * 2), P.FIRE[1])
-        c.set(x, 25 + round(t * t * 2), P.FIRE[2] if abs(t) < 0.7 else P.FIRE[1])
-    for y in range(4, 25):                                      # teardrop flame
-        t = (y - 4) / 20.0
-        w = 7.5 * math.sin(math.pi * min(1.0, t * 1.15)) * (0.35 + 0.65 * t)
-        lean = (1 - t) * 3.0
-        for x in range(round(16 + lean - w), round(16 + lean + w) + 1):
-            inner = abs(x - 16 - lean) < w * 0.45 and t > 0.45
-            c.set(x, y, P.GOLD[3] if inner and t > 0.7 else (P.FIRE[3] if inner else P.FIRE[2 if t > 0.3 else 1]))
-    for x, y in ((8, 9), (24, 7), (22, 13)):
-        c.set(x, y, P.FIRE[2])
+    for x, r in ((9, 3.2), (16, 4.0), (23, 3.2)):             # coal bed
+        c.blob(x, 26, r, 2.4, [(62, 20, 30), P.RED[0], P.RED[1], P.FIRE[1]])
+    _flame(c, 10, 24, 11, 4.0, P.RED[1], -1.0)                # side tongues
+    _flame(c, 22, 24, 10, 3.6, P.RED[1], 1.0)
+    _flame(c, 16, 25, 21, 7.0, P.RED[1])                      # main flame, outer to core
+    _flame(c, 16, 25, 16, 5.2, P.FIRE[1])
+    _flame(c, 10, 24, 7, 2.4, P.FIRE[1], -1.0)
+    _flame(c, 22, 24, 6, 2.2, P.FIRE[1], 1.0)
+    _flame(c, 16, 25, 11, 3.4, P.FIRE[2])
+    _flame(c, 16, 25, 7, 2.4, P.FIRE[3], 0.0)
+    for x, y, col in ((7, 7, P.FIRE[2]), (25, 5, P.FIRE[1]), (21, 2, P.FIRE[2]), (11, 3, P.FIRE[1])):
+        c.set(x, y, col)                                      # rising sparks
     c.outline()
     return _fit(c.image())
 
