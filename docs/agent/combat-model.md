@@ -91,7 +91,8 @@ Keyboard: `Q`/`1`–`2` quick slots, `Space` end turn, number row for hand cards
 1. **Option A** — Hero & Allies.
 2. **Allies are ordinary deck cards**: drawn and played like any card, never auto-deployed at battle start.
    Cap: at most 5 Ally cards per deck, 3 Ally board slots (tunable in TID-545).
-3. **Hero HP carries over between fights**, with slow out-of-combat regen and a full heal in towns / beds.
+3. **Hero HP carries over between fights**, with slow out-of-combat regen and a full heal in towns / beds
+   (shipped in TID-543 — see `home-garden-potions.md` → Persistent Hero HP).
    Healing must be accessible early: more low-level hero heal spells, **food** consumables (out-of-combat
    regen, WoW-style) alongside the existing persistent potions (TID-543).
 4. **Terminology** (use everywhere — UI text, docs, code names for new work):

@@ -10,6 +10,7 @@ const _RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
 const _CombatOnboarding = preload("res://game_logic/battle/CombatOnboarding.gd")
 const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const _ZoneLevels = preload("res://game_logic/world/ZoneLevels.gd")
+const _HeroVitality = preload("res://game_logic/HeroVitality.gd")
 const _BattleScene = preload("res://scenes/battle/BattleScene.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
@@ -308,3 +309,31 @@ func _apply_desert_scorch() -> void:
 					_battle._state.players[pid].board.remove_card(c)
 					_battle._state.players[pid].discard.append(c)
 				break
+
+
+# ── Persistent hero HP (GID-136 / TID-543) ──────────────────────────────────
+
+## Whether this fight reads and writes `SaveManager.hero_hp_frac`.
+func _hp_carries() -> bool:
+	var sm := SceneManager.save_manager
+	return not _battle._ghost_duel and _HeroVitality.carries_over(_battle.enemy_data, sm.spire.is_spire_active(),
+			not sm.town_siege.get_active_siege().is_empty(), _battle._state.friendly_duel)
+
+
+## Solo setup, after every max-HP modifier: start at the saved fraction.
+func _apply_persistent_hp() -> void:
+	if not _hp_carries():
+		return
+	var hero: HeroState = _battle._state.players[0].hero
+	hero.health = mini(hero.health, _HeroVitality.battle_start_hp(hero.max_health,
+			SceneManager.save_manager.hero_hp_frac))
+
+
+## Game over of an ordinary solo fight: remember what's left (a loss → RESPAWN_FRAC).
+func record_persistent_hp(won: bool) -> void:
+	if not _hp_carries():
+		return
+	var hero: HeroState = _battle._state.players[0].hero
+	var sm := SceneManager.save_manager
+	sm.hero_hp_frac = _HeroVitality.frac_after(hero.health, hero.max_health, won)
+	sm.mark_dirty()

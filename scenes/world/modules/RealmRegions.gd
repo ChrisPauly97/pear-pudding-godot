@@ -46,6 +46,7 @@ func _set_town(town: String) -> void:
 	AudioManager.play_music(_world.town_siege.music_for(town, town_music(town)))
 	if prev == "" and _world._world_hud != null:
 		GameBus.hud_message_requested.emit(_PlaceNames.title(town))
+	_world.hero_health.full_heal()  # a town's hearths and healers (TID-543)
 	_world.story_cast.spawn_named_map_rivals()
 	_world.town_siege.on_map_entered(town)
 	if town == "blancogov":

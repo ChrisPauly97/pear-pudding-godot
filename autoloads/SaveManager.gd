@@ -83,7 +83,8 @@ const PERSISTED_FIELDS: Dictionary = {
 	"bag_size": 0,
 	"siege": {}, "last_siege_day": 0, "town_discounts": {},
 	"rival_encounters_won": 0, "rival_defeated": false,
-	"garden_plots": [{}, {}, {}], "seeds": {}, "plants": {}, "potions": {}, "quick_slots": ["", ""],
+	"garden_plots": [{}, {}, {}], "seeds": {}, "plants": {}, "potions": {},
+	"quick_slots": ["", ""], "hero_hp_frac": 1.0, "foods": {},
 	"captured_signatures": [], "cantrip_cooldowns": {}, "dug_mounds": [],
 	"blight_cleansed_hearts": [], "discovered_landmarks": [],
 	"collected_mana_wells": [], "last_saved": "",
@@ -336,6 +337,9 @@ var plants: Dictionary = {}   # plant_id -> count
 var potions: Dictionary = {}  # potion_id -> count
 ## Potion id per consumable quick slot (Q, E) — see game_logic/battle/QuickSlots.gd (TID-542).
 var quick_slots: Array[String] = ["", ""]
+## Hero HP as a fraction of max, carried between ordinary fights (game_logic/HeroVitality.gd, TID-543).
+var hero_hp_frac: float = 1.0
+var foods: Dictionary = {}  # food_id -> count (HeroVitality.FOODS)
 
 var last_saved: String = ""
 
@@ -594,6 +598,8 @@ func new_game(head_start: bool = false) -> void:
 	plants = {}
 	potions = {}
 	quick_slots = ["", ""]
+	hero_hp_frac = 1.0
+	foods = {}
 	captured_signatures = []
 	cantrip_cooldowns = {}
 	dug_mounds = []

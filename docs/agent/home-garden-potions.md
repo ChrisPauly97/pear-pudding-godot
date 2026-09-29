@@ -127,6 +127,30 @@ A "— Seeds —" section is appended after Trinkets in `_refresh()`. `_make_see
   - `ember_tonic` — `hero.mana = mini(hero.mana + 1, hero.max_mana)` (resets at next turn normally)
 - AI never uses potions (v1 constraint).
 
+### Persistent Hero HP, Food & World Healing (TID-543)
+
+- **Rule:** hero HP carries between ordinary solo fights (TID-540 decision 3). Stored as a fraction,
+  `SaveManager.hero_hp_frac` (1.0 = full, persisted, reset by `new_game`), so raising max HP with gear never wounds.
+  Rules in `game_logic/HeroVitality.gd`: `carries_over()` excludes Spire runs, sieges (both keep their own
+  `hero_hp`), friendly duels, ghost duels and the training dummy; PvP, co-op, puzzles and scripted fights never
+  reach the hooks.
+- **Battle:** `BattleModifiers._apply_persistent_hp()` (end of `_setup_solo_battle`, after every max-HP modifier)
+  lowers `hero.health` to `battle_start_hp(max, frac)` (≥ 1). `record_persistent_hp(won)` (in `_check_game_over`,
+  before the standard victory/defeat) saves `health / max_health`, or `RESPAWN_FRAC` (0.5) on a loss — so Retry
+  and Respawn both start at half.
+- **World** (`scenes/world/modules/HeroHealth.gd`, `hero_health`): regen empty→full in `REGEN_FULL_SECONDS`
+  (240 s) while in the world; save marked dirty every 5 %. `full_heal()` on entering a stitched town
+  (`RealmRegions._set_town`) and at the home bed (`PlayerHome.use_bed`). HUD: red HP bar above the XP bar in the
+  bottom-left chip (`WorldHUD.set_hero_hp`, green tint while eating).
+- **Quick use:** Q key / "[Q] Eat" button (ability column, visible while hurt with something usable):
+  `best_world_item()` eats food first, else drinks a healing draught (+8 of 30). Only healing works out of battle.
+- **Food:** `HeroVitality.FOODS` — Travel Bread (8 coins, 40 % over 10 s), Roast Fowl (20 coins, 100 % over 15 s);
+  counts in `SaveManager.foods` (persisted), sold in the shop's **Food** section. A meal is interrupted by
+  `GameBus.enemy_engaged`.
+- **Dungeon rest sites / events** (`DungeonSessionUI`) now heal / hurt the persistent HP (`REST_SITE_HEAL`,
+  `HeroVitality.hurt`) instead of a display-only 30-HP counter.
+- **Early heals:** the trainer-taught **Mend** skill (GID-141 unlock ladder) is the level-1 heal; no new cards.
+
 ## Integrations with Other Features
 
 - **Player home (GID-046):** Garden plots are spawned exclusively in the `player_home` interior map. Requires `home_owned = true` to be reachable (GID-046 gate).

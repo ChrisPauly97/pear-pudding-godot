@@ -51,6 +51,7 @@ var _tip_label: Label
 var _coord_label: Label
 var _level_label: Label
 var _xp_bar: ProgressBar
+var _hp_bar: ProgressBar  # persistent hero HP (TID-543), above the XP bar
 var _xp_label: Label
 var _ley_indicator: Label = null
 var _mount_btn: Button = null
@@ -420,12 +421,20 @@ func _create_xp_bar(vh: float) -> void:
 	var chip := PanelContainer.new()
 	chip.add_theme_stylebox_override("panel", hud_chip_style(vh))
 	chip.position = Vector2(vh * 0.01 + float(_ins.get("left", 0.0)),
-		vh * 0.875 - float(_ins.get("bottom", 0.0)))
+		vh * 0.835 - float(_ins.get("bottom", 0.0)))
 	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hud.add_child(chip)
-	var xp_row := HBoxContainer.new()
-	xp_row.add_theme_constant_override("separation", int(vh * 0.008))
-	chip.add_child(xp_row)
+	var rows := _UiUtil.make_vbox(int(vh * 0.006), chip)
+	_hp_bar = ProgressBar.new()
+	_hp_bar.custom_minimum_size = Vector2(vh * 0.30, vh * 0.022)
+	_hp_bar.show_percentage = false
+	_hp_bar.max_value = 1.0
+	_hp_bar.step = 0.0
+	_hp_bar.value = 1.0
+	_hp_bar.add_theme_stylebox_override("fill", _UiUtil.make_style(Color(0.78, 0.2, 0.2), int(vh * 0.006)))
+	_hp_bar.tooltip_text = "Hero HP — carries between fights; regenerates out of combat"
+	rows.add_child(_hp_bar)
+	var xp_row := _UiUtil.make_hbox(int(vh * 0.008), rows)
 
 	_level_label = Label.new()
 	_level_label.add_theme_font_size_override("font_size", int(vh * 0.028 * _ts))
@@ -546,6 +555,13 @@ func refresh_xp_bar() -> void:
 	_level_label.text = "Lv.%d" % lvl
 	_xp_bar.max_value = xp_next - xp_prev
 	_xp_bar.value = sm.xp - xp_prev
+
+## Persistent hero HP bar (0..1); green-tinted while a meal is healing.
+func set_hero_hp(frac: float, eating: bool) -> void:
+	if _hp_bar == null:
+		return
+	_hp_bar.value = frac
+	_hp_bar.modulate = Color(0.75, 1.0, 0.75) if eating else Color.WHITE
 
 func update_xp_label() -> void:
 	if _xp_label == null:

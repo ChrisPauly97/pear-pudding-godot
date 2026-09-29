@@ -535,6 +535,7 @@ func _setup_solo_battle() -> void:
 	modifiers._apply_gambit_handicaps(_gambit_id)
 	# World-encounter ambush modifiers (GID-113 / TID-421, TID-422).
 	modifiers._apply_ambush_modifiers(enemy_data)
+	modifiers._apply_persistent_hp()  # TID-543: HP carries between ordinary fights
 
 	# start_turn draws 1 card + bonus_draw (from passive_draw skills/equipment).
 	# bonus_mana (from passive_mana skills) was set above, so gain_mana_for_turn
@@ -1152,6 +1153,7 @@ func _check_game_over() -> void:
 				_result_ui.show_duel_loss(_state.wager_coins)
 			# gdlint:ignore = max-returns
 			return
+		modifiers.record_persistent_hp(w == 0)
 		if w == 0:
 			_play_outcome_feedback(true)
 			_show_standard_victory()

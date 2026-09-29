@@ -2,7 +2,7 @@
 
 **Goal:** GID-136
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-540, TID-545
 
 ## Lock
@@ -33,12 +33,26 @@ User decision (TID-540): hero HP carries over between fights with slow out-of-co
 
 ## Plan
 
-_Written during Plan phase._
+1. `game_logic/HeroVitality.gd` (pure): eligibility, start HP, post-fight fraction,
+   regen, food table, world item pick, hurt.
+2. Save `hero_hp_frac` (fraction, so gear changes rescale) + `foods`.
+3. Battle hooks in `BattleModifiers` (BattleScene only gets one-line calls — it is
+   lint debt): start at the fraction, record on game over (loss → 0.5).
+4. World module `HeroHealth`: regen, Q / Eat, meals cancelled on engage, full heal in
+   towns and at the bed; HUD HP bar.
+5. Shop Food section. Early heals: the GID-141 Mend skill already covers level 1.
+6. Opportunistic fix: dungeon rest sites/events used a display-only 30-HP counter.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `game_logic/HeroVitality.gd`, `scenes/world/modules/HeroHealth.gd` (+ uids).
+- `SaveManager` (`hero_hp_frac`, `foods`), `BattleModifiers` (`_apply_persistent_hp`,
+  `record_persistent_hp`), `BattleScene` (2 calls), `WorldHUD` (HP bar, `set_hero_hp`),
+  `WorldScene` (module; trimmed lines for the 2100 ceiling), `PlayerHome.use_bed`,
+  `RealmRegions._set_town`, `ShopScene` (Food), `DungeonSessionUI` (real HP).
+- Tests: new `test_hero_vitality.gd`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `home-garden-potions.md` → Persistent Hero HP, Food & World Healing; `combat-model.md`
+  decision 3; CLAUDE.md world-module table.

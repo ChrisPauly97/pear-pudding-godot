@@ -6,6 +6,7 @@ const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const PackDefs = preload("res://game_logic/PackDefs.gd")
 const GardenDefs = preload("res://game_logic/GardenDefs.gd")
+const _HeroVitality = preload("res://game_logic/HeroVitality.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const _CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
@@ -175,6 +176,11 @@ func _refresh() -> void:
 	# ---- Off Hands section (TID-545) --------------------------------------
 	_shop_list.add_child(_make_section_header("— Off Hands —"))
 	_add_equipment_section("offhand", SceneManager.save_manager.owned_offhands, coins, discounted)
+
+	# ---- Food section (TID-543): eaten out of combat to heal over time ---
+	_shop_list.add_child(_make_section_header("— Food —"))
+	for food_id: String in _HeroVitality.FOODS:
+		_shop_list.add_child(_make_food_row(food_id, coins))
 
 	# ---- Seeds section ---------------------------------------------------
 	_shop_list.add_child(_make_section_header("— Seeds —"))
@@ -434,6 +440,31 @@ func _on_buy_seed(seed_id: String) -> void:
 		return
 	sm.add_coins(-SEED_PRICE)
 	sm.garden.add_seeds(seed_id, 1)
+	_refresh()
+
+func _make_food_row(food_id: String, coins: int) -> HBoxContainer:
+	var food: Dictionary = _HeroVitality.FOODS[food_id]
+	var price: int = int(food.get("price", 0))
+	var row := _UiUtil.make_hbox(int(_vw * 0.008))
+	var owned: int = int(SceneManager.save_manager.foods.get(food_id, 0))
+	var info_lbl := _UiUtil.make_label("%s  —  own: %d" % [str(food.get("display_name", food_id)), owned],
+			int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
+	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info_lbl.tooltip_text = str(food.get("description", ""))
+	_UiUtil.make_label("%d coins" % price, int(_ref * 0.022),
+			Color(1.0, 0.85, 0.1) if coins >= price else Color(0.9, 0.3, 0.3), HORIZONTAL_ALIGNMENT_LEFT, row)
+	var buy_btn := _UiUtil.make_button("Buy", Vector2(_vw * 0.08, _ref * 0.065), int(_ref * 0.022),
+			_on_buy_food.bind(food_id, price), row)
+	buy_btn.disabled = coins < price
+	return row
+
+func _on_buy_food(food_id: String, price: int) -> void:
+	var sm := SceneManager.save_manager
+	if sm.coins < price:
+		return
+	sm.add_coins(-price)
+	sm.foods[food_id] = int(sm.foods.get(food_id, 0)) + 1
+	sm.mark_dirty()
 	_refresh()
 
 func _on_close() -> void:

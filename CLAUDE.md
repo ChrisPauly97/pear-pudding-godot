@@ -377,6 +377,7 @@ created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
 | `QuestTracker.gd` (`quest_tracker`) | Cached quest list + tracked quest (QuestLog) for compass/minimap/realm map, objective beacon, NPC "!" / "?" marks, "New objective" tip, overworld realm map on M (GID-140) |
 | `StarterCamps.gd` (`starter_camps`) | Madrian starter-zone camps (`StarterZone`): levelled camp enemies refilled 45 s after they fall, never saved as defeated (GID-141) |
 | `RiftPortals.gd` (`rift_portals`) | Rift door panel: rift, best tier, tier picker, enter/resume (GID-142); portals come from `InfiniteWorldGen` |
+| `HeroHealth.gd` (`hero_health`) | Persistent hero HP out of combat (`HeroVitality`): regen, food meals, Q / "Eat" quick use, town + bed full heal, HUD HP bar (TID-543) |
 | `Critters.gd` (`critters`) | Ambient wildlife around the hero by biome (`CritterDef`, `entities/Critter.gd`): wander, flee, hover/hop; scenery only, not synced (GID-147) |
 
 BattleScene's single-player clusters live under `scenes/battle/modules/`, created by

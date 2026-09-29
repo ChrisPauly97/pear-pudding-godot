@@ -1,20 +1,22 @@
 extends Node
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
+const _HeroVitality = preload("res://game_logic/HeroVitality.gd")
 
-# Manages dungeon-room overlay panels (rest sites, culling, random events)
-# and tracks hero HP across dungeon rooms within a single session.
+# Manages dungeon-room overlay panels (rest sites, culling, random events).
+# Rest sites heal the persistent hero HP (SaveManager.hero_hp_frac, TID-543).
 
 var _hud: CanvasLayer
 var _dialogue_cb: Callable  # func(text: String) -> void
-
-var _dungeon_hero_hp: int = 30
 
 func setup(hud: CanvasLayer, dialogue_cb: Callable) -> void:
 	_hud = hud
 	_dialogue_cb = dialogue_cb
 
-func reset_hero_hp() -> void:
-	_dungeon_hero_hp = 30
+## Dungeon event damage, in HP of the 30-HP base, on the persistent HP (never below 1 HP).
+func _hurt(points: int) -> void:
+	var sm := SceneManager.save_manager
+	sm.hero_hp_frac = _HeroVitality.hurt(sm.hero_hp_frac, points)
+	sm.mark_dirty()
 
 func _say(text: String) -> void:
 	_dialogue_cb.call(text)
@@ -41,11 +43,13 @@ func show_rest_site_panel(npc_data: Dictionary) -> void:
 
 	var title := _UiUtil.make_label("Rest Site", int(vh * 0.05), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
-	var hp_label := _UiUtil.make_label("Hero HP: %d / 30" % _dungeon_hero_hp, int(font_size), Color.WHITE,
+	var frac: float = SceneManager.save_manager.hero_hp_frac
+	var hp_label := _UiUtil.make_label("Hero HP: %d%%" % roundi(frac * 100.0), int(font_size), Color.WHITE,
 			HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
-	var rest_btn := _UiUtil.make_button("Rest — Recover 8 HP", Vector2(0, btn_h), int(font_size))
-	rest_btn.disabled = _dungeon_hero_hp >= 30
+	var rest_btn := _UiUtil.make_button("Rest — Recover %d%% HP" % roundi(_HeroVitality.REST_SITE_HEAL * 100.0),
+			Vector2(0, btn_h), int(font_size))
+	rest_btn.disabled = frac >= 1.0
 	if rest_btn.disabled:
 		rest_btn.tooltip_text = "Already at full health"
 	vbox.add_child(rest_btn)
@@ -57,10 +61,11 @@ func show_rest_site_panel(npc_data: Dictionary) -> void:
 	var leave_btn := _UiUtil.make_button("Leave", Vector2(0, btn_h), int(font_size), Callable(), vbox)
 
 	rest_btn.pressed.connect(func() -> void:
-		_dungeon_hero_hp = mini(_dungeon_hero_hp + 8, 30)
-		SceneManager.save_manager.mark_dungeon_room_used(room_key)
+		var sm := SceneManager.save_manager
+		sm.hero_hp_frac = minf(1.0, sm.hero_hp_frac + _HeroVitality.REST_SITE_HEAL)
+		sm.mark_dungeon_room_used(room_key)
 		panel.queue_free()
-		_say("You rest and recover. Hero HP: %d / 30" % _dungeon_hero_hp)
+		_say("You rest and recover. Hero HP: %d%%" % roundi(sm.hero_hp_frac * 100.0))
 	)
 	cull_btn.pressed.connect(func() -> void:
 		panel.queue_free()
@@ -190,7 +195,7 @@ func apply_event_outcome(choice: Dictionary) -> void:
 		"gain_coins":
 			SceneManager.save_manager.add_coins(outcome_value)
 		"lose_hp":
-			_dungeon_hero_hp = maxi(_dungeon_hero_hp - outcome_value, 1)
+			_hurt(outcome_value)
 		"gain_card":
 			var picked: String = card_pool[randi() % card_pool.size()]
 			var new_cards: Array[String] = [picked]
@@ -208,14 +213,14 @@ func apply_event_outcome(choice: Dictionary) -> void:
 				SceneManager.save_manager.set_active_deck(trimmed)
 				outcome_text += (" (Lost: %s)" % removed_name) if not outcome_text.is_empty() else "Lost: %s" % removed_name
 		"lose_hp_gain_card":
-			_dungeon_hero_hp = maxi(_dungeon_hero_hp - outcome_value, 1)
+			_hurt(outcome_value)
 			var picked: String = card_pool[randi() % card_pool.size()]
 			var new_cards: Array[String] = [picked]
 			SceneManager.save_manager.add_cards_to_deck(new_cards)
 			outcome_text += (" (Received: %s)" % picked) if not outcome_text.is_empty() else "Received: %s" % picked
 		"gain_coins_lose_hp":
 			SceneManager.save_manager.add_coins(outcome_value)
-			_dungeon_hero_hp = maxi(_dungeon_hero_hp - 3, 1)
+			_hurt(3)
 		"lose_coins_gain_card":
 			if SceneManager.save_manager.coins >= outcome_value:
 				SceneManager.save_manager.add_coins(-outcome_value)

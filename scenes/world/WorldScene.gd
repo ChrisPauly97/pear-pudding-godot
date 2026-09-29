@@ -58,6 +58,7 @@ const _QuestTracker = preload("res://scenes/world/modules/QuestTracker.gd")
 const _StarterCamps = preload("res://scenes/world/modules/StarterCamps.gd")
 const _RiftPortals = preload("res://scenes/world/modules/RiftPortals.gd")
 const _Critters = preload("res://scenes/world/modules/Critters.gd")
+const _HeroHealth = preload("res://scenes/world/modules/HeroHealth.gd")
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const _TownSiege = preload("res://scenes/world/modules/TownSiege.gd")
 const _SunRaysFx = preload("res://scenes/world/SunRaysFx.gd")
@@ -185,6 +186,7 @@ var quest_tracker: _QuestTracker = null   # modules/QuestTracker.gd (GID-140)
 var starter_camps: _StarterCamps = null   # modules/StarterCamps.gd (GID-141)
 var rift_portals: _RiftPortals = null   # modules/RiftPortals.gd (GID-142)
 var critters: _Critters = null   # modules/Critters.gd (GID-147)
+var hero_health: _HeroHealth = null   # modules/HeroHealth.gd (TID-543)
 var current_town: String = ""  # stitched town the player is in; see story_place()
 var chest_loot: _ChestLoot = null    # modules/ChestLoot.gd
 var night_lights: _NightLights = null  # modules/NightLights.gd (TID-489)
@@ -568,8 +570,6 @@ func _ready() -> void:
 		AudioManager.play_music(_named_map_music_track())
 		AudioManager.set_ambience(-1)  # -1 = named map / no biome ambience
 		GameBus.entered_named_map.emit(map_name)
-		if map_name.begins_with("dungeon_"):
-			_dungeon_session_ui.reset_hero_hp()
 	else:
 		# Counterpart to entered_named_map above (BID-056). Declared since the
 		# ambient-audio signals landed but never emitted, so any subscriber saw
@@ -883,6 +883,7 @@ func _ensure_world_modules() -> void:
 	starter_camps = _ensure_world_module(starter_camps, _StarterCamps, "StarterCamps") as _StarterCamps
 	rift_portals = _ensure_world_module(rift_portals, _RiftPortals, "RiftPortals") as _RiftPortals
 	critters = _ensure_world_module(critters, _Critters, "Critters") as _Critters
+	hero_health = _ensure_world_module(hero_health, _HeroHealth, "HeroHealth") as _HeroHealth
 
 func _ensure_world_module(existing: Node, script: GDScript, node_name: String) -> Node:
 	if existing != null and is_instance_valid(existing):
@@ -1755,10 +1756,8 @@ func _unhandled_input(event: InputEvent) -> void:
 ## this order and stopping at the first hit, exactly as the eight open-coded
 ## branches this replaces did. Anything that needs arguments or surrounding state
 ## (doors, chests, NPCs, mana wells, waystones, mailboxes, garden plots) keeps its
-## own branch in _handle_interact.
-##
-## The table is built per call rather than being a const: a Callable bound to an
-## instance method cannot be a constant, and this only runs on a button press.
+## own branch in _handle_interact. Built per call rather than as a const: a Callable
+## bound to an instance method cannot be a constant, and this only runs on a press.
 func _try_simple_interaction(px: float, pz: float) -> bool:
 	var r: float = IsoConst.INTERACT_RANGE
 	for entry: Array in [
