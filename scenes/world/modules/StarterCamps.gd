@@ -100,12 +100,18 @@ func _build_scenery() -> void:
 		if tex == null:
 			continue
 		var t: Vector2i = _RealmLayout.to_world_tile("madrian", entry[1] as Vector2i)
-		var x: float = (float(t.x) + 0.5) * IsoConst.TILE_SIZE
-		var z: float = (float(t.y) + 0.5) * IsoConst.TILE_SIZE
+		var axis: String = str(entry[2])
+		var off: Vector2 = entry[3]
+		var x: float = (float(t.x) + 0.5 + off.x) * IsoConst.TILE_SIZE
+		var z: float = (float(t.y) + 0.5 + off.y) * IsoConst.TILE_SIZE
 		var sprite := Sprite3D.new()
 		_SpriteRegistry.apply_billboard_flags(sprite)
 		_SpriteRegistry.setup_sprite(sprite, tex)
 		var holder := Node3D.new()
+		if axis != "":
+			# A flat, double-sided panel along the fence line (TID-605 fix).
+			sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+			holder.rotation.y = PI * 0.5 if axis == "z" else 0.0
 		holder.position = Vector3(x, _world.get_terrain_height(x, z), z)
 		holder.add_child(sprite)
 		_scenery.add_child(holder)

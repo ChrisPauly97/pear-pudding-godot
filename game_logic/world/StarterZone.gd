@@ -53,26 +53,32 @@ const GRAVEYARD_MOUNDS: Array[Vector2i] = [Vector2i(-28, 17), Vector2i(-24, 22),
 const GRAVEYARD_LOCAL_RECT := Rect2i(8, 47, 11, 10)
 const CRYPT_DOOR_LOCAL := Vector2i(24, 53)
 
-## [key, Madrian-local tile] for every graveyard prop.
+## [key, Madrian-local tile, axis, offset] for every graveyard prop. `axis` "" =
+## camera-facing billboard (headstones); "x" / "z" = a flat panel running along
+## that world axis, so the fence and the crypt door follow the isometric lines
+## instead of all turning to face the camera. `offset` shifts it within the tile
+## (tile units) — onto the tile edge the fence runs along.
 static func graveyard_props() -> Array:
 	var out: Array = []
 	var r: Rect2i = GRAVEYARD_LOCAL_RECT
-	# Fence segments (2 tiles wide) along the north and south edges, gate left open.
-	for x: int in range(r.position.x, r.end.x, 2):
-		if x != 13:
-			out.append(["iron_fence", Vector2i(x, r.position.y)])
-		out.append(["iron_fence", Vector2i(x, r.end.y - 1)])
-	for z: int in range(r.position.y + 2, r.end.y - 1, 2):
-		out.append(["iron_fence", Vector2i(r.position.x, z)])
-		out.append(["iron_fence", Vector2i(r.end.x - 1, z)])
+	var gate: Array[int] = [13, 14]
+	# One 1-tile segment per edge tile, on the outer edge of the ring; gate left open.
+	for x: int in range(r.position.x, r.end.x):
+		if not gate.has(x):
+			out.append(["iron_fence", Vector2i(x, r.position.y), "x", Vector2(0.0, -0.5)])
+		out.append(["iron_fence", Vector2i(x, r.end.y - 1), "x", Vector2(0.0, 0.5)])
+	for z: int in range(r.position.y, r.end.y):
+		out.append(["iron_fence", Vector2i(r.position.x, z), "z", Vector2(-0.5, 0.0)])
+		out.append(["iron_fence", Vector2i(r.end.x - 1, z), "z", Vector2(0.5, 0.0)])
 	var i: int = 0
 	for z: int in [49, 51, 53]:
 		for x: int in [10, 12, 15, 17]:
 			if Vector2i(x, z) in [Vector2i(14, 50)]:
 				continue
-			out.append(["headstone_%d" % (i % 3), Vector2i(x, z)])
+			out.append(["headstone_%d" % (i % 3), Vector2i(x, z), "", Vector2.ZERO])
 			i += 1
-	out.append(["crypt_door", CRYPT_DOOR_LOCAL])
+	# Flat against the crypt's south wall face.
+	out.append(["crypt_door", CRYPT_DOOR_LOCAL, "x", Vector2(0.0, -0.45)])
 	return out
 
 ## Where a camp's member `slot` stands (a small ring around the camp tile).

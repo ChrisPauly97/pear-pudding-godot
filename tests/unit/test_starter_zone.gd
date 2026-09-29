@@ -119,6 +119,8 @@ func test_graveyard_dressing() -> void:
 	var keys: Dictionary = {}
 	for e: Array in StarterZone.graveyard_props():
 		keys[str(e[0])] = true
+		if str(e[0]) == "iron_fence":
+			assert_true(str(e[2]) in ["x", "z"], "fence segments run along the tile edges, not camera-facing")
 		assert_not_null(SpriteRegistry.graveyard_prop(str(e[0])), str(e[0]))
 	for k: String in ["iron_fence", "crypt_door", "headstone_0", "headstone_1", "headstone_2"]:
 		assert_true(keys.has(k), "%s placed" % k)
