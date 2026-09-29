@@ -1655,3 +1655,16 @@ func _refresh_tournament_panel() -> void:
 			var win_lbl := _UiUtil.make_label("Winner: %s" % str(names[wi]), int(vh * 0.018))
 			win_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
 			_tournament_panel.add_child(win_lbl)
+
+
+## PvP outcome handlers connected permanently (WorldScene._wire_gamebus_signals):
+## the world is detached during the battle. Champion record + wager payout
+## (TID-368), a referee'd tournament match's real winner (TID-386 — the host isn't
+## a combatant), and ranked team duels (TID-371).
+func wire_permanent_signals() -> void:
+	if not GameBus.pvp_battle_ended.is_connected(_on_pvp_battle_ended_coop):
+		GameBus.pvp_battle_ended.connect(_on_pvp_battle_ended_coop)
+	if not GameBus.pvp_referee_match_ended.is_connected(_on_pvp_referee_match_ended):
+		GameBus.pvp_referee_match_ended.connect(_on_pvp_referee_match_ended)
+	if not GameBus.team_battle_ended.is_connected(_on_team_battle_ended_coop):
+		GameBus.team_battle_ended.connect(_on_team_battle_ended_coop)

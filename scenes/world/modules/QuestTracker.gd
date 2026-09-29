@@ -232,3 +232,18 @@ func toggle_realm_map() -> void:
 
 func is_realm_map_open() -> bool:
 	return is_instance_valid(_realm_overlay)
+
+
+## GameBus wiring, called from WorldScene._wire_gamebus_signals in every mode (not
+## CoopSession._setup_coop, which returns early outside a session).
+func wire_signals() -> void:
+	GameBus.quest_tracking_changed.connect(func(_id: String) -> void: refresh(true))
+	# Side quests (TID-534): marks and tracker follow accept / progress / hand-in.
+	GameBus.quest_accepted.connect(func(_id: String) -> void: refresh(true))
+	GameBus.quest_progressed.connect(func(_id: String) -> void: refresh(true))
+	GameBus.quest_ready.connect(on_side_quest_ready)
+	GameBus.quest_turned_in.connect(func(_id: String) -> void: refresh(true))
+	GameBus.quest_abandoned.connect(func(_id: String) -> void: refresh(true))
+	# GID-141 / TID-590: level-up training notices and learn confirmations.
+	GameBus.training_available.connect(on_training_available)
+	GameBus.feature_learned.connect(on_feature_learned)

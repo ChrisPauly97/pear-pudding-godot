@@ -1345,3 +1345,17 @@ func _on_party_bounties_snapshot_received(bounties: Array) -> void:
 ## Button.pressed tap/click target, no keybind). Registered into the shared
 ## ZONE_CONTEXT zone (GID-115 / TID-433) — sits below the Challenge/Ranked-toggle
 ## pair, same zone the world-interact prompt takes priority over.
+
+
+## Outcome handlers connected permanently (WorldScene._wire_gamebus_signals): the
+## world is detached during the battles that emit them, and a Spire run can start
+## before any session does. `coop_pve_battle_ended` handlers run in this order —
+## the joint-fight handler first, then the PvE leaderboard (which reads its flag),
+## the siege finale and the co-op Spire.
+func wire_permanent_signals() -> void:
+	for handler: Callable in [_on_joint_fight_ended, _on_coop_pve_battle_ended_leaderboard,
+			_on_coop_siege_battle_ended, _on_coop_spire_battle_ended]:
+		if not GameBus.coop_pve_battle_ended.is_connected(handler):
+			GameBus.coop_pve_battle_ended.connect(handler)
+	if not GameBus.spire_run_ended.is_connected(_on_spire_run_ended_leaderboard):
+		GameBus.spire_run_ended.connect(_on_spire_run_ended_leaderboard)

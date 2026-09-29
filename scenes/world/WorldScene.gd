@@ -700,16 +700,7 @@ func _wire_gamebus_signals() -> void:
 	# single-player used to see the change only after a map reload.
 	if not NetworkManager.is_dedicated_server():
 		GameBus.story_flag_set.connect(_on_story_flag_set_for_cast)
-		GameBus.quest_tracking_changed.connect(func(_id: String) -> void: quest_tracker.refresh(true))
-		# Side quests (TID-534): marks and tracker follow accept / progress / hand-in.
-		GameBus.quest_accepted.connect(func(_id: String) -> void: quest_tracker.refresh(true))
-		GameBus.quest_progressed.connect(func(_id: String) -> void: quest_tracker.refresh(true))
-		GameBus.quest_ready.connect(quest_tracker.on_side_quest_ready)
-		GameBus.quest_turned_in.connect(func(_id: String) -> void: quest_tracker.refresh(true))
-		GameBus.quest_abandoned.connect(func(_id: String) -> void: quest_tracker.refresh(true))
-		# GID-141 / TID-590: level-up training notices and learn confirmations.
-		GameBus.training_available.connect(quest_tracker.on_training_available)
-		GameBus.feature_learned.connect(quest_tracker.on_feature_learned)
+		quest_tracker.wire_signals()
 
 	# Auto-remount when returning to the overworld from a named map
 	if map_name == "main":
@@ -726,43 +717,10 @@ func _wire_gamebus_signals() -> void:
 	GameBus.inventory_requested.connect(tap_move.clear)
 	GameBus.journal_requested.connect(tap_move.clear)
 
-	# GID-101 (TID-368): champion record + wager payout when PvP ends. Connected
-	# permanently (not in _setup_coop) because WorldScene is detached during battle.
-	# Open-world joint fights: after the leaderboard handler above, which reads the flag.
-	if not GameBus.coop_pve_battle_ended.is_connected(coop_activities._on_joint_fight_ended):
-		GameBus.coop_pve_battle_ended.connect(coop_activities._on_joint_fight_ended)
-	if not GameBus.pvp_battle_ended.is_connected(coop_pvp._on_pvp_battle_ended_coop):
-		GameBus.pvp_battle_ended.connect(coop_pvp._on_pvp_battle_ended_coop)
-
-	# GID-104 (TID-386): session tournaments — a referee'd match's real winner
-	# (the host isn't a combatant) arrives via this dedicated signal instead of
-	# pvp_battle_ended's plain bool. Same "connected permanently" reasoning.
-	if not GameBus.pvp_referee_match_ended.is_connected(coop_pvp._on_pvp_referee_match_ended):
-		GameBus.pvp_referee_match_ended.connect(coop_pvp._on_pvp_referee_match_ended)
-
-	# GID-102 (TID-371): ranked rating for team duels. Same "connected permanently" reasoning.
-	if not GameBus.team_battle_ended.is_connected(coop_pvp._on_team_battle_ended_coop):
-		GameBus.team_battle_ended.connect(coop_pvp._on_team_battle_ended_coop)
-
-	# GID-102 (TID-379): PvE leaderboard submission. Connected permanently (same
-	# "WorldScene detaches during battle" reasoning as pvp_battle_ended above) so a
-	# co-op boss clear is recorded regardless of which map/battle state re-attaches us.
-	if not GameBus.coop_pve_battle_ended.is_connected(coop_activities._on_coop_pve_battle_ended_leaderboard):
-		GameBus.coop_pve_battle_ended.connect(coop_activities._on_coop_pve_battle_ended_leaderboard)
-	# GID-103 (TID-384): co-op Town Siege finale is the first caller of the joint PvE
-	# engine — reset siege UI/state and grant party rewards on the outcome. Same
-	# "connected permanently" reasoning (WorldScene detaches during the battle).
-	if not GameBus.coop_pve_battle_ended.is_connected(coop_activities._on_coop_siege_battle_ended):
-		GameBus.coop_pve_battle_ended.connect(coop_activities._on_coop_siege_battle_ended)
-	# GID-106 (TID-391): co-op Endless Spire joint floor battles — same joint-PvE
-	# signal, same "connected permanently" reasoning.
-	if not GameBus.coop_pve_battle_ended.is_connected(coop_activities._on_coop_spire_battle_ended):
-		GameBus.coop_pve_battle_ended.connect(coop_activities._on_coop_spire_battle_ended)
-	# Spire runs happen while WorldScene is loaded (no battle-detach involved), but the
-	# connection is still made once here (not in _setup_coop) so a Spire run that starts
-	# before any co-op session is active still reaches this handler once co-op does start.
-	if not GameBus.spire_run_ended.is_connected(coop_activities._on_spire_run_ended_leaderboard):
-		GameBus.spire_run_ended.connect(coop_activities._on_spire_run_ended_leaderboard)
+	# Co-op / PvP outcomes, connected permanently (WorldScene detaches during battle,
+	# and CoopSession._setup_coop returns early outside a session).
+	coop_activities.wire_permanent_signals()
+	coop_pvp.wire_permanent_signals()
 
 func _enter_tree() -> void:
 	# Re-attach after a battle/puzzle detach. Deferred: _enter_tree fires before
