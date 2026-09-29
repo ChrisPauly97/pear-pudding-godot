@@ -401,3 +401,51 @@ func test_round_pulse_tuning_knob_changes_pulse_period() -> void:
 	rt.state.players[1].board.add_card(foe)
 	_run(rt, 1.0)
 	assert_eq(foe.health, 17, "a lower round_seconds knob pulses upkeep sooner")
+
+
+## GID-139 / TID-579: telegraphed heavy blows.
+
+func _heavy_rt() -> RealtimeCombat:
+	var rt := _rt()
+	rt.heavy_enabled = true
+	rt.auto_attack = false
+	rt.unarmed[RealtimeCombat.ENEMY] = 0
+	return rt
+
+func _types(events: Array[Dictionary]) -> Array[String]:
+	var out: Array[String] = []
+	for e: Dictionary in events:
+		out.append(str(e.get("type", "")))
+	return out
+
+func test_heavy_blow_off_until_enabled() -> void:
+	var rt := _rt()
+	assert_false(_types(_run(rt, rt.tune.get_f("heavy_every") * 2.0)).has("enemy_heavy_start"))
+
+func test_heavy_blow_winds_up_then_lands() -> void:
+	var rt := _heavy_rt()
+	var hero := rt.state.players[RealtimeCombat.PLAYER].hero
+	var hp: int = hero.health
+	var ev: Array[String] = _types(_run(rt, rt.tune.get_f("heavy_every")))
+	assert_true(ev.has("enemy_heavy_start"), "wind-up telegraphed")
+	assert_true(RealtimeCombat.is_heavy(rt.casting[RealtimeCombat.ENEMY] as CardInstance) or ev.has("enemy_heavy_hit"))
+	_run(rt, rt.tune.get_f("heavy_windup") + 0.5)
+	assert_eq(hero.health, hp - rt.heavy_damage(), "a quarter of max HP lands")
+
+func test_kick_stops_the_heavy_blow() -> void:
+	var rt := _heavy_rt()
+	var hero := rt.state.players[RealtimeCombat.PLAYER].hero
+	var hp: int = hero.health
+	while not RealtimeCombat.is_heavy(rt.casting[RealtimeCombat.ENEMY] as CardInstance):
+		rt.advance(0.1)
+	assert_not_null(rt.interrupt_enemy_cast(RealtimeCombat.ENEMY))
+	_run(rt, rt.tune.get_f("heavy_windup") + 0.5)
+	assert_eq(hero.health, hp, "interrupted — nothing lands")
+
+func test_guard_armor_soaks_the_heavy_blow() -> void:
+	var rt := _heavy_rt()
+	var hero := rt.state.players[RealtimeCombat.PLAYER].hero
+	var hp: int = hero.health
+	hero.add_armor(rt.heavy_damage())
+	_run(rt, rt.tune.get_f("heavy_every") + rt.tune.get_f("heavy_windup"))
+	assert_eq(hero.health, hp, "armor absorbs it all")

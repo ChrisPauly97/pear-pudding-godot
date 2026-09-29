@@ -82,10 +82,16 @@ func wrap_card(card: CardInstance, finish: Callable, t: float) -> Array:
 			_realtime.toast("Essence surge — cast for free!")
 		elif n > 0:
 			_realtime.toast("Combo ×%d — +%d mana" % [n, n * rt.tune.get_i("combo_refund")])
+		# TID-580: the payoff lands heavier the more it was built up.
+		if free or n >= rt.tune.get_i("combo_max"):
+			_realtime.hit_feel(3)
+		elif n > 0:
+			_realtime.hit_feel(2)
 	return [wrapped, 0.0 if rt.next_card_instant() else t]
 
 ## A free-cast proc just fired (auto-attack or skill hit).
 func on_proc() -> void:
 	_realtime.toast("✦ Essence surge — your next card is free and instant!")
+	_realtime.hit_feel(2)
 	AudioManager.play_sfx("spell_resolve")
 	_battle._refresh_all()

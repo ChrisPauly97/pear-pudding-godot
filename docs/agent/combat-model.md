@@ -431,3 +431,22 @@ and distinct from the one-shot `TutorialRegistry` popups above:
 
 Gap: `FightStats.card_damage` has no feed yet (spell effects don't report damage back to the driver), so the
 "auto-attack neglected" tip rule is inert until something feeds it.
+
+## Telegraphed heavy blows (GID-139 / TID-579)
+
+Enemies wind up a **Heavy Blow** every `heavy_every` (12 s; first at 60 %) for `heavy_windup` (2.2 s), landing
+`heavy_frac` (25 %) of the player's max HP. It rides the existing cast bar as a pseudo card
+(`RealtimeCombat.make_heavy_card()`, `card_class == HEAVY_CLASS`), so **Kick interrupts it** (the same
+`interrupt_enemy_cast` / `SkillBar._casting_enemy` path), pushback applies, and **Guard / armor soaks it**
+(`HeroState.take_damage`). Events: `enemy_heavy_start` (toast "Heavy Blow incoming — Kick it or Guard!", Maiteln's
+"cast_bar" bark) and `enemy_heavy_hit` (red float + shake). `RealtimeCombat.heavy_enabled` is set by
+`BattleRealtime` only once the player has learned **Kick** (GID-141 ladder, L3) and not in puzzles, so new players
+never face a blow they can't answer. Knobs: `heavy_every`, `heavy_windup`, `heavy_frac` (CombatTuning, Enemy group).
+
+## Hit feel (GID-139 / TID-580)
+
+`BattleRealtime.hit_feel(strength)` = a brief hit-stop (the combat clock holds; `_hitstop_left`) plus
+`BattleFx.trigger_shake`, from `_HIT_FEEL` = [seconds, pixels]: 1 = a hit (your auto-attack swing, a skill hit) 0.045 s
+/ 2.5 px; 2 = a free-cast proc or a combo card 0.08 s / 5 px; 3 = a full-combo or free card 0.12 s / 8 px. Both obey
+the Screen Shake setting. Callers: `BattleRealtime` (player swing events), `BattleSkillBar.press`, `MomentumHud`
+(`on_proc`, combo card payoff).

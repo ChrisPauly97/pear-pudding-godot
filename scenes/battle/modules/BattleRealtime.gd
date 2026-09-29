@@ -36,6 +36,8 @@ const FightStats = preload("res://game_logic/battle/FightStats.gd")
 const _MomentumHud = preload("res://scenes/battle/modules/MomentumHud.gd")
 ## Settings key holding the tuning panel's overrides (per device).
 const TUNING_SETTING: String = "combat_tuning"
+## Hit feel per strength: [hit-stop seconds, shake pixels] (TID-580).
+const _HIT_FEEL: Array = [[0.0, 0.0], [0.045, 2.5], [0.08, 5.0], [0.12, 8.0]]
 
 var rt: RealtimeCombat = null
 ## The fixed ability bar (TID-550); null outside real time.
@@ -67,6 +69,8 @@ var _cast_delay: float = 0.0
 var _cast_pushbacks: int = 0
 var _last_player_hp: int = 0
 var _enemy_tier: int = 1
+## TID-580: seconds of hit-stop left (the combat clock holds; the screen doesn't).
+var _hitstop_left: float = 0.0
 
 func _init(battle: _BattleScene) -> void:
 	_battle = battle
@@ -90,6 +94,8 @@ func maybe_start(is_fresh: bool) -> void:
 	var tuning := CombatTuning.new(saved as Dictionary if saved is Dictionary else {})
 	var enemy_level: int = int(_battle.enemy_data.get("enemy_level", enemy_level_for_tier(tier)))
 	rt = RealtimeCombat.new(_battle._state, [player_level, enemy_level], tuning)
+	# TID-579: telegraphed heavy blows only once the player has Kick to answer them.
+	rt.heavy_enabled = SceneManager.save_manager.learned_abilities.has("kick") and not _battle._state.puzzle_mode
 	rt.weapon_speed[RealtimeCombat.PLAYER] = equipped_weapon_speed()
 	rt.offhand_damage[RealtimeCombat.PLAYER] = offhand_damage_for_item(str(SceneManager.save_manager.equipped_offhand))
 	if _EnemyRegistry.is_passive(enemy_type):
@@ -330,6 +336,17 @@ func _cast_info() -> Dictionary:
 func modifiers_companion() -> String:
 	return _battle.modifiers._active_companion()
 
+## GID-139 / TID-580: hit feel — a brief hit-stop and a shake, scaled by how big
+## the moment is (1 = a hit, 2 = a proc / combo card, 3 = a full-combo or free
+## card). Both follow the Screen Shake setting.
+func hit_feel(strength: int) -> void:
+	if not bool(SceneManager.save_manager.get_setting("screen_shake", true)):
+		return
+	var f: Array = _HIT_FEEL[clampi(strength, 0, _HIT_FEEL.size() - 1)]
+	_hitstop_left = maxf(_hitstop_left, float(f[0]))
+	if float(f[1]) > 0.0:
+		_battle._fx.trigger_shake(float(f[1]), 0.12 + 0.04 * float(strength))
+
 ## Hero token for `side` (onboarding spotlights), or null.
 func token(side: int) -> Control:
 	return _visuals.token(side) if _visuals != null else null
@@ -433,6 +450,9 @@ func _process(delta: float) -> void:
 	# a swing landing mid-resolution could remove its attacker or target.
 	if rt == null or _battle._state.is_game_over() or is_blocked() or _battle._action_busy:
 		return
+	if _hitstop_left > 0.0:
+		_hitstop_left -= delta
+		return
 	var dt: float = delta * _speed_factor()
 	skills.update(dt)
 	momentum.update()
@@ -469,6 +489,12 @@ func _process(delta: float) -> void:
 			"enemy_down":
 				if rt.enemy_sides().size() > 1 and not _battle._state.is_game_over():
 					_visuals.toast("An enemy falls — keep fighting!")
+			"enemy_heavy_start":
+				_visuals.toast("Heavy Blow incoming — Kick it or Guard!")
+			"enemy_heavy_hit":
+				_battle._fx.spawn_float_label(hero_screen_pos(RealtimeCombat.PLAYER),
+						"-%d" % int(ev.get("damage", 0)), Color(1.0, 0.35, 0.3))
+				_battle._fx.trigger_shake(10.0, 0.25)
 	if not swings.is_empty():
 		AudioManager.play_sfx("attack")
 		_battle._fx.trigger_fx(snap)
@@ -478,6 +504,8 @@ func _process(delta: float) -> void:
 	_battle._refresh_all()
 	for ev: Dictionary in swings:
 		_animate_swing(ev)
+		if int(ev.get("side", -1)) == RealtimeCombat.PLAYER:
+			hit_feel(1)
 	_battle._check_game_over()
 
 ## Lunge the attacker (hero token or enemy unit) at its target.

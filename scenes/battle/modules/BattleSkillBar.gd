@@ -136,6 +136,7 @@ func _resolve(slot: int) -> void:
 				Color(0.267, 1.0, 0.533))
 	elif out.has("target"):
 		_realtime.lunge_at(out.get("target") as CardInstance, side)
+		_realtime.hit_feel(1)
 	else:
 		_realtime.toast(str(out["text"]))
 	_battle._fx.trigger_fx(snap)

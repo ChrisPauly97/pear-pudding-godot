@@ -38,6 +38,8 @@ const MAX_ENEMY_MINIONS: int = 2
 const MAX_ENEMIES: int = 2
 ## Surge units act this soon after being played.
 const SURGE_DELAY: float = 0.5
+## card_class of the heavy-blow pseudo card on an enemy's cast bar (TID-579).
+const HEAVY_CLASS: String = "heavy_blow"
 
 var state: GameState
 var tune: CombatTuning
@@ -58,6 +60,11 @@ var unarmed: Array[int] = []
 ## Main-hand swing speed per side (s). 0 = the unarmed speed from `tune`; a weapon
 ## sets its own (WoW-style: slower weapons hit proportionally harder per swing).
 var weapon_speed: Array[float] = []
+## GID-139 / TID-579: enemies wind up a telegraphed heavy blow every `heavy_every`
+## seconds — it rides the cast bar (a pseudo card of class HEAVY_CLASS), so Kick
+## interrupts it and Guard / armor soaks it. Off until the player can answer it
+## (BattleRealtime enables it once Kick is learned).
+var heavy_enabled: bool = false
 
 ## The original enemy's cast — kept as properties for callers from before adds.
 var enemy_casting: CardInstance:
@@ -102,6 +109,8 @@ var _swing: Dictionary = {}
 var _hit_ally_next: Dictionary = {}
 ## TID-557: sides marked via `set_passive()` never cast or swing (dummy).
 var _passive_sides: Dictionary = {}
+## Seconds until each side's next heavy blow (TID-579).
+var _heavy_timer: Array[float] = []
 
 ## `levels` = [player character level, enemy level-equivalent].
 func _init(s: GameState, levels: Array[int] = [1, 1], tuning: CombatTuning = null) -> void:
@@ -136,6 +145,8 @@ func _init_side(i: int, level: int) -> void:
 	_last_mana.append(h.mana)
 	_last_hp.append(h.health)
 	_round_timer.append(tune.get_f("round_seconds"))
+	# The first heavy blow comes a little sooner than the steady rhythm.
+	_heavy_timer.append(tune.get_f("heavy_every") * 0.6)
 	# Units already on the board (pack encounters, resumed state) start mid-swing.
 	for c: CardInstance in p.board.get_cards():
 		_swing[c.instance_id] = _unit_interval(i) * 0.5
@@ -616,6 +627,8 @@ func _clear_fallen_enemies(events: Array[Dictionary]) -> void:
 
 func _tick_enemy(side: int, delta: float, events: Array[Dictionary]) -> void:
 	var ai: PlayerState = state.players[side]
+	if heavy_enabled:
+		_heavy_timer[side] -= delta
 	if casting[side] != null:
 		cast_remaining[side] -= delta
 		if cast_remaining[side] > 0.0:
@@ -623,11 +636,20 @@ func _tick_enemy(side: int, delta: float, events: Array[Dictionary]) -> void:
 		var card: CardInstance = casting[side] as CardInstance
 		casting[side] = null
 		pushbacks[side] = 0
-		if ai.hand.has(card) and ai.can_play(card) and ai.play_card(card):
+		if is_heavy(card):
+			_land_heavy(side, events)
+		elif ai.hand.has(card) and ai.can_play(card) and ai.play_card(card):
 			events.append({"type": "enemy_cast", "side": side, "card": card})
 		start_gcd(side)
 		return
 	if not gcd_ready(side):
+		return
+	if heavy_enabled and _heavy_timer[side] <= 0.0:
+		_heavy_timer[side] = tune.get_f("heavy_every")
+		casting[side] = make_heavy_card()
+		pushbacks[side] = 0
+		cast_remaining[side] = tune.get_f("heavy_windup")
+		events.append({"type": "enemy_heavy_start", "side": side, "card": casting[side]})
 		return
 	var pick: CardInstance = choose_enemy_card(side)
 	if pick == null:
@@ -636,6 +658,24 @@ func _tick_enemy(side: int, delta: float, events: Array[Dictionary]) -> void:
 	pushbacks[side] = 0
 	cast_remaining[side] = tune.get_f("enemy_cast")
 	events.append({"type": "enemy_cast_start", "side": side, "card": pick})
+
+## The heavy blow's cast-bar card (not in any hand; interrupting it just drops it).
+static func make_heavy_card() -> CardInstance:
+	return CardInstance.new({"id": "heavy_blow", "name": "Heavy Blow", "card_class": HEAVY_CLASS, "cost": 0,
+		"attack": 0, "health": 1, "description": "A wound-up blow: Kick it, or Guard against it."})
+
+static func is_heavy(card: CardInstance) -> bool:
+	return card != null and card.card_class == HEAVY_CLASS
+
+## Damage a landed heavy blow deals (a share of your max HP; armor soaks it).
+func heavy_damage() -> int:
+	return maxi(1, roundi(float(state.players[PLAYER].hero.max_health) * tune.get_f("heavy_frac")))
+
+func _land_heavy(side: int, events: Array[Dictionary]) -> void:
+	var hero := state.players[PLAYER].hero
+	var before: int = hero.health
+	hero.take_damage(heavy_damage())
+	events.append({"type": "enemy_heavy_hit", "side": side, "damage": before - hero.health})
 
 ## An enemy picks the most expensive unit it can afford. Enemy spells are skipped:
 ## the turn-based AI plays them without resolving an effect, so the prototype
