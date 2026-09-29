@@ -146,6 +146,7 @@
 | [GID-140](goals/GID-140--quest-log-wayfinding/goal.md) | Quest Log & Wayfinding | done | 6 / 6 |
 | [GID-141](goals/GID-141--starter-zone-trainer-unlocks/goal.md) | Starter Zone & Trainer-Taught Unlocks | in-progress | 12 / 13 |
 | [GID-142](goals/GID-142--biome-rifts/goal.md) | Spire → Biome Rifts | done | 6 / 6 |
+| [GID-143](goals/GID-143--first-session-art/goal.md) | First-Session Art Pass | in-progress | 0 / 6 |
 
 ## Backlog
 
