@@ -1204,9 +1204,15 @@ func _complete_rift_tier() -> void:
 	GameBus.spire_run_ended.emit(stats)
 	save_manager.save()
 	exit_map()
+	var parts: Array[String] = ["+%d coins" % int(stats.get("coins_earned", 0))]
+	if int(stats.get("xp_earned", 0)) > 0:
+		parts.append("+%d XP (first clear)" % int(stats.get("xp_earned", 0)))
+	if str(stats.get("card_reward", "")) != "":
+		parts.append("a card")
+	if bool(stats.get("is_new_tier_record", false)):
+		parts.append("tier %d unlocked" % (int(stats.get("tier", 1)) + 1))
 	show_toast("%s — Tier %d cleared!" % [_RiftDefs.rift_name(str(stats.get("rift", ""))), int(stats.get("tier", 1))],
-			("Tier %d is open to you." % (int(stats.get("tier", 1)) + 1)) if bool(stats.get("is_new_tier_record", false))
-			else "Tier already conquered.")
+			", ".join(parts))
 
 func show_toast(title: String, desc: String) -> void:
 	_toast.show_text(title, desc)

@@ -89,3 +89,40 @@ func test_boons_and_picks_are_run_only() -> void:
 	assert_eq(sm.owned_cards.size(), owned_before)
 	sm.spire.start_spire_run(4, "grasslands", 1)
 	assert_true(sm.spire.boons().is_empty(), "boons reset each run")
+
+
+func _clear(sm: SaveManagerScript, rift_id: String, tier: int) -> Dictionary:
+	sm.spire.start_spire_run(tier * 7, rift_id, tier)
+	for _i: int in range(RiftDefs.FLOORS_PER_TIER):
+		sm.spire.advance_spire_floor()
+	return sm.spire.end_spire_run()
+
+
+func test_rifts_cannot_be_farmed_for_xp() -> void:
+	var sm: SaveManagerScript = SaveManagerScript.new()
+	sm.new_game(false)
+	var first: Dictionary = _clear(sm, "grasslands", 1)
+	assert_eq(int(first["xp_earned"]), RiftDefs.first_clear_xp(1), "first clear pays XP")
+	assert_ne(str(first["card_reward"]), "", "a clear drops a card")
+	var xp_after: int = sm.xp
+	var coins_after: int = sm.coins
+	var again: Dictionary = _clear(sm, "grasslands", 1)
+	assert_eq(int(again["xp_earned"]), 0, "repeating a cleared tier pays no XP")
+	assert_eq(sm.xp, xp_after)
+	assert_gt(sm.coins, coins_after, "…but still some coins")
+	var other: Dictionary = _clear(sm, "forest", 1)
+	assert_eq(int(other["xp_earned"]), RiftDefs.first_clear_xp(1), "each rift's tiers count separately")
+
+
+func test_rift_quest_completes_on_tier_clear() -> void:
+	var sm: SaveManagerScript = SaveManagerScript.new()
+	sm.new_game(false)
+	sm.level = 15
+	sm.learned_abilities.append("feat_spire")
+	assert_true(sm.quests.accept("into_the_rift"))
+	_clear(sm, "grasslands", 1)
+	assert_true(sm.quests.is_ready("into_the_rift"))
+	assert_false(sm.quests.turn_in("into_the_rift").is_empty())
+	assert_eq(sm.quests.offers_for("rift_warden_madrian").size(), 0, "tier-3 quests wait for level 16")
+	sm.level = 16
+	assert_eq(sm.quests.offers_for("rift_warden_madrian").size(), RiftDefs.all().size(), "one tier-3 quest per rift")

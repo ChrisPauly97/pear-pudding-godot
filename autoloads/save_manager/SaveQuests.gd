@@ -64,8 +64,12 @@ func accept(id: String) -> bool:
 		return false
 	var progress: Array = []
 	for o: Dictionary in _SideQuests.objectives(q):
-		# A flag objective already met counts at once.
-		var met: bool = str(o.get("type", "")) == "flag" and _save.get_story_flag(str(o.get("target", "")))
+		# A flag already set, or something already learned (a trainer visit made
+		# before taking the quest), counts at once.
+		var otype: String = str(o.get("type", ""))
+		var target: String = str(o.get("target", ""))
+		var met: bool = ((otype == "flag" and _save.get_story_flag(target))
+				or (otype == "learn" and _save.learned_abilities.has(target)))
 		progress.append(int(o.get("count", 1)) if met else 0)
 	_save.quests_active[id] = {"progress": progress}
 	_save._dirty = true

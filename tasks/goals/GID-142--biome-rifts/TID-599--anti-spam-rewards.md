@@ -2,7 +2,7 @@
 
 **Goal:** GID-142
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-597, TID-533
 
 ## Lock
@@ -32,12 +32,18 @@ perhaps more quests later to rift in different biomes with different enemy types
 
 ## Plan
 
-_Written during Plan phase._
+No XP from rift kills; per-clear coins + card; XP only on first (rift, tier) clear; `rift_tier` quest objective from the clear; Rift Warden in Madrian gives one-time rift quests (per-biome tier 3, grasslands tier 5).
 
 ## Changes Made
 
-_Filled after Build phase._
+- `RiftDefs.gd`: reward constants, `first_clear_xp`, `clear_drop_tier`, `clear_key`.
+- `SaveSpire.end_spire_run`: clear coins, guardian card, first-clear XP, `rift_tier_cleared` + quest progress.
+- `SaveManager.gd`: `rift_first_clears` field. `GameBus.gd`: `rift_tier_cleared`.
+- `SideQuests.gd`: 7 rift quests; `madrian.tres`: `rift_warden_madrian`.
+- `SaveQuests.accept`: already-learned `learn` objectives count.
+- `SceneManager._complete_rift_tier`: reward toast.
+- Tests: `test_rift_defs.gd` +2 (no farming XP, quest completes on clear). Suite green, smokes clean, lint clean.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`rifts.md` rewards + rift quests section.

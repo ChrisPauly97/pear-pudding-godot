@@ -86,6 +86,8 @@ signal tutorial_popup_requested(popup_id: String)
 # Endless Spire signals
 signal spire_card_drafted(card_id: String)
 signal spire_run_ended(stats: Dictionary)
+## GID-142: a rift tier's guardian fell (fires every clear, first or not).
+signal rift_tier_cleared(rift_id: String, tier: int)
 
 # Puzzle signals
 signal puzzle_requested(puzzle_id: String)

@@ -12,6 +12,8 @@ extends RefCounted
 const _SaveManager = preload("res://autoloads/SaveManager.gd")
 const _SpireFloorGen = preload("res://game_logic/spire/SpireFloorGen.gd")
 const _RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
+const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
+const _CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
 ## Every run's base deck. `draft_deck` holds only the picks, so the battle deck
 ## is always starter + picks (`run_deck()`); a pick never replaces the deck.
 const STARTER_DECK: Array[String] = ["ghost", "ghost", "skeleton", "skeleton",
@@ -152,9 +154,7 @@ func end_spire_run() -> Dictionary:
 	var run_seed: int = int(_save.spire_run.get("seed", 0))
 	var draft_deck_ids: Array = _save.spire_run.get("draft_deck", [])
 
-	var coin_reward: int = floors_cleared * 5
-	_save.coins += coin_reward
-	_save.coins_changed.emit(_save.coins)
+	var coin_reward: int = floors_cleared * _RiftDefs.COINS_PER_FLOOR
 
 	var is_record: bool = floors_cleared > _save.spire_best_floor
 	if is_record:
@@ -165,6 +165,27 @@ func end_spire_run() -> Dictionary:
 	var tier_record: bool = tier_cleared and tier > best_tier(rift_id)
 	if tier_record:
 		_save.rift_best_tiers[rift_id] = tier
+	# TID-599: a clear pays coins and a card every time, but XP only the first
+	# time this (rift, tier) falls — rifts can't be farmed for levels.
+	var xp_reward: int = 0
+	var card_reward: String = ""
+	if tier_cleared:
+		coin_reward += tier * _RiftDefs.CLEAR_COINS_PER_TIER
+		var key: String = _RiftDefs.clear_key(rift_id, tier)
+		if not _save.rift_first_clears.has(key):
+			_save.rift_first_clears.append(key)
+			xp_reward = _RiftDefs.first_clear_xp(tier)
+		var pool: Array[String] = _EnemyRegistry.get_drop_pool(_RiftDefs.enemy_type(rift_id, _RiftDefs.FLOORS_PER_TIER))
+		if not pool.is_empty():
+			var rng := RandomNumberGenerator.new()
+			rng.seed = run_seed
+			card_reward = pool[rng.randi_range(0, pool.size() - 1)]
+			_save.grant_card_reward(card_reward, _CardDropUtil.effective_rarity(card_reward,
+					_CardDropUtil.roll_rarity(_RiftDefs.clear_drop_tier(tier))))
+	_save.coins += coin_reward
+	_save.coins_changed.emit(_save.coins)
+	if xp_reward > 0:
+		_save.add_xp(xp_reward)
 
 	var stats: Dictionary = {
 		"floors_cleared": floors_cleared,
@@ -179,11 +200,16 @@ func end_spire_run() -> Dictionary:
 		"tier": tier,
 		"tier_cleared": tier_cleared,
 		"is_new_tier_record": tier_record,
+		"xp_earned": xp_reward,
+		"card_reward": card_reward,
 		"best_tier": best_tier(rift_id),
 	}
 
 	_save.spire_run = {"active": false}
 	_save._dirty = true
+	if tier_cleared:
+		GameBus.rift_tier_cleared.emit(rift_id, tier)
+		_save.quests.progress_event("rift_tier", _RiftDefs.clear_key(rift_id, tier))
 
 	if floors_cleared >= 5 and not _save.story_flags.get("spire_reached_floor_5", false):
 		_save.set_story_flag("spire_reached_floor_5")

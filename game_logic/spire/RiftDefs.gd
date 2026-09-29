@@ -16,6 +16,12 @@ const BASE_LEVEL: int = 14
 ## Enemy levels added per tier.
 const LEVELS_PER_TIER: int = 2
 
+## Rewards (TID-599). Runs are repeatable, so repeating them must not level a
+## player: rift kills give no XP, a floor pays a few coins, and XP comes only from
+## the *first* clear of each (rift, tier) and from one-time rift quests.
+const COINS_PER_FLOOR: int = 5
+const CLEAR_COINS_PER_TIER: int = 20
+
 ## The legacy single Spire becomes the Grasslands rift (save migration v45).
 const DEFAULT_RIFT: String = "grasslands"
 
@@ -56,6 +62,18 @@ static func boon_total(boons: Array, effect: String) -> int:
 		if str(d.get("effect", "")) == effect:
 			total += int(d.get("value", 0))
 	return total
+
+
+## One-time XP for the first clear of `tier` in any rift.
+static func first_clear_xp(tier: int) -> int:
+	return 300 + 100 * maxi(1, tier)
+
+## Card drop tier (CardDropUtil 1..4) for a guardian beaten at `tier`.
+static func clear_drop_tier(tier: int) -> int:
+	return clampi(1 + tier / 3, 1, 4)
+
+static func clear_key(rift_id: String, tier: int) -> String:
+	return "%s:%d" % [rift_id, tier]
 
 static func all() -> Array[Dictionary]:
 	return RIFTS

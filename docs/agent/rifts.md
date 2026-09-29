@@ -48,6 +48,20 @@ fight floor to floor, beat the guardian, and the next tier opens. Unlocked at le
   `SaveSpire.drafted_cards()`, `boons()`, `add_boon()`; `RiftDefs.boon_total(boons, effect)`.
 - Ladder gates still apply inside a rift (spell cards need `feat_spells`, TID-588).
 
+### Rewards that can't be farmed + rift quests (TID-599)
+
+- **Kills in a rift give no XP** (the Spire win path never calls `add_xp`) and don't count toward `kill` quests.
+- **Per run:** `COINS_PER_FLOOR` (5) × floors cleared. **Per tier clear:** + `CLEAR_COINS_PER_TIER` (20) × tier and
+  one card from the guardian's drop pool (rarity from `clear_drop_tier(tier)`), every time.
+- **XP only once per (rift, tier):** `first_clear_xp(tier)` = 300 + 100·tier, recorded in
+  `SaveManager.rift_first_clears` (`"<rift>:<tier>"`). Repeats pay coins and a card, never XP.
+- A clear emits `GameBus.rift_tier_cleared(rift, tier)` and progresses `rift_tier "<rift>:<tier>"` quest objectives.
+- **Rift quests** (`SideQuests`, giver `rift_warden_madrian` by Madrian's spire entrance, local (68,38)):
+  Into the Rift (L15: learn Rifts, clear Grasslands T1 — 1500 XP), one "<Rift>: Tier 3" per rift (L16, 2500 XP),
+  Grasslands Tier 5 (L20, 4000 XP). These — not repeated runs — are the rift's levelling reward.
+- `SaveQuests.accept` now counts a `learn` objective already met (trained before taking the quest).
+- The completion toast lists coins, first-clear XP, the card and the newly opened tier.
+
 ## Integrations
 
 - Unlock ladder (`feat_spire`, L15), zone levels, co-op Spire (TID-601), rift quests (TID-599), entrances (TID-600).

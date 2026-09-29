@@ -65,7 +65,8 @@ const PERSISTED_FIELDS: Dictionary = {
 	"xp": 0, "skill_points": 0, "unlocked_skills": [], "skill_bar": [], "realtime_fights": 0,
 	"learned_abilities": [],
 	"magic_type": "", "corruption_points": 0, "redemption_points": 0,
-	"spire_run": {"active": false}, "spire_best_floor": 0, "rift_best_tiers": {}, "solved_puzzles": [],
+	"spire_run": {"active": false}, "spire_best_floor": 0, "solved_puzzles": [],
+	"rift_best_tiers": {}, "rift_first_clears": [],
 	"world_events": {}, "weather": {"id": "", "duration": 0.0, "biome_id": 0},
 	"treasure_fragments": 0, "active_treasure": {}, "treasures_completed": 0,
 	"activated_waystones": [], "bestiary": {}, "bestiary_complete_rewarded": false,
@@ -226,6 +227,8 @@ var spire_run: Dictionary = {"active": false}
 var spire_best_floor: int = 0
 ## GID-142: best cleared tier per rift (RiftDefs id → tier).
 var rift_best_tiers: Dictionary = {}
+## TID-599: "<rift>:<tier>" keys whose one-time clear XP has been paid.
+var rift_first_clears: Array[String] = []
 
 # Puzzle shrine IDs the player has solved (rewards awarded once per id).
 var solved_puzzles: Array[String] = []
@@ -533,6 +536,7 @@ func new_game(head_start: bool = false) -> void:
 	redemption_points = 0
 	spire_run = {"active": false}
 	rift_best_tiers = {}
+	rift_first_clears = []
 	solved_puzzles = []
 	world_events = {}
 	weather = {}
