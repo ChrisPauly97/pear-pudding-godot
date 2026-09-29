@@ -75,7 +75,7 @@ The batched flush is **asynchronous** — a full save is a multi-hundred-KB pret
 | `map_stack` | `Array[Dictionary]` | Nested map navigation history (see Named Maps doc) |
 | `defeated_enemies` | `Array[String]` | Unique IDs of enemies already beaten (prevents re-grinding) |
 | `opened_chests` | `Array[String]` | Unique IDs of opened chests |
-| `coins` | `int` | Currency balance (plumbed, not yet used in gameplay) |
+| `coins` | `int` | Currency balance: battle, chest and quest rewards; spent at shops, trainers, the stable, crafting and upgrades |
 | `time_of_day` | `float` | 0–1 cycle position; restored into WorldScene on load |
 | `world_seed` | `int` | Fixes infinite world layout for this save |
 | `starting_biome` | `String` | Biome override for the player's safe starting zone |

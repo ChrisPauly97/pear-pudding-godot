@@ -386,8 +386,8 @@ rates itself — only the host runs this. The **cross-session leaderboard** is *
 `pvp_rating` desc (ties → games, then token) returning `{token, name, rating, games,
 wins, losses}` rows. The dedicated server (GID-097) is the canonical ladder host. This
 is the data foundation TID-373 (ranked UI) builds on. Single-player hits none of it.
-**Known gap:** opponent *champion* stats (wins/losses/streak) are still host-only
-(TID-368 behaviour) — only the rating is updated for both sides here (see BID-025).
+Champion stats (wins/losses/streak) are updated for both sides too, via
+`CoopPvP._apply_champion_result(st, token, won)` (was host-only until BID-025).
 
 ### Reconnecting into an in-progress duel (GID-102 / TID-372)
 
