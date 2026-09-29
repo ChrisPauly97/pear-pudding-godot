@@ -146,7 +146,7 @@
 | [GID-140](goals/GID-140--quest-log-wayfinding/goal.md) | Quest Log & Wayfinding | done | 6 / 6 |
 | [GID-141](goals/GID-141--starter-zone-trainer-unlocks/goal.md) | Starter Zone & Trainer-Taught Unlocks | in-progress | 12 / 13 |
 | [GID-142](goals/GID-142--biome-rifts/goal.md) | Spire → Biome Rifts | done | 6 / 6 |
-| [GID-143](goals/GID-143--first-session-art/goal.md) | First-Session Art Pass | in-progress | 4 / 6 |
+| [GID-143](goals/GID-143--first-session-art/goal.md) | First-Session Art Pass | in-progress | 5 / 6 |
 
 ## Backlog
 
@@ -163,6 +163,11 @@ files in `tasks/archive/backlog/`.
 | [BID-065](backlog/BID-065--placeholder-starter-sprites.md) | Starter enemies (undead) and townsfolk use placeholder-grade sprites | design-inconsistency | GID-141 / TID-593 |
 | [BID-066](backlog/BID-066--graveyard-dressing.md) | Madrian graveyard / sealed crypt have no graveyard dressing | content-gap | GID-141 / TID-593 |
 | [BID-067](backlog/BID-067--menu-key-art.md) | Main menu has no key art | design-inconsistency | GID-141 / TID-593 |
+| [BID-068](backlog/BID-068--dead-art-files.md) | Unreferenced art files still shipped (old undead, wizard walk frames) | design-inconsistency | GID-143 / TID-607 |
+| [BID-069](backlog/BID-069--generate-world-characters.md) | Replace third-party world characters with generated sprites (batch B1) | design-inconsistency | GID-143 / TID-607 |
+| [BID-070](backlog/BID-070--generate-card-art.md) | Replace third-party card art and spell runes (B2) | design-inconsistency | GID-143 / TID-607 |
+| [BID-071](backlog/BID-071--generate-objects.md) | Replace third-party chest, door, mimic and horse (B3) | design-inconsistency | GID-143 / TID-607 |
+| [BID-072](backlog/BID-072--generate-hud-icons.md) | Replace game-icons.net HUD icons (B4) | design-inconsistency | GID-143 / TID-607 |
 
 ## Resolved Backlog
 

@@ -404,3 +404,38 @@ and trainer has one.
 
 World heights are unchanged (`HEIGHT_SMALL_UNDEAD`); `SpriteRegistry.make_billboard` scales to them. The old
 `enemy_undead*.png` files stay on disk (credited) but are no longer referenced.
+
+## Third-party art inventory & generation roadmap (GID-143 / TID-607)
+
+Goal (user, 2026-09-29): long term, every sprite is generated in-house, the way props, landmarks, terrain, the
+paper-doll hero and the GID-143 characters already are. Fonts (OFL) and music are out of scope. Status as of
+GID-143:
+
+| Asset(s) | Path | Source · licence | Generator plan | Batch |
+|---|---|---|---|---|
+| Undead elite | `characters/enemy_undead_elite.png` (+walk) | 0x72 recolour · CC0 | `generate_characters.skeleton` with armour + spectral ramp | B1 |
+| Ghoul | `characters/enemy_ghoul.png` (+walk) | 0x72 · CC0 | zombie rig, crouched, claws | B1 |
+| Raider (+ScoutAmbush) | `characters/enemy_raider.png` (+walk) | 0x72 · CC0 | `person()` + helmet/leather + axe, Martarquas colours | B1 |
+| Warleader | `characters/enemy_warleader.png` (+walk) | 0x72 · CC0 | large rig (1.5× canvas), horned helm | B1 |
+| Duelist | `characters/enemy_duelist.png` (+walk) | 0x72 · CC0 | `person()` robe + rapier | B1 |
+| Rival (Isfig) | `characters/enemy_rival.png` (+walk) | 0x72 `elf_m` recolour · CC0 | `person()` rider cloak (story look) | B1 |
+| Roaming terror | `characters/enemy_terror.png` (+walk) | 0x72 `big_demon` · CC0 | large rig, horns, fire ramp | B1 |
+| Mimic | `characters/enemy_mimic.png` (+walk) | 0x72 · CC0 | from the generated chest (B3) + teeth/tongue | B3 |
+| Spectre (wisp/haunt/dread) | `characters/enemy_spectre.png` | Kenney Tiny Dungeon · CC0 | floating sheet-ghost blob rig, 3 tints | B1 |
+| Townsfolk ×3 | `characters/npc_townsperson{,_2,_3}.png` | 0x72 · CC0 | `person()` specs (several more variants) | B1 |
+| Merchant (+traveling) | `characters/npc_merchant{,_traveling}.png` | 0x72 · CC0 | `person()` + pack / cart | B1 |
+| Maiteln (+walk) | `characters/npc_maiteln.png`, `_walk_1..4` | 0x72 · CC0 | `person()` robe + staff + grey beard, walk frames | B1 |
+| Horse mount | `characters/mount_horse.png` | Clint Bellanger Tiny Creatures · CC0 | quadruped rig in `generate_characters.py` | B3 |
+| Chest open/closed | `props/chest_{closed,open}.png` | 0x72 · CC0 | `generate_sprites.py` box + lid frames | B3 |
+| Door | `props/door.png` | 0x72 · CC0 | `generate_sprites.py` (share the crypt-door drawing) | B3 |
+| Card art: ghost / skeleton / zombie / ghoul | `cards/card_*.png` | Kenney / 0x72 · CC0 | card-portrait crops of the generated characters | B2 |
+| Spell runes ×4 | `cards/rune_{dawn,dusk,ember,ash}.png` | game-icons.net · **CC BY 3.0** | `generate_sprites.py` glyph drawer (sun, moon, flame, cloud) | B2 |
+| HUD icons ×15 | `assets/icons/hud/*.svg` | game-icons.net · **CC BY 3.0** | hand-authored SVG set or pixel icons at 32×32 | B4 |
+| Dead art (unreferenced) | `characters/enemy_undead*.png` (pre-GID-143 undead), `pixel_art/wizard_walk_*_pixel.png` | 0x72 / hand-made | delete + drop from CREDITS | B0 |
+
+Already original: terrain tiles and grass tufts (`generate_hd_terrain.py`), every prop / landmark
+(`generate_sprites.py`, incl. GID-143 graveyard set), the paper-doll hero (`PaperDoll.gd`), skeleton, zombie and
+the nine named NPCs (`generate_characters.py`), menu key art (in-engine capture).
+
+Batches are tracked as backlog items: B0 BID-068, B1 BID-069, B2 BID-070, B3 BID-071, B4 BID-072. When a batch
+lands, update this table, `CREDITS.md` (drop the source if nothing uses it) and the per-slot index.

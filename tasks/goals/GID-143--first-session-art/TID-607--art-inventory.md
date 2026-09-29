@@ -2,7 +2,7 @@
 
 **Goal:** GID-143
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-603
 
 ## Lock
@@ -22,12 +22,12 @@ User: long term, generate sprites for everything currently third party.
 
 ## Plan
 
-_Written during Plan phase._
+Walk assets/textures, assets/icons and CREDITS.md; table every remaining third-party asset with its source/licence and a generator plan; group into batches with backlog items.
 
 ## Changes Made
 
-_Filled after Build phase._
+Docs + backlog only (no code). Found two unreferenced art sets (BID-068).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`art-sprites.md` "Third-party art inventory & generation roadmap"; BID-068..072.

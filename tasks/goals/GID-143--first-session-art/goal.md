@@ -22,7 +22,7 @@ party too". Existing precedent: `tools/generate_sprites.py` generates props/land
 | TID-604 | Generated Named-NPC Sprites | agent | done | TID-603 |
 | TID-605 | Graveyard Dressing | agent | done | — |
 | TID-606 | Main Menu Key Art (captured twilight view, slow drift; still on Low) | agent | done | — |
-| TID-607 | Third-Party Art Inventory & Generation Roadmap | agent | pending | TID-603 |
+| TID-607 | Third-Party Art Inventory & Generation Roadmap | agent | done | TID-603 |
 | TID-608 | Before/After Captures & Docs | agent | pending | TID-603, TID-604, TID-605, TID-606, TID-607 |
 
 ## Acceptance Criteria
