@@ -154,14 +154,16 @@ func _run() -> bool:
 	return _check_legacy_save_repair(save) and ok
 
 
-## The fight after a draft must use the starter plus every pick. draft_deck only
-## holds the picks, and BattleScene once used it as the whole deck — drafting one
-## card on floor 1 left a one-card deck from floor 2 on. Checked in both battle
-## modes, through the real BattleScene setup.
+## The fight after a draft must use the player's own deck (a rift run — GID-142)
+## plus every pick. draft_deck only holds the picks, and BattleScene once used it
+## as the whole deck — drafting one card on floor 1 left a one-card deck from
+## floor 2 on. Checked in both battle modes, through the real BattleScene setup.
 func _check_battle_deck_keeps_starter(spire: Object, picked_card: String) -> bool:
 	var save: Object = spire.get("_save")
-	var starter: Array = spire.get("STARTER_DECK")
-	var expected: Array = starter.duplicate()
+	# Spells / the hand are ladder-gated (GID-141); this player has learned them.
+	(save.get("learned_abilities") as Array).append_array(["feat_minions", "feat_spells"])
+	var own: Array = save.call("get_deck_template_ids")
+	var expected: Array = own.duplicate()
 	expected.append(picked_card)
 	expected.sort()
 	var ok: bool = true
@@ -173,7 +175,7 @@ func _check_battle_deck_keeps_starter(spire: Object, picked_card: String) -> boo
 		var ids: Array = _battle_card_ids(bs)
 		ids.sort()
 		ok = _check(ids == expected,
-			"%s battle deck is starter + pick (%d cards, got %d)" % [mode, expected.size(), ids.size()]) and ok
+			"%s battle deck is own deck + pick (%d cards, got %d)" % [mode, expected.size(), ids.size()]) and ok
 		bs.free()
 	save.call("set_setting", "battle_mode", "turn")
 	return ok

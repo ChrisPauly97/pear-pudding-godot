@@ -34,6 +34,29 @@ const RIFTS: Array[Dictionary] = [
 ]
 
 
+## Buff boons offered between floors (TID-598) beside temporary card picks. They
+## last the run only. id → {name, desc, effect, value}.
+const BOONS: Dictionary = {
+	"boon_vigor": {"name": "Vigor", "desc": "+6 maximum health for the rest of this run (and heal 6).",
+		"effect": "max_hp", "value": 6},
+	"boon_bulwark": {"name": "Bulwark", "desc": "Start every fight this run with 4 armor.",
+		"effect": "armor", "value": 4},
+	"boon_edge": {"name": "Keen Edge", "desc": "Your minions enter with +1 attack this run.",
+		"effect": "minion_attack", "value": 1},
+}
+
+static func is_boon(id: String) -> bool:
+	return BOONS.has(id)
+
+## Total value of every boon of `effect` in `boons` (a run's picked boon ids).
+static func boon_total(boons: Array, effect: String) -> int:
+	var total: int = 0
+	for b: Variant in boons:
+		var d: Dictionary = BOONS.get(str(b), {})
+		if str(d.get("effect", "")) == effect:
+			total += int(d.get("value", 0))
+	return total
+
 static func all() -> Array[Dictionary]:
 	return RIFTS
 

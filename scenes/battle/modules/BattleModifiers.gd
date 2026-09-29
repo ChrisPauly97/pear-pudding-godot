@@ -6,6 +6,7 @@
 ## `_battle.add_child` rather than a bare `add_child`.
 extends Node
 
+const _RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
 const _CombatOnboarding = preload("res://game_logic/battle/CombatOnboarding.gd")
 const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const _ZoneLevels = preload("res://game_logic/world/ZoneLevels.gd")
@@ -191,6 +192,35 @@ func _apply_weather_to_summoned(card: CardInstance, _player_idx: int) -> void:
 		"sandstorm", "dust_devil":
 			if _battle._state.turn_number <= 2:
 				card.attack = maxi(0, card.attack - 1)
+
+## GID-142 / TID-598: a rift run fights with the player's own deck (collection
+## instances, ranks and all) plus the run's temporary picks, and applies its
+## buff boons. Returns template ids for BattleScene to build instead — the
+## legacy / co-op starter deck — or [] when the deck is already built here.
+func _build_rift_deck(player: PlayerState) -> Array[String]:
+	var spire := SceneManager.save_manager.spire
+	if not spire.uses_own_deck():
+		return spire.run_deck()
+	var boons: Array = spire.boons()
+	player.build_deck_from_instances(SceneManager.save_manager.get_deck_instances())
+	var face: String = "dark" if CardRegistry.is_dark_aligned() else "light"
+	for id: String in spire.drafted_cards():
+		var tmpl: Dictionary = CardRegistry.get_template_for_face(id, face)
+		if not tmpl.is_empty():
+			player.draw_deck.append(CardInstance.new(tmpl))
+	player.draw_deck.shuffle()
+	var edge: int = _RiftDefs.boon_total(boons, "minion_attack")
+	if edge > 0:
+		for c: CardInstance in player.draw_deck:
+			if c.card_class == "minion":
+				c.attack += edge
+	var extra_hp: int = _RiftDefs.boon_total(boons, "max_hp")
+	player.hero.max_health += extra_hp
+	player.hero.health += extra_hp
+	var armor: int = _RiftDefs.boon_total(boons, "armor")
+	if armor > 0:
+		player.hero.add_armor(armor)
+	return []
 
 ## GID-141 / TID-588: spell cards stay out of the battle deck until the player
 ## has learned spells from the Combat Trainer.

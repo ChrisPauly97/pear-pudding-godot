@@ -2,7 +2,7 @@
 
 **Goal:** GID-142
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-597
 
 ## Lock
@@ -31,12 +31,17 @@ Rifts test *your* build. Drop the fixed starter deck; after each floor pick 1 of
 
 ## Plan
 
-_Written during Plan phase._
+Rift runs build the player deck from the collection + run picks; draft becomes 2 cards + 1 buff boon; boons apply at battle start; everything run-scoped.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `RiftDefs.gd`: `BOONS`, `is_boon`, `boon_total`.
+- `SaveSpire.gd`: `uses_own_deck`, `drafted_cards`, `boons`, `add_boon` (Vigor heals the carried HP).
+- `BattleModifiers._build_rift_deck()`; `BattleScene` spire branch calls it (one line changed).
+- `SpireDraftScene.gd`: boon slot + boon panel, "Choose a Boon" header, boon picks go to `add_boon`.
+- Tests: `test_rift_defs.gd` +1 (picks never enter the collection, boons reset per run); `spire_draft_smoke.gd`
+  expects own deck + pick. Suite green; smokes clean; gdlint + unsafe-hits clean.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`rifts.md` "Own deck + boons".

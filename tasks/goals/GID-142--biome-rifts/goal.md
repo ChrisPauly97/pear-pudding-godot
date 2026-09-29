@@ -22,7 +22,7 @@ fixed starter deck, one enemy per floor, boss every 7 floors, and 5 coins per fl
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-597 | Rift Model — Per-Biome Rifts & Tier Ladders | agent | done | — |
-| TID-598 | Own Deck + Draft Boons | agent | pending | TID-597 |
+| TID-598 | Own Deck + Draft Boons | agent | done | TID-597 |
 | TID-599 | Anti-Spam Rewards & Rift Quests | agent | pending | TID-597, TID-533 |
 | TID-600 | Rift Entrances in Each Biome | agent | pending | TID-597, TID-589 |
 | TID-601 | Co-op Rifts & Per-Rift Leaderboard | agent | pending | TID-597 |

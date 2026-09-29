@@ -472,7 +472,7 @@ func _setup_solo_battle() -> void:
 	# otherwise use the persistent player deck.
 	var player_deck: Array[String] = []
 	if SceneManager.save_manager.spire.is_spire_active():
-		player_deck = SceneManager.save_manager.spire.run_deck()
+		player_deck = modifiers._build_rift_deck(_state.players[0])
 	elif SceneManager.save_manager.player_deck.size() > 0:
 		# Use per-instance build so rolled stats and rank bonuses apply (GID-060).
 		_state.players[0].build_deck_from_instances(SceneManager.save_manager.get_deck_instances())

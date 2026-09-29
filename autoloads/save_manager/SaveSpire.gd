@@ -61,6 +61,33 @@ func prepare_spire_floor(floor: int, run_seed: int) -> void:
 		return
 	_clear_spire_enemy_defeats()
 
+## True for a rift run (GID-142): the player fights with their own deck plus the
+## run's temporary picks. Legacy / co-op runs use the starter deck (`run_deck`).
+func uses_own_deck() -> bool:
+	return str(_save.spire_run.get("rift", "")) != ""
+
+## Cards drafted this run — temporary, never added to the collection.
+func drafted_cards() -> Array[String]:
+	var out: Array[String] = []
+	for id: Variant in _save.spire_run.get("draft_deck", []):
+		out.append(str(id))
+	return out
+
+## Buff boons picked this run (RiftDefs.BOONS ids).
+func boons() -> Array:
+	return _save.spire_run.get("boons", [])
+
+func add_boon(boon_id: String) -> void:
+	if not is_spire_active() or not _RiftDefs.is_boon(boon_id):
+		return
+	var list: Array = boons().duplicate()
+	list.append(boon_id)
+	_save.spire_run["boons"] = list
+	# Vigor heals as it raises the cap.
+	if str(_RiftDefs.BOONS[boon_id]["effect"]) == "max_hp":
+		_save.spire_run["hero_hp"] = int(_save.spire_run.get("hero_hp", 30)) + int(_RiftDefs.BOONS[boon_id]["value"])
+	_save._dirty = true
+
 ## The deck the next Spire battle uses: the starter plus every drafted card.
 func run_deck() -> Array[String]:
 	var deck: Array[String] = STARTER_DECK.duplicate()

@@ -37,6 +37,17 @@ fight floor to floor, beat the guardian, and the next tier opens. Unlocked at le
 - **Migration v45:** old `spire_best_floor` → Grasslands best tier (`floor / 5`); an active legacy run continues as
   Grasslands tier 1. `spire_best_floor` and the floor-5/10 achievement flags still update from floors cleared.
 
+### Own deck + boons (TID-598)
+
+- A rift run (`SaveSpire.uses_own_deck()` — the run has a `rift`) fights with the player's **own deck**:
+  `BattleModifiers._build_rift_deck()` builds collection instances (rolled stats, veteran ranks) and appends the
+  run's drafted cards; legacy / co-op runs still get `run_deck()` (starter + picks).
+- **Between floors** the draft offers two temporary cards and one **buff boon** (`RiftDefs.BOONS`: Vigor +6 max HP
+  and heal 6, Bulwark 4 armor each fight, Keen Edge minions +1 attack). No draft after the guardian.
+- Picks live only in `spire_run` (`draft_deck`, `boons`) — never `owned_cards` — and vanish when the run ends.
+  `SaveSpire.drafted_cards()`, `boons()`, `add_boon()`; `RiftDefs.boon_total(boons, effect)`.
+- Ladder gates still apply inside a rift (spell cards need `feat_spells`, TID-588).
+
 ## Integrations
 
 - Unlock ladder (`feat_spire`, L15), zone levels, co-op Spire (TID-601), rift quests (TID-599), entrances (TID-600).
