@@ -140,13 +140,14 @@ Stated plainly so downstream work targets them rather than the pitch papering ov
    not matchmaking.
 5. ~~**Audio/music gap.**~~ **Resolved.** All 7 tracks landed with GID-116 / TID-436 and are
    committed under `assets/audio/music/` (~22 MB); attribution is recorded in `CREDITS.md`
-   (GID-116 / TID-437). Named towns no longer play dungeon music (GID-125 / TID-470). The
-   remaining gap is *variety*, not presence: every hand-authored town shares one peaceful
-   track, so a distinct bed for a location under siege is still worth having.
+   (GID-116 / TID-437). Named towns no longer play dungeon music (GID-125 / TID-470), and a
+   town under siege now gets its own music (GID-145 / TID-617). The remaining gap is
+   *variety*: hand-authored towns still share one peaceful track.
 6. **Placeholder feel in places.** *(Partly addressed by GID-141 / TID-593–594: first-30-minutes audit fixed the
    XP bar, NPC names, NPCs standing in walls and panel sizing; GID-143 then generated the starter undead, the
-   named NPCs, graveyard dressing and menu key art (BID-065..067 resolved); the rest of the third-party art has a
-   generation roadmap, BID-068..072.)* Visual polish shipped broadly (GID-070/089/114), but
+   named NPCs, graveyard dressing and menu key art (BID-065..067 resolved), and GID-144 (Generated Art Replacement)
+   replaced the rest of the third-party world characters, card art, objects and HUD icons (BID-068..072 resolved);
+   the hero is the paper doll (GID-137) with gear, helmets, boots and a back view.)* Visual polish shipped broadly (GID-070/089/114), but
    the pixel-art-in-3D aesthetic still varies in finish between old and new systems.
 
 ---
@@ -176,7 +177,8 @@ battles. Line numbers are as of the audit commit._
    ghost-heavy deck unlocks Phase, mitigating BID-050 without new UI.
 3. **No action needed** for resonance (self-labelling banner) or co-op (menu button).
    Veterancy teaching is deliberately deferred — surfacing it at first rank-up would be a
-   separate, later task.
+   separate, later task. *(Done in BID-074: the first rank-up shows a "Veteran Cards" popup,
+   and every rank-up gets a "Veteran! Ghost the Seasoned ▲" toast.)*
 
 **Incidental finding (resolved by TID-443):** `SaveManager.new_game()` seeded `xp = 11250`,
 `level = 15`, `skill_points = 14`, `coins = 3000` — late-game values that bypassed the

@@ -55,6 +55,13 @@ const _DATA: Dictionary = {
 		"body": ("The Party button gathers everything you share with your co-op session in one place: the roster, loot "
 				+ "rules, the shared stash, the leaderboard, Ghost Duels, Team Duel, and Dungeon Crawl."),
 	},
+	"veterancy": {
+		"title": "Veteran Cards",
+		"body": ("Each card in your collection remembers its own fights. Cards that land kills or survive battles "
+				+ "earn veterancy ranks — a new title, chevrons on the card, and a permanent bonus to its health "
+				+ "(and, at higher ranks, attack).\n\nYou can own several copies of a card; only the copy that "
+				+ "fought ranks up, so your veterans are worth keeping in the deck."),
+	},
 	"soulbinding": {
 		"title": "Soulbinding",
 		"body": ("Every enemy type guards a signature card you can't buy or craft — you can only capture it by winning "

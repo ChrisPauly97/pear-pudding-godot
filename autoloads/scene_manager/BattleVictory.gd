@@ -26,6 +26,7 @@ const _ZoneLevels = preload("res://game_logic/world/ZoneLevels.gd")
 const _RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
 const _EnemyNPC = preload("res://scenes/world/entities/EnemyNPC.gd")
 const _GearRolls = preload("res://game_logic/items/GearRolls.gd")
+const _VeterancyUtil = preload("res://game_logic/VeterancyUtil.gd")
 const _SaveGear = preload("res://autoloads/save_manager/SaveGear.gd")
 
 ## Chain pulls (GID-135 / TID-532): a pursuing enemy this close to the hero when an
@@ -164,7 +165,10 @@ func _on_battle_won(result: Dictionary) -> void:
 	var veterancy: Dictionary = result.get("veterancy", {})
 	for vet_uid: String in veterancy.keys():
 		var vdata: Dictionary = veterancy[vet_uid]
-		_sm.save_manager.record_veterancy(vet_uid, int(vdata.get("kills", 0)), bool(vdata.get("survived", true)))
+		var new_rank: int = _sm.save_manager.record_veterancy(vet_uid, int(vdata.get("kills", 0)),
+				bool(vdata.get("survived", true)))
+		if new_rank > 0:
+			_announce_rank_up(vet_uid, new_rank)
 	# Cross-magic currency accrual (GID-086, generalized by GID-127): playing a
 	# magic type's signature-branch cards earns the currency that type spends.
 	# PlayerState.cross_currency_earned() applies the per-card rate; this only
@@ -213,6 +217,16 @@ func _on_battle_won(result: Dictionary) -> void:
 ## TID-531). Only ever called from `_restore_world`'s post-swap callback — see
 ## the CLAUDE.md spire-draft learning for why building this on the next line
 ## after `_restore_world()` instead would attach it to a scene about to die.
+## A card just earned a veterancy rank (BID-074): say so, and the first time
+## explain what veterancy is (TutorialRegistry "veterancy", shown once).
+func _announce_rank_up(uid: String, rank: int) -> void:
+	var inst: Dictionary = _sm.save_manager.get_instance_by_uid(uid)
+	var base: String = str(CardRegistry.get_template(str(inst.get("template_id", ""))).get("name", "Your card"))
+	GameBus.hud_message_requested.emit("Veteran! %s %s %s" % [base, _VeterancyUtil.title_for(rank),
+			_VeterancyUtil.rank_chevrons(rank)])
+	GameBus.tutorial_popup_requested.emit("veterancy")
+
+
 ## The nearest pursuing enemy within CHAIN_RADIUS of the hero, when the fight just
 ## won was fought in place (the world is still in the tree); else null.
 func _chain_candidate() -> _EnemyNPC:

@@ -6,6 +6,7 @@ signal coins_changed(new_amount: int)
 
 const AchievementRegistry = preload("res://game_logic/AchievementRegistry.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
+const _VeterancyUtil = preload("res://game_logic/VeterancyUtil.gd")
 const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _CardInstanceUtil = preload("res://game_logic/CardInstanceUtil.gd")
 const _SpireFloorGen = preload("res://game_logic/spire/SpireFloorGen.gd")
@@ -1418,15 +1419,19 @@ func auto_dismiss_mount() -> void:
 	GameBus.mount_state_changed.emit(false, active_mount)
 
 ## Records kills and (optionally) a battles_survived increment for a collection instance.
-## No-op if the uid is not found in owned_cards.
-func record_veterancy(uid: String, kills: int, survived: bool) -> void:
+## No-op if the uid is not found in owned_cards. Returns the card's new veterancy rank
+## when this pushed it up a rank (BID-074: the victory flow announces it), else 0.
+func record_veterancy(uid: String, kills: int, survived: bool) -> int:
 	var inst: Dictionary = get_instance_by_uid(uid)
 	if inst.is_empty():
-		return
+		return 0
+	var before: int = _VeterancyUtil.rank_for(int(inst.get("kills", 0)), int(inst.get("battles_survived", 0)))
 	inst["kills"] = int(inst.get("kills", 0)) + kills
 	if survived:
 		inst["battles_survived"] = int(inst.get("battles_survived", 0)) + 1
 	_dirty = true
+	var after: int = _VeterancyUtil.rank_for(int(inst.get("kills", 0)), int(inst.get("battles_survived", 0)))
+	return after if after > before else 0
 
 ## Sets a custom display name on a collection instance. Empty string clears the custom name.
 ## No-op if the uid is not found.

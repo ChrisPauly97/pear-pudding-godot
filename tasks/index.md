@@ -169,6 +169,7 @@ files in `tasks/archive/backlog/`.
 
 | ID | Summary | Category | Discovered During |
 |----|---------|----------|-------------------|
+| [BID-074](archive/backlog/BID-074--veterancy-never-taught.md) | Veterancy is never taught or announced | content-gap | Resolved: rank-up toast + one-time popup |
 | [BID-024](archive/backlog/BID-024--coop-map-has-no-enemies-chests.md) | Co-op map (madrian) has no enemies/chests, so GID-096 world sync is dormant in practice (system verified by smoke test) — **being addressed by GID-098** (multi-map co-op story) and **GID-102 / TID-380** (shared procedural dungeon crawl with real enemies/chests) | content-gap | Resolved: co-op now lands on the overworld, which has enemies and chests (BID-063) |
 | [BID-063](archive/backlog/BID-063--coop-still-on-named-town-maps.md) | Co-op sessions still start on the named town maps, not the stitched overworld (GID-138) | design-inconsistency | Resolved: co-op lands on `main` (BID-063 fix) |
 | [BID-072](archive/backlog/BID-072--generate-hud-icons.md) | Replace game-icons.net HUD icons (B4) | design-inconsistency | Resolved: GID-144 TID-613 |
