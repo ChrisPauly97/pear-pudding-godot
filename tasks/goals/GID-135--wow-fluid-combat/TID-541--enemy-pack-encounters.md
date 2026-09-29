@@ -2,7 +2,7 @@
 
 **Goal:** GID-135
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-540
 
 ## Lock
@@ -32,12 +32,21 @@ A single world enemy summoning a board of ghouls feels wrong. Implement the enco
 
 ## Plan
 
-_Written during Plan phase._
+First cut that keeps GameState's win rules (an enemy hero in every fight):
+1. Pack enemies: `pack` in EnemyRegistry; the pack starts on the enemy board, tier-scaled, and
+   stands beside the leader in the world.
+2. Solo enemy (Undead Warlord): ability-spell deck from existing dark spells (no new cards, which
+   would leak into every loot/draft pool).
+3. Summoners unchanged. Leaderless packs ("clear the board", no hero) left for later.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `EnemyRegistry` (`pack` for ghoul_pack / undead_horde, `get_pack`, Warlord ability deck).
+- `BattleModifiers._place_enemy_pack`; `BattleScene` (one call after the enemy deck).
+- `EnemyNPC._add_pack_followers`; `SpriteRegistry.pack_member_texture`.
+- Tests: new `test_enemy_encounters.gd`; `battle_input_flow_smoke` → `_check_pack_on_board`
+  (verified to fail with the placement disabled).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `combat-model.md` → Encounters that match the world; `enemies-and-npcs.md` → Pack Leaders & Solo Enemies.

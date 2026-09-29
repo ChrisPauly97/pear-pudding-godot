@@ -33,7 +33,7 @@ Raised by the user (2026-09-26), inspired by WoW: "key thing will be making card
 | TID-530 | Input Flow — Spell Queue & One-Tap Targeting | agent | done | TID-546 |
 | TID-531 | In-World Loot & XP Toasts | agent | done | TID-528 |
 | TID-532 | Chain Pulls — Keep Momentum Between Fights | agent | done | TID-528, TID-531 |
-| TID-541 | Enemy Encounters That Match the World | agent | pending | TID-540 |
+| TID-541 | Enemy Encounters That Match the World | agent | done | TID-540 |
 
 ## Acceptance Criteria
 

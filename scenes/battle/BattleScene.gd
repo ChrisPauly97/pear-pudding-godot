@@ -520,6 +520,7 @@ func _setup_solo_battle() -> void:
 		enemy_deck.assign(enemy_data["enemy_deck"])
 		_state.players[1].build_deck(enemy_deck, _enemy_tier)
 		_state.players[1].draw_opening_hand(4)
+	modifiers._place_enemy_pack(_enemy_type, _enemy_tier)  # TID-541: packs start on the board
 
 	# Boss setup: override enemy hero HP and show name banner
 	if bool(enemy_data.get("is_boss", false)):

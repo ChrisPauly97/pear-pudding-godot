@@ -52,6 +52,7 @@ func _ready() -> void:
 		scale = Vector3(1.5, 1.5, 1.5)
 	elif _is_boss:
 		scale = Vector3(1.3, 1.3, 1.3)
+	_add_pack_followers(etype)
 	if _tracking:
 		_setup_proximity_area()
 		_setup_awareness_area()
@@ -343,3 +344,19 @@ func _add_difficulty_pip(enemy_type: String) -> void:
 	lbl.pixel_size = 0.004
 	lbl.position = Vector3(0.0, 1.4, 0.0)
 	add_child(lbl)
+
+## Pack encounters (TID-541): the units that will start on the enemy board stand
+## around the leader, slightly smaller, so the world shows what you'll fight.
+## Children of this node, so they wander, chase and vanish with it.
+func _add_pack_followers(etype: String) -> void:
+	var pack: Array[String] = EnemyRegistry.get_pack(etype)
+	var height: float = _SpriteRegistry.enemy_world_height(etype, false, false) * 0.8
+	for i: int in pack.size():
+		var tex: Texture2D = _SpriteRegistry.pack_member_texture(pack[i])
+		var follower: Sprite3D = _SpriteRegistry.make_billboard(tex, tex, height)
+		var ang: float = PI * 0.75 + float(i) * (PI * 0.5) / maxf(1.0, float(pack.size() - 1))
+		follower.position += Vector3(cos(ang), 0.0, sin(ang)) * 0.75
+		follower.name = "PackFollower%d" % i
+		add_child(follower)
+		_SpriteOutline.apply(follower)
+		_IdleLife.register(follower, _IdleLife.STYLE_BOB)

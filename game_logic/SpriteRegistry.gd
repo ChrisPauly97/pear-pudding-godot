@@ -215,6 +215,17 @@ static func enemy_texture(etype: String, is_roaming_boss: bool = false, is_boss:
 		return _ENEMY_WARLEADER
 	return null
 
+## World sprite for a pack member drawn beside its leader (TID-541), by card id.
+static func pack_member_texture(card_id: String) -> Texture2D:
+	match card_id:
+		"ghoul":
+			return _ENEMY_GHOUL
+		"zombie":
+			return _ENEMY_ZOMBIE
+		"ghost":
+			return _ENEMY_SPECTRE
+	return _ENEMY_SKELETON
+
 ## Target world height for an enemy sprite, matching enemy_texture()'s
 ## archetype routing. Keeps every enemy proportional to the player
 ## regardless of the source sprite's pixel height.

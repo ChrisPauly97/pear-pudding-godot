@@ -48,6 +48,7 @@ static func _ensure_loaded() -> void:
 					"ghoul", "ghoul"],
 			"drop_pool": ["skeleton", "zombie", "dawn_acolyte", "dusk_wraith", "shrouded_wraith", "dusk_seer",
 					"void_creeper"],
+			"pack": ["zombie", "skeleton", "ghost"],  # starts on the board; shown beside it in the world (TID-541)
 			"coin_reward": 8,
 			"is_boss": false,
 			"boss_hp": 0,
@@ -62,8 +63,9 @@ static func _ensure_loaded() -> void:
 		},
 		"undead_elite": {
 			"display_name": "Undead Warlord",
-			"deck": ["ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "zombie", "zombie", "zombie", "zombie", "skeleton",
-					"skeleton", "skeleton"],
+			# Solo (TID-541): fights with its own blows and curses instead of summoning.
+			"deck": ["ash_bone_spear", "ash_bone_spear", "brittle", "brittle", "drain", "drain", "ash_desecrate",
+					"ash_desecrate", "dusk_hex", "soul_rend", "ash", "shadow_bolt"],
 			"drop_pool": ["ghoul", "restore", "drain", "blitz_ghoul", "veiled_paladin", "ash_warden"],
 			"coin_reward": 20,
 			"is_boss": false,
@@ -83,6 +85,7 @@ static func _ensure_loaded() -> void:
 					"skeleton", "skeleton"],
 			"drop_pool": ["zombie", "ghoul", "dawn_paladin", "dusk_vampire", "iron_revenant", "dawn_guardian",
 					"dawn_healer"],
+			"pack": ["ghoul", "ghoul", "zombie"],  # starts on the board; shown beside it in the world (TID-541)
 			"coin_reward": 12,
 			"is_boss": false,
 			"boss_hp": 0,
@@ -513,6 +516,14 @@ static func get_deck(type_id: String) -> Array[String]:
 	return result
 
 ## Returns the drop pool for a type. Falls back to a single ghost if unknown.
+## Pack encounters (GID-135 / TID-541): the units that start on the enemy board —
+## the same ones drawn beside the leader in the world. Empty for everyone else.
+static func get_pack(type_id: String) -> Array[String]:
+	_ensure_loaded()
+	var out: Array[String] = []
+	out.assign((_enemies.get(type_id, {}) as Dictionary).get("pack", []))
+	return out
+
 static func get_drop_pool(type_id: String) -> Array[String]:
 	_ensure_loaded()
 	var result: Array[String] = []

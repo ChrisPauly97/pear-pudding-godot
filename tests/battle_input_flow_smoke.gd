@@ -72,7 +72,25 @@ func _run() -> Array[String]:
 	await _wait(2500)
 	if int(state.get("turn_number")) == turn_at:
 		fails.append("turn did not end by itself with nothing playable")
+	await _check_pack_on_board(sm, fails)
 	return fails
+
+## TID-541: a pack enemy's pack is already on the enemy board when the fight opens.
+func _check_pack_on_board(sm: Node, fails: Array[String]) -> void:
+	sm.call("_finish_battle")
+	sm.call("_restore_world")
+	await _wait(900)
+	sm.call("_start_battle", {"enemy_type": "ghoul_pack", "is_boss": false,
+		"enemy_deck": ["ghoul", "ghoul", "zombie", "zombie", "skeleton", "skeleton"]})
+	await _wait(1500)
+	var st: Object = current_scene.get("_state")
+	if st == null:
+		fails.append("pack battle did not start")
+		return
+	var enemy: Object = (st.get("players") as Array)[1]
+	var units: Array = (enemy.get("board") as Object).call("get_cards")
+	if units.size() < 3:
+		fails.append("ghoul pack should start with its 3 units on the board (got %d)" % units.size())
 
 func _wait_for_my_turn(state: Object) -> void:
 	for _i in range(100):

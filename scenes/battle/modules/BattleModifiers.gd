@@ -23,6 +23,8 @@ const CompanionRegistry = preload("res://autoloads/CompanionRegistry.gd")
 const CompanionData = preload("res://data/CompanionData.gd")
 const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 const Gambits = preload("res://game_logic/battle/Gambits.gd")
+const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
+const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 var _battle: _BattleScene
@@ -338,3 +340,28 @@ func record_persistent_hp(won: bool) -> void:
 	var sm := SceneManager.save_manager
 	sm.hero_hp_frac = _HeroVitality.frac_after(hero.health, hero.max_health, won)
 	sm.mark_dirty()
+
+
+# ── Pack encounters (GID-135 / TID-541) ─────────────────────────────────────
+
+## Puts `enemy_type`'s pack (EnemyRegistry.get_pack) on the enemy board, scaled to
+## `tier` like its deck and ready to act — what you saw beside it in the world.
+func _place_enemy_pack(enemy_type: String, tier: int) -> void:
+	var enemy: PlayerState = _battle._state.players[1]
+	var slot: int = 0
+	for cid: String in EnemyRegistry.get_pack(enemy_type):
+		var tmpl: Dictionary = CardRegistry.get_template(cid)
+		if tmpl.is_empty():
+			continue
+		while slot < enemy.board.slots.size() and enemy.board.slots[slot] != null:
+			slot += 1
+		if slot >= enemy.board.slots.size():
+			return
+		tmpl = tmpl.duplicate()
+		var scaled: Dictionary = CardDropUtil.enemy_card_stats(cid, tier)
+		tmpl["attack"] = scaled.get("attack", tmpl.get("attack", 0))
+		tmpl["health"] = scaled.get("health", tmpl.get("health", 0))
+		var unit := CardInstance.new(tmpl)
+		unit.attack += enemy.minion_attack_bonus
+		unit.summoning_sick = false
+		enemy.board.slots[slot] = unit

@@ -242,6 +242,25 @@ reads them each tick; `BattleRealtime` loads overrides from the `combat_tuning` 
 and are saved on the device; Reset all restores defaults. Max-mana knobs apply from the next fight.
 
 
+## Encounters that match the world (TID-541)
+
+First cut of the Pack / Solo / Summoner shapes, without changing GameState's win rules (every fight still has an
+enemy hero):
+
+- **Pack** (`ghoul_pack`, `undead_horde`): `EnemyRegistry` entries carry `pack` (card ids; `get_pack(type)`). The
+  leader is the enemy hero; its pack **starts on the enemy board** — `BattleModifiers._place_enemy_pack(type,
+  tier)` right after the enemy deck is built in `_setup_solo_battle`, tier-scaled like the deck
+  (`CardDropUtil.enemy_card_stats`), `minion_attack_bonus` applied, ready to act (not summoning-sick). In the world,
+  `EnemyNPC._add_pack_followers()` stands the same units around the leader (80 % height, bobbing billboards from
+  `SpriteRegistry.pack_member_texture(card_id)`), children of the leader so they chase and vanish with it.
+- **Solo** (`undead_elite`, the Undead Warlord): its deck is all ability spells (bone spear, brittle, drain,
+  desecrate, hex, soul rend, ash, shadow bolt) — no summons. Enemy spells already resolve through
+  `PlayerState.play_card` → `pending_auto_spells` → `flush_auto_spells` (turn-based) and the enemy cast bar (real time).
+- **Summoner**: everyone else keeps the current summoning deck.
+- Co-op PvE, PvP, puzzles and scripted fights don't use `_setup_solo_battle`, so they're unchanged.
+- Tests: `test_enemy_encounters.gd` (pack data, solo deck is all spells); `battle_input_flow_smoke` checks the ghoul
+  pack is on the board when the fight opens.
+
 ## Chain pulls — the next enemy follows straight on (TID-532)
 
 When an in-place fight is won (`BattleVictory._on_battle_won`, standard path) and an `EnemyNPC` that is

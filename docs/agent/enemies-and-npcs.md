@@ -423,6 +423,12 @@ behaviour is unchanged — the proximity-trigger AI, `EnemyRegistry` decks, and
   duels, blight hearts) keep base XP and unscaled stats.
 - Tests: `tests/unit/test_zone_levels.gd`.
 
+## Pack Leaders & Solo Enemies (TID-541)
+
+`ghoul_pack` and `undead_horde` are **pack leaders**: `EnemyRegistry.get_pack()` lists the units that start on
+their battle board, and `EnemyNPC` draws those units standing around the leader in the world. `undead_elite` is a
+**solo** enemy whose deck is ability spells only. See `combat-model.md` → Encounters that match the world.
+
 ## Ambient Critters (GID-147)
 
 Scenery wildlife, not enemies: `scenes/world/modules/Critters.gd` keeps up to 10
