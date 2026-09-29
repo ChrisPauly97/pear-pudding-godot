@@ -108,6 +108,7 @@ func _run() -> bool:
 			ok = false
 
 	ok = await _check_card_detail_panel(hub) and ok
+	ok = await _check_bag_tools(hub) and ok
 
 	hub.queue_free()
 	await process_frame
@@ -193,4 +194,58 @@ func _check_card_detail_panel(hub: Node) -> bool:
 	ok = _check(panel_rect.position.x >= 0.0 and panel_rect.position.y >= 0.0
 			and panel_rect.position.x <= screen.x and panel_rect.position.y <= screen.y,
 		"detail panel opens on screen (panel %s, screen %s)" % [panel_rect, screen]) and ok
+	return ok
+
+
+## GID-148 bag tools: sort cycle, search, the Craft / Items tabs and bulk
+## select → scrap. All of it only runs inside a live tree, so nothing else
+## would catch a page that errors while building.
+func _check_bag_tools(hub: Node) -> bool:
+	hub.call("show_tab", "deck")
+	await process_frame
+	await process_frame
+	var inv: Node = hub.get("_active_page")
+	var ok: bool = true
+	var list: Node = inv.get("_collection_list") as Node
+	var before: int = _card_tiles(list, []).size()
+
+	for i in range(6):
+		inv.call("_on_cycle_sort")
+		await process_frame
+	ok = _check(_card_tiles(list, []).size() == before, "every sort order keeps all %d tiles" % before) and ok
+
+	inv.set("_query", "zzzz-no-such-card")
+	inv.call("_refresh_cards")
+	await process_frame
+	ok = _check(_card_tiles(list, []).is_empty(), "a search with no hits empties the grid") and ok
+	inv.set("_query", "")
+
+	for tab: int in [1, 2]:
+		inv.call("_show_tab", tab)
+		await process_frame
+		var panel: Node = inv.get("_craft_panel" if tab == 1 else "_items_panel") as Node
+		ok = _check(_descendants(panel) > 10, "bag tab %d builds rows (%d nodes)" % [tab, _descendants(panel)]) and ok
+	inv.call("_show_tab", 0)
+	await process_frame
+
+	var sm: Object = root.get_node("SceneManager").get("save_manager")
+	sm.call("grant_card_reward", "ghost", "common")
+	sm.call("grant_card_reward", "ghost", "common")
+	inv.call("_on_toggle_select")
+	inv.call("_on_select_extras")
+	await process_frame
+	var picked: Dictionary = (inv.get("_selected") as Dictionary).duplicate()
+	ok = _check(not picked.is_empty(), "Extras selects spare copies (%d)" % picked.size()) and ok
+	var deck: Array = inv.get("_working_deck")
+	for uid: Variant in picked:
+		ok = _check(not deck.has(str(uid)), "Extras never picks a deck card") and ok
+	var owned_before: int = (sm.call("get_owned_instances") as Array).size()
+	var ess_before: int = int(sm.get("essence"))
+	inv.call("_apply_bulk", "scrap")
+	await process_frame
+	var owned_after: int = (sm.call("get_owned_instances") as Array).size()
+	ok = _check(owned_after == owned_before - picked.size(),
+		"bulk scrap removed the selected cards (%d → %d)" % [owned_before, owned_after]) and ok
+	ok = _check(int(sm.get("essence")) > ess_before, "bulk scrap paid out essence") and ok
+	ok = _check(not bool(inv.get("_select_mode")), "select mode ends after a bulk action") and ok
 	return ok

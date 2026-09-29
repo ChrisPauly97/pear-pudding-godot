@@ -56,6 +56,38 @@ Named towns and story maps use `grasslands.ogg` as their peaceful default via
 `MapData.music_track` (GID-125 / TID-470); only procedurally generated dungeons
 and spire floors fall through to `dungeon.ogg`.
 
+## Sound Effects & Ambience (GID-145)
+
+All CC0 (Creative Commons Zero): no attribution required, credited with thanks.
+Files were trimmed, converted to mono Ogg Vorbis and peak-normalised with ffmpeg.
+
+- **Kenney** (kenney.nl): *Casino Audio* (card draw/play), *Impact Sounds*
+  (footsteps grass/stone/snow/wood, attack, land, dig), *RPG Audio* (generic
+  footsteps, chest latch + creak, book flips, doors), *Interface Sounds* (UI click),
+  *Music Jingles* (battle win/lose, nightfall stingers). https://kenney.nl/assets
+- **"80 CC0 RPG SFX"** by **rubberduck**: enemy roar/alert, coin shower on a dig.
+  https://opengameart.org/content/80-cc0-rpg-sfx
+- **"100 CC0 SFX #2"** by **rubberduck**: thunder, wet footsteps.
+  https://opengameart.org/content/100-cc0-sfx-2
+- **"Magic Spell SFX"** by **JaggedStone**: spell resolve, waystone travel. https://opengameart.org/content/magic-spell-sfx
+- **"Horse Trotting"** by **EZduzziteh**: mount hoofbeats. https://opengameart.org/content/horse-trotting
+- **"Water Splash and sand footsteps"** by **Peludo**: sand footsteps.
+  https://opengameart.org/content/water-splash-and-sand-footsteps
+- **"Rain (loopable)"** by **Ylmir**: rain and heavy-rain layers. https://opengameart.org/content/rain-loopable
+- **"wind whoosh loop"** by **SketchMan3**: wind/sandstorm layers and all five filtered biome beds.
+  https://opengameart.org/content/wind-whoosh-loop
+- **"Fire Crackling"** by **AntumDeluge**: ash/volcanic crackle layer. https://opengameart.org/content/fire-crackling
+- **"Ambient Bird Sounds"** by **isaiah658**: daytime birds layer.
+  https://opengameart.org/content/ambient-bird-sounds
+- **"Crickets Ambient Noise - loopable"** by **Wolfgang_**: night crickets layer.
+  https://opengameart.org/content/crickets-ambient-noise-loopable
+
+### Siege music
+
+- **"Epic Boss Battle [Seamlessly Looping]"** by **Juhani Junkala** (uploaded by SubspaceAudio): CC0.
+  Loudness-matched to `battle.ogg`. https://opengameart.org/content/boss-battle-music
+  *(used as `assets/audio/music/siege.ogg`)*
+
 ## Art / Sprites
 
 ### 0x72 — 16x16 DungeonTileset II (v1.7)

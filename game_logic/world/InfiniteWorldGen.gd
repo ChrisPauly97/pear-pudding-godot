@@ -172,6 +172,12 @@ static func generate_chunk(p_cx: int, p_cz: int, world_seed: int) -> ChunkData:
 	chunk.has_entities = true
 	return chunk
 
+## Enemies standing on a ley line in stag country are Imbued Stags.
+static func enemy_type_at(pool_type: String, biome: int, wx: float, wz: float, world_seed: int) -> String:
+	if BiomeDef.LEY_STAG_BIOMES.has(biome) and TerrainMath.is_on_ley_line(wx, wz, world_seed):
+		return "imbued_stag"
+	return pool_type
+
 # Generate tile/height data only (no entities) — used for border ring
 static func generate_chunk_data_only(p_cx: int, p_cz: int, world_seed: int) -> ChunkData:
 	var chunk := _gen_tile_data(p_cx, p_cz, world_seed)
@@ -365,12 +371,13 @@ static func _gen_entities(chunk: ChunkData, p_cx: int, p_cz: int, world_seed: in
 		var tile: Vector2i = grass_tiles[idx]
 		var wx: float = float(p_cx * IsoConst.CHUNK_SIZE + tile.x) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 		var wz: float = float(p_cz * IsoConst.CHUNK_SIZE + tile.y) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+		var et: String = enemy_type_at(etype, biome, wx, wz, world_seed)
 		chunk.enemies.append({
 			"id": uid_base + str(i),
 			"x": wx, "z": wz,
-			"alive": true, "tracking": EnemyRegistry.is_tracking(etype),
-			"enemy_type": etype,
-			"enemy_deck": EnemyRegistry.get_deck(etype),
+			"alive": true, "tracking": EnemyRegistry.is_tracking(et),
+			"enemy_type": et,
+			"enemy_deck": EnemyRegistry.get_deck(et),
 		})
 
 	# 0–1 chest per chunk

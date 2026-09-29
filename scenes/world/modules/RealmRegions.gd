@@ -43,7 +43,7 @@ func _set_town(town: String) -> void:
 			_world._on_player_chunk_changed(Vector2i.ZERO, _world._current_biome)
 		return
 	_world._map_label.text = _PlaceNames.title(town)
-	AudioManager.play_music(_town_music(town))
+	AudioManager.play_music(_world.town_siege.music_for(town, town_music(town)))
 	if prev == "" and _world._world_hud != null:
 		GameBus.hud_message_requested.emit(_PlaceNames.title(town))
 	_world.story_cast.spawn_named_map_rivals()
@@ -53,7 +53,7 @@ func _set_town(town: String) -> void:
 	elif town == "larik":
 		sm.set_story_flag("chapter2_reached_larik")
 
-func _town_music(town: String) -> String:
+func town_music(town: String) -> String:
 	var wm: _WorldMap = RealmLayout.town_map(town)
 	var track: String = wm.music_track if wm != null else ""
 	return track if track != "" else _WorldScene._TOWN_MUSIC_DEFAULT

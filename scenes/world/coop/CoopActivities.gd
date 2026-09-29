@@ -772,6 +772,7 @@ func _on_siege_started_received(siege_id: int) -> void:
 	_world._coop_siege_wave = 0
 	GameBus.hud_message_requested.emit("The town is under siege!")
 	_coop_spawn_siege_wave()
+	_world.town_siege.refresh_music()
 
 ## Spawn the current wave's deterministic raiders (identical on every peer).
 
@@ -994,6 +995,7 @@ func _on_coop_siege_battle_ended(did_win: bool) -> void:
 	if _world._siege_banner != null and is_instance_valid(_world._siege_banner):
 		_world._siege_banner.queue_free()
 		_world._siege_banner = null
+	_world.town_siege.refresh_music()
 	if did_win:
 		if NetworkManager.is_host():
 			_finish_coop_siege_victory()

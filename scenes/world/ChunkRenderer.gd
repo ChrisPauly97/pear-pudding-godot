@@ -6,6 +6,7 @@ const GrassBlades   = preload("res://scenes/world/GrassBlades.gd")
 const TerrainMath   = preload("res://game_logic/TerrainMath.gd")
 const BiomeDef      = preload("res://game_logic/world/BiomeDef.gd")
 const _WaterMath    = preload("res://game_logic/world/WaterMath.gd")
+const _TreeScatter  = preload("res://game_logic/world/TreeScatter.gd")
 const _ChunkStreamingManager = preload("res://scenes/world/ChunkStreamingManager.gd")
 const TextureGen    = preload("res://game_logic/TextureGen.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
@@ -175,6 +176,8 @@ static func prepare_terrain(
 	# Build per-biome prop positions (pure math, no scene tree).
 	var prop_positions: Dictionary = _compute_prop_positions(
 			chunk_data, grid_tile_lookup, hfield, chunk_origin, nvx, world_seed, dry_points)
+	prop_positions.merge(_TreeScatter.compute(
+			chunk_data, grid_tile_lookup, hfield, chunk_origin, nvx, world_seed, dry_points))
 
 	return {
 		"mesh":           terrain_res["mesh"],
@@ -284,10 +287,9 @@ static func _compute_prop_positions(
 			var ox: float = float(hash_s & 0xFF) / 255.0 * IsoConst.TILE_SIZE * 0.8 + IsoConst.TILE_SIZE * 0.1
 			hash_s = (hash_s * 1664525 + 1013904223) & 0x7FFFFFFF
 			var oz: float = float(hash_s & 0xFF) / 255.0 * IsoConst.TILE_SIZE * 0.8 + IsoConst.TILE_SIZE * 0.1
-			var vi: int = lz * nvx + lx
-			if vi >= hfield.size():
-				vi = hfield.size() - 1
-			var wy: float = hfield[vi]
+			var lpx: float = float(lx) * IsoConst.TILE_SIZE + ox
+			var lpz: float = float(lz) * IsoConst.TILE_SIZE + oz
+			var wy: float = _TreeScatter.height_at_local(hfield, nvx, lpx, lpz)
 			# Chunk-local: the MultiMeshInstance3D is a child of the chunk node, which
 			# already sits at the chunk origin (world coords here drew every chunk's
 			# props a second origin away, so only chunk 0,0 ever showed any).
@@ -301,7 +303,8 @@ static func _compute_prop_positions(
 				hash_s = (hash_s * 1664525 + 1013904223) & 0x7FFFFFFF
 				var dx: float = (float(hash_s & 0xFF) / 255.0 - 0.5) * 0.9
 				var dz: float = (float((hash_s >> 8) & 0xFF) / 255.0 - 0.5) * 0.9
-				arr.append(base + Vector3(dx, 0.0, dz))
+				arr.append(Vector3(base.x + dx, _TreeScatter.height_at_local(hfield, nvx, base.x + dx, base.z + dz),
+						base.z + dz))
 	return result
 
 # ── Main entry point (main thread only) ───────────────────────────────────
@@ -517,8 +520,11 @@ func _add_prop_multimesh(key_str: String, variant: int, positions: Array) -> voi
 	mm.mesh = quad
 	for i in range(positions.size()):
 		var pos: Vector3 = positions[i] as Vector3
-		# Mirror variety only: scaling would break the shared pixel size.
+		# Mirror variety only: scaling would break the shared pixel size. Trees
+		# keep their baked upper-left light, so they never mirror.
 		var flip: float = -1.0 if fposmod(pos.x * 3.7 + pos.z * 1.3, 2.0) > 1.0 else 1.0
+		if _TreeScatter.is_tree_key(key_str):
+			flip = 1.0
 		mm.set_instance_transform(i, Transform3D(Basis.from_scale(Vector3(flip, 1.0, 1.0)), pos))
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm

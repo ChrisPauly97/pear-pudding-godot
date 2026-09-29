@@ -6,6 +6,11 @@ extends RefCounted
 ## One ShaderMaterial per sprite (the texture differs per sprite/frame).
 
 const _SHADER = preload("res://assets/shaders/sprite_outline.gdshader")
+const _XRAY_SHADER = preload("res://assets/shaders/sprite_xray.gdshader")
+## Silhouette rim shown while scenery hides a character (sprite_xray.gdshader).
+const XRAY_COLOR := Color(1.0, 0.9, 0.55)
+## Drawn after every other transparent so nothing paints over the rim.
+const XRAY_PRIORITY: int = 100
 const META_OUTLINED := "outlined"
 const OUTLINE_COLOR := Color(0.07, 0.05, 0.09)
 ## Interact glow (GID-134 / TID-526): the outline warms to this when the hero
@@ -26,6 +31,21 @@ static func apply(sprite: SpriteBase3D) -> void:
 	if anim != null:
 		anim.frame_changed.connect(refresh.bind(sprite))
 		anim.animation_changed.connect(refresh.bind(sprite))
+	refresh(sprite)
+
+
+## Adds the occluded-silhouette pass (call after `apply`): while a wall, hill or
+## tree stands between the camera and the character, a rim of `color` traces
+## its outline through the scenery instead of the scenery being cut away.
+static func apply_xray(sprite: SpriteBase3D, color: Color = XRAY_COLOR) -> void:
+	var mat := sprite.material_override as ShaderMaterial if sprite != null else null
+	if mat == null or mat.next_pass != null:
+		return
+	var xray := ShaderMaterial.new()
+	xray.shader = _XRAY_SHADER
+	xray.render_priority = XRAY_PRIORITY
+	xray.set_shader_parameter("xray_color", color)
+	mat.next_pass = xray
 	refresh(sprite)
 
 
@@ -54,5 +74,10 @@ static func refresh(sprite: SpriteBase3D) -> void:
 	if sprite == null or not is_instance_valid(sprite):
 		return
 	var mat := sprite.material_override as ShaderMaterial
-	if mat != null:
-		mat.set_shader_parameter("sprite_tex", current_texture(sprite))
+	if mat == null:
+		return
+	var tex: Texture2D = current_texture(sprite)
+	mat.set_shader_parameter("sprite_tex", tex)
+	var xray := mat.next_pass as ShaderMaterial
+	if xray != null:
+		xray.set_shader_parameter("sprite_tex", tex)

@@ -15,8 +15,46 @@ const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 ## Raider placement around the gate, in tiles (x, z).
 const RAIDER_OFFSETS: Array[Vector2] = [Vector2(0.0, 0.0), Vector2(2.0, 1.0), Vector2(-2.0, 1.0)]
 const _BANNER_TINT := Color(1.0, 0.3, 0.1)
+## Plays instead of the town track while that town is under siege (GID-145 / TID-617).
+const SIEGE_MUSIC: String = "res://assets/audio/music/siege.ogg"
 
 var _world: _WorldScene = null
+
+## The track for `town`: the siege track while it is besieged, else `town_track`.
+func music_for(town: String, town_track: String) -> String:
+	var coop_place: String = ""
+	if _world._coop_active and _world._coop_siege_active:
+		coop_place = _world.story_place()
+	var active: Dictionary = SceneManager.save_manager.town_siege.get_active_siege()
+	return pick_music(town, town_track, active, coop_place)
+
+## Pure rule behind music_for: `active_siege` is the solo save's active siege
+## ({} = none), `coop_siege_place` the place of a running co-op siege ("" = none).
+static func pick_music(town: String, town_track: String, active_siege: Dictionary,
+		coop_siege_place: String) -> String:
+	if town == "" or not ResourceLoader.exists(SIEGE_MUSIC):
+		return town_track
+	if coop_siege_place == town or str(active_siege.get("town", "")) == town:
+		return SIEGE_MUSIC
+	return town_track
+
+## The track for where the player stands: a town's (siege) track, or "" in the wilds.
+func place_music() -> String:
+	var town: String = _world.story_place()
+	if _world.current_town != "":
+		return music_for(town, _world.realm_regions.town_music(town))
+	if not _world._is_infinite:
+		return music_for(town, _world._named_map_music_track())
+	return ""
+
+## Re-applies the current place's music when a siege starts or ends.
+func refresh_music() -> void:
+	# Mid-battle (world detached or frozen in place) the battle track wins.
+	if not SceneManager.is_in_world():
+		return
+	var track: String = place_music()
+	if track != "":
+		AudioManager.play_music(track)
 
 ## Runs on named-map entry: fire the story trigger, then spawn any active siege.
 func on_map_entered(p_map_name: String) -> void:
@@ -48,6 +86,7 @@ func _spawn_if_active(p_map_name: String) -> void:
 		return
 	_spawn_raiders(p_map_name, int(active_siege.get("stage", 0)))
 	_setup_banner(p_map_name)
+	refresh_music()
 
 func _spawn_raiders(p_map_name: String, stage: int) -> void:
 	if not _SiegeDefs.TOWN_GATES.has(p_map_name):

@@ -148,6 +148,10 @@
 | [GID-142](goals/GID-142--biome-rifts/goal.md) | Spire → Biome Rifts | done | 6 / 6 |
 | [GID-143](goals/GID-143--first-session-art/goal.md) | First-Session Art Pass | done | 6 / 6 |
 | [GID-144](goals/GID-144--generated-art-replacement/goal.md) | Generated Art Replacement | done | 5 / 5 |
+| [GID-145](goals/GID-145--audio-polish/goal.md) | Audio Polish — Real SFX, Ambience & Siege Music | done | 4 / 4 |
+| [GID-146](goals/GID-146--living-overworld/goal.md) | Living Overworld — Rolling Terrain, Trees, Occluded Silhouette | done | 3 / 3 |
+| [GID-147](goals/GID-147--wildlife/goal.md) | Wildlife — Ambient Critters, Cactus Worms, Imbued Stags | done | 3 / 3 |
+| [GID-148](goals/GID-148--backpack-ux/goal.md) | Backpack / Inventory UX | done | 1 / 1 |
 
 ## Backlog
 
@@ -160,6 +164,7 @@ files in `tasks/archive/backlog/`.
 | [BID-024](backlog/BID-024--coop-map-has-no-enemies-chests.md) | Co-op map (madrian) has no enemies/chests, so GID-096 world sync is dormant in practice (system verified by smoke test) — **being addressed by GID-098** (multi-map co-op story) and **GID-102 / TID-380** (shared procedural dungeon crawl with real enemies/chests) | content-gap | GID-096 |
 | [BID-055](backlog/BID-055--worldscene-god-object.md) | `WorldScene.gd` god-object decomposition, slice 1/3 done (co-op/net cluster folded into `CoopSession.gd`, line-ceiling guardrail added); original 9154/401 census was stale — see file's Progress section for real numbers and slices 2-3 (`_spawn_*`, `_start_*`) | code-smell | GID-123 research |
 | [BID-061](backlog/BID-061--spec-says-no-xp-system.md) | Spec says "No XP system planned" but XP/levels/skill points shipped (GID-030) | spec-gap | Tracked by TID-539 |
+| [BID-073](backlog/BID-073--no-owl-ambience-loop.md) | Night owl ambience layer still synthesized (no clean CC0 loop found) | content-gap | GID-145 / TID-616 |
 | [BID-063](backlog/BID-063--coop-still-on-named-town-maps.md) | Co-op sessions still start on the named town maps, not the stitched overworld (GID-138) | design-inconsistency | TID-571 |
 
 ## Resolved Backlog

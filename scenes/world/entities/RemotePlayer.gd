@@ -77,6 +77,7 @@ func _ready() -> void:
 	_sprite = _AvatarSprite.build(_gear)
 	add_child(_sprite)
 	_SpriteOutline.apply(_sprite)
+	_SpriteOutline.apply_xray(_sprite)
 	_ContactShadow.register(self, _ContactShadow.radius_for_height(_SpriteRegistry.PLAYER_HEIGHT))
 	_sprite.play("idle")
 

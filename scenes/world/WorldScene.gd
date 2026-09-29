@@ -57,6 +57,7 @@ const _RealmRegions = preload("res://scenes/world/modules/RealmRegions.gd")
 const _QuestTracker = preload("res://scenes/world/modules/QuestTracker.gd")
 const _StarterCamps = preload("res://scenes/world/modules/StarterCamps.gd")
 const _RiftPortals = preload("res://scenes/world/modules/RiftPortals.gd")
+const _Critters = preload("res://scenes/world/modules/Critters.gd")
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const _TownSiege = preload("res://scenes/world/modules/TownSiege.gd")
 const _SunRaysFx = preload("res://scenes/world/SunRaysFx.gd")
@@ -183,6 +184,7 @@ var realm_regions: _RealmRegions = null   # modules/RealmRegions.gd (GID-138)
 var quest_tracker: _QuestTracker = null   # modules/QuestTracker.gd (GID-140)
 var starter_camps: _StarterCamps = null   # modules/StarterCamps.gd (GID-141)
 var rift_portals: _RiftPortals = null   # modules/RiftPortals.gd (GID-142)
+var critters: _Critters = null   # modules/Critters.gd (GID-147)
 var current_town: String = ""  # stitched town the player is in; see story_place()
 var chest_loot: _ChestLoot = null    # modules/ChestLoot.gd
 var night_lights: _NightLights = null  # modules/NightLights.gd (TID-489)
@@ -880,6 +882,7 @@ func _ensure_world_modules() -> void:
 	quest_tracker = _ensure_world_module(quest_tracker, _QuestTracker, "QuestTracker") as _QuestTracker
 	starter_camps = _ensure_world_module(starter_camps, _StarterCamps, "StarterCamps") as _StarterCamps
 	rift_portals = _ensure_world_module(rift_portals, _RiftPortals, "RiftPortals") as _RiftPortals
+	critters = _ensure_world_module(critters, _Critters, "Critters") as _Critters
 
 func _ensure_world_module(existing: Node, script: GDScript, node_name: String) -> Node:
 	if existing != null and is_instance_valid(existing):
@@ -1870,9 +1873,6 @@ func _handle_interact() -> void:
 	if garden_plot != null:
 		home_garden.show_panel(garden_plot)
 
-# ── Spire entrance ─────────────────────────────────────────────────────────
-
-
 	# Hostile entities are probed last, so anything peaceful in reach wins: you can
 	# take a door, open a chest or read a scroll with an enemy standing next to you
 	# instead of being forced into the fight. See INTERACT_PRIORITY.
@@ -1924,14 +1924,18 @@ func _on_battle_won(_result: Dictionary) -> void:
 	# enemy returns on reconnect — matching single-player. Inert single-player.
 	coop_session._coop_persist_enemy_defeat()
 	if _is_infinite and _current_biome >= 0:
-		AudioManager.play_music(_BIOME_MUSIC[_current_biome])
+		if current_town != "":
+			# Back in a stitched town (possibly still besieged), not the biome bed.
+			AudioManager.play_music(town_siege.place_music())
+		else:
+			AudioManager.play_music(_BIOME_MUSIC[_current_biome])
 		AudioManager.set_ambience(_current_biome)
 		const BountyGen_cls = preload("res://game_logic/BountyGen.gd")
 		if _current_biome < BountyGen_cls.BIOME_NAMES.size():
 			var biome_name: String = BountyGen_cls.BIOME_NAMES[_current_biome]
 			SceneManager.save_manager.bounties.increment_bounty_progress("defeat_in_biome", {"biome_name": biome_name})
 	else:
-		AudioManager.play_music(_named_map_music_track())
+		AudioManager.play_music(town_siege.music_for(map_name, _named_map_music_track()))
 	var sm := SceneManager.save_manager
 	if sm.active_mount != "" and sm.current_map == "main":
 		sm.summon_mount(sm.active_mount)
@@ -2092,5 +2096,3 @@ func _valid_node(v) -> Node:
 # TID-367: Spectate a duel
 # TID-368: Wagered duels & champion record
 # TID-369: Shared party bounties
-
-
