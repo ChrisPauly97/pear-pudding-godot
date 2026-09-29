@@ -17,7 +17,7 @@ the art roadmap". Backlog BID-068..072 (from GID-143 / TID-607). Generators: `to
 |----|------|------|--------|------------|
 | TID-609 | B0 — Delete Unreferenced Art | agent | done | — |
 | TID-610 | B1 — Generated World Characters | agent | done | TID-609 |
-| TID-611 | B2 — Generated Card Art & Spell Runes | agent | todo | TID-610 |
+| TID-611 | B2 — Generated Card Art & Spell Runes | agent | done | TID-610 |
 | TID-612 | B3 — Generated Chest, Door, Mimic & Horse | agent | todo | TID-610 |
 | TID-613 | B4 — Original HUD Icons | agent | todo | — |
 

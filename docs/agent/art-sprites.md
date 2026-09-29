@@ -428,14 +428,17 @@ GID-143:
 | Horse mount | `characters/mount_horse.png` | Clint Bellanger Tiny Creatures · CC0 | quadruped rig in `generate_characters.py` | B3 |
 | Chest open/closed | `props/chest_{closed,open}.png` | 0x72 · CC0 | `generate_sprites.py` box + lid frames | B3 |
 | Door | `props/door.png` | 0x72 · CC0 | `generate_sprites.py` (share the crypt-door drawing) | B3 |
-| Card art: ghost / skeleton / zombie / ghoul | `cards/card_*.png` | Kenney / 0x72 · CC0 | card-portrait crops of the generated characters | B2 |
-| Spell runes ×4 | `cards/rune_{dawn,dusk,ember,ash}.png` | game-icons.net · **CC BY 3.0** | `generate_sprites.py` glyph drawer (sun, moon, flame, cloud) | B2 |
+| Card art: ghost / skeleton / zombie / ghoul | `cards/card_*.png` | Kenney / 0x72 · CC0 | card-portrait crops of the generated characters | B2 ✓ |
+| Spell runes ×4 | `cards/rune_{dawn,dusk,ember,ash}.png` | game-icons.net · **CC BY 3.0** | `generate_sprites.py` glyph drawer (sun, moon, flame, cloud) | B2 ✓ |
 | HUD icons ×15 | `assets/icons/hud/*.svg` | game-icons.net · **CC BY 3.0** | hand-authored SVG set or pixel icons at 32×32 | B4 |
 | ~~Dead art~~ | `enemy_undead{,_walk_*}.png`, `pixel_art/wizard_walk_*_pixel.png` | — | **deleted (GID-144 / TID-609)** | B0 ✓ |
 
 B1 landed in GID-144 / TID-610: the `elite`, `ghoul`, `spectre`, `warleader`, `terror` rigs plus `person()` specs in
 `CAST` (helm / wizard / wide hats, cloak, pack, pauldrons, axe / rapier / lantern props). Only Maiteln keeps walk
 frames (`WALKERS`); unused enemy walk frames were deleted.
+
+B2 landed in TID-611: `tools/generate_cards.py` (portrait = centred 16×16 bust of the generated character, doubled;
+runes = glyphs drawn on the prop palette).
 
 Already original: terrain tiles and grass tufts (`generate_hd_terrain.py`), every prop / landmark
 (`generate_sprites.py`, incl. GID-143 graveyard set), the paper-doll hero (`PaperDoll.gd`), skeleton, zombie and
