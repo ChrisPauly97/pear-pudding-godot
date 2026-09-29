@@ -186,3 +186,37 @@ func _rows_differ(a: Image, b: Image, y0: int, y1: int) -> bool:
 			if a.get_pixel(x, y) != b.get_pixel(x, y):
 				return true
 	return false
+
+
+func test_appearance_presets_validate_indices() -> void:
+	# TID-562: saved/synced looks are preset indices; junk falls back to default.
+	assert_eq(_PaperDoll.appearance_from({}).size(), 0, "default look adds no overrides")
+	var look: Dictionary = _PaperDoll.appearance_from({"skin": 4, "hair": 2.0})
+	assert_eq(look["skin"], _PaperDoll.SKIN_TONES[4])
+	assert_eq(look["hair"], _PaperDoll.HAIR_COLOURS[2], "JSON floats accepted")
+	assert_eq(_PaperDoll.appearance_from({"skin": 99, "hair": "x"}).size(), 0)
+	assert_eq(_PaperDoll.look_index({"skin": -1}, "skin"), 0)
+	assert_eq(_PaperDoll.SKIN_TONES[0], _PaperDoll.DEFAULT_APPEARANCE["skin"], "index 0 is the default")
+	assert_eq(_PaperDoll.HAIR_COLOURS[0], _PaperDoll.DEFAULT_APPEARANCE["hair"])
+
+
+func test_every_preset_changes_the_sprite() -> void:
+	var base: Image = _PaperDoll.render_frame({}, {})
+	for key: String in _PaperDoll.LOOK_OPTIONS:
+		var opts: Array = _PaperDoll.LOOK_OPTIONS[key]
+		for i: int in range(1, opts.size()):
+			var img: Image = _PaperDoll.render_frame({}, _PaperDoll.appearance_from({key: i}))
+			assert_true(_differs(base, img), "%s preset %d looks like the default" % [key, i])
+
+
+func test_look_rides_the_gear_payload() -> void:
+	var gear: Dictionary = {"armor": "chainmail"}
+	var payload: Array = _PaperDoll.encode_gear(gear) + _PaperDoll.encode_look({"skin": 3, "hair": 5})
+	assert_eq(str(_PaperDoll.decode_gear(payload)["armor"]), "chainmail", "tail ignored by decode_gear")
+	var choice: Dictionary = _PaperDoll.decode_look(payload)
+	assert_eq(int(choice["skin"]), 3)
+	assert_eq(int(choice["hair"]), 5)
+	var old: Dictionary = _PaperDoll.decode_look(_PaperDoll.encode_gear(gear))
+	assert_eq(int(old["skin"]), 0, "older peers send no tail")
+	var junk: Dictionary = _PaperDoll.decode_look(_PaperDoll.encode_gear(gear) + ["evil", 1e9])
+	assert_eq(int(junk["skin"]) + int(junk["hair"]), 0)

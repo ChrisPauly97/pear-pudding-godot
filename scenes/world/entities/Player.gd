@@ -142,7 +142,7 @@ func cancel_path() -> void:
 func _build_sprite() -> void:
 	# Idle (frame 0) and a 4-frame walk, drawn in the currently equipped gear.
 	_sprite = AnimatedSprite3D.new()
-	_sprite.sprite_frames = _PaperDoll.build_frames(_PaperDoll.gear_of(SaveManager))
+	_sprite.sprite_frames = _PaperDoll.frames_for(SaveManager)
 	_sprite.pixel_size = PIXEL_SIZE
 	_SpriteRegistry.apply_billboard_flags(_sprite)
 	_sprite.shaded = false
@@ -493,7 +493,7 @@ func _set_mount_facing(flipped: bool) -> void:
 ## Redraws the hero in the new gear, keeping the current animation and frame.
 func _on_equipment_changed(_slot: String, _item_id: String) -> void:
 	if _sprite != null:
-		_HeroAnim.wear(_sprite, _PaperDoll.build_frames(_PaperDoll.gear_of(SaveManager)))
+		_HeroAnim.wear(_sprite, _PaperDoll.frames_for(SaveManager))
 
 func _on_mount_state_changed(mounted: bool, _mount_id: String) -> void:
 	_update_mount_visuals(mounted)

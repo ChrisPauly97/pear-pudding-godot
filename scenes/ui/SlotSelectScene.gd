@@ -98,7 +98,8 @@ func _on_load_slot(slot: int) -> void:
 
 func _on_new_game_slot(slot: int) -> void:
 	SaveManager.set_active_slot(slot)
-	get_tree().change_scene_to_file("res://scenes/ui/BiomeSelectionScene.tscn")
+	SaveManager.pending_appearance = {}
+	get_tree().change_scene_to_file("res://scenes/ui/HeroAppearanceScene.tscn")
 
 func _on_back() -> void:
 	get_tree().change_scene_to_packed(preload("res://scenes/ui/MenuScene.tscn"))

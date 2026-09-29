@@ -214,7 +214,13 @@ item in a `VISIBLE_SLOTS` slot lacks one or draws nothing.
 → back arm, front arm → head → helmet → cloak mantle → shoulders → off-hand → weapon.
 
 **Appearance:** optional Dictionary overriding `DEFAULT_APPEARANCE` colours
-(skin, hair, eyes, shirt, trousers, boots, belt). Not persisted yet (TID-562).
+(skin, hair, eyes, shirt, trousers, boots, belt). The player picks skin and hair at
+New Game (TID-562, `HeroAppearanceScene`) from `SKIN_TONES` / `HAIR_COLOURS`
+(palette colours, index 0 = default). Saved as indices in
+`SaveManager.hero_appearance` (`{"skin": i, "hair": j}`); `appearance_from()`
+turns indices into colours and drops junk, `appearance_of(save)` reads a save,
+`frames_for(save)` = `build_frames(gear_of(save), appearance_of(save))` for the
+local hero (Player, and the battle token via `idle_texture`).
 
 **API:** `build_frames(gear, appearance)` (every animation; cached per look —
 co-op avatars in the same gear share textures), `idle_texture(gear)` (battle

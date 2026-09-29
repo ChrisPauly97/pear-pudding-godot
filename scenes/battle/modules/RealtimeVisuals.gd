@@ -56,7 +56,8 @@ func build(enemy_type: String, is_boss: bool) -> void:
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_battle.add_child(_root)
 	_tokens[RealtimeCombat.PLAYER] = _make_token(
-			_PaperDoll.idle_texture(_PaperDoll.gear_of(SaveManager)), _battle._player_hero_view, RealtimeCombat.PLAYER)
+			_PaperDoll.idle_texture(_PaperDoll.gear_of(SaveManager), _PaperDoll.appearance_of(SaveManager)),
+			_battle._player_hero_view, RealtimeCombat.PLAYER)
 	_tokens[RealtimeCombat.ENEMY] = _make_token(
 			_SpriteRegistry.enemy_texture(enemy_type, false, is_boss), _battle._enemy_hero_view, RealtimeCombat.ENEMY)
 	var cast := _make_cast_panel(CHARGING_COLOR)

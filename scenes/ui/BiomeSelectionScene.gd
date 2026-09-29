@@ -157,4 +157,4 @@ func _on_biome_chosen(biome_id: int) -> void:
 	SceneManager.start_new_game_with_biome(biome_id, head_start)
 
 func _on_back() -> void:
-	get_tree().change_scene_to_file("res://scenes/ui/SlotSelectScene.tscn")
+	get_tree().change_scene_to_file("res://scenes/ui/HeroAppearanceScene.tscn")

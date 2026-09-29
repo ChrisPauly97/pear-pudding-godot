@@ -60,6 +60,7 @@ const PERSISTED_FIELDS: Dictionary = {
 	"equipped_armor": "", "equipped_ring": "", "equipped_trinket": "", "equipped_offhand": "",
 	"owned_armor": [], "owned_rings": [], "owned_trinkets": [], "owned_offhands": [],
 	"equipped_shoulders": "", "owned_shoulders": [],
+	"hero_appearance": {},
 	"equipped_helmet": "", "owned_helmets": [], "equipped_boots": "", "owned_boots": [],
 	"collected_scrolls": [], "settings": {},
 	"achievement_progress": {}, "unlocked_achievements": [],
@@ -186,6 +187,12 @@ var owned_offhands: Array[String] = []
 var owned_shoulders: Array[String] = []
 var owned_helmets: Array[String] = []
 var owned_boots: Array[String] = []
+
+## Hero look as PaperDoll preset indices, e.g. {"skin": 2, "hair": 1} (TID-562).
+var hero_appearance: Dictionary = {}
+## Picked on the New Game appearance screen; new_game() moves it into
+## hero_appearance, so a picker abandoned via Back never leaks into a loaded save.
+var pending_appearance: Dictionary = {}
 
 # World generation — set when starting a new game from the biome selection screen
 var world_seed: int = 42
@@ -527,6 +534,8 @@ func new_game(head_start: bool = false) -> void:
 	owned_shoulders = []
 	owned_helmets = []
 	owned_boots = []
+	hero_appearance = pending_appearance.duplicate()
+	pending_appearance = {}
 	collected_scrolls = []
 	achievement_progress = {}
 	unlocked_achievements = []

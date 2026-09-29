@@ -95,6 +95,20 @@ const DEFAULT_APPEARANCE: Dictionary = {
 	"belt": Color8(118, 59, 54),
 }
 
+## New Game appearance presets (TID-562), all pack-palette colours. Saved
+## (`SaveManager.hero_appearance`) and synced as indices, so a save or a co-op
+## payload can only ever name a real preset. Index 0 = `DEFAULT_APPEARANCE`.
+const SKIN_TONES: Array[Color] = [
+	Color8(252, 203, 163), Color8(226, 182, 148), Color8(216, 165, 125),
+	Color8(195, 141, 112), Color8(138, 80, 62), Color8(119, 92, 85),
+]
+const HAIR_COLOURS: Array[Color] = [
+	Color8(143, 64, 41), Color8(72, 59, 58), Color8(34, 34, 34),
+	Color8(197, 96, 37), Color8(216, 165, 125), Color8(211, 191, 169),
+]
+## Appearance key → its presets, in payload order.
+const LOOK_OPTIONS: Dictionary = {"skin": SKIN_TONES, "hair": HAIR_COLOURS}
+
 ## Item id → how it draws. `style` picks the draw routine; colours are the
 ## item's palette (`main`, optional `trim`).
 const GEAR_VISUALS: Dictionary = {
@@ -164,6 +178,56 @@ static func encode_gear(gear: Dictionary) -> Array:
 	return out
 
 
+## Preset indices (`{"skin": i, "hair": j}`) → PaperDoll appearance colours.
+## Missing, non-numeric or out-of-range entries fall back to the default.
+static func appearance_from(choice: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	for key: String in LOOK_OPTIONS:
+		var opts: Array = LOOK_OPTIONS[key]
+		var i: int = look_index(choice, key)
+		if i > 0:
+			out[key] = opts[i]
+	return out
+
+
+## The validated preset index for `key` in `choice` (0 when invalid).
+static func look_index(choice: Dictionary, key: String) -> int:
+	var opts: Array = LOOK_OPTIONS.get(key, [])
+	var v: Variant = choice.get(key, 0)
+	if not (v is int or v is float):
+		return 0
+	var i: int = int(v)
+	return i if i >= 0 and i < opts.size() else 0
+
+
+## A save-like object's appearance colours (reads `hero_appearance` via `get()`).
+static func appearance_of(save: Object) -> Dictionary:
+	if save == null:
+		return {}
+	var v: Variant = save.get("hero_appearance")
+	return appearance_from(v if v is Dictionary else {})
+
+
+## Preset indices → the tail of the gear payload (one int per `LOOK_OPTIONS` key).
+static func encode_look(choice: Dictionary) -> Array:
+	var out: Array = []
+	for key: String in LOOK_OPTIONS:
+		out.append(look_index(choice, key))
+	return out
+
+
+## The look tail of a gear payload (after the `VISIBLE_SLOTS` ids) → preset
+## indices. Untrusted; older peers send no tail, which decodes as the default.
+static func decode_look(payload: Variant) -> Dictionary:
+	var arr: Array = payload if payload is Array else []
+	var choice: Dictionary = {}
+	var i: int = VISIBLE_SLOTS.size()
+	for key: String in LOOK_OPTIONS:
+		choice[key] = look_index({key: arr[i] if i < arr.size() else 0}, key)
+		i += 1
+	return choice
+
+
 ## RPC payload → gear. Untrusted input: anything that isn't a known item id
 ## becomes "" (nothing drawn), and extra entries are ignored.
 static func decode_gear(payload: Variant) -> Dictionary:
@@ -193,6 +257,11 @@ static func build_frames(gear: Dictionary = {}, appearance: Dictionary = {}) -> 
 		sf.remove_animation("default")
 	_frames_cache[key] = sf
 	return sf
+
+
+## Every animation for a save-like object's own gear and look (the local hero).
+static func frames_for(save: Object) -> SpriteFrames:
+	return build_frames(gear_of(save), appearance_of(save))
 
 
 ## The idle frame as a texture (battle token, portraits).

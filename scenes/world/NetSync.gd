@@ -65,7 +65,8 @@ func recv_identity(payload: Array, is_reply: bool) -> void:
 
 
 ## Co-op avatar gear (GID-137 / TID-561). payload is PaperDoll.encode_gear()
-## output: one item id per visible slot. Reliable — sent on handshake and equip.
+## output (one item id per visible slot) + encode_look() (skin/hair preset indices,
+## TID-562). Reliable — sent on handshake and equip.
 @rpc("any_peer", "reliable", "call_remote")
 func recv_gear(payload: Array) -> void:
 	var sender: int = _sender_id()

@@ -432,7 +432,7 @@ Global CanvasLayer (layer 100, `PROCESS_MODE_ALWAYS`) that provides fade-to-blac
 
 - Shows 3 save slots with per-slot metadata (current map, coins, last_saved timestamp)
 - Occupied slot: **Continue** (loads that slot) + **Delete** (requires confirm dialog)
-- Empty slot: **New Game** (routes to `BiomeSelectionScene`)
+- Empty slot: **New Game** (routes to `HeroAppearanceScene`, then `BiomeSelectionScene`)
 - Back button returns to `MenuScene`
 - Calls `SaveManager.set_active_slot(n)` before any navigation
 
@@ -478,11 +478,21 @@ Overlay (extends Control, emits `closed`) showing volume and accessibility contr
 
 Values apply immediately on change and persist across sessions. Dismissed by Close button, tapping the backdrop, or Escape key.
 
+### HeroAppearanceScene (`scenes/ui/HeroAppearanceScene.gd`) — TID-562
+
+- New Game step before the world picker: skin and hair swatch rows (one Button per
+  `PaperDoll.SKIN_TONES` / `HAIR_COLOURS` preset, selected one ringed) and a live
+  nearest-filtered `PaperDoll.idle_texture` preview.
+- Continue stores `{"skin": i, "hair": j}` in `SaveManager.pending_appearance` and
+  goes to `BiomeSelectionScene`; Back clears it and returns to `SlotSelectScene`.
+  `SaveManager.new_game()` moves the pending choice into the persisted `hero_appearance`.
+- Full-screen Control (not BaseOverlay); rebuilds on resize.
+
 ### BiomeSelectionScene (`scenes/ui/BiomeSelectionScene.gd`)
 
 - Displays one button per biome (Grasslands, Forest, Desert, Scorched, Mountains)
 - On selection: calls `SceneManager.start_new_game_with_biome(biome_id)` then transitions to `WorldScene`
-- Back button → `SlotSelectScene` (not MenuScene directly)
+- Back button → `HeroAppearanceScene` (keeps the pending look)
 - UI scales buttons by viewport height
 
 ### GameOverScene (`scenes/ui/GameOverScene.gd`)
@@ -687,6 +697,7 @@ Recommended fractions: buttons 12–18% width, 5–6% height; font 2–2.5% heig
 | Asset | Path | Notes |
 |---|---|---|
 | MenuScene | `scenes/ui/MenuScene.tscn` | Title screen |
+| HeroAppearanceScene | `scenes/ui/HeroAppearanceScene.tscn` | New-game skin/hair picker (TID-562) |
 | BiomeSelectionScene | `scenes/ui/BiomeSelectionScene.tscn` | New-game biome picker |
 | GameOverScene | `scenes/ui/GameOverScene.tscn` | Death screen |
 | MapEditorScene | `scenes/ui/MapEditorScene.tscn` | Debug/editor tool |

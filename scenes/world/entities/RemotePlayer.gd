@@ -48,6 +48,7 @@ var _is_downed: bool = false
 
 ## The peer's visible gear (GID-137 / TID-561), set by CoopAppearance.
 var _gear: Dictionary = {}
+var _look: Dictionary = {}  # PaperDoll appearance colours (TID-562)
 
 
 ## Called by WorldScene after instantiation. Expected keys: peer_id, x, z.
@@ -58,11 +59,13 @@ func init_from_data(data: Dictionary) -> void:
 	position = Vector3(_target_x, 0.0, _target_z)
 
 
-## Dress the avatar in the peer's gear (slot → item id). Safe before or after _ready.
-func set_gear(gear: Dictionary) -> void:
+## Dress the avatar in the peer's gear (slot → item id) and look (PaperDoll
+## appearance colours). Safe before or after _ready.
+func set_gear(gear: Dictionary, look: Dictionary = {}) -> void:
 	_gear = gear
+	_look = look
 	if _sprite != null:
-		_HeroAnim.wear(_sprite, _PaperDoll.build_frames(_gear))
+		_HeroAnim.wear(_sprite, _PaperDoll.build_frames(_gear, _look))
 
 
 ## Apply the peer's display name + color (TID-342). Safe before or after _ready.
@@ -74,7 +77,7 @@ func set_player_identity(display_name: String, color: Color) -> void:
 
 
 func _ready() -> void:
-	_sprite = _AvatarSprite.build(_gear)
+	_sprite = _AvatarSprite.build(_gear, _look)
 	add_child(_sprite)
 	_SpriteOutline.apply(_sprite)
 	_SpriteOutline.apply_xray(_sprite)

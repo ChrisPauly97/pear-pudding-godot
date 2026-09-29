@@ -13,11 +13,12 @@ const _PaperDoll = preload("res://game_logic/character/PaperDoll.gd")
 const PIXEL_SIZE: float = 0.05
 
 
-## Build and return a configured AnimatedSprite3D wearing `gear` (slot → item id).
+## Build and return a configured AnimatedSprite3D wearing `gear` (slot → item id)
+## with PaperDoll `appearance` colours.
 ## The sprite is not yet added to the scene tree — caller must add_child() it.
-static func build(gear: Dictionary = {}) -> AnimatedSprite3D:
+static func build(gear: Dictionary = {}, appearance: Dictionary = {}) -> AnimatedSprite3D:
 	var sprite := AnimatedSprite3D.new()
-	sprite.sprite_frames = _PaperDoll.build_frames(gear)
+	sprite.sprite_frames = _PaperDoll.build_frames(gear, appearance)
 	sprite.pixel_size = PIXEL_SIZE
 	_SpriteRegistry.apply_billboard_flags(sprite)
 	sprite.shaded = false

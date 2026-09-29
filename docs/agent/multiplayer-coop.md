@@ -1735,8 +1735,13 @@ NetSync like the other coop modules) makes remote avatars wear each peer's gear.
 - **Wire:** `NetSync.recv_gear(payload)` — reliable, any_peer. Payload is
   `PaperDoll.encode_gear()`: one item id per `PaperDoll.VISIBLE_SLOTS` entry
   (armor, shoulders, weapon, offhand, trinket, helmet, boots — new slots are
-  appended, so an older peer's shorter payload decodes with them empty). `decode_gear()` treats it as
-  untrusted: non-strings and ids missing from `GEAR_VISUALS` become "".
+  appended, so an older peer's shorter payload decodes with them empty), then
+  `PaperDoll.encode_look()`: the sender's skin/hair preset indices (TID-562).
+  `decode_gear()` treats it as untrusted: non-strings and ids missing from
+  `GEAR_VISUALS` become "" and the look tail is ignored; `decode_look()` reads the
+  tail, and any missing or out-of-range index decodes as the default look.
+  `CoopAppearance` keeps `_remote_look` beside `_remote_gear` and passes both to
+  `RemotePlayer.set_gear(gear, look)`.
 - **When sent:** alongside every identity packet
   (`CoopSession._send_local_identity` → `send_local_gear(target)`), so the
   initiator's broadcast and each reply carry gear; and on every

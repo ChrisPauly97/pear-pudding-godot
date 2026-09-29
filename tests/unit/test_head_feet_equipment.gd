@@ -1,5 +1,6 @@
 ## Unit tests for the helmet and boots equipment slots (GID-137 / TID-563):
 ## SaveManager slot CRUD, persisted fields, and the WeaponRegistry items.
+## Also the TID-562 appearance hand-off from the New Game picker.
 extends "res://tests/framework/test_case.gd"
 
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
@@ -47,3 +48,13 @@ func test_registry_has_three_of_each() -> void:
 		for id: String in WeaponRegistry.get_by_slot(slot):
 			var w: WeaponData = WeaponRegistry.get_weapon(id)
 			assert_true(w.battle_effect_type != "" and w.battle_effect_value > 0, "%s has no effect" % id)
+
+
+func test_new_game_adopts_the_pending_appearance() -> void:
+	# TID-562: the New Game picker's choice becomes the saved look, once.
+	_sm.pending_appearance = {"skin": 2, "hair": 1}
+	_sm.new_game()
+	assert_eq(int(_sm.hero_appearance.get("skin", -1)), 2)
+	assert_eq(_sm.pending_appearance.size(), 0)
+	assert_true(SaveManagerScript.PERSISTED_FIELDS.has("hero_appearance"))
+	assert_false(SaveManagerScript.PERSISTED_FIELDS.has("pending_appearance"))
