@@ -146,7 +146,12 @@ func _on_hand_card_tap(card: CardInstance) -> void:
 					and _battle._state.players[_battle._opp_idx()].board.get_cards().is_empty():
 				_battle._show_card_inspect(card)
 				return
+			var auto: Dictionary = _battle.targeting.auto_target(card, is_friendly_targeted)
 			_battle.targeting._enter_targeting_mode(card, is_friendly_targeted)
+			if auto.has("card"):
+				_battle.targeting._on_target_chosen_card(auto["card"] as CardInstance)
+			elif auto.has("hero"):
+				_battle.targeting._on_target_chosen_hero(int(auto["hero"]))
 			return
 		_show_cast_confirm(card)
 		# gdlint:ignore = max-returns

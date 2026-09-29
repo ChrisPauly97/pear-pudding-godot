@@ -450,6 +450,24 @@ All victory, defeat, and puzzle overlays live in `BattleResultUI` (extends RefCo
 - **Selection & readability polish:** board minions that can attack this turn get a green rim; the selected attacker lifts (scale 1.06, yellow rim). Tapping the selected attacker again, tapping an empty own slot, or Escape cancels the selection (`BattleInput.clear_attacker_selection()`); tapping an exhausted minion grey-flashes it. Hand cards lift/enlarge ×1.25 on hover (`_bind_hover_lift`, bottom-centre pivot, z raised). A long-press inspect no longer also fires the release-tap (play / slot-select) underneath the overlay.
 - Listens to `GameBus` signals to refresh UI after each state change
 
+### Input Flow — Shortcuts, One-Tap Spells, Auto End Turn (GID-135 / TID-530)
+
+- **One-tap spells** (`BattleTargeting.auto_target(card, friendly)`, called from `BattleInput._on_hand_card_tap`
+  before targeting mode): a friendly-targeted spell with exactly one friendly unit, or an enemy-targeted spell
+  with exactly one legal target (enemy units, plus the enemy hero for `deal_damage_single`), casts at it
+  immediately. Real time: enemy-targeted spells go at the focus target (`rt.focus_target`, else the focused
+  enemy hero for `deal_damage_single`), like WoW. Team PvP / co-op always ask.
+- **Keys** (`scenes/battle/modules/BattleShortcuts.gd`, `BattleScene.shortcuts`): number keys play hand
+  cards as a tap would — `1`–`9` turn-based; in real time they start after the skill bar keys
+  (`first_hand_key()`, 1–3 are skills). `Space` ends the turn (turn-based). `Q` / `E` are the potion quick slots.
+- **Auto end turn** (setting `auto_end_turn`, default on, Settings → Battle): solo turn-based only (not PvP,
+  co-op, team, puzzle, scripted or real time). `BattleScene._refresh_all()` ends with
+  `shortcuts.check_auto_end()`; when `has_move()` is false (no affordable card, no ready attacker with attack,
+  no unused hero power — potions don't count) and no selection is in progress, End Turn reads "Ending turn…"
+  and the turn ends after `AUTO_END_DELAY` (1.2 s) if still nothing is playable.
+- The WoW spell queue (`RealtimeCombat.in_queue_window`, `spell_queue` knob) predates this task.
+- Smoke: `tests/battle_input_flow_smoke.gd` (Space, auto end; in CI).
+
 ### Status Effects Data Model (TID-060)
 
 `CardInstance` and `HeroState` each carry a `status_effects: Dictionary` (key: effect_id, value: int duration/stacks):

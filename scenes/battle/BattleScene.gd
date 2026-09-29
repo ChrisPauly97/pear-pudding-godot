@@ -12,6 +12,7 @@ const _BattleTutorials = preload("res://scenes/battle/modules/BattleTutorials.gd
 const _BattleArena = preload("res://scenes/battle/modules/BattleArena.gd")
 const _BattleTargeting = preload("res://scenes/battle/modules/BattleTargeting.gd")
 const _BattleInput = preload("res://scenes/battle/modules/BattleInput.gd")
+const _BattleShortcuts = preload("res://scenes/battle/modules/BattleShortcuts.gd")
 const _BattleRealtime = preload("res://scenes/battle/modules/BattleRealtime.gd")
 const ScriptedBattleData = preload("res://game_logic/battle/ScriptedBattleData.gd")
 const BasicAI = preload("res://ai/BasicAI.gd")
@@ -92,6 +93,7 @@ var tutorials: _BattleTutorials
 var arena: _BattleArena
 var targeting: _BattleTargeting
 var card_input: _BattleInput
+var shortcuts: _BattleShortcuts
 var realtime: _BattleRealtime
 # Listen-server: client deck relayed in challenge handshake (host builds players[1]).
 var pvp_opponent_deck: Array = []
@@ -312,6 +314,9 @@ func _ensure_battle_modules() -> void:
 	realtime = _BattleRealtime.new(self)
 	realtime.name = "BattleRealtime"
 	add_child(realtime)
+	shortcuts = _BattleShortcuts.new(self)
+	shortcuts.name = "BattleShortcuts"
+	add_child(shortcuts)
 
 func _process(delta: float) -> void:
 	if battle_net != null:
@@ -843,6 +848,7 @@ func _refresh_all() -> void:
 		battle_net._refresh_team_panels()
 	if realtime != null:
 		realtime.refresh_extra_views()  # enemies that joined a real-time fight
+	shortcuts.check_auto_end()  # TID-530
 
 func _refresh_player_board() -> void:
 	if _local_player_idx < 0:
