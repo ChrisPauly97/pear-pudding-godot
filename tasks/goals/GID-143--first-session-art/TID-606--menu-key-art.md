@@ -2,7 +2,7 @@
 
 **Goal:** GID-143
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -22,12 +22,15 @@ BID-067: flat menu background. User chose a live dusk view of Madrian with a sta
 
 ## Plan
 
-_Written during Plan phase._
+Deviation (reported to the user): an in-engine capture of Madrian at twilight with a slow Ken-Burns drift instead of a live world render — a live view would boot WorldScene inside the menu. Low graphics: still image.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `tools/capture_menu_keyart.gd` (xvfb capture, HUD / Label3D / beacons hidden).
+- `assets/textures/ui/menu_keyart.jpg` (1920×1080, q88, 380 KB).
+- `MenuScene.gd`: `_build_backdrop()`, `_drift_keyart()`; layout sizes the backdrop.
+- Verified in an xvfb capture of the menu.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`ui-and-scene-management.md` "Main menu key art".

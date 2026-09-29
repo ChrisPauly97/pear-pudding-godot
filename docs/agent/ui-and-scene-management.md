@@ -698,3 +698,13 @@ Recommended fractions: buttons 12–18% width, 5–6% height; font 2–2.5% heig
 | `SceneManager.gd` | `autoloads/SceneManager.gd` | Autoload singleton |
 | UI theme / font | `assets/` | Optional custom theme `.tres`; falls back to Godot default |
 | Title art | `assets/textures/` | Background for MenuScene (optional) |
+
+
+## Main menu key art (GID-143 / TID-606)
+
+`MenuScene._build_backdrop()` puts `assets/textures/ui/menu_keyart.jpg` (an in-engine capture of Madrian at twilight —
+HUD, name tags and quest beacons hidden — made by `tools/capture_menu_keyart.gd` under xvfb, see its header) behind
+the buttons with a dark vertical band (`GradientTexture2D`) for legibility. Medium/High graphics add a 40 s
+Ken-Burns drift (`_drift_keyart`); Low keeps it still. A truly live world view was considered and rejected: it
+would boot WorldScene (player, HUD, co-op modules, save state) inside the menu. Re-capture after big world-look
+changes.
