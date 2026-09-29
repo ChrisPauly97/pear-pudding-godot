@@ -354,8 +354,8 @@ func _add_pack_followers(etype: String) -> void:
 	for i: int in pack.size():
 		var tex: Texture2D = _SpriteRegistry.pack_member_texture(pack[i])
 		var follower: Sprite3D = _SpriteRegistry.make_billboard(tex, tex, height)
-		var ang: float = PI * 0.75 + float(i) * (PI * 0.5) / maxf(1.0, float(pack.size() - 1))
-		follower.position += Vector3(cos(ang), 0.0, sin(ang)) * 0.75
+		var ang: float = PI * 0.5 + float(i) * PI / maxf(1.0, float(pack.size() - 1))
+		follower.position += Vector3(cos(ang), 0.0, sin(ang)) * 1.1
 		follower.name = "PackFollower%d" % i
 		add_child(follower)
 		_SpriteOutline.apply(follower)
