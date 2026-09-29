@@ -403,7 +403,7 @@ frame only. `SpriteRegistry.named_npc_texture(npc_id)` (`_NAMED_NPC_TEXTURES`) m
 and trainer has one.
 
 World heights are unchanged (`HEIGHT_SMALL_UNDEAD`); `SpriteRegistry.make_billboard` scales to them. The old
-`enemy_undead*.png` files stay on disk (credited) but are no longer referenced.
+The old `enemy_undead*.png` files were deleted in GID-144 / TID-609.
 
 ## Third-party art inventory & generation roadmap (GID-143 / TID-607)
 
@@ -431,7 +431,7 @@ GID-143:
 | Card art: ghost / skeleton / zombie / ghoul | `cards/card_*.png` | Kenney / 0x72 · CC0 | card-portrait crops of the generated characters | B2 |
 | Spell runes ×4 | `cards/rune_{dawn,dusk,ember,ash}.png` | game-icons.net · **CC BY 3.0** | `generate_sprites.py` glyph drawer (sun, moon, flame, cloud) | B2 |
 | HUD icons ×15 | `assets/icons/hud/*.svg` | game-icons.net · **CC BY 3.0** | hand-authored SVG set or pixel icons at 32×32 | B4 |
-| Dead art (unreferenced) | `characters/enemy_undead*.png` (pre-GID-143 undead), `pixel_art/wizard_walk_*_pixel.png` | 0x72 / hand-made | delete + drop from CREDITS | B0 |
+| ~~Dead art~~ | `enemy_undead{,_walk_*}.png`, `pixel_art/wizard_walk_*_pixel.png` | — | **deleted (GID-144 / TID-609)** | B0 ✓ |
 
 Already original: terrain tiles and grass tufts (`generate_hd_terrain.py`), every prop / landmark
 (`generate_sprites.py`, incl. GID-143 graveyard set), the paper-doll hero (`PaperDoll.gd`), skeleton, zombie and
