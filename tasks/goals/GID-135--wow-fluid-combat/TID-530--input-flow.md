@@ -2,7 +2,7 @@
 
 **Goal:** GID-135
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-546
 
 ## Lock
@@ -38,12 +38,21 @@ moot in real time. Hook: `BattleRealtime.on_cooldown()` / `_can_local_act()`.
 
 ## Plan
 
-_Written during Plan phase._
+1. One-tap spells: `BattleTargeting.auto_target` — one legal target casts at once; real time
+   uses the focus target.
+2. New `BattleShortcuts` module (BattleInput is near the line cap): number keys for hand cards
+   (after the skill keys in real time), Space = end turn.
+3. Auto end turn setting (default on) for solo turn-based fights with a 1.2 s grace.
+4. Spell queue already shipped (`in_queue_window`).
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `scenes/battle/modules/BattleShortcuts.gd` (+ uid); `BattleScene` (module, one call at the end
+  of `_refresh_all`); `BattleTargeting.auto_target`; `BattleInput` (uses it); `SettingsScene`
+  (Auto End Turn toggle).
+- New `tests/battle_input_flow_smoke.gd`, added to CI's scene smoke list (verified to fail when
+  `has_move()` always reports a move).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `battle-system.md` → Input Flow.

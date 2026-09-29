@@ -1,5 +1,7 @@
 # Card Cantrips — Your Deck Shapes the World (GID-065)
 
+> **GID-141:** both cantrips are learned from the Gravedigger (Dig at level 10, Phase at level 12, `UnlockLadder`). Their HUD buttons are hidden and activation is refused until learned; see `starter-zone-and-training.md`.
+
 ## Key Features
 
 - **Ghost Phase**: player phases through one TILE_WALL tile in the facing direction when the deck contains ≥4 Ghost-family cards. 15-second cooldown.

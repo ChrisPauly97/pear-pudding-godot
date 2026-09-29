@@ -28,11 +28,14 @@ const LINES: Dictionary = {
 	"ally_ready": "Your ally is ready — send it in!",
 }
 
-## Only Maiteln as Mentor, and only while `CombatOnboarding` still has this
-## player on the real-time ramp (`stage >= 0`; -1 = graduated to the full
-## fight — see `game_logic/battle/CombatOnboarding.gd`).
-static func is_eligible(active_companion: String, onboarding_stage: int) -> bool:
-	return active_companion == "maiteln" and onboarding_stage >= 0
+## Levels up to which Maiteln still coaches (GID-141: he joins as a companion
+## at level 6, after the combat unlocks, so the coaching window is by level).
+const COACH_MAX_LEVEL: int = 12
+
+## Only Maiteln as Mentor (learned as companion), and only while the player is
+## still new (level ≤ COACH_MAX_LEVEL).
+static func is_eligible(active_companion: String, player_level: int) -> bool:
+	return active_companion == "maiteln" and player_level <= COACH_MAX_LEVEL
 
 ## True once `elapsed` has cleared the startup grace period and the last bark
 ## (if any, `last_bark_at` < 0 means none yet) is far enough behind.

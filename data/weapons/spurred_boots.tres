@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://6qrxqzya0owp"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_spurred_boots"]
+
+[resource]
+script = ExtResource("1_spurred_boots")
+id = "spurred_boots"
+display_name = "Spurred Boots"
+description = "Blackened boots with cruel iron spurs. Your hero gains +1 attack."
+slot = "boots"
+battle_effect_type = "passive_atk"
+battle_effect_value = 1
+injected_card_id = ""
+injected_card_count = 0

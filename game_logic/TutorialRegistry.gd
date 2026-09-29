@@ -39,9 +39,11 @@ const _DATA: Dictionary = {
 				+ "button.\n\nTap ✕ Cancel at the top of the screen to back out of a spell or an attack."),
 	},
 	"spire_intro": {
-		"title": "The Endless Spire",
-		"body": ("Each floor holds one enemy. Defeat it and choose one of three cards to add to your run deck — your "
-				+ "permanent collection stays untouched.\n\nHigher floors offer rarer cards. How far can you climb?"),
+		"title": "The Rifts",
+		"body": ("Every land has its own rift. Pick a tier, then fight five floors with your own deck — the last "
+				+ "holds a guardian. Between floors take a boon or a card; they last this run only.\n\nBeat the "
+				+ "guardian to open the next tier. The first clear of each tier teaches you something (XP); "
+				+ "repeating it pays coins and a card, not experience."),
 	},
 	"night_hunts": {
 		"title": "Night Hunts",
@@ -52,6 +54,13 @@ const _DATA: Dictionary = {
 		"title": "Party",
 		"body": ("The Party button gathers everything you share with your co-op session in one place: the roster, loot "
 				+ "rules, the shared stash, the leaderboard, Ghost Duels, Team Duel, and Dungeon Crawl."),
+	},
+	"veterancy": {
+		"title": "Veteran Cards",
+		"body": ("Each card in your collection remembers its own fights. Cards that land kills or survive battles "
+				+ "earn veterancy ranks — a new title, chevrons on the card, and a permanent bonus to its health "
+				+ "(and, at higher ranks, attack).\n\nYou can own several copies of a card; only the copy that "
+				+ "fought ranks up, so your veterans are worth keeping in the deck."),
 	},
 	"soulbinding": {
 		"title": "Soulbinding",

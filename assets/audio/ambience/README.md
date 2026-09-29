@@ -32,7 +32,7 @@ mono or stereo, a few seconds to a minute.
 | `crickets.ogg` | time | night, grasslands/desert/outdoor towns |
 | `owls.ogg` | time | night, forest/mountains |
 
-## Shipped files (GID-141 / TID-589)
+## Shipped files (GID-145 / TID-616)
 
 Every slot except `owls.ogg` has a real CC0 loop (sources in `CREDITS.md`); owls
 still use the `AmbienceGen` synth. The five biome beds are the same wind loop

@@ -138,16 +138,20 @@
 | [GID-132](goals/GID-132--feel-and-finish/goal.md) | Feel & Finish | done | 4 / 4 |
 | [GID-133](goals/GID-133--outlines-and-rain/goal.md) | Sprite Outlines & Rain Detail | done | 4 / 4 |
 | [GID-134](goals/GID-134--world-look-polish/goal.md) | World Look Polish | done | 10 / 10 |
-| [GID-135](goals/GID-135--wow-fluid-combat/goal.md) | WoW-Fluid Card Combat | in-progress | 16 / 22 |
-| [GID-136](goals/GID-136--wow-rpg-loop/goal.md) | WoW-Style RPG Loop | in-progress | 3 / 11 |
-| [GID-137](goals/GID-137--paper-doll-hero/goal.md) | Paper-Doll Player Hero | in-progress | 4 / 6 |
+| [GID-135](goals/GID-135--wow-fluid-combat/goal.md) | WoW-Fluid Card Combat | in-progress | 20 / 22 |
+| [GID-136](goals/GID-136--wow-rpg-loop/goal.md) | WoW-Style RPG Loop | in-progress | 10 / 11 |
+| [GID-137](goals/GID-137--paper-doll-hero/goal.md) | Paper-Doll Player Hero | done | 7 / 7 |
 | [GID-138](goals/GID-138--seamless-story-realm/goal.md) | Seamless Story Realm | done | 10 / 10 |
-| [GID-139](goals/GID-139--combat-momentum/goal.md) | Combat Momentum — Always a Button to Press | in-progress | 3 / 5 |
+| [GID-139](goals/GID-139--combat-momentum/goal.md) | Combat Momentum — Always a Button to Press | done | 5 / 5 |
 | [GID-140](goals/GID-140--quest-log-wayfinding/goal.md) | Quest Log & Wayfinding | done | 6 / 6 |
-| [GID-141](goals/GID-141--audio-polish/goal.md) | Audio Polish — Real SFX, Ambience & Siege Music | done | 4 / 4 |
-| [GID-142](goals/GID-142--living-overworld/goal.md) | Living Overworld — Rolling Terrain, Trees, Occluded Silhouette | done | 3 / 3 |
-| [GID-143](goals/GID-143--wildlife/goal.md) | Wildlife — Ambient Critters, Cactus Worms, Imbued Stags | done | 3 / 3 |
-| [GID-144](goals/GID-144--backpack-ux/goal.md) | Backpack / Inventory UX | done | 1 / 1 |
+| [GID-141](goals/GID-141--starter-zone-trainer-unlocks/goal.md) | Starter Zone & Trainer-Taught Unlocks | in-progress | 12 / 13 |
+| [GID-142](goals/GID-142--biome-rifts/goal.md) | Spire → Biome Rifts | done | 6 / 6 |
+| [GID-143](goals/GID-143--first-session-art/goal.md) | First-Session Art Pass | done | 6 / 6 |
+| [GID-144](goals/GID-144--generated-art-replacement/goal.md) | Generated Art Replacement | done | 5 / 5 |
+| [GID-145](goals/GID-145--audio-polish/goal.md) | Audio Polish — Real SFX, Ambience & Siege Music | done | 4 / 4 |
+| [GID-146](goals/GID-146--living-overworld/goal.md) | Living Overworld — Rolling Terrain, Trees, Occluded Silhouette | done | 3 / 3 |
+| [GID-147](goals/GID-147--wildlife/goal.md) | Wildlife — Ambient Critters, Cactus Worms, Imbued Stags | done | 3 / 3 |
+| [GID-148](goals/GID-148--backpack-ux/goal.md) | Backpack / Inventory UX | done | 1 / 1 |
 
 ## Backlog
 
@@ -157,16 +161,30 @@ files in `tasks/archive/backlog/`.
 | ID | Summary | Category | Discovered During |
 |----|---------|----------|-------------------|
 | [BID-015](backlog/BID-015--no-localization-infrastructure.md) | No localization / translation infrastructure; all UI strings hardcoded — **out of scope for v1** | spec-gap | GID-070 research |
-| [BID-024](backlog/BID-024--coop-map-has-no-enemies-chests.md) | Co-op map (madrian) has no enemies/chests, so GID-096 world sync is dormant in practice (system verified by smoke test) — **being addressed by GID-098** (multi-map co-op story) and **GID-102 / TID-380** (shared procedural dungeon crawl with real enemies/chests) | content-gap | GID-096 |
 | [BID-055](backlog/BID-055--worldscene-god-object.md) | `WorldScene.gd` god-object decomposition, slice 1/3 done (co-op/net cluster folded into `CoopSession.gd`, line-ceiling guardrail added); original 9154/401 census was stale — see file's Progress section for real numbers and slices 2-3 (`_spawn_*`, `_start_*`) | code-smell | GID-123 research |
 | [BID-061](backlog/BID-061--spec-says-no-xp-system.md) | Spec says "No XP system planned" but XP/levels/skill points shipped (GID-030) | spec-gap | Tracked by TID-539 |
-| [BID-064](backlog/BID-064--no-owl-ambience-loop.md) | Night owl ambience layer still synthesized (no clean CC0 loop found) | content-gap | GID-141 / TID-589 |
-| [BID-063](backlog/BID-063--coop-still-on-named-town-maps.md) | Co-op sessions still start on the named town maps, not the stitched overworld (GID-138) | design-inconsistency | TID-571 |
+| [BID-073](backlog/BID-073--no-owl-ambience-loop.md) | Night owl ambience layer still synthesized (no clean CC0 loop found) | content-gap | GID-145 / TID-616 |
+| [BID-077](backlog/BID-077--packs-keep-a-leader-hero.md) | Pack encounters still have an enemy hero (no leaderless 'clear the board' packs) | design-gap | TID-541 |
 
 ## Resolved Backlog
 
 | ID | Summary | Category | Discovered During |
 |----|---------|----------|-------------------|
+| [BID-078](archive/backlog/BID-078--enemy-spells-never-resolve.md) | Enemy spell cards never resolve (turn-based discards them, real time never picks them) | bug | Resolved: enemy spells resolve in both modes |
+| [BID-075](archive/backlog/BID-075--coop-loot-no-gear-rolls.md) | Co-op session loot grants gear without a rarity / item-level roll | design-inconsistency | Resolved: session characters carry gear rolls |
+| [BID-076](archive/backlog/BID-076--appearance-fixed-after-new-game.md) | The hero's skin / hair can only be chosen at New Game | content-gap | Resolved: Change Look on the Character screen |
+| [BID-074](archive/backlog/BID-074--veterancy-never-taught.md) | Veterancy is never taught or announced | content-gap | Resolved: rank-up toast + one-time popup |
+| [BID-024](archive/backlog/BID-024--coop-map-has-no-enemies-chests.md) | Co-op map (madrian) has no enemies/chests, so GID-096 world sync is dormant in practice (system verified by smoke test) — **being addressed by GID-098** (multi-map co-op story) and **GID-102 / TID-380** (shared procedural dungeon crawl with real enemies/chests) | content-gap | Resolved: co-op now lands on the overworld, which has enemies and chests (BID-063) |
+| [BID-063](archive/backlog/BID-063--coop-still-on-named-town-maps.md) | Co-op sessions still start on the named town maps, not the stitched overworld (GID-138) | design-inconsistency | Resolved: co-op lands on `main` (BID-063 fix) |
+| [BID-072](archive/backlog/BID-072--generate-hud-icons.md) | Replace game-icons.net HUD icons (B4) | design-inconsistency | Resolved: GID-144 TID-613 |
+| [BID-071](archive/backlog/BID-071--generate-objects.md) | Replace third-party chest, door, mimic and horse (B3) | design-inconsistency | Resolved: GID-144 TID-612 |
+| [BID-070](archive/backlog/BID-070--generate-card-art.md) | Replace third-party card art and spell runes (B2) | design-inconsistency | Resolved: GID-144 TID-611 |
+| [BID-069](archive/backlog/BID-069--generate-world-characters.md) | Replace third-party world characters with generated sprites (batch B1) | design-inconsistency | Resolved: GID-144 TID-610 |
+| [BID-068](archive/backlog/BID-068--dead-art-files.md) | Unreferenced art files still shipped (old undead, wizard walk frames) | design-inconsistency | Resolved: GID-144 TID-609 |
+| [BID-065](archive/backlog/BID-065--placeholder-starter-sprites.md) | Starter enemies (undead) and townsfolk use placeholder-grade sprites | design-inconsistency | Resolved: GID-143 TID-603/604 (generated undead + named NPCs; generic townsfolk → BID-069) |
+| [BID-066](archive/backlog/BID-066--graveyard-dressing.md) | Madrian graveyard / sealed crypt have no graveyard dressing | content-gap | Resolved: GID-143 TID-605 |
+| [BID-067](archive/backlog/BID-067--menu-key-art.md) | Main menu has no key art | design-inconsistency | Resolved: GID-143 TID-606 |
+| [BID-064](archive/backlog/BID-064--tid-535-overlaps-gid-140.md) | GID-136 / TID-535 overlapped shipped GID-140 | design-inconsistency | Resolved: TID-535 superseded by GID-140 + TID-533 |
 | [BID-062](archive/backlog/BID-062--minion-placement-bypasses-gcd-queue.md) | Real-time minion card placement bypassed the GCD/spell queue | design-inconsistency | Resolved: placement routed through `run_cast` as an instant play (`BattleTargeting.place_minion`) |
 | [BID-060](archive/backlog/BID-060--unshaded-world-ignores-lights.md) | Grass, props, landmarks and WorldItem are unshaded, so they ignore sun shadows and point lights — resolved on High by GID-131 / TID-508 | design-inconsistency | GID-129 research |
 | [BID-053](archive/backlog/BID-053--gdlint-debt-advisory-only.md) | CI `gdlint` job was `continue-on-error` — all 959 problems cleared (reorder, line wraps, renames, pragmas for oversized files); job now gating with gdtoolkit pinned | code-smell | GID-123 / TID-466 |

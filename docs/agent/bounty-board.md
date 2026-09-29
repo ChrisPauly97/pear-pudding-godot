@@ -1,5 +1,7 @@
 # Bounty Board Contracts
 
+> **GID-141:** the board opens only after the Bounty Master teaches Bounty Contracts (level 8, `UnlockLadder.FEAT_BOUNTIES`).
+
 ## Key Features
 
 - Three seeded daily bounty contracts per in-game day, offered at town bounty boards.

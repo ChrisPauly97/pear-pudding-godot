@@ -6,6 +6,7 @@ signal coins_changed(new_amount: int)
 
 const AchievementRegistry = preload("res://game_logic/AchievementRegistry.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
+const _VeterancyUtil = preload("res://game_logic/VeterancyUtil.gd")
 const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _CardInstanceUtil = preload("res://game_logic/CardInstanceUtil.gd")
 const _SpireFloorGen = preload("res://game_logic/spire/SpireFloorGen.gd")
@@ -13,8 +14,13 @@ const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 const _SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
 const _SaveFile = preload("res://game_logic/save/SaveFile.gd")
 const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
+const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
+const _SkillBar = preload("res://game_logic/battle/SkillBar.gd")
+const _CombatOnboarding = preload("res://game_logic/battle/CombatOnboarding.gd")
 const _SaveGarden = preload("res://autoloads/save_manager/SaveGarden.gd")
+const _SaveGear = preload("res://autoloads/save_manager/SaveGear.gd")
 const _SaveBounties = preload("res://autoloads/save_manager/SaveBounties.gd")
+const _SaveQuests = preload("res://autoloads/save_manager/SaveQuests.gd")
 const _SaveLoadouts = preload("res://autoloads/save_manager/SaveLoadouts.gd")
 const _SaveSpire = preload("res://autoloads/save_manager/SaveSpire.gd")
 const _SaveSiege = preload("res://autoloads/save_manager/SaveSiege.gd")
@@ -30,6 +36,7 @@ const MAX_LOADOUTS: int = 5
 const _OWNED_BY_SLOT: Dictionary = {
 	"armor": "owned_armor", "ring": "owned_rings", "trinket": "owned_trinkets",
 	"offhand": "owned_offhands", "shoulders": "owned_shoulders",
+	"helmet": "owned_helmets", "boots": "owned_boots",
 }
 
 ## Every persisted field, mapped to the value a missing or malformed entry falls
@@ -55,6 +62,8 @@ const PERSISTED_FIELDS: Dictionary = {
 	"equipped_armor": "", "equipped_ring": "", "equipped_trinket": "", "equipped_offhand": "",
 	"owned_armor": [], "owned_rings": [], "owned_trinkets": [], "owned_offhands": [],
 	"equipped_shoulders": "", "owned_shoulders": [],
+	"hero_appearance": {}, "gear_rolls": {},
+	"equipped_helmet": "", "owned_helmets": [], "equipped_boots": "", "owned_boots": [],
 	"collected_scrolls": [], "settings": {},
 	"achievement_progress": {}, "unlocked_achievements": [],
 	"visited_biomes": [], "visited_dungeon_rooms": [],
@@ -62,6 +71,7 @@ const PERSISTED_FIELDS: Dictionary = {
 	"learned_abilities": [],
 	"magic_type": "", "corruption_points": 0, "redemption_points": 0,
 	"spire_run": {"active": false}, "spire_best_floor": 0, "solved_puzzles": [],
+	"rift_best_tiers": {}, "rift_first_clears": [],
 	"world_events": {}, "weather": {"id": "", "duration": 0.0, "biome_id": 0},
 	"treasure_fragments": 0, "active_treasure": {}, "treasures_completed": 0,
 	"activated_waystones": [], "bestiary": {}, "bestiary_complete_rewarded": false,
@@ -69,12 +79,14 @@ const PERSISTED_FIELDS: Dictionary = {
 	"owned_mounts": [], "active_mount": "", "is_mounted": false,
 	"packs_since_legendary": 0, "active_companion": "", "waypoint": {}, "tracked_quest": "",
 	"bounty_day": 0, "offered_bounties": [], "active_bounties": [],
+	"quests_active": {}, "quests_completed": [],
 	# 0 means "absent" — _restore_derived_fields substitutes IsoConst's default,
 	# which can't be referenced from a const expression (IsoConst is an autoload).
 	"bag_size": 0,
 	"siege": {}, "last_siege_day": 0, "town_discounts": {},
 	"rival_encounters_won": 0, "rival_defeated": false,
 	"garden_plots": [{}, {}, {}], "seeds": {}, "plants": {}, "potions": {},
+	"quick_slots": ["", ""], "hero_hp_frac": 1.0, "foods": {},
 	"captured_signatures": [], "cantrip_cooldowns": {}, "dug_mounds": [],
 	"blight_cleansed_hearts": [], "discovered_landmarks": [],
 	"collected_mana_wells": [], "last_saved": "",
@@ -94,7 +106,9 @@ const REDEMPTION_FLAG_AWARDS: Dictionary = {
 
 ## Feature APIs over the persisted fields (autoloads/save_manager/), built in `_init`.
 var garden: _SaveGarden
+var gear: _SaveGear  # gear rarity / item level rolls (TID-538)
 var bounties: _SaveBounties
+var quests: _SaveQuests
 var decks: _SaveLoadouts
 var spire: _SaveSpire
 var town_siege: _SaveSiege
@@ -168,11 +182,23 @@ var equipped_ring: String = ""
 var equipped_trinket: String = ""
 var equipped_offhand: String = ""
 var equipped_shoulders: String = ""
+var equipped_helmet: String = ""
+var equipped_boots: String = ""
 var owned_armor: Array[String] = []
 var owned_rings: Array[String] = []
 var owned_trinkets: Array[String] = []
 var owned_offhands: Array[String] = []
 var owned_shoulders: Array[String] = []
+var owned_helmets: Array[String] = []
+var owned_boots: Array[String] = []
+
+## Hero look as PaperDoll preset indices, e.g. {"skin": 2, "hair": 1} (TID-562).
+var hero_appearance: Dictionary = {}
+## Item id → {"rarity", "ilvl"} (game_logic/items/GearRolls.gd, TID-538); missing = common ilvl 1.
+var gear_rolls: Dictionary = {}
+## Picked on the New Game appearance screen; new_game() moves it into
+## hero_appearance, so a picker abandoned via Back never leaks into a loaded save.
+var pending_appearance: Dictionary = {}
 
 # World generation — set when starting a new game from the biome selection screen
 var world_seed: int = 42
@@ -218,6 +244,10 @@ var spire_run: Dictionary = {"active": false}
 
 # Best floor reached across all Spire runs (meta-progression, never resets).
 var spire_best_floor: int = 0
+## GID-142: best cleared tier per rift (RiftDefs id → tier).
+var rift_best_tiers: Dictionary = {}
+## TID-599: "<rift>:<tier>" keys whose one-time clear XP has been paid.
+var rift_first_clears: Array[String] = []
 
 # Puzzle shrine IDs the player has solved (rewards awarded once per id).
 var solved_puzzles: Array[String] = []
@@ -271,6 +301,9 @@ var tracked_quest: String = ""
 var bounty_day: int = 0
 var offered_bounties: Array[Dictionary] = []
 var active_bounties: Array[Dictionary] = []
+## Side quests (GID-136 / TID-533): {quest_id: {"progress": [int]}} and turned-in ids.
+var quests_active: Dictionary = {}
+var quests_completed: Array[String] = []
 
 # Siege system
 # Active siege: {town: String, stage: int, hero_hp: int, day_started: int} or {} when none.
@@ -307,6 +340,11 @@ var garden_plots: Array[Dictionary] = []
 var seeds: Dictionary = {}    # seed_id -> count
 var plants: Dictionary = {}   # plant_id -> count
 var potions: Dictionary = {}  # potion_id -> count
+## Potion id per consumable quick slot (Q, E) — see game_logic/battle/QuickSlots.gd (TID-542).
+var quick_slots: Array[String] = ["", ""]
+## Hero HP as a fraction of max, carried between ordinary fights (game_logic/HeroVitality.gd, TID-543).
+var hero_hp_frac: float = 1.0
+var foods: Dictionary = {}  # food_id -> count (HeroVitality.FOODS)
 
 var last_saved: String = ""
 
@@ -332,7 +370,9 @@ var _achievement_dirty: bool = false
 ## `SaveManagerScript.new()` without ever adding it to the tree.
 func _init() -> void:
 	garden = _SaveGarden.new(self)
+	gear = _SaveGear.new(self)
 	bounties = _SaveBounties.new(self)
+	quests = _SaveQuests.new(self)
 	decks = _SaveLoadouts.new(self)
 	spire = _SaveSpire.new(self)
 	town_siege = _SaveSiege.new(self)
@@ -497,11 +537,18 @@ func new_game(head_start: bool = false) -> void:
 	equipped_trinket = ""
 	equipped_offhand = ""
 	equipped_shoulders = ""
+	equipped_helmet = ""
+	equipped_boots = ""
 	owned_armor = []
 	owned_rings = []
 	owned_trinkets = []
 	owned_offhands = []
 	owned_shoulders = []
+	owned_helmets = []
+	owned_boots = []
+	gear_rolls = {}
+	hero_appearance = pending_appearance.duplicate()
+	pending_appearance = {}
 	collected_scrolls = []
 	achievement_progress = {}
 	unlocked_achievements = []
@@ -512,10 +559,16 @@ func new_game(head_start: bool = false) -> void:
 	level = 15 if head_start else 1
 	skill_points = 14 if head_start else 0
 	unlocked_skills = []
+	# GID-141: a new game knows only Strike; everything else is taught by trainers.
+	# Head start (debug) learns the whole unlock ladder.
+	learned_abilities.assign(_UnlockLadder.all_ids() if head_start else [])
+	skill_bar = []
 	magic_type = ""
 	corruption_points = 0
 	redemption_points = 0
 	spire_run = {"active": false}
+	rift_best_tiers = {}
+	rift_first_clears = []
 	solved_puzzles = []
 	world_events = {}
 	weather = {}
@@ -539,6 +592,8 @@ func new_game(head_start: bool = false) -> void:
 	bounty_day = 0
 	offered_bounties = []
 	active_bounties = []
+	quests_active = {}
+	quests_completed = []
 	siege = {}
 	last_siege_day = 0
 	town_discounts = {}
@@ -549,6 +604,9 @@ func new_game(head_start: bool = false) -> void:
 	seeds = {}
 	plants = {}
 	potions = {}
+	quick_slots = ["", ""]
+	hero_hp_frac = 1.0
+	foods = {}
 	captured_signatures = []
 	cantrip_cooldowns = {}
 	dug_mounds = []
@@ -654,6 +712,17 @@ func adopt_session_character(record: Dictionary) -> void:
 			var aid_str: String = str(aid)
 			if aid_str != "" and not owned_armor.has(aid_str):
 				owned_armor.append(aid_str)
+	# Gear rarity / item-level rolls of the session's own equipment (BID-075).
+	var raw_rolls: Variant = record.get("gear_rolls", {})
+	gear_rolls = (raw_rolls as Dictionary).duplicate(true) if raw_rolls is Dictionary else {}
+	# Trainer-taught unlocks and rift progress belong to the character too, or a
+	# session forgets what was learned and re-pays first-clear XP every session.
+	var raw_learned: Variant = record.get("learned_abilities", [])
+	learned_abilities.assign(raw_learned if raw_learned is Array else [])
+	var raw_best: Variant = record.get("rift_best_tiers", {})
+	rift_best_tiers = (raw_best as Dictionary).duplicate(true) if raw_best is Dictionary else {}
+	var raw_first: Variant = record.get("rift_first_clears", [])
+	rift_first_clears.assign(raw_first if raw_first is Array else [])
 	# Hard isolation: a session character must never persist to the single-player save.
 	_loaded = false
 	_dirty = false
@@ -689,6 +758,10 @@ func export_session_character() -> Dictionary:
 		"owned_armor": owned_armor.duplicate(),
 		"equipped_weapon": equipped_weapon,
 		"equipped_armor": equipped_armor,
+		"gear_rolls": gear_rolls.duplicate(true),
+		"learned_abilities": learned_abilities.duplicate(),
+		"rift_best_tiers": rift_best_tiers.duplicate(true),
+		"rift_first_clears": rift_first_clears.duplicate(),
 	}
 
 ## Restores one PERSISTED_FIELDS entry, coercing to the default's type. Const
@@ -817,7 +890,8 @@ func set_tracked_quest(quest_id: String) -> void:
 
 ## Every active quest (QuestLog), story first.
 func active_quests() -> Array[Dictionary]:
-	return _QuestLog.active_quests(story_flags, active_treasure, active_bounties)
+	return _QuestLog.active_quests(story_flags, active_treasure, active_bounties, quests.log_entries(),
+			_UnlockLadder.pending(level, learned_abilities))
 
 ## The quest the markers follow (falls back to the story quest).
 func tracked_quest_data() -> Dictionary:
@@ -1025,6 +1099,9 @@ func get_deck_template_ids() -> Array[String]:
 	return result
 
 func mark_enemy_defeated(enemy_id: String) -> void:
+	# Starter-zone camp members (GID-141) refill on a timer; never saved as dead.
+	if enemy_id.begins_with("camp_"):
+		return
 	if not defeated_enemies.has(enemy_id):
 		defeated_enemies.append(enemy_id)
 	_dirty = true
@@ -1070,6 +1147,8 @@ func set_story_flag(key: String, value: bool = true) -> void:
 	_dirty = true
 	GameBus.story_flag_set.emit(key)
 	if value:
+		quests.progress_event("flag", key)
+	if value:
 		check_flag_achievement(key)
 		if was_unset and REDEMPTION_FLAG_AWARDS.has(key):
 			add_redemption_points(int(REDEMPTION_FLAG_AWARDS[key]))
@@ -1110,7 +1189,7 @@ func equip_weapon(weapon_id: String) -> void:
 	GameBus.equipment_changed.emit("weapon", weapon_id)
 
 ## Adds an equipment item to the appropriate owned array based on its slot.
-## slot must be "weapon", "armor", "ring", "trinket", "offhand" or "shoulders".
+## slot must be "weapon", "armor", "ring", "trinket", "offhand", "shoulders", "helmet" or "boots".
 func add_equipment(item_id: String, slot: String) -> void:
 	match slot:
 		"weapon":
@@ -1131,6 +1210,12 @@ func add_equipment(item_id: String, slot: String) -> void:
 		"shoulders":
 			if not owned_shoulders.has(item_id):
 				owned_shoulders.append(item_id)
+		"helmet":
+			if not owned_helmets.has(item_id):
+				owned_helmets.append(item_id)
+		"boots":
+			if not owned_boots.has(item_id):
+				owned_boots.append(item_id)
 	_dirty = true
 
 ## Equips an item into its slot. Pass "" to unequip.
@@ -1142,6 +1227,8 @@ func equip_item(item_id: String, slot: String) -> void:
 		"trinket":  equipped_trinket = item_id
 		"offhand":  equipped_offhand = item_id
 		"shoulders": equipped_shoulders = item_id
+		"helmet":   equipped_helmet  = item_id
+		"boots":    equipped_boots   = item_id
 	_dirty = true
 	GameBus.equipment_changed.emit(slot, item_id)
 
@@ -1214,7 +1301,7 @@ func get_equipped_by_slot(slot: String) -> String:
 	return ""
 
 static func xp_for_level(lvl: int) -> int:
-	return lvl * lvl * 50  # 1→2: 50xp, 2→3: 200xp, 3→4: 450xp
+	return lvl * lvl * 50  # total XP to *reach* level lvl (≥ 2): L2 200, L3 450, L4 800, L5 1250
 
 static func _compute_level(current_xp: int) -> int:
 	var lvl: int = 1
@@ -1246,8 +1333,29 @@ func learn_ability(id: String, cost: int) -> bool:
 		return false
 	learned_abilities.append(id)
 	coins -= cost
+	# A newly learned skill takes a free slot on a customised bar (an empty bar
+	# already means "the default bar, filtered to what's known").
+	if _SkillBar.ABILITIES.has(id) and not skill_bar.is_empty() and not skill_bar.has(id):
+		var free: int = skill_bar.find("")
+		if free >= 0:
+			skill_bar[free] = id
+		elif skill_bar.size() < _SkillBar.SLOTS:
+			skill_bar.append(id)
 	_dirty = true
+	coins_changed.emit(coins)
+	quests.progress_event("learn", id)
+	GameBus.feature_learned.emit(id)
 	return true
+
+## The Battle Mode to fight in: the setting, except that a player who hasn't
+## learned minions yet (no hand) always fights in real time (GID-141 / TID-588).
+func battle_mode() -> String:
+	return _CombatOnboarding.battle_mode(str(get_setting("battle_mode", "turn")), learned_abilities)
+
+## True when ladder entry `id` (UnlockLadder) is usable — learned, or not a
+## ladder entry at all.
+func has_learned(id: String) -> bool:
+	return _UnlockLadder.is_learned(id, learned_abilities)
 
 ## TID-556: writes the player's chosen 3-slot loadout. Callers should already
 ## have validated each id via SkillBar (known + not a duplicate); this stores
@@ -1286,8 +1394,13 @@ func add_xp(amount: int) -> void:
 	var new_level: int = _compute_level(xp)
 	if new_level > level:
 		skill_points += new_level - level
+		var newly: Array[String] = []
+		for l: int in range(level + 1, new_level + 1):
+			newly.append_array(_UnlockLadder.available_at(l))
 		level = new_level
 		GameBus.level_up.emit(level)
+		if not newly.is_empty():
+			GameBus.training_available.emit(newly)
 	GameBus.xp_changed.emit(xp, level)
 	_dirty = true
 
@@ -1321,15 +1434,19 @@ func auto_dismiss_mount() -> void:
 	GameBus.mount_state_changed.emit(false, active_mount)
 
 ## Records kills and (optionally) a battles_survived increment for a collection instance.
-## No-op if the uid is not found in owned_cards.
-func record_veterancy(uid: String, kills: int, survived: bool) -> void:
+## No-op if the uid is not found in owned_cards. Returns the card's new veterancy rank
+## when this pushed it up a rank (BID-074: the victory flow announces it), else 0.
+func record_veterancy(uid: String, kills: int, survived: bool) -> int:
 	var inst: Dictionary = get_instance_by_uid(uid)
 	if inst.is_empty():
-		return
+		return 0
+	var before: int = _VeterancyUtil.rank_for(int(inst.get("kills", 0)), int(inst.get("battles_survived", 0)))
 	inst["kills"] = int(inst.get("kills", 0)) + kills
 	if survived:
 		inst["battles_survived"] = int(inst.get("battles_survived", 0)) + 1
 	_dirty = true
+	var after: int = _VeterancyUtil.rank_for(int(inst.get("kills", 0)), int(inst.get("battles_survived", 0)))
+	return after if after > before else 0
 
 ## Sets a custom display name on a collection instance. Empty string clears the custom name.
 ## No-op if the uid is not found.

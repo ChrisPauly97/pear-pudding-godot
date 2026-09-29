@@ -6,7 +6,7 @@
 - Growth advances on every day rollover via `days_elapsed`, so plants ripen even while the player is away.
 - Three seed types (sunpetal, moonroot, embercap) produce three plant types and three craftable potions.
 - Seeds are purchased from merchants (30 coins each); plants are crafted into potions via the Inventory crafting tab.
-- In battle, one potion may be consumed per battle from a HUD button; three effects are available (heal, draw, mana).
+- In battle, potions are drunk from two quick slots (Q / E) sharing one cooldown (TID-542); three effects are available (heal, draw, mana).
 
 ## How It Works
 
@@ -105,17 +105,51 @@ A "— Seeds —" section is appended after Trinkets in `_refresh()`. `_make_see
 
 `_refresh_craft()` appends a "— Potions —" section after card recipes, iterating `GardenDefs.POTION_RECIPES`. `_make_potion_craft_row()` shows ingredient requirements (plant counts + essence), highlighting shortfalls in red. `_do_craft_potion()` removes plants, spends essence (with rollback if essence is insufficient), calls `SaveManager.garden.add_potions(potion_id, 1)`, and emits `GameBus.potion_crafted(potion_id)`.
 
-### Potion Use in BattleScene (`scenes/battle/BattleScene.gd`)
+### Potion Use in Battle — Quick Slots (`scenes/battle/modules/BattleConsumables.gd`, TID-542)
 
-- `_potion_btn: Button` added to `$SidePanel` in `_add_potion_button()`. Visible only when the player owns at least one potion.
-- `_used_potion_this_battle: bool` is a local battle flag (not persisted — resuming a battle gives a fresh use).
-- `_refresh_potion_button()` disables the button when: already used this battle, no potions owned, or it is the enemy's turn. Called on `_ready()`, after effect application, and in `_on_turn_ended()`.
-- `_show_potion_picker()` opens a CanvasLayer overlay listing owned potions with Use/Cancel.
-- `_apply_potion_effect(potion_id)` applies the effect, decrements the potion count, sets `_used_potion_this_battle = true`, emits `GameBus.potion_used(potion_id)`:
+- **Slots:** `SaveManager.quick_slots` (persisted, `["", ""]`) holds a potion id per slot. `QuickSlots.resolve(slots, potions)`
+  (`game_logic/battle/QuickSlots.gd`) drops unknown/exhausted ids and tops empty slots up with owned potions not already
+  slotted (`GardenDefs.POTIONS` order), so a player who never assigns anything still has potions on Q / E. Assign on the
+  backpack **Items** tab (`ItemsPanel`: Q / E buttons per owned potion → `QuickSlots.assign`, which also clears the other slot).
+- **Buttons:** `_add_potion_button()` adds one `$SidePanel` button per slot (`consumables.quick_btns`), labelled
+  `[Q] Healing Draught ×2` (no key hint on Android) plus the cooldown left. Hidden when the slot resolves empty; disabled
+  on cooldown or off-turn. `_refresh_potion_button()` runs on setup, after a drink, on every turn change (BattleScene) and
+  on each whole-second change of the real-time cooldown. Keys **Q / E** via the module's `_unhandled_key_input`
+  (1–3 belong to the real-time skill bar).
+- **Cooldown** (replaces "one potion per battle"): shared by both slots. Turn-based: `COOLDOWN_TURNS` (3) of the
+  drinker's own turns (`player_turn_numbers[my_idx]` compared with the drink turn — nothing ticks). Real time:
+  `potion_cooldown` CombatTuning knob (20 s), ticked by `BattleRealtime._process` → `consumables.tick_quick(dt)`.
+  Not persisted: a resumed battle starts ready.
+- Hidden in puzzle and scripted battles.
+- `_apply_potion_effect(potion_id)` applies the effect, decrements the potion count, starts the cooldown, emits `GameBus.potion_used(potion_id)`:
   - `healing_draught` — `hero.health = mini(hero.health + 8, hero.max_health)`
   - `clarity_brew` — calls `player_state.draw_card()` twice
   - `ember_tonic` — `hero.mana = mini(hero.mana + 1, hero.max_mana)` (resets at next turn normally)
 - AI never uses potions (v1 constraint).
+
+### Persistent Hero HP, Food & World Healing (TID-543)
+
+- **Rule:** hero HP carries between ordinary solo fights (TID-540 decision 3). Stored as a fraction,
+  `SaveManager.hero_hp_frac` (1.0 = full, persisted, reset by `new_game`), so raising max HP with gear never wounds.
+  Rules in `game_logic/HeroVitality.gd`: `carries_over()` excludes Spire runs, sieges (both keep their own
+  `hero_hp`), friendly duels, ghost duels and the training dummy; PvP, co-op, puzzles and scripted fights never
+  reach the hooks.
+- **Battle:** `BattleModifiers._apply_persistent_hp()` (end of `_setup_solo_battle`, after every max-HP modifier)
+  lowers `hero.health` to `battle_start_hp(max, frac)` (≥ 1). `record_persistent_hp(won)` (in `_check_game_over`,
+  before the standard victory/defeat) saves `health / max_health`, or `RESPAWN_FRAC` (0.5) on a loss — so Retry
+  and Respawn both start at half.
+- **World** (`scenes/world/modules/HeroHealth.gd`, `hero_health`): regen empty→full in `REGEN_FULL_SECONDS`
+  (240 s) while in the world; save marked dirty every 5 %. `full_heal()` on entering a stitched town
+  (`RealmRegions._set_town`) and at the home bed (`PlayerHome.use_bed`). HUD: red HP bar above the XP bar in the
+  bottom-left chip (`WorldHUD.set_hero_hp`, green tint while eating).
+- **Quick use:** Q key / "[Q] Eat" button (ability column, visible while hurt with something usable):
+  `best_world_item()` eats food first, else drinks a healing draught (+8 of 30). Only healing works out of battle.
+- **Food:** `HeroVitality.FOODS` — Travel Bread (8 coins, 40 % over 10 s), Roast Fowl (20 coins, 100 % over 15 s);
+  counts in `SaveManager.foods` (persisted), sold in the shop's **Food** section. A meal is interrupted by
+  `GameBus.enemy_engaged`.
+- **Dungeon rest sites / events** (`DungeonSessionUI`) now heal / hurt the persistent HP (`REST_SITE_HEAL`,
+  `HeroVitality.hurt`) instead of a display-only 30-HP counter.
+- **Early heals:** the trainer-taught **Mend** skill (GID-141 unlock ladder) is the level-1 heal; no new cards.
 
 ## Integrations with Other Features
 

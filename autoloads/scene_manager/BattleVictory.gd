@@ -22,6 +22,18 @@ const _WorldEventManager = preload("res://autoloads/WorldEventManager.gd")
 const _WorldMap = preload("res://game_logic/world/WorldMap.gd")
 const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const _RewardToastFx = preload("res://scenes/world/RewardToastFx.gd")
+const _ZoneLevels = preload("res://game_logic/world/ZoneLevels.gd")
+const _RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
+const _EnemyNPC = preload("res://scenes/world/entities/EnemyNPC.gd")
+const _GearRolls = preload("res://game_logic/items/GearRolls.gd")
+const _VeterancyUtil = preload("res://game_logic/VeterancyUtil.gd")
+const _SaveGear = preload("res://autoloads/save_manager/SaveGear.gd")
+
+## Chain pulls (GID-135 / TID-532): a pursuing enemy this close to the hero when an
+## in-place fight is won engages at once, without the camera zooming out between.
+const CHAIN_RADIUS: float = 9.0
+## If the follow-up never starts (it stood down), release the held zoom after this.
+const CHAIN_GIVEUP_SECONDS: float = 1.5
 
 var _sm: _SceneManager
 
@@ -69,6 +81,9 @@ func _on_battle_won(result: Dictionary) -> void:
 	if enemy_type != "" and not is_rival and not is_nocturnal:
 		_sm.save_manager.record_enemy_defeated(enemy_type)
 		_sm.save_manager.bounties.increment_bounty_progress("defeat_enemy_type", {"enemy_type": enemy_type})
+	# Quest kills count spectres and rivals too ("After Dark" asks for spectre_wisp kills).
+	if enemy_type != "":
+		_sm.save_manager.quests.progress_event("kill", enemy_type)
 	_sm.save_manager.increment_progress("battles_won", 1)
 	_sm.save_manager.check_deck_achievements(_sm.save_manager.player_deck)
 	_sm._bump_session_stat("battles_won", 1)
@@ -88,7 +103,14 @@ func _on_battle_won(result: Dictionary) -> void:
 		_sm._bump_session_stat("cards_earned", 1)
 	var weapon_reward: String = str(result.get("weapon_reward", ""))
 	if weapon_reward != "":
-		_sm.save_manager.add_weapon(weapon_reward)
+		# TID-538: the drop rolls rarity by the enemy's tier and item level by its level.
+		var rng := RandomNumberGenerator.new()
+		rng.randomize()
+		var lvl: int = int(_sm.save_manager.pending_battle_enemy_data.get("enemy_level", _sm.save_manager.level))
+		var roll: Dictionary = _GearRolls.roll(drop_tier, lvl, rng)
+		var got: String = _sm.save_manager.gear.grant(weapon_reward, roll)
+		if got == "upgraded":
+			GameBus.hud_message_requested.emit(_SaveGear.drop_message(weapon_reward, roll, got))
 	# Soulbind signature capture (GID-061): grant signature card + persist capture.
 	var sig_capture: String = str(result.get("signature_capture", ""))
 	if sig_capture != "":
@@ -122,7 +144,8 @@ func _on_battle_won(result: Dictionary) -> void:
 		_sm.save_manager.add_coins(coins_won)
 		_sm._bump_session_stat("coins_earned", coins_won)
 	# Award XP based on enemy type (table lives in EnemyRegistry).
-	var xp_amount: int = EnemyRegistry.get_xp_reward(enemy_type, is_boss)
+	var xp_amount: int = _level_scaled_xp(EnemyRegistry.get_xp_reward(enemy_type, is_boss),
+			_sm.save_manager.pending_battle_enemy_data)
 	_sm.save_manager.add_xp(xp_amount)
 	_sm._bump_session_stat("xp_earned", xp_amount)
 	# Joined enemies' coins/XP ride the same floating toast as the main kill.
@@ -144,7 +167,10 @@ func _on_battle_won(result: Dictionary) -> void:
 	var veterancy: Dictionary = result.get("veterancy", {})
 	for vet_uid: String in veterancy.keys():
 		var vdata: Dictionary = veterancy[vet_uid]
-		_sm.save_manager.record_veterancy(vet_uid, int(vdata.get("kills", 0)), bool(vdata.get("survived", true)))
+		var new_rank: int = _sm.save_manager.record_veterancy(vet_uid, int(vdata.get("kills", 0)),
+				bool(vdata.get("survived", true)))
+		if new_rank > 0:
+			_announce_rank_up(vet_uid, new_rank)
 	# Cross-magic currency accrual (GID-086, generalized by GID-127): playing a
 	# magic type's signature-branch cards earns the currency that type spends.
 	# PlayerState.cross_currency_earned() applies the per-card rate; this only
@@ -171,12 +197,16 @@ func _on_battle_won(result: Dictionary) -> void:
 	# GID-135 / TID-531: a routine in-world win skipped the blocking result
 	# card (BattleScene._emit_routine_victory_toast) — show the coins/XP/card
 	# news as floating toasts over the world instead, once it's reattached.
+	var chain: _EnemyNPC = _chain_candidate()
+	_sm.hold_fight_zoom = chain != null
 	if bool(result.get("in_world_toast", false)):
 		var reward_card: String = str(result.get("card_reward", ""))
 		_sm._restore_world(_show_reward_toasts.bind(coins_won + joined.x, xp_amount + joined.y, reward_card,
 				str(result.get("rt_tip", ""))))
 	else:
 		_sm._restore_world()
+	if chain != null:
+		_start_chain(chain)
 	# Chapter 2 beats 6 → 7 (GID-108 / TID-407): defeating the war-camp boss sets
 	# chapter2_warcamp_cleared and immediately shows the cliffhanger narration
 	# (reuses TID-405's ChapterEndingOverlay verbatim); closing it sets
@@ -189,6 +219,52 @@ func _on_battle_won(result: Dictionary) -> void:
 ## TID-531). Only ever called from `_restore_world`'s post-swap callback — see
 ## the CLAUDE.md spire-draft learning for why building this on the next line
 ## after `_restore_world()` instead would attach it to a scene about to die.
+## A card just earned a veterancy rank (BID-074): say so, and the first time
+## explain what veterancy is (TutorialRegistry "veterancy", shown once).
+func _announce_rank_up(uid: String, rank: int) -> void:
+	var inst: Dictionary = _sm.save_manager.get_instance_by_uid(uid)
+	var base: String = str(CardRegistry.get_template(str(inst.get("template_id", ""))).get("name", "Your card"))
+	GameBus.hud_message_requested.emit("Veteran! %s %s %s" % [base, _VeterancyUtil.title_for(rank),
+			_VeterancyUtil.rank_chevrons(rank)])
+	GameBus.tutorial_popup_requested.emit("veterancy")
+
+
+## The nearest pursuing enemy within CHAIN_RADIUS of the hero, when the fight just
+## won was fought in place (the world is still in the tree); else null.
+func _chain_candidate() -> _EnemyNPC:
+	var world: Node = _sm._saved_world_scene
+	if world == null or not is_instance_valid(world) or not world.is_inside_tree() or NetworkManager.is_active():
+		return null
+	var player := world.get("_player") as Node3D
+	if player == null:
+		return null
+	var best: _EnemyNPC = null
+	var best_d: float = CHAIN_RADIUS
+	for n: Node in get_tree().get_nodes_in_group(_EnemyNPC.GROUP):
+		var e := n as _EnemyNPC
+		if e == null or not e.is_pursuing() or not e.is_inside_tree():
+			continue
+		var d: float = Vector2(e.global_position.x - player.global_position.x,
+				e.global_position.z - player.global_position.z).length()
+		if d <= best_d:
+			best = e
+			best_d = d
+	return best
+
+
+## Lets `enemy` engage straight away (lifting the post-battle grace), and drops the
+## held zoom if the follow-up fight never starts.
+func _start_chain(enemy: _EnemyNPC) -> void:
+	_sm._proximity_engage_blocked = false
+	GameBus.hud_message_requested.emit("Another one!")
+	enemy.engage()
+	get_tree().create_timer(CHAIN_GIVEUP_SECONDS, false).timeout.connect(func() -> void:
+		var world: Node = get_tree().current_scene
+		if _sm.current_state() == State.WORLD and world != null and world.has_meta("battle_cam_size"):
+			_sm.hold_fight_zoom = false
+			_sm._thaw_world(world))
+
+
 func _show_reward_toasts(coins_won: int, xp_won: int, reward_card_id: String, tip: String = "") -> void:
 	if tip != "":
 		_sm._toast.show_text("Tip", tip)  # the post-fight coaching line (TID-559)
@@ -213,6 +289,14 @@ func _show_reward_toasts(coins_won: int, xp_won: int, reward_card_id: String, ti
 	fx.global_position = anchor.global_position
 	fx.play(lines)
 
+## Zone-level XP (TID-536): scaled by the enemy's level and its con colour
+## against the player — grey enemies give none. Enemies without a level (story
+## set pieces, duels) keep their base XP.
+func _level_scaled_xp(base_xp: int, enemy_data: Dictionary) -> int:
+	if not enemy_data.has("enemy_level"):
+		return base_xp
+	return _ZoneLevels.scaled_xp(base_xp, int(enemy_data["enemy_level"]), _sm.save_manager.level)
+
 ## Enemies that joined the fight mid-way (TID-551) each count as a kill:
 ## defeated in the world, bestiary + bounty progress, their own coins and XP.
 ## Returns the granted totals as (coins, xp) for the reward toast.
@@ -229,11 +313,12 @@ func _reward_joined_enemies(gambit_id: String) -> Vector2i:
 			continue
 		_sm.save_manager.record_enemy_defeated(jtype)
 		_sm.save_manager.bounties.increment_bounty_progress("defeat_enemy_type", {"enemy_type": jtype})
+		_sm.save_manager.quests.progress_event("kill", jtype)
 		var coins: int = Gambits.apply_reward_multiplier(EnemyRegistry.get_coin_reward(jtype), gambit_id)
 		_sm.save_manager.add_coins(coins)
 		_sm._bump_session_stat("coins_earned", coins)
 		total.x += coins
-		var xp: int = EnemyRegistry.get_xp_reward(jtype, bool(data.get("is_boss", false)))
+		var xp: int = _level_scaled_xp(EnemyRegistry.get_xp_reward(jtype, bool(data.get("is_boss", false))), data)
 		_sm.save_manager.add_xp(xp)
 		_sm._bump_session_stat("xp_earned", xp)
 		total.y += xp
@@ -262,6 +347,11 @@ func _spire_battle_won(result: Dictionary) -> bool:
 	_sm.save_manager.increment_progress("battles_won", 1)
 	_sm._bump_session_stat("battles_won", 1)
 	_sm._finish_battle()
+	# GID-142: the guardian ends the tier — no boon to draft; the exit door (now
+	# open) walks the player out and records the clear.
+	if _RiftDefs.is_guardian_floor(curr_floor):
+		_sm._restore_world()
+		return true
 	# The draft is deferred into _restore_world's post-swap callback so it parents
 	# to the live WorldScene rather than the dying battle overlay.
 	_sm._restore_world(_sm._show_spire_draft.bind(curr_floor))

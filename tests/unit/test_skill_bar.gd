@@ -7,6 +7,9 @@ const GameState = preload("res://game_logic/battle/GameState.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 
+## GID-141: Mend and Kick are trainer-taught now; most tests assume a player who knows them.
+const MK: Array = ["mend", "kick"]
+
 func _rt() -> RealtimeCombat:
 	var gs := GameState.new()
 	for p: PlayerState in gs.players:
@@ -20,14 +23,15 @@ func _slot(bar: SkillBar, id: String) -> int:
 	return bar.ids.find(id)
 
 func test_bar_uses_saved_ids_or_default() -> void:
-	assert_eq(SkillBar.new().ids, SkillBar.DEFAULT_BAR)
-	assert_eq(SkillBar.new(["kick", "bogus", "kick"]).ids, ["kick"] as Array[String])
+	assert_eq(SkillBar.new().ids, ["strike"] as Array[String], "a fresh save knows only Strike")
+	assert_eq(SkillBar.new([], MK).ids, SkillBar.DEFAULT_BAR)
+	assert_eq(SkillBar.new(["kick", "bogus", "kick"], MK).ids, ["kick"] as Array[String])
 	var many: Array = SkillBar.ABILITIES.keys() + SkillBar.ABILITIES.keys()
 	assert_true(SkillBar.new(many).ids.size() <= SkillBar.SLOTS)
 
 func test_strike_is_a_free_filler_that_hits_enemy_hero() -> void:
 	var rt := _rt()
-	var bar := SkillBar.new()
+	var bar := SkillBar.new([], MK)
 	var i: int = _slot(bar, "strike")
 	var enemy: PlayerState = rt.state.players[1]
 	var hp: int = enemy.hero.health
@@ -42,7 +46,7 @@ func test_strike_is_a_free_filler_that_hits_enemy_hero() -> void:
 
 func test_strike_hits_focused_minion_and_kills_it() -> void:
 	var rt := _rt()
-	var bar := SkillBar.new()
+	var bar := SkillBar.new([], MK)
 	var m := CardInstance.new({"id": "m", "name": "M", "cost": 1, "attack": 1, "health": 2, "card_class": "minion"})
 	rt.state.players[1].board.add_card(m)
 	rt.focus_target = m
@@ -53,7 +57,7 @@ func test_strike_hits_focused_minion_and_kills_it() -> void:
 
 func test_mend_heals_and_needs_mana() -> void:
 	var rt := _rt()
-	var bar := SkillBar.new()
+	var bar := SkillBar.new([], MK)
 	var i: int = _slot(bar, "mend")
 	var hero: HeroState = rt.state.players[0].hero
 	hero.health = 10
@@ -64,7 +68,7 @@ func test_mend_heals_and_needs_mana() -> void:
 
 func test_kick_interrupts_only_a_casting_enemy() -> void:
 	var rt := _rt()
-	var bar := SkillBar.new()
+	var bar := SkillBar.new([], MK)
 	var i: int = _slot(bar, "kick")
 	assert_eq(bar.blocker(i, rt), "Nothing to interrupt")
 	var spell := CardInstance.new({"id": "s", "name": "Bolt", "cost": 2, "card_class": "spell"})
@@ -76,7 +80,7 @@ func test_kick_interrupts_only_a_casting_enemy() -> void:
 	assert_true(bool(SkillBar.def("kick")["off_gcd"]))
 
 func test_cooldown_multiplier_and_sweep() -> void:
-	var bar := SkillBar.new()
+	var bar := SkillBar.new([], MK)
 	bar.start_cooldown(1, 0.5)
 	var full: float = float(bar.def_at(1)["cooldown"])
 	assert_almost_eq(bar.cooldown_left(1), full * 0.5, 0.001)
@@ -87,7 +91,7 @@ func test_cooldown_multiplier_and_sweep() -> void:
 
 func test_learnable_ids_exclude_always_known() -> void:
 	var learnable: Array[String] = SkillBar.learnable_ids()
-	assert_eq(learnable.size(), 5, "5 new trainer-taught abilities")
+	assert_eq(learnable.size(), 7, "Mend, Kick + 5 trainer-taught abilities")
 	for id: String in SkillBar.ALWAYS_KNOWN:
 		assert_false(learnable.has(id))
 	for id: String in learnable:
@@ -102,21 +106,23 @@ func test_every_learnable_ability_is_weaker_than_a_typical_deck_spell() -> void:
 		assert_true(int(a.get("value", 0)) <= 9, "%s value should stay modest" % id)
 
 func test_can_learn_gates_on_level_and_coins() -> void:
-	assert_false(SkillBar.can_learn("guard", 1, 1000, []))
-	assert_false(SkillBar.can_learn("guard", 3, 0, []))
-	assert_true(SkillBar.can_learn("guard", 3, 40, []))
-	assert_false(SkillBar.can_learn("guard", 3, 40, ["guard"]), "already learned")
+	var lvl: int = int(SkillBar.def("guard")["level_req"])
+	var cost: int = int(SkillBar.def("guard")["learn_cost"])
+	assert_false(SkillBar.can_learn("guard", lvl - 1, 1000, []))
+	assert_false(SkillBar.can_learn("guard", lvl, 0, []))
+	assert_true(SkillBar.can_learn("guard", lvl, cost, []))
+	assert_false(SkillBar.can_learn("guard", lvl, cost, ["guard"]), "already learned")
 	assert_false(SkillBar.can_learn("strike", 99, 9999, []), "always known, not learnable")
 
 func test_unlearned_ability_is_dropped_from_a_saved_bar() -> void:
 	# Without `learned`, only the always-known trio can populate the bar —
 	# an id copied into save data by mistake (or from a stale save) can't
 	# surface a trainer-taught ability the player never actually learned.
-	var bar := SkillBar.new(["guard", "mend"])
+	var bar := SkillBar.new(["guard", "mend"], ["mend"])
 	assert_eq(bar.ids, ["mend"] as Array[String])
 
 func test_learned_ability_can_populate_the_bar() -> void:
-	var bar := SkillBar.new(["guard", "mend"], ["guard"])
+	var bar := SkillBar.new(["guard", "mend"], ["guard", "mend"])
 	assert_eq(bar.ids, ["guard", "mend"] as Array[String])
 
 func test_guard_stacks_armor_and_absorbs_damage() -> void:
@@ -173,7 +179,7 @@ func test_daze_without_a_target_hits_the_default_enemy() -> void:
 
 func test_known_ids_is_always_known_plus_learned() -> void:
 	var known: Array[String] = SkillBar.known_ids(["guard", "daze"])
-	assert_eq(known.size(), 5)
+	assert_eq(known.size(), 3)
 	for id: String in SkillBar.ALWAYS_KNOWN:
 		assert_true(known.has(id))
 	assert_true(known.has("guard"))
@@ -186,17 +192,18 @@ func test_resolved_bar_is_always_exactly_slots_long() -> void:
 	assert_eq(SkillBar.resolved_bar(["guard", "sweep", "daze"], ["guard", "sweep", "daze"]).size(), SkillBar.SLOTS)
 
 func test_resolved_bar_fresh_save_is_the_default() -> void:
-	assert_eq(SkillBar.resolved_bar([], []), ["strike", "mend", "kick"] as Array[String])
+	assert_eq(SkillBar.resolved_bar([], MK), ["strike", "mend", "kick"] as Array[String])
+	assert_eq(SkillBar.resolved_bar([], []), ["strike", "", ""] as Array[String], "unknown slots stay empty")
 
 func test_resolved_bar_keeps_learned_choices_and_pads_with_unused_defaults() -> void:
-	var result: Array[String] = SkillBar.resolved_bar(["guard"], ["guard"])
+	var result: Array[String] = SkillBar.resolved_bar(["guard"], ["guard", "mend", "kick"])
 	assert_eq(result[0], "guard")
 	assert_eq(result.size(), 3)
 	# strike/mend/kick fill the rest, in DEFAULT_BAR order.
 	assert_eq(result, ["guard", "strike", "mend"] as Array[String])
 
 func test_resolved_bar_drops_unlearned_ids() -> void:
-	var result: Array[String] = SkillBar.resolved_bar(["guard", "sweep"], [])
+	var result: Array[String] = SkillBar.resolved_bar(["guard", "sweep"], MK)
 	assert_false(result.has("guard"))
 	assert_false(result.has("sweep"))
 	assert_eq(result, ["strike", "mend", "kick"] as Array[String])

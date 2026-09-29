@@ -91,7 +91,51 @@ func _run() -> Array[String]:
 	await _check_double_engage(sm, save_manager, fails)
 	await _check_add_joins(sm, save_manager, fails)
 	await _check_routine_win_toast(sm, save_manager, fails)
+	await _check_chain_pull(sm, cam, cam_size, fails)
 	return fails
+
+## TID-532: winning an in-place fight with another enemy already chasing you
+## starts that fight straight away — the camera stays pushed in between them —
+## and zooms out only once the chain ends.
+func _check_chain_pull(sm: Node, cam: Camera3D, cam_size: float, fails: Array[String]) -> void:
+	var ws: Node = current_scene
+	var player: Node3D = ws.get("_player") as Node3D
+	var chaser: Node3D = (load("res://scenes/world/entities/EnemyNPC.gd") as GDScript).new() as Node3D
+	chaser.call("init_from_data", {"id": "smoke_chain", "enemy_type": "undead_basic"})
+	ws.add_child(chaser)
+	chaser.global_position = player.global_position + Vector3(3.0, 0.0, 0.0)
+	chaser.set("_alert_state", 2)  # CHASING
+	var data := {"id": "smoke_chain_first", "enemy_type": "undead_basic", "is_boss": false,
+		"enemy_deck": ["ghost", "ghost", "skeleton", "skeleton", "ghost", "ghost"]}
+	sm.call("_on_enemy_engaged", data)
+	await _wait(500)
+	var battle: Node = current_scene
+	if battle == null or not bool(battle.get("in_world")):
+		fails.append("chain check did not get an in-world battle")
+		return
+	var st: Object = battle.get("_state")
+	var hero: Object = ((st.get("players") as Array)[1] as Object).get("hero")
+	hero.set("health", 0)
+	battle.call("_check_game_over")
+	var chained: bool = false
+	var min_size: float = cam.size
+	for _i in range(20):
+		await _wait(100)
+		min_size = maxf(min_size, cam.size)
+		var cur: Node = current_scene
+		if cur != battle and cur != null and cur.get("in_world") == true:
+			chained = true
+			break
+	if not chained:
+		fails.append("a chasing enemy in range did not follow straight on after the win")
+		return
+	if min_size > cam_size * 0.9:
+		fails.append("camera zoomed back out between chained fights (peak %.2f of %.2f)" % [min_size, cam_size])
+	sm.call("_finish_battle")
+	sm.call("_restore_world")
+	await _wait(700)
+	if absf(cam.size - cam_size) > 0.01:
+		fails.append("camera not restored after the chain ended (%.2f vs %.2f)" % [cam.size, cam_size])
 
 ## GID-135 / TID-531: a routine in-world win (no boss, no soulbind hunt) skips
 ## the blocking result card entirely — rewards land immediately and a floating

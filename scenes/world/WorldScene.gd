@@ -55,7 +55,11 @@ const _CharacterPresence = preload("res://scenes/world/modules/CharacterPresence
 const _NamedMapProps = preload("res://scenes/world/modules/NamedMapProps.gd")
 const _RealmRegions = preload("res://scenes/world/modules/RealmRegions.gd")
 const _QuestTracker = preload("res://scenes/world/modules/QuestTracker.gd")
+const _StarterCamps = preload("res://scenes/world/modules/StarterCamps.gd")
+const _RiftPortals = preload("res://scenes/world/modules/RiftPortals.gd")
+const _WorldLook = preload("res://scenes/world/WorldLook.gd")
 const _Critters = preload("res://scenes/world/modules/Critters.gd")
+const _HeroHealth = preload("res://scenes/world/modules/HeroHealth.gd")
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const _TownSiege = preload("res://scenes/world/modules/TownSiege.gd")
 const _SunRaysFx = preload("res://scenes/world/SunRaysFx.gd")
@@ -180,7 +184,10 @@ var town_siege: _TownSiege = null   # modules/TownSiege.gd (GID-054)
 var named_props: _NamedMapProps = null   # modules/NamedMapProps.gd
 var realm_regions: _RealmRegions = null   # modules/RealmRegions.gd (GID-138)
 var quest_tracker: _QuestTracker = null   # modules/QuestTracker.gd (GID-140)
-var critters: _Critters = null   # modules/Critters.gd (GID-143)
+var starter_camps: _StarterCamps = null   # modules/StarterCamps.gd (GID-141)
+var rift_portals: _RiftPortals = null   # modules/RiftPortals.gd (GID-142)
+var critters: _Critters = null   # modules/Critters.gd (GID-147)
+var hero_health: _HeroHealth = null   # modules/HeroHealth.gd (TID-543)
 var current_town: String = ""  # stitched town the player is in; see story_place()
 var chest_loot: _ChestLoot = null    # modules/ChestLoot.gd
 var night_lights: _NightLights = null  # modules/NightLights.gd (TID-489)
@@ -373,53 +380,10 @@ var _map_overlay: MapViewOverlay = null
 # Terrain height constants — named-map path uses a wider ramp than chunks
 
 func _setup_environment() -> void:
-	var env := Environment.new()
-	# Procedural sky with depth gradient — updated each frame by DayNightCycle
-	var sky_mat := ProceduralSkyMaterial.new()
-	sky_mat.sky_top_color        = Color(0.04, 0.10, 0.32)
-	sky_mat.sky_horizon_color    = Color(0.25, 0.50, 0.85)
-	sky_mat.ground_horizon_color = Color(0.20, 0.42, 0.70)
-	sky_mat.ground_bottom_color  = Color(0.08, 0.06, 0.04)
-	sky_mat.sun_angle_max = 55.0
-	sky_mat.sun_curve     = 0.25
-	var sky := Sky.new()
-	sky.sky_material = sky_mat
-	env.background_mode = Environment.BG_SKY
-	env.sky = sky
-	# Distance fog for horizon depth
-	env.fog_enabled            = true
-	env.fog_density            = 0.004
-	env.fog_aerial_perspective = 0.15
-	env.fog_sky_affect         = 0.45
-	env.fog_light_color        = Color(0.80, 0.82, 0.85)
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.65, 0.63, 0.60)
-	env.ambient_light_energy = 0.7
-	# Filmic tone mapping lifts shadow detail and prevents blown highlights
-	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	env.tonemap_exposure = 1.0
-	# Bloom so emissive materials (items, coins) visibly glow.
-	# Threshold must stay above the lit-terrain luminance (~1.0 at midday) so
-	# only true emissives bloom — 0.5 made the entire sunlit ground glow.
-	# glow_bloom must stay 0: any positive value adds glow to pixels BELOW the
-	# threshold too, hazing the whole screen regardless of glow_hdr_threshold.
-	env.glow_enabled = true
-	env.glow_bloom = 0.0
-	env.glow_intensity = 1.0
-	env.glow_strength = 1.2
-	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
-	env.glow_hdr_threshold = 1.2
-	env.glow_hdr_luminance_cap = 12.0
 	_world_env = WorldEnvironment.new()
-	_world_env.environment = env
+	_world_env.environment = _WorldLook.make_environment()
 	add_child(_world_env)
-	# Fill light: soft neutral bounce from above-opposite, no shadows, lifts black areas
-	_fill_light = DirectionalLight3D.new()
-	_fill_light.light_color = Color(0.78, 0.77, 0.80)
-	_fill_light.light_energy = 0.35
-	_fill_light.shadow_enabled = false
-	_fill_light.light_volumetric_fog_energy = 0.0  # unshadowed: would only haze the sun-ray fog
-	_fill_light.rotation_degrees = Vector3(60.0, 45.0, 0.0)
+	_fill_light = _WorldLook.make_fill_light()
 	add_child(_fill_light)
 	add_child(_ScreenVignette.make())
 
@@ -564,8 +528,6 @@ func _ready() -> void:
 		AudioManager.play_music(_named_map_music_track())
 		AudioManager.set_ambience(-1)  # -1 = named map / no biome ambience
 		GameBus.entered_named_map.emit(map_name)
-		if map_name.begins_with("dungeon_"):
-			_dungeon_session_ui.reset_hero_hp()
 	else:
 		# Counterpart to entered_named_map above (BID-056). Declared since the
 		# ambient-audio signals landed but never emitted, so any subscriber saw
@@ -701,9 +663,9 @@ func _load_named_map() -> void:
 		if map_name == "dungeon_731906":
 			story_cast.inject_warcamp_boss(world_map)
 	elif map_name.begins_with("spire_floor_"):
-		var parts: PackedStringArray = map_name.split("_")
-		var sp_floor: int = int(parts[2]) if parts.size() > 2 else 1
-		var sp_seed: int  = int(parts[3]) if parts.size() > 3 else 0
+		var sp_run: Dictionary = SpireFloorGen.parse_map_name(map_name)
+		var sp_floor: int = int(sp_run["floor"])
+		var sp_seed: int = int(sp_run["seed"])
 		# An uncleared floor must have its enemy — see prepare_spire_floor. Runs
 		# before the map is distributed into chunks, since ChunkRenderer consults
 		# defeated_enemies as it spawns.
@@ -711,7 +673,7 @@ func _load_named_map() -> void:
 		if MapRegistry.get_map(map_name) != null:
 			world_map = WorldMap.new(map_name)
 		else:
-			world_map = SpireFloorGen.generate(sp_floor, sp_seed)
+			world_map = SpireFloorGen.generate(sp_floor, sp_seed, sp_run)
 	else:
 		world_map = WorldMap.new(map_name)
 		if world_map.is_fallback:
@@ -738,7 +700,7 @@ func _wire_gamebus_signals() -> void:
 	# single-player used to see the change only after a map reload.
 	if not NetworkManager.is_dedicated_server():
 		GameBus.story_flag_set.connect(_on_story_flag_set_for_cast)
-		GameBus.quest_tracking_changed.connect(func(_id: String) -> void: quest_tracker.refresh(true))
+		quest_tracker.wire_signals()
 
 	# Auto-remount when returning to the overworld from a named map
 	if map_name == "main":
@@ -755,43 +717,10 @@ func _wire_gamebus_signals() -> void:
 	GameBus.inventory_requested.connect(tap_move.clear)
 	GameBus.journal_requested.connect(tap_move.clear)
 
-	# GID-101 (TID-368): champion record + wager payout when PvP ends. Connected
-	# permanently (not in _setup_coop) because WorldScene is detached during battle.
-	# Open-world joint fights: after the leaderboard handler above, which reads the flag.
-	if not GameBus.coop_pve_battle_ended.is_connected(coop_activities._on_joint_fight_ended):
-		GameBus.coop_pve_battle_ended.connect(coop_activities._on_joint_fight_ended)
-	if not GameBus.pvp_battle_ended.is_connected(coop_pvp._on_pvp_battle_ended_coop):
-		GameBus.pvp_battle_ended.connect(coop_pvp._on_pvp_battle_ended_coop)
-
-	# GID-104 (TID-386): session tournaments — a referee'd match's real winner
-	# (the host isn't a combatant) arrives via this dedicated signal instead of
-	# pvp_battle_ended's plain bool. Same "connected permanently" reasoning.
-	if not GameBus.pvp_referee_match_ended.is_connected(coop_pvp._on_pvp_referee_match_ended):
-		GameBus.pvp_referee_match_ended.connect(coop_pvp._on_pvp_referee_match_ended)
-
-	# GID-102 (TID-371): ranked rating for team duels. Same "connected permanently" reasoning.
-	if not GameBus.team_battle_ended.is_connected(coop_pvp._on_team_battle_ended_coop):
-		GameBus.team_battle_ended.connect(coop_pvp._on_team_battle_ended_coop)
-
-	# GID-102 (TID-379): PvE leaderboard submission. Connected permanently (same
-	# "WorldScene detaches during battle" reasoning as pvp_battle_ended above) so a
-	# co-op boss clear is recorded regardless of which map/battle state re-attaches us.
-	if not GameBus.coop_pve_battle_ended.is_connected(coop_activities._on_coop_pve_battle_ended_leaderboard):
-		GameBus.coop_pve_battle_ended.connect(coop_activities._on_coop_pve_battle_ended_leaderboard)
-	# GID-103 (TID-384): co-op Town Siege finale is the first caller of the joint PvE
-	# engine — reset siege UI/state and grant party rewards on the outcome. Same
-	# "connected permanently" reasoning (WorldScene detaches during the battle).
-	if not GameBus.coop_pve_battle_ended.is_connected(coop_activities._on_coop_siege_battle_ended):
-		GameBus.coop_pve_battle_ended.connect(coop_activities._on_coop_siege_battle_ended)
-	# GID-106 (TID-391): co-op Endless Spire joint floor battles — same joint-PvE
-	# signal, same "connected permanently" reasoning.
-	if not GameBus.coop_pve_battle_ended.is_connected(coop_activities._on_coop_spire_battle_ended):
-		GameBus.coop_pve_battle_ended.connect(coop_activities._on_coop_spire_battle_ended)
-	# Spire runs happen while WorldScene is loaded (no battle-detach involved), but the
-	# connection is still made once here (not in _setup_coop) so a Spire run that starts
-	# before any co-op session is active still reaches this handler once co-op does start.
-	if not GameBus.spire_run_ended.is_connected(coop_activities._on_spire_run_ended_leaderboard):
-		GameBus.spire_run_ended.connect(coop_activities._on_spire_run_ended_leaderboard)
+	# Co-op / PvP outcomes, connected permanently (WorldScene detaches during battle,
+	# and CoopSession._setup_coop returns early outside a session).
+	coop_activities.wire_permanent_signals()
+	coop_pvp.wire_permanent_signals()
 
 func _enter_tree() -> void:
 	# Re-attach after a battle/puzzle detach. Deferred: _enter_tree fires before
@@ -867,7 +796,10 @@ func _ensure_world_modules() -> void:
 		character_presence, _CharacterPresence, "CharacterPresence") as _CharacterPresence
 	realm_regions = _ensure_world_module(realm_regions, _RealmRegions, "RealmRegions") as _RealmRegions
 	quest_tracker = _ensure_world_module(quest_tracker, _QuestTracker, "QuestTracker") as _QuestTracker
+	starter_camps = _ensure_world_module(starter_camps, _StarterCamps, "StarterCamps") as _StarterCamps
+	rift_portals = _ensure_world_module(rift_portals, _RiftPortals, "RiftPortals") as _RiftPortals
 	critters = _ensure_world_module(critters, _Critters, "Critters") as _Critters
+	hero_health = _ensure_world_module(hero_health, _HeroHealth, "HeroHealth") as _HeroHealth
 
 func _ensure_world_module(existing: Node, script: GDScript, node_name: String) -> Node:
 	if existing != null and is_instance_valid(existing):
@@ -1072,55 +1004,28 @@ func _on_chunk_committed(_key: Vector2i, chunk_data: _ChunkData) -> void:
 		_active_landmark_data[lid] = l_data
 
 func _on_chunk_unloading(chunk_key: Vector2i, chunk_data: _ChunkData) -> void:
-	for e_data in chunk_data.enemies:
-		var eid: String = str(e_data.get("id", ""))
-		var enode: Node3D = _valid_node3d(_enemy_nodes.get(eid))
-		if is_instance_valid(enode):
-			enode.queue_free()
-		_enemy_nodes.erase(eid)
-	for c_data in chunk_data.chests:
-		var cid: String = str(c_data.get("id", ""))
-		_active_chest_data.erase(cid)
-		var cnode: Node3D = _valid_node3d(_chest_nodes.get(cid))
-		if is_instance_valid(cnode):
-			cnode.queue_free()
-		_chest_nodes.erase(cid)
-	for d_data in chunk_data.doors:
-		var did: String = str(d_data.get("id", ""))
-		_active_door_data.erase(did)
-		var dnode: Node3D = _valid_node3d(_door_nodes.get(did))
-		if is_instance_valid(dnode):
-			dnode.queue_free()
-		_door_nodes.erase(did)
-	for n_data in chunk_data.npcs:
-		var nid: String = str(n_data.get("id", ""))
-		_active_npc_data.erase(nid)
-		var nnode: Node3D = _valid_node3d(_npc_nodes.get(nid))
-		if is_instance_valid(nnode):
-			nnode.queue_free()
-		_npc_nodes.erase(nid)
-	for w_data in chunk_data.waystones:
-		var wid: String = str(w_data.get("id", ""))
-		_active_waystone_data.erase(wid)
-		var wnode: Node3D = _valid_node3d(_waystone_nodes.get(wid))
-		if is_instance_valid(wnode):
-			wnode.queue_free()
-		_waystone_nodes.erase(wid)
-	for m_data in chunk_data.burial_mounds:
-		var mid: String = str(m_data.get("id", ""))
-		var mnode: Node3D = _valid_node3d(_burial_mound_nodes.get(mid))
-		if is_instance_valid(mnode):
-			mnode.queue_free()
-		_burial_mound_nodes.erase(mid)
-	for l_data: Dictionary in chunk_data.landmarks:
-		var lid: String = str(l_data.get("id", ""))
-		_active_landmark_data.erase(lid)
-	for w_data in chunk_data.mana_wells:
-		var wid: String = str(w_data.get("id", ""))
-		var wnode: Node3D = _valid_node3d(_mana_well_nodes.get(wid))
-		if is_instance_valid(wnode):
-			wnode.queue_free()
-		_mana_well_nodes.erase(wid)
+	# Per entity kind: the chunk's list, the id → live node table and the id → data
+	# table the finders scan ({} where a kind keeps no such table). Freed nodes are
+	# checked before any cast (see _valid_node3d).
+	for entry: Array in [
+		[chunk_data.enemies, _enemy_nodes, {}],
+		[chunk_data.chests, _chest_nodes, _active_chest_data],
+		[chunk_data.doors, _door_nodes, _active_door_data],
+		[chunk_data.npcs, _npc_nodes, _active_npc_data],
+		[chunk_data.waystones, _waystone_nodes, _active_waystone_data],
+		[chunk_data.burial_mounds, _burial_mound_nodes, {}],
+		[chunk_data.landmarks, {}, _active_landmark_data],
+		[chunk_data.mana_wells, _mana_well_nodes, {}],
+	]:
+		var nodes: Dictionary = entry[1]
+		var data: Dictionary = entry[2]
+		for d: Variant in (entry[0] as Array):
+			var id: String = str((d as Dictionary).get("id", ""))
+			var node: Node3D = _valid_node3d(nodes.get(id))
+			if node != null:
+				node.queue_free()
+			nodes.erase(id)
+			data.erase(id)
 	nocturnal.evict_chunk(chunk_key)
 
 # ── ChunkRenderer registration callbacks (called via duck typing) ──────────────
@@ -1510,6 +1415,7 @@ func _process(delta: float) -> void:
 		_tick_traveling_merchant(delta)
 		_tick_card_shower()
 		nocturnal.tick(delta)
+		starter_camps.tick(delta)
 		realm_regions.tick()
 		_csm.process_streaming(_player.position, _player.velocity, _camera.get_frustum())
 
@@ -1739,10 +1645,8 @@ func _unhandled_input(event: InputEvent) -> void:
 ## this order and stopping at the first hit, exactly as the eight open-coded
 ## branches this replaces did. Anything that needs arguments or surrounding state
 ## (doors, chests, NPCs, mana wells, waystones, mailboxes, garden plots) keeps its
-## own branch in _handle_interact.
-##
-## The table is built per call rather than being a const: a Callable bound to an
-## instance method cannot be a constant, and this only runs on a button press.
+## own branch in _handle_interact. Built per call rather than as a const: a Callable
+## bound to an instance method cannot be a constant, and this only runs on a press.
 func _try_simple_interaction(px: float, pz: float) -> bool:
 	var r: float = IsoConst.INTERACT_RANGE
 	for entry: Array in [
@@ -1787,8 +1691,8 @@ func _handle_interact() -> void:
 		# Auto-dismount when leaving the overworld for any named map
 		if SceneManager.save_manager.is_mounted and target_map != "main" and not target_map.is_empty():
 			SceneManager.save_manager.auto_dismiss_mount()
-		if target_map == "spire":
-			_show_spire_entrance_panel()
+		if _RiftPortals.rift_for_target(target_map) != "":
+			_show_spire_entrance_panel(_RiftPortals.rift_for_target(target_map))
 		elif target_map.is_empty():
 			# Co-op (GID-098): broadcast exit so all peers pop together.
 			if _coop_active and _net_sync != null and not _coop_map_transitioning:
@@ -1857,9 +1761,6 @@ func _handle_interact() -> void:
 	if garden_plot != null:
 		home_garden.show_panel(garden_plot)
 
-# ── Spire entrance ─────────────────────────────────────────────────────────
-
-
 	# Hostile entities are probed last, so anything peaceful in reach wins: you can
 	# take a door, open a chest or read a scroll with an enemy standing next to you
 	# instead of being forced into the fight. See INTERACT_PRIORITY.
@@ -1887,47 +1788,9 @@ func _handle_interact() -> void:
 		# gdlint:ignore = max-returns
 		return
 
-func _show_spire_entrance_panel() -> void:
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var vh: float = vp.y
-	var is_active: bool = SceneManager.save_manager.spire.is_spire_active()
-	var curr_floor: int = 1
-	if is_active:
-		curr_floor = int(SceneManager.save_manager.spire.get_spire_run().get("floor", 1))
-
-	var modal: Dictionary = _build_modal(0.64, 0.40, Color(0.06, 0.04, 0.14, 0.96), 0.022)
-	var layer: CanvasLayer = modal["layer"]
-	var vbox: VBoxContainer = modal["vbox"]
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-
-	var title := _UiUtil.make_label("The Endless Spire", int(vh * 0.038), Color(0.85, 0.50, 1.0),
-			HORIZONTAL_ALIGNMENT_CENTER, vbox)
-
-	var desc := Label.new()
-	if is_active:
-		desc.text = "A run is in progress — Floor %d.\nResume your climb?" % curr_floor
-	else:
-		desc.text = "Your deck stays behind.\nDraft new cards as you climb — or fall."
-	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	desc.add_theme_font_size_override("font_size", int(vh * 0.026))
-	desc.modulate = Color(0.85, 0.85, 0.85)
-	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	vbox.add_child(desc)
-
-	var row := _UiUtil.make_hbox(int(vh * 0.03), vbox)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-
-	var enter_btn := _UiUtil.make_button("Resume (Floor %d)" % curr_floor if is_active else "Enter",
-			Vector2(vh * 0.20, vh * 0.07), int(vh * 0.028))
-	enter_btn.modulate = Color(0.85, 0.50, 1.0)
-	enter_btn.pressed.connect(func() -> void:
-		layer.queue_free()
-		SceneManager.enter_spire()
-	)
-	row.add_child(enter_btn)
-
-	var leave_btn := _UiUtil.make_button("Leave", Vector2(vh * 0.16, vh * 0.07), int(vh * 0.028),
-			func() -> void: layer.queue_free(), row)
+## Rift door panel (GID-142): lives in the RiftPortals module.
+func _show_spire_entrance_panel(rift_id: String = "grasslands") -> void:
+	rift_portals.show_panel(rift_id)
 
 # ── Player Home ────────────────────────────────────────────────────────────
 
@@ -2121,5 +1984,3 @@ func _valid_node(v) -> Node:
 # TID-367: Spectate a duel
 # TID-368: Wagered duels & champion record
 # TID-369: Shared party bounties
-
-

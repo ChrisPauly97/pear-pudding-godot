@@ -138,6 +138,29 @@ func _run() -> bool:
 	await process_frame
 	ok = _check(not bool(qt.call("is_realm_map_open")), "M again closes the realm map") and ok
 	ok = _check(not (qt.call("tracked_quest") as Dictionary).is_empty(), "a tracked quest exists") and ok
+	# GID-141: trainer panels and the side-quest panel build for a fresh and a levelled player.
+	var npc_int: Object = ws.get("npc_interactions")
+	for trainer: String in ["combat", "maiteln", "bounty", "gravedigger", "merchant", "stable"]:
+		npc_int.call("show_trainer_panel", trainer, {"id": "x", "npc_type": "merchant"})
+	save_manager.set("level", 20)
+	save_manager.set("coins", 5000)
+	npc_int.call("show_trainer_panel", "combat")
+	# GID-142 / TID-600: rift door panels, locked and unlocked.
+	ws.call("_show_spire_entrance_panel", "desert")
+	(save_manager.get("learned_abilities") as Array).append("feat_spire")
+	ws.call("_show_spire_entrance_panel", "mountains")
+	npc_int.call("interact", {"id": "hilda_baker", "npc_type": ""})
+	await process_frame
+	(save_manager.get("learned_abilities") as Array).erase("mend")
+	ok = _check(bool(save_manager.call("learn_ability", "mend", 15)), "Mend learned for gold") and ok
+	await process_frame
+	ok = _check(is_instance_valid(ws), "world survives trainer / quest panels") and ok
+	save_manager.set("level", 1)
+	# GID-141 / TID-591: starter camps near Madrian fill with levelled enemies.
+	var camps: Object = ws.get("starter_camps")
+	camps.call("tick", 2.0)
+	await process_frame
+	ok = _check(int(camps.call("alive_count")) > 0, "starter camps spawned near Madrian") and ok
 	var marks: Array[String] = []
 	var npc_nodes: Dictionary = ws.get("_npc_nodes")
 	for nid: Variant in npc_nodes:

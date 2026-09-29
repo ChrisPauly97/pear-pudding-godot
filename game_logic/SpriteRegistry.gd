@@ -12,7 +12,26 @@
 ## Callers: preload("res://game_logic/SpriteRegistry.gd")
 extends RefCounted
 
-const _ENEMY_UNDEAD       := preload("res://assets/textures/characters/enemy_undead.png")
+## GID-143 / TID-605: graveyard dressing (tools/generate_sprites.py).
+const _GRAVEYARD_PROPS: Dictionary = {
+	"headstone_0": preload("res://assets/textures/props/headstone_0.png"),
+	"headstone_1": preload("res://assets/textures/props/headstone_1.png"),
+	"headstone_2": preload("res://assets/textures/props/headstone_2.png"),
+	"iron_fence": preload("res://assets/textures/props/iron_fence.png"),
+	"crypt_door": preload("res://assets/textures/props/crypt_door.png"),
+}
+## GID-143: original generated sprites (tools/generate_characters.py).
+const _NPC_HILDA_BAKER := preload("res://assets/textures/characters/npc_hilda_baker.png")
+const _NPC_WENNA_HERBALIST := preload("res://assets/textures/characters/npc_wenna_herbalist.png")
+const _NPC_BROTHER_ALDO := preload("res://assets/textures/characters/npc_brother_aldo.png")
+const _NPC_OLD_TAM := preload("res://assets/textures/characters/npc_old_tam.png")
+const _NPC_IVY_CHANDLER := preload("res://assets/textures/characters/npc_ivy_chandler.png")
+const _NPC_COMBAT_TRAINER := preload("res://assets/textures/characters/npc_combat_trainer.png")
+const _NPC_BOUNTY_MASTER := preload("res://assets/textures/characters/npc_bounty_master.png")
+const _NPC_GRAVEDIGGER := preload("res://assets/textures/characters/npc_gravedigger.png")
+const _NPC_RIFT_WARDEN := preload("res://assets/textures/characters/npc_rift_warden.png")
+const _ENEMY_SKELETON     := preload("res://assets/textures/characters/enemy_skeleton.png")
+const _ENEMY_ZOMBIE       := preload("res://assets/textures/characters/enemy_zombie.png")
 const _ENEMY_UNDEAD_ELITE := preload("res://assets/textures/characters/enemy_undead_elite.png")
 const _ENEMY_GHOUL        := preload("res://assets/textures/characters/enemy_ghoul.png")
 const _ENEMY_RAIDER       := preload("res://assets/textures/characters/enemy_raider.png")
@@ -146,14 +165,30 @@ const HEIGHT_NPC: float = 1.4             # townsfolk, Maiteln
 const HEIGHT_MERCHANT: float = 1.3
 const HEIGHT_STAG: float = 1.8             # antler tips; body sits around hero chest height
 
+## GID-143 / TID-604: named quest givers and trainers wear their own generated
+## sprite (npc entity id → texture); everyone else stays a townsperson variant.
+const _NAMED_NPC_TEXTURES: Dictionary = {
+	"hilda_baker": _NPC_HILDA_BAKER,
+	"wenna_herbalist": _NPC_WENNA_HERBALIST,
+	"brother_aldo": _NPC_BROTHER_ALDO,
+	"old_tam": _NPC_OLD_TAM,
+	"ivy_chandler": _NPC_IVY_CHANDLER,
+	"trainer_madrian": _NPC_COMBAT_TRAINER,
+	"bounty_master_madrian": _NPC_BOUNTY_MASTER,
+	"gravedigger_madrian": _NPC_GRAVEDIGGER,
+	"rift_warden_madrian": _NPC_RIFT_WARDEN,
+}
+
 ## Maps an EnemyRegistry type id to its archetype texture.
 ## Returns null for unknown/empty ids — caller falls back to TextureGen.enemy().
 static func enemy_texture(etype: String, is_roaming_boss: bool = false, is_boss: bool = false) -> Texture2D:
 	if is_roaming_boss:
 		return _ENEMY_TERROR
 	match etype:
-		"undead_basic", "undead_horde":
-			return _ENEMY_UNDEAD
+		"undead_basic":
+			return _ENEMY_SKELETON
+		"undead_horde":
+			return _ENEMY_ZOMBIE
 		"undead_elite":
 			return _ENEMY_UNDEAD_ELITE
 		"ghoul_pack":
@@ -179,6 +214,17 @@ static func enemy_texture(etype: String, is_roaming_boss: bool = false, is_boss:
 	if is_boss:
 		return _ENEMY_WARLEADER
 	return null
+
+## World sprite for a pack member drawn beside its leader (TID-541), by card id.
+static func pack_member_texture(card_id: String) -> Texture2D:
+	match card_id:
+		"ghoul":
+			return _ENEMY_GHOUL
+		"zombie":
+			return _ENEMY_ZOMBIE
+		"ghost":
+			return _ENEMY_SPECTRE
+	return _ENEMY_SKELETON
 
 ## Target world height for an enemy sprite, matching enemy_texture()'s
 ## archetype routing. Keeps every enemy proportional to the player
@@ -215,6 +261,14 @@ static func townsperson_texture(variant_seed: int) -> Texture2D:
 		1: return _NPC_TOWNSPERSON_2
 		2: return _NPC_TOWNSPERSON_3
 	return _NPC_TOWNSPERSON
+
+
+static func graveyard_prop(key: String) -> Texture2D:
+	return _GRAVEYARD_PROPS.get(key, null) as Texture2D
+
+## The named NPC's own sprite, or null for an ordinary townsperson.
+static func named_npc_texture(npc_id: String) -> Texture2D:
+	return _NAMED_NPC_TEXTURES.get(npc_id, null) as Texture2D
 
 static func merchant_texture(is_traveling: bool) -> Texture2D:
 	return _NPC_MERCHANT_TRAV if is_traveling else _NPC_MERCHANT

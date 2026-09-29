@@ -1,4 +1,4 @@
-## GID-141 / TID-587-589: real audio files back every SFX key and ambience slot.
+## GID-145 / TID-614-589: real audio files back every SFX key and ambience slot.
 extends "res://tests/framework/test_case.gd"
 
 const _AmbienceLayers = preload("res://game_logic/AmbienceLayers.gd")

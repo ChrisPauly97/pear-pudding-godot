@@ -6,6 +6,7 @@ extends Node
 # tracker, compass, ley indicator, dialogue/tip display.
 # Created and owned by WorldScene; WorldScene keeps @onready tscn-defined nodes.
 
+const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const CompassRibbon    = preload("res://scenes/ui/CompassRibbon.gd")
 const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
 const SaveManager      = preload("res://autoloads/SaveManager.gd")
@@ -50,6 +51,7 @@ var _tip_label: Label
 var _coord_label: Label
 var _level_label: Label
 var _xp_bar: ProgressBar
+var _hp_bar: ProgressBar  # persistent hero HP (TID-543), above the XP bar
 var _xp_label: Label
 var _ley_indicator: Label = null
 var _mount_btn: Button = null
@@ -116,6 +118,7 @@ func setup(hud: CanvasLayer, is_infinite: bool, map_name: String,
 	GameBus.bounty_progress_changed.connect(func(_id, _p, _c): refresh_bounty_tracker())
 	GameBus.bounty_completed.connect(func(_id): refresh_bounty_tracker())
 	GameBus.inventory_changed.connect(refresh_action_cluster)
+	GameBus.feature_learned.connect(func(_id: String) -> void: refresh_action_cluster())
 
 func _create_nav_buttons(_vh: float, _vw_unused: float, font_size: int,
 		btn_w: float, btn_h: float) -> void:
@@ -142,22 +145,19 @@ func _create_cantrip_buttons(vh: float, _font_size: int) -> void:
 	var cantrip_btn_w: float = vh * 0.16
 	var cantrip_btn_h: float = vh * 0.055
 
-	# BID-050: locked cantrips used to render no button at all, so a player
-	# who hadn't already engaged with the mechanic had no way to discover it
-	# exists. Both buttons are now always visible (Callable() = no
-	# visible_when toggle); _update_cantrip_button_state() dims them and adds
-	# a progress readout instead of hiding them.
+	# BID-050: a learned-but-locked cantrip (too few family cards) stays visible,
+	# dimmed with a progress readout, so the player can discover the deck rule.
+	# GID-141: the button itself appears only once the Gravedigger has taught it
+	# (refresh_action_cluster).
 	_ghost_btn = register_action("cantrip_ghost_phase", "[G] Phase", ZONE_ABILITY,
 		func() -> void: _world_scene.cantrips.activate_ghost_phase(),
 		Callable(), Vector2(cantrip_btn_w, cantrip_btn_h))
 	_ghost_btn.add_theme_font_size_override("font_size", int(vh * 0.025 * _ts))
-	_ghost_btn.visible = true
 
 	_dig_btn = register_action("cantrip_skeleton_dig", "[D] Dig", ZONE_ABILITY,
 		func() -> void: _world_scene.cantrips.activate_skeleton_dig(),
 		Callable(), Vector2(cantrip_btn_w, cantrip_btn_h))
 	_dig_btn.add_theme_font_size_override("font_size", int(vh * 0.025 * _ts))
-	_dig_btn.visible = true
 
 	refresh_action_cluster()
 
@@ -187,9 +187,18 @@ func _update_cantrip_button_state(btn: Button, cantrip_id: String, base_label: S
 		btn.tooltip_text = "Locked — needs %d+ family cards in your deck" % threshold
 
 func refresh_action_cluster() -> void:
+	# GID-141: a cantrip button only exists once its trainer has taught it.
+	var sm := SceneManager.save_manager
+	var ghost: bool = sm.has_learned(_UnlockLadder.FEAT_PHASE)
+	var dig: bool = sm.has_learned(_UnlockLadder.FEAT_DIG)
+	if _ghost_btn != null:
+		_ghost_btn.visible = ghost
+	if _dig_btn != null:
+		_dig_btn.visible = dig
 	_update_cantrip_button_state(_ghost_btn, "ghost_phase", "[G] Phase")
 	_update_cantrip_button_state(_dig_btn, "skeleton_dig", "[D] Dig")
-	_maybe_teach_cantrips()
+	if ghost or dig:
+		_maybe_teach_cantrips()
 
 ## First-session cantrip teaser (GID-117). Once-per-save dedupe lives in
 ## SceneManager._on_tutorial_popup_requested via the seen_tutorial_cantrips
@@ -292,6 +301,18 @@ func _toggle_social_zone() -> void:
 			continue
 		if child is Control:
 			(child as Control).visible = _social_expanded
+
+## GID-141: draws the eye to a newly unlocked button — a few gold pulses.
+func pulse_action(id: String) -> void:
+	if not _actions.has(id):
+		return
+	var btn: Button = (_actions[id] as Dictionary).get("button") as Button
+	if btn == null or not btn.visible:
+		return
+	var tw := btn.create_tween()
+	for _i: int in range(4):
+		tw.tween_property(btn, "modulate", Color(1.6, 1.35, 0.5), 0.35)
+		tw.tween_property(btn, "modulate", Color.WHITE, 0.35)
 
 func unregister_action(id: String) -> void:
 	var entry: Dictionary = _actions.get(id, {})
@@ -400,12 +421,20 @@ func _create_xp_bar(vh: float) -> void:
 	var chip := PanelContainer.new()
 	chip.add_theme_stylebox_override("panel", hud_chip_style(vh))
 	chip.position = Vector2(vh * 0.01 + float(_ins.get("left", 0.0)),
-		vh * 0.875 - float(_ins.get("bottom", 0.0)))
+		vh * 0.835 - float(_ins.get("bottom", 0.0)))
 	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hud.add_child(chip)
-	var xp_row := HBoxContainer.new()
-	xp_row.add_theme_constant_override("separation", int(vh * 0.008))
-	chip.add_child(xp_row)
+	var rows := _UiUtil.make_vbox(int(vh * 0.006), chip)
+	_hp_bar = ProgressBar.new()
+	_hp_bar.custom_minimum_size = Vector2(vh * 0.30, vh * 0.022)
+	_hp_bar.show_percentage = false
+	_hp_bar.max_value = 1.0
+	_hp_bar.step = 0.0
+	_hp_bar.value = 1.0
+	_hp_bar.add_theme_stylebox_override("fill", _UiUtil.make_style(Color(0.78, 0.2, 0.2), int(vh * 0.006)))
+	_hp_bar.tooltip_text = "Hero HP — carries between fights; regenerates out of combat"
+	rows.add_child(_hp_bar)
+	var xp_row := _UiUtil.make_hbox(int(vh * 0.008), rows)
 
 	_level_label = Label.new()
 	_level_label.add_theme_font_size_override("font_size", int(vh * 0.028 * _ts))
@@ -434,7 +463,8 @@ func _create_ley_indicator(vh: float) -> void:
 	# Explicit rect: anchors resolve against the CanvasLayer's viewport only once
 	# in the tree, which stretched the chip across the screen.
 	var chip_w: float = vh * 0.24
-	_ley_indicator.position = Vector2((_vw - chip_w) * 0.5, vh * 0.075)
+	# Below the compass ribbon's objective label (GID-141 / TID-594: it overlapped).
+	_ley_indicator.position = Vector2((_vw - chip_w) * 0.5, vh * 0.11)
 	_ley_indicator.size = Vector2(chip_w, vh * 0.04)
 	_ley_indicator.visible = false
 	_hud.add_child(_ley_indicator)
@@ -520,19 +550,31 @@ func refresh_xp_bar() -> void:
 		return
 	var sm := SceneManager.save_manager
 	var lvl: int = sm.level
-	var xp_prev: int = SaveManager.xp_for_level(lvl - 1)
-	var xp_next: int = SaveManager.xp_for_level(lvl)
+	var xp_prev: int = _level_start_xp(lvl)
+	var xp_next: int = SaveManager.xp_for_level(lvl + 1)
 	_level_label.text = "Lv.%d" % lvl
 	_xp_bar.max_value = xp_next - xp_prev
 	_xp_bar.value = sm.xp - xp_prev
+
+## Persistent hero HP bar (0..1); green-tinted while a meal is healing.
+func set_hero_hp(frac: float, eating: bool) -> void:
+	if _hp_bar == null:
+		return
+	_hp_bar.value = frac
+	_hp_bar.modulate = Color(0.75, 1.0, 0.75) if eating else Color.WHITE
 
 func update_xp_label() -> void:
 	if _xp_label == null:
 		return
 	var sm := SceneManager.save_manager
-	_xp_label.text = "%d / %d XP" % [
-		sm.xp - SaveManager.xp_for_level(sm.level - 1),
-		SaveManager.xp_for_level(sm.level) - SaveManager.xp_for_level(sm.level - 1)]
+	var start: int = _level_start_xp(sm.level)
+	_xp_label.text = "%d / %d XP" % [sm.xp - start, SaveManager.xp_for_level(sm.level + 1) - start]
+
+## Total XP at which `lvl` was reached — `xp_for_level(lvl)` is the threshold to
+## *reach* a level (L2 = 200), so level 1 starts at 0 (GID-141 / TID-594: the
+## bar used to show the previous level's span, "0 / 50" at level 1).
+static func _level_start_xp(lvl: int) -> int:
+	return 0 if lvl <= 1 else SaveManager.xp_for_level(lvl)
 
 func set_ley_indicator_visible(v: bool) -> void:
 	if _ley_indicator:
@@ -586,7 +628,8 @@ func update_mount_btn() -> void:
 	if _mount_btn == null:
 		return
 	var sm := SceneManager.save_manager
-	var show: bool = sm.owned_mounts.size() > 0 and sm.current_map == "main"
+	var show: bool = (sm.owned_mounts.size() > 0 and sm.current_map == "main"
+			and sm.has_learned(_UnlockLadder.FEAT_MOUNT))
 	_mount_btn.visible = show
 	_mount_btn.text = "Dismount" if sm.is_mounted else "Mount"
 

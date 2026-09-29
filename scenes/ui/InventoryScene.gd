@@ -54,7 +54,7 @@ var _query: String = ""
 var _sort: String = "name"
 var _sort_btn: Button
 
-# Bulk select (GID-144): tap toggles selection instead of adding to the deck.
+# Bulk select (GID-148): tap toggles selection instead of adding to the deck.
 var _select_mode: bool = false
 var _selected: Dictionary = {}    # uid -> true
 var _select_btn: Button
@@ -426,7 +426,7 @@ func _build_filter_buttons(row: HBoxContainer) -> void:
 	var btn_fs: int = int(_ref * 0.018)
 	var specs: Array = [
 		["All", "class", ""],
-		["Minion", "class", "minion"],
+		["Ally", "class", "minion"],
 		["Spell", "class", "spell"],
 		["0-2", "cost", "low"],
 		["3-5", "cost", "mid"],
@@ -622,7 +622,7 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 	_UiUtil.make_label(rarity.capitalize(), int(_ref * 0.020), _UiUtil.rarity_color(rarity),
 			HORIZONTAL_ALIGNMENT_RIGHT, title_row)
 
-	var kind: String = "Spell" if is_spell else "Minion  ⚔ %d  ♥ %d" % [int(inst.get("attack", 0)),
+	var kind: String = "Spell" if is_spell else "Ally  ⚔ %d  ♥ %d" % [int(inst.get("attack", 0)),
 			int(inst.get("health", 0))]
 	_UiUtil.make_label("%d mana  ·  %s" % [int(inst.get("cost", 0)), kind], int(_ref * 0.021),
 			_UiUtil.rarity_color(rarity).lerp(Color(0.85, 0.85, 0.85), 0.55), HORIZONTAL_ALIGNMENT_LEFT, vb)

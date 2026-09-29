@@ -5,6 +5,7 @@
 ## the in-world effect. Reached from WorldHUD's buttons and WorldScene's G/D keys.
 extends Node
 
+const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const CantripManager = preload("res://game_logic/world/CantripManager.gd")
 
@@ -21,6 +22,9 @@ func activate_ghost_phase() -> void:
 	if _world._player == null or _phase_active:
 		return
 	var sm := SceneManager.save_manager
+	if not sm.has_learned(_UnlockLadder.FEAT_PHASE):
+		GameBus.hud_message_requested.emit(_UnlockLadder.locked_message(_UnlockLadder.FEAT_PHASE))
+		return
 	if not CantripManager.is_available("ghost_phase", sm.get_deck_template_ids()):
 		GameBus.hud_message_requested.emit("Ghost Phase requires 4+ Ghost-family cards in your deck.")
 		return
@@ -42,7 +46,7 @@ func activate_ghost_phase() -> void:
 ## the keyboard shortcut shares D with move_right, so a miss there is normal.
 func activate_skeleton_dig(quiet: bool = false) -> void:
 	var player: Node3D = _world._player
-	if player == null:
+	if player == null or not SceneManager.save_manager.has_learned(_UnlockLadder.FEAT_DIG):
 		return
 	var mound: Node3D = _world._find_nearby_burial_mound(player.position.x, player.position.z, IsoConst.INTERACT_RANGE)
 	if mound == null:

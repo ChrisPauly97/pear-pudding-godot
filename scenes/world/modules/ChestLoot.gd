@@ -10,15 +10,20 @@ const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const _LootRoll = preload("res://game_logic/net/LootRoll.gd")
+const _GearRolls = preload("res://game_logic/items/GearRolls.gd")
+const _SaveGear = preload("res://autoloads/save_manager/SaveGear.gd")
+const _ZoneLevels = preload("res://game_logic/world/ZoneLevels.gd")
 const _WorldItemScene = preload("res://scenes/world/entities/WorldItem.tscn")
 const _WorldItem = preload("res://scenes/world/entities/WorldItem.gd")
 
 ## Chance an infinite-world chest yields a treasure-map fragment instead of loot
 ## (only while no treasure hunt is active).
 const MAP_FRAGMENT_CHANCE: float = 0.20
-const EQUIPMENT_SLOTS: Array[String] = ["weapon", "armor", "ring", "trinket", "offhand", "shoulders"]
+const EQUIPMENT_SLOTS: Array[String] = ["weapon", "armor", "ring", "trinket", "offhand", "shoulders", "helmet", "boots"]
 ## The starter weapon never drops.
 const _STARTER_WEAPON: String = "rusty_dagger"
+## Share of equipment drops that re-roll an item you already own (TID-538).
+const UPGRADE_DROP_CHANCE: float = 0.3
 
 var _world: _WorldScene = null
 
@@ -42,6 +47,7 @@ func open(chest: Dictionary, px: float, pz: float) -> void:
 		Input.vibrate_handheld(40)
 	sm.mark_chest_opened(cid)
 	sm.bounties.increment_bounty_progress("open_chests", {})
+	sm.quests.progress_event("open", cid)
 	SceneManager.session_stats["chests_opened"] = int(SceneManager.session_stats.get("chests_opened", 0)) + 1
 	var node: Node3D = _world._valid_node3d(_world._chest_nodes.get(cid))
 	if node != null and node.has_method("mark_opened"):
@@ -66,7 +72,8 @@ func open(chest: Dictionary, px: float, pz: float) -> void:
 	spawn_card_items(card_ids, origin, tier)
 	spawn_coin_piles(origin)
 	var chance: float = _LootRoll.EQUIPMENT_CHANCE_TREASURE_ROOM if tier == 3 else _LootRoll.EQUIPMENT_CHANCE_DEFAULT
-	_maybe_drop_equipment(chance)
+	var level: int = _ZoneLevels.level_at_world(origin, IsoConst.TILE_SIZE) if _world._is_infinite else sm.level
+	_maybe_drop_equipment(chance, tier, level)
 
 func _spring_mimic(chest: Dictionary, px: float, pz: float) -> void:
 	AudioManager.play_sfx("enemy_alert")
@@ -113,27 +120,37 @@ func _spawn_item() -> _WorldItem:
 	_world._entity_root.add_child(item)
 	return item
 
-## With probability `chance`, grants one random equipment piece the player
-## doesn't own yet (any slot). A miss, or owning everything, is silent.
-func _maybe_drop_equipment(chance: float) -> void:
+## With probability `chance`, grants one random equipment piece with a rarity /
+## item-level roll (TID-538: chest `tier`, zone `level`). Usually an item the
+## player doesn't own; sometimes (UPGRADE_DROP_CHANCE, or when everything is
+## owned) one they do, which upgrades its roll if the new one is better.
+func _maybe_drop_equipment(chance: float, tier: int = 1, level: int = 1) -> void:
 	if randf() >= chance:
 		return
 	var sm := SceneManager.save_manager
-	var candidates: Array[String] = []
+	var unowned: Array[String] = []
+	var owned_ids: Array[String] = []
 	for slot: String in EQUIPMENT_SLOTS:
 		var owned: Array[String] = sm.get_owned_by_slot(slot)
 		for eid: String in WeaponRegistry.get_by_slot(slot):
-			if eid != _STARTER_WEAPON and not owned.has(eid):
-				candidates.append(eid)
-	if candidates.is_empty():
+			if eid == _STARTER_WEAPON:
+				continue
+			if owned.has(eid):
+				owned_ids.append(eid)
+			else:
+				unowned.append(eid)
+	var pool: Array[String] = unowned
+	if unowned.is_empty() or (not owned_ids.is_empty() and randf() < UPGRADE_DROP_CHANCE):
+		pool = owned_ids
+	if pool.is_empty():
 		return
-	var picked: String = candidates[randi() % candidates.size()]
-	var item: WeaponData = WeaponRegistry.get_weapon(picked)
-	if item == null:
+	var picked: String = pool[randi() % pool.size()]
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var roll: Dictionary = _GearRolls.roll(tier, level, rng)
+	var result: String = sm.gear.grant(picked, roll)
+	if result == "":
 		return
-	if item.slot == "weapon":
-		sm.add_weapon(picked)
-	else:
-		sm.add_equipment(picked, item.slot)
-	GameBus.hud_message_requested.emit("Found: %s!" % item.display_name)
-	GameBus.equipment_dropped.emit(picked)
+	GameBus.hud_message_requested.emit(_SaveGear.drop_message(picked, roll, result))
+	if result != "kept":
+		GameBus.equipment_dropped.emit(picked)

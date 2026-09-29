@@ -15,6 +15,7 @@ extends "res://scenes/ui/DraftPickBase.gd"
 
 signal picked(card_id: String)
 
+const _RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
 const SpireDraft = preload("res://game_logic/spire/SpireDraft.gd")
 
 var _floor_number: int = 1
@@ -38,6 +39,10 @@ func setup(floor: int) -> void:
 	for id: String in CardRegistry.get_all_ids():
 		pool_templates[id] = CardRegistry.get_template(id)
 	var picks: Array[String] = _draft_logic.generate_picks(floor, rng, pool_templates)
+	# GID-142 / TID-598: a rift run offers two temporary cards and one buff boon.
+	if SceneManager.save_manager.spire.uses_own_deck() and picks.size() >= 3:
+		var boon_ids: Array = _RiftDefs.BOONS.keys()
+		picks[2] = str(boon_ids[rng.randi_range(0, boon_ids.size() - 1)])
 	_build_ui(picks)
 
 ## Co-op entry point (WorldScene._on_spire_draft_start_received): unlike setup(),
@@ -55,8 +60,13 @@ func setup_coop(floor: int, options: Array[String], is_my_turn: bool, picker_nam
 func _build_ui(picks: Array[String]) -> void:
 	var root_vbox: VBoxContainer = _build_draft_panel()["vbox"]
 
-	_UiUtil.make_label("Floor %d — Choose a Card" % _floor_number, int(_ref * 0.038), Color(1.0, 0.88, 0.4),
+	var boon_run: bool = not _is_coop and SceneManager.save_manager.spire.uses_own_deck()
+	_UiUtil.make_label("Floor %d — Choose a Boon" % _floor_number if boon_run
+			else "Floor %d — Choose a Card" % _floor_number, int(_ref * 0.038), Color(1.0, 0.88, 0.4),
 			HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
+	if boon_run:
+		_UiUtil.make_label("Picks last this run only — cards join your deck until the rift ends.",
+				int(_ref * 0.02), Color(0.8, 0.8, 0.85), HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
 
 	# Co-op turn banner: "Your turn!" or "Waiting for <name>…" — every peer sees the
 	# same 3 cards, but only the active picker's buttons are interactive.
@@ -69,12 +79,32 @@ func _build_ui(picks: Array[String]) -> void:
 
 	var cards_container := _build_cards_container(root_vbox)
 	for card_id: String in picks:
-		cards_container.add_child(_make_card_panel(card_id))
+		cards_container.add_child(_make_boon_panel(card_id) if _RiftDefs.is_boon(card_id)
+				else _make_card_panel(card_id))
 
 	# Spacer so title + cards fill the panel naturally
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root_vbox.add_child(spacer)
+
+## A buff boon's pick panel (name, what it does, Pick) in the card row.
+func _make_boon_panel(boon_id: String) -> Control:
+	var d: Dictionary = _RiftDefs.BOONS[boon_id]
+	var outer := PanelContainer.new()
+	outer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	outer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var margin := _UiUtil.make_margin(int(_vw * 0.012), int(_ref * 0.012), int(_vw * 0.012), int(_ref * 0.012),
+			outer)
+	var vbox := _UiUtil.make_vbox(int(_ref * 0.008), margin)
+	_UiUtil.make_label(str(d["name"]), int(_ref * 0.026), Color(0.55, 0.9, 1.0), HORIZONTAL_ALIGNMENT_LEFT, vbox)
+	_UiUtil.make_label("Boon", int(_ref * 0.02), Color(0.55, 0.9, 1.0), HORIZONTAL_ALIGNMENT_LEFT, vbox)
+	var desc := _UiUtil.make_label(str(d["desc"]), int(_ref * 0.02), Color(0.8, 0.8, 0.85),
+			HORIZONTAL_ALIGNMENT_LEFT, vbox)
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var pick := _UiUtil.make_button("Pick", Vector2(0.0, _ref * 0.055), int(_ref * 0.023), _on_pick.bind(boon_id), vbox)
+	pick.disabled = _pick_disabled()
+	return outer
 
 func _tier_for(card_id: String, _tmpl: Dictionary) -> int:
 	return _draft_logic.card_tier(card_id)
@@ -93,7 +123,10 @@ func _on_pick(card_id: String) -> void:
 		picked.emit(card_id)
 		queue_free()
 		return
-	SceneManager.save_manager.spire.add_drafted_card(card_id)
-	GameBus.spire_card_drafted.emit(card_id)
+	if _RiftDefs.is_boon(card_id):
+		SceneManager.save_manager.spire.add_boon(card_id)
+	else:
+		SceneManager.save_manager.spire.add_drafted_card(card_id)
+		GameBus.spire_card_drafted.emit(card_id)
 	picked.emit(card_id)
 	queue_free()

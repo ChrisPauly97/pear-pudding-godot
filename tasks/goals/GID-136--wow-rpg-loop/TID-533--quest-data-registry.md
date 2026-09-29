@@ -2,7 +2,7 @@
 
 **Goal:** GID-136
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -34,12 +34,30 @@ WoW-style quests: NPCs give quests with tracked objectives and rewards. Build th
 
 ## Plan
 
-_Written during Plan phase._
+Deviation from the research notes: quests are a static GDScript table (`SideQuests.gd`), not `.tres` +
+`QuestRegistry` autoload — same pattern as `StoryQuests` / `EnemyRegistry`, no Android preload list, testable
+without autoloads.
+
+1. `game_logic/quests/SideQuests.gd`: table + pure rules (offer gating, objective matching, completion, text).
+2. `autoloads/save_manager/SaveQuests.gd` + `quests_active` / `quests_completed` fields.
+3. GameBus quest signals; progress hooks for kill / flag / learn.
+4. QuestLog lists active side quests (kind `side`) so compass, minimap, Journal pick them up (covers most of TID-535).
+5. Tests + docs.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `game_logic/quests/SideQuests.gd` (table with first quest `rats_in_grain`, giver `madrian:baker` — the NPC
+  itself is placed by TID-534).
+- New `autoloads/save_manager/SaveQuests.gd`; `SaveManager`: `quests` module, `quests_active` / `quests_completed`
+  fields (+ `PERSISTED_FIELDS`, reset in `new_game`), `active_quests()` passes side quests to QuestLog,
+  `set_story_flag` → `quests.progress_event("flag")`, `learn_ability` → `progress_event("learn")` and now emits
+  `coins_changed` (it silently deducted coins before).
+- `GameBus`: `quest_accepted/progressed/ready/turned_in/abandoned`.
+- `BattleVictory`: `quests.progress_event("kill", type)` beside the bounty increments (main + joined enemies).
+- `QuestLog`: `side_quest()`, `npc_target()`, `SIDE_PREFIX`, `side` kind colour; `active_quests()` takes `side`.
+- Tests: `tests/unit/test_side_quests.gd` (7 tests). Full suite 2794 pass, 0 SCRIPT ERROR; gdlint + unsafe-hits clean.
+- BID-064 resolved: TID-535 superseded (GID-140 + this task).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`docs/agent/story-implementation.md`: side-quest row in the QuestLog table + new "Side Quests" section.

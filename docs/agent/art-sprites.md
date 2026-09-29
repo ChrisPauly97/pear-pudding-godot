@@ -380,3 +380,76 @@ deleted (the rival's `elf_m` recolour stays). See `camera-and-player.md`
 - **Characters** keep their `HEIGHT_*` target heights (16 px pack enemies at
   0.05 would be half the hero's height); the hero paper-doll quantizes to the
   palette. The tables above describe the pre-generation sources for history.
+
+## Generated characters (GID-143)
+
+`tools/generate_characters.py` builds original characters in the prop generator's style (palette from
+`tools/pixel_palette.py`, top-left light, 1 px outline; imports `Canvas` from `generate_sprites.py`) from a small
+humanoid rig (`_walk(frame)` leg/arm swing, `_legs`). Each character writes `<name>.png` (idle) plus
+`<name>_walk_1..4.png`, 20×30 px canvas trimmed to content. Run `python3 tools/generate_characters.py`
+(`--preview sheet.png` for a 4× contact sheet); needs Pillow. Re-import with `godot --headless --editor --quit`.
+
+| Sprite | Replaces | Used by |
+|---|---|---|
+| `enemy_skeleton` | 0x72 `skelet` (`enemy_undead.png`) | `undead_basic` (Undead Wanderer) — TID-603 |
+| `enemy_zombie` | 0x72 `skelet` | `undead_horde` (Horde Shambler) — TID-603 |
+
+| `npc_hilda_baker`, `npc_wenna_herbalist`, `npc_brother_aldo`, `npc_old_tam`, `npc_ivy_chandler`, `npc_combat_trainer`, `npc_bounty_master`, `npc_gravedigger`, `npc_rift_warden` | townsperson variants | named quest givers / trainers — TID-604 |
+
+Townsfolk come from `person(spec)` (`NPCS` table: body/legs cloth ramp, `robe`, `apron`, `belt`, hair colour +
+style `short|long|tonsure|hood|hat`, `beard`, a hand `prop` `loaf|satchel|pike|candle|sword|spade|staff`); idle
+frame only. `SpriteRegistry.named_npc_texture(npc_id)` (`_NAMED_NPC_TEXTURES`) maps entity ids to them and
+`TownspersonNPC` uses it before falling back to a townsperson variant; `test_starter_zone` checks every quest giver
+and trainer has one.
+
+World heights are unchanged (`HEIGHT_SMALL_UNDEAD`); `SpriteRegistry.make_billboard` scales to them. The old
+The old `enemy_undead*.png` files were deleted in GID-144 / TID-609.
+
+## Third-party art inventory & generation roadmap (GID-143 / TID-607)
+
+Goal (user, 2026-09-29): long term, every sprite is generated in-house, the way props, landmarks, terrain, the
+paper-doll hero and the GID-143 characters already are. Fonts (OFL) and music are out of scope. Status as of
+GID-143:
+
+| Asset(s) | Path | Source · licence | Generator plan | Batch |
+|---|---|---|---|---|
+| Undead elite | `characters/enemy_undead_elite.png` (+walk) | 0x72 recolour · CC0 | `generate_characters.skeleton` with armour + spectral ramp | B1 ✓ |
+| Ghoul | `characters/enemy_ghoul.png` (+walk) | 0x72 · CC0 | zombie rig, crouched, claws | B1 ✓ |
+| Raider (+ScoutAmbush) | `characters/enemy_raider.png` (+walk) | 0x72 · CC0 | `person()` + helmet/leather + axe, Martarquas colours | B1 ✓ |
+| Warleader | `characters/enemy_warleader.png` (+walk) | 0x72 · CC0 | large rig (1.5× canvas), horned helm | B1 ✓ |
+| Duelist | `characters/enemy_duelist.png` (+walk) | 0x72 · CC0 | `person()` robe + rapier | B1 ✓ |
+| Rival (Isfig) | `characters/enemy_rival.png` (+walk) | 0x72 `elf_m` recolour · CC0 | `person()` rider cloak (story look) | B1 ✓ |
+| Roaming terror | `characters/enemy_terror.png` (+walk) | 0x72 `big_demon` · CC0 | large rig, horns, fire ramp | B1 ✓ |
+| Mimic | `characters/enemy_mimic.png` (+walk) | 0x72 · CC0 | from the generated chest (B3) + teeth/tongue | B3 ✓ |
+| Spectre (wisp/haunt/dread) | `characters/enemy_spectre.png` | Kenney Tiny Dungeon · CC0 | floating sheet-ghost blob rig, 3 tints | B1 ✓ |
+| Townsfolk ×3 | `characters/npc_townsperson{,_2,_3}.png` | 0x72 · CC0 | `person()` specs (several more variants) | B1 ✓ |
+| Merchant (+traveling) | `characters/npc_merchant{,_traveling}.png` | 0x72 · CC0 | `person()` + pack / cart | B1 ✓ |
+| Maiteln (+walk) | `characters/npc_maiteln.png`, `_walk_1..4` | 0x72 · CC0 | `person()` robe + staff + grey beard, walk frames | B1 ✓ |
+| Horse mount | `characters/mount_horse.png` | Clint Bellanger Tiny Creatures · CC0 | quadruped rig in `generate_characters.py` | B3 ✓ |
+| Chest open/closed | `props/chest_{closed,open}.png` | 0x72 · CC0 | `generate_sprites.py` box + lid frames | B3 ✓ |
+| Door | `props/door.png` | 0x72 · CC0 | `generate_sprites.py` (share the crypt-door drawing) | B3 ✓ |
+| Card art: ghost / skeleton / zombie / ghoul | `cards/card_*.png` | Kenney / 0x72 · CC0 | card-portrait crops of the generated characters | B2 ✓ |
+| Spell runes ×4 | `cards/rune_{dawn,dusk,ember,ash}.png` | game-icons.net · **CC BY 3.0** | `generate_sprites.py` glyph drawer (sun, moon, flame, cloud) | B2 ✓ |
+| HUD icons ×14 | `assets/icons/hud/*.svg` | game-icons.net · CC BY 3.0 | `tools/generate_hud_icons.py` geometric SVGs | B4 ✓ |
+| ~~Dead art~~ | `enemy_undead{,_walk_*}.png`, `pixel_art/wizard_walk_*_pixel.png` | — | **deleted (GID-144 / TID-609)** | B0 ✓ |
+
+B1 landed in GID-144 / TID-610: the `elite`, `ghoul`, `spectre`, `warleader`, `terror` rigs plus `person()` specs in
+`CAST` (helm / wizard / wide hats, cloak, pack, pauldrons, axe / rapier / lantern props). Only Maiteln keeps walk
+frames (`WALKERS`); unused enemy walk frames were deleted.
+
+B2 landed in TID-611: `tools/generate_cards.py` (portrait = centred 16×16 bust of the generated character, doubled;
+runes = glyphs drawn on the prop palette).
+
+B3 landed in TID-612: `chest_body()` / `chest()` / `door()` / `pad()` in `generate_sprites.py` (fixed 16×16 / 32×32
+canvases — Chest/Door size by pixel), `mimic` (on `chest_body`) and `horse` (32×32, facing right, saddle where
+`Player._SADDLE_OFFSET_PX` expects it) in `generate_characters.py`.
+
+B4 landed in TID-613: `tools/generate_hud_icons.py`; the CC BY licence file is gone. **With B0–B4 done, no
+third-party sprite or icon ships** — only the OFL fonts and the music remain third-party.
+
+Already original: terrain tiles and grass tufts (`generate_hd_terrain.py`), every prop / landmark
+(`generate_sprites.py`, incl. GID-143 graveyard set), the paper-doll hero (`PaperDoll.gd`), skeleton, zombie and
+the nine named NPCs (`generate_characters.py`), menu key art (in-engine capture).
+
+Batches are tracked as backlog items: B0 BID-068, B1 BID-069, B2 BID-070, B3 BID-071, B4 BID-072. When a batch
+lands, update this table, `CREDITS.md` (drop the source if nothing uses it) and the per-slot index.

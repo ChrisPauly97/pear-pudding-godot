@@ -7,8 +7,12 @@ const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const MountRegistry = preload("res://game_logic/MountRegistry.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
+const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
+
 const STABLE_MOUNT_ID: String = "stable_horse"
-const LEVEL_REQ: int = 10
+## GID-141: riding is the level-40 rung of the unlock ladder (learned from the
+## Stablemaster), not a bare level check.
+const LEVEL_REQ: int = 40
 const _PANEL_BG := Color(0.06, 0.04, 0.14, 0.96)
 const _WARN := Color(0.9, 0.3, 0.3)
 
@@ -18,6 +22,9 @@ var _world: _WorldScene = null
 func toggle() -> void:
 	var sm := SceneManager.save_manager
 	if sm.current_map != "main" or sm.owned_mounts.is_empty():
+		return
+	if not sm.has_learned(_UnlockLadder.FEAT_MOUNT):
+		GameBus.hud_message_requested.emit(_UnlockLadder.locked_message(_UnlockLadder.FEAT_MOUNT))
 		return
 	if sm.is_mounted:
 		sm.dismiss_mount()
@@ -40,7 +47,7 @@ func show_stable_panel() -> void:
 		return
 	var mount: Dictionary = MountRegistry.get_mount(STABLE_MOUNT_ID)
 	var cost: int = price()
-	var level_ok: bool = sm.level >= LEVEL_REQ
+	var level_ok: bool = sm.has_learned(_UnlockLadder.FEAT_MOUNT)
 	var coins_ok: bool = sm.coins >= cost
 
 	var modal: Dictionary = _world._build_modal(0.60, 0.36, _PANEL_BG, 0.015, 0.02)
@@ -54,7 +61,8 @@ func show_stable_panel() -> void:
 		body_font, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 	var status: String = "Balance: %d coins" % sm.coins
 	if not level_ok:
-		status = "Requires level %d (you are level %d)" % [LEVEL_REQ, sm.level]
+		status = "Learn Riding here first (level %d, you are level %d)" % [
+			_UnlockLadder.level_req(_UnlockLadder.FEAT_MOUNT), sm.level]
 	elif not coins_ok:
 		status = "Insufficient coins (need %d, have %d)" % [cost, sm.coins]
 	_UiUtil.make_label(status, int(vh * 0.025), Color.WHITE if level_ok and coins_ok else _WARN,

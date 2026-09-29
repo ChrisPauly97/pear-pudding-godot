@@ -145,6 +145,10 @@ func _build_ui() -> void:
 			SceneManager.save_manager.set_setting("battle_mode", modes[idx])
 	)
 
+	# TID-530: end the turn automatically once nothing is playable (turn-based, solo).
+	_add_toggle_row(vbox, "Auto End Turn", bool(SceneManager.save_manager.get_setting("auto_end_turn", true)),
+		func(on: bool) -> void: SceneManager.save_manager.set_setting("auto_end_turn", on))
+
 	# — Keybindings (desktop only) —
 	if not (OS.has_feature("mobile") or OS.has_feature("android")):
 		vbox.add_child(_UiUtil.make_separator())

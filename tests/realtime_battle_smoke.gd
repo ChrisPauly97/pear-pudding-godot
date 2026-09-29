@@ -13,6 +13,7 @@ extends SceneTree
 const _BATTLE_SCENE_PATH: String = "res://scenes/battle/BattleScene.tscn"
 const _GameState = preload("res://game_logic/battle/GameState.gd")
 const _CardInstance = preload("res://game_logic/battle/CardInstance.gd")
+const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const _ENEMY_DECK: Array[String] = ["ghost", "ghost", "ghost", "skeleton", "skeleton", "skeleton",
 	"ghost", "ghost", "ghost", "skeleton", "skeleton", "skeleton"]
 const _MAX_WAIT_MS: int = 20000
@@ -37,6 +38,9 @@ func _run() -> bool:
 	save_manager.call("set_setting", "battle_mode", "realtime")
 	save_manager.call("set_setting", "auto_skip_gambits", true)
 	save_manager.set("realtime_fights", 99)  # past the onboarding ramp; checked separately below
+	# GID-141: Mend / Kick are trainer-taught; this player has learned them (and the hand).
+	(save_manager.get("learned_abilities") as Array).append_array(
+			["mend", "kick", "feat_minions", "feat_spells", "feat_companion"])
 	for tip: String in ["rt_intro", "rt_skill_mend", "rt_skill_kick", "rt_cards", "rt_low_hp", "rt_enemy_cast",
 			"rt_out_of_mana", "rt_ally", "rt_add"]:
 		save_manager.call("set_story_flag", "seen_tutorial_" + tip)
@@ -93,6 +97,8 @@ func _run() -> bool:
 		await _check_skill_bar(battle, state, fails)
 	if not state.is_game_over():
 		await _check_tuning_panel(battle, fails)
+	if not state.is_game_over():
+		_check_enemy_spell(battle, state, fails)
 	for f: String in fails:
 		print("  [FAIL] " + f)
 	if fails.is_empty():
@@ -108,6 +114,10 @@ func _run_onboarding() -> bool:
 	var save_manager: Object = root.get_node("SceneManager").get("save_manager")
 	save_manager.set("realtime_fights", 0)
 	save_manager.set("level", 1)
+	# A fresh player: nothing learned from a trainer yet (GID-141).
+	var learned: Array = save_manager.get("learned_abilities")
+	var kept: Array = learned.duplicate()
+	learned.clear()
 	(save_manager.get("story_flags") as Dictionary).erase("seen_tutorial_rt_intro")
 	var battle: Node = (load(_BATTLE_SCENE_PATH) as PackedScene).instantiate()
 	battle.set("enemy_data", {"enemy_type": "undead_basic", "is_boss": false, "enemy_deck": _ENEMY_DECK})
@@ -135,6 +145,7 @@ func _run_onboarding() -> bool:
 		print("  [FAIL] onboarding: " + f)
 	if fails.is_empty():
 		print("  [PASS] onboarding: first fight is Strike-only with the intro tip")
+	learned.append_array(kept)
 	battle.queue_free()
 	await process_frame
 	return fails.is_empty()
@@ -356,3 +367,26 @@ func _check_tuning_panel(battle: Node, fails: Array[String]) -> void:
 	await process_frame
 	if bool(rt_mod.call("is_blocked")):
 		fails.append("clock still paused after closing the tuning panel")
+
+
+## BID-078: an enemy spell resolves at the player — not at the caster, even though
+## real time pins current_player_idx to the player.
+func _check_enemy_spell(battle: Node, state: _GameState, fails: Array[String]) -> void:
+	var enemy := state.players[1]
+	var bolt := _CardInstance.new(CardRegistry.get_template("shadow_bolt"))
+	enemy.hand.append(bolt)
+	enemy.hero.max_mana = 99999
+	enemy.hero.mana = 99999
+	var player_before: int = state.players[0].hero.health
+	var enemy_before: int = enemy.hero.health
+	for c in state.players[0].board.get_cards().duplicate():
+		state.players[0].board.remove_card(c)
+	if not enemy.play_card(bolt):
+		fails.append("enemy could not play its spell")
+		return
+	var rt_node: Node = battle.get("realtime")
+	rt_node.call("_after_enemy_play", bolt, 1)
+	if state.players[0].hero.health >= player_before:
+		fails.append("enemy spell did not hurt the player (%d -> %d)" % [player_before, state.players[0].hero.health])
+	if enemy.hero.health < enemy_before:
+		fails.append("enemy spell hit its own caster")

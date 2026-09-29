@@ -72,6 +72,10 @@ signal card_routed_to_mailbox(template_id: String)
 # Progression signals
 signal level_up(new_level: int)
 signal xp_changed(new_xp: int, new_level: int)
+## GID-141 unlock ladder: entries a level-up just made available (learn at a trainer)…
+signal training_available(ids: Array[String])
+## …and one the player just learned (paid the trainer).
+signal feature_learned(id: String)
 signal skill_tree_requested
 signal corruption_points_changed(new_amount: int)
 signal redemption_points_changed(new_amount: int)
@@ -82,6 +86,8 @@ signal tutorial_popup_requested(popup_id: String)
 # Endless Spire signals
 signal spire_card_drafted(card_id: String)
 signal spire_run_ended(stats: Dictionary)
+## GID-142: a rift tier's guardian fell (fires every clear, first or not).
+signal rift_tier_cleared(rift_id: String, tier: int)
 
 # Puzzle signals
 signal puzzle_requested(puzzle_id: String)
@@ -119,6 +125,12 @@ signal waystone_activated(waystone_id: String)
 signal waypoint_changed(waypoint: Dictionary)
 ## The quest the compass / beacon / minimap follow changed (GID-140).
 signal quest_tracking_changed(quest_id: String)
+## Side quests (GID-136 / TID-533) — emitted by SaveManager.quests.
+signal quest_accepted(quest_id: String)
+signal quest_progressed(quest_id: String)
+signal quest_ready(quest_id: String)
+signal quest_turned_in(quest_id: String)
+signal quest_abandoned(quest_id: String)
 
 # Mount signals
 signal mount_state_changed(mounted: bool, mount_id: String)

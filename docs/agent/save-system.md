@@ -75,7 +75,7 @@ The batched flush is **asynchronous** — a full save is a multi-hundred-KB pret
 | `map_stack` | `Array[Dictionary]` | Nested map navigation history (see Named Maps doc) |
 | `defeated_enemies` | `Array[String]` | Unique IDs of enemies already beaten (prevents re-grinding) |
 | `opened_chests` | `Array[String]` | Unique IDs of opened chests |
-| `coins` | `int` | Currency balance (plumbed, not yet used in gameplay) |
+| `coins` | `int` | Currency balance: battle, chest and quest rewards; spent at shops, trainers, the stable, crafting and upgrades |
 | `time_of_day` | `float` | 0–1 cycle position; restored into WorldScene on load |
 | `world_seed` | `int` | Fixes infinite world layout for this save |
 | `starting_biome` | `String` | Biome override for the player's safe starting zone |
@@ -195,3 +195,12 @@ them as a user-requested option.
 | Save file | `user://save.json` | Created/overwritten at runtime; not shipped with the game |
 
 No textures, shaders, or scene files are required by the save system itself.
+
+
+## GID-141 / GID-142 fields and migrations
+
+- `quests_active`, `quests_completed` (side quests, `SaveQuests`), `learned_abilities` now also holds UnlockLadder
+  feature ids (`feat_*`), `rift_best_tiers` (rift → best tier), `rift_first_clears` (`"<rift>:<tier>"`).
+- v44 `_m44_unlock_ladder`: existing saves learn every ladder feature + Mend/Kick (riding only with a mount) and
+  skip the townsfolk opening (`town_quests_done`).
+- v45 `_m45_rifts`: `spire_best_floor / 5` → Grasslands rift best tier; an active legacy run becomes Grasslands T1.

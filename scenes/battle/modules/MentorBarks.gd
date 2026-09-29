@@ -62,7 +62,7 @@ func _candidates(events: Array[Dictionary]) -> Array[String]:
 	_queued.clear()
 	for ev: Dictionary in events:
 		match str(ev.get("type", "")):
-			"enemy_cast_start":
+			"enemy_cast_start", "enemy_heavy_start":
 				out.append("cast_bar")
 			"ally_ready":
 				out.append("ally_ready")

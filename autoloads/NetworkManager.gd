@@ -286,7 +286,7 @@ func _serve_discovery() -> void:
 		var sender_port: int = _host_listener.get_packet_port()
 		var players: int = multiplayer.get_peers().size() + 1
 		var reply: PackedByteArray = build_discovery_reply(
-			host_label, _last_host_port, "madrian", players)
+			host_label, _last_host_port, "main", players)
 		_host_listener.set_dest_address(sender_ip, sender_port)
 		_host_listener.put_packet(reply)
 

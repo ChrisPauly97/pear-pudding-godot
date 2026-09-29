@@ -7,11 +7,15 @@ const _EnemyAlertState = preload("res://game_logic/world/EnemyAlertState.gd")
 const _ContactShadow = preload("res://game_logic/ContactShadow.gd")
 const _IdleLife = preload("res://game_logic/IdleLife.gd")
 const _SpriteOutline = preload("res://game_logic/SpriteOutline.gd")
+const _ZoneLevels = preload("res://game_logic/world/ZoneLevels.gd")
 
 const _ALERT_REACTION_TIME: float = 0.4
+## Group of live world enemies, scanned for chain pulls after a win (TID-532).
+const GROUP: StringName = &"world_enemy"
 const _GIVEUP_HOLD_TIME: float = 2.0
 ## Blue ghostly wash on night-hunt spectres (`"nocturnal": true` in the data).
 const SPECTRAL_TINT := Color(0.7, 0.85, 1.0, 0.85)
+const _LEVEL_TAG: String = "LevelTag"
 
 var enemy_data: Dictionary = {}
 var _alive: bool = true
@@ -29,6 +33,7 @@ var _player_ref: CharacterBody3D = null
 var _sprite: Sprite3D = null
 
 func _ready() -> void:
+	add_to_group(GROUP)
 	var etype: String = str(enemy_data.get("enemy_type", ""))
 	var sprite: Sprite3D = _SpriteRegistry.make_billboard(
 			_SpriteRegistry.enemy_texture(etype, _is_roaming_boss, _is_boss),
@@ -47,9 +52,46 @@ func _ready() -> void:
 		scale = Vector3(1.5, 1.5, 1.5)
 	elif _is_boss:
 		scale = Vector3(1.3, 1.3, 1.3)
+	_add_pack_followers(etype)
 	if _tracking:
 		_setup_proximity_area()
 		_setup_awareness_area()
+	# Position is set by the spawner after add_child, so the level (from where the
+	# enemy stands) is read a frame later.
+	_add_level_tag.call_deferred()
+	GameBus.level_up.connect(func(_lvl: int) -> void: _refresh_level_tag())
+
+## TID-536: the enemy's level — preset by whoever spawned it (Spire, events),
+## else the overworld zone level where it stands, else (dungeons, named
+## interiors) the player's own level.
+func enemy_level() -> int:
+	if enemy_data.has("enemy_level"):
+		return int(enemy_data["enemy_level"])
+	var sm := SceneManager.save_manager
+	if sm.current_map == "main" and is_inside_tree():
+		return _ZoneLevels.level_at_world(global_position, IsoConst.TILE_SIZE)
+	return sm.level
+
+func _add_level_tag() -> void:
+	if not is_inside_tree() or NetworkManager.is_dedicated_server():
+		return
+	enemy_data["enemy_level"] = enemy_level()
+	var etype: String = str(enemy_data.get("enemy_type", ""))
+	var h: float = _SpriteRegistry.enemy_world_height(etype, _is_roaming_boss, _is_boss)
+	var lbl: Label3D = _SpriteRegistry.make_name_label("", Color.WHITE, h + 0.35, 28, 0.02)
+	lbl.name = _LEVEL_TAG
+	lbl.outline_size = 10
+	lbl.outline_modulate = Color(0.05, 0.03, 0.02)
+	add_child(lbl)
+	_refresh_level_tag()
+
+func _refresh_level_tag() -> void:
+	var lbl: Label3D = get_node_or_null(_LEVEL_TAG) as Label3D
+	if lbl == null:
+		return
+	var lvl: int = int(enemy_data.get("enemy_level", 1))
+	lbl.text = "Lv %d" % lvl
+	lbl.modulate = _ZoneLevels.con_color(lvl, SceneManager.save_manager.level)
 
 ## Pursuit movement and awareness are single-player only for now — co-op
 ## enemies stay static (documented scoping decision, see
@@ -75,6 +117,10 @@ func _process(delta: float) -> void:
 		_tick_reaction(delta)
 	elif _alert_state == _EnemyAlertState.State.CHASING:
 		_chase_player(delta, player, dist)
+
+## Alive and already coming for the player (alerted or chasing) — a chain-pull candidate.
+func is_pursuing() -> bool:
+	return _alive and _alert_state != _EnemyAlertState.State.IDLE
 
 func _resolve_player() -> CharacterBody3D:
 	if not is_instance_valid(_player_ref):
@@ -160,6 +206,7 @@ func engage() -> void:
 		enemy_data["alive"] = true
 		return
 	var edata := enemy_data.duplicate()
+	edata["enemy_level"] = enemy_level()
 	edata["player_ambush"] = player_ambush
 	edata["enemy_ambush"] = enemy_ambush
 	var etype: String = str(edata.get("enemy_type", "undead_basic"))
@@ -297,3 +344,19 @@ func _add_difficulty_pip(enemy_type: String) -> void:
 	lbl.pixel_size = 0.004
 	lbl.position = Vector3(0.0, 1.4, 0.0)
 	add_child(lbl)
+
+## Pack encounters (TID-541): the units that will start on the enemy board stand
+## around the leader, slightly smaller, so the world shows what you'll fight.
+## Children of this node, so they wander, chase and vanish with it.
+func _add_pack_followers(etype: String) -> void:
+	var pack: Array[String] = EnemyRegistry.get_pack(etype)
+	var height: float = _SpriteRegistry.enemy_world_height(etype, false, false) * 0.8
+	for i: int in pack.size():
+		var tex: Texture2D = _SpriteRegistry.pack_member_texture(pack[i])
+		var follower: Sprite3D = _SpriteRegistry.make_billboard(tex, tex, height)
+		var ang: float = PI * 0.5 + float(i) * PI / maxf(1.0, float(pack.size() - 1))
+		follower.position += Vector3(cos(ang), 0.0, sin(ang)) * 1.1
+		follower.name = "PackFollower%d" % i
+		add_child(follower)
+		_SpriteOutline.apply(follower)
+		_IdleLife.register(follower, _IdleLife.STYLE_BOB)

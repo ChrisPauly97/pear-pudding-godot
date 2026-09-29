@@ -2,7 +2,7 @@
 
 **Goal:** GID-136
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -29,12 +29,25 @@ User: consumables are used from your inventory (not only via the one-per-battle 
 
 ## Plan
 
-_Written during Plan phase._
+1. Pure `game_logic/battle/QuickSlots.gd`: 2 slots, shared cooldown (3 of your
+   own turns, or `potion_cooldown` seconds in real time), `resolve` (auto-fill
+   from owned potions) and `assign`.
+2. `SaveManager.quick_slots` persisted; Items tab assigns potions to Q / E.
+3. Battle: two quick-slot buttons replace the Potion button + picker; keys Q / E
+   (1–3 are the real-time skill bar).
+4. **World use moves to TID-543:** none of today's potions do anything outside a
+   fight until hero HP persists; TID-543 adds the world-HUD quick slot with food
+   and out-of-combat healing.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `game_logic/battle/QuickSlots.gd` (+ uid); `CombatTuning` `potion_cooldown` knob.
+- `SaveManager.quick_slots`; `BattleConsumables` (quick slots, keys, cooldown; picker
+  removed); `BattleScene` (dropped `_potion_btn` / `_used_potion_this_battle`, turn
+  changes refresh the slots); `BattleRealtime._process` ticks the cooldown;
+  `ItemsPanel` Q / E assignment.
+- Tests: new `test_quick_slots.gd`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `home-garden-potions.md` (quick slots section), `combat-model.md` (current-state table).

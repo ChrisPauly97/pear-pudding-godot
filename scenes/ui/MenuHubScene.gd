@@ -5,6 +5,8 @@ const _CharacterScenePacked  := preload("res://scenes/ui/CharacterScene.tscn")
 const _SkillTreeScenePacked  := preload("res://scenes/ui/SkillTreeScene.tscn")
 const _JournalScenePacked    := preload("res://scenes/ui/JournalScene.tscn")
 const _SkillBarScenePacked   := preload("res://scenes/ui/SkillBarScene.tscn")
+const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
+const _SkillBar = preload("res://game_logic/battle/SkillBar.gd")
 
 const _TABS: Array[String] = ["deck", "character", "skills", "loadout", "journal"]
 const _TAB_LABELS: Dictionary = {
@@ -49,8 +51,9 @@ func _build_ui() -> void:
 
 	# Shrinks per tab as more are added (5 tabs fit the same row the original
 	# 4-tab layout used) rather than a fixed width that would overflow.
-	var tab_w: float = _ref * (0.80 / float(_TABS.size()))
-	for tab_id: String in _TABS:
+	var tabs: Array[String] = visible_tabs()
+	var tab_w: float = _ref * (0.80 / float(tabs.size()))
+	for tab_id: String in tabs:
 		var btn := _UiUtil.make_button(_TAB_LABELS[tab_id], Vector2(tab_w, _ref * 0.065), int(_ref * 0.019),
 				show_tab.bind(tab_id), tab_row)
 		_tab_buttons[tab_id] = btn
@@ -61,9 +64,23 @@ func _build_ui() -> void:
 	outer_vbox.add_child(content_wrapper)
 	_content_area = content_wrapper
 
+## GID-141: tabs for systems the player hasn't learned yet stay hidden — Skills
+## until Maiteln teaches the skill tree (feat_skills), Skill Bar until there is
+## more than Strike to arrange (Mend, level 2).
+func visible_tabs() -> Array[String]:
+	var sm := SceneManager.save_manager
+	var out: Array[String] = []
+	for tab_id: String in _TABS:
+		if tab_id == "skills" and not sm.has_learned(_UnlockLadder.FEAT_SKILLS):
+			continue
+		if tab_id == "loadout" and _SkillBar.known_ids(sm.learned_abilities).size() <= 1:
+			continue
+		out.append(tab_id)
+	return out
+
 ## Opens the hub on a specific tab. May be called before or after _ready().
 func show_tab(tab_id: String) -> void:
-	if not tab_id in _TAB_LABELS:
+	if not tab_id in _TAB_LABELS or not visible_tabs().has(tab_id):
 		tab_id = "deck"
 	_current_tab = tab_id
 	_update_tab_highlights()

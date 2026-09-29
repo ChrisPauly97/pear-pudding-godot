@@ -15,10 +15,13 @@ const SALVAGE_COINS: int = 30
 const SALVAGE_ESSENCE: int = 3
 
 ## Returns the scaled battle_effect_value for starting_mana / starting_hp / passive_atk.
-static func effective_stat(weapon: WeaponData, level: int) -> int:
+## `mult` is the item's rarity / item-level roll (`SaveManager.gear.mult(id)`, TID-538).
+static func effective_stat(weapon: WeaponData, level: int, mult: float = 1.0) -> int:
 	if weapon == null:
 		return 0
-	return int(weapon.battle_effect_value * (1.0 + 0.10 * level))
+	if is_equal_approx(mult, 1.0):
+		return int(weapon.battle_effect_value * (1.0 + 0.10 * level))
+	return maxi(weapon.battle_effect_value, roundi(weapon.battle_effect_value * (1.0 + 0.10 * level) * mult))
 
 ## Returns the scaled injected_card_count for deck_inject weapons (base + level extra copies).
 static func effective_inject_count(weapon: WeaponData, level: int) -> int:
@@ -46,23 +49,23 @@ static func cost_essence(current_level: int) -> int:
 
 ## Human-readable stats line for a weapon at the given upgrade level.
 ## Used by BlacksmithScene and CharacterScene for consistent display.
-static func get_display_string(weapon: WeaponData, level: int) -> String:
+static func get_display_string(weapon: WeaponData, level: int, mult: float = 1.0) -> String:
 	if weapon == null:
 		return ""
 	match weapon.battle_effect_type:
 		"deck_inject":
 			return "Inject %d× %s" % [effective_inject_count(weapon, level), weapon.injected_card_id]
 		"starting_mana":
-			return "+%d starting mana" % effective_stat(weapon, level)
+			return "+%d starting mana" % effective_stat(weapon, level, mult)
 		"starting_hp":
-			return "+%d starting HP" % effective_stat(weapon, level)
+			return "+%d starting HP" % effective_stat(weapon, level, mult)
 		"passive_atk":
-			return "+%d hero ATK" % effective_stat(weapon, level)
+			return "+%d hero ATK" % effective_stat(weapon, level, mult)
 		"starting_armor":
-			return "+%d starting armor" % effective_stat(weapon, level)
+			return "+%d starting armor" % effective_stat(weapon, level, mult)
 		"offhand_atk":
 			return "Off hand: %d dmg (real time) / +%d ATK (turn-based)" % [
-				effective_stat(weapon, level), offhand_turnbased_bonus(effective_stat(weapon, level))]
+				effective_stat(weapon, level, mult), offhand_turnbased_bonus(effective_stat(weapon, level, mult))]
 	return weapon.battle_effect_type
 
 ## Small turn-based stand-in for an off-hand weapon's real-time swing damage

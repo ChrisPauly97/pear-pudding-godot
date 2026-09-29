@@ -18,7 +18,7 @@
 | Structure | Hearthstone-like: two heroes (30 HP), 5 board slots each, mana +1/turn to 10, 1 draw/turn |
 | Enemy | `EnemyRegistry` deck of minions (e.g. `ghoul_pack` = 5 ghoul + zombies + skeleton); `phase2_deck` for bosses |
 | Skills | 32 passive + 16 active; one active = **hero power button** (`BattleConsumables`) |
-| Consumables | `SaveManager.potions`; one potion per battle via picker |
+| Consumables | `SaveManager.potions`; two Q / E quick slots with a shared cooldown (TID-542) |
 | Gear | 4 slots; gear can inject cards (`WeaponData.injected_card_id`) |
 | Soulbinding | Winning under a capture condition earns an enemy's signature **minion** card |
 | "Companion" | Already a term: Maiteln etc., one equipped passive (`CompanionRegistry`). Avoid the name clash. |
@@ -91,7 +91,8 @@ Keyboard: `Q`/`1`–`2` quick slots, `Space` end turn, number row for hand cards
 1. **Option A** — Hero & Allies.
 2. **Allies are ordinary deck cards**: drawn and played like any card, never auto-deployed at battle start.
    Cap: at most 5 Ally cards per deck, 3 Ally board slots (tunable in TID-545).
-3. **Hero HP carries over between fights**, with slow out-of-combat regen and a full heal in towns / beds.
+3. **Hero HP carries over between fights**, with slow out-of-combat regen and a full heal in towns / beds
+   (shipped in TID-543 — see `home-garden-potions.md` → Persistent Hero HP).
    Healing must be accessible early: more low-level hero heal spells, **food** consumables (out-of-combat
    regen, WoW-style) alongside the existing persistent potions (TID-543).
 4. **Terminology** (use everywhere — UI text, docs, code names for new work):
@@ -241,6 +242,40 @@ reads them each tick; `BattleRealtime` loads overrides from the `combat_tuning` 
 and are saved on the device; Reset all restores defaults. Max-mana knobs apply from the next fight.
 
 
+## Encounters that match the world (TID-541)
+
+First cut of the Pack / Solo / Summoner shapes, without changing GameState's win rules (every fight still has an
+enemy hero):
+
+- **Pack** (`ghoul_pack`, `undead_horde`): `EnemyRegistry` entries carry `pack` (card ids; `get_pack(type)`). The
+  leader is the enemy hero; its pack **starts on the enemy board** — `BattleModifiers._place_enemy_pack(type,
+  tier)` right after the enemy deck is built in `_setup_solo_battle`, tier-scaled like the deck
+  (`CardDropUtil.enemy_card_stats`), `minion_attack_bonus` applied, ready to act (not summoning-sick). In the world,
+  `EnemyNPC._add_pack_followers()` stands the same units around the leader (80 % height, bobbing billboards from
+  `SpriteRegistry.pack_member_texture(card_id)`), children of the leader so they chase and vanish with it.
+- **Solo** (ability-casting enemies): **not shipped.** An all-spell Warlord deck was tried and reverted after
+  review — enemy spells never resolve: `PlayerState.play_card` just discards a spell (only auto-resolve cards
+  drawn go through `pending_auto_spells`), and real time's `RealtimeCombat.choose_enemy_card` skipped spells.
+  BID-078 has since fixed that (BasicAI queues played spells for the flush; real time resolves them at the player
+  in `_after_enemy_play`), so an ability deck is now viable — not yet assigned to any enemy.
+- **Summoner**: everyone else keeps the current summoning deck.
+- Co-op PvE, PvP, puzzles and scripted fights don't use `_setup_solo_battle`, so they're unchanged.
+- Tests: `test_enemy_encounters.gd` (pack data; the Warlord keeps a summoning deck until BID-078); `battle_input_flow_smoke` checks the ghoul
+  pack is on the board when the fight opens.
+
+## Chain pulls — the next enemy follows straight on (TID-532)
+
+When an in-place fight is won (`BattleVictory._on_battle_won`, standard path) and an `EnemyNPC` that is
+already **pursuing** (`is_pursuing()`: alive and ALERTED or CHASING; every EnemyNPC joins group
+`EnemyNPC.GROUP` = `world_enemy`) stands within `CHAIN_RADIUS` (9 world units) of the hero, it engages at once:
+`_start_chain()` lifts the 2 s post-battle `_proximity_engage_blocked` grace and calls its `engage()`, with an
+"Another one!" toast. `SceneManager.hold_fight_zoom` keeps the camera pushed in across the hand-off —
+`_thaw_world` skips the zoom-out while it is set, and `_freeze_world` keeps the original `battle_cam_size`
+meta instead of re-recording a zoomed size — so the chain never resets the camera; the last fight's thaw
+restores it. If the follow-up never starts within `CHAIN_GIVEUP_SECONDS` (1.5 s, e.g. it stood down) the held
+zoom is released. Solo only (no chain in a co-op session); detached (non-real-time) battles never chain.
+Covered by `tests/in_world_battle_smoke.gd` → `_check_chain_pull`.
+
 ## Adds — a second enemy joins (TID-551)
 
 An enemy that engages while a real-time in-world fight is running **joins it** instead of being refused
@@ -352,17 +387,28 @@ cards (`RealtimeVisuals.update_hand_sweep`, pooled overlays on the root; full sh
 (`RealtimeVisuals._update_focus_ring`: focused minion, else the targeted enemy token). Enemy cast bars
 (inside their tokens) are larger, and a ready Kick pulses so you can react without looking up.
 
-## New-player onboarding (TID-552 / TID-553)
+## New-player onboarding (TID-552 / TID-553, ladder-based since GID-141 / TID-588)
 
-**Ramp** — `game_logic/battle/CombatOnboarding.gd`, keyed on `SaveManager.realtime_fights` (counted when a
-real-time fight starts; skipped for level > `MAX_LEVEL` = 2):
+**Ramp** — a fight contains only what the player has learned from a trainer (`UnlockLadder`, see
+`docs/agent/starter-zone-and-training.md`). `game_logic/battle/CombatOnboarding.gd` reads
+`SaveManager.learned_abilities`:
 
-| Fight | Bar | Hand / Allies | Clock |
+| Learned | Bar | Hand / Allies | Spell cards |
 |---|---|---|---|
-| 1 | Strike | hidden | slow (60 %) |
-| 2 | Strike, Mend | hidden | normal |
-| 3 | Strike, Mend, Kick | hidden | normal |
-| 4+ | full bar | shown | normal |
+| nothing (level 1) | Strike | hidden | — |
+| + `mend` (L2) | Strike, Mend | hidden | — |
+| + `kick` (L3) | Strike, Mend, Kick | hidden | — |
+| + `feat_minions` (L4) | as learned | shown | removed from the battle deck |
+| + `feat_spells` (L5) | as learned | shown | in the deck (full fight, `stage` −1) |
+
+- The bar needs no filter: `SkillBar` only holds learned ids.
+- Spells: `BattleModifiers._apply_combat_unlocks()` strips `card_class == "spell"` cards from the draw deck
+  (not in puzzle / scripted battles).
+- Slow clock (60 %): only the very first fight (`realtime_fights == 0`, nothing learned).
+- **Battle mode:** a hand-less player always fights in real time — `SaveManager.battle_mode()` (use it instead of
+  reading the `battle_mode` setting) returns `"realtime"` until `feat_minions`; after that the setting decides.
+- Companion: `BattleModifiers._active_companion()` is `""` until `feat_companion` is learned.
+- Migrated saves (v44) have all four unlocks → the full fight.
 
 `scenes/battle/modules/BattleOnboarding.gd` (`BattleRealtime.onboarding`) applies it; the turn-based card tips
 (`tutorial_battle_tip`, tap_and_hold / tap_to_cast) wait until the hand is shown (`realtime.shows_card_tips()`).
@@ -373,8 +419,8 @@ real-time fight starts; skipped for level > `MAX_LEVEL` = 2):
 
 | Tip | When | Spotlight |
 |---|---|---|
-| `rt_intro` | fight 1 starts | Strike |
-| `rt_skill_mend` / `rt_skill_kick` | the fight that unlocks it | that skill |
+| `rt_intro` | first real-time fight | Strike |
+| `rt_skill_mend` / `rt_skill_kick` | first fight with it on the bar | that skill |
 | `rt_cards` | first fight with the hand | hand |
 | `rt_low_hp` | HP ≤ 40 % with Mend on the bar | Mend |
 | `rt_enemy_cast` | an enemy casts with Kick on the bar | Kick |
@@ -392,9 +438,9 @@ and distinct from the one-shot `TutorialRegistry` popups above:
 - **Mentor barks** (`mentor_barks`, `scenes/battle/modules/MentorBarks.gd`): short, non-blocking Maiteln
   speech bubbles (portrait + fading label, top-center — clear of the top-left `SidePanel`, the top-right enemy
   hero token, and the bottom action strip / hand / onboarding spotlight). Built only when
-  `BarkRules.is_eligible(SaveManager.active_companion, onboarding.stage)` is true: Maiteln equipped as Mentor
-  (today's `active_companion`) **and** still on the `CombatOnboarding` ramp (`stage >= 0` — the same fight-count
-  gate TID-552/553 already use, not a new counter). Pure rules (rate limit 8 s, 2 uses per line per fight,
+  `BarkRules.is_eligible(companion, player_level)` is true: Maiteln learned + equipped as companion
+  (`BattleRealtime.modifiers_companion()`) **and** the player is still new (level ≤ `BarkRules.COACH_MAX_LEVEL`
+  = 12 — GID-141 moved the gate from the fight-count ramp, because Maiteln joins at level 6, after it). Pure rules (rate limit 8 s, 2 uses per line per fight,
   priority order, line text) live in `game_logic/battle/BarkRules.gd`; the module turns real moments into
   candidates each frame:
   | Moment | Source |
@@ -420,3 +466,22 @@ and distinct from the one-shot `TutorialRegistry` popups above:
 
 Gap: `FightStats.card_damage` has no feed yet (spell effects don't report damage back to the driver), so the
 "auto-attack neglected" tip rule is inert until something feeds it.
+
+## Telegraphed heavy blows (GID-139 / TID-579)
+
+Enemies wind up a **Heavy Blow** every `heavy_every` (12 s; first at 60 %) for `heavy_windup` (2.2 s), landing
+`heavy_frac` (25 %) of the player's max HP. It rides the existing cast bar as a pseudo card
+(`RealtimeCombat.make_heavy_card()`, `card_class == HEAVY_CLASS`), so **Kick interrupts it** (the same
+`interrupt_enemy_cast` / `SkillBar._casting_enemy` path), pushback applies, and **Guard / armor soaks it**
+(`HeroState.take_damage`). Events: `enemy_heavy_start` (toast "Heavy Blow incoming — Kick it or Guard!", Maiteln's
+"cast_bar" bark) and `enemy_heavy_hit` (red float + shake). `RealtimeCombat.heavy_enabled` is set by
+`BattleRealtime` only once the player has learned **Kick** (GID-141 ladder, L3) and not in puzzles, so new players
+never face a blow they can't answer. Knobs: `heavy_every`, `heavy_windup`, `heavy_frac` (CombatTuning, Enemy group).
+
+## Hit feel (GID-139 / TID-580)
+
+`BattleRealtime.hit_feel(strength)` = a brief hit-stop (the combat clock holds; `_hitstop_left`) plus
+`BattleFx.trigger_shake`, from `_HIT_FEEL` = [seconds, pixels]: 1 = a hit (your auto-attack swing, a skill hit) 0.045 s
+/ 2.5 px; 2 = a free-cast proc or a combo card 0.08 s / 5 px; 3 = a full-combo or free card 0.12 s / 8 px. Both obey
+the Screen Shake setting. Callers: `BattleRealtime` (player swing events), `BattleSkillBar.press`, `MomentumHud`
+(`on_proc`, combo card payoff).

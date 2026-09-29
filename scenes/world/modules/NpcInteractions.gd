@@ -7,6 +7,14 @@ const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const SkillBar = preload("res://game_logic/battle/SkillBar.gd")
+const _SideQuests = preload("res://game_logic/quests/SideQuests.gd")
+const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
+const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
+const _GearRolls = preload("res://game_logic/items/GearRolls.gd")
+const _SaveQuests = preload("res://autoloads/save_manager/SaveQuests.gd")
+const _UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
+const WeaponData = preload("res://data/WeaponData.gd")
+const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 
 const _DUEL_PANEL_BG := Color(0.08, 0.08, 0.18, 0.96)
 ## TID-557: fixed enemy id for the town training dummy fight — see EnemyRegistry.gd.
@@ -15,7 +23,25 @@ const _TRAINING_DUMMY_ENEMY_TYPE: String = "training_dummy"
 var _world: _WorldScene = null
 
 ## Runs the interaction for whichever NPC type the player is standing at.
+## Side quests (TID-534) come first: a quest to hand in or to offer opens the
+## quest panel, whose "Other business" button falls through to the NPC's
+## usual interaction.
 func interact(npc: Dictionary) -> void:
+	var npc_id: String = str(npc.get("id", ""))
+	if npc_id != "":
+		SceneManager.save_manager.quests.progress_event("talk", npc_id)
+	if show_quest_panel(npc):
+		return
+	# GID-141: a trainer with training waiting teaches first; "Other business"
+	# (shop, stable, board) is one tap away on the trainer panel's NPC.
+	var trainer: String = _UnlockLadder.trainer_at(npc_id)
+	if trainer != "" and str(npc.get("npc_type", "")) != "trainer" and trainer_has_pending(trainer):
+		show_trainer_panel(trainer, npc)
+		return
+	interact_service(npc)
+
+## The NPC's own interaction (shop, trainer, dialogue…), without quests.
+func interact_service(npc: Dictionary) -> void:
 	match str(npc.get("npc_type", "")):
 		"traveling_merchant":
 			var stock: Array[String] = []
@@ -34,7 +60,7 @@ func interact(npc: Dictionary) -> void:
 		"duelist":
 			show_duel_offer_panel(npc)
 		"trainer":
-			show_trainer_panel()
+			show_trainer_panel(_UnlockLadder.trainer_at(str(npc.get("id", ""))))
 		"training_dummy":
 			_offer_training_dummy_fight()
 		"rest_site":
@@ -51,6 +77,120 @@ func interact(npc: Dictionary) -> void:
 			_world.coop_social._toggle_stash_overlay()
 		_:
 			_speak(npc)
+
+# ── Side quests (GID-136 / TID-534) ─────────────────────────────────────────
+
+## Opens the quest panel when `npc` has a quest ready to hand in (first) or one
+## to offer. Returns false when it has neither.
+func show_quest_panel(npc: Dictionary) -> bool:
+	var sm := SceneManager.save_manager
+	var npc_id: String = str(npc.get("id", ""))
+	var turn_ins: Array[Dictionary] = sm.quests.turn_ins_for(npc_id)
+	if not turn_ins.is_empty():
+		_quest_panel(npc, turn_ins[0], true)
+		return true
+	var offers: Array[Dictionary] = sm.quests.offers_for(npc_id)
+	if not offers.is_empty():
+		_quest_panel(npc, offers[0], false)
+		return true
+	return false
+
+func _quest_panel(npc: Dictionary, q: Dictionary, turn_in: bool) -> void:
+	var sm := SceneManager.save_manager
+	var vh: float = _world.get_viewport().get_visible_rect().size.y
+	var modal: Dictionary = _world._build_modal(0.7, 0.42, _DUEL_PANEL_BG, 0.016, 0.03, 0.5)
+	var layer: CanvasLayer = modal["layer"]
+	var vbox: VBoxContainer = modal["vbox"]
+	var font: int = int(vh * 0.022)
+	var id: String = str(q.get("id", ""))
+
+	var title := _UiUtil.make_label(str(q.get("title", "")), int(vh * 0.032), Color(1.0, 0.92, 0.45),
+			HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	title.theme_type_variation = &"TitleLabel"
+	var who: String = _SideQuests.turn_in_name(q) if turn_in else str(q.get("giver_name", ""))
+	_UiUtil.make_label(who, int(vh * 0.02), Color(0.8, 0.8, 0.85), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var body_text: String = str(q.get("done_text", "")) if turn_in else str(q.get("summary", ""))
+	var body := _UiUtil.make_label(body_text, font, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, vbox)
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if not turn_in:
+		for o: Dictionary in _SideQuests.objectives(q):
+			_UiUtil.make_label("• %s  (%d)" % [str(o.get("label", "")), int(o.get("count", 1))],
+					int(vh * 0.02), Color(0.85, 0.9, 1.0), HORIZONTAL_ALIGNMENT_LEFT, vbox)
+	_UiUtil.make_label("Reward: " + reward_text(q.get("rewards", {})), int(vh * 0.02),
+			Color(1.0, 0.85, 0.4), HORIZONTAL_ALIGNMENT_LEFT, vbox)
+
+	var row := _UiUtil.make_hbox(int(vh * 0.02), vbox)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	var btn_size := Vector2(vh * 0.18, vh * 0.06)
+	var choice: Array = (q.get("rewards", {}) as Dictionary).get("gear_choice", [])
+	if turn_in and not choice.is_empty():
+		_gear_choice_row(q, choice, layer, vbox, btn_size, font)
+	elif turn_in:
+		_UiUtil.make_button("Complete", btn_size, font, func() -> void:
+			layer.queue_free()
+			_complete_quest(q, ""), row)
+	else:
+		_UiUtil.make_button("Accept", btn_size, font, func() -> void:
+			layer.queue_free()
+			if sm.quests.accept(id):
+				sm.set_tracked_quest(_QuestLog.SIDE_PREFIX + id)
+				GameBus.hud_message_requested.emit("Quest accepted: " + str(q.get("title", "")))
+			_world.quest_tracker.refresh(true), row)
+		_UiUtil.make_button("Decline", btn_size, font, layer.queue_free, row)
+	if str(npc.get("npc_type", "")) != "":
+		_UiUtil.make_button("Other business", btn_size, font, func() -> void:
+			layer.queue_free()
+			interact_service(npc), row)
+
+## "40 XP · 20 coins · 1 card" for a rewards dict.
+## Quest turn-in with a gear reward (TID-538): one button per item, showing what it
+## would give at the quest's roll; picking one completes the quest with it.
+func _gear_choice_row(q: Dictionary, choice: Array, layer: CanvasLayer, vbox: VBoxContainer, btn_size: Vector2,
+		font: int) -> void:
+	var vh: float = _world.get_viewport().get_visible_rect().size.y
+	var roll: Dictionary = _SaveQuests.quest_gear_roll(q)
+	_UiUtil.make_label("Choose your reward (%s):" % _GearRolls.label(roll), font, Color(1.0, 0.85, 0.4),
+			HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var row := _UiUtil.make_hbox(int(vh * 0.015), vbox)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	for idv: Variant in choice:
+		var item_id: String = str(idv)
+		var w: WeaponData = WeaponRegistry.get_weapon(item_id)
+		if w == null:
+			continue
+		var text: String = "%s\n%s" % [w.display_name, _UpgradeDefs.get_display_string(w, 0, _GearRolls.mult(roll))]
+		var btn := _UiUtil.make_button(text, Vector2(btn_size.x * 1.2, btn_size.y * 1.6), int(font * 0.9),
+				func() -> void:
+					layer.queue_free()
+					_complete_quest(q, item_id), row)
+		btn.add_theme_color_override("font_color", _UiUtil.rarity_color(str(roll["rarity"])))
+		btn.tooltip_text = w.description
+
+
+func _complete_quest(q: Dictionary, gear_pick: String) -> void:
+	var rewards: Dictionary = SceneManager.save_manager.quests.turn_in(str(q.get("id", "")), gear_pick)
+	if not rewards.is_empty():
+		GameBus.hud_message_requested.emit("Quest complete: %s  (%s)" % [str(q.get("title", "")),
+				reward_text(rewards)])
+	_world.quest_tracker.refresh(true)
+
+
+static func reward_text(rewards: Dictionary) -> String:
+	var parts: Array[String] = []
+	if int(rewards.get("xp", 0)) > 0:
+		parts.append("%d XP" % int(rewards["xp"]))
+	if int(rewards.get("coins", 0)) > 0:
+		parts.append("%d coins" % int(rewards["coins"]))
+	var cards: Array = rewards.get("cards", [])
+	if not cards.is_empty():
+		parts.append("%d card%s" % [cards.size(), "" if cards.size() == 1 else "s"])
+	var gear: String = str(rewards.get("gear", ""))
+	if gear != "":
+		var gw: WeaponData = WeaponRegistry.get_weapon(gear)
+		parts.append(gw.display_name if gw != null else gear)
+	elif not (rewards.get("gear_choice", []) as Array).is_empty():
+		parts.append("a choice of gear")
+	return " · ".join(parts) if not parts.is_empty() else "their thanks"
 
 ## The generic path: a live NPC node picks its line from story flags (and
 ## setting its flag_key marks the conversation as had); otherwise the map's text.
@@ -148,62 +288,95 @@ func show_duel_offer_panel(npc: Dictionary) -> void:
 		_UiUtil.make_button("Duel!", btn_size, font, duel, row)
 	_UiUtil.make_button("Decline", btn_size, font, layer.queue_free, row)
 
-## TID-537: the trainer's teach panel — every learnable skill-bar ability with
-## its level/coin requirement, a description, and a Learn button. Learning
-## rebuilds the panel in place (via `show_trainer_panel` again) so the row
-## flips to "Known" without the player having to reopen it.
-func show_trainer_panel() -> void:
+## GID-141 / TID-590: a trainer's teach panel. Lists every UnlockLadder entry
+## `trainer` teaches: learned ones ticked, locked ones greyed with their level,
+## and each one the player can learn now in full — its how-to text and a
+## "Learn — N gold" button, so the player reads what they are buying. Learning
+## rebuilds the panel in place so the row flips to "Learned".
+## `service_npc` (a merchant, stable, board…) adds an "Other business" button
+## that closes the panel and runs that NPC's usual interaction.
+func show_trainer_panel(trainer: String = "combat", service_npc: Dictionary = {}) -> void:
 	var sm := SceneManager.save_manager
 	var vh: float = _world.get_viewport().get_visible_rect().size.y
-	var modal: Dictionary = _world._build_modal(0.75, 0.7, _DUEL_PANEL_BG, 0.018, 0.03, 0.5)
+	var modal: Dictionary = _world._build_modal(0.8, 0.78, _DUEL_PANEL_BG, 0.014, 0.025, 0.5)
 	var layer: CanvasLayer = modal["layer"]
 	var vbox: VBoxContainer = modal["vbox"]
-	var font: int = int(vh * 0.024)
+	var font: int = int(vh * 0.022)
 
-	_UiUtil.make_label("Skill Trainer", int(vh * 0.032), Color(1.0, 0.92, 0.6),
+	var title := _UiUtil.make_label(_UnlockLadder.trainer_name(trainer), int(vh * 0.034), Color(1.0, 0.92, 0.6),
 			HORIZONTAL_ALIGNMENT_CENTER, vbox)
-	_UiUtil.make_label("Strike, Mend and Kick are yours already. Coins: %d  ·  Level %d" % [sm.coins, sm.level],
-			int(vh * 0.02), Color(0.8, 0.8, 0.85), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	title.theme_type_variation = &"TitleLabel"
+	_UiUtil.make_label("Coins: %d  ·  Level %d" % [sm.coins, sm.level], int(vh * 0.02),
+			Color(0.8, 0.8, 0.85), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
-	for id: String in SkillBar.learnable_ids():
-		vbox.add_child(_trainer_row(id, sm, layer, font, vh))
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(0.0, vh * 0.52)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	vbox.add_child(scroll)
+	var list := _UiUtil.make_vbox(int(vh * 0.018), scroll)
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for id: String in _UnlockLadder.for_trainer(trainer):
+		list.add_child(_trainer_row(id, trainer, service_npc, sm, layer, font, vh))
 
 	var close_row := _UiUtil.make_hbox(int(vh * 0.02), vbox)
 	close_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	# TID-556: also reachable from the Menu Hub's "Skill Bar" tab at any time.
-	_UiUtil.make_button("Loadout", Vector2(vh * 0.18, vh * 0.06), font, func() -> void:
-		layer.queue_free()
-		SceneManager.open_menu_hub("loadout"), close_row)
+	if trainer == "combat" and SkillBar.known_ids(sm.learned_abilities).size() > 1:
+		# TID-556: also reachable from the Menu Hub's "Skill Bar" tab at any time.
+		_UiUtil.make_button("Skill Bar", Vector2(vh * 0.18, vh * 0.06), font, func() -> void:
+			layer.queue_free()
+			SceneManager.open_menu_hub("loadout"), close_row)
+	if str(service_npc.get("npc_type", "")) != "":
+		_UiUtil.make_button("Other business", Vector2(vh * 0.2, vh * 0.06), font, func() -> void:
+			layer.queue_free()
+			interact_service(service_npc), close_row)
 	_UiUtil.make_button("Close", Vector2(vh * 0.18, vh * 0.06), font, layer.queue_free, close_row)
 
-func _trainer_row(id: String, sm: SaveManager, layer: CanvasLayer, font: int, vh: float) -> Control:
-	var a: Dictionary = SkillBar.def(id)
-	var level_req: int = int(a.get("level_req", 0))
-	var cost: int = int(a.get("learn_cost", 0))
-	var known: bool = sm.learned_abilities.has(id)
+func _trainer_row(id: String, trainer: String, service_npc: Dictionary, sm: SaveManager, layer: CanvasLayer,
+		font: int, vh: float) -> Control:
+	var row_def: Dictionary = _UnlockLadder.def(id)
+	var level_req: int = _UnlockLadder.level_req(id)
+	var cost: int = _UnlockLadder.cost(id)
+	var learned: bool = sm.learned_abilities.has(id)
+	var reached: bool = sm.level >= level_req
 
-	var row := _UiUtil.make_hbox(int(vh * 0.015))
-	var info := _UiUtil.make_vbox(int(vh * 0.003), row)
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_UiUtil.make_label("%s — Lvl %d · %d coins" % [str(a.get("name", id)), level_req, cost],
-			int(vh * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, info)
-	var desc := _UiUtil.make_label(str(a.get("desc", "")), int(vh * 0.018), Color(0.75, 0.75, 0.8),
-			HORIZONTAL_ALIGNMENT_LEFT, info)
-	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-
-	if known:
-		_UiUtil.make_label("Known", int(vh * 0.02), Color(0.5, 0.9, 0.55), HORIZONTAL_ALIGNMENT_RIGHT, row)
-		return row
-
-	var can: bool = SkillBar.can_learn(id, sm.level, sm.coins, sm.learned_abilities)
-	var learn_btn := _UiUtil.make_button("Learn", Vector2(vh * 0.14, vh * 0.055), font)
+	var box := _UiUtil.make_vbox(int(vh * 0.006))
+	var head := _UiUtil.make_hbox(int(vh * 0.015), box)
+	var name_col: Color = Color.WHITE if reached or learned else Color(0.55, 0.55, 0.6)
+	var name_lbl := _UiUtil.make_label("%s  —  Level %d · %d gold" % [str(row_def.get("title", id)), level_req, cost],
+			int(vh * 0.024), name_col, HORIZONTAL_ALIGNMENT_LEFT, head)
+	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if learned:
+		_UiUtil.make_label("Learned ✓", int(vh * 0.02), Color(0.5, 0.9, 0.55), HORIZONTAL_ALIGNMENT_RIGHT, head)
+		return box
+	if not reached:
+		_UiUtil.make_label("Come back at level %d" % level_req, int(vh * 0.019), Color(0.6, 0.6, 0.65),
+				HORIZONTAL_ALIGNMENT_RIGHT, head)
+		return box
+	var how := _UiUtil.make_label(str(row_def.get("how_to", "")), int(vh * 0.019), Color(0.86, 0.88, 0.95),
+			HORIZONTAL_ALIGNMENT_LEFT, box)
+	how.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var can: bool = _UnlockLadder.can_learn(id, sm.level, sm.coins, sm.learned_abilities)
+	var btn_row := _UiUtil.make_hbox(int(vh * 0.01), box)
+	btn_row.alignment = BoxContainer.ALIGNMENT_END
+	if not can:
+		_UiUtil.make_label("Need %d more gold" % (cost - sm.coins), int(vh * 0.019), Color(0.95, 0.45, 0.4),
+				HORIZONTAL_ALIGNMENT_RIGHT, btn_row)
+	var learn_btn := _UiUtil.make_button("Learn — %d gold" % cost, Vector2(vh * 0.24, vh * 0.055), font,
+			func() -> void:
+				if sm.learn_ability(id, cost):
+					layer.queue_free()
+					show_trainer_panel(trainer, service_npc), btn_row)
 	learn_btn.disabled = not can
-	learn_btn.pressed.connect(func() -> void:
-		if sm.learn_ability(id, cost):
-			layer.queue_free()
-			show_trainer_panel())
-	row.add_child(learn_btn)
-	return row
+	return box
+
+## True when `trainer` has something the player could learn now (level reached,
+## not yet learned) — the "!" over them and the reason talking opens the panel.
+static func trainer_has_pending(trainer: String) -> bool:
+	var sm := SceneManager.save_manager
+	for id: String in _UnlockLadder.pending(sm.level, sm.learned_abilities):
+		if _UnlockLadder.trainer_for(id) == trainer:
+			return true
+	return false
 
 ## TID-557: interacting with the town training dummy — a free-of-consequence
 ## real-time practice fight. No deck-size gate, no gambit picker, no coin

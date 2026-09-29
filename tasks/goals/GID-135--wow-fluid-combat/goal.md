@@ -14,7 +14,7 @@ Raised by the user (2026-09-26), inspired by WoW: "key thing will be making card
 |----|------|------|--------|------------|
 | TID-527 | Battle Pacing Audit & Timing Test | agent | done | — |
 | TID-540 | Combat Model Redesign — Hero Spells, Companion Minions, Enemy Packs | agent | done | — |
-| TID-544 | Terminology — Mentor, Ally, Minion | agent | pending | TID-540 |
+| TID-544 | Terminology — Mentor, Ally, Minion | agent | done | TID-540 |
 | TID-545 | Hero Kit — Weapon Auto-Attack, Ally Cap, Faster Start | agent | done | TID-540, TID-546 |
 | TID-546 | Real-Time Combat Prototype | agent | review | TID-540 |
 | TID-547 | Real-Time Combat — Full Mode | agent | done | TID-546 |
@@ -30,10 +30,10 @@ Raised by the user (2026-09-26), inspired by WoW: "key thing will be making card
 | TID-551 | Adds — a Second Enemy Joins a Real-Time Fight | agent | done | TID-546, TID-528 |
 | TID-528 | Fight In Place — Camera Zoom Into Battle | agent | done | TID-527 |
 | TID-529 | Snappy Enemy Turns | agent | superseded | TID-527 |
-| TID-530 | Input Flow — Spell Queue & One-Tap Targeting | agent | pending | TID-546 |
+| TID-530 | Input Flow — Spell Queue & One-Tap Targeting | agent | done | TID-546 |
 | TID-531 | In-World Loot & XP Toasts | agent | done | TID-528 |
-| TID-532 | Chain Pulls — Keep Momentum Between Fights | agent | pending | TID-528, TID-531 |
-| TID-541 | Enemy Encounters That Match the World | agent | pending | TID-540 |
+| TID-532 | Chain Pulls — Keep Momentum Between Fights | agent | done | TID-528, TID-531 |
+| TID-541 | Enemy Encounters That Match the World | agent | done | TID-540 |
 
 ## Acceptance Criteria
 

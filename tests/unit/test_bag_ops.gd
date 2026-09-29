@@ -1,4 +1,4 @@
-## BagOps (GID-144): the backpack's sort orders, search and the "Extras" pick.
+## BagOps (GID-148): the backpack's sort orders, search and the "Extras" pick.
 ## Extras feeds a bulk sell/scrap, so a wrong pick destroys cards the player
 ## wanted — the deck, best-copy and protection rules are asserted here.
 extends "res://tests/framework/test_case.gd"

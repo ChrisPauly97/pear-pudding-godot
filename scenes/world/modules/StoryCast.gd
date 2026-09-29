@@ -18,6 +18,10 @@ const WorldMap = preload("res://game_logic/world/WorldMap.gd")
 const _MaitelnFollowerScene = preload("res://scenes/world/entities/MaitelnFollower.tscn")
 const _ScoutAmbushScene = preload("res://scenes/world/entities/ScoutAmbush.tscn")
 const _WildernessCampScene = preload("res://scenes/world/entities/WildernessCamp.tscn")
+const _TownspersonScene = preload("res://scenes/world/entities/TownspersonNPC.tscn")
+const TerrainMath = preload("res://game_logic/TerrainMath.gd")
+## Within this range (world units) a flag-shown NPC is spawned at once.
+const _SHOW_SPAWN_RANGE: float = 80.0
 
 ## Named story maps where Maiteln always travels with the player. The open world
 ## only qualifies during the TID-402 camp-beat window (not general sandbox).
@@ -79,6 +83,27 @@ func spawn_open_world_beats() -> void:
 	spawn_open_world_rival()
 	spawn_wilderness_camp()
 	spawn_scout_ambush()
+	spawn_flag_shown_npcs()
+
+## Stitched-town NPCs waiting on a `show_flag_key` (MapNpc) whose flag is now
+## set appear on the spot (ChunkRenderer skipped them at load) — GID-141:
+## Maiteln walks into Madrian the moment the townsfolk quests are done.
+func spawn_flag_shown_npcs() -> void:
+	var sm := SceneManager.save_manager
+	for npc: Dictionary in RealmLayout.entities("npcs"):
+		var flag: String = str(npc.get("show_flag_key", ""))
+		var nid: String = str(npc.get("id", ""))
+		if flag == "" or not sm.get_story_flag(flag) or _world._active_npc_data.has(nid):
+			continue
+		var hide: String = str(npc.get("hide_flag_key", ""))
+		if hide != "" and sm.get_story_flag(hide):
+			continue
+		var p: Vector3 = _world._player.position
+		if Vector2(float(npc["x"]) - p.x, float(npc["z"]) - p.z).length() > _SHOW_SPAWN_RANGE:
+			continue  # its chunk isn't loaded; ChunkRenderer spawns it when it is
+		var data: Dictionary = npc.duplicate()
+		var node: Node3D = TerrainMath.spawn_entity(_TownspersonScene, data, 0.5, _world._entity_root, _world)
+		_world.register_npc(nid, node, data)
 
 ## First-night wilderness camp (GID-108 / TID-402). Gone for good once
 ## chapter1_learned_fire is set (the entity frees itself on that transition).

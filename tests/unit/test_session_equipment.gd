@@ -198,3 +198,33 @@ func test_roll_equipment_drop_default_tier_uses_default_chance() -> void:
 	assert_true(hits_tier3 > hits_tier1,
 		"tier-3 hit rate (%d/%d) should exceed tier-1 hit rate (%d/%d) over %d trials"
 			% [hits_tier3, trials, hits_tier1, trials, trials])
+
+
+# ---------------------------------------------------------------------------
+# Gear rolls on session characters (BID-075)
+# ---------------------------------------------------------------------------
+
+func test_session_character_carries_gear_rolls() -> void:
+	const SessionState = preload("res://game_logic/net/SessionState.gd")
+	var starter: Dictionary = SessionState.make_starter_character("tok", "Ana")
+	assert_true(starter.has("gear_rolls"), "fresh session characters start with an empty roll table")
+	_sm.adopt_session_character({"owned_weapons": ["dusk_blade"], "equipped_weapon": "dusk_blade",
+			"gear_rolls": {"dusk_blade": {"rarity": "epic", "ilvl": 9}}})
+	assert_eq(str(_sm.gear.roll_of("dusk_blade")["rarity"]), "epic")
+	var out: Dictionary = _sm.export_session_character()
+	assert_eq(str(((out["gear_rolls"] as Dictionary)["dusk_blade"] as Dictionary)["rarity"]), "epic")
+	_sm.adopt_session_character({"gear_rolls": "junk"})
+	assert_eq(_sm.gear_rolls.size(), 0, "a malformed roll table is dropped")
+
+
+func test_session_character_keeps_learned_abilities_and_rift_progress() -> void:
+	# Code review: a session forgot trainer unlocks and re-paid rift first-clear XP.
+	_sm.adopt_session_character({"learned_abilities": ["feat_bounties"], "rift_first_clears": ["forest:3"],
+			"rift_best_tiers": {"forest": 3}})
+	assert_true(_sm.learned_abilities.has("feat_bounties"))
+	var out: Dictionary = _sm.export_session_character()
+	assert_true((out["learned_abilities"] as Array).has("feat_bounties"))
+	assert_true((out["rift_first_clears"] as Array).has("forest:3"))
+	assert_eq(int((out["rift_best_tiers"] as Dictionary)["forest"]), 3)
+	_sm.adopt_session_character({})
+	assert_eq(_sm.learned_abilities.size(), 0, "old records without the fields adopt as empty")

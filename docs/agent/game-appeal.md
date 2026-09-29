@@ -105,7 +105,7 @@ common in the segment.
   (Dawn/Dusk modifiers, GID-059); weather and biome atmosphere (GID-042); living world
   events (GID-039).
 - **Long arcs:** skill trees with corruption/redemption currencies (GID-030/032/086),
-  bestiary and colossi completion (GID-045/067), Spire best-floor record (GID-038),
+  bestiary and colossi completion (GID-045/067), per-biome rift tier ladders with one-time rift quests (GID-142; originally the Spire best-floor record, GID-038),
   champion ladder (GID-037), the rival Isfig arc (GID-053), Chapters 1–2 story (GID-108).
 - **Loss is cheap:** defeat keeps the world alive with Retry/Respawn (GID-069), battles
   can be fled, battle speed is adjustable — the loop respects mobile session lengths.
@@ -116,7 +116,12 @@ common in the segment.
 
 Stated plainly so downstream work targets them rather than the pitch papering over them.
 
-1. **The hooks are invisible in the first session.** A new player's path is menu → biome
+1. ~~**The hooks are invisible in the first session.**~~ **Addressed by GID-141** (starter zone + trainer-taught
+   unlocks): a new player now meets one system per level, each taught at a trainer who explains it before taking
+   gold (`UnlockLadder`, `docs/agent/starter-zone-and-training.md`), and townsfolk quests send them to use it
+   straight away. Soulbinding is named in the minion/spell lessons; Dig (L10) and Phase (L12) have their own
+   Gravedigger quests and a Phase-only crypt teases from the first field. Original finding kept for history:
+   **The hooks are invisible in the first session.** A new player's path is menu → biome
    pick → tutorial → basic undead battle. Soulbinding only reveals itself *after* a win
    against an enemy with a signature (and is never explained in advance); cantrips require
    4 same-family cards and a gated HUD button the tutorial never mentions; resonance and
@@ -135,10 +140,14 @@ Stated plainly so downstream work targets them rather than the pitch papering ov
    not matchmaking.
 5. ~~**Audio/music gap.**~~ **Resolved.** All 7 tracks landed with GID-116 / TID-436 and are
    committed under `assets/audio/music/` (~22 MB); attribution is recorded in `CREDITS.md`
-   (GID-116 / TID-437). Named towns no longer play dungeon music (GID-125 / TID-470). The
-   remaining gap is *variety*, not presence: every hand-authored town shares one peaceful
-   track, so a distinct bed for a location under siege is still worth having.
-6. **Placeholder feel in places.** Visual polish shipped broadly (GID-070/089/114), but
+   (GID-116 / TID-437). Named towns no longer play dungeon music (GID-125 / TID-470), and a
+   town under siege now gets its own music (GID-145 / TID-617). The remaining gap is
+   *variety*: hand-authored towns still share one peaceful track.
+6. **Placeholder feel in places.** *(Partly addressed by GID-141 / TID-593–594: first-30-minutes audit fixed the
+   XP bar, NPC names, NPCs standing in walls and panel sizing; GID-143 then generated the starter undead, the
+   named NPCs, graveyard dressing and menu key art (BID-065..067 resolved), and GID-144 (Generated Art Replacement)
+   replaced the rest of the third-party world characters, card art, objects and HUD icons (BID-068..072 resolved);
+   the hero is the paper doll (GID-137) with gear, helmets, boots and a back view.)* Visual polish shipped broadly (GID-070/089/114), but
    the pixel-art-in-3D aesthetic still varies in finish between old and new systems.
 
 ---
@@ -168,7 +177,8 @@ battles. Line numbers are as of the audit commit._
    ghost-heavy deck unlocks Phase, mitigating BID-050 without new UI.
 3. **No action needed** for resonance (self-labelling banner) or co-op (menu button).
    Veterancy teaching is deliberately deferred — surfacing it at first rank-up would be a
-   separate, later task.
+   separate, later task. *(Done in BID-074: the first rank-up shows a "Veteran Cards" popup,
+   and every rank-up gets a "Veteran! Ghost the Seasoned ▲" toast.)*
 
 **Incidental finding (resolved by TID-443):** `SaveManager.new_game()` seeded `xp = 11250`,
 `level = 15`, `skill_points = 14`, `coins = 3000` — late-game values that bypassed the
@@ -178,6 +188,13 @@ preserved as an opt-in "Head Start (debug)" toggle on the biome-selection screen
 request.
 
 ---
+
+### Update (GID-141, 2026-09-28)
+
+The first session no longer front-loads every system. Level 1 is Strike + auto-attack against level-1 camps next to
+town; Mend, Kick, minions, spells, companion, skill tree, bounties, night hunts, Dig, Phase, rifts/packs and riding
+arrive one per level (riding at 40), each learned at a trainer for gold after reading what it does, with a
+townsfolk quest that exercises it. Maiteln — and the story — arrive after five townsfolk quests (≈ level 6).
 
 ## Integrations with Other Features
 

@@ -5,6 +5,7 @@ extends Node
 ## Every state change, after it is applied. `from == to` for a map reload.
 signal state_changed(from: State, to: State)
 
+const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const _SceneFlow = preload("res://game_logic/SceneFlow.gd")
 const _RendererOptIn = preload("res://game_logic/RendererOptIn.gd")
 const _UiTheme = preload("res://scenes/ui/UiTheme.gd")
@@ -25,6 +26,7 @@ const _TutorialPopupScript = preload("res://scenes/ui/TutorialPopup.gd")
 const TutorialRegistry = preload("res://game_logic/TutorialRegistry.gd")
 const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
 const _SpireFloorGen = preload("res://game_logic/spire/SpireFloorGen.gd")
+const _RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const _CoopNightHunts = preload("res://game_logic/CoopNightHunts.gd")
 const Gambits = preload("res://game_logic/battle/Gambits.gd")
@@ -69,6 +71,9 @@ var session_stats: Dictionary = _fresh_session_stats(0)
 var save_manager: _SaveManagerScript
 ## Child modules (see autoloads/scene_manager/), created by `_ensure_modules()`.
 var victory: _BattleVictory
+## Set by BattleVictory when a pursuing enemy follows straight on (TID-532): the
+## thaw keeps the fight zoom so the next in-place battle starts without a reset.
+var hold_fight_zoom: bool = false
 var defeat: _BattleDefeat
 var net_battles: _NetBattles
 
@@ -311,7 +316,7 @@ func _maybe_boot_dedicated_server() -> void:
 	if not args.has("--server"):
 		return
 	var port: int = NetworkManager.DEFAULT_PORT
-	var map_name: String = "madrian"
+	var map_name: String = "main"  # the stitched overworld (BID-063)
 	for i: int in range(args.size()):
 		var arg: String = args[i]
 		if arg == "--port" and i + 1 < args.size():
@@ -779,7 +784,7 @@ func _enter_battle(configure: Callable, networked: bool = false) -> void:
 func _in_world_battle_eligible(networked: bool) -> bool:
 	if networked or NetworkManager.is_active():
 		return false
-	if not str(save_manager.get_setting("battle_mode", "turn")).begins_with("realtime"):
+	if not save_manager.battle_mode().begins_with("realtime"):
 		return false
 	var world: Node = get_tree().current_scene
 	return world != null and world.get("_camera") is Camera3D
@@ -836,7 +841,8 @@ func _freeze_world(world: Node) -> void:
 			hidden.append(layer)
 	world.set_meta("battle_hidden_layers", hidden)
 	var cam: Camera3D = world.get("_camera") as Camera3D
-	if cam != null:
+	hold_fight_zoom = false
+	if cam != null and not world.has_meta("battle_cam_size"):  # a chain pull is still zoomed in (TID-532)
 		world.set_meta("battle_cam_size", cam.size)
 		create_tween().tween_property(cam, "size", cam.size * _IN_WORLD_ZOOM, _IN_WORLD_ZOOM_SECONDS) \
 				.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
@@ -849,7 +855,7 @@ func _thaw_world(world: Node) -> void:
 				layer.visible = true
 		world.remove_meta("battle_hidden_layers")
 	var cam: Camera3D = world.get("_camera") as Camera3D
-	if cam != null and world.has_meta("battle_cam_size"):
+	if cam != null and world.has_meta("battle_cam_size") and not hold_fight_zoom:
 		create_tween().tween_property(cam, "size", float(world.get_meta("battle_cam_size")), _IN_WORLD_ZOOM_SECONDS) \
 				.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 		world.remove_meta("battle_cam_size")
@@ -1051,6 +1057,9 @@ func _on_traveling_shop_requested(stock: Array[String], price: int) -> void:
 		o.set("_custom_title", "Traveling Merchant's Rare Wares"))
 
 func _on_bounty_board_requested() -> void:
+	if not save_manager.has_learned(_UnlockLadder.FEAT_BOUNTIES):
+		GameBus.hud_message_requested.emit(_UnlockLadder.locked_message(_UnlockLadder.FEAT_BOUNTIES))
+		return
 	_open_overlay(_bounty_board_scene_packed, State.BOUNTY_BOARD)
 
 func _on_mailbox_requested() -> void:
@@ -1066,6 +1075,9 @@ func _on_character_requested() -> void:
 	open_menu_hub("character")
 
 func _on_skill_tree_requested() -> void:
+	if not save_manager.has_learned(_UnlockLadder.FEAT_SKILLS):
+		GameBus.hud_message_requested.emit(_UnlockLadder.locked_message(_UnlockLadder.FEAT_SKILLS))
+		return
 	GameBus.tutorial_popup_requested.emit("skill_tree")
 	open_menu_hub("skills")
 
@@ -1114,17 +1126,23 @@ func _on_tutorial_popup_requested(popup_id: String) -> void:
 # ── Endless Spire helpers ───────────────────────────────────────────────────
 
 ## Starts or resumes an Endless Spire run from the entrance door in a town map.
-func enter_spire() -> void:
+## GID-142: `rift_id` / `tier` pick the rift and tier (tier 0 = the highest
+## unlocked, clamped to best + 1). An active run resumes whatever was passed.
+func enter_spire(rift_id: String = "grasslands", tier: int = 0) -> void:
+	if not save_manager.has_learned(_UnlockLadder.FEAT_SPIRE):
+		GameBus.hud_message_requested.emit(_UnlockLadder.locked_message(_UnlockLadder.FEAT_SPIRE))
+		return
 	if save_manager.spire.is_spire_active():
 		var run: Dictionary = save_manager.spire.get_spire_run()
 		var floor: int = int(run.get("floor", 1))
 		var run_seed: int = int(run.get("seed", 0))
-		enter_map("spire_floor_%d_%d" % [floor, run_seed], "")
+		enter_map(_SpireFloorGen.map_name_for(floor, run_seed, str(run.get("rift", "")), int(run.get("tier", 1))), "")
 	else:
 		var seed: int = randi()
-		save_manager.spire.start_spire_run(seed)
+		save_manager.spire.start_spire_run(seed, rift_id, tier)
 		GameBus.tutorial_popup_requested.emit("spire_intro")
-		enter_map("spire_floor_1_%d" % seed, "")
+		var started: Dictionary = save_manager.spire.get_spire_run()
+		enter_map(_SpireFloorGen.map_name_for(1, seed, str(started["rift"]), int(started["tier"])), "")
 
 ## Shows the post-floor draft. Only ever called from _restore_world's post-swap
 ## callback (see _spire_battle_won) — parenting it to a `current_scene` that is
@@ -1172,14 +1190,35 @@ func _on_pack_open_closed() -> void:
 
 func _advance_spire_floor() -> void:
 	save_manager.spire.advance_spire_floor()
+	if save_manager.spire.tier_complete():
+		_complete_rift_tier()
+		return
 	var run: Dictionary = save_manager.spire.get_spire_run()
 	var next_floor: int = int(run.get("floor", 1))
 	var run_seed: int = int(run.get("seed", 0))
-	var next_map: String = "spire_floor_%d_%d" % [next_floor, run_seed]
+	var next_map: String = _SpireFloorGen.map_name_for(next_floor, run_seed, str(run.get("rift", "")),
+			int(run.get("tier", 1)))
 	current_map = next_map
 	save_manager.sync_stacks(map_stack, door_stack)
 	save_manager.save()
 	_load_world(next_map, "")
+
+## GID-142: the guardian is down — the tier is cleared. End the run (records
+## the tier) and walk back out of the rift to where it was entered.
+func _complete_rift_tier() -> void:
+	var stats: Dictionary = save_manager.spire.end_spire_run()
+	GameBus.spire_run_ended.emit(stats)
+	save_manager.save()
+	exit_map()
+	var parts: Array[String] = ["+%d coins" % int(stats.get("coins_earned", 0))]
+	if int(stats.get("xp_earned", 0)) > 0:
+		parts.append("+%d XP (first clear)" % int(stats.get("xp_earned", 0)))
+	if str(stats.get("card_reward", "")) != "":
+		parts.append("a card")
+	if bool(stats.get("is_new_tier_record", false)):
+		parts.append("tier %d unlocked" % (int(stats.get("tier", 1)) + 1))
+	show_toast("%s — Tier %d cleared!" % [_RiftDefs.rift_name(str(stats.get("rift", ""))), int(stats.get("tier", 1))],
+			", ".join(parts))
 
 func show_toast(title: String, desc: String) -> void:
 	_toast.show_text(title, desc)
@@ -1264,15 +1303,20 @@ func get_coop_spire_run() -> Dictionary:
 ## map transition and loading the floor locally is the caller's job (reuses the
 ## existing recv_map_transition RPC verbatim, exactly like _start_dungeon_crawl) —
 ## this function only owns the run's data.
-func enter_spire_coop(picker_order: Array[String] = []) -> String:
+## GID-142: a co-op run is a rift run too (default: the host's next Grasslands
+## tier — peers' own bests aren't known to the host, so the host's decides).
+func enter_spire_coop(picker_order: Array[String] = [], rift_id: String = "grasslands", tier: int = 0) -> String:
 	if is_coop_spire_active():
 		var run: Dictionary = _coop_spire_run
-		var floor: int = int(run.get("floor", 1))
-		var run_seed: int = int(run.get("seed", 0))
-		return "spire_floor_%d_%d" % [floor, run_seed]
+		return _SpireFloorGen.map_name_for(int(run.get("floor", 1)), int(run.get("seed", 0)),
+				str(run.get("rift", "")), int(run.get("tier", 1)))
 	var seed: int = randi()
+	var best: int = save_manager.spire.best_tier(rift_id) if save_manager != null else 0
+	var run_tier: int = _RiftDefs.clamp_tier(tier if tier > 0 else _RiftDefs.max_start_tier(best), best)
 	_coop_spire_run = {
 		"active": true,
+		"rift": rift_id,
+		"tier": run_tier,
 		"floor": 1,
 		"seed": seed,
 		"shared_deck": [],
@@ -1280,7 +1324,7 @@ func enter_spire_coop(picker_order: Array[String] = []) -> String:
 		"picker_order": picker_order.duplicate(),
 		"picker_idx": 0,
 	}
-	return "spire_floor_1_%d" % seed
+	return _SpireFloorGen.map_name_for(1, seed, rift_id, run_tier)
 
 ## Appends a drafted card to the shared run deck (no-op if the run is inactive).
 ## Mirrors SaveManager.add_drafted_card.
@@ -1317,6 +1361,8 @@ func end_coop_spire_run() -> Dictionary:
 	var floors_cleared: int = int(_coop_spire_run.get("floor", 1)) - 1
 	var stats: Dictionary = {
 		"floors_cleared": floors_cleared,
+		"rift": str(_coop_spire_run.get("rift", "")),
+		"tier": int(_coop_spire_run.get("tier", 1)),
 		"seed": int(_coop_spire_run.get("seed", 0)),
 		"shared_deck": (_coop_spire_run.get("shared_deck", []) as Array).duplicate(),
 	}

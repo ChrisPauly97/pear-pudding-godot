@@ -11,6 +11,7 @@ extends Node
 const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const _ContactShadow = preload("res://game_logic/ContactShadow.gd")
 const _IdleLife = preload("res://game_logic/IdleLife.gd")
+const _HeroAnim = preload("res://game_logic/character/HeroAnim.gd")
 const _SpriteOutline = preload("res://game_logic/SpriteOutline.gd")
 
 var _world: _WorldScene = null
@@ -77,7 +78,7 @@ func _update_hero(delta: float) -> void:
 	var spr: AnimatedSprite3D = pl._sprite
 	if spr == null:
 		return
-	pl.visual_bob = _IdleLife.hero_bob(spr.animation == &"walk" and spr.is_playing(), spr.frame, _time)
+	pl.visual_bob = _IdleLife.hero_bob(_HeroAnim.is_walk(spr.animation) and spr.is_playing(), spr.frame, _time)
 	var near: bool = _world._world_hud != null and _world._world_hud.interact_prompt_visible
 	_glow = move_toward(_glow, 1.0 if near else 0.0, delta * 4.0)
 	var g: float = _glow * (0.7 + 0.3 * sin(_time * 5.0))

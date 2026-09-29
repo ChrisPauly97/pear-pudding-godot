@@ -87,7 +87,7 @@ do occasionally change. Anything marked *unconfirmed* below must be checked on-p
   - Loops seamlessly; downloadable as intro / loop / intro+loop — use the **loop** variant (AudioManager restarts the whole file on `finished`, so an intro would replay every loop).
   - Format/conversion needed: check page (loop variant format).
 
-## Siege Track (GID-141 / TID-590)
+## Siege Track (GID-145 / TID-617)
 
 `assets/audio/music/siege.ogg`: "Epic Boss Battle [Seamlessly Looping]" by Juhani
 Junkala (CC0), loudness-matched to `battle.ogg` (−10.4 LUFS), import `loop=true`.

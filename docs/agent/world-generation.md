@@ -45,12 +45,12 @@ Per-biome parameters in `BiomeDef`:
 
 The noise instance is seeded with `world_seed ^ biome_id` for determinism.
 
-Current `PARAMS` (GID-142 raised hill coverage so the overworld rolls instead of
+Current `PARAMS` (GID-146 raised hill coverage so the overworld rolls instead of
 reading flat): grasslands `hill_thresh` 0.66 / max 3, forest 0.60 / 4, desert
 0.74 / 2, scorched 0.62 / 5, mountains 0.55 / 7. Hills are walkable
 (Pathfinder/TapToMove); max heights stay within the player's 75° floor angle.
 
-#### Trees (`game_logic/world/TreeScatter.gd`, GID-142)
+#### Trees (`game_logic/world/TreeScatter.gd`, GID-146)
 
 Pure worker-thread scatter merged into `ChunkRenderer`'s prop dictionary, so
 trees render as the same billboard `MultiMeshInstance3D` props (never mirrored,

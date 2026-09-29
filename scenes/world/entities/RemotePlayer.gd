@@ -29,6 +29,7 @@ var _target_x: float = 0.0
 var _target_z: float = 0.0
 var _target_flip_h: bool = false
 var _target_moving: bool = false
+var _back_facing: bool = false
 var _net_velocity: Vector2 = Vector2.ZERO  # XZ velocity from the last two packets
 var _since_packet: float = 0.0             # seconds since the last packet arrived
 var _has_packet: bool = false
@@ -48,6 +49,7 @@ var _is_downed: bool = false
 
 ## The peer's visible gear (GID-137 / TID-561), set by CoopAppearance.
 var _gear: Dictionary = {}
+var _look: Dictionary = {}  # PaperDoll appearance colours (TID-562)
 
 
 ## Called by WorldScene after instantiation. Expected keys: peer_id, x, z.
@@ -58,11 +60,13 @@ func init_from_data(data: Dictionary) -> void:
 	position = Vector3(_target_x, 0.0, _target_z)
 
 
-## Dress the avatar in the peer's gear (slot → item id). Safe before or after _ready.
-func set_gear(gear: Dictionary) -> void:
+## Dress the avatar in the peer's gear (slot → item id) and look (PaperDoll
+## appearance colours). Safe before or after _ready.
+func set_gear(gear: Dictionary, look: Dictionary = {}) -> void:
 	_gear = gear
+	_look = look
 	if _sprite != null:
-		_HeroAnim.wear(_sprite, _PaperDoll.build_frames(_gear))
+		_HeroAnim.wear(_sprite, _PaperDoll.build_frames(_gear, _look))
 
 
 ## Apply the peer's display name + color (TID-342). Safe before or after _ready.
@@ -74,7 +78,7 @@ func set_player_identity(display_name: String, color: Color) -> void:
 
 
 func _ready() -> void:
-	_sprite = _AvatarSprite.build(_gear)
+	_sprite = _AvatarSprite.build(_gear, _look)
 	add_child(_sprite)
 	_SpriteOutline.apply(_sprite)
 	_SpriteOutline.apply_xray(_sprite)
@@ -179,9 +183,10 @@ func _process(delta: float) -> void:
 
 	_sprite.flip_h = _target_flip_h
 
+	# Back view while the peer heads up-screen (TID-618); the XZ net velocity
+	# stands in for the steering direction the local Player uses.
 	if _target_moving:
-		if _sprite.animation != &"walk":
-			_sprite.play("walk")
-	else:
-		if _sprite.animation != &"idle":
-			_sprite.play("idle")
+		_back_facing = _HeroAnim.faces_away(Vector3(_net_velocity.x, 0.0, _net_velocity.y), _back_facing)
+	var want: StringName = _HeroAnim.facing(&"walk" if _target_moving else &"idle", _back_facing)
+	if _sprite.animation != want:
+		_sprite.play(want)

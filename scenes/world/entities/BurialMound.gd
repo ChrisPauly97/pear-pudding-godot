@@ -2,6 +2,7 @@
 ## Spawned in ~10% of chunks; interactive only when player has ≥4 Skeleton-family cards.
 extends Node3D
 
+const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const _WEB = preload("res://scenes/world/entities/WorldEntityBase.gd")
 
 const CantripManager = preload("res://game_logic/world/CantripManager.gd")
@@ -50,6 +51,9 @@ func interact() -> void:
 		GameBus.hud_message_requested.emit("This mound has already been dug.")
 		return
 	var sm := SceneManager.save_manager
+	if not sm.has_learned(_UnlockLadder.FEAT_DIG):
+		GameBus.hud_message_requested.emit(_UnlockLadder.locked_message(_UnlockLadder.FEAT_DIG))
+		return
 	var template_ids: Array[String] = sm.get_deck_template_ids()
 	if not CantripManager.is_available("skeleton_dig", template_ids):
 		GameBus.hud_message_requested.emit("Skeleton Dig requires 4+ Skeleton-family cards in your deck.")
@@ -84,6 +88,7 @@ func interact() -> void:
 	_dug = true
 	if not sm.dug_mounds.has(_mound_id):
 		sm.dug_mounds.append(_mound_id)
+		sm.quests.progress_event("use_skill", "skeleton_dig")
 	sm.cantrip_cooldowns["skeleton_dig"] = current_time + CantripManager.get_cooldown("skeleton_dig")
 	sm.mark_dirty()
 

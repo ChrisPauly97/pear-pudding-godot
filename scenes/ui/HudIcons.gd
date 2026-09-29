@@ -1,7 +1,7 @@
 extends RefCounted
 ## HUD action icons (GID-132 / TID-510), keyed by `WorldHUD.register_action`
-## id. Art: game-icons.net (Lorc, Delapouite & contributors), CC BY 3.0 —
-## see assets/icons/hud/LICENSE-game-icons.txt and CREDITS.md. White SVGs
+## id. Art: original SVGs written by tools/generate_hud_icons.py (GID-144 /
+## TID-613, replaced the CC BY game-icons.net set). White SVGs
 ## imported at 128 px with mipmaps; the theme's font colours tint them.
 
 const _ICONS: Dictionary = {

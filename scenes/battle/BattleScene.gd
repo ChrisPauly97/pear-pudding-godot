@@ -2,6 +2,7 @@
 # BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 extends Control
 
+const _ZoneLevels = preload("res://game_logic/world/ZoneLevels.gd")
 const GameState = preload("res://game_logic/battle/GameState.gd")
 const _BattleNet = preload("res://scenes/battle/net/BattleNet.gd")
 const _BattleNetSync = preload("res://scenes/battle/BattleNetSync.gd")
@@ -11,6 +12,7 @@ const _BattleTutorials = preload("res://scenes/battle/modules/BattleTutorials.gd
 const _BattleArena = preload("res://scenes/battle/modules/BattleArena.gd")
 const _BattleTargeting = preload("res://scenes/battle/modules/BattleTargeting.gd")
 const _BattleInput = preload("res://scenes/battle/modules/BattleInput.gd")
+const _BattleShortcuts = preload("res://scenes/battle/modules/BattleShortcuts.gd")
 const _BattleRealtime = preload("res://scenes/battle/modules/BattleRealtime.gd")
 const ScriptedBattleData = preload("res://game_logic/battle/ScriptedBattleData.gd")
 const BasicAI = preload("res://ai/BasicAI.gd")
@@ -91,6 +93,7 @@ var tutorials: _BattleTutorials
 var arena: _BattleArena
 var targeting: _BattleTargeting
 var card_input: _BattleInput
+var shortcuts: _BattleShortcuts
 var realtime: _BattleRealtime
 # Listen-server: client deck relayed in challenge handshake (host builds players[1]).
 var pvp_opponent_deck: Array = []
@@ -205,8 +208,6 @@ var _game_over_handled: bool = false
 var _boss_phase2_triggered: bool = false
 var _hero_power_btn: Button = null
 var _hero_power_used: bool = false
-var _potion_btn: Button = null
-var _used_potion_this_battle: bool = false
 var _gambit_badge: Control = null
 
 # Battlefield Resonance UI (GID-059)
@@ -313,6 +314,9 @@ func _ensure_battle_modules() -> void:
 	realtime = _BattleRealtime.new(self)
 	realtime.name = "BattleRealtime"
 	add_child(realtime)
+	shortcuts = _BattleShortcuts.new(self)
+	shortcuts.name = "BattleShortcuts"
+	add_child(shortcuts)
 
 func _process(delta: float) -> void:
 	if battle_net != null:
@@ -471,7 +475,7 @@ func _setup_solo_battle() -> void:
 	# otherwise use the persistent player deck.
 	var player_deck: Array[String] = []
 	if SceneManager.save_manager.spire.is_spire_active():
-		player_deck = SceneManager.save_manager.spire.run_deck()
+		player_deck = modifiers._build_rift_deck(_state.players[0])
 	elif SceneManager.save_manager.player_deck.size() > 0:
 		# Use per-instance build so rolled stats and rank bonuses apply (GID-060).
 		_state.players[0].build_deck_from_instances(SceneManager.save_manager.get_deck_instances())
@@ -482,6 +486,7 @@ func _setup_solo_battle() -> void:
 	if not player_deck.is_empty():
 		var _dark_aligned: bool = CardRegistry.is_dark_aligned()
 		_state.players[0].build_deck(player_deck, 0, _dark_aligned)
+	modifiers._apply_combat_unlocks(_state.players[0])
 	modifiers._apply_equipment_effects(_state.players[0])
 	modifiers._apply_passive_skills(_state.players[0])
 	_state.players[0].draw_opening_hand(4)
@@ -503,6 +508,8 @@ func _setup_solo_battle() -> void:
 	var _enemy_tier: int = EnemyRegistry.get_difficulty_tier(_enemy_type) if _enemy_type != "" else 1
 	if bool(enemy_data.get("is_boss", false)):
 		_enemy_tier = 4
+	var _enemy_level: int = int(enemy_data.get("enemy_level", 1))  # zone level (TID-536)
+	_enemy_tier = _ZoneLevels.scaled_tier(_enemy_tier, _enemy_level)
 	# Emboldened Foe gambit: set bonus before build_deck so it is applied to the draw_deck
 	# and persists for boss phase-2 rebuild via PlayerState.minion_attack_bonus.
 	var _gambit_id: String = str(enemy_data.get("gambit_id", ""))
@@ -513,6 +520,7 @@ func _setup_solo_battle() -> void:
 		enemy_deck.assign(enemy_data["enemy_deck"])
 		_state.players[1].build_deck(enemy_deck, _enemy_tier)
 		_state.players[1].draw_opening_hand(4)
+	modifiers._place_enemy_pack(_enemy_type, _enemy_tier)  # TID-541: packs start on the board
 
 	# Boss setup: override enemy hero HP and show name banner
 	if bool(enemy_data.get("is_boss", false)):
@@ -521,6 +529,7 @@ func _setup_solo_battle() -> void:
 			_state.players[1].hero.health = bhp
 			_state.players[1].hero.max_health = bhp
 		_result_ui.show_boss_banner(enemy_data)
+	modifiers._apply_zone_level(_enemy_level)
 
 	# Blighted zone buff: non-blight-heart enemies get +5 HP in blighted chunks.
 	if bool(enemy_data.get("is_blighted", false)) and not enemy_data.has("blight_heart_id"):
@@ -532,6 +541,7 @@ func _setup_solo_battle() -> void:
 	modifiers._apply_gambit_handicaps(_gambit_id)
 	# World-encounter ambush modifiers (GID-113 / TID-421, TID-422).
 	modifiers._apply_ambush_modifiers(enemy_data)
+	modifiers._apply_persistent_hp()  # TID-543: HP carries between ordinary fights
 
 	# start_turn draws 1 card + bonus_draw (from passive_draw skills/equipment).
 	# bonus_mana (from passive_mana skills) was set above, so gain_mana_for_turn
@@ -839,6 +849,7 @@ func _refresh_all() -> void:
 		battle_net._refresh_team_panels()
 	if realtime != null:
 		realtime.refresh_extra_views()  # enemies that joined a real-time fight
+	shortcuts.check_auto_end()  # TID-530
 
 func _refresh_player_board() -> void:
 	if _local_player_idx < 0:
@@ -968,8 +979,7 @@ func _on_turn_ended(player_idx: int) -> void:
 				_check_game_over()
 		elif player_idx == boss_idx:
 			# Boss turn — run AI only on the authority.
-			if _potion_btn != null:
-				_potion_btn.disabled = true
+			consumables._refresh_potion_button()
 			_check_game_over()
 			if _is_pvp_host() and not _state.is_game_over() and not _state.puzzle_mode:
 				_run_ai_turn()
@@ -991,8 +1001,7 @@ func _on_turn_ended(player_idx: int) -> void:
 			if _state.scripted_battle:
 				tutorials._maybe_show_scripted_tutorial_step(_state.player_turn_numbers[0])
 	elif player_idx == 1:
-		if _potion_btn != null:
-			_potion_btn.disabled = true
+		consumables._refresh_potion_button()
 		_check_game_over()
 		# PvP: the opponent is a remote human; never run the AI. Their turn advances
 		# via relayed intents (host applies them). _check_game_over above already
@@ -1151,6 +1160,7 @@ func _check_game_over() -> void:
 				_result_ui.show_duel_loss(_state.wager_coins)
 			# gdlint:ignore = max-returns
 			return
+		modifiers.record_persistent_hp(w == 0)
 		if w == 0:
 			_play_outcome_feedback(true)
 			_show_standard_victory()

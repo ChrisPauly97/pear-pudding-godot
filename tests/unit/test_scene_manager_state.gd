@@ -195,7 +195,7 @@ func test_enter_spire_coop_returns_floor_one_map_name_with_seed() -> void:
 	SceneManager._coop_spire_run = {"active": false}
 	var target_map: String = SceneManager.enter_spire_coop(["tok_a"])
 	var seed: int = int(SceneManager.get_coop_spire_run().get("seed", -1))
-	assert_eq(target_map, "spire_floor_1_%d" % seed)
+	assert_eq(target_map, "spire_floor_1_%d_grasslands_1" % seed, "GID-142: rift + tier ride in the name")
 
 func test_enter_spire_coop_resumes_existing_run_without_resetting_it() -> void:
 	SceneManager._coop_spire_run = {"active": false}
@@ -203,7 +203,7 @@ func test_enter_spire_coop_resumes_existing_run_without_resetting_it() -> void:
 	SceneManager.add_coop_drafted_card("ghost")
 	SceneManager.advance_coop_spire_floor()
 	var target_map: String = SceneManager.enter_spire_coop(["tok_b"])  # picker_order ignored on resume
-	assert_eq(target_map, "spire_floor_2_%d" % int(SceneManager.get_coop_spire_run().get("seed", -1)))
+	assert_eq(target_map, "spire_floor_2_%d_grasslands_1" % int(SceneManager.get_coop_spire_run().get("seed", -1)))
 	assert_eq((SceneManager.get_coop_spire_run().get("shared_deck", []) as Array).size(), 1)
 	assert_eq(SceneManager.get_coop_spire_run().get("picker_order", []), ["tok_a"])
 

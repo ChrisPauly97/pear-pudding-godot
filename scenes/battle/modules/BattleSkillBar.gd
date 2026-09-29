@@ -125,6 +125,8 @@ func _resolve(slot: int) -> void:
 	bar.start_cooldown(slot, rt.tune.get_f("skill_cooldown"))
 	# GID-135 / TID-558/559: real skill-use + interrupt-landed tracking.
 	_realtime.note_skill_used(str(bar.def_at(slot).get("effect", "")))
+	# GID-141: starter quests ask the player to use what they just learned.
+	SceneManager.save_manager.quests.progress_event("use_skill", bar.ids[slot])
 	AudioManager.play_sfx("attack" if str(bar.def_at(slot)["effect"]) == "damage" else "spell_resolve")
 	if bool(out.get("proc", false)):
 		_realtime.momentum.on_proc()
@@ -134,6 +136,7 @@ func _resolve(slot: int) -> void:
 				Color(0.267, 1.0, 0.533))
 	elif out.has("target"):
 		_realtime.lunge_at(out.get("target") as CardInstance, side)
+		_realtime.hit_feel(1)
 	else:
 		_realtime.toast(str(out["text"]))
 	_battle._fx.trigger_fx(snap)

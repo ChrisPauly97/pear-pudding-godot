@@ -1,5 +1,7 @@
 # Night Hunts (GID-055)
 
+> **GID-141:** spectres spawn only for players who learned Night Hunts from the Bounty Master (level 9, `UnlockLadder.FEAT_NIGHT_HUNTS`).
+
 ## Key Features
 
 - Three spectral enemy variants — `spectre_wisp` (tier 1), `spectre_haunt` (tier 2), `spectre_dread` (tier 3) — spawn only at night in the infinite world.

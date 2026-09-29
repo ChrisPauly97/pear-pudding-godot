@@ -1,5 +1,6 @@
-## Hero power and potions: their HUD buttons, the potion picker, and applying each
-## effect.
+## Hero power and potions: their HUD buttons, the two consumable quick slots
+## (Q / E, shared cooldown — game_logic/battle/QuickSlots.gd, TID-542), and
+## applying each effect.
 ##
 ## A child of BattleScene (`BattleScene.consumables`), created by `_ensure_battle_modules()`.
 ## Battle state stays on the scene. Reach it as `_battle.<name>`, and use
@@ -14,7 +15,10 @@ const SkillData = preload("res://data/SkillData.gd")
 const GardenDefs = preload("res://game_logic/GardenDefs.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const BattleNetProtocol = preload("res://game_logic/net/BattleNetProtocol.gd")
+const _QuickSlots = preload("res://game_logic/battle/QuickSlots.gd")
 
+var quick: _QuickSlots = _QuickSlots.new()
+var quick_btns: Array[Button] = []
 var _battle: _BattleScene
 
 
@@ -35,99 +39,82 @@ func _add_hero_power_button() -> void:
 func _add_potion_button() -> void:
 	if _battle._state.puzzle_mode or _battle._state.scripted_battle:
 		return
-	var has_any: bool = false
-	for potion_id: String in SceneManager.save_manager.potions:
-		if int(SceneManager.save_manager.potions[potion_id]) > 0:
-			has_any = true
-			break
-	if not has_any:
-		return
-	_battle._potion_btn = _UiUtil.make_button("Potion", Vector2(_battle._vh * 0.16, _battle._vh * 0.05),
-			int(_battle._font(0.02)),
-			_on_potion_button_pressed)
-	_battle.get_node("SidePanel").add_child(_battle._potion_btn)
+	for i: int in _QuickSlots.SLOTS:
+		quick_btns.append(_UiUtil.make_button("", Vector2(_battle._vh * 0.18, _battle._vh * 0.05),
+				int(_battle._font(0.017)), _on_quick_pressed.bind(i), _battle.get_node("SidePanel")))
 
+
+## Relabels the quick-slot buttons: slotted potion, count, key, cooldown left.
+## Hidden when a slot has nothing to drink; disabled off-turn or on cooldown.
 func _refresh_potion_button() -> void:
-	if _battle._potion_btn == null:
+	if quick_btns.is_empty():
 		return
-	var has_potions: bool = false
-	for potion_id: String in SceneManager.save_manager.potions:
-		if int(SceneManager.save_manager.potions[potion_id]) > 0:
-			has_potions = true
-			break
-	var not_my_turn: bool = _battle._state.current_player_idx != _battle._my_idx()
-	_battle._potion_btn.disabled = _battle._used_potion_this_battle or not has_potions or not_my_turn
-	_battle._potion_btn.visible = has_potions
-
-func _on_potion_button_pressed() -> void:
-	if _battle._used_potion_this_battle or _battle._state.current_player_idx != _battle._my_idx():
-		return
-	_show_potion_picker()
-
-func _show_potion_picker() -> void:
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var layer := CanvasLayer.new()
-	layer.layer = 160
-	_battle.add_child(layer)
-
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.6)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(backdrop)
-
-	var panel_w: float = minf(vp.x * 0.7, _battle._vh * 0.55)
-	var panel := PanelContainer.new()
-	var style := _UiUtil.make_style(Color(0.08, 0.08, 0.18, 0.97), 10)
-	panel.add_theme_stylebox_override("panel", style)
-	panel.custom_minimum_size = Vector2(panel_w, 0)
-	panel.position = Vector2((vp.x - panel_w) * 0.5, vp.y * 0.3)
-	panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(panel)
-
-	var margin := _UiUtil.make_margin(int(_battle._vh * 0.025), int(_battle._vh * 0.025), int(_battle._vh * 0.025),
-			int(_battle._vh * 0.025), panel)
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-
-	var vbox := _UiUtil.make_vbox(int(_battle._vh * 0.015), margin)
-
-	var title_lbl := _UiUtil.make_label("Use a Potion", int(_battle._font(0.026)), Color.WHITE,
-			HORIZONTAL_ALIGNMENT_CENTER,
-			vbox)
-
 	var sm := SceneManager.save_manager
-	for potion_id: String in GardenDefs.POTIONS:
-		var count: int = int(sm.potions.get(potion_id, 0))
-		if count <= 0:
+	var ids: Array[String] = _QuickSlots.resolve(sm.quick_slots, sm.potions)
+	var rtm: bool = _is_realtime()
+	var turn: int = _my_turn_number()
+	var ready: bool = quick.is_ready(turn, rtm)
+	var left: int = quick.remaining(turn, rtm)
+	var my_turn: bool = _battle._state.current_player_idx == _battle._my_idx()
+	for i: int in quick_btns.size():
+		var btn: Button = quick_btns[i]
+		var id: String = ids[i]
+		btn.visible = id != ""
+		if id == "":
 			continue
-		var potion_data: Dictionary = GardenDefs.POTIONS[potion_id]
-		var display_name: String = str(potion_data.get("display_name", potion_id))
-		var row := _UiUtil.make_hbox(int(_battle._vh * 0.012))
-		var lbl := _UiUtil.make_label("%s  ×%d" % [display_name, count], int(_battle._font(0.022)), Color.WHITE,
-				HORIZONTAL_ALIGNMENT_LEFT, row)
-		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var use_btn := _UiUtil.make_button("Use", Vector2(_battle._vh * 0.1, _battle._vh * 0.055),
-				int(_battle._font(0.022)))
-		var pid: String = potion_id
-		use_btn.pressed.connect(func() -> void:
-			layer.queue_free()
-			_apply_potion_effect(pid)
-		)
-		row.add_child(use_btn)
-		vbox.add_child(row)
+		var info: Dictionary = GardenDefs.POTIONS[id]
+		var key: String = "" if OS.has_feature("android") else "[%s] " % _QuickSlots.KEY_LABELS[i]
+		var wait: String = "" if ready else "  (%d%s)" % [left, "s" if rtm else ""]
+		btn.text = "%s%s ×%d%s" % [key, str(info.get("display_name", id)), int(sm.potions.get(id, 0)), wait]
+		btn.tooltip_text = str(info.get("description", ""))
+		btn.disabled = not ready or not my_turn
 
-	var cancel_btn := _UiUtil.make_button("Cancel", Vector2(panel_w * 0.5, _battle._vh * 0.055),
-			int(_battle._font(0.022)),
-			layer.queue_free)
-	var center := CenterContainer.new()
-	center.add_child(cancel_btn)
-	vbox.add_child(center)
+
+func _on_quick_pressed(slot: int) -> void:
+	var rtm: bool = _is_realtime()
+	if not quick.is_ready(_my_turn_number(), rtm) or _battle._state.current_player_idx != _battle._my_idx():
+		return
+	var sm := SceneManager.save_manager
+	var id: String = _QuickSlots.resolve(sm.quick_slots, sm.potions)[slot]
+	if id != "":
+		_apply_potion_effect(id)
+
+
+## Q / E drink from the quick slots (the buttons are the touch path).
+func _unhandled_key_input(event: InputEvent) -> void:
+	var k := event as InputEventKey
+	if k == null or not k.pressed or k.echo:
+		return
+	var slot: int = _QuickSlots.KEYS.find(k.keycode)
+	if slot >= 0 and slot < quick_btns.size():
+		_on_quick_pressed(slot)
+		get_viewport().set_input_as_handled()
+
+
+## Real-time battles count the cooldown in seconds (BattleRealtime._process).
+func tick_quick(delta: float) -> void:
+	var before: int = quick.remaining(0, true)
+	quick.tick(delta)
+	if quick.remaining(0, true) != before:
+		_refresh_potion_button()
+
+
+func _is_realtime() -> bool:
+	return _battle.realtime != null and _battle.realtime.is_active()
+
+
+func _my_turn_number() -> int:
+	var turns: Array[int] = _battle._state.player_turn_numbers
+	var idx: int = _battle._my_idx()
+	return turns[idx] if idx < turns.size() else 0
+
 
 func _apply_potion_effect(potion_id: String) -> void:
 	var sm := SceneManager.save_manager
 	if not sm.garden.remove_potions(potion_id, 1):
 		return
-	_battle._used_potion_this_battle = true
+	var cd: float = _battle.realtime.rt.tune.get_f("potion_cooldown") if _is_realtime() else 0.0
+	quick.start(_my_turn_number(), cd)
 	if _battle._is_pvp_client():
 		# Inventory consumed locally; the host applies the state effect to players[1].
 		_battle._send_intent(BattleNetProtocol.encode_potion(potion_id))

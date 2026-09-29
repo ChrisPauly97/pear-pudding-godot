@@ -41,11 +41,11 @@ AudioManager.play_sfx("footstep")    # synth fallback if footstep.ogg is missing
 4. Run the headless import so it generates the `.import` sidecar.
    `test_sfx_assets` fails if a key has no file or a declared take is missing.
 
-### Real files, takes and mix (GID-141)
+### Real files, takes and mix (GID-145)
 
-- Every key is backed by a CC0 file (TID-587, sources in `CREDITS.md`). The
+- Every key is backed by a CC0 file (TID-614, sources in `CREDITS.md`). The
   `SfxGen` / `FootstepSurface` synth stays as the fallback for a missing file.
-- `SFX_TAKES` (TID-588): `_load_sfx_takes()` builds an `AudioStreamRandomizer`
+- `SFX_TAKES` (TID-615): `_load_sfx_takes()` builds an `AudioStreamRandomizer`
   (`PLAYBACK_RANDOM_NO_REPEATS`, no pitch/volume randomisation of its own, since
   `play_sfx_varied` already jitters) from the base file and its `_N` takes.
 - `SFX_GAIN_DB`: per-key trim, recorded in `_sfx_trim_db` only for file-backed
@@ -212,7 +212,7 @@ TID-010 wires battle SFX; TID-011 wires world exploration SFX.
 | `AmbienceLayers.gd` | `game_logic/AmbienceLayers.gd` | Pure layer-selection rules + `LAYER_PATHS` |
 | `AmbienceGen.gd` | `game_logic/AmbienceGen.gd` | Procedural weather/wildlife loop fallbacks |
 | Weather/time loops | `assets/audio/ambience/{rain,heavy_rain,wind,sandstorm,crackle,birds,crickets,owls}.ogg` | Optional — synthesized fallback when absent (TID-492 sources real ones) |
-| SFX files | `assets/audio/sfx/*.ogg` (+ `_N` takes) | All shipped (GID-141); a missing file falls back to SfxGen / FootstepSurface synthesis |
+| SFX files | `assets/audio/sfx/*.ogg` (+ `_N` takes) | All shipped (GID-145); a missing file falls back to SfxGen / FootstepSurface synthesis |
 | `FootstepSurface.gd` | `game_logic/FootstepSurface.gd` | Surface table + footstep synth fallbacks |
 | Music ogg files | `assets/audio/music/*.ogg` | **Present** (7 tracks, GID-116). 4 are CC-BY — attribution in `CREDITS.md` is a licence condition |
 | Narration ogg files | `assets/audio/narration/<scroll_id>.ogg` | Optional — missing files are silent no-ops |

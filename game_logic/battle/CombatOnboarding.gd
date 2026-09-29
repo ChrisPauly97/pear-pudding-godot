@@ -1,54 +1,47 @@
-## Real-time combat onboarding (GID-135 / TID-552): new players unlock the
-## controls one fight at a time instead of meeting the timer, casts, skills and
-## a hand of cards all at once.
+## Combat onboarding (GID-135 / TID-552, reworked for GID-141 / TID-588): a new
+## player's fight only contains what they have learned from a trainer.
 ##
-##   fight 1 — Strike + auto-attack only, slow clock, no hand
-##   fight 2 — + Mend
-##   fight 3 — + Kick (the enemy's casts are the lesson)
-##   fight 4+ — cards join: the full fight
+##   level 1 — Strike + auto-attack only, no hand (first fight on a slow clock)
+##   level 2 — + Mend      (learned from the Combat Trainer)
+##   level 3 — + Kick
+##   level 4 — + the hand: minion cards (`feat_minions`)
+##   level 5 — + spell cards in the hand (`feat_spells`)
 ##
-## Players already past it (level > MAX_LEVEL, or who finished the ramp) get
-## the full fight straight away. Pure logic; `BattleOnboarding` applies it.
+## Skills need no filtering here: SkillBar only ever holds learned ids. This
+## decides the hand, spells, the slow first clock, and the onboarding "stage"
+## (how many of the combat unlocks are learned; -1 once all are). Existing saves
+## were migrated with every unlock (SaveMigrations v44), so they get the full
+## fight. Pure logic; `BattleOnboarding` applies it.
 extends RefCounted
 
-const STAGES: Array[Dictionary] = [
-	{"skills": ["strike"], "hand": false, "slow": true},
-	{"skills": ["strike", "mend"], "hand": false, "slow": false},
-	{"skills": ["strike", "mend", "kick"], "hand": false, "slow": false},
-]
-## Above this level the ramp is skipped (an existing save switching to real time).
-const MAX_LEVEL: int = 2
+const UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 
-## Stage index for this fight: 0..STAGES.size()-1 while onboarding, -1 = full fight.
-static func stage_for(fights_done: int, level: int) -> int:
-	if level > MAX_LEVEL or fights_done < 0 or fights_done >= STAGES.size():
-		return -1
-	return fights_done
+## The ladder entries that change what a fight contains, in unlock order.
+const COMBAT_UNLOCKS: Array[String] = ["mend", "kick", UnlockLadder.FEAT_MINIONS, UnlockLadder.FEAT_SPELLS]
 
-## Skill ids allowed at `stage` (every id when -1), in bar order.
-static func filter_skills(bar_ids: Array[String], stage: int) -> Array[String]:
-	if stage < 0:
-		return bar_ids.duplicate()
-	var allowed: Array = STAGES[stage]["skills"]
-	var out: Array[String] = []
-	for id: String in bar_ids:
-		if allowed.has(id):
-			out.append(id)
-	return out
+## Onboarding stage: how many COMBAT_UNLOCKS are learned, or -1 once all are.
+static func stage_for(learned: Array) -> int:
+	var n: int = 0
+	for id: String in COMBAT_UNLOCKS:
+		if learned.has(id):
+			n += 1
+	return -1 if n == COMBAT_UNLOCKS.size() else n
 
-static func shows_hand(stage: int) -> bool:
-	return stage < 0 or bool(STAGES[stage]["hand"])
+## The hand (and your unit slots) only appear once minions are learned.
+static func shows_hand(learned: Array) -> bool:
+	return learned.has(UnlockLadder.FEAT_MINIONS)
 
-static func slow_clock(stage: int) -> bool:
-	return stage >= 0 and bool(STAGES[stage]["slow"])
+## Spell cards stay out of the battle deck until spells are learned.
+static func allows_spells(learned: Array) -> bool:
+	return learned.has(UnlockLadder.FEAT_SPELLS)
 
-## Skills new at `stage` (for the "New skill" tip): those not in the stage before.
-static func new_skills(stage: int) -> Array[String]:
-	var out: Array[String] = []
-	if stage <= 0:
-		return out
-	var prev: Array = STAGES[stage - 1]["skills"]
-	for id: Variant in STAGES[stage]["skills"]:
-		if not prev.has(id):
-			out.append(str(id))
-	return out
+## The very first fight runs on a slow clock.
+static func slow_clock(fights_done: int, learned: Array) -> bool:
+	return fights_done <= 0 and stage_for(learned) == 0
+
+## A hand-less fight only works in real time, so battles are real-time until
+## minions are learned; after that the Battle Mode setting decides.
+static func battle_mode(setting: String, learned: Array) -> String:
+	if not shows_hand(learned) and not setting.begins_with("realtime"):
+		return "realtime"
+	return setting

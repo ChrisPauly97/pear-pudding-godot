@@ -1,4 +1,4 @@
-## GID-141 / TID-590: a besieged town swaps its track for the siege music.
+## GID-145 / TID-617: a besieged town swaps its track for the siege music.
 extends "res://tests/framework/test_case.gd"
 
 const _TownSiege = preload("res://scenes/world/modules/TownSiege.gd")

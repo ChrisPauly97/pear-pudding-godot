@@ -405,13 +405,165 @@ def blight_heart():
     return c.image()
 
 
+def headstone(variant):
+    # GID-143: graveyard dressing, ~0.9 world units. Three shapes: round-top,
+    # cross, slab; mossy at the foot, a crack on one.
+    c = Canvas(14, 19)
+    ramp = P.STONE if variant != 1 else P.STONE_WARM
+    if variant == 1:  # cross
+        c.rect(6, 3, 7, 16, ramp[2])
+        c.rect(3, 6, 10, 7, ramp[2])
+        c.rect(6, 3, 6, 16, ramp[3])
+        c.rect(3, 6, 10, 6, ramp[3])
+    else:
+        top = 3 if variant == 0 else 5
+        c.rect(3, top + 2, 10, 16, ramp[2])
+        c.rect(3, top + 2, 3, 16, ramp[3])
+        c.rect(10, top + 2, 10, 16, ramp[1])
+        if variant == 0:
+            c.blob(6.5, top + 2, 3.6, 2.4, ramp)
+        else:
+            c.rect(3, top, 10, top + 1, ramp[2])
+        c.line(5, top + 5, 8, top + 5, ramp[0])       # inscription
+        c.line(5, top + 7, 8, top + 7, ramp[0])
+        if variant == 2:
+            c.line(8, top + 1, 7, top + 4, ramp[0])   # a crack
+    c.rect(2, 16, 11, 17, P.EARTH[1])
+    c.set(3, 15, P.GREEN[1])
+    c.set(10, 16, P.GREEN[2])
+    c.outline()
+    return c.image()
+
+
+def iron_fence():
+    # A low wrought-iron fence segment, 2 tiles wide (~40 px at 0.05), ~0.8 units tall.
+    c = Canvas(40, 17)
+    dark = [(17, 17, 17), (34, 34, 34), (42, 42, 58), (82, 96, 124)]
+    c.rect(0, 5, 39, 5, dark[2])
+    c.rect(0, 13, 39, 13, dark[2])
+    for x in range(1, 40, 4):
+        c.rect(x, 3, x, 16, dark[3] if x % 8 == 1 else dark[2])
+        c.set(x, 2, dark[3])                           # spear tip
+    c.outline()
+    return c.image()
+
+
+def crypt_door():
+    # The sealed crypt's facade: stone lintel, iron-banded door, a skull boss.
+    c = Canvas(26, 30)
+    c.rect(2, 4, 23, 29, P.STONE[1])
+    c.rect(2, 4, 23, 7, P.STONE[2])                   # lintel
+    c.rect(2, 4, 23, 4, P.STONE[3])
+    c.rect(7, 10, 18, 29, P.WOOD[0])                  # door
+    c.rect(7, 10, 18, 10, P.WOOD[1])
+    for y in (14, 20, 26):
+        c.rect(7, y, 18, y, (42, 42, 58))             # iron bands
+    c.blob(12.5, 7.5, 2.2, 2.0, [P.STONE[1], P.STONE[2], P.STONE[3], P.WHITE])
+    c.set(11.5, 7, P.OUTLINE)
+    c.set(13.5, 7, P.OUTLINE)
+    c.set(4, 20, P.GREEN[1])
+    c.set(21, 12, P.GREEN[2])
+    c.outline()
+    return c.image()
+
+
+def pad(img, w, h):
+    """Place a trimmed sprite bottom-centre on a fixed w×h canvas (callers size by pixels)."""
+    out = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    out.alpha_composite(img, ((w - img.width) // 2, h - img.height))
+    return out
+
+
+def chest_body(c, lid_open=False, x0=1, y0=3):
+    """A 14-px planked chest in iron corner bands with a gold lock; the lid is shut or thrown back.
+
+    Rows y0..y0+4 are the lid, y0+5..y0+12 the box (the mimic reuses this and clears the lid rows).
+    """
+    wood = P.WOOD
+    iron = [(42, 42, 58), (82, 96, 124), (123, 137, 148), (192, 203, 220)]
+    base_top = y0 + 5
+    bottom = y0 + 12
+    # box: two planks with a dark seam, shaded darker to the right
+    c.rect(x0, base_top, x0 + 13, bottom, wood[1])
+    c.rect(x0 + 1, base_top, x0 + 6, bottom - 1, wood[2])
+    c.line(x0, base_top + 3, x0 + 13, base_top + 3, wood[0])
+    c.line(x0, bottom, x0 + 13, bottom, wood[0])
+    if lid_open:
+        # lid thrown back: its dark underside above, loot heaped in the box mouth
+        c.rect(x0 + 1, y0 - 1, x0 + 12, y0 + 2, wood[0])
+        c.line(x0 + 1, y0 - 1, x0 + 12, y0 - 1, wood[1])
+        c.rect(x0 + 1, y0 + 3, x0 + 12, base_top, (42, 30, 26))          # shadowed interior
+        c.blob(x0 + 6.5, base_top - 0.5, 5.2, 2.0, P.GOLD)                # coin heap
+        for x, y in ((x0 + 3, base_top - 2), (x0 + 8, base_top - 2), (x0 + 5, base_top - 3)):
+            c.set(x, y, P.GOLD[3])
+        c.set(x0 + 9, base_top - 1, P.BLUE[3])                            # gems
+        c.set(x0 + 3, base_top, P.RED[2])
+        c.line(x0, base_top + 1, x0 + 13, base_top + 1, wood[3])          # lit box rim
+    else:
+        # domed lid: highlight on top, a plank line, a dark lip over the box
+        c.rect(x0 + 1, y0, x0 + 12, y0, wood[3])
+        c.rect(x0, y0 + 1, x0 + 13, y0 + 3, wood[2])
+        c.line(x0 + 1, y0 + 1, x0 + 7, y0 + 1, wood[3])
+        c.line(x0, y0 + 4, x0 + 13, y0 + 4, wood[0])
+    top = y0 - 1 if lid_open else y0
+    for bx in (x0 + 2, x0 + 11):                                          # iron straps + rivets
+        c.line(bx, top if not lid_open else y0 + 3, bx, bottom, iron[1])
+        c.set(bx, base_top + 1, iron[3])
+        c.set(bx, bottom - 1, iron[3])
+    for bx in (x0, x0 + 13):                                              # corner bands
+        c.line(bx, base_top, bx, bottom, iron[0])
+    if not lid_open:
+        c.rect(x0 + 6, y0 + 4, x0 + 7, base_top + 1, P.GOLD[1])           # hasp + lock plate
+        c.set(x0 + 6, y0 + 4, P.GOLD[3])
+        c.set(x0 + 7, base_top + 1, P.OUTLINE)                            # keyhole
+
+
+def chest(lid_open):
+    c = Canvas(16, 16)
+    chest_body(c, lid_open)
+    c.outline()
+    return pad(c.image(), 16, 16)
+
+
+def door():
+    """Every map-transition door: an arched plank door in a stone frame, iron hinges and ring."""
+    c = Canvas(32, 32)
+    cx = 15.5
+    for y in range(2, 32):                                # stone arch frame
+        half = 12 if y > 9 else math.sqrt(max(0.0, 144 - (9 - y) ** 2 * 1.9))
+        c.line(cx - half, y, cx + half, y, P.STONE[1] if (y + int(half)) % 5 else P.STONE[2])
+    for y in range(5, 32):                                # planks
+        half = 9 if y > 11 else math.sqrt(max(0.0, 81 - (11 - y) ** 2 * 1.3))
+        for x in range(int(cx - half), int(cx + half) + 1):
+            c.set(x, y, P.WOOD[1] if (x - 7) % 4 else P.WOOD[0])
+    c.line(7, 12, 24, 12, P.WOOD[2])
+    for y in (13, 24):                                    # hinges
+        c.rect(7, y, 12, y + 1, (42, 42, 58))
+        c.set(7, y, (123, 137, 148))
+    c.blob(20.5, 20, 1.6, 1.6, [(42, 42, 58), (82, 96, 124), (123, 137, 148), (192, 203, 220)])  # ring
+    c.set(20.5, 20, P.WOOD[0])
+    c.set(5, 17, P.GREEN[1])                              # moss
+    c.set(26, 26, P.GREEN[2])
+    c.outline()
+    return pad(c.image(), 32, 32)
+
+
 LANDMARKS = {
+    "headstone_0": lambda: headstone(0),
+    "headstone_1": lambda: headstone(1),
+    "headstone_2": lambda: headstone(2),
+    "iron_fence": iron_fence,
+    "crypt_door": crypt_door,
     "waystone_dormant": lambda: waystone(False),
     "waystone_active": lambda: waystone(True),
     "mana_well": mana_well,
     "puzzle_shrine": shrine,
     "burial_mound": burial_mound,
     "blight_heart": blight_heart,
+    # GID-144 / TID-612: replaced the 0x72 chest and door.
+    "chest_closed": lambda: chest(False),
+    "chest_open": lambda: chest(True),
+    "door": door,
 }
 
 

@@ -1,4 +1,4 @@
-## Pure backpack logic behind InventoryScene (GID-144): sort orders, search,
+## Pure backpack logic behind InventoryScene (GID-148): sort orders, search,
 ## the "select extras" pick and bulk sell/scrap value. No scene or SaveManager
 ## access — templates come in through a `tmpl_for(template_id) -> Dictionary`
 ## Callable so tests can stub the registry.

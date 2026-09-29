@@ -1,5 +1,8 @@
-## Endless Spire run: start, per-floor prep, advance, drafted cards, hero HP and run
-## end.
+## Rift run (the Spire, reworked as per-biome rifts — GID-142): start, per-floor
+## prep, advance, drafted cards, hero HP, tier clear and run end.
+##
+## A run carries `rift` (RiftDefs id) and `tier`; clearing the guardian floor
+## (RiftDefs.FLOORS_PER_TIER) clears the tier and raises `rift_best_tiers[rift]`.
 ##
 ## Owned by SaveManager (`SaveManager.spire`), created in its `_init`. The state
 ## stays on SaveManager because PERSISTED_FIELDS walks its properties, so this
@@ -8,6 +11,9 @@ extends RefCounted
 
 const _SaveManager = preload("res://autoloads/SaveManager.gd")
 const _SpireFloorGen = preload("res://game_logic/spire/SpireFloorGen.gd")
+const _RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
+const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
+const _CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
 ## Every run's base deck. `draft_deck` holds only the picks, so the battle deck
 ## is always starter + picks (`run_deck()`); a pick never replaces the deck.
 const STARTER_DECK: Array[String] = ["ghost", "ghost", "skeleton", "skeleton",
@@ -57,6 +63,33 @@ func prepare_spire_floor(floor: int, run_seed: int) -> void:
 		return
 	_clear_spire_enemy_defeats()
 
+## True for a rift run (GID-142): the player fights with their own deck plus the
+## run's temporary picks. Legacy / co-op runs use the starter deck (`run_deck`).
+func uses_own_deck() -> bool:
+	return str(_save.spire_run.get("rift", "")) != ""
+
+## Cards drafted this run — temporary, never added to the collection.
+func drafted_cards() -> Array[String]:
+	var out: Array[String] = []
+	for id: Variant in _save.spire_run.get("draft_deck", []):
+		out.append(str(id))
+	return out
+
+## Buff boons picked this run (RiftDefs.BOONS ids).
+func boons() -> Array:
+	return _save.spire_run.get("boons", [])
+
+func add_boon(boon_id: String) -> void:
+	if not is_spire_active() or not _RiftDefs.is_boon(boon_id):
+		return
+	var list: Array = boons().duplicate()
+	list.append(boon_id)
+	_save.spire_run["boons"] = list
+	# Vigor heals as it raises the cap.
+	if str(_RiftDefs.BOONS[boon_id]["effect"]) == "max_hp":
+		_save.spire_run["hero_hp"] = int(_save.spire_run.get("hero_hp", 30)) + int(_RiftDefs.BOONS[boon_id]["value"])
+	_save._dirty = true
+
 ## The deck the next Spire battle uses: the starter plus every drafted card.
 func run_deck() -> Array[String]:
 	var deck: Array[String] = STARTER_DECK.duplicate()
@@ -64,10 +97,46 @@ func run_deck() -> Array[String]:
 		deck.append(str(id))
 	return deck
 
-func start_spire_run(seed: int) -> void:
+## Best cleared tier of `rift_id` (0 = none yet).
+func best_tier(rift_id: String) -> int:
+	return int(_save.rift_best_tiers.get(rift_id, 0))
+
+## Best tier + one-time first-clear XP for a clear of (rift, tier); returns the
+## XP granted (0 on a repeat). Shared by solo runs and co-op clears (TID-601).
+func _record_clear(rift_id: String, tier: int) -> int:
+	if tier > best_tier(rift_id):
+		_save.rift_best_tiers[rift_id] = tier
+	var key: String = _RiftDefs.clear_key(rift_id, tier)
+	if _save.rift_first_clears.has(key):
+		return 0
+	_save.rift_first_clears.append(key)
+	var xp: int = _RiftDefs.first_clear_xp(tier)
+	_save.add_xp(xp)
+	_save._dirty = true
+	return xp
+
+## A co-op party cleared (rift, tier): credit this player's save and quests.
+func record_tier_clear(rift_id: String, tier: int) -> int:
+	if _RiftDefs.def(rift_id).is_empty():
+		return 0
+	var xp: int = _record_clear(rift_id, tier)
+	GameBus.rift_tier_cleared.emit(rift_id, tier)
+	_save.quests.progress_event("rift_tier", _RiftDefs.clear_key(rift_id, tier))
+	return xp
+
+## True once the run's guardian floor is cleared (the tier is done).
+func tier_complete() -> bool:
+	return is_spire_active() and int(_save.spire_run.get("floor", 1)) > _RiftDefs.FLOORS_PER_TIER
+
+func start_spire_run(seed: int, rift_id: String = _RiftDefs.DEFAULT_RIFT, tier: int = 0) -> void:
 	_clear_spire_enemy_defeats()
+	if _RiftDefs.def(rift_id).is_empty():
+		rift_id = _RiftDefs.DEFAULT_RIFT
+	var best: int = best_tier(rift_id)
 	_save.spire_run = {
 		"active": true,
+		"rift": rift_id,
+		"tier": _RiftDefs.clamp_tier(tier if tier > 0 else _RiftDefs.max_start_tier(best), best),
 		"floor": 1,
 		"draft_deck": [],
 		"hero_hp": 30,
@@ -108,13 +177,31 @@ func end_spire_run() -> Dictionary:
 	var run_seed: int = int(_save.spire_run.get("seed", 0))
 	var draft_deck_ids: Array = _save.spire_run.get("draft_deck", [])
 
-	var coin_reward: int = floors_cleared * 5
-	_save.coins += coin_reward
-	_save.coins_changed.emit(_save.coins)
+	var coin_reward: int = floors_cleared * _RiftDefs.COINS_PER_FLOOR
 
 	var is_record: bool = floors_cleared > _save.spire_best_floor
 	if is_record:
 		_save.spire_best_floor = floors_cleared
+	var rift_id: String = str(_save.spire_run.get("rift", _RiftDefs.DEFAULT_RIFT))
+	var tier: int = int(_save.spire_run.get("tier", 1))
+	var tier_cleared: bool = floors_cleared >= _RiftDefs.FLOORS_PER_TIER
+	var tier_record: bool = tier_cleared and tier > best_tier(rift_id)
+	# TID-599: a clear pays coins and a card every time, but XP only the first
+	# time this (rift, tier) falls — rifts can't be farmed for levels.
+	var xp_reward: int = 0
+	var card_reward: String = ""
+	if tier_cleared:
+		coin_reward += tier * _RiftDefs.CLEAR_COINS_PER_TIER
+		xp_reward = _record_clear(rift_id, tier)
+		var pool: Array[String] = _EnemyRegistry.get_drop_pool(_RiftDefs.enemy_type(rift_id, _RiftDefs.FLOORS_PER_TIER))
+		if not pool.is_empty():
+			var rng := RandomNumberGenerator.new()
+			rng.seed = run_seed
+			card_reward = pool[rng.randi_range(0, pool.size() - 1)]
+			_save.grant_card_reward(card_reward, _CardDropUtil.effective_rarity(card_reward,
+					_CardDropUtil.roll_rarity(_RiftDefs.clear_drop_tier(tier))))
+	_save.coins += coin_reward
+	_save.coins_changed.emit(_save.coins)
 
 	var stats: Dictionary = {
 		"floors_cleared": floors_cleared,
@@ -125,10 +212,20 @@ func end_spire_run() -> Dictionary:
 		"is_new_record": is_record,
 		"best_floor": _save.spire_best_floor,
 		"draft_deck_ids": draft_deck_ids.duplicate(),
+		"rift": rift_id,
+		"tier": tier,
+		"tier_cleared": tier_cleared,
+		"is_new_tier_record": tier_record,
+		"xp_earned": xp_reward,
+		"card_reward": card_reward,
+		"best_tier": best_tier(rift_id),
 	}
 
 	_save.spire_run = {"active": false}
 	_save._dirty = true
+	if tier_cleared:
+		GameBus.rift_tier_cleared.emit(rift_id, tier)
+		_save.quests.progress_event("rift_tier", _RiftDefs.clear_key(rift_id, tier))
 
 	if floors_cleared >= 5 and not _save.story_flags.get("spire_reached_floor_5", false):
 		_save.set_story_flag("spire_reached_floor_5")

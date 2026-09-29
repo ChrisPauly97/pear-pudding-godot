@@ -15,7 +15,7 @@ const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 ## Raider placement around the gate, in tiles (x, z).
 const RAIDER_OFFSETS: Array[Vector2] = [Vector2(0.0, 0.0), Vector2(2.0, 1.0), Vector2(-2.0, 1.0)]
 const _BANNER_TINT := Color(1.0, 0.3, 0.1)
-## Plays instead of the town track while that town is under siege (GID-141 / TID-590).
+## Plays instead of the town track while that town is under siege (GID-145 / TID-617).
 const SIEGE_MUSIC: String = "res://assets/audio/music/siege.ogg"
 
 var _world: _WorldScene = null

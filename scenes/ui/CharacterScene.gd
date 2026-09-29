@@ -1,18 +1,27 @@
 extends "res://scenes/ui/BaseOverlay.gd"
 
+const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
 const CompanionRegistry = preload("res://autoloads/CompanionRegistry.gd")
 const CompanionData = preload("res://data/CompanionData.gd")
 const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
+const _GearRolls = preload("res://game_logic/items/GearRolls.gd")
+const _PaperDoll = preload("res://game_logic/character/PaperDoll.gd")
+const _HeroAppearanceScene = preload("res://scenes/ui/HeroAppearanceScene.gd")
 
-const _SLOTS: Array[String] = ["weapon", "offhand", "armor", "shoulders", "ring", "trinket"]
+## Laid out two per row (TID-563: eight slots no longer fit one column).
+const _SLOTS: Array[String] = [
+	"weapon", "offhand", "helmet", "shoulders", "armor", "boots", "ring", "trinket",
+]
 const _SLOT_LABELS: Dictionary = {
 	"weapon":  "Weapon",
 	"offhand": "Off Hand",
 	"armor":   "Armor",
 	"shoulders": "Shoulders",
+	"helmet":  "Helmet",
+	"boots":   "Boots",
 	"ring":    "Ring",
 	"trinket": "Trinket",
 }
@@ -88,9 +97,13 @@ func _build_ui() -> void:
 		left_vbox.custom_minimum_size = Vector2(_vw * 0.30, 0)
 	content.add_child(left_vbox)
 
-	# Avatar placeholder
-	var avatar_rect := ColorRect.new()
-	avatar_rect.color = Color(0.25, 0.30, 0.40)
+	# The hero in their current gear and look (BID-076), with a Change Look button.
+	var avatar_rect := TextureRect.new()
+	avatar_rect.texture = _PaperDoll.idle_texture(_PaperDoll.gear_of(SceneManager.save_manager),
+			_PaperDoll.appearance_of(SceneManager.save_manager))
+	avatar_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	avatar_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	avatar_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	var avatar_size: float = _ref * 0.22
 	avatar_rect.custom_minimum_size = Vector2(avatar_size, avatar_size)
 	avatar_rect.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -98,20 +111,31 @@ func _build_ui() -> void:
 
 	var avatar_lbl := _UiUtil.make_label("Saimtar", int(_ref * 0.022), Color(0.8, 0.8, 0.8),
 			HORIZONTAL_ALIGNMENT_CENTER, left_vbox)
+	_UiUtil.make_button("Change Look", Vector2(_ref * 0.18, _ref * 0.05), int(_ref * 0.02),
+			func() -> void: _HeroAppearanceScene.open_editor(get_tree(), _rebuild_ui),
+			left_vbox).size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 
 	var equip_hdr := _UiUtil.make_label("Equipment", int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER,
 			left_vbox)
 
+	var slot_grid := GridContainer.new()
+	slot_grid.columns = 2
+	slot_grid.add_theme_constant_override("h_separation", int(_ref * 0.010))
+	slot_grid.add_theme_constant_override("v_separation", int(_ref * 0.010))
+	left_vbox.add_child(slot_grid)
 	for slot in _SLOTS:
 		var btn := Button.new()
 		btn.custom_minimum_size = Vector2(0, _ref * 0.065)
-		btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
+		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		btn.add_theme_font_size_override("font_size", int(_ref * 0.020))
 		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		btn.clip_text = true
+		btn.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		btn.pressed.connect(_on_slot_pressed.bind(slot))
-		left_vbox.add_child(btn)
+		slot_grid.add_child(btn)
 		_slot_btns[slot] = btn
 
-	var companion_hdr := _UiUtil.make_label("Companion", int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER,
+	var companion_hdr := _UiUtil.make_label("Mentor", int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER,
 			left_vbox)
 
 	_companion_btn = Button.new()
@@ -120,6 +144,10 @@ func _build_ui() -> void:
 	_companion_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_companion_btn.pressed.connect(_on_slot_pressed.bind("companion"))
 	left_vbox.add_child(_companion_btn)
+	# GID-141: no companion slot until Maiteln has agreed to fight beside you.
+	var has_companion: bool = SceneManager.save_manager.has_learned(_UnlockLadder.FEAT_COMPANION)
+	companion_hdr.visible = has_companion
+	_companion_btn.visible = has_companion
 
 	if not is_portrait:
 		content.add_child(VSeparator.new())
@@ -168,18 +196,23 @@ func _refresh_slot_buttons() -> void:
 					display += " +%d" % lvl
 			btn.text = "  %s:  %s" % [label_name, display]
 			btn.modulate = Color(1.0, 1.0, 1.0)
+			# TID-538: the item's name reads in its rarity colour.
+			btn.add_theme_color_override("font_color",
+					_UiUtil.rarity_color(str(sm.gear.roll_of(equipped_id)["rarity"])))
+		if equipped_id == "":
+			btn.remove_theme_color_override("font_color")
 		if slot == _selected_slot:
 			btn.modulate = Color(1.0, 1.0, 0.5)
 	# Companion slot button
 	if _companion_btn != null:
 		var cid: String = sm.active_companion
 		if cid == "":
-			_companion_btn.text = "  Companion:  (none)"
+			_companion_btn.text = "  Mentor:  (none)"
 			_companion_btn.modulate = Color(0.7, 0.7, 0.7)
 		else:
 			var c: CompanionData = CompanionRegistry.get_companion(cid)
 			var display: String = c.display_name if c != null else cid
-			_companion_btn.text = "  Companion:  %s" % display
+			_companion_btn.text = "  Mentor:  %s" % display
 			_companion_btn.modulate = Color(1.0, 1.0, 1.0)
 		if _selected_slot == "companion":
 			_companion_btn.modulate = Color(1.0, 1.0, 0.5)
@@ -219,13 +252,13 @@ func _refresh_picker() -> void:
 		_picker_list.add_child(row)
 
 func _refresh_companion_picker() -> void:
-	_picker_title.text = "Companions"
+	_picker_title.text = "Mentors"
 	_picker_title.modulate = Color(1.0, 1.0, 1.0)
 	var active_id: String = SceneManager.save_manager.active_companion
 	_unequip_btn.disabled = active_id == ""
 	var all_ids: Array[String] = CompanionRegistry.all_ids()
 	if all_ids.is_empty():
-		var none_lbl := _UiUtil.make_label("No companions available yet.", int(_ref * 0.022), Color(0.6, 0.6, 0.6),
+		var none_lbl := _UiUtil.make_label("No mentors available yet.", int(_ref * 0.022), Color(0.6, 0.6, 0.6),
 				HORIZONTAL_ALIGNMENT_CENTER, _picker_list)
 		return
 	for cid in all_ids:
@@ -291,7 +324,9 @@ func _make_picker_row(item_id: String, w: WeaponData, is_equipped: bool) -> HBox
 		var wlvl: int = int(win.get("upgrade_level", 0))
 		if wlvl > 0:
 			disp_name += " +%d" % wlvl
-	name_lbl.text = disp_name
+	var roll: Dictionary = SceneManager.save_manager.gear.roll_of(item_id)
+	name_lbl.text = "%s  (%s)" % [disp_name, _GearRolls.label(roll)]
+	name_lbl.add_theme_color_override("font_color", _UiUtil.rarity_color(str(roll["rarity"])))
 	name_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_row.add_child(name_lbl)
@@ -306,7 +341,7 @@ func _make_picker_row(item_id: String, w: WeaponData, is_equipped: bool) -> HBox
 	if w.slot == "weapon":
 		var winst: Dictionary = sm.get_owned_weapon_by_id(item_id)
 		upgrade_level = int(winst.get("upgrade_level", 0))
-	effect_lbl.text = UpgradeDefs.get_display_string(w, upgrade_level)
+	effect_lbl.text = UpgradeDefs.get_display_string(w, upgrade_level, sm.gear.mult(item_id))
 	effect_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	effect_lbl.modulate = Color(0.9, 1.0, 0.7)
 	info_vbox.add_child(effect_lbl)
@@ -365,7 +400,7 @@ func _show_companion_toast(companion_id: String) -> void:
 	if c == null:
 		return
 	var msg: String = str(_COMPANION_FIRST_EQUIP_TOAST.get(companion_id,
-		"%s joins you as a companion." % c.display_name))
+		"%s joins you as your mentor." % c.display_name))
 	SceneManager.show_toast(c.display_name, msg)
 
 func _on_unequip() -> void:
@@ -415,7 +450,8 @@ func _show_compare_tooltip(item_id: String, candidate: WeaponData, anchor: Contr
 	var equipped_lbl := Label.new()
 	equipped_lbl.text = "Equipped: %s\n%s" % [
 		(equipped.display_name if equipped != null else "(empty)"),
-		(UpgradeDefs.get_display_string(equipped, equipped_lvl) if equipped != null else "—"),
+		(UpgradeDefs.get_display_string(equipped, equipped_lvl, sm.gear.mult(equipped_id)) if equipped != null
+				else "—"),
 	]
 	equipped_lbl.add_theme_font_size_override("font_size", int(_ref * 0.020))
 	equipped_lbl.modulate = Color(0.75, 0.75, 0.75)
@@ -427,7 +463,7 @@ func _show_compare_tooltip(item_id: String, candidate: WeaponData, anchor: Contr
 	var candidate_lbl := Label.new()
 	candidate_lbl.text = "%s\n%s" % [
 		candidate.display_name,
-		UpgradeDefs.get_display_string(candidate, candidate_lvl),
+		UpgradeDefs.get_display_string(candidate, candidate_lvl, sm.gear.mult(item_id)),
 	]
 	candidate_lbl.add_theme_font_size_override("font_size", int(_ref * 0.020))
 	candidate_lbl.modulate = Color(0.6, 1.0, 0.7)
@@ -435,7 +471,8 @@ func _show_compare_tooltip(item_id: String, candidate: WeaponData, anchor: Contr
 	vb.add_child(candidate_lbl)
 
 	if equipped != null and equipped.battle_effect_type == candidate.battle_effect_type:
-		var delta: int = candidate.battle_effect_value - equipped.battle_effect_value
+		var delta: int = (UpgradeDefs.effective_stat(candidate, candidate_lvl, sm.gear.mult(item_id))
+				- UpgradeDefs.effective_stat(equipped, equipped_lvl, sm.gear.mult(equipped_id)))
 		if delta != 0:
 			var delta_lbl := _UiUtil.make_label("%+d vs equipped" % delta, int(_ref * 0.020),
 					Color(0.4, 1.0, 0.5) if delta > 0 else Color(1.0, 0.45, 0.4), HORIZONTAL_ALIGNMENT_LEFT, vb)
@@ -457,3 +494,4 @@ func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("character"):
 		get_viewport().set_input_as_handled()
 		_on_close()
+

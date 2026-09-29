@@ -15,6 +15,12 @@ const _W_LEATHER_VEST   := preload("res://data/weapons/leather_vest.tres")
 const _W_LEATHER_PAULDRONS := preload("res://data/weapons/leather_pauldrons.tres")
 const _W_IRON_PAULDRONS := preload("res://data/weapons/iron_pauldrons.tres")
 const _W_SPIKED_SPAULDERS := preload("res://data/weapons/spiked_spaulders.tres")
+const _W_LEATHER_CAP    := preload("res://data/weapons/leather_cap.tres")
+const _W_IRON_HELM      := preload("res://data/weapons/iron_helm.tres")
+const _W_HOODED_COWL    := preload("res://data/weapons/hooded_cowl.tres")
+const _W_TRAVEL_BOOTS   := preload("res://data/weapons/travel_boots.tres")
+const _W_IRON_GREAVES   := preload("res://data/weapons/iron_greaves.tres")
+const _W_SPURRED_BOOTS  := preload("res://data/weapons/spurred_boots.tres")
 const _W_LUCKY_COIN     := preload("res://data/weapons/lucky_coin.tres")
 const _W_MANA_CRYSTAL   := preload("res://data/weapons/mana_crystal.tres")
 const _W_OBSIDIAN_LOOP  := preload("res://data/weapons/obsidian_loop.tres")
@@ -38,6 +44,8 @@ static func _ensure_loaded() -> void:
 		_W_PARRYING_DAGGER, _W_RING_OF_FOCUS, _W_RUSTY_DAGGER,
 		_W_SCHOLAR_BAND, _W_WARDED_CLOAK,
 		_W_LEATHER_PAULDRONS, _W_IRON_PAULDRONS, _W_SPIKED_SPAULDERS,
+		_W_LEATHER_CAP, _W_IRON_HELM, _W_HOODED_COWL,
+		_W_TRAVEL_BOOTS, _W_IRON_GREAVES, _W_SPURRED_BOOTS,
 	], "WeaponRegistry")
 
 ## Returns the WeaponData for the given id, or null if not found.
@@ -57,7 +65,8 @@ static func get_all_ids() -> Array[String]:
 	_ensure_loaded()
 	return RegistryUtil.get_all_ids(_weapons)
 
-## Returns all equipment IDs matching the given slot ("weapon", "armor", "shoulders", "ring", "trinket", "offhand").
+## Returns all equipment IDs matching the given slot ("weapon", "armor", "shoulders", "ring", "trinket", "offhand",
+## "helmet", "boots").
 static func get_by_slot(slot: String) -> Array[String]:
 	_ensure_loaded()
 	var result: Array[String] = []

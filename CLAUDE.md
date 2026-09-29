@@ -299,6 +299,15 @@ match its branch's owner.
 
 ---
 
+## Unlocks: UnlockLadder Is the Source of Truth
+
+Every system a new player unlocks (skills beyond Strike, the hand, spells, companion, Skills tab, bounties, night
+hunts, Dig, Phase, Rifts, packs, riding) is a row in `game_logic/progression/UnlockLadder.gd`, learned at a trainer
+for gold into `SaveManager.learned_abilities`. Gate a feature with `save_manager.has_learned(UnlockLadder.FEAT_X)`;
+never add a separate level check. See `docs/agent/starter-zone-and-training.md`.
+
+---
+
 ## Constants: IsoConst Is the Source of Truth
 
 All tile/size constants (`TILE_GRASS`, `TILE_SIZE`, `CHUNK_SIZE`, etc.) live in `autoloads/IsoConst.gd`. Reference as `IsoConst.TILE_SIZE`. Never add copies elsewhere.
@@ -357,7 +366,7 @@ created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
 | `NpcInteractions.gd` (`npc_interactions`) | NPC-type dispatch, King Eldar / Chapter 1 ending, duel offer panel |
 | `PlayerHome.gd` (`player_home`) | House purchase door, bed respawn, trophy pedestals (`make_trophy_pedestal` shared with guildhall) |
 | `Mounts.gd` (`mounts`) | Stable purchase panel, mount toggle, battle auto-dismount (price from `MountRegistry`) |
-| `TownSiege.gd` (`town_siege`) | Single-player siege raiders + banner, Chapter 2 marsax_hold trigger, siege music (`music_for` / `refresh_music`, solo and co-op — GID-141) |
+| `TownSiege.gd` (`town_siege`) | Single-player siege raiders + banner, Chapter 2 marsax_hold trigger, siege music (`music_for` / `refresh_music`, solo and co-op — GID-145) |
 | `NamedMapProps.gd` (`named_props`) | Named-map scrolls, shrines, waystones (incl. injected town waystone), injected mailbox, fast-travel panel |
 | `ChestLoot.gd` (`chest_loot`) | Chest open (mimic, co-op sync, need/greed hand-off), card/coin scatter, equipment drop |
 | `NightLights.gd` (`night_lights`) | Night light rigs: lantern/waystone/mana-well/campfire glow dots + depth-based light pools, flicker, tier caps |
@@ -366,7 +375,10 @@ created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
 | `FakeVolumetrics.gd` (`fake_volumetrics`) | Mobile-safe volumetric stand-ins: dawn/dusk fake light shafts, depth-fog post pass (GID-130) |
 | `RealmRegions.gd` (`realm_regions`) | Which stitched story town the player walks through (`current_town`): HUD name, music, entry flags, rivals, siege on town entry; `siege_gate(town)` (GID-138) |
 | `QuestTracker.gd` (`quest_tracker`) | Cached quest list + tracked quest (QuestLog) for compass/minimap/realm map, objective beacon, NPC "!" / "?" marks, "New objective" tip, overworld realm map on M (GID-140) |
-| `Critters.gd` (`critters`) | Ambient wildlife around the hero by biome (`CritterDef`, `entities/Critter.gd`): wander, flee, hover/hop; scenery only, not synced (GID-143) |
+| `StarterCamps.gd` (`starter_camps`) | Madrian starter-zone camps (`StarterZone`): levelled camp enemies refilled 45 s after they fall, never saved as defeated (GID-141) |
+| `RiftPortals.gd` (`rift_portals`) | Rift door panel: rift, best tier, tier picker, enter/resume (GID-142); portals come from `InfiniteWorldGen` |
+| `HeroHealth.gd` (`hero_health`) | Persistent hero HP out of combat (`HeroVitality`): regen, food meals, Q / "Eat" quick use, town + bed full heal, HUD HP bar (TID-543) |
+| `Critters.gd` (`critters`) | Ambient wildlife around the hero by biome (`CritterDef`, `entities/Critter.gd`): wander, flee, hover/hop; scenery only, not synced (GID-147) |
 
 BattleScene's single-player clusters live under `scenes/battle/modules/`, created by
 `BattleScene._ensure_battle_modules()`. Each has a `_battle` back-reference typed as
@@ -380,7 +392,7 @@ the BattleScene script (see "Typed back-references" below):
 | `BattleArena.gd` (`arena`) | Backdrop, battlefield label/banner, slot highlights, co-op ally panels |
 | `BattleTargeting.gd` (`targeting`) | Board drop zone, spell/ally/slot targeting modes, resolving chosen targets |
 | `BattleInput.gd` (`card_input`) | Hand/board/enemy taps, cast confirm, attacks |
-| `BattleRealtime.gd` (`realtime`) | Real-time combat (setting-gated): drives `RealtimeCombat` clock, GCD gate, player cast bars (`run_cast`), enemy casts, focus target; presentation in `RealtimeVisuals.gd` (diagonal arena via `DiagonalBoard.gd`, hero tokens holding the hero strips, unit bars, lunges); a second enemy can join mid-fight (`join_enemy`, team battle — TID-551); fixed 3-slot skill bar in `BattleSkillBar.gd` over `game_logic/battle/SkillBar.gd` (TID-550); auto-attack toggle, combo pips + free-cast glow in `MomentumHud.gd` over `RealtimeCombat.on_player_hit`/`spend_combo` (GID-139); new-player ramp + first-time tips in `BattleOnboarding.gd` over `game_logic/battle/CombatOnboarding.gd` (TID-552/553); Maiteln coaching barks in `MentorBarks.gd` over `game_logic/battle/BarkRules.gd` (TID-558) and the post-fight coaching line in `game_logic/battle/FightStats.gd` (TID-559), both riding the same clock; every timing comes from `game_logic/battle/CombatTuning.gd` (edited live by `CombatTuningPanel.gd`, ⚙ Tune / T) — add knobs there, not constants |
+| `BattleRealtime.gd` (`realtime`) | Real-time combat (setting-gated): drives `RealtimeCombat` clock, GCD gate, player cast bars (`run_cast`), enemy casts, focus target; presentation in `RealtimeVisuals.gd` (diagonal arena via `DiagonalBoard.gd`, hero tokens holding the hero strips, unit bars, lunges); a second enemy can join mid-fight (`join_enemy`, team battle — TID-551); fixed 3-slot skill bar in `BattleSkillBar.gd` over `game_logic/battle/SkillBar.gd` (TID-550); auto-attack toggle, combo pips + free-cast glow in `MomentumHud.gd` over `RealtimeCombat.on_player_hit`/`spend_combo` (GID-139); new-player gates (what the player has learned — GID-141) + first-time tips in `BattleOnboarding.gd` over `game_logic/battle/CombatOnboarding.gd`; read the mode via `SaveManager.battle_mode()`; Maiteln coaching barks in `MentorBarks.gd` over `game_logic/battle/BarkRules.gd` (TID-558) and the post-fight coaching line in `game_logic/battle/FightStats.gd` (TID-559), both riding the same clock; every timing comes from `game_logic/battle/CombatTuning.gd` (edited live by `CombatTuningPanel.gd`, ⚙ Tune / T) — add knobs there, not constants |
 
 Keep `_find_nearby_*` finders on WorldScene even when the spawn moves —
 `test_interact_priority` reads the interaction chains by those names. Likewise
@@ -673,4 +685,6 @@ Agent-owned feature docs. Each covers Key Features, How It Works, Integrations, 
 | [docs/agent/audio-soundtrack.md](docs/agent/audio-soundtrack.md) | Curated CC0/CC-BY music shortlist per slot (7 slots), acquisition/conversion steps, attribution requirements |
 | [docs/agent/art-sprites.md](docs/agent/art-sprites.md) | Curated CC0/CC-BY sprite shortlist: enemy archetypes, NPCs, props, mount, card art; manifest, acquisition steps, attribution |
 | [docs/agent/game-appeal.md](docs/agent/game-appeal.md) | Appeal analysis: player motivations, personas, differentiation, weaknesses, first-session hook visibility |
+| [docs/agent/rifts.md](docs/agent/rifts.md) | Spire reworked as per-biome rifts: tier ladders, guardian floors, boons, rift quests, entrances (GID-142) |
+| [docs/agent/starter-zone-and-training.md](docs/agent/starter-zone-and-training.md) | Unlock ladder (one system per level), trainer-taught unlocks for gold, starter zone + quest chain (GID-141) |
 | [docs/human/story.md](docs/human/story.md) | Story bible: characters, chapters, NPC dialogue, map specs (human-owned) |

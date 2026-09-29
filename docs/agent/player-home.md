@@ -83,7 +83,7 @@ API methods on SaveManager:
 - **Coin economy (GID-007/GID-028):** House purchase deducts 500 coins via `add_coins(-500)`.
 - **Map stack navigation (GID-015/GID-017):** `player_home` uses the existing `enter_map` / pop-stack door flow. Exit door has empty `target_map` to pop back to madrian.
 - **Champion duels (GID-037):** `defeated_duelists` field used by champion trophy predicate.
-- **Endless Spire (GID-038):** `spire_best_floor` field used by spire_7 trophy predicate.
+- **Endless Spire (GID-038):** `spire_best_floor` field used by spire_7 trophy predicate (still updated by rift runs, GID-142 — floors cleared per run).
 - **Enemy system:** `EnemyRegistry.is_boss(enemy_type)` used by first_boss trophy predicate.
 - **Game-over flow:** GameOverScene routes to home bed if `has_respawn_point()` is true.
 

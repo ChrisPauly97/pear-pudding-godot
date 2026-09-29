@@ -22,8 +22,8 @@ spent by cards, occasional free-cast procs.
 | TID-576 | Auto-Attack Toggle & Essence Siphon | agent | done | — |
 | TID-577 | Combo Charges Spent by Cards | agent | done | TID-576 |
 | TID-578 | Essence Surge Free-Cast Procs | agent | done | TID-576 |
-| TID-579 | Telegraphed Heavy Enemy Attacks | agent | todo | — |
-| TID-580 | Hit Feel — Hit-Stop & Shake in Real Time | agent | todo | — |
+| TID-579 | Telegraphed Heavy Enemy Attacks | agent | done | — |
+| TID-580 | Hit Feel — Hit-Stop & Shake in Real Time | agent | done | — |
 
 ## Acceptance Criteria
 

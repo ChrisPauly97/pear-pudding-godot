@@ -53,7 +53,7 @@ SaveManager.is_bag_full() -> bool                          # get_slot_count() >=
 
 The collection panel renders the backpack as an `HFlowContainer` of card-face tiles (`_make_card_tile` → `scenes/ui/inventory/CardTile.gd`), one per instance: cost gem, rarity-coloured frame + rarity letter, illustration (or a monogram on the card colour), name, ⚔ATK ♥HP (or "Spell"), veterancy chevrons, and an "In <deck>" tag when the card sits in another loadout. Right-click (desktop) or tap-and-hold (mobile, via `LongPressDetector`) opens a detail popup: mana/class/stats, rules text, kills/battles, a warning if the card is in a deck, Add to Deck, Inspect (full `CardInspectOverlay`), Sell/Scrap, Combine 3 → next tier (any tier below legendary, with an n/3 count) and Rename. A plain tap/click adds the card to the working deck.
 
-#### Bag tools (GID-144)
+#### Bag tools (GID-148)
 
 - **Tabs** — Cards / Craft / Items (`UiUtil.make_tab_row`), with one shared wallet line: `Bag used/cap  gold  essence` (red when the bag is full).
 - **Toolbar** — search (name, rules text, keywords), a sort cycle (Name → Rarity → Cost → Power → Newest) and a **Select** toggle. The class/cost/rarity filter row stays below it; a hint line explains the gestures for the current mode.
@@ -174,9 +174,24 @@ Extends `BaseOverlay.gd`. Renders `SaveManager.mailbox.get_mailbox_instances()` 
 
 ### Overview
 
-The player can equip items across six slots: **weapon**, **offhand**, **armor**, **shoulders** (GID-137: leather/iron pauldrons, spiked spaulders), **ring**, and **trinket**. Each slot holds one item ID (empty string = nothing equipped). At battle start `BattleScene.modifiers._apply_equipment_effects()` loops over all five slots, resolves each item via `WeaponRegistry`, and applies its effect to `PlayerState[0]` before the opening hand is drawn. All five slot types use the same `WeaponData` resource and registry — the `slot` field distinguishes them.
+The player can equip items across eight slots: **weapon**, **offhand**, **armor**, **shoulders** (GID-137: leather/iron pauldrons, spiked spaulders), **helmet** (TID-563: leather cap +3 HP, iron helm +2 armor, hooded cowl +1 mana), **boots** (TID-563: travel boots +3 HP, iron greaves +2 armor, spurred boots +1 attack), **ring**, and **trinket**. CharacterScene lays the slot buttons out two per row. Each slot holds one item ID (empty string = nothing equipped). At battle start `BattleScene.modifiers._apply_equipment_effects()` loops over every slot, resolves each item via `WeaponRegistry`, and applies its effect to `PlayerState[0]` before the opening hand is drawn. All slot types use the same `WeaponData` resource and registry — the `slot` field distinguishes them.
 
-**Visuals (GID-137):** equipping emits `GameBus.equipment_changed(slot, id)` and the hero sprite redraws in the new gear. Every armour/shoulders/weapon/offhand/trinket item needs a `PaperDoll.GEAR_VISUALS` entry (see `camera-and-player.md` → Paper-doll hero); rings are not drawn.
+**Rarity & item level (GID-136 / TID-538):** every owned item has one roll, `{"rarity", "ilvl"}`, in
+`SaveManager.gear_rolls` (keyed by item id; missing = common, ilvl 1, so no migration). Rarities reuse the card
+ones (common / rare / epic / legendary, `UiUtil.rarity_color`). `GearRolls.mult(roll)` = rarity multiplier
+(1 / 1.25 / 1.5 / 2) × (1 + 2 % per item level above 1) feeds `UpgradeDefs.effective_stat(weapon, level, mult)`
+(rounded, never below the base value) — battle effects (`BattleModifiers._apply_equipment_effects`, real-time
+off-hand damage) and every display string (`get_display_string(…, mult)`). Sources: chests
+(`ChestLoot._maybe_drop_equipment(chance, tier, level)` — rarity weights by chest tier, item level = zone level
+on the overworld, else the player's level; 30 % of drops re-roll an owned item), victory weapon rewards (enemy
+difficulty tier, enemy level), shop purchases (common at your level) and quest turn-ins with a `gear_choice`
+(pick one of three, a rare roll at quest level + 1; `SaveQuests.turn_in(id, pick)`, the turn-in panel shows the
+three items with their rolled stats). `SaveManager.gear.grant(id, roll)` adds a new item or keeps the better roll
+("new" / "upgraded" / "kept"); an upgrade to an equipped item emits `equipment_changed`. CharacterScene colours
+item names by rarity and shows "Rare · ilvl 7". Co-op session characters (BID-033) carry their own `gear_rolls`,
+and need/greed loot is rolled on the authority (BID-075).
+
+**Visuals (GID-137):** equipping emits `GameBus.equipment_changed(slot, id)` and the hero sprite redraws in the new gear. Every armour/shoulders/helmet/boots/weapon/offhand/trinket item needs a `PaperDoll.GEAR_VISUALS` entry (see `camera-and-player.md` → Paper-doll hero); rings are not drawn.
 
 Mana cap invariant: max_mana never permanently exceeds 10. The `starting_mana` effect grants a one-time turn-1 burst; `PlayerState.gain_mana_for_turn(turn)` resets `max_mana = min(10, turn)` on every subsequent turn, naturally undoing the boost.
 
@@ -294,6 +309,8 @@ The `dagger_throw` card has `cost = 0` and `auto_resolve = true`. It is defined 
 ---
 
 ## Endless Spire: Run-Local Deck Isolation
+
+> **GID-142:** the Spire is now per-biome **rifts** with tier ladders — see `docs/agent/rifts.md`. Sections below describe the original Endless Spire machinery the rifts are built on.
 
 During an Endless Spire run the player's battle deck is separate from their persistent `player_deck`. It is built up by drafting cards after each floor victory.
 

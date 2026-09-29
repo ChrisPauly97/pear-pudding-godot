@@ -1,5 +1,13 @@
 # Co-op Multiplayer (Vertical Slice + PvP)
 
+> **Landing map (BID-063):** co-op now hosts, joins, resumes and returns on the stitched overworld **`main`**
+> (`MultiplayerLobbyScene._COOP_MAP`, `SessionState.current_map` / character `map` defaults, the discovery
+> reply, `NetBattles.resume_pvp_battle`, the co-op Spire summary, the dedicated server `--map` default).
+> Madrian is part of that map (GID-138), so "madrian" below means the town inside it; town-gated co-op
+> features already key off `WorldScene.story_place()`. Verified with a real two-process host + client run
+> (both on `main`, same seed, each sees the other's avatar). Old sessions saved on `madrian` still load it.
+
+
 > Status: up to **4 players** (GID-094 / TID-341) share one named map
 > (**madrian**) and see each other's avatar move (GID-090), and two players can
 > challenge each other to a real TCG **card battle** (GID-091, host-authoritative).
@@ -209,8 +217,8 @@ out-of-scope feature) — it is correctness: you only see a partner who is actua
 - `scenes/ui/MultiplayerLobbyScene.gd` (extends `BaseOverlay`, instantiated via
   `.new()` like SettingsScene): Host / Find Games (+ results list) / Join-by-IP /
   Close, viewport-relative, rebuilt on resize.
-- Host → `NetworkManager.host()` then `SceneManager.enter_map_coop("madrian")`
-  immediately. Client → on `connection_succeeded`, `enter_map_coop("madrian")`.
+- Host → `NetworkManager.host()` then `SceneManager.enter_map_coop("main")` (was `"madrian"` before BID-063)
+  immediately. Client → on `connection_succeeded`, `enter_map_coop("main")`.
   Both end up in madrian before any avatar RPCs flow.
 - `SceneManager.enter_map_coop(map_name)` clears any prior world/stack and reuses
   the normal `enter_map` path. `save()` is a no-op when no game is loaded, so this
@@ -378,8 +386,8 @@ rates itself — only the host runs this. The **cross-session leaderboard** is *
 `pvp_rating` desc (ties → games, then token) returning `{token, name, rating, games,
 wins, losses}` rows. The dedicated server (GID-097) is the canonical ladder host. This
 is the data foundation TID-373 (ranked UI) builds on. Single-player hits none of it.
-**Known gap:** opponent *champion* stats (wins/losses/streak) are still host-only
-(TID-368 behaviour) — only the rating is updated for both sides here (see BID-025).
+Champion stats (wins/losses/streak) are updated for both sides too, via
+`CoopPvP._apply_champion_result(st, token, won)` (was host-only until BID-025).
 
 ### Reconnecting into an in-progress duel (GID-102 / TID-372)
 
@@ -1734,8 +1742,14 @@ NetSync like the other coop modules) makes remote avatars wear each peer's gear.
 
 - **Wire:** `NetSync.recv_gear(payload)` — reliable, any_peer. Payload is
   `PaperDoll.encode_gear()`: one item id per `PaperDoll.VISIBLE_SLOTS` entry
-  (armor, shoulders, weapon, offhand, trinket). `decode_gear()` treats it as
-  untrusted: non-strings and ids missing from `GEAR_VISUALS` become "".
+  (armor, shoulders, weapon, offhand, trinket, helmet, boots — new slots are
+  appended, so an older peer's shorter payload decodes with them empty), then
+  `PaperDoll.encode_look()`: the sender's skin/hair preset indices (TID-562).
+  `decode_gear()` treats it as untrusted: non-strings and ids missing from
+  `GEAR_VISUALS` become "" and the look tail is ignored; `decode_look()` reads the
+  tail, and any missing or out-of-range index decodes as the default look.
+  `CoopAppearance` keeps `_remote_look` beside `_remote_gear` and passes both to
+  `RemotePlayer.set_gear(gear, look)`.
 - **When sent:** alongside every identity packet
   (`CoopSession._send_local_identity` → `send_local_gear(target)`), so the
   initiator's broadcast and each reply carry gear; and on every
@@ -1807,7 +1821,7 @@ session + world authority without rendering, a local player, a camera, or a HUD.
 godot --headless -- --server [--port N] [--map NAME]
 ```
 
-`--port` defaults to `24565`. `--map` defaults to `"madrian"`.
+`--port` defaults to `24565`. `--map` defaults to `"main"` (BID-063; was `"madrian"`).
 Connect clients with the normal "Join by IP" path in the lobby.
 
 ### How it works
@@ -2554,9 +2568,11 @@ whole party to hunt.
   `"night_hunts"` PvE leaderboard board (`SessionState` v9, alongside `spire`
   and `coop_clears`) via the existing generic `_submit_pve_score` routing; a
   `GameBus.hud_message_requested` toast announces each kill and a milestone
-  message fires at 5 kills in one night. The `night_hunts` board is recorded
-  and synced but not yet surfaced in `LeaderboardOverlay`'s UI (only `spire`/
-  `coop_clears` render tabs today) — a follow-up UI task, not a data gap.
+  message fires at 5 kills in one night. `LeaderboardOverlay` shows it on a
+  **Night Hunts** tab (and `coop_spire` on a **Co-op Spire** tab) — both boards were
+  recorded and synced long before they had tabs. The overlay's PvE tabs are one
+  `_PVE_TABS` table (board, title, value column, empty text); its columns are sized
+  to the panel (`_col_w`), not the viewport, so the panel no longer overflows.
 
 ### Co-op Town Siege (TID-384)
 
@@ -2614,6 +2630,8 @@ Gives a persistent co-op session long-run identity through a shared roguelike
 mode (TID-390/391 above) and a physical guildhall home (TID-392/393, below).
 
 ### Co-op Endless Spire — shared run & alternating draft (TID-390)
+
+> **GID-142 / TID-601:** co-op runs are rift runs (rift + tier in the floor map name, guardian win = tier clear credited to each peer, `rift_<id>` leaderboards). See `docs/agent/rifts.md`.
 
 Adapts the single-player Endless Spire (GID-038 — escalating boss floors, a
 3-card-1 draft between each) for a party: the same seed-based floor

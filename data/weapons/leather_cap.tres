@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://z0tncsa6dduq"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_leather_cap"]
+
+[resource]
+script = ExtResource("1_leather_cap")
+id = "leather_cap"
+display_name = "Leather Cap"
+description = "A scuffed leather cap laced under the chin. Your hero starts each battle with 3 extra HP."
+slot = "helmet"
+battle_effect_type = "starting_hp"
+battle_effect_value = 3
+injected_card_id = ""
+injected_card_count = 0

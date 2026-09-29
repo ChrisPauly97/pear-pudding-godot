@@ -304,8 +304,9 @@ func load_from_resource(data: Resource) -> void:
 			var cid: Variant = r.get("entity_id")
 			var raw_card_ids: Variant = r.get("card_ids")
 			var card_ids_arr: Array[String] = []
-			if raw_card_ids is Array:
-				for card_id in raw_card_ids:
+			# MapChest.card_ids is a PackedStringArray, which is not an Array.
+			if raw_card_ids is Array or raw_card_ids is PackedStringArray:
+				for card_id: Variant in raw_card_ids:
 					card_ids_arr.append(str(card_id))
 			chests.append({
 				"id": str(cid) if cid != null and str(cid) != "" else "chest_%d" % uid_counter,
@@ -351,6 +352,7 @@ func load_from_resource(data: Resource) -> void:
 			var npc_type: Variant = r.get("npc_type")
 			var npc_flag: Variant = r.get("flag_key")
 			var npc_hide_flag: Variant = r.get("hide_flag_key")
+			var npc_show_flag: Variant = r.get("show_flag_key")
 			var after_dlg: Variant = r.get("after_dialogue")
 			var duelist_eid: Variant = r.get("duelist_enemy_id")
 			var wager_c: Variant = r.get("wager_coins")
@@ -365,6 +367,7 @@ func load_from_resource(data: Resource) -> void:
 				"npc_type": str(npc_type) if npc_type != null else "",
 				"flag_key": str(npc_flag) if npc_flag != null else "",
 				"hide_flag_key": str(npc_hide_flag) if npc_hide_flag != null else "",
+				"show_flag_key": str(npc_show_flag) if npc_show_flag != null else "",
 				"after_dialogue": str(after_dlg) if after_dlg != null else "",
 				"duelist_enemy_id": str(duelist_eid) if duelist_eid != null else "",
 				"wager_coins": int(wager_c) if wager_c != null else 0,
@@ -487,6 +490,7 @@ func to_map_data(p_map_name: String = "") -> Resource:
 		n.npc_type = str(n_dict.get("npc_type", ""))
 		n.flag_key = str(n_dict.get("flag_key", ""))
 		n.hide_flag_key = str(n_dict.get("hide_flag_key", ""))
+		n.show_flag_key = str(n_dict.get("show_flag_key", ""))
 		n.after_dialogue = str(n_dict.get("after_dialogue", ""))
 		n.duelist_enemy_id = str(n_dict.get("duelist_enemy_id", ""))
 		n.wager_coins = int(n_dict.get("wager_coins", 0))

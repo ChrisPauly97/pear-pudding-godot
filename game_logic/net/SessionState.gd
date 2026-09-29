@@ -80,14 +80,16 @@ const _STARTER_COINS: int = 200
 # task asks for a standalone {token, name, value, day} entry shape).
 
 ## Valid board names for `record_pve_score` / `get_pve_leaderboard`.
-const _PVE_BOARDS: Array[String] = ["spire", "coop_clears", "night_hunts", "coop_spire"]
+const _PVE_BOARDS: Array[String] = ["spire", "coop_clears", "night_hunts", "coop_spire",
+	# GID-142: one board per rift (RiftDefs ids), value = best tier cleared.
+	"rift_grasslands", "rift_forest", "rift_desert", "rift_scorched", "rift_mountains"]
 
 # --- Identity ---------------------------------------------------------------
 var session_id: String = ""
 var display_name: String = "Session"
 
 # --- Shared world progress (authority-owned, same for all members) ----------
-var current_map: String = "madrian"
+var current_map: String = "main"  # the stitched overworld (BID-063)
 var world_seed: int = 42
 var time_of_day: float = 0.4
 var days_elapsed: int = 0
@@ -126,9 +128,7 @@ var stash: Dictionary = {"cards": [], "coins": 0}
 # best floor reached in a co-op Endless Spire run — value semantics mirror the
 # solo `spire` board exactly (floors_cleared), just scoped to co-op sessions;
 # richer than the generic `coop_clears` party-size signal (BID-031).
-var leaderboards: Dictionary = {
-	"spire": [], "coop_clears": [], "night_hunts": [], "coop_spire": [],
-}
+var leaderboards: Dictionary = _sanitized_leaderboards({})
 
 # --- Loot distribution mode (GID-102 / TID-381) -----------------------------
 # Host-only session setting; LOOT_MODE_FIRST_OPENER (default) or LOOT_MODE_NEED_GREED.
@@ -200,7 +200,7 @@ func from_dict(data: Dictionary) -> void:
 	_apply_migrations(data)
 	session_id = str(data.get("session_id", ""))
 	display_name = str(data.get("display_name", "Session"))
-	current_map = str(data.get("current_map", "madrian"))
+	current_map = str(data.get("current_map", "main"))
 	world_seed = int(data.get("world_seed", 42))
 	time_of_day = float(data.get("time_of_day", 0.4))
 	days_elapsed = int(data.get("days_elapsed", 0))
@@ -268,16 +268,11 @@ static func _sanitized_guildhall_state(raw: Dictionary) -> Dictionary:
 ## file can never crash a caller that assumes the shape (mirrors the tolerant
 ## fallback pattern used throughout this file).
 static func _sanitized_leaderboards(raw: Dictionary) -> Dictionary:
-	var spire: Variant = raw.get("spire", [])
-	var coop: Variant = raw.get("coop_clears", [])
-	var hunts: Variant = raw.get("night_hunts", [])
-	var coop_spire: Variant = raw.get("coop_spire", [])
-	return {
-		"spire": (spire as Array).duplicate(true) if spire is Array else [],
-		"coop_clears": (coop as Array).duplicate(true) if coop is Array else [],
-		"night_hunts": (hunts as Array).duplicate(true) if hunts is Array else [],
-		"coop_spire": (coop_spire as Array).duplicate(true) if coop_spire is Array else [],
-	}
+	var out: Dictionary = {}
+	for board: String in _PVE_BOARDS:
+		var rows: Variant = raw.get(board, [])
+		out[board] = (rows as Array).duplicate(true) if rows is Array else []
+	return out
 
 
 ## Forward-migration scaffold. Entries run in ascending order; each backfills the
@@ -515,7 +510,7 @@ static func make_starter_character(token: String, member_name: String) -> Dictio
 		"magic_type": "",
 		"corruption_points": 0,
 		"redemption_points": 0,
-		"map": "madrian",
+		"map": "main",
 		"x": 0.0,
 		"z": 0.0,
 		# Session-scoped equipment inventory (BID-033) — a fresh character owns
@@ -524,6 +519,10 @@ static func make_starter_character(token: String, member_name: String) -> Dictio
 		"owned_armor": [],
 		"equipped_weapon": "",
 		"equipped_armor": "",
+		"gear_rolls": {},  # item id -> {rarity, ilvl} (GearRolls, BID-075)
+		"learned_abilities": [],  # trainer-taught unlocks (UnlockLadder)
+		"rift_best_tiers": {},
+		"rift_first_clears": [],
 		# PvP champion record (GID-101 / TID-368)
 		"pvp_wins": 0,
 		"pvp_losses": 0,
@@ -612,12 +611,10 @@ func get_pve_leaderboard(board: String, limit: int = PVE_LEADERBOARD_CAP) -> Arr
 ## wire (all boards together, same "send the whole cached thing" pattern as
 ## recv_party_bounties_snapshot).
 func get_pve_leaderboards_snapshot() -> Dictionary:
-	return {
-		"spire": get_pve_leaderboard("spire"),
-		"coop_clears": get_pve_leaderboard("coop_clears"),
-		"night_hunts": get_pve_leaderboard("night_hunts"),
-		"coop_spire": get_pve_leaderboard("coop_spire"),
-	}
+	var out: Dictionary = {}
+	for board: String in _PVE_BOARDS:
+		out[board] = get_pve_leaderboard(board)
+	return out
 
 
 # ---------------------------------------------------------------------------

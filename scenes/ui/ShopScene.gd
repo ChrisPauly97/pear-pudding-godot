@@ -1,10 +1,12 @@
 extends "res://scenes/ui/CardBrowserOverlay.gd"
 
+const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const PackDefs = preload("res://game_logic/PackDefs.gd")
 const GardenDefs = preload("res://game_logic/GardenDefs.gd")
+const _HeroVitality = preload("res://game_logic/HeroVitality.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const _CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
@@ -91,12 +93,14 @@ func _refresh() -> void:
 		return
 
 	# ---- Packs section ---------------------------------------------------
-	_shop_list.add_child(_make_section_header("— Packs —"))
-	for pack_id: String in PackDefs.get_all_pack_ids():
-		var pack_def: Dictionary = PackDefs.get_pack(pack_id)
-		if pack_def.is_empty():
-			continue
-		_shop_list.add_child(_make_pack_row(pack_id, pack_def, coins))
+	# GID-141: sealed packs are sold once the merchant has taught them (feat_packs).
+	if SceneManager.save_manager.has_learned(_UnlockLadder.FEAT_PACKS):
+		_shop_list.add_child(_make_section_header("— Packs —"))
+		for pack_id: String in PackDefs.get_all_pack_ids():
+			var pack_def: Dictionary = PackDefs.get_pack(pack_id)
+			if pack_def.is_empty():
+				continue
+			_shop_list.add_child(_make_pack_row(pack_id, pack_def, coins))
 
 	# ---- Cards section ---------------------------------------------------
 	var card_header: String = "— Cards (20% off — Town Discount) —" if discounted else "— Cards —"
@@ -155,6 +159,12 @@ func _refresh() -> void:
 	_shop_list.add_child(_make_section_header("— Shoulders —"))
 	_add_equipment_section("shoulders", SceneManager.save_manager.owned_shoulders, coins, discounted)
 
+	# ---- Helmets / Boots sections (GID-137 / TID-563) --------------------
+	_shop_list.add_child(_make_section_header("— Helmets —"))
+	_add_equipment_section("helmet", SceneManager.save_manager.owned_helmets, coins, discounted)
+	_shop_list.add_child(_make_section_header("— Boots —"))
+	_add_equipment_section("boots", SceneManager.save_manager.owned_boots, coins, discounted)
+
 	# ---- Rings section ---------------------------------------------------
 	_shop_list.add_child(_make_section_header("— Rings —"))
 	_add_equipment_section("ring", SceneManager.save_manager.owned_rings, coins, discounted)
@@ -166,6 +176,11 @@ func _refresh() -> void:
 	# ---- Off Hands section (TID-545) --------------------------------------
 	_shop_list.add_child(_make_section_header("— Off Hands —"))
 	_add_equipment_section("offhand", SceneManager.save_manager.owned_offhands, coins, discounted)
+
+	# ---- Food section (TID-543): eaten out of combat to heal over time ---
+	_shop_list.add_child(_make_section_header("— Food —"))
+	for food_id: String in _HeroVitality.FOODS:
+		_shop_list.add_child(_make_food_row(food_id, coins))
 
 	# ---- Seeds section ---------------------------------------------------
 	_shop_list.add_child(_make_section_header("— Seeds —"))
@@ -349,7 +364,9 @@ func _on_buy_equipment(item_id: String, slot: String, price: int) -> void:
 	if sm.coins < price:
 		return
 	sm.add_coins(-price)
-	sm.add_equipment(item_id, slot)
+	# TID-538: shop stock is common, at your level.
+	if sm.gear.grant(item_id, {"rarity": "common", "ilvl": sm.level}) == "":
+		sm.add_equipment(item_id, slot)
 	_refresh()
 
 func _make_pack_row(pack_id: String, pack_def: Dictionary, coins: int) -> VBoxContainer:
@@ -425,6 +442,31 @@ func _on_buy_seed(seed_id: String) -> void:
 		return
 	sm.add_coins(-SEED_PRICE)
 	sm.garden.add_seeds(seed_id, 1)
+	_refresh()
+
+func _make_food_row(food_id: String, coins: int) -> HBoxContainer:
+	var food: Dictionary = _HeroVitality.FOODS[food_id]
+	var price: int = int(food.get("price", 0))
+	var row := _UiUtil.make_hbox(int(_vw * 0.008))
+	var owned: int = int(SceneManager.save_manager.foods.get(food_id, 0))
+	var info_lbl := _UiUtil.make_label("%s  —  own: %d" % [str(food.get("display_name", food_id)), owned],
+			int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
+	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info_lbl.tooltip_text = str(food.get("description", ""))
+	_UiUtil.make_label("%d coins" % price, int(_ref * 0.022),
+			Color(1.0, 0.85, 0.1) if coins >= price else Color(0.9, 0.3, 0.3), HORIZONTAL_ALIGNMENT_LEFT, row)
+	var buy_btn := _UiUtil.make_button("Buy", Vector2(_vw * 0.08, _ref * 0.065), int(_ref * 0.022),
+			_on_buy_food.bind(food_id, price), row)
+	buy_btn.disabled = coins < price
+	return row
+
+func _on_buy_food(food_id: String, price: int) -> void:
+	var sm := SceneManager.save_manager
+	if sm.coins < price:
+		return
+	sm.add_coins(-price)
+	sm.foods[food_id] = int(sm.foods.get(food_id, 0)) + 1
+	sm.mark_dirty()
 	_refresh()
 
 func _on_close() -> void:

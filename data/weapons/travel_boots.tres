@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://6gunub065l53"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_travel_boots"]
+
+[resource]
+script = ExtResource("1_travel_boots")
+id = "travel_boots"
+display_name = "Travel Boots"
+description = "Worn road boots, resoled more than once. Your hero starts each battle with 3 extra HP."
+slot = "boots"
+battle_effect_type = "starting_hp"
+battle_effect_value = 3
+injected_card_id = ""
+injected_card_count = 0

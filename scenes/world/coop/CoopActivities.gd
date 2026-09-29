@@ -9,6 +9,8 @@
 ## lived in WorldScene itself. Everything world-side is reached via `_world`.
 extends Node
 
+const _SpireFloorGen = preload("res://game_logic/spire/SpireFloorGen.gd")
+const _RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
 const _SaveSpire = preload("res://autoloads/save_manager/SaveSpire.gd")
 const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const _CardDropUtil      = preload("res://game_logic/CardDropUtil.gd")
@@ -16,6 +18,7 @@ const _CardInstanceUtil  = preload("res://game_logic/CardInstanceUtil.gd")
 const _CardRegistry      = preload("res://autoloads/CardRegistry.gd")
 const _CoopNightHunts    = preload("res://game_logic/CoopNightHunts.gd")
 const _CoopSiege         = preload("res://game_logic/CoopSiege.gd")
+const _GearRolls = preload("res://game_logic/items/GearRolls.gd")
 const _EnemyScene        = preload("res://scenes/world/entities/EnemyNPC.tscn")
 const _LootRoll          = preload("res://game_logic/net/LootRoll.gd")
 const _RunSummaryScene   = preload("res://scenes/ui/RunSummaryScene.tscn")
@@ -331,6 +334,10 @@ func _roll_equipment_into_loot_grant(rec: Dictionary, tier: int) -> void:
 	else:
 		owned_a.append(picked)
 		rec["owned_armor"] = owned_a
+	# BID-075: the drop rolls rarity by chest tier and item level by the winner's level.
+	var rolls: Dictionary = rec.get("gear_rolls", {}) if rec.get("gear_rolls", {}) is Dictionary else {}
+	rolls[picked] = _GearRolls.roll(tier, int(rec.get("level", 1)), rng)
+	rec["gear_rolls"] = rolls
 
 
 ## Any peer: announce the winner (toast) and close the prompt if one was open.
@@ -548,7 +555,8 @@ func _resolve_coop_spire_draft(card_idx: int) -> void:
 	var next_run: Dictionary = SceneManager.get_coop_spire_run()
 	var next_floor: int = int(next_run.get("floor", 1))
 	var next_seed: int = int(next_run.get("seed", 0))
-	var target_map: String = "spire_floor_%d_%d" % [next_floor, next_seed]
+	var target_map: String = _SpireFloorGen.map_name_for(next_floor, next_seed, str(next_run.get("rift", "")),
+			int(next_run.get("tier", 1)))
 	_world._coop_map_transitioning = true
 	if _world._net_sync != null:
 		_world._net_sync.rpc("recv_map_transition", target_map, "")
@@ -637,12 +645,17 @@ func _coop_start_spire_boss_battle(edata: Dictionary) -> void:
 func _on_coop_spire_battle_ended(did_win: bool) -> void:
 	if not _world.coop_session._in_coop_spire_floor():
 		return
-	if did_win:
+	var run: Dictionary = SceneManager.get_coop_spire_run()
+	# GID-142: the guardian floor ends a co-op rift run as a tier clear.
+	var guardian_won: bool = did_win and str(run.get("rift", "")) != "" \
+			and _RiftDefs.is_guardian_floor(int(run.get("floor", 1)))
+	if did_win and not guardian_won:
 		if _world.coop_session._coop_world_authority():
-			var run: Dictionary = SceneManager.get_coop_spire_run()
 			_pending_coop_spire_draft_floor = int(run.get("floor", 1))
 	elif _world.coop_session._coop_world_authority():
 		var stats: Dictionary = SceneManager.end_coop_spire_run()
+		if guardian_won:
+			stats["floors_cleared"] = _RiftDefs.FLOORS_PER_TIER
 		var floors_cleared: int = int(stats.get("floors_cleared", 0))
 		var party_size: int = multiplayer.get_peers().size() + 1
 		var roster: Array = [MpProfile.get_display_name()]
@@ -650,6 +663,9 @@ func _on_coop_spire_battle_ended(did_win: bool) -> void:
 			roster.append(str((identity as Dictionary).get("name", "Player")))
 		_submit_pve_score("coop_spire", floors_cleared)  # host-only, pure SessionStore write
 		_pending_coop_spire_run_ended_payload = {
+			"rift": str(stats.get("rift", "")),
+			"tier": int(stats.get("tier", 1)),
+			"tier_cleared": guardian_won,
 			"floors_cleared": floors_cleared,
 			"party_size": party_size,
 			"roster": roster,
@@ -690,6 +706,13 @@ func _flush_pending_coop_spire_post_battle() -> void:
 
 func _on_coop_spire_run_ended_received(payload: Dictionary) -> void:
 	SceneManager.set_coop_spire_run_mirror({"active": false})
+	# GID-142: every peer's own save records the tier clear (best tier, one-time
+	# XP) and posts it to that rift's board.
+	if bool(payload.get("tier_cleared", false)):
+		var rift_id: String = str(payload.get("rift", ""))
+		var tier: int = int(payload.get("tier", 1))
+		SceneManager.save_manager.spire.record_tier_clear(rift_id, tier)
+		_submit_pve_score("rift_" + rift_id, tier)
 	if _world._coop_spire_summary_overlay != null and is_instance_valid(_world._coop_spire_summary_overlay):
 		_world._coop_spire_summary_overlay.queue_free()
 	var overlay: _RunSummarySceneScript = _RunSummaryScene.instantiate() as _RunSummarySceneScript
@@ -713,8 +736,8 @@ func _on_coop_spire_summary_continue() -> void:
 	_world._coop_spire_summary_overlay = null
 	if _world._coop_active and _world._net_sync != null and not _world._coop_map_transitioning:
 		_world._coop_map_transitioning = true
-		_world._net_sync.rpc("recv_map_transition", "madrian", "")
-	SceneManager.enter_coop_map_no_stack("madrian", "")
+		_world._net_sync.rpc("recv_map_transition", "main", "")
+	SceneManager.enter_coop_map_no_stack("main", "")
 
 # ── Co-op Town Siege (GID-103 / TID-384) ──────────────────────────────────────
 #
@@ -1049,6 +1072,8 @@ func _on_spire_run_ended_leaderboard(stats: Dictionary) -> void:
 	if floors_cleared <= 0:
 		return
 	_submit_pve_score("spire", floors_cleared)
+	if bool(stats.get("tier_cleared", false)):
+		_submit_pve_score("rift_" + str(stats.get("rift", "")), int(stats.get("tier", 1)))
 
 ## Co-op boss clear: submit on a party win while a co-op session is active.
 ##
@@ -1325,3 +1350,17 @@ func _on_party_bounties_snapshot_received(bounties: Array) -> void:
 ## Button.pressed tap/click target, no keybind). Registered into the shared
 ## ZONE_CONTEXT zone (GID-115 / TID-433) — sits below the Challenge/Ranked-toggle
 ## pair, same zone the world-interact prompt takes priority over.
+
+
+## Outcome handlers connected permanently (WorldScene._wire_gamebus_signals): the
+## world is detached during the battles that emit them, and a Spire run can start
+## before any session does. `coop_pve_battle_ended` handlers run in this order —
+## the joint-fight handler first, then the PvE leaderboard (which reads its flag),
+## the siege finale and the co-op Spire.
+func wire_permanent_signals() -> void:
+	for handler: Callable in [_on_joint_fight_ended, _on_coop_pve_battle_ended_leaderboard,
+			_on_coop_siege_battle_ended, _on_coop_spire_battle_ended]:
+		if not GameBus.coop_pve_battle_ended.is_connected(handler):
+			GameBus.coop_pve_battle_ended.connect(handler)
+	if not GameBus.spire_run_ended.is_connected(_on_spire_run_ended_leaderboard):
+		GameBus.spire_run_ended.connect(_on_spire_run_ended_leaderboard)

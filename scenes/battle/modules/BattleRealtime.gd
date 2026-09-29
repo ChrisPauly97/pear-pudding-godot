@@ -36,6 +36,8 @@ const FightStats = preload("res://game_logic/battle/FightStats.gd")
 const _MomentumHud = preload("res://scenes/battle/modules/MomentumHud.gd")
 ## Settings key holding the tuning panel's overrides (per device).
 const TUNING_SETTING: String = "combat_tuning"
+## Hit feel per strength: [hit-stop seconds, shake pixels] (TID-580).
+const _HIT_FEEL: Array = [[0.0, 0.0], [0.045, 2.5], [0.08, 5.0], [0.12, 8.0]]
 
 var rt: RealtimeCombat = null
 ## The fixed ability bar (TID-550); null outside real time.
@@ -67,6 +69,8 @@ var _cast_delay: float = 0.0
 var _cast_pushbacks: int = 0
 var _last_player_hp: int = 0
 var _enemy_tier: int = 1
+## TID-580: seconds of hit-stop left (the combat clock holds; the screen doesn't).
+var _hitstop_left: float = 0.0
 
 func _init(battle: _BattleScene) -> void:
 	_battle = battle
@@ -79,7 +83,7 @@ static func eligible(mode_setting: String, is_fresh: bool, networked: bool, puzz
 	return mode_setting.begins_with("realtime") and is_fresh and not networked and not puzzle and not scripted
 
 func maybe_start(is_fresh: bool) -> void:
-	var mode: String = str(SceneManager.save_manager.get_setting("battle_mode", "turn"))
+	var mode: String = SceneManager.save_manager.battle_mode()
 	var networked: bool = _battle._pvp or _battle._coop_pve or _battle._team_pvp or _battle._pvp_spectating
 	if not eligible(mode, is_fresh, networked, _battle._state.puzzle_mode, _battle._state.scripted_battle):
 		return
@@ -88,9 +92,13 @@ func maybe_start(is_fresh: bool) -> void:
 	var tier: int = _EnemyRegistry.get_difficulty_tier(enemy_type)
 	var saved: Variant = SceneManager.save_manager.get_setting(TUNING_SETTING, {})
 	var tuning := CombatTuning.new(saved as Dictionary if saved is Dictionary else {})
-	rt = RealtimeCombat.new(_battle._state, [player_level, enemy_level_for_tier(tier)], tuning)
+	var enemy_level: int = int(_battle.enemy_data.get("enemy_level", enemy_level_for_tier(tier)))
+	rt = RealtimeCombat.new(_battle._state, [player_level, enemy_level], tuning)
+	# TID-579: telegraphed heavy blows only once the player has Kick to answer them.
+	rt.heavy_enabled = SceneManager.save_manager.learned_abilities.has("kick") and not _battle._state.puzzle_mode
 	rt.weapon_speed[RealtimeCombat.PLAYER] = equipped_weapon_speed()
-	rt.offhand_damage[RealtimeCombat.PLAYER] = offhand_damage_for_item(str(SceneManager.save_manager.equipped_offhand))
+	rt.offhand_damage[RealtimeCombat.PLAYER] = offhand_damage_for_item(str(SceneManager.save_manager.equipped_offhand),
+			SceneManager.save_manager.gear.mult(str(SceneManager.save_manager.equipped_offhand)))
 	if _EnemyRegistry.is_passive(enemy_type):
 		rt.set_passive(RealtimeCombat.ENEMY)
 	_last_player_hp = _battle._state.players[RealtimeCombat.PLAYER].hero.health
@@ -104,12 +112,12 @@ func maybe_start(is_fresh: bool) -> void:
 	onboarding.begin(not _EnemyRegistry.is_passive(enemy_type))
 	var sm := SceneManager.save_manager
 	var bar_ids: Array[String] = SkillBar.new(sm.skill_bar, sm.learned_abilities).ids
-	skills = _BattleSkillBar.new(_battle, self, onboarding.filter_skills(bar_ids))
+	skills = _BattleSkillBar.new(_battle, self, bar_ids)
 	skills.build(_strip)
 	momentum = _MomentumHud.new(_battle, self)
 	momentum.build(_strip)
 	fight_stats = FightStats.new()
-	if _BarkRules.is_eligible(SceneManager.save_manager.active_companion, onboarding.stage):
+	if _BarkRules.is_eligible(modifiers_companion(), SceneManager.save_manager.level):
 		mentor_barks = _MentorBarks.new(_battle, self)
 	GameBus.potion_used.connect(_on_potion_used)
 	_battle._refresh_all()
@@ -162,13 +170,13 @@ static func equipped_weapon_speed() -> float:
 ## offhand gear has no real-time swing). Pure so tests can drive it without an
 ## autoload. The turn-based equivalent bonus (BattleModifiers) is skipped once
 ## real time is active, so the two never double up.
-static func offhand_damage_for_item(item_id: String) -> int:
+static func offhand_damage_for_item(item_id: String, mult: float = 1.0) -> int:
 	if item_id == "":
 		return 0
 	var weapon := _WeaponRegistry.get_weapon(item_id)
 	if weapon == null or weapon.battle_effect_type != "offhand_atk":
 		return 0
-	return _UpgradeDefs.effective_stat(weapon, 0)
+	return _UpgradeDefs.effective_stat(weapon, 0, mult)
 
 ## Opens the combat tuning panel over the battle (the clock pauses while it's open).
 func open_tuning() -> void:
@@ -325,6 +333,21 @@ func _cast_info() -> Dictionary:
 		return {"name": _cast_card.name + " (queued)", "fraction": 0.0, "cost": cost}
 	return {"name": _cast_card.name, "fraction": 1.0 - _cast_left / _cast_total, "cost": cost}
 
+## The battle companion (Maiteln…), "" until learned (UnlockLadder feat_companion).
+func modifiers_companion() -> String:
+	return _battle.modifiers._active_companion()
+
+## GID-139 / TID-580: hit feel — a brief hit-stop and a shake, scaled by how big
+## the moment is (1 = a hit, 2 = a proc / combo card, 3 = a full-combo or free
+## card). Both follow the Screen Shake setting.
+func hit_feel(strength: int) -> void:
+	if not bool(SceneManager.save_manager.get_setting("screen_shake", true)):
+		return
+	var f: Array = _HIT_FEEL[clampi(strength, 0, _HIT_FEEL.size() - 1)]
+	_hitstop_left = maxf(_hitstop_left, float(f[0]))
+	if float(f[1]) > 0.0:
+		_battle._fx.trigger_shake(float(f[1]), 0.12 + 0.04 * float(strength))
+
 ## Hero token for `side` (onboarding spotlights), or null.
 func token(side: int) -> Control:
 	return _visuals.token(side) if _visuals != null else null
@@ -428,8 +451,12 @@ func _process(delta: float) -> void:
 	# a swing landing mid-resolution could remove its attacker or target.
 	if rt == null or _battle._state.is_game_over() or is_blocked() or _battle._action_busy:
 		return
+	if _hitstop_left > 0.0:
+		_hitstop_left -= delta
+		return
 	var dt: float = delta * _speed_factor()
 	skills.update(dt)
+	_battle.consumables.tick_quick(dt)
 	momentum.update()
 	onboarding.update(dt)
 	_tick_cast(dt)
@@ -464,6 +491,12 @@ func _process(delta: float) -> void:
 			"enemy_down":
 				if rt.enemy_sides().size() > 1 and not _battle._state.is_game_over():
 					_visuals.toast("An enemy falls — keep fighting!")
+			"enemy_heavy_start":
+				_visuals.toast("Heavy Blow incoming — Kick it or Guard!")
+			"enemy_heavy_hit":
+				_battle._fx.spawn_float_label(hero_screen_pos(RealtimeCombat.PLAYER),
+						"-%d" % int(ev.get("damage", 0)), Color(1.0, 0.35, 0.3))
+				_battle._fx.trigger_shake(10.0, 0.25)
 	if not swings.is_empty():
 		AudioManager.play_sfx("attack")
 		_battle._fx.trigger_fx(snap)
@@ -473,6 +506,8 @@ func _process(delta: float) -> void:
 	_battle._refresh_all()
 	for ev: Dictionary in swings:
 		_animate_swing(ev)
+		if int(ev.get("side", -1)) == RealtimeCombat.PLAYER:
+			hit_feel(1)
 	_battle._check_game_over()
 
 ## Lunge the attacker (hero token or enemy unit) at its target.
@@ -498,12 +533,20 @@ func _after_enemy_play(card: CardInstance, ai_idx: int = RealtimeCombat.ENEMY) -
 		_battle.modifiers._apply_weather_to_summoned(card, ai_idx)
 		GameBus.card_played.emit(card.template_id, "board", _battle._state.players[ai_idx].board.slots.find(card))
 	else:
+		# BID-078: resolve the enemy's spell at the player. Real time pins
+		# current_player_idx to the player, so the resolver's default opponent would
+		# be the caster itself — name the target explicitly.
+		var snap := _battle._fx.snapshot()
+		_battle._resolver.resolve_spell(card, ai_idx, {"type": "hero", "pidx": RealtimeCombat.PLAYER})
+		_battle._fx.trigger_fx(snap)
+		_battle._refresh_all()
+		_battle._check_game_over()
 		GameBus.card_played.emit(card.template_id, "spell", -1)
 
 ## Clock rate: "realtime_slow" (tactical) runs at 60 %, and the Fast battle-speed
 ## setting runs real time 25 % quicker. Plain inverse of `_speed_scale` would be 2.2×.
 func _speed_factor() -> float:
-	var mode: String = str(SceneManager.save_manager.get_setting("battle_mode", "turn"))
+	var mode: String = SceneManager.save_manager.battle_mode()
 	if mode == "realtime_slow" or (onboarding != null and onboarding.slow_clock()):
 		return 0.6
 	return 1.25 if _battle._speed_scale < 1.0 else 1.0

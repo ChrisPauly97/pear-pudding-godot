@@ -137,9 +137,10 @@ Since GID-140 both follow the **tracked quest** (below), not only the story step
 | Between chapters | `story` | past the last step | every bounty board (`bounty_board_targets()`) |
 | Treasure | `treasure` | `active_treasure` (not completed) | dig site (overworld tile) |
 | Bounty | `bounty:<id>` | `active_bounties` (unclaimed) | none while in progress; every bounty board once complete |
+| Side quest | `side:<id>` | `SaveManager.quests.log_entries()` | first unfinished objective's `{map,tx,tz}` (or its `talk` NPC); the turn-in NPC once ready |
 
 A quest with several targets points at the **nearest** (`QuestLog.world_pos(quest, map, from)`).
-Kind colours: `QuestLog.KIND_COLORS` (story gold, treasure orange, bounty violet).
+Kind colours: `QuestLog.KIND_COLORS` (story gold, treasure orange, bounty violet, side pale yellow).
 Bounty text comes from `BountyGen.describe()` (shared with `BountyBoardScene`).
 
 **Tracked quest.** `SaveManager.tracked_quest` (persisted; `""` = story) is set by the
@@ -147,6 +148,45 @@ Journal's Track button via `SaveManager.set_tracked_quest(id)`, which emits
 `GameBus.quest_tracking_changed`. `QuestLog.tracked()` falls back to the story quest
 when the tracked one is gone (bounty claimed, treasure dug). SaveManager wraps both:
 `active_quests()`, `tracked_quest_data()`.
+
+### Side Quests (GID-136 / TID-533)
+
+WoW-style NPC asks, separate from the story chain.
+
+- **Data:** `game_logic/quests/SideQuests.gd` — pure static `QUESTS` table (code, not `.tres`, like
+  StoryQuests/EnemyRegistry — nothing to preload for Android). Keys: `id, title, giver, giver_name, turn_in,
+  turn_in_name, summary, done_text, objectives[{type, target, count, label[, map, tx, tz]}], prereqs, min_level,
+  req_flag, rewards{xp, coins, cards, flag}`. `giver`/`turn_in` are stitched-town NPC ids (`RealmLayout.entities`
+  prefixes generic `npc_N` ids with the town, e.g. `madrian:npc_2`). Helpers: `def`, `can_offer`, `offers_for`,
+  `upcoming_for`, `objective_matches`, `is_complete`, `progress_text`.
+- **Objective types:** `kill` (enemy type, `""` = any), `use_skill` (skill id, or `skeleton_dig`), `learn`, `talk`,
+  `flag`, `explore`, `open` (chest id), `rift_tier`.
+  A `target` of `""` matches any event of that type.
+- **Save:** `quests_active` (`{id: {"progress": [int]}}`) and `quests_completed` (`[id]`) in `PERSISTED_FIELDS`;
+  API module `autoloads/save_manager/SaveQuests.gd` (`SaveManager.quests`): `accept`, `abandon`,
+  `progress_event(type, target, amount)`, `is_ready`, `turn_in` (pays coins, cards, xp, sets `rewards.flag`),
+  `offers_for(npc)`, `turn_ins_for(npc)`, `log_entries()`. A `flag` objective already met counts at accept.
+- **Progress hooks:** `kill` from `BattleVictory` next to each bounty `defeat_enemy_type` increment (main + joined
+  enemies; Spire kills excluded); `flag` from `SaveManager.set_story_flag`; `learn` from `SaveManager.learn_ability`.
+  `talk` from `NpcInteractions.interact`; `use_skill` from `BattleSkillBar` / `BurialMound`; `open` from
+  `ChestLoot.open` (GID-141). `explore` and `rift_tier` are wired by the tasks that add their sources (GID-142).
+- **Starter chain** (GID-141 / TID-592): see `starter-zone-and-training.md`. Chapter 1 now opens with story step
+  `help_townsfolk` (done_flag `town_quests_done`); Maiteln's Madrian NPC waits on it (`MapNpc.show_flag_key`).
+- **Signals:** `GameBus.quest_accepted / quest_progressed / quest_ready / quest_turned_in / quest_abandoned(id)`.
+- **Givers (TID-534):** any NPC can give quests — no special `npc_type`. `NpcInteractions.interact()` first counts a
+  `talk` event for the NPC id, then `show_quest_panel(npc)`: a ready hand-in (done_text, rewards, **Complete**) wins
+  over an offer (summary, objectives, rewards, **Accept** / **Decline**). Accepting tracks the quest
+  (`set_tracked_quest("side:<id>")`). NPCs with a service type also get **Other business** →
+  `interact_service(npc)` (the old `interact` body). Toasts via `GameBus.hud_message_requested`.
+- **Marks:** `SaveQuests.npc_state(npc_id)` → `"turn_in" | "offer" | "upcoming" | ""`, passed to
+  `QuestLog.npc_mark(..., side)`: yellow **?** (outranks the story "!"), yellow **!**, grey **!** (`side_upcoming`,
+  offered after a level-up). `QuestTracker.on_side_quest_ready` toasts "<title> — done! Return to <npc>".
+  WorldScene refreshes the tracker on every `quest_*` signal.
+- **Placing NPCs:** `scripts/add_map_npc.py <map> <entity_id> <tx> <tz> <dialogue> [npc_type] [flag_key]
+  [--hide flag] [--after text]` appends a `MapNpc` to a map `.tres` (idempotent). First giver: `hilda_baker` at
+  Madrian (50,38), quest `rats_in_grain`.
+- **Tests:** `tests/unit/test_side_quests.gd` (table integrity, every giver placed in a stitched town, gating,
+  accept → progress → turn-in, JSON round trip, QuestLog entry, marks/npc_state).
 
 **World module `QuestTracker`** (`scenes/world/modules/QuestTracker.gd`, `WorldScene.quest_tracker`).
 `active_quests()` / `tracked_quest()` / `tracked_quest_pos()` / `quest_pos(q)` read a cache

@@ -197,7 +197,7 @@ func _check_card_detail_panel(hub: Node) -> bool:
 	return ok
 
 
-## GID-144 bag tools: sort cycle, search, the Craft / Items tabs and bulk
+## GID-148 bag tools: sort cycle, search, the Craft / Items tabs and bulk
 ## select → scrap. All of it only runs inside a live tree, so nothing else
 ## would catch a page that errors while building.
 func _check_bag_tools(hub: Node) -> bool:

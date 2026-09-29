@@ -1,5 +1,7 @@
 # Rideable Mounts (GID-048)
 
+> **GID-141:** riding is learned from the Stablemaster at level 40 (`UnlockLadder.FEAT_MOUNT`, `Mounts.LEVEL_REQ` = 40). Buying and mounting need it; see `starter-zone-and-training.md`.
+
 ## Key Features
 
 - **MountRegistry** — static dictionary registry in `game_logic/MountRegistry.gd`; `stable_horse` is the only mount in v1 (2× speed, 750 coins).

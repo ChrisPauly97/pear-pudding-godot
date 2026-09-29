@@ -1,4 +1,4 @@
-## Card-face backpack tile (GID-144). Replaces the bare coloured square with a
+## Card-face backpack tile (GID-148). Replaces the bare coloured square with a
 ## mini card: cost gem, rarity-coloured frame, monogram art, name and ATK/HP,
 ## so every item in the bag reads at a glance. Pure view — the caller wires input.
 extends RefCounted

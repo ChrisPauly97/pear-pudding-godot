@@ -12,6 +12,8 @@ const _AvatarSync = preload("res://game_logic/net/AvatarSync.gd")
 const ObjectiveTracker = preload("res://game_logic/ObjectiveTracker.gd")
 const _ContactShadow = preload("res://game_logic/ContactShadow.gd")
 const _SpriteOutline = preload("res://game_logic/SpriteOutline.gd")
+const _WorldScene = preload("res://scenes/world/WorldScene.gd")
+const _NpcInteractions = preload("res://scenes/world/modules/NpcInteractions.gd")
 
 ## Offset from the player's position, in world units — keeps him visibly beside
 ## the player without overlapping the player sprite or blocking the view.
@@ -160,7 +162,13 @@ func _set_moving(moving: bool, to_target: Vector3) -> void:
 			_sprite.play("idle")
 
 ## Tap-to-hear-a-line, keyed to the current story objective.
+## GID-141: Maiteln is also a trainer (companion, magic / skill tree) — with
+## training waiting, talking to him opens his teach panel instead.
 func interact() -> void:
+	var ws: _WorldScene = world_scene as _WorldScene
+	if ws != null and ws.npc_interactions != null and _NpcInteractions.trainer_has_pending("maiteln"):
+		ws.npc_interactions.show_trainer_panel("maiteln")
+		return
 	var flags: Dictionary = SceneManager.save_manager.story_flags
 	var obj: Dictionary = ObjectiveTracker.current_objective(flags)
 	var label: String = str(obj.get("label", ""))

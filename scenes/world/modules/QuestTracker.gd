@@ -13,6 +13,20 @@ const _ObjectiveBeacon = preload("res://scenes/world/entities/ObjectiveBeacon.gd
 const _RealmMapOverlay = preload("res://scenes/ui/RealmMapOverlay.gd")
 const _ObjectiveTracker = preload("res://game_logic/ObjectiveTracker.gd")
 const _StoryQuests = preload("res://game_logic/quests/StoryQuests.gd")
+const _SideQuests = preload("res://game_logic/quests/SideQuests.gd")
+const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
+const _NpcInteractions = preload("res://scenes/world/modules/NpcInteractions.gd")
+
+## First-time guide (TutorialRegistry id) opened when a ladder entry is learned.
+const _LEARNED_GUIDES: Dictionary = {
+	"feat_spells": "tap_to_cast", "feat_minions": "soulbinding", "feat_skills": "skill_tree",
+	"feat_night_hunts": "night_hunts", "feat_dig": "cantrips", "feat_phase": "cantrips",
+	"feat_spire": "spire_intro",
+}
+## HUD action to pulse after learning (the new button to press).
+const _LEARNED_BUTTONS: Dictionary = {
+	"feat_dig": "cantrip_skeleton_dig", "feat_phase": "cantrip_ghost_phase", "feat_mount": "mount",
+}
 
 const _MARK_NAME: String = "QuestMark"
 ## Most bounties a player can hold at once (SaveBounties.accept_bounty).
@@ -65,6 +79,34 @@ func refresh(force: bool) -> void:
 	_tracked = _QuestLog.tracked(_quests, sm.tracked_quest)
 	_place_beacon()
 	_refresh_npc_marks()
+
+## GID-141: a level-up made training available — say who teaches it and point
+## the tracker at them.
+func on_training_available(ids: Array[String]) -> void:
+	var parts: Array[String] = []
+	for id: String in ids:
+		parts.append("%s — see %s" % [str(_UnlockLadder.def(id).get("title", id)),
+				_UnlockLadder.trainer_name(_UnlockLadder.trainer_for(id))])
+	GameBus.hud_message_requested.emit("New training: " + "; ".join(parts))
+	SceneManager.save_manager.set_tracked_quest(_QuestLog.TRAINING_ID)
+	refresh(true)
+
+## Learned at a trainer: confirm it and open the matching guide once.
+func on_feature_learned(id: String) -> void:
+	GameBus.hud_message_requested.emit("Learned: " + str(_UnlockLadder.def(id).get("title", id)))
+	var guide: String = str(_LEARNED_GUIDES.get(id, ""))
+	if guide != "":
+		GameBus.tutorial_popup_requested.emit(guide)
+	_world._world_hud.pulse_action(str(_LEARNED_BUTTONS.get(id, "")))
+	refresh(true)
+
+## A side quest's objectives are all met: say where to hand it in.
+func on_side_quest_ready(quest_id: String) -> void:
+	refresh(true)
+	var q: Dictionary = _SideQuests.def(quest_id)
+	if not q.is_empty():
+		GameBus.hud_message_requested.emit("%s — done! Return to %s." % [str(q.get("title", "")),
+				_SideQuests.turn_in_name(q)])
 
 ## Map load: plant the beacon and take the current story step as already seen.
 func on_map_ready() -> void:
@@ -119,7 +161,14 @@ func _refresh_npc_marks() -> void:
 		if node == null:
 			continue
 		var data: Dictionary = _world._active_npc_data.get(nid, {})
-		_set_mark(node, _QuestLog.npc_mark(data, story_tile, turn_in, offers))
+		var trainer: String = _UnlockLadder.trainer_at(str(nid))
+		var training: bool = trainer != "" and _NpcInteractions.trainer_has_pending(trainer)
+		_set_mark(node, _QuestLog.npc_mark(data, story_tile, turn_in, offers,
+				sm.quests.npc_state(str(nid)), training))
+	var maiteln: Node3D = _world._valid_node3d(_world._maiteln_node)
+	if maiteln != null:
+		_set_mark(maiteln, {"text": "!", "kind": "training"} if _NpcInteractions.trainer_has_pending("maiteln")
+				else {})
 
 func _set_mark(node: Node3D, mark: Dictionary) -> void:
 	var lbl: Label3D = node.get_node_or_null(_MARK_NAME) as Label3D
@@ -183,3 +232,18 @@ func toggle_realm_map() -> void:
 
 func is_realm_map_open() -> bool:
 	return is_instance_valid(_realm_overlay)
+
+
+## GameBus wiring, called from WorldScene._wire_gamebus_signals in every mode (not
+## CoopSession._setup_coop, which returns early outside a session).
+func wire_signals() -> void:
+	GameBus.quest_tracking_changed.connect(func(_id: String) -> void: refresh(true))
+	# Side quests (TID-534): marks and tracker follow accept / progress / hand-in.
+	GameBus.quest_accepted.connect(func(_id: String) -> void: refresh(true))
+	GameBus.quest_progressed.connect(func(_id: String) -> void: refresh(true))
+	GameBus.quest_ready.connect(on_side_quest_ready)
+	GameBus.quest_turned_in.connect(func(_id: String) -> void: refresh(true))
+	GameBus.quest_abandoned.connect(func(_id: String) -> void: refresh(true))
+	# GID-141 / TID-590: level-up training notices and learn confirmations.
+	GameBus.training_available.connect(on_training_available)
+	GameBus.feature_learned.connect(on_feature_learned)

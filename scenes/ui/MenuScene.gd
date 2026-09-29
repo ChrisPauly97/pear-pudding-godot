@@ -5,13 +5,22 @@ const DiagnosticsScene = preload("res://scenes/ui/DiagnosticsScene.gd")
 const MultiplayerLobbyScene = preload("res://scenes/ui/MultiplayerLobbyScene.gd")
 const UiFx = preload("res://scenes/ui/UiFx.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
+const _GraphicsQuality = preload("res://game_logic/GraphicsQuality.gd")
+## GID-143 / TID-606: key art behind the menu — an in-engine capture of Madrian at
+## twilight (tools/capture_menu_keyart.gd), slowly panning; still on Low graphics.
+const _KEYART := preload("res://assets/textures/ui/menu_keyart.jpg")
+## Slow pan / zoom period (s).
+const _KEYART_DRIFT_S: float = 40.0
 
 var _title: Label
+var _keyart: TextureRect = null
+var _shade: TextureRect = null
 var _continue_btn: Button
 var _buttons: Array[Button] = []
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
+	_build_backdrop()
 
 	_title = _UiUtil.make_label("Pear Pudding TCG", 0, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	_title.theme_type_variation = &"TitleLabel"  # Cinzel (GID-132 / TID-509)
@@ -33,6 +42,44 @@ func _ready() -> void:
 	_animate_title()
 	_add_version_label()
 
+## Key art + a dark vertical band behind the buttons so they stay legible.
+func _build_backdrop() -> void:
+	_keyart = TextureRect.new()
+	_keyart.texture = _KEYART
+	_keyart.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_keyart.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_keyart.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_keyart)
+	var grad := Gradient.new()
+	grad.set_color(0, Color(0.03, 0.03, 0.06, 0.25))
+	grad.set_color(1, Color(0.03, 0.03, 0.06, 0.25))
+	grad.add_point(0.5, Color(0.03, 0.03, 0.06, 0.72))
+	var gtex := GradientTexture2D.new()
+	gtex.gradient = grad
+	gtex.fill_from = Vector2(0.0, 0.5)
+	gtex.fill_to = Vector2(1.0, 0.5)
+	_shade = TextureRect.new()
+	_shade.texture = gtex
+	_shade.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_shade.stretch_mode = TextureRect.STRETCH_SCALE
+	_shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_shade)
+	var tier: int = _GraphicsQuality.tier_from_setting(SceneManager.save_manager.get_setting("graphics_quality",
+			null), _GraphicsQuality.is_mobile_platform())
+	if tier != _GraphicsQuality.LOW:
+		_drift_keyart.call_deferred()
+
+## Ken-Burns drift: a slow zoom-and-pan loop across the capture.
+func _drift_keyart() -> void:
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	_keyart.pivot_offset = vp * 0.5
+	var tw: Tween = create_tween().set_loops()
+	tw.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(_keyart, "scale", Vector2(1.12, 1.12), _KEYART_DRIFT_S * 0.5)
+	tw.parallel().tween_property(_keyart, "position", Vector2(-vp.x * 0.04, -vp.y * 0.03), _KEYART_DRIFT_S * 0.5)
+	tw.tween_property(_keyart, "scale", Vector2(1.04, 1.04), _KEYART_DRIFT_S * 0.5)
+	tw.parallel().tween_property(_keyart, "position", Vector2(vp.x * 0.01, 0.0), _KEYART_DRIFT_S * 0.5)
+
 func _add_btn(label: String, cb: Callable) -> Button:
 	var btn := Button.new()
 	btn.text = label
@@ -49,6 +96,9 @@ func _notification(what: int) -> void:
 func _layout() -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var ref: float = minf(vp.y, vp.x)
+	if _keyart != null:
+		_keyart.size = vp
+		_shade.size = vp
 
 	_title.add_theme_font_size_override("font_size", int(ref * 0.07))
 	_title.size = Vector2(vp.x, ref * 0.12)

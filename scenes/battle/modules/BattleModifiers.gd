@@ -6,6 +6,11 @@
 ## `_battle.add_child` rather than a bare `add_child`.
 extends Node
 
+const _RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
+const _CombatOnboarding = preload("res://game_logic/battle/CombatOnboarding.gd")
+const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
+const _ZoneLevels = preload("res://game_logic/world/ZoneLevels.gd")
+const _HeroVitality = preload("res://game_logic/HeroVitality.gd")
 const _BattleScene = preload("res://scenes/battle/BattleScene.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
@@ -18,6 +23,8 @@ const CompanionRegistry = preload("res://autoloads/CompanionRegistry.gd")
 const CompanionData = preload("res://data/CompanionData.gd")
 const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 const Gambits = preload("res://game_logic/battle/Gambits.gd")
+const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
+const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 var _battle: _BattleScene
@@ -36,13 +43,15 @@ func _apply_equipment_effects(player: PlayerState) -> void:
 		sm.equipped_trinket,
 		sm.equipped_offhand,
 		sm.equipped_shoulders,
+		sm.equipped_helmet,
+		sm.equipped_boots,
 	]
 	# Off-hand attack gear swings on its own timer in real time (TID-545,
 	# RealtimeCombat.offhand_damage — set from the same equipped item by
 	# BattleRealtime.maybe_start()). Turn-based has no off-hand swing, so it
 	# gets a smaller always-on attack bonus instead (documented in
 	# docs/agent/combat-model.md).
-	var realtime_mode: bool = str(sm.get_setting("battle_mode", "turn")).begins_with("realtime")
+	var realtime_mode: bool = sm.battle_mode().begins_with("realtime")
 	var injected_any: bool = false
 	for item_id in slot_ids:
 		if item_id == "":
@@ -51,6 +60,7 @@ func _apply_equipment_effects(player: PlayerState) -> void:
 		if weapon == null:
 			continue
 		var level: int = 0
+		var gm: float = sm.gear.mult(item_id)  # rarity / item level roll (TID-538)
 		if weapon.slot == "weapon":
 			var inst: Dictionary = sm.get_owned_weapon_by_id(item_id)
 			level = int(inst.get("upgrade_level", 0))
@@ -64,18 +74,18 @@ func _apply_equipment_effects(player: PlayerState) -> void:
 					player.draw_deck.append(CardInstance.new(tmpl))
 				injected_any = true
 			"starting_mana":
-				player.hero.bonus_mana += UpgradeDefs.effective_stat(weapon, level)
+				player.hero.bonus_mana += UpgradeDefs.effective_stat(weapon, level, gm)
 			"starting_hp":
-				var hp_bonus: int = UpgradeDefs.effective_stat(weapon, level)
+				var hp_bonus: int = UpgradeDefs.effective_stat(weapon, level, gm)
 				player.hero.health += hp_bonus
 				player.hero.max_health += hp_bonus
 			"passive_atk":
-				player.hero.attack += UpgradeDefs.effective_stat(weapon, level)
+				player.hero.attack += UpgradeDefs.effective_stat(weapon, level, gm)
 			"starting_armor":
-				player.hero.add_armor(UpgradeDefs.effective_stat(weapon, level))
+				player.hero.add_armor(UpgradeDefs.effective_stat(weapon, level, gm))
 			"offhand_atk":
 				if not realtime_mode:
-					var offhand_val: int = UpgradeDefs.effective_stat(weapon, level)
+					var offhand_val: int = UpgradeDefs.effective_stat(weapon, level, gm)
 					player.hero.attack += UpgradeDefs.offhand_turnbased_bonus(offhand_val)
 	if injected_any:
 		player.draw_deck.shuffle()
@@ -102,7 +112,7 @@ func _apply_passive_skills(player: PlayerState) -> void:
 func _apply_companion_battle_start(player: PlayerState) -> void:
 	if _battle._state.puzzle_mode or _battle._state.friendly_duel:
 		return
-	var companion_id: String = SceneManager.save_manager.active_companion
+	var companion_id: String = _active_companion()
 	if companion_id == "" or not CompanionRegistry.is_unlocked(companion_id):
 		return
 	var companion: CompanionData = CompanionRegistry.get_companion(companion_id)
@@ -120,7 +130,7 @@ func _apply_companion_battle_start(player: PlayerState) -> void:
 func _apply_companion_turn_start() -> void:
 	if _battle._state.puzzle_mode or _battle._state.friendly_duel or _battle._state.scripted_battle:
 		return
-	var companion_id: String = SceneManager.save_manager.active_companion
+	var companion_id: String = _active_companion()
 	if companion_id == "" or not CompanionRegistry.is_unlocked(companion_id):
 		return
 	var companion: CompanionData = CompanionRegistry.get_companion(companion_id)
@@ -134,7 +144,7 @@ func _apply_companion_turn_start() -> void:
 func _add_companion_hud() -> void:
 	if _battle._state.puzzle_mode or _battle._state.scripted_battle:
 		return
-	var companion_id: String = SceneManager.save_manager.active_companion
+	var companion_id: String = _active_companion()
 	if companion_id == "" or not CompanionRegistry.is_unlocked(companion_id):
 		return
 	var companion: CompanionData = CompanionRegistry.get_companion(companion_id)
@@ -188,6 +198,63 @@ func _apply_weather_to_summoned(card: CardInstance, _player_idx: int) -> void:
 		"sandstorm", "dust_devil":
 			if _battle._state.turn_number <= 2:
 				card.attack = maxi(0, card.attack - 1)
+
+## GID-142 / TID-598: a rift run fights with the player's own deck (collection
+## instances, ranks and all) plus the run's temporary picks, and applies its
+## buff boons. Returns template ids for BattleScene to build instead — the
+## legacy / co-op starter deck — or [] when the deck is already built here.
+func _build_rift_deck(player: PlayerState) -> Array[String]:
+	var spire := SceneManager.save_manager.spire
+	if not spire.uses_own_deck():
+		return spire.run_deck()
+	var boons: Array = spire.boons()
+	player.build_deck_from_instances(SceneManager.save_manager.get_deck_instances())
+	var face: String = "dark" if CardRegistry.is_dark_aligned() else "light"
+	for id: String in spire.drafted_cards():
+		var tmpl: Dictionary = CardRegistry.get_template_for_face(id, face)
+		if not tmpl.is_empty():
+			player.draw_deck.append(CardInstance.new(tmpl))
+	player.draw_deck.shuffle()
+	var edge: int = _RiftDefs.boon_total(boons, "minion_attack")
+	if edge > 0:
+		for c: CardInstance in player.draw_deck:
+			if c.card_class == "minion":
+				c.attack += edge
+	var extra_hp: int = _RiftDefs.boon_total(boons, "max_hp")
+	player.hero.max_health += extra_hp
+	player.hero.health += extra_hp
+	var armor: int = _RiftDefs.boon_total(boons, "armor")
+	if armor > 0:
+		player.hero.add_armor(armor)
+	return []
+
+## GID-141 / TID-588: spell cards stay out of the battle deck until the player
+## has learned spells from the Combat Trainer.
+func _apply_combat_unlocks(player: PlayerState) -> void:
+	if _battle._state.puzzle_mode or _battle._state.scripted_battle:
+		return
+	if _CombatOnboarding.allows_spells(SceneManager.save_manager.learned_abilities):
+		return
+	var kept: Array[CardInstance] = []
+	for c: CardInstance in player.draw_deck:
+		if c.card_class != "spell":
+			kept.append(c)
+	player.draw_deck = kept
+
+## The active companion, or "" until the player has learned to fight beside one
+## (UnlockLadder feat_companion).
+func _active_companion() -> String:
+	var sm := SceneManager.save_manager
+	return sm.active_companion if sm.has_learned(_UnlockLadder.FEAT_COMPANION) else ""
+
+## Zone level (TID-536): the enemy hero gains +6% HP per level above 1 (its card
+## tier is raised in BattleScene before the deck is built).
+func _apply_zone_level(level: int) -> void:
+	if level <= 1:
+		return
+	var hero_hp: int = _ZoneLevels.scaled_hero_hp(_battle._state.players[1].hero.max_health, level)
+	_battle._state.players[1].hero.health = hero_hp
+	_battle._state.players[1].hero.max_health = hero_hp
 
 func _apply_ambush_modifiers(edata: Dictionary) -> void:
 	if bool(edata.get("player_ambush", false)):
@@ -245,3 +312,56 @@ func _apply_desert_scorch() -> void:
 					_battle._state.players[pid].board.remove_card(c)
 					_battle._state.players[pid].discard.append(c)
 				break
+
+
+# ── Persistent hero HP (GID-136 / TID-543) ──────────────────────────────────
+
+## Whether this fight reads and writes `SaveManager.hero_hp_frac`.
+func _hp_carries() -> bool:
+	var sm := SceneManager.save_manager
+	return not _battle._ghost_duel and _HeroVitality.carries_over(_battle.enemy_data, sm.spire.is_spire_active(),
+			not sm.town_siege.get_active_siege().is_empty(), _battle._state.friendly_duel)
+
+
+## Solo setup, after every max-HP modifier: start at the saved fraction.
+func _apply_persistent_hp() -> void:
+	if not _hp_carries():
+		return
+	var hero: HeroState = _battle._state.players[0].hero
+	hero.health = mini(hero.health, _HeroVitality.battle_start_hp(hero.max_health,
+			SceneManager.save_manager.hero_hp_frac))
+
+
+## Game over of an ordinary solo fight: remember what's left (a loss → RESPAWN_FRAC).
+func record_persistent_hp(won: bool) -> void:
+	if not _hp_carries():
+		return
+	var hero: HeroState = _battle._state.players[0].hero
+	var sm := SceneManager.save_manager
+	sm.hero_hp_frac = _HeroVitality.frac_after(hero.health, hero.max_health, won)
+	sm.mark_dirty()
+
+
+# ── Pack encounters (GID-135 / TID-541) ─────────────────────────────────────
+
+## Puts `enemy_type`'s pack (EnemyRegistry.get_pack) on the enemy board, scaled to
+## `tier` like its deck and ready to act — what you saw beside it in the world.
+func _place_enemy_pack(enemy_type: String, tier: int) -> void:
+	var enemy: PlayerState = _battle._state.players[1]
+	var slot: int = 0
+	for cid: String in EnemyRegistry.get_pack(enemy_type):
+		var tmpl: Dictionary = CardRegistry.get_template(cid)
+		if tmpl.is_empty():
+			continue
+		while slot < enemy.board.slots.size() and enemy.board.slots[slot] != null:
+			slot += 1
+		if slot >= enemy.board.slots.size():
+			return
+		tmpl = tmpl.duplicate()
+		var scaled: Dictionary = CardDropUtil.enemy_card_stats(cid, tier)
+		tmpl["attack"] = scaled.get("attack", tmpl.get("attack", 0))
+		tmpl["health"] = scaled.get("health", tmpl.get("health", 0))
+		var unit := CardInstance.new(tmpl)
+		unit.attack += enemy.minion_attack_bonus
+		unit.summoning_sick = false
+		enemy.board.slots[slot] = unit

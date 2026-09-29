@@ -35,12 +35,12 @@ change needed.
 | `waystone_travel` | Waystone fast-travel teleport |
 | `thunder` | Storm lightning thunder (heavy rain, volcanic), 0.5–3.5 s after the flash; played pitch-shifted for distance, so a single close, full-bodied crack-and-roll (2–4 s) works best |
 
-Every key now ships a real CC0 file (GID-141 / TID-587; sources in `CREDITS.md`).
+Every key now ships a real CC0 file (GID-145 / TID-614; sources in `CREDITS.md`).
 Files are mono Ogg Vorbis, peak-normalised to −1 dBFS; the mix trim per key is
 `AudioManager.SFX_GAIN_DB` (applied only to file-backed keys, so synth fallbacks
 keep their level). Keys in `AudioManager.SFX_TAKES` also ship `<key>_2.ogg` …
 `<key>_N.ogg` and play a random take, never the same twice in a row
-(TID-588). The source-to-key mapping lives in the TID-587 task file.
+(TID-615). The source-to-key mapping lives in the TID-614 task file.
 
 Replace any file with another asset when a better one turns up. The Godot editor will
 auto-generate `.import` sidecars on first scan.

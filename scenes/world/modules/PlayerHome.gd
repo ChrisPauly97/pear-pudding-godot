@@ -50,8 +50,9 @@ func _enter_home() -> void:
 	AudioManager.play_sfx("door_enter")
 	SceneManager.enter_map("player_home", "exit_door")
 
-## Resting sets the respawn point to the bed and skips to morning.
+## Resting sets the respawn point to the bed, skips to morning and heals fully.
 func use_bed() -> void:
+	_world.hero_health.full_heal()
 	var sm := SceneManager.save_manager
 	var ts: float = IsoConst.TILE_SIZE
 	sm.set_respawn_point("player_home", float(BED_TILE.x) * ts, float(BED_TILE.y) * ts)

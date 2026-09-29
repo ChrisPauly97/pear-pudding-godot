@@ -10,8 +10,10 @@ extends RefCounted
 
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
+const UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
+const RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
 
-const CURRENT_VERSION: int = 43
+const CURRENT_VERSION: int = 45
 
 
 ## Upgrades `data` in place. `up_to` stops after that version's row. The game
@@ -33,6 +35,47 @@ static func apply(data: Dictionary, up_to: int = CURRENT_VERSION) -> void:
 			data["version"] = target
 		elif payload is Callable:
 			(payload as Callable).call(data)
+
+
+## GID-141: systems are now learned from trainers. An existing save had every
+## system already, so it keeps them all — every ladder *feature* plus Mend and
+## Kick (always known before). Riding stays level-gated unless it already owns a
+## mount; trainer skills it never bought stay unlearned. It also skips the new
+## townsfolk opening (`town_quests_done`) so Maiteln is where it left him.
+static func _m44_unlock_ladder(d: Dictionary) -> void:
+	var learned: Array = d.get("learned_abilities", [])
+	var grant: Array[String] = ["mend", "kick"]
+	for id: String in UnlockLadder.all_ids():
+		if str(UnlockLadder.def(id)["kind"]) == "feature" and id != UnlockLadder.FEAT_MOUNT:
+			grant.append(id)
+	if not (d.get("owned_mounts", []) as Array).is_empty():
+		grant.append(UnlockLadder.FEAT_MOUNT)
+	for id: String in grant:
+		if not learned.has(id):
+			learned.append(id)
+	d["learned_abilities"] = learned
+	# Existing saves skip the new townsfolk opening (Maiteln waits on it).
+	var flags: Dictionary = d.get("story_flags", {})
+	flags["town_quests_done"] = true
+	d["story_flags"] = flags
+	d["version"] = 44
+
+
+## GID-142: the Spire became per-biome rifts. The old best floor maps onto the
+## Grasslands rift at FLOORS_PER_TIER floors per tier; an active run keeps going
+## in the Grasslands rift at tier 1.
+static func _m45_rifts(d: Dictionary) -> void:
+	var best: Dictionary = d.get("rift_best_tiers", {})
+	var old_tiers: int = int(d.get("spire_best_floor", 0)) / RiftDefs.FLOORS_PER_TIER
+	if old_tiers > int(best.get(RiftDefs.DEFAULT_RIFT, 0)):
+		best[RiftDefs.DEFAULT_RIFT] = old_tiers
+	d["rift_best_tiers"] = best
+	var run: Dictionary = d.get("spire_run", {})
+	if bool(run.get("active", false)) and not run.has("rift"):
+		run["rift"] = RiftDefs.DEFAULT_RIFT
+		run["tier"] = 1
+		d["spire_run"] = run
+	d["version"] = 45
 
 
 ## `[target_version, payload]` rows in ascending version order.
@@ -188,5 +231,7 @@ static func table() -> Array:
 		[41, {"mailbox_cards": []}],
 		[42, {"equipped_offhand": "", "owned_offhands": []}],
 		[43, _m43_stitched_towns],
+		[44, _m44_unlock_ladder],
+		[45, _m45_rifts],
 	]
 	return rows

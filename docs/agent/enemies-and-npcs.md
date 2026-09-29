@@ -46,8 +46,8 @@ See "Biome Enemy Pools" below for the current per-biome pool contents.
 | `undead_elite` | 5× Ghoul + 4× Zombie + 3× Skeleton | 20 | 4 | End game (mountains, very far) |
 | `wraith` (GID-021) | 6× Ghost + 2× Skeleton + 2× Ember Imp | 8 | 1 | Grasslands — fast, low-HP swarm |
 | `forest_shade` (GID-021) | 3× Skeleton + 2× Zombie + 2× Dusk Wraith + 2× Insight + Dusk Seer | 10 | 2 | Forest — evasive, card-advantage |
-| `cactus_worm` (GID-143) | 3× Skeleton + 3× Zombie + 2× Bramble Snare + Thorn Volley + Dagger Throw | 7 | 1 | Desert (near) — spiny ambusher, non-tracking |
-| `imbued_stag` (GID-143) | Ghost/Ghoul + Kinetic Bolt, Momentum, Thorn Volley, Germinate | 11 | 2 | Any enemy spawn standing on a ley line in grasslands/forest/mountains (`InfiniteWorldGen.enemy_type_at`, `BiomeDef.LEY_STAG_BIOMES`); tracking |
+| `cactus_worm` (GID-147) | 3× Skeleton + 3× Zombie + 2× Bramble Snare + Thorn Volley + Dagger Throw | 7 | 1 | Desert (near) — spiny ambusher, non-tracking |
+| `imbued_stag` (GID-147) | Ghost/Ghoul + Kinetic Bolt, Momentum, Thorn Volley, Germinate | 11 | 2 | Any enemy spawn standing on a ley line in grasslands/forest/mountains (`InfiniteWorldGen.enemy_type_at`, `BiomeDef.LEY_STAG_BIOMES`); tracking |
 | `sand_stalker` (GID-021) | 4× Skeleton + 3× Zombie + 2× Ghoul + Dagger Throw | 9 | 2 | Desert — aggressive rush |
 | `scorched_revenant` (GID-021) | 3× Zombie + 2× Ghoul + 2× Scorch + 2× Char + 2× Alight + Ember | 12 | 3 | Scorched — burn/board-wide damage |
 | `mountain_troll` (GID-021) | 6× Ghoul + 3× Zombie + 2× Restore + Wither | 15 | 3 | Mountains — high-HP, grindy |
@@ -373,12 +373,13 @@ paths — Android rule). Roaming bosses always get the terror sprite; unknown bo
 types get the warleader; unknown/empty regular types return `null` and the old
 `TextureGen.enemy()` silhouette is used (graceful fallback). Sprite world size uses
 `SpriteRegistry.CHAR_PIXEL_SIZE` (0.05) and the feet-at-y=0 formula from the real
-texture height (pack sprites are 16–36 px, not a fixed 32). Boss node `scale`
+texture height (generated sprites are 16–40 px, not a fixed 32 — every world character is original
+since GID-144 / TID-610, `tools/generate_characters.py`). Boss node `scale`
 treatment (1.3× / 1.5×) is unchanged. TownspersonNPC picks 1 of 3 variants by
 hashing the NPC id+name (stable per NPC); ScoutAmbush uses the raider texture at
 0.04 pixel size (visibly smaller than a full raider, matching the old ratio) and
-keeps its green lurk tint. Walk frames exist on disk (`*_walk_{1-4}.png`) but are
-NOT wired — see backlog BID-051.
+keeps its green lurk tint. Only Maiteln animates a walk cycle (`npc_maiteln_walk_{1-4}.png`);
+enemy walk frames were never wired and were deleted in TID-610.
 
 ## Asset Requirements
 
@@ -403,7 +404,32 @@ behaviour is unchanged — the proximity-trigger AI, `EnemyRegistry` decks, and
 `SaveManager.defeated_enemies` are all untouched when no session is active. See
 [multiplayer-coop.md](multiplayer-coop.md) → *Shared World-Object Sync*.
 
-## Ambient Critters (GID-143)
+## Zone Levels & Enemy Levels (GID-136 / TID-536)
+
+`game_logic/world/ZoneLevels.gd` (pure static) gives the overworld WoW-style level ranges:
+
+- **Zone level** = distance from Madrian's centre (`ORIGIN_TILE` (8,-5)): level 1 inside `STARTER_RADIUS` (30 tiles),
+  then +1 per `LEVEL_STEP_TILES` (12), capped at `MAX_LEVEL` 60. Story towns land in story order (Madrian 1,
+  Maykalene ~8, Marsax Hold ~15, Blancogov / Larik ~22). `range_at_tile()` gives a ±1 display range.
+- **Enemy level** (`EnemyNPC.enemy_level()`): a preset `enemy_data["enemy_level"]` wins (Spire/rifts, events); else
+  the zone level where it stands on `main`; else (dungeons, interiors) the player's level. Cached into `enemy_data`
+  when its **"Lv N" tag** (Label3D above the sprite) is added a frame after spawn, and stamped on the engage payload.
+- **Con colour** vs the player's level: grey (≤ −5), green (−4..−2), yellow (±2), orange (+3..+4), red (≥ +5); the tag
+  recolours on `GameBus.level_up`.
+- **Battle:** `BattleScene` raises the card tier (`scaled_tier`: +1 per 10 levels, max 4) before the enemy deck is
+  built; `BattleModifiers._apply_zone_level()` scales enemy hero HP (+6 %/level).
+- **XP:** `BattleVictory._level_scaled_xp()` → `scaled_xp(base, enemy_level, player_level)` = base × (1 + 0.1·(L−1)) ×
+  con factor (grey 0, green 0.75, yellow 1, orange 1.2, red 1.4). Payloads without `enemy_level` (story set pieces,
+  duels, blight hearts) keep base XP and unscaled stats.
+- Tests: `tests/unit/test_zone_levels.gd`.
+
+## Pack Leaders & Solo Enemies (TID-541)
+
+`ghoul_pack` and `undead_horde` are **pack leaders**: `EnemyRegistry.get_pack()` lists the units that start on
+their battle board, and `EnemyNPC` draws those units standing around the leader in the world. Solo ability-casting enemies wait on BID-078 (enemy
+spells don't resolve). See `combat-model.md` → Encounters that match the world.
+
+## Ambient Critters (GID-147)
 
 Scenery wildlife, not enemies: `scenes/world/modules/Critters.gd` keeps up to 10
 `entities/Critter.gd` nodes 8–22 units around the hero in the overworld and frees

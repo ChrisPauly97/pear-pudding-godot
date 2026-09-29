@@ -153,6 +153,37 @@ func _enter_targeting_mode(card: CardInstance, friendly: bool = false) -> void:
 	_show_cancel_btn("✕ Cancel Spell", _cancel_targeting)
 	_battle._refresh_all()
 
+## One-tap spells (TID-530): the only sensible target of `card`, so tapping it casts
+## at once — {"card": c}, {"hero": pidx}, or {} when the player has to choose.
+## In real time an enemy-targeted spell goes at your focus target, like WoW.
+func auto_target(card: CardInstance, friendly: bool) -> Dictionary:
+	var me: int = _battle._my_idx()
+	if friendly:
+		var mine: Array[CardInstance] = _battle._state.players[me].board.get_cards()
+		return {"card": mine[0]} if mine.size() == 1 else {}
+	if _battle._team_pvp or _battle._coop_pve:
+		return {}
+	var hero_ok: bool = card.spell_effect == "deal_damage_single"
+	var enemies: Array[int] = [_battle._opp_idx()]
+	if _battle.realtime.is_active():
+		var rt := _battle.realtime.rt
+		enemies = rt.enemy_sides()
+		var f: CardInstance = rt.focus_target
+		for side: int in enemies:
+			if f != null and _battle._state.players[side].board.get_cards().has(f):
+				return {"card": f}
+		if hero_ok:
+			return {"hero": rt.target_enemy()}
+	var cards: Array[CardInstance] = []
+	var heroes: Array[int] = []
+	for side: int in enemies:
+		cards.append_array(_battle._state.players[side].board.get_cards())
+		if hero_ok and _battle._state.players[side].hero.is_alive():
+			heroes.append(side)
+	if cards.size() + heroes.size() != 1:
+		return {}
+	return {"card": cards[0]} if cards.size() == 1 else {"hero": heroes[0]}
+
 func _cancel_targeting() -> void:
 	_battle._targeting_active = false
 	_battle._targeting_friendly = false

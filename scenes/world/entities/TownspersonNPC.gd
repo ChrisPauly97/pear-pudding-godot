@@ -1,5 +1,7 @@
 extends "res://scenes/world/entities/WorldEntityBase.gd"
 
+const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
+const _SideQuests = preload("res://game_logic/quests/SideQuests.gd")
 const TextureGen = preload("res://game_logic/TextureGen.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const _ContactShadow = preload("res://game_logic/ContactShadow.gd")
@@ -16,7 +18,10 @@ func _ready() -> void:
 	_ring = build_highlight_ring(self, 0.55)
 	# Stable per-NPC look: same id/name always picks the same variant.
 	var variant_seed: int = hash(str(npc_data.get("id", "")) + _extract_name())
-	var sprite: Sprite3D = _SpriteRegistry.make_billboard(_SpriteRegistry.townsperson_texture(variant_seed),
+	var tex: Texture2D = _SpriteRegistry.named_npc_texture(str(npc_data.get("id", "")))
+	if tex == null:
+		tex = _SpriteRegistry.townsperson_texture(variant_seed)
+	var sprite: Sprite3D = _SpriteRegistry.make_billboard(tex,
 			TextureGen.npc_townsperson(), _SpriteRegistry.HEIGHT_NPC)
 	add_child(sprite)
 	_SpriteOutline.apply(sprite)
@@ -49,6 +54,15 @@ func _extract_name() -> String:
 			return after.substr(0, end).strip_edges()
 	if npc_data.has("name"):
 		return str(npc_data["name"])
+	# GID-141: trainers and quest givers are found by name ("Combat Trainer",
+	# "Hilda the Baker"), not a random role.
+	var nid: String = str(npc_data.get("id", ""))
+	var trainer: String = _UnlockLadder.trainer_at(nid)
+	if trainer != "":
+		return _UnlockLadder.trainer_name(trainer)
+	var giver: String = _SideQuests.giver_name_for(nid)
+	if giver != "":
+		return giver.trim_prefix("The ")
 	# Unnamed extras get a role hashed from their spot, never the raw "NPC".
 	var roles: Array[String] = ["Traveller", "Wanderer", "Farmhand", "Pilgrim", "Herbalist", "Shepherd"]
 	return roles[absi(hash(Vector2i(int(npc_data.get("x", 0)), int(npc_data.get("z", 0))))) % roles.size()]

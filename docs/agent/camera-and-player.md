@@ -90,7 +90,7 @@ The `Sprite3D` uses `BILLBOARD_ENABLED` so it always faces the camera:
   - Formula: `pixel_height * pixel_size * 0.5 + margin = 48 * 0.04 * 0.5 + 0.14 ≈ 1.1`
 - Idle state shows frame 0
 
-### Occluded Silhouette (GID-142)
+### Occluded Silhouette (GID-146)
 
 Scenery is never cut away. `SpriteOutline.apply_xray(sprite)` chains
 `assets/shaders/sprite_xray.gdshader` as the `next_pass` of the sprite's outline
@@ -161,7 +161,7 @@ if player_chunk != last_chunk:
 The player sprite is drawn in code so gear changes the body. Files (an
 `extends` chain, so statics are inherited unqualified):
 `game_logic/character/PaperDollPixels.gd` (pixel helpers, grime dither,
-shadow/highlight tones) ← `PaperDollGear.gd` (cloak, shoulders, trinkets,
+shadow/highlight tones) ← `PaperDollGear.gd` (cloak, shoulders, helmets, boots, trinkets,
 held items + rotation) ← `PaperDoll.gd` (tables, API, body parts).
 `HeroAnim.gd` picks the animation each physics frame.
 
@@ -190,6 +190,18 @@ Bresenham limbs from shoulder to hand, so raised/punching arms stay attached),
 scratch image and nearest-neighbour rotated about the grip), `wpn_behind`
 (draw the weapon before the torso). `l` = far/back side, `r` = near/front.
 
+**Back view (TID-618):** `BACK_ANIMS` adds `idle_back` / `walk_back`, rendered
+from the `idle` / `walk` poses with `back: true` (`render_frame(..., back)`):
+no face (`_draw_head_back` — hair over the head, ears), no collar/buckle/vest
+seam/trinket, held items drawn behind the body, the cloak hangs over it
+(`_draw_cloak_over`), helmets skip face-side details. `HeroAnim.faces_away(dir,
+was_back)` is true when a ground direction heads up-screen (camera forward
+`(−1, 0, −1)`) more than half as much as sideways; a stop keeps the last facing.
+`HeroAnim.facing(anim, back)` maps idle/walk to their twin (one-shots stay
+side-on); `is_walk()` covers both walks (footsteps, `IdleLife.hero_bob`).
+Player keeps `_back_facing` (never while mounted — the horse is side-on);
+RemotePlayer derives it from its XZ net velocity.
+
 **Driving it (Player.gd):** `HeroAnim.pick(mounted, on_floor, vel_y, air_time,
 moving, current, playing)`: mounted → idle; airborne → `jump` while rising,
 `fall` after `FALL_GRACE` (0.1 s, so slope hops don't flicker); a playing
@@ -200,17 +212,27 @@ Footsteps fire on walk frames 0 and 4; `IdleLife.hero_bob` lifts the sprite
 on passing frames 2–3 / 6–7 (frames bake their own dip on 1 and 5).
 
 **Gear:** `GEAR_VISUALS` maps item id → `{style, main, trim}`. Styles: armour
-`vest`/`mail`/`cloak`; shoulders `pauldron`/`plate`/`spiked`; held
+`vest`/`mail`/`cloak`; shoulders `pauldron`/`plate`/`spiked`; helmet
+`cap`/`helm`/`cowl` (`_draw_helmet`, over the hair; frame row 0 spare for
+crests); boots `boots`/`greaves`/`spurred` (the item's `main` replaces the
+appearance boot colour, then `_draw_boot_gear` adds a shaft, shin plates or
+spurs per leg); held
 `dagger`/`sword`/`axe`/`staff`/`wand`/`crystal`/`orb`/`buckler`/`shield`;
 trinket `necklace`/`flask`/`coin`. Rings are not drawn. Adding an item = one
 entry (reuse a style or add a `match` branch); `test_paper_doll` fails if an
 item in a `VISIBLE_SLOTS` slot lacks one or draws nothing.
 
-**Draw order:** cloak back → legs → (weapon if `wpn_behind`) → torso → trinket
-→ back arm, front arm → head → cloak mantle → shoulders → off-hand → weapon.
+**Draw order:** cloak back → legs (+ boot gear) → (weapon if `wpn_behind`) → torso → trinket
+→ back arm, front arm → head → helmet → cloak mantle → shoulders → off-hand → weapon.
 
 **Appearance:** optional Dictionary overriding `DEFAULT_APPEARANCE` colours
-(skin, hair, eyes, shirt, trousers, boots, belt). Not persisted yet (TID-562).
+(skin, hair, eyes, shirt, trousers, boots, belt). The player picks skin and hair at
+New Game (TID-562, `HeroAppearanceScene`) from `SKIN_TONES` / `HAIR_COLOURS`
+(palette colours, index 0 = default). Saved as indices in
+`SaveManager.hero_appearance` (`{"skin": i, "hair": j}`); `appearance_from()`
+turns indices into colours and drops junk, `appearance_of(save)` reads a save,
+`frames_for(save)` = `build_frames(gear_of(save), appearance_of(save))` for the
+local hero (Player, and the battle token via `idle_texture`).
 
 **API:** `build_frames(gear, appearance)` (every animation; cached per look —
 co-op avatars in the same gear share textures), `idle_texture(gear)` (battle

@@ -271,3 +271,14 @@ func test_set_card_custom_name_marks_dirty() -> void:
 	sm.set_card_custom_name("cn-uid5", "Named")
 	assert_true(sm._dirty)
 	sm.free()
+
+
+func test_record_veterancy_reports_a_rank_up_once() -> void:
+	# BID-074: the victory flow announces a rank-up, so the return value must be exact.
+	var inst: Dictionary = _ghost_inst("r-uid", 1, 2, 1, 3, 0)
+	var sm: SaveManagerScript = _sm_with_inst("r-uid", inst)
+	assert_eq(sm.record_veterancy("r-uid", 1, false), 0, "4 kills: still rank 0")
+	assert_eq(sm.record_veterancy("r-uid", 1, false), 1, "5 kills: rank 1")
+	assert_eq(sm.record_veterancy("r-uid", 1, false), 0, "no repeat announcement")
+	assert_eq(sm.record_veterancy("missing", 99, true), 0)
+	sm.free()

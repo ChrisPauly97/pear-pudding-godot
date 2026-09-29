@@ -56,7 +56,7 @@ const SFX_PATHS: Dictionary = {
 	# Storm lightning (GID-129 / TID-487), played after the flash by WorldScene.
 	"thunder":      "res://assets/audio/sfx/thunder.ogg",
 }
-## Extra takes per key (GID-141 / TID-588): `<key>_2.ogg` … `<key>_N.ogg` beside
+## Extra takes per key (GID-145 / TID-615): `<key>_2.ogg` … `<key>_N.ogg` beside
 ## the base file. Keys listed here play a random take (never the same twice in a
 ## row) through an AudioStreamRandomizer.
 const SFX_TAKES: Dictionary = {
@@ -65,7 +65,7 @@ const SFX_TAKES: Dictionary = {
 	"footstep_snow": 5, "footstep_wood": 5, "footstep_water": 3, "footstep_hoof": 4,
 	"ui_click": 3, "land": 3,
 }
-## Mix trim per key. The files are peak-normalised (TID-587), so frequent or
+## Mix trim per key. The files are peak-normalised (TID-614), so frequent or
 ## background sounds sit below the one-off stingers.
 const SFX_GAIN_DB: Dictionary = {
 	"footstep": -9.0, "footstep_grass": -9.0, "footstep_sand": -9.0, "footstep_stone": -9.0,
