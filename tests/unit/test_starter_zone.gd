@@ -6,6 +6,7 @@ const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const WorldMapScript = preload("res://game_logic/world/WorldMap.gd")
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
+const SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 
 
 func _madrian_tile(world_tile: Vector2i) -> int:
@@ -93,7 +94,6 @@ func test_named_npcs_stand_on_open_ground() -> void:
 
 func test_every_trainer_and_quest_giver_has_its_own_sprite() -> void:
 	# GID-143 / TID-604.
-	const SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 	const SideQuests = preload("res://game_logic/quests/SideQuests.gd")
 	const UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 	var ids: Array[String] = []
@@ -119,6 +119,6 @@ func test_graveyard_dressing() -> void:
 	var keys: Dictionary = {}
 	for e: Array in StarterZone.graveyard_props():
 		keys[str(e[0])] = true
-		assert_not_null(preload("res://game_logic/SpriteRegistry.gd").graveyard_prop(str(e[0])), str(e[0]))
+		assert_not_null(SpriteRegistry.graveyard_prop(str(e[0])), str(e[0]))
 	for k: String in ["iron_fence", "crypt_door", "headstone_0", "headstone_1", "headstone_2"]:
 		assert_true(keys.has(k), "%s placed" % k)
