@@ -164,13 +164,13 @@ files in `tasks/archive/backlog/`.
 | [BID-055](backlog/BID-055--worldscene-god-object.md) | `WorldScene.gd` god-object decomposition, slice 1/3 done (co-op/net cluster folded into `CoopSession.gd`, line-ceiling guardrail added); original 9154/401 census was stale — see file's Progress section for real numbers and slices 2-3 (`_spawn_*`, `_start_*`) | code-smell | GID-123 research |
 | [BID-061](backlog/BID-061--spec-says-no-xp-system.md) | Spec says "No XP system planned" but XP/levels/skill points shipped (GID-030) | spec-gap | Tracked by TID-539 |
 | [BID-073](backlog/BID-073--no-owl-ambience-loop.md) | Night owl ambience layer still synthesized (no clean CC0 loop found) | content-gap | GID-145 / TID-616 |
-| [BID-075](backlog/BID-075--coop-loot-no-gear-rolls.md) | Co-op session loot grants gear without a rarity / item-level roll | design-inconsistency | TID-538 |
 | [BID-077](backlog/BID-077--packs-keep-a-leader-hero.md) | Pack encounters still have an enemy hero (no leaderless 'clear the board' packs) | design-gap | TID-541 |
 
 ## Resolved Backlog
 
 | ID | Summary | Category | Discovered During |
 |----|---------|----------|-------------------|
+| [BID-075](archive/backlog/BID-075--coop-loot-no-gear-rolls.md) | Co-op session loot grants gear without a rarity / item-level roll | design-inconsistency | Resolved: session characters carry gear rolls |
 | [BID-076](archive/backlog/BID-076--appearance-fixed-after-new-game.md) | The hero's skin / hair can only be chosen at New Game | content-gap | Resolved: Change Look on the Character screen |
 | [BID-074](archive/backlog/BID-074--veterancy-never-taught.md) | Veterancy is never taught or announced | content-gap | Resolved: rank-up toast + one-time popup |
 | [BID-024](archive/backlog/BID-024--coop-map-has-no-enemies-chests.md) | Co-op map (madrian) has no enemies/chests, so GID-096 world sync is dormant in practice (system verified by smoke test) — **being addressed by GID-098** (multi-map co-op story) and **GID-102 / TID-380** (shared procedural dungeon crawl with real enemies/chests) | content-gap | Resolved: co-op now lands on the overworld, which has enemies and chests (BID-063) |

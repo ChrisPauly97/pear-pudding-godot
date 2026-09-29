@@ -15,3 +15,11 @@ roll earned solo doesn't show on a session character.
 Add `gear_rolls` to the session character record (SessionState character schema + `adopt_session_character` /
 `export_session_character`), roll with `GearRolls.roll(tier, level, rng)` on the authority in
 `_roll_equipment_into_loot_grant`, and keep the better roll like `SaveGear.grant`.
+
+## Resolution
+
+- Session character records carry `gear_rolls` (`SessionState.make_starter_character`, `export_session_character`,
+  `adopt_session_character` — a malformed table is dropped).
+- `CoopActivities._roll_equipment_into_loot_grant` rolls the won item with `GearRolls.roll(chest tier, winner level)`
+  on the authority and stores it in the winner's record, so need/greed loot is rolled gear like solo drops.
+- Test: `test_session_equipment` → `test_session_character_carries_gear_rolls`.

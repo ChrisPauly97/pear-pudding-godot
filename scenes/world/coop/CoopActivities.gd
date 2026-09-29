@@ -18,6 +18,7 @@ const _CardInstanceUtil  = preload("res://game_logic/CardInstanceUtil.gd")
 const _CardRegistry      = preload("res://autoloads/CardRegistry.gd")
 const _CoopNightHunts    = preload("res://game_logic/CoopNightHunts.gd")
 const _CoopSiege         = preload("res://game_logic/CoopSiege.gd")
+const _GearRolls = preload("res://game_logic/items/GearRolls.gd")
 const _EnemyScene        = preload("res://scenes/world/entities/EnemyNPC.tscn")
 const _LootRoll          = preload("res://game_logic/net/LootRoll.gd")
 const _RunSummaryScene   = preload("res://scenes/ui/RunSummaryScene.tscn")
@@ -333,6 +334,10 @@ func _roll_equipment_into_loot_grant(rec: Dictionary, tier: int) -> void:
 	else:
 		owned_a.append(picked)
 		rec["owned_armor"] = owned_a
+	# BID-075: the drop rolls rarity by chest tier and item level by the winner's level.
+	var rolls: Dictionary = rec.get("gear_rolls", {}) if rec.get("gear_rolls", {}) is Dictionary else {}
+	rolls[picked] = _GearRolls.roll(tier, int(rec.get("level", 1)), rng)
+	rec["gear_rolls"] = rolls
 
 
 ## Any peer: announce the winner (toast) and close the prompt if one was open.

@@ -519,6 +519,7 @@ static func make_starter_character(token: String, member_name: String) -> Dictio
 		"owned_armor": [],
 		"equipped_weapon": "",
 		"equipped_armor": "",
+		"gear_rolls": {},  # item id -> {rarity, ilvl} (GearRolls, BID-075)
 		# PvP champion record (GID-101 / TID-368)
 		"pvp_wins": 0,
 		"pvp_losses": 0,

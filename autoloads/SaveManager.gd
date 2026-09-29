@@ -712,6 +712,9 @@ func adopt_session_character(record: Dictionary) -> void:
 			var aid_str: String = str(aid)
 			if aid_str != "" and not owned_armor.has(aid_str):
 				owned_armor.append(aid_str)
+	# Gear rarity / item-level rolls of the session's own equipment (BID-075).
+	var raw_rolls: Variant = record.get("gear_rolls", {})
+	gear_rolls = (raw_rolls as Dictionary).duplicate(true) if raw_rolls is Dictionary else {}
 	# Hard isolation: a session character must never persist to the single-player save.
 	_loaded = false
 	_dirty = false
@@ -747,6 +750,7 @@ func export_session_character() -> Dictionary:
 		"owned_armor": owned_armor.duplicate(),
 		"equipped_weapon": equipped_weapon,
 		"equipped_armor": equipped_armor,
+		"gear_rolls": gear_rolls.duplicate(true),
 	}
 
 ## Restores one PERSISTED_FIELDS entry, coercing to the default's type. Const

@@ -188,7 +188,8 @@ difficulty tier, enemy level), shop purchases (common at your level) and quest t
 (pick one of three, a rare roll at quest level + 1; `SaveQuests.turn_in(id, pick)`, the turn-in panel shows the
 three items with their rolled stats). `SaveManager.gear.grant(id, roll)` adds a new item or keeps the better roll
 ("new" / "upgraded" / "kept"); an upgrade to an equipped item emits `equipment_changed`. CharacterScene colours
-item names by rarity and shows "Rare · ilvl 7". Co-op session records (BID-033) don't carry rolls yet.
+item names by rarity and shows "Rare · ilvl 7". Co-op session characters (BID-033) carry their own `gear_rolls`,
+and need/greed loot is rolled on the authority (BID-075).
 
 **Visuals (GID-137):** equipping emits `GameBus.equipment_changed(slot, id)` and the hero sprite redraws in the new gear. Every armour/shoulders/helmet/boots/weapon/offhand/trinket item needs a `PaperDoll.GEAR_VISUALS` entry (see `camera-and-player.md` → Paper-doll hero); rings are not drawn.
 
