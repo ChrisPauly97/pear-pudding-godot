@@ -8,6 +8,9 @@ const SpireFloorGen = preload("res://game_logic/spire/SpireFloorGen.gd")
 const SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 const WorldMapScript = preload("res://game_logic/world/WorldMap.gd")
+const RiftPortals = preload("res://scenes/world/modules/RiftPortals.gd")
+const InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
+const ChunkData = preload("res://game_logic/world/ChunkData.gd")
 
 
 func test_one_rift_per_biome_with_real_enemies() -> void:
@@ -126,3 +129,22 @@ func test_rift_quest_completes_on_tier_clear() -> void:
 	assert_eq(sm.quests.offers_for("rift_warden_madrian").size(), 0, "tier-3 quests wait for level 16")
 	sm.level = 16
 	assert_eq(sm.quests.offers_for("rift_warden_madrian").size(), RiftDefs.all().size(), "one tier-3 quest per rift")
+
+
+func test_portals_open_onto_their_biome_rift() -> void:
+	assert_eq(RiftPortals.rift_for_target("spire"), RiftDefs.DEFAULT_RIFT, "Madrian's door is the Grasslands rift")
+	assert_eq(RiftPortals.rift_for_target("rift:desert"), "desert")
+	assert_eq(RiftPortals.rift_for_target("rift:nowhere"), "")
+	assert_eq(RiftPortals.rift_for_target("madrian"), "")
+	var found: Dictionary = {}
+	for cx: int in range(-30, 31):
+		for cz: int in range(-30, 31):
+			var chunk: ChunkData = InfiniteWorldGen.generate_chunk(cx, cz, 12345)
+			for d: Dictionary in chunk.doors:
+				var target: String = str(d.get("target_map", ""))
+				if target.begins_with("rift:"):
+					assert_gte(maxi(absi(cx), absi(cz)), RiftDefs.PORTAL_MIN_CHUNK, "no portal in the starter region")
+					var biome: int = InfiniteWorldGen.biome_for_chunk(cx, cz, 12345)
+					assert_eq(target, "rift:" + RiftDefs.rift_for_biome(biome), "portal matches its biome")
+					found[target] = true
+	assert_gte(found.size(), 3, "portals to several different rifts exist in a 61×61-chunk world")

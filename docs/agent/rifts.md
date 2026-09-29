@@ -62,6 +62,19 @@ fight floor to floor, beat the guardian, and the next tier opens. Unlocked at le
 - `SaveQuests.accept` now counts a `learn` objective already met (trained before taking the quest).
 - The completion toast lists coins, first-clear XP, the card and the newly opened tier.
 
+### Entrances (TID-600)
+
+- **Madrian's Spire door** (`target_map "spire"`) opens the **Grasslands** rift.
+- **Biome portals:** `InfiniteWorldGen._gen_entities` places a door with `target_map "rift:<id>"`
+  (`RiftDefs.rift_for_biome(biome)`) in ~1 of `PORTAL_RARITY` (40) chunks at Chebyshev chunk distance ≥
+  `PORTAL_MIN_CHUNK` (5), never in realm chunks — so every land has rifts to find while exploring. `Door.gd` draws
+  them purple and labels them with the rift name.
+- **Panel** (`scenes/world/modules/RiftPortals.gd`, `WorldScene.rift_portals`; WorldScene keeps
+  `_show_spire_entrance_panel(rift_id)` as a forwarder): rift name, best tier, a −/+ tier picker capped at best + 1,
+  enemy level range and the first-clear XP still on offer, Enter / Leave. Locked (`feat_spire`) → the ladder
+  message. A run under way anywhere → Resume that run.
+- WorldScene line ceiling lowered to 2100 after the panel moved out.
+
 ## Integrations
 
 - Unlock ladder (`feat_spire`, L15), zone levels, co-op Spire (TID-601), rift quests (TID-599), entrances (TID-600).

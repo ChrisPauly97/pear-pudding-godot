@@ -22,6 +22,11 @@ const LEVELS_PER_TIER: int = 2
 const COINS_PER_FLOOR: int = 5
 const CLEAR_COINS_PER_TIER: int = 20
 
+## One portal chunk in PORTAL_RARITY outside the starter region (Chebyshev chunk
+## distance ≥ PORTAL_MIN_CHUNK) opens onto its biome's rift (TID-600).
+const PORTAL_RARITY: int = 40
+const PORTAL_MIN_CHUNK: int = 5
+
 ## The legacy single Spire becomes the Grasslands rift (save migration v45).
 const DEFAULT_RIFT: String = "grasslands"
 
@@ -83,6 +88,13 @@ static func def(rift_id: String) -> Dictionary:
 		if str(r["id"]) == rift_id:
 			return r
 	return {}
+
+## The rift of BiomeDef biome index `biome` ("" if none).
+static func rift_for_biome(biome: int) -> String:
+	for r: Dictionary in RIFTS:
+		if int(r["biome"]) == biome:
+			return str(r["id"])
+	return ""
 
 static func rift_name(rift_id: String) -> String:
 	return str(def(rift_id).get("name", "Rift"))

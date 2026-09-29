@@ -145,6 +145,10 @@ func _run() -> bool:
 	save_manager.set("level", 20)
 	save_manager.set("coins", 5000)
 	npc_int.call("show_trainer_panel", "combat")
+	# GID-142 / TID-600: rift door panels, locked and unlocked.
+	ws.call("_show_spire_entrance_panel", "desert")
+	(save_manager.get("learned_abilities") as Array).append("feat_spire")
+	ws.call("_show_spire_entrance_panel", "mountains")
 	npc_int.call("interact", {"id": "hilda_baker", "npc_type": ""})
 	await process_frame
 	(save_manager.get("learned_abilities") as Array).erase("mend")

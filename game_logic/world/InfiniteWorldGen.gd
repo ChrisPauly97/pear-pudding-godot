@@ -6,6 +6,7 @@ const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const TerrainMath = preload("res://game_logic/TerrainMath.gd")
 const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const StarterZone = preload("res://game_logic/world/StarterZone.gd")
+const RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
 
 # Base noise frequency — biome freq_scale multiplies the sampling coordinates
 const NOISE_FREQ: float = 0.08
@@ -426,6 +427,21 @@ static func _gen_entities(chunk: ChunkData, p_cx: int, p_cz: int, world_seed: in
 		chunk.burial_mounds.append({
 			"id": "mound_%d_%d_0" % [p_cx, p_cz],
 			"x": wx, "z": wz,
+		})
+
+	# Rift portal (GID-142 / TID-600): ~1 chunk in RiftDefs.PORTAL_RARITY away from
+	# the starter region opens onto its biome's rift.
+	var portal_rng := RandomNumberGenerator.new()
+	portal_rng.seed = _chunk_seed(p_cx, p_cz, world_seed) + 23
+	if not realm_chunk and maxi(absi(p_cx), absi(p_cz)) >= RiftDefs.PORTAL_MIN_CHUNK \
+			and portal_rng.randi_range(0, RiftDefs.PORTAL_RARITY - 1) == 0:
+		var ptile: Vector2i = grass_tiles[portal_rng.randi_range(0, grass_tiles.size() - 1)]
+		chunk.doors.append({
+			"id": "rift_portal_%d_%d" % [p_cx, p_cz],
+			"x": float(p_cx * IsoConst.CHUNK_SIZE + ptile.x) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5,
+			"z": float(p_cz * IsoConst.CHUNK_SIZE + ptile.y) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5,
+			"target_map": "rift:" + RiftDefs.rift_for_biome(biome),
+			"target_door_id": "", "flag_key": "",
 		})
 
 	# 0–1 Waystone per ~40 chunks (2.5% chance) on a walkable grass tile

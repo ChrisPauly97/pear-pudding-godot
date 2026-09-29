@@ -2,7 +2,7 @@
 
 **Goal:** GID-142
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-597, TID-589
 
 ## Lock
@@ -32,12 +32,17 @@ Each rift is entered from its own biome, so rifting in "different biomes with di
 
 ## Plan
 
-_Written during Plan phase._
+Madrian door = Grasslands rift; deterministic biome portals from world gen (door `rift:<id>`); rift panel moved out of WorldScene into a module with a tier picker; resume the active run from any door. Rift keepers per portal were dropped in favour of the one Rift Warden in Madrian (TID-599) — quests need a findable giver, portals are procedural.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `scenes/world/modules/RiftPortals.gd`; WorldScene forwards `_show_spire_entrance_panel(rift_id)` (−35 lines;
+  ceiling 2180 → 2100).
+- `InfiniteWorldGen._gen_entities`: rift portals. `RiftDefs`: `rift_for_biome`, `PORTAL_RARITY`, `PORTAL_MIN_CHUNK`.
+- `Door.gd`: rift doors purple + named.
+- Tests: `test_rift_defs.gd` +1 (door targets, portals match biome, none in the starter region, several rifts
+  reachable); `world_scene_smoke.gd` builds locked + unlocked rift panels.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`rifts.md` entrances; CLAUDE.md world-module row.

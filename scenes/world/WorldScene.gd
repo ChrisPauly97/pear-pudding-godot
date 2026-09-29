@@ -56,6 +56,7 @@ const _NamedMapProps = preload("res://scenes/world/modules/NamedMapProps.gd")
 const _RealmRegions = preload("res://scenes/world/modules/RealmRegions.gd")
 const _QuestTracker = preload("res://scenes/world/modules/QuestTracker.gd")
 const _StarterCamps = preload("res://scenes/world/modules/StarterCamps.gd")
+const _RiftPortals = preload("res://scenes/world/modules/RiftPortals.gd")
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const _TownSiege = preload("res://scenes/world/modules/TownSiege.gd")
 const _SunRaysFx = preload("res://scenes/world/SunRaysFx.gd")
@@ -181,6 +182,7 @@ var named_props: _NamedMapProps = null   # modules/NamedMapProps.gd
 var realm_regions: _RealmRegions = null   # modules/RealmRegions.gd (GID-138)
 var quest_tracker: _QuestTracker = null   # modules/QuestTracker.gd (GID-140)
 var starter_camps: _StarterCamps = null   # modules/StarterCamps.gd (GID-141)
+var rift_portals: _RiftPortals = null   # modules/RiftPortals.gd (GID-142)
 var current_town: String = ""  # stitched town the player is in; see story_place()
 var chest_loot: _ChestLoot = null    # modules/ChestLoot.gd
 var night_lights: _NightLights = null  # modules/NightLights.gd (TID-489)
@@ -877,6 +879,7 @@ func _ensure_world_modules() -> void:
 	realm_regions = _ensure_world_module(realm_regions, _RealmRegions, "RealmRegions") as _RealmRegions
 	quest_tracker = _ensure_world_module(quest_tracker, _QuestTracker, "QuestTracker") as _QuestTracker
 	starter_camps = _ensure_world_module(starter_camps, _StarterCamps, "StarterCamps") as _StarterCamps
+	rift_portals = _ensure_world_module(rift_portals, _RiftPortals, "RiftPortals") as _RiftPortals
 
 func _ensure_world_module(existing: Node, script: GDScript, node_name: String) -> Node:
 	if existing != null and is_instance_valid(existing):
@@ -1797,8 +1800,8 @@ func _handle_interact() -> void:
 		# Auto-dismount when leaving the overworld for any named map
 		if SceneManager.save_manager.is_mounted and target_map != "main" and not target_map.is_empty():
 			SceneManager.save_manager.auto_dismiss_mount()
-		if target_map == "spire":
-			_show_spire_entrance_panel()
+		if _RiftPortals.rift_for_target(target_map) != "":
+			_show_spire_entrance_panel(_RiftPortals.rift_for_target(target_map))
 		elif target_map.is_empty():
 			# Co-op (GID-098): broadcast exit so all peers pop together.
 			if _coop_active and _net_sync != null and not _coop_map_transitioning:
@@ -1897,47 +1900,9 @@ func _handle_interact() -> void:
 		# gdlint:ignore = max-returns
 		return
 
-func _show_spire_entrance_panel() -> void:
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var vh: float = vp.y
-	var is_active: bool = SceneManager.save_manager.spire.is_spire_active()
-	var curr_floor: int = 1
-	if is_active:
-		curr_floor = int(SceneManager.save_manager.spire.get_spire_run().get("floor", 1))
-
-	var modal: Dictionary = _build_modal(0.64, 0.40, Color(0.06, 0.04, 0.14, 0.96), 0.022)
-	var layer: CanvasLayer = modal["layer"]
-	var vbox: VBoxContainer = modal["vbox"]
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-
-	var title := _UiUtil.make_label("The Endless Spire", int(vh * 0.038), Color(0.85, 0.50, 1.0),
-			HORIZONTAL_ALIGNMENT_CENTER, vbox)
-
-	var desc := Label.new()
-	if is_active:
-		desc.text = "A run is in progress — Floor %d.\nResume your climb?" % curr_floor
-	else:
-		desc.text = "Your deck stays behind.\nDraft new cards as you climb — or fall."
-	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	desc.add_theme_font_size_override("font_size", int(vh * 0.026))
-	desc.modulate = Color(0.85, 0.85, 0.85)
-	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	vbox.add_child(desc)
-
-	var row := _UiUtil.make_hbox(int(vh * 0.03), vbox)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-
-	var enter_btn := _UiUtil.make_button("Resume (Floor %d)" % curr_floor if is_active else "Enter",
-			Vector2(vh * 0.20, vh * 0.07), int(vh * 0.028))
-	enter_btn.modulate = Color(0.85, 0.50, 1.0)
-	enter_btn.pressed.connect(func() -> void:
-		layer.queue_free()
-		SceneManager.enter_spire()
-	)
-	row.add_child(enter_btn)
-
-	var leave_btn := _UiUtil.make_button("Leave", Vector2(vh * 0.16, vh * 0.07), int(vh * 0.028),
-			func() -> void: layer.queue_free(), row)
+## Rift door panel (GID-142): lives in the RiftPortals module.
+func _show_spire_entrance_panel(rift_id: String = "grasslands") -> void:
+	rift_portals.show_panel(rift_id)
 
 # ── Player Home ────────────────────────────────────────────────────────────
 

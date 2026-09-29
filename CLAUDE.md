@@ -376,6 +376,7 @@ created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
 | `RealmRegions.gd` (`realm_regions`) | Which stitched story town the player walks through (`current_town`): HUD name, music, entry flags, rivals, siege on town entry; `siege_gate(town)` (GID-138) |
 | `QuestTracker.gd` (`quest_tracker`) | Cached quest list + tracked quest (QuestLog) for compass/minimap/realm map, objective beacon, NPC "!" / "?" marks, "New objective" tip, overworld realm map on M (GID-140) |
 | `StarterCamps.gd` (`starter_camps`) | Madrian starter-zone camps (`StarterZone`): levelled camp enemies refilled 45 s after they fall, never saved as defeated (GID-141) |
+| `RiftPortals.gd` (`rift_portals`) | Rift door panel: rift, best tier, tier picker, enter/resume (GID-142); portals come from `InfiniteWorldGen` |
 
 BattleScene's single-player clusters live under `scenes/battle/modules/`, created by
 `BattleScene._ensure_battle_modules()`. Each has a `_battle` back-reference typed as

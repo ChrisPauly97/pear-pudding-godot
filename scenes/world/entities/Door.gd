@@ -1,5 +1,6 @@
 extends Node3D
 
+const _RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
 const _WEB = preload("res://scenes/world/entities/WorldEntityBase.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const _PlaceNames = preload("res://game_logic/PlaceNames.gd")
@@ -57,8 +58,10 @@ func set_highlighted(on: bool) -> void:
 func init_from_data(data: Dictionary) -> void:
 	door_data = data
 	var target: String = str(data.get("target_map", ""))
-	_is_spire = (target == "spire")
+	_is_spire = (target == "spire" or target.begins_with("rift:"))
 	var label_text: String = "Exit" if target.is_empty() else _PlaceNames.title(target)
+	if _is_spire:
+		label_text = _RiftDefs.rift_name(_RiftDefs.DEFAULT_RIFT if target == "spire" else target.trim_prefix("rift:"))
 	var lbl := Label3D.new()
 	lbl.text = label_text
 	lbl.font_size = 32

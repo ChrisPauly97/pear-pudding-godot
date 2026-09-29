@@ -34,7 +34,7 @@ const _WORLD_SCENE_PATH := "res://scenes/world/WorldScene.gd"
 ## ChestLoot) plus guildhall furnishings moving to CoopSession brought it to
 ## ~2125; this leaves a little slack for small incidental changes without
 ## inviting a slow climb back toward the old 9154.
-const _CEILING := 2180
+const _CEILING := 2100
 
 
 func test_worldscene_stays_under_line_ceiling() -> void:
