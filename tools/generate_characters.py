@@ -113,10 +113,116 @@ def zombie(frame):
     return c.image()
 
 
+HAIR = {
+    "brown": [(72, 59, 58), (118, 59, 54), (143, 64, 41), (189, 108, 74)],
+    "grey": [(82, 96, 124), (123, 137, 148), (192, 203, 220), (253, 247, 237)],
+    "red": [(98, 35, 47), (143, 64, 41), (197, 96, 37), (228, 110, 51)],
+    "black": [(17, 17, 17), (34, 34, 34), (42, 42, 58), (72, 59, 58)],
+    "blond": [(143, 64, 41), (197, 96, 37), (238, 142, 46), (250, 203, 62)],
+}
+CLOTH = {
+    "red": P.RED, "green": P.GREEN, "brown": P.WOOD, "blue": P.BLUE, "purple": P.PURPLE,
+    "grey": P.STONE, "earth": P.EARTH, "teal": P.TEAL, "dark": [(17, 17, 17), (34, 34, 34), (42, 42, 58), (72, 59, 58)],
+}
+
+
+def person(spec):
+    """A standing townsperson from a spec: hair, dress/tunic colours, extras."""
+    def draw(frame):
+        c = Canvas(W, H)
+        lx, rx, bob = _walk(frame)
+        top = 2 + bob
+        body = CLOTH[spec["body"]]
+        legs = CLOTH[spec.get("legs", "earth")]
+        if spec.get("robe"):
+            c.blob(9.5, top + 18, 5.2, 8.0, body)          # long robe/dress to the ground
+            c.rect(6, H - 2, 13, H - 1, body[0])
+        else:
+            _legs(c, top + 18, lx, rx, legs, foot=(34, 34, 34))
+            c.blob(9.5, top + 14, 4.8, 5.0, body)
+        if spec.get("apron"):
+            c.rect(8, top + 12, 11, top + 21, (253, 247, 237))
+            c.line(8, top + 12, 11, top + 12, (211, 191, 169))
+        if spec.get("belt"):
+            c.line(5, top + 16, 14, top + 16, P.WOOD[0])
+        # arms
+        c.line(5, top + 11, 4, top + 17, body[1])
+        c.line(14, top + 11, 15, top + 17, body[1])
+        c.set(4, top + 18, P.SKIN[2])
+        c.set(15, top + 18, P.SKIN[2])
+        # prop in the right hand
+        prop = spec.get("prop")
+        if prop == "spade":
+            c.line(16, top + 4, 16, top + 22, P.WOOD[2])
+            c.rect(15, top + 22, 17, top + 25, P.STONE[2])
+        elif prop == "pike":
+            c.line(16, top - 1, 16, top + 24, P.WOOD[2])
+            c.line(16, top - 3, 16, top - 1, P.STONE[3])
+        elif prop == "staff":
+            c.line(16, top + 2, 16, top + 25, P.WOOD[1])
+            c.blob(16, top + 1, 1.6, 1.6, P.PURPLE)
+        elif prop == "sword":
+            c.line(16, top + 8, 18, top + 2, P.STONE[3])
+            c.line(15, top + 10, 17, top + 10, P.GOLD[1])
+        elif prop == "loaf":
+            c.blob(15.5, top + 17, 2.2, 1.4, P.GOLD[:3] + [P.GOLD[2]])
+        elif prop == "candle":
+            c.rect(15, top + 14, 16, top + 17, (253, 247, 237))
+            c.set(15.5, top + 13, P.FIRE[2])
+            c.set(15.5, top + 12, P.FIRE[1])
+        elif prop == "satchel":
+            c.blob(5, top + 16, 2.0, 2.0, P.WOOD)
+            c.set(5, top + 14, P.PINK[2])
+        # head
+        c.blob(9.5, top + 5, 3.8, 3.9, P.SKIN)
+        hair = HAIR[spec.get("hair", "brown")]
+        style = spec.get("hair_style", "short")
+        if style == "tonsure":
+            c.line(6, top + 4, 6, top + 6, hair[1])
+            c.line(13, top + 4, 13, top + 6, hair[1])
+        elif style == "long":
+            c.blob(9.5, top + 3, 4.2, 2.4, hair)
+            c.line(5.5, top + 4, 5.5, top + 10, hair[1])
+            c.line(13.5, top + 4, 13.5, top + 10, hair[1])
+        elif style == "hood":
+            c.blob(9.5, top + 4, 4.8, 4.4, CLOTH[spec.get("hood", spec["body"])])
+            c.blob(9.5, top + 6, 3.0, 2.6, P.SKIN)
+        elif style == "hat":
+            c.rect(4, top + 2, 15, top + 2, CLOTH["dark"][1])
+            c.rect(6, top - 1, 13, top + 1, CLOTH["dark"][2])
+        else:
+            c.blob(9.5, top + 2.5, 4.0, 2.0, hair)
+        if spec.get("beard"):
+            c.blob(9.5, top + 8, 2.6, 1.8, hair)
+        c.set(8, top + 5, (34, 34, 34))
+        c.set(11, top + 5, (34, 34, 34))
+        c.outline()
+        return c.image()
+    return draw
+
+
+NPCS = {
+    "npc_hilda_baker": {"body": "red", "robe": True, "apron": True, "hair": "red", "hair_style": "long",
+                        "prop": "loaf"},
+    "npc_wenna_herbalist": {"body": "green", "robe": True, "hair": "blond", "hair_style": "long", "prop": "satchel"},
+    "npc_brother_aldo": {"body": "brown", "robe": True, "belt": True, "hair": "brown", "hair_style": "tonsure"},
+    "npc_old_tam": {"body": "blue", "hair": "grey", "beard": True, "prop": "pike", "belt": True},
+    "npc_ivy_chandler": {"body": "purple", "robe": True, "hair": "black", "hair_style": "long", "prop": "candle"},
+    "npc_combat_trainer": {"body": "earth", "legs": "brown", "hair": "black", "belt": True, "prop": "sword"},
+    "npc_bounty_master": {"body": "dark", "legs": "dark", "hair": "black", "hair_style": "hat", "beard": True},
+    "npc_gravedigger": {"body": "grey", "legs": "earth", "hair": "grey", "hair_style": "hood", "hood": "dark",
+                        "prop": "spade"},
+    "npc_rift_warden": {"body": "purple", "robe": True, "hair_style": "hood", "hood": "purple", "prop": "staff"},
+}
+
 CHARACTERS = {
     "enemy_skeleton": skeleton,
     "enemy_zombie": zombie,
 }
+
+
+for _name, _spec in NPCS.items():
+    CHARACTERS[_name] = person(_spec)
 
 
 def frames(fn):
@@ -140,6 +246,8 @@ def main():
     for name, fn in CHARACTERS.items():
         fs = frames(fn)
         fs[0].save(OUT / f"{name}.png")
+        if name in NPCS:
+            continue  # townsfolk stand at their post: idle only
         for i in range(1, 5):
             fs[i].save(OUT / f"{name}_walk_{i}.png")
         print("wrote", name)

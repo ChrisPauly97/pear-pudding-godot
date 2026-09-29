@@ -394,5 +394,13 @@ humanoid rig (`_walk(frame)` leg/arm swing, `_legs`). Each character writes `<na
 | `enemy_skeleton` | 0x72 `skelet` (`enemy_undead.png`) | `undead_basic` (Undead Wanderer) — TID-603 |
 | `enemy_zombie` | 0x72 `skelet` | `undead_horde` (Horde Shambler) — TID-603 |
 
+| `npc_hilda_baker`, `npc_wenna_herbalist`, `npc_brother_aldo`, `npc_old_tam`, `npc_ivy_chandler`, `npc_combat_trainer`, `npc_bounty_master`, `npc_gravedigger`, `npc_rift_warden` | townsperson variants | named quest givers / trainers — TID-604 |
+
+Townsfolk come from `person(spec)` (`NPCS` table: body/legs cloth ramp, `robe`, `apron`, `belt`, hair colour +
+style `short|long|tonsure|hood|hat`, `beard`, a hand `prop` `loaf|satchel|pike|candle|sword|spade|staff`); idle
+frame only. `SpriteRegistry.named_npc_texture(npc_id)` (`_NAMED_NPC_TEXTURES`) maps entity ids to them and
+`TownspersonNPC` uses it before falling back to a townsperson variant; `test_starter_zone` checks every quest giver
+and trainer has one.
+
 World heights are unchanged (`HEIGHT_SMALL_UNDEAD`); `SpriteRegistry.make_billboard` scales to them. The old
 `enemy_undead*.png` files stay on disk (credited) but are no longer referenced.

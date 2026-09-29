@@ -89,3 +89,22 @@ func test_named_npcs_stand_on_open_ground() -> void:
 		var tx: int = int(floor(float(npc["x"]) / IsoConst.TILE_SIZE))
 		var tz: int = int(floor(float(npc["z"]) / IsoConst.TILE_SIZE))
 		assert_ne(wm.get_tile(tx, tz), IsoConst.TILE_WALL, "%s is not standing in a wall" % str(npc["id"]))
+
+
+func test_every_trainer_and_quest_giver_has_its_own_sprite() -> void:
+	# GID-143 / TID-604.
+	const SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
+	const SideQuests = preload("res://game_logic/quests/SideQuests.gd")
+	const UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
+	var ids: Array[String] = []
+	for q: Dictionary in SideQuests.all():
+		if not ids.has(str(q["giver"])):
+			ids.append(str(q["giver"]))
+	for t: Variant in UnlockLadder.TRAINER_NPCS:
+		var nid: String = str(UnlockLadder.TRAINER_NPCS[t])
+		if t in ["merchant", "stable"]:
+			continue  # service NPCs keep their own scenes / looks
+		if not ids.has(nid):
+			ids.append(nid)
+	for nid: String in ids:
+		assert_not_null(SpriteRegistry.named_npc_texture(nid), "%s has a generated sprite" % nid)

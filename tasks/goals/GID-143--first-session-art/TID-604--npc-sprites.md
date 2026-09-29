@@ -2,7 +2,7 @@
 
 **Goal:** GID-143
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-603
 
 ## Lock
@@ -22,12 +22,15 @@ BID-065: quest givers and trainers look like random townsfolk.
 
 ## Plan
 
-_Written during Plan phase._
+`person(spec)` rig in generate_characters.py + a spec per named NPC; SpriteRegistry id → texture map; TownspersonNPC uses it.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `tools/generate_characters.py`: `HAIR`, `CLOTH`, `person()`, `NPCS` (9 specs; idle only).
+- 9 `assets/textures/characters/npc_*.png` (+ imports).
+- `SpriteRegistry`: preloads + `named_npc_texture()`. `TownspersonNPC._ready`: uses it.
+- Test: `test_starter_zone.test_every_trainer_and_quest_giver_has_its_own_sprite`. Verified in an xvfb capture.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`art-sprites.md` generated characters table + person rig.

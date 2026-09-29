@@ -18,7 +18,10 @@ func _ready() -> void:
 	_ring = build_highlight_ring(self, 0.55)
 	# Stable per-NPC look: same id/name always picks the same variant.
 	var variant_seed: int = hash(str(npc_data.get("id", "")) + _extract_name())
-	var sprite: Sprite3D = _SpriteRegistry.make_billboard(_SpriteRegistry.townsperson_texture(variant_seed),
+	var tex: Texture2D = _SpriteRegistry.named_npc_texture(str(npc_data.get("id", "")))
+	if tex == null:
+		tex = _SpriteRegistry.townsperson_texture(variant_seed)
+	var sprite: Sprite3D = _SpriteRegistry.make_billboard(tex,
 			TextureGen.npc_townsperson(), _SpriteRegistry.HEIGHT_NPC)
 	add_child(sprite)
 	_SpriteOutline.apply(sprite)
