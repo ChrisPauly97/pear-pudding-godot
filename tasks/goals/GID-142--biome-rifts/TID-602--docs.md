@@ -2,7 +2,7 @@
 
 **Goal:** GID-142
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-599, TID-600, TID-601
 
 ## Lock
@@ -25,12 +25,12 @@ Record the rift design.
 
 ## Plan
 
-_Written during Plan phase._
+`rifts.md` was written task by task; point the older Spire sections at it, record the save fields/migrations, fix the in-game Spire tutorial text.
 
 ## Changes Made
 
-_Filled after Build phase._
+`TutorialRegistry` `spire_intro` rewritten for rifts (title "The Rifts").
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`rifts.md` (complete), GID-142 notes in `inventory-and-deck.md`, `named-maps-and-dungeons.md`, `multiplayer-coop.md`, `player-home.md`; `save-system.md` fields/migrations v44–v45; `game-appeal.md` retention line.

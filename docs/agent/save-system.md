@@ -195,3 +195,12 @@ them as a user-requested option.
 | Save file | `user://save.json` | Created/overwritten at runtime; not shipped with the game |
 
 No textures, shaders, or scene files are required by the save system itself.
+
+
+## GID-141 / GID-142 fields and migrations
+
+- `quests_active`, `quests_completed` (side quests, `SaveQuests`), `learned_abilities` now also holds UnlockLadder
+  feature ids (`feat_*`), `rift_best_tiers` (rift → best tier), `rift_first_clears` (`"<rift>:<tier>"`).
+- v44 `_m44_unlock_ladder`: existing saves learn every ladder feature + Mend/Kick (riding only with a mount) and
+  skip the townsfolk opening (`town_quests_done`).
+- v45 `_m45_rifts`: `spire_best_floor / 5` → Grasslands rift best tier; an active legacy run becomes Grasslands T1.

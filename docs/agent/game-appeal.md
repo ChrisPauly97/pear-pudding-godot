@@ -105,7 +105,7 @@ common in the segment.
   (Dawn/Dusk modifiers, GID-059); weather and biome atmosphere (GID-042); living world
   events (GID-039).
 - **Long arcs:** skill trees with corruption/redemption currencies (GID-030/032/086),
-  bestiary and colossi completion (GID-045/067), Spire best-floor record (GID-038),
+  bestiary and colossi completion (GID-045/067), per-biome rift tier ladders with one-time rift quests (GID-142; originally the Spire best-floor record, GID-038),
   champion ladder (GID-037), the rival Isfig arc (GID-053), Chapters 1–2 story (GID-108).
 - **Loss is cheap:** defeat keeps the world alive with Retry/Respawn (GID-069), battles
   can be fled, battle speed is adjustable — the loop respects mobile session lengths.

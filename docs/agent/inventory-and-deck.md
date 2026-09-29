@@ -280,6 +280,8 @@ The `dagger_throw` card has `cost = 0` and `auto_resolve = true`. It is defined 
 
 ## Endless Spire: Run-Local Deck Isolation
 
+> **GID-142:** the Spire is now per-biome **rifts** with tier ladders — see `docs/agent/rifts.md`. Sections below describe the original Endless Spire machinery the rifts are built on.
+
 During an Endless Spire run the player's battle deck is separate from their persistent `player_deck`. It is built up by drafting cards after each floor victory.
 
 ### How it works

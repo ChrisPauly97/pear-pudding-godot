@@ -2615,6 +2615,8 @@ mode (TID-390/391 above) and a physical guildhall home (TID-392/393, below).
 
 ### Co-op Endless Spire — shared run & alternating draft (TID-390)
 
+> **GID-142 / TID-601:** co-op runs are rift runs (rift + tier in the floor map name, guardian win = tier clear credited to each peer, `rift_<id>` leaderboards). See `docs/agent/rifts.md`.
+
 Adapts the single-player Endless Spire (GID-038 — escalating boss floors, a
 3-card-1 draft between each) for a party: the same seed-based floor
 composition, but the run deck is **shared and built collaboratively** via

@@ -39,9 +39,11 @@ const _DATA: Dictionary = {
 				+ "button.\n\nTap ✕ Cancel at the top of the screen to back out of a spell or an attack."),
 	},
 	"spire_intro": {
-		"title": "The Endless Spire",
-		"body": ("Each floor holds one enemy. Defeat it and choose one of three cards to add to your run deck — your "
-				+ "permanent collection stays untouched.\n\nHigher floors offer rarer cards. How far can you climb?"),
+		"title": "The Rifts",
+		"body": ("Every land has its own rift. Pick a tier, then fight five floors with your own deck — the last "
+				+ "holds a guardian. Between floors take a boon or a card; they last this run only.\n\nBeat the "
+				+ "guardian to open the next tier. The first clear of each tier teaches you something (XP); "
+				+ "repeating it pays coins and a card, not experience."),
 	},
 	"night_hunts": {
 		"title": "Night Hunts",
