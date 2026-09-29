@@ -371,12 +371,13 @@ paths — Android rule). Roaming bosses always get the terror sprite; unknown bo
 types get the warleader; unknown/empty regular types return `null` and the old
 `TextureGen.enemy()` silhouette is used (graceful fallback). Sprite world size uses
 `SpriteRegistry.CHAR_PIXEL_SIZE` (0.05) and the feet-at-y=0 formula from the real
-texture height (pack sprites are 16–36 px, not a fixed 32). Boss node `scale`
+texture height (generated sprites are 16–40 px, not a fixed 32 — every world character is original
+since GID-144 / TID-610, `tools/generate_characters.py`). Boss node `scale`
 treatment (1.3× / 1.5×) is unchanged. TownspersonNPC picks 1 of 3 variants by
 hashing the NPC id+name (stable per NPC); ScoutAmbush uses the raider texture at
 0.04 pixel size (visibly smaller than a full raider, matching the old ratio) and
-keeps its green lurk tint. Walk frames exist on disk (`*_walk_{1-4}.png`) but are
-NOT wired — see backlog BID-051.
+keeps its green lurk tint. Only Maiteln animates a walk cycle (`npc_maiteln_walk_{1-4}.png`);
+enemy walk frames were never wired and were deleted in TID-610.
 
 ## Asset Requirements
 

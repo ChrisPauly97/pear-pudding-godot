@@ -147,7 +147,7 @@
 | [GID-141](goals/GID-141--starter-zone-trainer-unlocks/goal.md) | Starter Zone & Trainer-Taught Unlocks | in-progress | 12 / 13 |
 | [GID-142](goals/GID-142--biome-rifts/goal.md) | Spire → Biome Rifts | done | 6 / 6 |
 | [GID-143](goals/GID-143--first-session-art/goal.md) | First-Session Art Pass | done | 6 / 6 |
-| [GID-144](goals/GID-144--generated-art-replacement/goal.md) | Generated Art Replacement | in-progress | 1 / 5 |
+| [GID-144](goals/GID-144--generated-art-replacement/goal.md) | Generated Art Replacement | in-progress | 2 / 5 |
 
 ## Backlog
 
@@ -161,7 +161,6 @@ files in `tasks/archive/backlog/`.
 | [BID-055](backlog/BID-055--worldscene-god-object.md) | `WorldScene.gd` god-object decomposition, slice 1/3 done (co-op/net cluster folded into `CoopSession.gd`, line-ceiling guardrail added); original 9154/401 census was stale — see file's Progress section for real numbers and slices 2-3 (`_spawn_*`, `_start_*`) | code-smell | GID-123 research |
 | [BID-061](backlog/BID-061--spec-says-no-xp-system.md) | Spec says "No XP system planned" but XP/levels/skill points shipped (GID-030) | spec-gap | Tracked by TID-539 |
 | [BID-063](backlog/BID-063--coop-still-on-named-town-maps.md) | Co-op sessions still start on the named town maps, not the stitched overworld (GID-138) | design-inconsistency | TID-571 |
-| [BID-069](backlog/BID-069--generate-world-characters.md) | Replace third-party world characters with generated sprites (batch B1) | design-inconsistency | GID-143 / TID-607 |
 | [BID-070](backlog/BID-070--generate-card-art.md) | Replace third-party card art and spell runes (B2) | design-inconsistency | GID-143 / TID-607 |
 | [BID-071](backlog/BID-071--generate-objects.md) | Replace third-party chest, door, mimic and horse (B3) | design-inconsistency | GID-143 / TID-607 |
 | [BID-072](backlog/BID-072--generate-hud-icons.md) | Replace game-icons.net HUD icons (B4) | design-inconsistency | GID-143 / TID-607 |
@@ -170,6 +169,7 @@ files in `tasks/archive/backlog/`.
 
 | ID | Summary | Category | Discovered During |
 |----|---------|----------|-------------------|
+| [BID-069](archive/backlog/BID-069--generate-world-characters.md) | Replace third-party world characters with generated sprites (batch B1) | design-inconsistency | Resolved: GID-144 TID-610 |
 | [BID-068](archive/backlog/BID-068--dead-art-files.md) | Unreferenced art files still shipped (old undead, wizard walk frames) | design-inconsistency | Resolved: GID-144 TID-609 |
 | [BID-065](archive/backlog/BID-065--placeholder-starter-sprites.md) | Starter enemies (undead) and townsfolk use placeholder-grade sprites | design-inconsistency | Resolved: GID-143 TID-603/604 (generated undead + named NPCs; generic townsfolk → BID-069) |
 | [BID-066](archive/backlog/BID-066--graveyard-dressing.md) | Madrian graveyard / sealed crypt have no graveyard dressing | content-gap | Resolved: GID-143 TID-605 |

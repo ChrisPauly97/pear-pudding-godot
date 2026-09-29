@@ -2,7 +2,7 @@
 
 **Goal:** GID-144
 **Type:** agent
-**Status:** todo
+**Status:** done
 **Depends On:** TID-609
 
 ## Lock
@@ -21,6 +21,12 @@ Rigs in `tools/generate_characters.py` (skeleton, zombie, person(spec)). Only Ma
 
 ## Plan
 
+Add rigs (elite, ghoul, spectre, warleader, terror) and `person()` extensions + `CAST` specs; write over the same file names so SpriteRegistry preloads are unchanged; verify with preview sheet + xvfb capture.
+
 ## Changes Made
 
+`tools/generate_characters.py`: 5 new rigs, hats/helm/cloak/pack/pauldrons/axe/rapier/lantern, `CAST`, `WALKERS` (Maiteln only). Regenerated 17 sprites. Deleted every unused `enemy_*_walk_*.png`.
+
 ## Documentation Updates
+
+`art-sprites.md` roadmap (B1 ✓), `enemies-and-npcs.md` sprite notes, CREDITS per-slot index + pack usage.

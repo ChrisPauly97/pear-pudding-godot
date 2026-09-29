@@ -413,18 +413,18 @@ GID-143:
 
 | Asset(s) | Path | Source · licence | Generator plan | Batch |
 |---|---|---|---|---|
-| Undead elite | `characters/enemy_undead_elite.png` (+walk) | 0x72 recolour · CC0 | `generate_characters.skeleton` with armour + spectral ramp | B1 |
-| Ghoul | `characters/enemy_ghoul.png` (+walk) | 0x72 · CC0 | zombie rig, crouched, claws | B1 |
-| Raider (+ScoutAmbush) | `characters/enemy_raider.png` (+walk) | 0x72 · CC0 | `person()` + helmet/leather + axe, Martarquas colours | B1 |
-| Warleader | `characters/enemy_warleader.png` (+walk) | 0x72 · CC0 | large rig (1.5× canvas), horned helm | B1 |
-| Duelist | `characters/enemy_duelist.png` (+walk) | 0x72 · CC0 | `person()` robe + rapier | B1 |
-| Rival (Isfig) | `characters/enemy_rival.png` (+walk) | 0x72 `elf_m` recolour · CC0 | `person()` rider cloak (story look) | B1 |
-| Roaming terror | `characters/enemy_terror.png` (+walk) | 0x72 `big_demon` · CC0 | large rig, horns, fire ramp | B1 |
+| Undead elite | `characters/enemy_undead_elite.png` (+walk) | 0x72 recolour · CC0 | `generate_characters.skeleton` with armour + spectral ramp | B1 ✓ |
+| Ghoul | `characters/enemy_ghoul.png` (+walk) | 0x72 · CC0 | zombie rig, crouched, claws | B1 ✓ |
+| Raider (+ScoutAmbush) | `characters/enemy_raider.png` (+walk) | 0x72 · CC0 | `person()` + helmet/leather + axe, Martarquas colours | B1 ✓ |
+| Warleader | `characters/enemy_warleader.png` (+walk) | 0x72 · CC0 | large rig (1.5× canvas), horned helm | B1 ✓ |
+| Duelist | `characters/enemy_duelist.png` (+walk) | 0x72 · CC0 | `person()` robe + rapier | B1 ✓ |
+| Rival (Isfig) | `characters/enemy_rival.png` (+walk) | 0x72 `elf_m` recolour · CC0 | `person()` rider cloak (story look) | B1 ✓ |
+| Roaming terror | `characters/enemy_terror.png` (+walk) | 0x72 `big_demon` · CC0 | large rig, horns, fire ramp | B1 ✓ |
 | Mimic | `characters/enemy_mimic.png` (+walk) | 0x72 · CC0 | from the generated chest (B3) + teeth/tongue | B3 |
-| Spectre (wisp/haunt/dread) | `characters/enemy_spectre.png` | Kenney Tiny Dungeon · CC0 | floating sheet-ghost blob rig, 3 tints | B1 |
-| Townsfolk ×3 | `characters/npc_townsperson{,_2,_3}.png` | 0x72 · CC0 | `person()` specs (several more variants) | B1 |
-| Merchant (+traveling) | `characters/npc_merchant{,_traveling}.png` | 0x72 · CC0 | `person()` + pack / cart | B1 |
-| Maiteln (+walk) | `characters/npc_maiteln.png`, `_walk_1..4` | 0x72 · CC0 | `person()` robe + staff + grey beard, walk frames | B1 |
+| Spectre (wisp/haunt/dread) | `characters/enemy_spectre.png` | Kenney Tiny Dungeon · CC0 | floating sheet-ghost blob rig, 3 tints | B1 ✓ |
+| Townsfolk ×3 | `characters/npc_townsperson{,_2,_3}.png` | 0x72 · CC0 | `person()` specs (several more variants) | B1 ✓ |
+| Merchant (+traveling) | `characters/npc_merchant{,_traveling}.png` | 0x72 · CC0 | `person()` + pack / cart | B1 ✓ |
+| Maiteln (+walk) | `characters/npc_maiteln.png`, `_walk_1..4` | 0x72 · CC0 | `person()` robe + staff + grey beard, walk frames | B1 ✓ |
 | Horse mount | `characters/mount_horse.png` | Clint Bellanger Tiny Creatures · CC0 | quadruped rig in `generate_characters.py` | B3 |
 | Chest open/closed | `props/chest_{closed,open}.png` | 0x72 · CC0 | `generate_sprites.py` box + lid frames | B3 |
 | Door | `props/door.png` | 0x72 · CC0 | `generate_sprites.py` (share the crypt-door drawing) | B3 |
@@ -432,6 +432,10 @@ GID-143:
 | Spell runes ×4 | `cards/rune_{dawn,dusk,ember,ash}.png` | game-icons.net · **CC BY 3.0** | `generate_sprites.py` glyph drawer (sun, moon, flame, cloud) | B2 |
 | HUD icons ×15 | `assets/icons/hud/*.svg` | game-icons.net · **CC BY 3.0** | hand-authored SVG set or pixel icons at 32×32 | B4 |
 | ~~Dead art~~ | `enemy_undead{,_walk_*}.png`, `pixel_art/wizard_walk_*_pixel.png` | — | **deleted (GID-144 / TID-609)** | B0 ✓ |
+
+B1 landed in GID-144 / TID-610: the `elite`, `ghoul`, `spectre`, `warleader`, `terror` rigs plus `person()` specs in
+`CAST` (helm / wizard / wide hats, cloak, pack, pauldrons, axe / rapier / lantern props). Only Maiteln keeps walk
+frames (`WALKERS`); unused enemy walk frames were deleted.
 
 Already original: terrain tiles and grass tufts (`generate_hd_terrain.py`), every prop / landmark
 (`generate_sprites.py`, incl. GID-143 graveyard set), the paper-doll hero (`PaperDoll.gd`), skeleton, zombie and
