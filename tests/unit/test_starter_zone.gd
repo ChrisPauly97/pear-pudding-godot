@@ -108,3 +108,17 @@ func test_every_trainer_and_quest_giver_has_its_own_sprite() -> void:
 			ids.append(nid)
 	for nid: String in ids:
 		assert_not_null(SpriteRegistry.named_npc_texture(nid), "%s has a generated sprite" % nid)
+
+
+func test_graveyard_dressing() -> void:
+	# GID-143 / TID-605: fence is decor now (no wall tiles), crypt keeps its walls.
+	var wm := WorldMapScript.new("madrian")
+	var r: Rect2i = StarterZone.GRAVEYARD_LOCAL_RECT
+	for x: int in range(r.position.x, r.end.x):
+		assert_ne(wm.get_tile(x, r.position.y), IsoConst.TILE_WALL, "graveyard edge is open at %d" % x)
+	var keys: Dictionary = {}
+	for e: Array in StarterZone.graveyard_props():
+		keys[str(e[0])] = true
+		assert_not_null(preload("res://game_logic/SpriteRegistry.gd").graveyard_prop(str(e[0])), str(e[0]))
+	for k: String in ["iron_fence", "crypt_door", "headstone_0", "headstone_1", "headstone_2"]:
+		assert_true(keys.has(k), "%s placed" % k)

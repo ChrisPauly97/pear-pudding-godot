@@ -2,7 +2,7 @@
 
 **Goal:** GID-143
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -23,12 +23,16 @@ BID-066: graveyard is town brick walls + mounds.
 
 ## Plan
 
-_Written during Plan phase._
+Generate headstones (3), iron fence segment, crypt door in generate_sprites.py; graveyard fence walls → open ground + fence billboards; headstone rows; crypt door facade; spawned once by StarterCamps.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `tools/generate_sprites.py`: `headstone()`, `iron_fence()`, `crypt_door()`; 5 new `assets/textures/props/` PNGs
+  (existing props regenerate identically).
+- `madrian.tres`: graveyard ring wall tiles → grass. `StarterZone.graveyard_props()`, `GRAVEYARD_LOCAL_RECT`.
+- `SpriteRegistry.graveyard_prop()`. `StarterCamps._build_scenery()`, `scenery_count()`.
+- Test: `test_starter_zone.test_graveyard_dressing`. Verified in an xvfb capture.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`starter-zone-and-training.md` graveyard dressing.

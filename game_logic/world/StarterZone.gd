@@ -47,6 +47,34 @@ const CAMPS: Array[Dictionary] = [
 const GRAVEYARD_TILE := Vector2i(-25, 19)
 const GRAVEYARD_MOUNDS: Array[Vector2i] = [Vector2i(-28, 17), Vector2i(-24, 22), Vector2i(-21, 16)]
 
+## GID-143 / TID-605: graveyard dressing, Madrian-local tiles → prop texture key
+## (SpriteRegistry.graveyard_prop). The graveyard's edge is a low iron fence
+## (decor, not a wall); the sealed crypt keeps real walls — Ghost Phase needs them.
+const GRAVEYARD_LOCAL_RECT := Rect2i(8, 47, 11, 10)
+const CRYPT_DOOR_LOCAL := Vector2i(24, 53)
+
+## [key, Madrian-local tile] for every graveyard prop.
+static func graveyard_props() -> Array:
+	var out: Array = []
+	var r: Rect2i = GRAVEYARD_LOCAL_RECT
+	# Fence segments (2 tiles wide) along the north and south edges, gate left open.
+	for x: int in range(r.position.x, r.end.x, 2):
+		if x != 13:
+			out.append(["iron_fence", Vector2i(x, r.position.y)])
+		out.append(["iron_fence", Vector2i(x, r.end.y - 1)])
+	for z: int in range(r.position.y + 2, r.end.y - 1, 2):
+		out.append(["iron_fence", Vector2i(r.position.x, z)])
+		out.append(["iron_fence", Vector2i(r.end.x - 1, z)])
+	var i: int = 0
+	for z: int in [49, 51, 53]:
+		for x: int in [10, 12, 15, 17]:
+			if Vector2i(x, z) in [Vector2i(14, 50)]:
+				continue
+			out.append(["headstone_%d" % (i % 3), Vector2i(x, z)])
+			i += 1
+	out.append(["crypt_door", CRYPT_DOOR_LOCAL])
+	return out
+
 ## Where a camp's member `slot` stands (a small ring around the camp tile).
 static func slot_tile(camp: Dictionary, slot: int) -> Vector2i:
 	var centre: Vector2i = camp["tile"]

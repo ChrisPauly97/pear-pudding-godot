@@ -10,6 +10,8 @@ const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const _StarterZone = preload("res://game_logic/world/StarterZone.gd")
 const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _EnemyScene: PackedScene = preload("res://scenes/world/entities/EnemyNPC.tscn")
+const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
+const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 
 ## How often camps are checked (s).
 const CHECK_INTERVAL: float = 1.5
@@ -20,6 +22,8 @@ var _timer: float = 0.0
 var _members: Dictionary = {}
 ## member id → seconds until it may refill (only while fallen)
 var _cooldowns: Dictionary = {}
+## Graveyard dressing root (GID-143 / TID-605), built once per overworld load.
+var _scenery: Node3D = null
 
 
 func tick(delta: float) -> void:
@@ -29,6 +33,8 @@ func tick(delta: float) -> void:
 	if _timer > 0.0:
 		return
 	_timer = CHECK_INTERVAL
+	if _scenery == null and _world.map_name == "main" and not NetworkManager.is_dedicated_server():
+		_build_scenery()
 	var player: Node3D = _world._player
 	if player == null or _world.map_name != "main" or NetworkManager.is_active():
 		return
@@ -83,6 +89,30 @@ func _despawn(id: String, node: Node3D) -> void:
 	_world._enemy_nodes.erase(id)
 	_world._loose_enemy_nodes.erase(id)
 	node.queue_free()
+
+## Headstones, the iron fence and the crypt door as static billboards.
+func _build_scenery() -> void:
+	_scenery = Node3D.new()
+	_scenery.name = "StarterScenery"
+	_world._entity_root.add_child(_scenery)
+	for entry: Array in _StarterZone.graveyard_props():
+		var tex: Texture2D = _SpriteRegistry.graveyard_prop(str(entry[0]))
+		if tex == null:
+			continue
+		var t: Vector2i = _RealmLayout.to_world_tile("madrian", entry[1] as Vector2i)
+		var x: float = (float(t.x) + 0.5) * IsoConst.TILE_SIZE
+		var z: float = (float(t.y) + 0.5) * IsoConst.TILE_SIZE
+		var sprite := Sprite3D.new()
+		_SpriteRegistry.apply_billboard_flags(sprite)
+		_SpriteRegistry.setup_sprite(sprite, tex)
+		var holder := Node3D.new()
+		holder.position = Vector3(x, _world.get_terrain_height(x, z), z)
+		holder.add_child(sprite)
+		_scenery.add_child(holder)
+
+## Props placed (tests / debugging).
+func scenery_count() -> int:
+	return _scenery.get_child_count() if _scenery != null else 0
 
 ## Camp members alive right now (tests / debugging).
 func alive_count() -> int:

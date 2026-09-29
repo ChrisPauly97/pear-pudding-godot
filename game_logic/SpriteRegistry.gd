@@ -12,6 +12,14 @@
 ## Callers: preload("res://game_logic/SpriteRegistry.gd")
 extends RefCounted
 
+## GID-143 / TID-605: graveyard dressing (tools/generate_sprites.py).
+const _GRAVEYARD_PROPS: Dictionary = {
+	"headstone_0": preload("res://assets/textures/props/headstone_0.png"),
+	"headstone_1": preload("res://assets/textures/props/headstone_1.png"),
+	"headstone_2": preload("res://assets/textures/props/headstone_2.png"),
+	"iron_fence": preload("res://assets/textures/props/iron_fence.png"),
+	"crypt_door": preload("res://assets/textures/props/crypt_door.png"),
+}
 ## GID-143: original generated sprites (tools/generate_characters.py).
 const _NPC_HILDA_BAKER := preload("res://assets/textures/characters/npc_hilda_baker.png")
 const _NPC_WENNA_HERBALIST := preload("res://assets/textures/characters/npc_wenna_herbalist.png")
@@ -217,6 +225,9 @@ static func townsperson_texture(variant_seed: int) -> Texture2D:
 		2: return _NPC_TOWNSPERSON_3
 	return _NPC_TOWNSPERSON
 
+
+static func graveyard_prop(key: String) -> Texture2D:
+	return _GRAVEYARD_PROPS.get(key, null) as Texture2D
 
 ## The named NPC's own sprite, or null for an ordinary townsperson.
 static func named_npc_texture(npc_id: String) -> Texture2D:

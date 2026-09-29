@@ -405,7 +405,74 @@ def blight_heart():
     return c.image()
 
 
+def headstone(variant):
+    # GID-143: graveyard dressing, ~0.9 world units. Three shapes: round-top,
+    # cross, slab; mossy at the foot, a crack on one.
+    c = Canvas(14, 19)
+    ramp = P.STONE if variant != 1 else P.STONE_WARM
+    if variant == 1:  # cross
+        c.rect(6, 3, 7, 16, ramp[2])
+        c.rect(3, 6, 10, 7, ramp[2])
+        c.rect(6, 3, 6, 16, ramp[3])
+        c.rect(3, 6, 10, 6, ramp[3])
+    else:
+        top = 3 if variant == 0 else 5
+        c.rect(3, top + 2, 10, 16, ramp[2])
+        c.rect(3, top + 2, 3, 16, ramp[3])
+        c.rect(10, top + 2, 10, 16, ramp[1])
+        if variant == 0:
+            c.blob(6.5, top + 2, 3.6, 2.4, ramp)
+        else:
+            c.rect(3, top, 10, top + 1, ramp[2])
+        c.line(5, top + 5, 8, top + 5, ramp[0])       # inscription
+        c.line(5, top + 7, 8, top + 7, ramp[0])
+        if variant == 2:
+            c.line(8, top + 1, 7, top + 4, ramp[0])   # a crack
+    c.rect(2, 16, 11, 17, P.EARTH[1])
+    c.set(3, 15, P.GREEN[1])
+    c.set(10, 16, P.GREEN[2])
+    c.outline()
+    return c.image()
+
+
+def iron_fence():
+    # A low wrought-iron fence segment, 2 tiles wide (~40 px at 0.05), ~0.8 units tall.
+    c = Canvas(40, 17)
+    dark = [(17, 17, 17), (34, 34, 34), (42, 42, 58), (82, 96, 124)]
+    c.rect(0, 5, 39, 5, dark[2])
+    c.rect(0, 13, 39, 13, dark[2])
+    for x in range(1, 40, 4):
+        c.rect(x, 3, x, 16, dark[3] if x % 8 == 1 else dark[2])
+        c.set(x, 2, dark[3])                           # spear tip
+    c.outline()
+    return c.image()
+
+
+def crypt_door():
+    # The sealed crypt's facade: stone lintel, iron-banded door, a skull boss.
+    c = Canvas(26, 30)
+    c.rect(2, 4, 23, 29, P.STONE[1])
+    c.rect(2, 4, 23, 7, P.STONE[2])                   # lintel
+    c.rect(2, 4, 23, 4, P.STONE[3])
+    c.rect(7, 10, 18, 29, P.WOOD[0])                  # door
+    c.rect(7, 10, 18, 10, P.WOOD[1])
+    for y in (14, 20, 26):
+        c.rect(7, y, 18, y, (42, 42, 58))             # iron bands
+    c.blob(12.5, 7.5, 2.2, 2.0, [P.STONE[1], P.STONE[2], P.STONE[3], P.WHITE])
+    c.set(11.5, 7, P.OUTLINE)
+    c.set(13.5, 7, P.OUTLINE)
+    c.set(4, 20, P.GREEN[1])
+    c.set(21, 12, P.GREEN[2])
+    c.outline()
+    return c.image()
+
+
 LANDMARKS = {
+    "headstone_0": lambda: headstone(0),
+    "headstone_1": lambda: headstone(1),
+    "headstone_2": lambda: headstone(2),
+    "iron_fence": iron_fence,
+    "crypt_door": crypt_door,
     "waystone_dormant": lambda: waystone(False),
     "waystone_active": lambda: waystone(True),
     "mana_well": mana_well,

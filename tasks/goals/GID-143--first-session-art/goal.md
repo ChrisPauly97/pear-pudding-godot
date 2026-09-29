@@ -20,7 +20,7 @@ party too". Existing precedent: `tools/generate_sprites.py` generates props/land
 |----|------|------|--------|------------|
 | TID-603 | Generated Undead Enemy Sprites | agent | done | — |
 | TID-604 | Generated Named-NPC Sprites | agent | done | TID-603 |
-| TID-605 | Graveyard Dressing | agent | pending | — |
+| TID-605 | Graveyard Dressing | agent | done | — |
 | TID-606 | Main Menu Key Art (live view + static fallback) | agent | pending | — |
 | TID-607 | Third-Party Art Inventory & Generation Roadmap | agent | pending | TID-603 |
 | TID-608 | Before/After Captures & Docs | agent | pending | TID-603, TID-604, TID-605, TID-606, TID-607 |
