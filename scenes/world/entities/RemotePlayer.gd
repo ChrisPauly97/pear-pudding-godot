@@ -29,6 +29,7 @@ var _target_x: float = 0.0
 var _target_z: float = 0.0
 var _target_flip_h: bool = false
 var _target_moving: bool = false
+var _back_facing: bool = false
 var _net_velocity: Vector2 = Vector2.ZERO  # XZ velocity from the last two packets
 var _since_packet: float = 0.0             # seconds since the last packet arrived
 var _has_packet: bool = false
@@ -182,9 +183,10 @@ func _process(delta: float) -> void:
 
 	_sprite.flip_h = _target_flip_h
 
+	# Back view while the peer heads up-screen (TID-618); the XZ net velocity
+	# stands in for the steering direction the local Player uses.
 	if _target_moving:
-		if _sprite.animation != &"walk":
-			_sprite.play("walk")
-	else:
-		if _sprite.animation != &"idle":
-			_sprite.play("idle")
+		_back_facing = _HeroAnim.faces_away(Vector3(_net_velocity.x, 0.0, _net_velocity.y), _back_facing)
+	var want: StringName = _HeroAnim.facing(&"walk" if _target_moving else &"idle", _back_facing)
+	if _sprite.animation != want:
+		_sprite.play(want)

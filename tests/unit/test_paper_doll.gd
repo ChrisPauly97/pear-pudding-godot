@@ -220,3 +220,31 @@ func test_look_rides_the_gear_payload() -> void:
 	assert_eq(int(old["skin"]), 0, "older peers send no tail")
 	var junk: Dictionary = _PaperDoll.decode_look(_PaperDoll.encode_gear(gear) + ["evil", 1e9])
 	assert_eq(int(junk["skin"]) + int(junk["hair"]), 0)
+
+
+func test_back_view_frames_exist_and_hide_the_face() -> void:
+	# TID-618: idle_back / walk_back reuse the side poses, drawn from behind.
+	var sf: SpriteFrames = _PaperDoll.build_frames({"helmet": "iron_helm", "armor": "warded_cloak"})
+	assert_eq(sf.get_frame_count("idle_back"), 1)
+	assert_eq(sf.get_frame_count("walk_back"), _PaperDoll.WALK_POSES)
+	assert_true(sf.get_animation_loop("walk_back"))
+	var side: Image = _PaperDoll.render_frame({}, {})
+	var back: Image = _PaperDoll.render_frame({}, {}, "idle", 0, true)
+	assert_true(_differs(side, back))
+	# The eye pixel (body column x 9, head row 5) is hair from behind.
+	var eye := Vector2i(_PaperDoll.OX + 9, 5)
+	assert_true(back.get_pixelv(eye) != side.get_pixelv(eye), "back view still shows the eye")
+	for gear: Dictionary in [{"armor": "warded_cloak"}, {"helmet": "hooded_cowl"}, {"weapon": "dawn_staff"}]:
+		assert_true(_differs(_PaperDoll.render_frame(gear, {}, "walk", 2, true), back), "%s" % gear)
+
+
+func test_hero_anim_back_facing() -> void:
+	assert_true(_HeroAnim.faces_away(Vector3(-1, 0, -1), false), "up-screen")
+	assert_false(_HeroAnim.faces_away(Vector3(1, 0, 1), true), "down-screen")
+	assert_false(_HeroAnim.faces_away(Vector3(1, 0, -1), true), "screen-right")
+	assert_true(_HeroAnim.faces_away(Vector3.ZERO, true), "standing keeps the last facing")
+	assert_eq(_HeroAnim.facing(&"walk", true), &"walk_back")
+	assert_eq(_HeroAnim.facing(&"swing", true), &"swing", "one-shots have no back view")
+	assert_eq(_HeroAnim.facing(&"idle", false), &"idle")
+	assert_true(_HeroAnim.is_walk(&"walk_back"))
+	assert_eq(_HeroAnim.pick(false, true, 0.0, 0.0, true, &"walk_back", true), &"walk")

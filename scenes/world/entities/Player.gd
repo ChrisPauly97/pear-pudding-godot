@@ -77,6 +77,7 @@ var _landing_dust: GPUParticles3D
 var _start_dust: GPUParticles3D       # move-start puff (TID-493)
 var _particle_knobs: Dictionary = {}  # GraphicsQuality knobs, pushed by AmbientTouches
 var _is_moving: bool = false
+var _back_facing: bool = false  # walking up-screen: show the back view (TID-618)
 var _was_on_floor: bool = true
 var _air_time: float = 0.0
 var _coyote_timer: float = 0.0
@@ -332,14 +333,15 @@ func _physics_process(delta: float) -> void:
 	if _is_moving:
 		# Flip based on screen-space direction (camera looks from +X,+Y,+Z)
 		var screen_x: float = dir.x - dir.z
+		_back_facing = _HeroAnim.faces_away(dir, _back_facing) and not SaveManager.is_mounted  # rider stays side-on
 		if abs(screen_x) > 0.1:
 			_sprite.flip_h = screen_x < 0.0
 			_set_mount_facing(_sprite.flip_h)
 	# Mounted, the horse does the travelling — the rider sits still in the saddle
 	# instead of running on the spot.
 	_air_time = 0.0 if is_on_floor() else _air_time + delta
-	var want_anim: StringName = _HeroAnim.pick(SaveManager.is_mounted, is_on_floor(), _velocity_y,
-			_air_time, _is_moving, _sprite.animation, _sprite.is_playing())
+	var want_anim: StringName = _HeroAnim.facing(_HeroAnim.pick(SaveManager.is_mounted, is_on_floor(),
+			_velocity_y, _air_time, _is_moving, _sprite.animation, _sprite.is_playing()), _back_facing)
 	if _sprite.animation != want_anim:
 		_sprite.play(want_anim)
 
@@ -377,7 +379,7 @@ func _squash_sprite(sx: float, sy: float, duration: float) -> void:
 func _on_sprite_frame_changed() -> void:
 	if SaveManager.is_mounted:
 		return
-	if _sprite.animation != &"walk":
+	if not _HeroAnim.is_walk(_sprite.animation):
 		return
 	if _sprite.frame % 4 == 0:
 		_play_step()
@@ -442,7 +444,6 @@ func snap_visuals_to_pixels(cam_basis: Basis, pixel: float) -> void:
 		_sprite.position = _sprite_pose_pos + _pixel_offset + Vector3.UP * snappedf(visual_bob, pixel / 0.8165)
 	if _mount_sprite != null:
 		_mount_sprite.position = _mount_pose_pos + _pixel_offset
-
 
 func apply_particle_knobs(knobs: Dictionary) -> void:
 	_particle_knobs = knobs

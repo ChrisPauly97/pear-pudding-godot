@@ -22,7 +22,7 @@ visibly changes the character.
 | TID-563 | Art Pass — Helmets & Boots Slots | agent | done | TID-560 |
 | TID-564 | Shoulders Slot & Gritty Art Pass | agent | done | TID-560 |
 | TID-565 | Smooth Walk, Swing & Jump Animations | agent | done | TID-564 |
-| TID-618 | Directional Hero Frames (back view, cast pose) | agent | pending | TID-563 |
+| TID-618 | Directional Hero Frames (back view, cast pose) | agent | done | TID-563 |
 
 ## Acceptance Criteria
 

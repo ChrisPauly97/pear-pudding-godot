@@ -190,6 +190,18 @@ Bresenham limbs from shoulder to hand, so raised/punching arms stay attached),
 scratch image and nearest-neighbour rotated about the grip), `wpn_behind`
 (draw the weapon before the torso). `l` = far/back side, `r` = near/front.
 
+**Back view (TID-618):** `BACK_ANIMS` adds `idle_back` / `walk_back`, rendered
+from the `idle` / `walk` poses with `back: true` (`render_frame(..., back)`):
+no face (`_draw_head_back` — hair over the head, ears), no collar/buckle/vest
+seam/trinket, held items drawn behind the body, the cloak hangs over it
+(`_draw_cloak_over`), helmets skip face-side details. `HeroAnim.faces_away(dir,
+was_back)` is true when a ground direction heads up-screen (camera forward
+`(−1, 0, −1)`) more than half as much as sideways; a stop keeps the last facing.
+`HeroAnim.facing(anim, back)` maps idle/walk to their twin (one-shots stay
+side-on); `is_walk()` covers both walks (footsteps, `IdleLife.hero_bob`).
+Player keeps `_back_facing` (never while mounted — the horse is side-on);
+RemotePlayer derives it from its XZ net velocity.
+
 **Driving it (Player.gd):** `HeroAnim.pick(mounted, on_floor, vel_y, air_time,
 moving, current, playing)`: mounted → idle; airborne → `jump` while rising,
 `fall` after `FALL_GRACE` (0.1 s, so slope hops don't flicker); a playing
