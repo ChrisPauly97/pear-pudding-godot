@@ -715,6 +715,14 @@ func adopt_session_character(record: Dictionary) -> void:
 	# Gear rarity / item-level rolls of the session's own equipment (BID-075).
 	var raw_rolls: Variant = record.get("gear_rolls", {})
 	gear_rolls = (raw_rolls as Dictionary).duplicate(true) if raw_rolls is Dictionary else {}
+	# Trainer-taught unlocks and rift progress belong to the character too, or a
+	# session forgets what was learned and re-pays first-clear XP every session.
+	var raw_learned: Variant = record.get("learned_abilities", [])
+	learned_abilities.assign(raw_learned if raw_learned is Array else [])
+	var raw_best: Variant = record.get("rift_best_tiers", {})
+	rift_best_tiers = (raw_best as Dictionary).duplicate(true) if raw_best is Dictionary else {}
+	var raw_first: Variant = record.get("rift_first_clears", [])
+	rift_first_clears.assign(raw_first if raw_first is Array else [])
 	# Hard isolation: a session character must never persist to the single-player save.
 	_loaded = false
 	_dirty = false
@@ -751,6 +759,9 @@ func export_session_character() -> Dictionary:
 		"equipped_weapon": equipped_weapon,
 		"equipped_armor": equipped_armor,
 		"gear_rolls": gear_rolls.duplicate(true),
+		"learned_abilities": learned_abilities.duplicate(),
+		"rift_best_tiers": rift_best_tiers.duplicate(true),
+		"rift_first_clears": rift_first_clears.duplicate(),
 	}
 
 ## Restores one PERSISTED_FIELDS entry, coercing to the default's type. Const

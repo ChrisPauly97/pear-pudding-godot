@@ -165,6 +165,7 @@ files in `tasks/archive/backlog/`.
 | [BID-061](backlog/BID-061--spec-says-no-xp-system.md) | Spec says "No XP system planned" but XP/levels/skill points shipped (GID-030) | spec-gap | Tracked by TID-539 |
 | [BID-073](backlog/BID-073--no-owl-ambience-loop.md) | Night owl ambience layer still synthesized (no clean CC0 loop found) | content-gap | GID-145 / TID-616 |
 | [BID-077](backlog/BID-077--packs-keep-a-leader-hero.md) | Pack encounters still have an enemy hero (no leaderless 'clear the board' packs) | design-gap | TID-541 |
+| [BID-078](backlog/BID-078--enemy-spells-never-resolve.md) | Enemy spell cards never resolve (turn-based discards them, real time never picks them) | bug | TID-541 review |
 
 ## Resolved Backlog
 

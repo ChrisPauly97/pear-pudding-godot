@@ -253,12 +253,13 @@ enemy hero):
   (`CardDropUtil.enemy_card_stats`), `minion_attack_bonus` applied, ready to act (not summoning-sick). In the world,
   `EnemyNPC._add_pack_followers()` stands the same units around the leader (80 % height, bobbing billboards from
   `SpriteRegistry.pack_member_texture(card_id)`), children of the leader so they chase and vanish with it.
-- **Solo** (`undead_elite`, the Undead Warlord): its deck is all ability spells (bone spear, brittle, drain,
-  desecrate, hex, soul rend, ash, shadow bolt) — no summons. Enemy spells already resolve through
-  `PlayerState.play_card` → `pending_auto_spells` → `flush_auto_spells` (turn-based) and the enemy cast bar (real time).
+- **Solo** (ability-casting enemies): **not shipped.** An all-spell Warlord deck was tried and reverted after
+  review — enemy spells never resolve: `PlayerState.play_card` just discards a spell (only auto-resolve cards
+  drawn go through `pending_auto_spells`), and real time's `RealtimeCombat.choose_enemy_card` skips spells. Needs
+  the enemy spell pipeline in BID-078 first.
 - **Summoner**: everyone else keeps the current summoning deck.
 - Co-op PvE, PvP, puzzles and scripted fights don't use `_setup_solo_battle`, so they're unchanged.
-- Tests: `test_enemy_encounters.gd` (pack data, solo deck is all spells); `battle_input_flow_smoke` checks the ghoul
+- Tests: `test_enemy_encounters.gd` (pack data; the Warlord keeps a summoning deck until BID-078); `battle_input_flow_smoke` checks the ghoul
   pack is on the board when the fight opens.
 
 ## Chain pulls — the next enemy follows straight on (TID-532)

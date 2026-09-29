@@ -215,3 +215,16 @@ func test_session_character_carries_gear_rolls() -> void:
 	assert_eq(str(((out["gear_rolls"] as Dictionary)["dusk_blade"] as Dictionary)["rarity"]), "epic")
 	_sm.adopt_session_character({"gear_rolls": "junk"})
 	assert_eq(_sm.gear_rolls.size(), 0, "a malformed roll table is dropped")
+
+
+func test_session_character_keeps_learned_abilities_and_rift_progress() -> void:
+	# Code review: a session forgot trainer unlocks and re-paid rift first-clear XP.
+	_sm.adopt_session_character({"learned_abilities": ["feat_bounties"], "rift_first_clears": ["forest:3"],
+			"rift_best_tiers": {"forest": 3}})
+	assert_true(_sm.learned_abilities.has("feat_bounties"))
+	var out: Dictionary = _sm.export_session_character()
+	assert_true((out["learned_abilities"] as Array).has("feat_bounties"))
+	assert_true((out["rift_first_clears"] as Array).has("forest:3"))
+	assert_eq(int((out["rift_best_tiers"] as Dictionary)["forest"]), 3)
+	_sm.adopt_session_character({})
+	assert_eq(_sm.learned_abilities.size(), 0, "old records without the fields adopt as empty")

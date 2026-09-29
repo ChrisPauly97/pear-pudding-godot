@@ -81,6 +81,8 @@ func _on_battle_won(result: Dictionary) -> void:
 	if enemy_type != "" and not is_rival and not is_nocturnal:
 		_sm.save_manager.record_enemy_defeated(enemy_type)
 		_sm.save_manager.bounties.increment_bounty_progress("defeat_enemy_type", {"enemy_type": enemy_type})
+	# Quest kills count spectres and rivals too ("After Dark" asks for spectre_wisp kills).
+	if enemy_type != "":
 		_sm.save_manager.quests.progress_event("kill", enemy_type)
 	_sm.save_manager.increment_progress("battles_won", 1)
 	_sm.save_manager.check_deck_achievements(_sm.save_manager.player_deck)

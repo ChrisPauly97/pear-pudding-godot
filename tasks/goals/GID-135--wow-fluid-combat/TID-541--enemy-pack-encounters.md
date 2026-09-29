@@ -41,7 +41,8 @@ First cut that keeps GameState's win rules (an enemy hero in every fight):
 
 ## Changes Made
 
-- `EnemyRegistry` (`pack` for ghoul_pack / undead_horde, `get_pack`, Warlord ability deck).
+- `EnemyRegistry` (`pack` for ghoul_pack / undead_horde, `get_pack`). The Warlord ability deck was reverted
+  after code review: enemy spells never resolve (BID-078), so an all-spell deck did nothing.
 - `BattleModifiers._place_enemy_pack`; `BattleScene` (one call after the enemy deck).
 - `EnemyNPC._add_pack_followers`; `SpriteRegistry.pack_member_texture`.
 - Tests: new `test_enemy_encounters.gd`; `battle_input_flow_smoke` → `_check_pack_on_board`

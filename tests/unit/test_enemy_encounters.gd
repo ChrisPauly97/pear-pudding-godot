@@ -19,10 +19,11 @@ func test_pack_enemies_have_a_real_pack() -> void:
 	assert_eq(EnemyRegistry.get_pack("no_such_enemy").size(), 0)
 
 
-func test_solo_warlord_fights_with_abilities() -> void:
-	var deck: Array[String] = EnemyRegistry.get_deck("undead_elite")
-	assert_true(deck.size() >= 10)
-	for cid: String in deck:
-		var tmpl: Dictionary = CardRegistry.get_template(cid)
-		assert_false(tmpl.is_empty(), "warlord card %s exists" % cid)
-		assert_eq(str(tmpl.get("card_class", "")), "spell", "%s should be an ability, not a summon" % cid)
+func test_warlord_still_summons_until_enemy_spells_resolve() -> void:
+	# BID-078: enemy spells are discarded unresolved (turn-based) and never picked
+	# (real time), so an all-spell "solo" deck would do nothing. Keep minions until then.
+	var minions: int = 0
+	for cid: String in EnemyRegistry.get_deck("undead_elite"):
+		if str(CardRegistry.get_template(cid).get("card_class", "")) == "minion":
+			minions += 1
+	assert_true(minions >= 8, "the Warlord needs a summoning deck (got %d minions)" % minions)

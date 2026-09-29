@@ -520,6 +520,9 @@ static func make_starter_character(token: String, member_name: String) -> Dictio
 		"equipped_weapon": "",
 		"equipped_armor": "",
 		"gear_rolls": {},  # item id -> {rarity, ilvl} (GearRolls, BID-075)
+		"learned_abilities": [],  # trainer-taught unlocks (UnlockLadder)
+		"rift_best_tiers": {},
+		"rift_first_clears": [],
 		# PvP champion record (GID-101 / TID-368)
 		"pvp_wins": 0,
 		"pvp_losses": 0,

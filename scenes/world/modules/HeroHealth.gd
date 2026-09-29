@@ -68,6 +68,9 @@ func use_quick() -> void:
 	if sm.hero_hp_frac >= 1.0:
 		GameBus.hud_message_requested.emit("You're already at full health.")
 		return
+	if _meal_left > 0.0:
+		GameBus.hud_message_requested.emit("You're still eating.")
+		return
 	var id: String = _HeroVitality.best_world_item(sm.foods, sm.potions)
 	if id == "":
 		GameBus.hud_message_requested.emit("Nothing to eat or drink — merchants sell food.")

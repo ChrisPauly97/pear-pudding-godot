@@ -63,9 +63,8 @@ static func _ensure_loaded() -> void:
 		},
 		"undead_elite": {
 			"display_name": "Undead Warlord",
-			# Solo (TID-541): fights with its own blows and curses instead of summoning.
-			"deck": ["ash_bone_spear", "ash_bone_spear", "brittle", "brittle", "drain", "drain", "ash_desecrate",
-					"ash_desecrate", "dusk_hex", "soul_rend", "ash", "shadow_bolt"],
+			"deck": ["ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "zombie", "zombie", "zombie", "zombie", "skeleton",
+					"skeleton", "skeleton"],
 			"drop_pool": ["ghoul", "restore", "drain", "blitz_ghoul", "veiled_paladin", "ash_warden"],
 			"coin_reward": 20,
 			"is_boss": false,

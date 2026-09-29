@@ -426,8 +426,8 @@ behaviour is unchanged — the proximity-trigger AI, `EnemyRegistry` decks, and
 ## Pack Leaders & Solo Enemies (TID-541)
 
 `ghoul_pack` and `undead_horde` are **pack leaders**: `EnemyRegistry.get_pack()` lists the units that start on
-their battle board, and `EnemyNPC` draws those units standing around the leader in the world. `undead_elite` is a
-**solo** enemy whose deck is ability spells only. See `combat-model.md` → Encounters that match the world.
+their battle board, and `EnemyNPC` draws those units standing around the leader in the world. Solo ability-casting enemies wait on BID-078 (enemy
+spells don't resolve). See `combat-model.md` → Encounters that match the world.
 
 ## Ambient Critters (GID-147)
 
