@@ -2,7 +2,7 @@
 
 **Goal:** GID-142
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-597
 
 ## Lock
@@ -29,12 +29,20 @@ Co-op Spire and the PvE leaderboard assume one ladder of floors. Make them rift 
 
 ## Plan
 
-_Written during Plan phase._
+Rift + tier in the floor map name (deterministic for every peer); co-op run carries rift/tier; guardian win = tier clear credited to each peer's own save; one leaderboard per rift; overlay tab "Rifts". Tier cap uses the host's best (peers' bests aren't on the host); per-player boons in co-op not done — the co-op draft stays shared cards (noted in docs).
 
 ## Changes Made
 
-_Filled after Build phase._
+- `SpireFloorGen`: `map_name_for(floor, seed, rift, tier)`, `parse_map_name()`; WorldScene parses the name.
+- `SceneManager`: solo entry/advance/resume + `enter_spire_coop(picker, rift, tier)` use the new names;
+  `end_coop_spire_run` stats carry rift/tier.
+- `CoopActivities`: next-floor name, guardian win ends the run as a clear, `record_tier_clear` + rift board submit
+  on every peer, solo clears posted to rift boards.
+- `SaveSpire`: `_record_clear()` shared by solo/co-op, `record_tier_clear()`.
+- `SessionState`: rift boards, generic sanitize/snapshot. `LeaderboardOverlay`: Rifts tab.
+- Tests: `test_rift_defs.gd` +3; `test_scene_manager_state.gd` / `spire_draft_smoke.gd` updated for the names.
+  Suite green; CI smokes + net_coop/session/world_sync/leaderboard smokes clean; lint clean.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`rifts.md` co-op + leaderboard section, run-state naming.

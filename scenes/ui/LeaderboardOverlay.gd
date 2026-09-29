@@ -16,6 +16,7 @@ extends "res://scenes/ui/BaseOverlay.gd"
 
 
 ## Tab indices — order matches the tab button row.
+const _RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
 const TAB_RANKED: int = 0
 const TAB_SPIRE: int = 1
 const TAB_COOP: int = 2
@@ -26,7 +27,7 @@ var _title_lbl: Label = null
 var _tab_buttons: Array[Button] = []
 
 var _rows_cache: Array = []                                   # Ranked (PvP rating) rows
-var _pve_cache: Dictionary = {"spire": [], "coop_clears": []}  # PvE {board: rows}
+var _pve_cache: Dictionary = {}  # PvE {board: rows} (spire, coop_clears, rift_<id>…)
 
 var _active_tab: int = TAB_RANKED
 
@@ -49,7 +50,7 @@ func _build_ui() -> void:
 
 	var tab_row := _UiUtil.make_hbox(int(_ref * 0.015), outer_vbox)
 	tab_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	_tab_buttons = _UiUtil.make_tab_row(tab_row, ["Ranked", "Spire", "Co-op Clears"],
+	_tab_buttons = _UiUtil.make_tab_row(tab_row, ["Ranked", "Rifts", "Co-op Clears"],
 		Vector2(_vh * 0.16, _vh * 0.05), int(_vh * 0.020), _select_tab, _active_tab)
 
 	outer_vbox.add_child(_UiUtil.make_separator())
@@ -81,7 +82,7 @@ func _select_tab(tab: int) -> void:
 func _title_for_tab(tab: int) -> String:
 	match tab:
 		TAB_SPIRE:
-			return "Endless Spire — Best Runs"
+			return "Rifts — Best Tiers"
 		TAB_COOP:
 			return "Co-op Boss Clears"
 		_:
@@ -117,12 +118,10 @@ func refresh_rows(rows: Array) -> void:
 ## Called by WorldScene whenever a fresh PvE {spire, coop_clears} snapshot arrives
 ## (TID-379). `snapshot` mirrors SessionState.get_pve_leaderboards_snapshot().
 func refresh_pve_rows(snapshot: Dictionary) -> void:
-	var spire: Variant = snapshot.get("spire", [])
-	var coop: Variant = snapshot.get("coop_clears", [])
-	_pve_cache = {
-		"spire": spire if spire is Array else [],
-		"coop_clears": coop if coop is Array else [],
-	}
+	_pve_cache = {}
+	for board: Variant in snapshot:
+		var rows: Variant = snapshot[board]
+		_pve_cache[str(board)] = rows if rows is Array else []
 	if _active_tab != TAB_RANKED and _rows_vbox != null and is_instance_valid(_rows_vbox):
 		_render_rows()
 
@@ -138,7 +137,7 @@ func _current_rows() -> Array:
 func _empty_message_for_tab() -> String:
 	match _active_tab:
 		TAB_SPIRE:
-			return "No Endless Spire runs recorded yet this session."
+			return "No rift tiers cleared yet this session."
 		TAB_COOP:
 			return "No co-op boss clears recorded yet this session."
 		_:
@@ -147,6 +146,9 @@ func _empty_message_for_tab() -> String:
 func _render_rows() -> void:
 	for c in _rows_vbox.get_children():
 		c.queue_free()
+	if _active_tab == TAB_SPIRE:
+		_render_rift_rows()
+		return
 	var rows: Array = _current_rows()
 	if rows.is_empty():
 		var empty_lbl := _UiUtil.make_label(_empty_message_for_tab(), int(_vh * 0.022), Color(0.7, 0.7, 0.7),
@@ -156,6 +158,24 @@ func _render_rows() -> void:
 		var row: Variant = rows[i]
 		if row is Dictionary:
 			_add_row(i + 1, row as Dictionary)
+
+## GID-142: one section per rift (board "rift_<id>", value = best tier cleared).
+func _render_rift_rows() -> void:
+	var any: bool = false
+	for r: Dictionary in _RiftDefs.all():
+		var rows: Array = _pve_cache.get("rift_" + str(r["id"]), [])
+		if rows.is_empty():
+			continue
+		any = true
+		_UiUtil.make_label(str(r["name"]), int(_vh * 0.024), Color(0.85, 0.5, 1.0), HORIZONTAL_ALIGNMENT_LEFT,
+				_rows_vbox)
+		for i in range(rows.size()):
+			var row: Variant = rows[i]
+			if row is Dictionary:
+				_add_row(i + 1, row as Dictionary)
+	if not any:
+		_UiUtil.make_label(_empty_message_for_tab(), int(_vh * 0.022), Color(0.7, 0.7, 0.7),
+				HORIZONTAL_ALIGNMENT_LEFT, _rows_vbox)
 
 func _add_row(rank: int, row: Dictionary) -> void:
 	var hb := _UiUtil.make_hbox(int(_ref * 0.02), _rows_vbox)

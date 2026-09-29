@@ -101,6 +101,29 @@ func run_deck() -> Array[String]:
 func best_tier(rift_id: String) -> int:
 	return int(_save.rift_best_tiers.get(rift_id, 0))
 
+## Best tier + one-time first-clear XP for a clear of (rift, tier); returns the
+## XP granted (0 on a repeat). Shared by solo runs and co-op clears (TID-601).
+func _record_clear(rift_id: String, tier: int) -> int:
+	if tier > best_tier(rift_id):
+		_save.rift_best_tiers[rift_id] = tier
+	var key: String = _RiftDefs.clear_key(rift_id, tier)
+	if _save.rift_first_clears.has(key):
+		return 0
+	_save.rift_first_clears.append(key)
+	var xp: int = _RiftDefs.first_clear_xp(tier)
+	_save.add_xp(xp)
+	_save._dirty = true
+	return xp
+
+## A co-op party cleared (rift, tier): credit this player's save and quests.
+func record_tier_clear(rift_id: String, tier: int) -> int:
+	if _RiftDefs.def(rift_id).is_empty():
+		return 0
+	var xp: int = _record_clear(rift_id, tier)
+	GameBus.rift_tier_cleared.emit(rift_id, tier)
+	_save.quests.progress_event("rift_tier", _RiftDefs.clear_key(rift_id, tier))
+	return xp
+
 ## True once the run's guardian floor is cleared (the tier is done).
 func tier_complete() -> bool:
 	return is_spire_active() and int(_save.spire_run.get("floor", 1)) > _RiftDefs.FLOORS_PER_TIER
@@ -163,18 +186,13 @@ func end_spire_run() -> Dictionary:
 	var tier: int = int(_save.spire_run.get("tier", 1))
 	var tier_cleared: bool = floors_cleared >= _RiftDefs.FLOORS_PER_TIER
 	var tier_record: bool = tier_cleared and tier > best_tier(rift_id)
-	if tier_record:
-		_save.rift_best_tiers[rift_id] = tier
 	# TID-599: a clear pays coins and a card every time, but XP only the first
 	# time this (rift, tier) falls — rifts can't be farmed for levels.
 	var xp_reward: int = 0
 	var card_reward: String = ""
 	if tier_cleared:
 		coin_reward += tier * _RiftDefs.CLEAR_COINS_PER_TIER
-		var key: String = _RiftDefs.clear_key(rift_id, tier)
-		if not _save.rift_first_clears.has(key):
-			_save.rift_first_clears.append(key)
-			xp_reward = _RiftDefs.first_clear_xp(tier)
+		xp_reward = _record_clear(rift_id, tier)
 		var pool: Array[String] = _EnemyRegistry.get_drop_pool(_RiftDefs.enemy_type(rift_id, _RiftDefs.FLOORS_PER_TIER))
 		if not pool.is_empty():
 			var rng := RandomNumberGenerator.new()
@@ -184,8 +202,6 @@ func end_spire_run() -> Dictionary:
 					_CardDropUtil.roll_rarity(_RiftDefs.clear_drop_tier(tier))))
 	_save.coins += coin_reward
 	_save.coins_changed.emit(_save.coins)
-	if xp_reward > 0:
-		_save.add_xp(xp_reward)
 
 	var stats: Dictionary = {
 		"floors_cleared": floors_cleared,

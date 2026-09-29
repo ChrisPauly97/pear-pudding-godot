@@ -9,6 +9,8 @@
 ## lived in WorldScene itself. Everything world-side is reached via `_world`.
 extends Node
 
+const _SpireFloorGen = preload("res://game_logic/spire/SpireFloorGen.gd")
+const _RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
 const _SaveSpire = preload("res://autoloads/save_manager/SaveSpire.gd")
 const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const _CardDropUtil      = preload("res://game_logic/CardDropUtil.gd")
@@ -548,7 +550,8 @@ func _resolve_coop_spire_draft(card_idx: int) -> void:
 	var next_run: Dictionary = SceneManager.get_coop_spire_run()
 	var next_floor: int = int(next_run.get("floor", 1))
 	var next_seed: int = int(next_run.get("seed", 0))
-	var target_map: String = "spire_floor_%d_%d" % [next_floor, next_seed]
+	var target_map: String = _SpireFloorGen.map_name_for(next_floor, next_seed, str(next_run.get("rift", "")),
+			int(next_run.get("tier", 1)))
 	_world._coop_map_transitioning = true
 	if _world._net_sync != null:
 		_world._net_sync.rpc("recv_map_transition", target_map, "")
@@ -637,12 +640,17 @@ func _coop_start_spire_boss_battle(edata: Dictionary) -> void:
 func _on_coop_spire_battle_ended(did_win: bool) -> void:
 	if not _world.coop_session._in_coop_spire_floor():
 		return
-	if did_win:
+	var run: Dictionary = SceneManager.get_coop_spire_run()
+	# GID-142: the guardian floor ends a co-op rift run as a tier clear.
+	var guardian_won: bool = did_win and str(run.get("rift", "")) != "" \
+			and _RiftDefs.is_guardian_floor(int(run.get("floor", 1)))
+	if did_win and not guardian_won:
 		if _world.coop_session._coop_world_authority():
-			var run: Dictionary = SceneManager.get_coop_spire_run()
 			_pending_coop_spire_draft_floor = int(run.get("floor", 1))
 	elif _world.coop_session._coop_world_authority():
 		var stats: Dictionary = SceneManager.end_coop_spire_run()
+		if guardian_won:
+			stats["floors_cleared"] = _RiftDefs.FLOORS_PER_TIER
 		var floors_cleared: int = int(stats.get("floors_cleared", 0))
 		var party_size: int = multiplayer.get_peers().size() + 1
 		var roster: Array = [MpProfile.get_display_name()]
@@ -650,6 +658,9 @@ func _on_coop_spire_battle_ended(did_win: bool) -> void:
 			roster.append(str((identity as Dictionary).get("name", "Player")))
 		_submit_pve_score("coop_spire", floors_cleared)  # host-only, pure SessionStore write
 		_pending_coop_spire_run_ended_payload = {
+			"rift": str(stats.get("rift", "")),
+			"tier": int(stats.get("tier", 1)),
+			"tier_cleared": guardian_won,
 			"floors_cleared": floors_cleared,
 			"party_size": party_size,
 			"roster": roster,
@@ -690,6 +701,13 @@ func _flush_pending_coop_spire_post_battle() -> void:
 
 func _on_coop_spire_run_ended_received(payload: Dictionary) -> void:
 	SceneManager.set_coop_spire_run_mirror({"active": false})
+	# GID-142: every peer's own save records the tier clear (best tier, one-time
+	# XP) and posts it to that rift's board.
+	if bool(payload.get("tier_cleared", false)):
+		var rift_id: String = str(payload.get("rift", ""))
+		var tier: int = int(payload.get("tier", 1))
+		SceneManager.save_manager.spire.record_tier_clear(rift_id, tier)
+		_submit_pve_score("rift_" + rift_id, tier)
 	if _world._coop_spire_summary_overlay != null and is_instance_valid(_world._coop_spire_summary_overlay):
 		_world._coop_spire_summary_overlay.queue_free()
 	var overlay: _RunSummarySceneScript = _RunSummaryScene.instantiate() as _RunSummarySceneScript
@@ -1047,6 +1065,8 @@ func _on_spire_run_ended_leaderboard(stats: Dictionary) -> void:
 	if floors_cleared <= 0:
 		return
 	_submit_pve_score("spire", floors_cleared)
+	if bool(stats.get("tier_cleared", false)):
+		_submit_pve_score("rift_" + str(stats.get("rift", "")), int(stats.get("tier", 1)))
 
 ## Co-op boss clear: submit on a party win while a co-op session is active.
 ##

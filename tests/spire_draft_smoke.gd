@@ -136,7 +136,8 @@ func _run() -> bool:
 	await create_timer(_TRANSITION_WAIT).timeout
 	var run2: Dictionary = spire.call("get_spire_run")
 	ok = _check(int(run2.get("floor", 0)) == 2, "exit door advances to floor 2") and ok
-	ok = _check(str(sm.get("current_map")) == "spire_floor_2_%d" % RUN_SEED, "floor 2 map loaded") and ok
+	# GID-142: rift floors carry rift + tier in their name.
+	ok = _check(str(sm.get("current_map")).begins_with("spire_floor_2_%d" % RUN_SEED), "floor 2 map loaded") and ok
 
 	# Floor 2 must actually have an enemy. Every floor used to emit the literal id
 	# "spire_enemy", and defeated_enemies is a permanent, map-agnostic list — so

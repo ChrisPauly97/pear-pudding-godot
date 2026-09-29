@@ -148,3 +148,27 @@ func test_portals_open_onto_their_biome_rift() -> void:
 					assert_eq(target, "rift:" + RiftDefs.rift_for_biome(biome), "portal matches its biome")
 					found[target] = true
 	assert_gte(found.size(), 3, "portals to several different rifts exist in a 61×61-chunk world")
+
+
+func test_floor_map_name_carries_rift_and_tier() -> void:
+	var name: String = SpireFloorGen.map_name_for(3, 42, "forest", 7)
+	var run: Dictionary = SpireFloorGen.parse_map_name(name)
+	assert_eq([int(run["floor"]), int(run["seed"]), str(run["rift"]), int(run["tier"])], [3, 42, "forest", 7])
+	var legacy: Dictionary = SpireFloorGen.parse_map_name("spire_floor_2_99")
+	assert_eq(str(legacy["rift"]), "", "legacy names parse without a rift")
+
+
+func test_coop_clear_credits_each_player_once() -> void:
+	var sm: SaveManagerScript = SaveManagerScript.new()
+	sm.new_game(false)
+	assert_eq(sm.spire.record_tier_clear("desert", 2), RiftDefs.first_clear_xp(2))
+	assert_eq(sm.spire.best_tier("desert"), 2)
+	assert_eq(sm.spire.record_tier_clear("desert", 2), 0, "a repeat co-op clear pays no XP")
+	assert_eq(sm.spire.record_tier_clear("nowhere", 1), 0)
+
+
+func test_every_rift_has_a_leaderboard() -> void:
+	var SessionState: GDScript = preload("res://game_logic/net/SessionState.gd")
+	var boards: Array = SessionState.get("_PVE_BOARDS")
+	for r: Dictionary in RiftDefs.all():
+		assert_true(boards.has("rift_" + str(r["id"])), "board for %s" % str(r["id"]))

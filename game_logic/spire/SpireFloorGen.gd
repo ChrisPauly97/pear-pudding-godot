@@ -22,8 +22,23 @@ const WALL_H: int = 4
 
 # ── Pure helpers ─────────────────────────────────────────────────────────────
 
-static func map_name_for(floor: int, run_seed: int) -> String:
-	return "spire_floor_%d_%d" % [floor, run_seed]
+## GID-142: a rift floor's name also carries its rift and tier, so every co-op
+## peer (who has no copy of the host's run) generates the same floor from the
+## name alone. Legacy names stop after the seed.
+static func map_name_for(floor: int, run_seed: int, rift_id: String = "", tier: int = 0) -> String:
+	if rift_id == "":
+		return "spire_floor_%d_%d" % [floor, run_seed]
+	return "spire_floor_%d_%d_%s_%d" % [floor, run_seed, rift_id, maxi(1, tier)]
+
+## {floor, seed, rift, tier} parsed from a floor map name (rift "" for legacy).
+static func parse_map_name(map_name: String) -> Dictionary:
+	var parts: PackedStringArray = map_name.split("_")
+	return {
+		"floor": int(parts[2]) if parts.size() > 2 else 1,
+		"seed": int(parts[3]) if parts.size() > 3 else 0,
+		"rift": parts[4] if parts.size() > 4 else "",
+		"tier": int(parts[5]) if parts.size() > 5 else 1,
+	}
 
 static func cleared_flag_for(floor: int, run_seed: int) -> String:
 	return "spire_floor_%d_%d_cleared" % [floor, run_seed]

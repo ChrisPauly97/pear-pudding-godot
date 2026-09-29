@@ -27,7 +27,9 @@ fight floor to floor, beat the guardian, and the next tier opens. Unlocked at le
   (tier 0 = highest unlocked; clamped to best + 1), `best_tier(rift)`, `tier_complete()`.
   `end_spire_run()` adds `rift, tier, tier_cleared, is_new_tier_record, best_tier` to its stats and raises
   `rift_best_tiers[rift]` on a clear. Map names / cleared flags / enemy ids are unchanged
-  (`spire_floor_<floor>_<seed>`, unique per floor — see CLAUDE.md "Spire floor 2+ was an empty locked room").
+  (`spire_floor_<floor>_<seed>_<rift>_<tier>` — TID-601 appended rift + tier so any peer can generate the floor
+  from its name; `SpireFloorGen.map_name_for` / `parse_map_name`; legacy names without them still load; enemy ids
+  stay unique per floor — see CLAUDE.md "Spire floor 2+ was an empty locked room").
 - **Floors:** `SpireFloorGen.generate(floor, seed, run)` picks `RiftDefs.enemy_type(rift, floor)` and stamps
   `enemy_level`; WorldScene passes the live run. Without a run the legacy ladder applies.
 - **Guardian:** `BattleVictory._spire_battle_won` skips the draft on the guardian floor; the arena's exit door
@@ -74,6 +76,20 @@ fight floor to floor, beat the guardian, and the next tier opens. Unlocked at le
   enemy level range and the first-clear XP still on offer, Enter / Leave. Locked (`feat_spire`) → the ladder
   message. A run under way anywhere → Resume that run.
 - WorldScene line ceiling lowered to 2100 after the panel moved out.
+
+### Co-op rifts & per-rift leaderboard (TID-601)
+
+- `SceneManager.enter_spire_coop(picker_order, rift, tier)` starts a co-op rift run (default: the host's next
+  Grasslands tier — peers' bests aren't known on the host, so the host's decides). Floors are named with rift +
+  tier, so every peer's `WorldScene` generates the same floor (`SpireFloorGen.parse_map_name`).
+- The shared draft is unchanged (starter + shared picks for the joint battle).
+- A win on the guardian floor ends the co-op run as a **tier clear**: the authority's
+  `recv_coop_spire_run_ended` payload carries `rift, tier, tier_cleared`; every peer then calls
+  `SaveSpire.record_tier_clear()` on its own save (best tier, one-time first-clear XP, quest progress) and posts
+  the tier to that rift's board.
+- **Leaderboards:** `SessionState._PVE_BOARDS` gains `rift_<id>` per rift (value = best tier cleared); sanitize /
+  snapshot / defaults now loop over the board list (no session migration needed). Solo clears in a session post
+  there too. `LeaderboardOverlay`'s "Spire" tab is now **Rifts**, one section per rift.
 
 ## Integrations
 
