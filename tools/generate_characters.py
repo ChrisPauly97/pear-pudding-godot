@@ -20,7 +20,7 @@ from pathlib import Path
 from PIL import Image
 
 import pixel_palette as P
-from generate_sprites import Canvas
+from generate_sprites import Canvas, chest_body, pad
 
 OUT = Path(__file__).parent.parent / "assets" / "textures" / "characters"
 
@@ -311,6 +311,57 @@ def spectre(frame):
     return c.image()
 
 
+def mimic(frame):
+    """Mimic: the generated chest, lid agape on a row of teeth and a lolling tongue."""
+    c = Canvas(16, 18)
+    chest_body(c, False, 1, 5)
+    for y in range(5, 10):                                # clear the lid: the mouth opens
+        for x in range(1, 15):
+            c.px[y][x] = None
+    lift = [2, 3, 2, 1, 2][frame]
+    c.rect(1, 5 - lift, 14, 7 - lift, P.WOOD[2])          # raised lid
+    c.rect(1, 5 - lift, 14, 5 - lift, P.WOOD[3])
+    c.rect(2, 8 - lift, 13, 9, P.RED[0])                  # maw
+    for x in range(2, 14, 2):
+        c.set(x, 8 - lift, BONE[3])                       # upper teeth
+        c.set(x + 1, 9, BONE[3])                          # lower teeth
+    c.line(9, 9, 11, 13, P.PINK[2])                       # tongue
+    c.set(11, 14, P.PINK[1])
+    c.set(5, 7 - lift, P.GOLD[3])                         # eyes on the lid
+    c.set(10, 7 - lift, P.GOLD[3])
+    c.outline()
+    return pad(c.image(), 16, 18)
+
+
+def horse(frame):
+    """Riding horse, facing right, saddle over the back (rider sits at Player._SADDLE_OFFSET_PX)."""
+    c = Canvas(32, 32)
+    lx, rx, _bob = _walk(frame)
+    coat = [(72, 45, 38), (118, 70, 50), (160, 100, 64), (197, 140, 96)]
+    mane = [(34, 24, 24), (58, 40, 36), (72, 59, 58), (96, 72, 64)]
+    for x0, dx in ((7, lx), (10, rx), (20, rx), (23, lx)):   # legs
+        c.line(x0, 20, x0 + dx * 0.5, 29, coat[1])
+        c.line(x0 + 1, 20, x0 + 1 + dx * 0.5, 29, coat[0])
+        c.rect(int(x0 + dx * 0.5), 30, int(x0 + dx * 0.5) + 1, 31, DARK)
+    c.blob(15, 17, 10.0, 4.8, coat)                        # barrel
+    c.blob(6, 16, 3.2, 3.8, coat)                          # hindquarters
+    c.line(4, 14, 1, 21, mane[1])                          # tail
+    c.line(3, 14, 1, 20, mane[2])
+    c.blob(24, 11, 3.2, 5.0, coat)                         # neck
+    c.blob(27.5, 7, 3.4, 2.4, coat)                        # head
+    c.rect(29, 8, 30, 9, coat[0])                          # muzzle
+    c.set(27, 6, DARK)                                     # eye
+    c.set(25, 3, coat[1])                                  # ear
+    c.line(22, 5, 21, 13, mane[1])                         # mane
+    c.line(23, 5, 22, 12, mane[2])
+    c.rect(12, 11, 18, 13, P.RED[1])                       # saddle cloth
+    c.rect(13, 10, 17, 11, P.WOOD[1])                      # saddle
+    c.line(15, 14, 15, 18, P.WOOD[0])                      # girth
+    c.line(26, 8, 22, 12, P.WOOD[0])                       # rein
+    c.outline()
+    return pad(c.image(), 32, 32)
+
+
 BW, BH = 32, 40
 
 
@@ -424,6 +475,8 @@ CHARACTERS = {
     "enemy_spectre": spectre,
     "enemy_warleader": warleader,
     "enemy_terror": terror,
+    "enemy_mimic": mimic,
+    "mount_horse": horse,
 }
 
 # Only these get walk frames; the loader animates Maiteln alone (SpriteRegistry.maiteln_walk_frames), so the rest

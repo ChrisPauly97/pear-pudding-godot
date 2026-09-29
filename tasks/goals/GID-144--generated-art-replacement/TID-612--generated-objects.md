@@ -2,7 +2,7 @@
 
 **Goal:** GID-144
 **Type:** agent
-**Status:** todo
+**Status:** done
 **Depends On:** TID-610
 
 ## Lock
@@ -21,6 +21,12 @@ Chest/door in `generate_sprites.py` (door shares crypt-door drawing); mimic from
 
 ## Plan
 
+Chest/door in `generate_sprites.py` at the old pixel sizes (entities use a fixed pixel size); mimic built on the chest drawing, horse rig at 32×32 facing right; same file names.
+
 ## Changes Made
 
+New generators `chest_body`, `chest`, `door`, `pad`, `mimic`, `horse`; regenerated 5 PNGs. CREDITS: 0x72 and Tiny Creatures now unused.
+
 ## Documentation Updates
+
+`art-sprites.md` (B3 ✓), CREDITS.
