@@ -2568,9 +2568,11 @@ whole party to hunt.
   `"night_hunts"` PvE leaderboard board (`SessionState` v9, alongside `spire`
   and `coop_clears`) via the existing generic `_submit_pve_score` routing; a
   `GameBus.hud_message_requested` toast announces each kill and a milestone
-  message fires at 5 kills in one night. The `night_hunts` board is recorded
-  and synced but not yet surfaced in `LeaderboardOverlay`'s UI (only `spire`/
-  `coop_clears` render tabs today) — a follow-up UI task, not a data gap.
+  message fires at 5 kills in one night. `LeaderboardOverlay` shows it on a
+  **Night Hunts** tab (and `coop_spire` on a **Co-op Spire** tab) — both boards were
+  recorded and synced long before they had tabs. The overlay's PvE tabs are one
+  `_PVE_TABS` table (board, title, value column, empty text); its columns are sized
+  to the panel (`_col_w`), not the viewport, so the panel no longer overflows.
 
 ### Co-op Town Siege (TID-384)
 

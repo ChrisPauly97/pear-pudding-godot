@@ -15,11 +15,25 @@
 extends "res://scenes/ui/BaseOverlay.gd"
 
 
-## Tab indices — order matches the tab button row.
 const _RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
+## Tab indices — order matches the tab button row and _PVE_TABS below.
 const TAB_RANKED: int = 0
 const TAB_SPIRE: int = 1
 const TAB_COOP: int = 2
+const TAB_NIGHT: int = 3
+const TAB_COOP_SPIRE: int = 4
+const PANEL_W_FRAC: float = 0.62
+## PvE tabs other than Rifts (which renders one section per rift): the
+## SessionState board each lists, its value column and empty-state text. Night
+## Hunts and Co-op Spire boards were recorded and synced but had no tab.
+const _PVE_TABS: Dictionary = {
+	TAB_COOP: {"board": "coop_clears", "title": "Co-op Boss Clears", "value": "Party Size",
+			"empty": "No co-op boss clears recorded yet this session."},
+	TAB_NIGHT: {"board": "night_hunts", "title": "Night Hunts — Best Night", "value": "Spectres",
+			"empty": "No spectres hunted yet this session."},
+	TAB_COOP_SPIRE: {"board": "coop_spire", "title": "Co-op Spire — Floors", "value": "Floors",
+			"empty": "No co-op Spire runs finished yet this session."},
+}
 
 var _rows_vbox: VBoxContainer = null
 var _header_hbox: HBoxContainer = null
@@ -38,7 +52,7 @@ func _ready() -> void:
 func _build_ui() -> void:
 	_build_backdrop(0.72, true)
 
-	var panel_w: float = _vw * 0.62
+	var panel_w: float = _vw * PANEL_W_FRAC
 	var panel_h: float = _vh * 0.7
 	var panel := _build_centered_panel(panel_w, panel_h)
 	panel.add_theme_stylebox_override("panel", _make_dark_glass_style())
@@ -50,8 +64,9 @@ func _build_ui() -> void:
 
 	var tab_row := _UiUtil.make_hbox(int(_ref * 0.015), outer_vbox)
 	tab_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	_tab_buttons = _UiUtil.make_tab_row(tab_row, ["Ranked", "Rifts", "Co-op Clears"],
-		Vector2(_vh * 0.16, _vh * 0.05), int(_vh * 0.020), _select_tab, _active_tab)
+	var tab_w: float = minf(_vh * 0.16, _vw * 0.58 / 5.0)
+	_tab_buttons = _UiUtil.make_tab_row(tab_row, ["Ranked", "Rifts", "Co-op Clears", "Night Hunts", "Co-op Spire"],
+		Vector2(tab_w, _vh * 0.05), int(_vh * 0.018), _select_tab, _active_tab)
 
 	outer_vbox.add_child(_UiUtil.make_separator())
 
@@ -80,13 +95,9 @@ func _select_tab(tab: int) -> void:
 	_render_rows()
 
 func _title_for_tab(tab: int) -> String:
-	match tab:
-		TAB_SPIRE:
-			return "Rifts — Best Tiers"
-		TAB_COOP:
-			return "Co-op Boss Clears"
-		_:
-			return "Ranked Leaderboard"
+	if _PVE_TABS.has(tab):
+		return str((_PVE_TABS[tab] as Dictionary)["title"])
+	return "Rifts — Best Tiers" if tab == TAB_SPIRE else "Ranked Leaderboard"
 
 func _build_header() -> void:
 	for c in _header_hbox.get_children():
@@ -96,17 +107,17 @@ func _build_header() -> void:
 	if _active_tab == TAB_RANKED:
 		_add_header_cell(_header_hbox, "Rating", 0.22)
 		_add_header_cell(_header_hbox, "W-L", 0.22)
-	elif _active_tab == TAB_SPIRE:
-		_add_header_cell(_header_hbox, "Best Floor", 0.22)
-		_add_header_cell(_header_hbox, "Day", 0.22)
 	else:
-		_add_header_cell(_header_hbox, "Party Size", 0.22)
+		var value_header: String = "Best Tier"
+		if _PVE_TABS.has(_active_tab):
+			value_header = str((_PVE_TABS[_active_tab] as Dictionary)["value"])
+		_add_header_cell(_header_hbox, value_header, 0.22)
 		_add_header_cell(_header_hbox, "Day", 0.22)
 
 func _add_header_cell(parent: HBoxContainer, text: String, width_frac: float) -> void:
 	var lbl := _UiUtil.make_label(text, int(_vh * 0.022))
 	lbl.add_theme_color_override("font_color", Color(0.75, 0.85, 1.0))
-	lbl.custom_minimum_size = Vector2(_vw * width_frac, 0)
+	lbl.custom_minimum_size = Vector2(_col_w(width_frac), 0)
 	parent.add_child(lbl)
 
 ## Called by WorldScene whenever a fresh ranked-rating snapshot arrives (TID-373).
@@ -126,22 +137,18 @@ func refresh_pve_rows(snapshot: Dictionary) -> void:
 		_render_rows()
 
 func _current_rows() -> Array:
-	match _active_tab:
-		TAB_SPIRE:
-			return _pve_cache.get("spire", [])
-		TAB_COOP:
-			return _pve_cache.get("coop_clears", [])
-		_:
-			return _rows_cache
+	if _PVE_TABS.has(_active_tab):
+		return _pve_cache.get(str((_PVE_TABS[_active_tab] as Dictionary)["board"]), [])
+	if _active_tab == TAB_SPIRE:
+		return _pve_cache.get("spire", [])
+	return _rows_cache
 
 func _empty_message_for_tab() -> String:
-	match _active_tab:
-		TAB_SPIRE:
-			return "No rift tiers cleared yet this session."
-		TAB_COOP:
-			return "No co-op boss clears recorded yet this session."
-		_:
-			return "No ranked duels played yet this session."
+	if _PVE_TABS.has(_active_tab):
+		return str((_PVE_TABS[_active_tab] as Dictionary)["empty"])
+	if _active_tab == TAB_SPIRE:
+		return "No rift tiers cleared yet this session."
+	return "No ranked duels played yet this session."
 
 func _render_rows() -> void:
 	for c in _rows_vbox.get_children():
@@ -181,31 +188,37 @@ func _add_row(rank: int, row: Dictionary) -> void:
 	var hb := _UiUtil.make_hbox(int(_ref * 0.02), _rows_vbox)
 
 	var rank_lbl := _UiUtil.make_label("#%d" % rank, int(_vh * 0.022))
-	rank_lbl.custom_minimum_size = Vector2(_vw * 0.08, 0)
+	rank_lbl.custom_minimum_size = Vector2(_col_w(0.08), 0)
 	if rank == 1:
 		rank_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
 	hb.add_child(rank_lbl)
 
 	var name_lbl := _UiUtil.make_label(str(row.get("name", "Player")), int(_vh * 0.022), Color.WHITE,
 			HORIZONTAL_ALIGNMENT_LEFT, hb)
-	name_lbl.custom_minimum_size = Vector2(_vw * 0.40, 0)
+	name_lbl.custom_minimum_size = Vector2(_col_w(0.40), 0)
 
 	if _active_tab == TAB_RANKED:
 		var rating_lbl := _UiUtil.make_label(str(int(row.get("rating", 1000))), int(_vh * 0.022), Color(0.6, 1.0, 0.6),
 				HORIZONTAL_ALIGNMENT_LEFT, hb)
-		rating_lbl.custom_minimum_size = Vector2(_vw * 0.22, 0)
+		rating_lbl.custom_minimum_size = Vector2(_col_w(0.22), 0)
 
 		var wl_lbl := _UiUtil.make_label("%d-%d" % [int(row.get("wins", 0)), int(row.get("losses", 0))],
 				int(_vh * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, hb)
-		wl_lbl.custom_minimum_size = Vector2(_vw * 0.22, 0)
+		wl_lbl.custom_minimum_size = Vector2(_col_w(0.22), 0)
 	else:
 		var value_lbl := _UiUtil.make_label(str(int(row.get("value", 0))), int(_vh * 0.022), Color(0.6, 1.0, 0.6),
 				HORIZONTAL_ALIGNMENT_LEFT, hb)
-		value_lbl.custom_minimum_size = Vector2(_vw * 0.22, 0)
+		value_lbl.custom_minimum_size = Vector2(_col_w(0.22), 0)
 
 		var day_lbl := _UiUtil.make_label(str(int(row.get("day", 0))), int(_vh * 0.022), Color.WHITE,
 				HORIZONTAL_ALIGNMENT_LEFT, hb)
-		day_lbl.custom_minimum_size = Vector2(_vw * 0.22, 0)
+		day_lbl.custom_minimum_size = Vector2(_col_w(0.22), 0)
+
+## Column width for a fraction of the panel's inner width. The fractions add up to
+## 0.92, and the panel is PANEL_W_FRAC of the viewport; sizing columns off the
+## whole viewport pushed the panel off the right edge.
+func _col_w(frac: float) -> float:
+	return _vw * PANEL_W_FRAC * 0.9 * frac
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED and is_inside_tree():
