@@ -109,8 +109,5 @@ Latin subsets from the Fontsource npm packages (GID-132 / TID-509).
 
 ## Icons
 
-HUD action icons (`assets/icons/hud/`) are from **game-icons.net** by **Lorc,
-Delapouite & contributors** — https://game-icons.net — **CC BY 3.0**
-(licence: `assets/icons/hud/LICENSE-game-icons.txt`). Attribution is a licence
-condition; keep this line in distributed builds. Recoloured to white; taken via
-the `@iconify-json/game-icons` npm package (GID-132 / TID-510).
+HUD action icons (`assets/icons/hud/`) are original, written by `tools/generate_hud_icons.py`
+(GID-144 / TID-613; they replaced the CC BY 3.0 game-icons.net set).

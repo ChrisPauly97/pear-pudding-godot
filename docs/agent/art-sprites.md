@@ -430,7 +430,7 @@ GID-143:
 | Door | `props/door.png` | 0x72 · CC0 | `generate_sprites.py` (share the crypt-door drawing) | B3 ✓ |
 | Card art: ghost / skeleton / zombie / ghoul | `cards/card_*.png` | Kenney / 0x72 · CC0 | card-portrait crops of the generated characters | B2 ✓ |
 | Spell runes ×4 | `cards/rune_{dawn,dusk,ember,ash}.png` | game-icons.net · **CC BY 3.0** | `generate_sprites.py` glyph drawer (sun, moon, flame, cloud) | B2 ✓ |
-| HUD icons ×15 | `assets/icons/hud/*.svg` | game-icons.net · **CC BY 3.0** | hand-authored SVG set or pixel icons at 32×32 | B4 |
+| HUD icons ×14 | `assets/icons/hud/*.svg` | game-icons.net · CC BY 3.0 | `tools/generate_hud_icons.py` geometric SVGs | B4 ✓ |
 | ~~Dead art~~ | `enemy_undead{,_walk_*}.png`, `pixel_art/wizard_walk_*_pixel.png` | — | **deleted (GID-144 / TID-609)** | B0 ✓ |
 
 B1 landed in GID-144 / TID-610: the `elite`, `ghoul`, `spectre`, `warleader`, `terror` rigs plus `person()` specs in
@@ -443,6 +443,9 @@ runes = glyphs drawn on the prop palette).
 B3 landed in TID-612: `chest_body()` / `chest()` / `door()` / `pad()` in `generate_sprites.py` (fixed 16×16 / 32×32
 canvases — Chest/Door size by pixel), `mimic` (on `chest_body`) and `horse` (32×32, facing right, saddle where
 `Player._SADDLE_OFFSET_PX` expects it) in `generate_characters.py`.
+
+B4 landed in TID-613: `tools/generate_hud_icons.py`; the CC BY licence file is gone. **With B0–B4 done, no
+third-party sprite or icon ships** — only the OFL fonts and the music remain third-party.
 
 Already original: terrain tiles and grass tufts (`generate_hd_terrain.py`), every prop / landmark
 (`generate_sprites.py`, incl. GID-143 graveyard set), the paper-doll hero (`PaperDoll.gd`), skeleton, zombie and

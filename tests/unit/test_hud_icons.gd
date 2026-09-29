@@ -30,5 +30,10 @@ func test_apply_sets_icon_and_icon_only_labels() -> void:
 	m.free()
 	n.free()
 
-func test_icon_licence_present() -> void:
-	assert_true(FileAccess.file_exists("res://assets/icons/hud/LICENSE-game-icons.txt"))
+## GID-144 / TID-613: the icons are original, written by tools/generate_hud_icons.py —
+## every registered icon must come from it (no third-party drop-ins needing a licence).
+func test_icons_come_from_generator() -> void:
+	var src: String = FileAccess.get_file_as_string("res://tools/generate_hud_icons.py")
+	assert_true(src.length() > 0)
+	for id: Variant in HI.ids():
+		assert_true(src.contains('"%s": ' % str(id)), "icon %s not in generate_hud_icons.py" % str(id))

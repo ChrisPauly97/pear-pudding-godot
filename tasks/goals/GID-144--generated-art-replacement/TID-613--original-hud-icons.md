@@ -2,7 +2,7 @@
 
 **Goal:** GID-144
 **Type:** agent
-**Status:** todo
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -21,6 +21,12 @@ Replace with hand-authored SVGs at the same paths.
 
 ## Plan
 
+`tools/generate_hud_icons.py` writes 14 geometric white SVGs at the same paths (import settings unchanged); preview via Godot `Image.load_svg_from_string`; drop the CC BY licence file.
+
 ## Changes Made
 
+New generator + 14 SVGs; deleted `LICENSE-game-icons.txt`; `test_hud_icons` licence test → every icon id comes from the generator; HudIcons header comment.
+
 ## Documentation Updates
+
+CREDITS Icons section, `ui-and-scene-management.md` icon paragraph, `art-sprites.md` (B4 ✓, no third-party sprites remain).
