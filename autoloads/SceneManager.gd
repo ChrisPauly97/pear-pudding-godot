@@ -71,6 +71,9 @@ var session_stats: Dictionary = _fresh_session_stats(0)
 var save_manager: _SaveManagerScript
 ## Child modules (see autoloads/scene_manager/), created by `_ensure_modules()`.
 var victory: _BattleVictory
+## Set by BattleVictory when a pursuing enemy follows straight on (TID-532): the
+## thaw keeps the fight zoom so the next in-place battle starts without a reset.
+var hold_fight_zoom: bool = false
 var defeat: _BattleDefeat
 var net_battles: _NetBattles
 
@@ -838,7 +841,8 @@ func _freeze_world(world: Node) -> void:
 			hidden.append(layer)
 	world.set_meta("battle_hidden_layers", hidden)
 	var cam: Camera3D = world.get("_camera") as Camera3D
-	if cam != null:
+	hold_fight_zoom = false
+	if cam != null and not world.has_meta("battle_cam_size"):  # a chain pull is still zoomed in (TID-532)
 		world.set_meta("battle_cam_size", cam.size)
 		create_tween().tween_property(cam, "size", cam.size * _IN_WORLD_ZOOM, _IN_WORLD_ZOOM_SECONDS) \
 				.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
@@ -851,7 +855,7 @@ func _thaw_world(world: Node) -> void:
 				layer.visible = true
 		world.remove_meta("battle_hidden_layers")
 	var cam: Camera3D = world.get("_camera") as Camera3D
-	if cam != null and world.has_meta("battle_cam_size"):
+	if cam != null and world.has_meta("battle_cam_size") and not hold_fight_zoom:
 		create_tween().tween_property(cam, "size", float(world.get_meta("battle_cam_size")), _IN_WORLD_ZOOM_SECONDS) \
 				.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 		world.remove_meta("battle_cam_size")

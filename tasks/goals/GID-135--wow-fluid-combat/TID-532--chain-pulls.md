@@ -2,7 +2,7 @@
 
 **Goal:** GID-135
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-528, TID-531
 
 ## Lock
@@ -29,12 +29,17 @@ With fights in-world, nearby enemies can join or immediately follow, like pullin
 
 ## Plan
 
-_Written during Plan phase._
+Option (b), back-to-back pulls (option (a) shipped as TID-551): after a won in-place fight,
+the nearest pursuing EnemyNPC within 9 units engages immediately; the camera stays zoomed
+between the fights.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `EnemyNPC`: `GROUP` (`world_enemy`), `is_pursuing()`.
+- `BattleVictory`: `_chain_candidate()`, `_start_chain()` (+ give-up release of the zoom).
+- `SceneManager`: `hold_fight_zoom`; `_freeze_world` / `_thaw_world` honour it.
+- `tests/in_world_battle_smoke.gd`: `_check_chain_pull` (verified to fail with the radius at 0).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `combat-model.md` → Chain pulls.

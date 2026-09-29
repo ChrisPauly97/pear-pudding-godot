@@ -10,6 +10,8 @@ const _SpriteOutline = preload("res://game_logic/SpriteOutline.gd")
 const _ZoneLevels = preload("res://game_logic/world/ZoneLevels.gd")
 
 const _ALERT_REACTION_TIME: float = 0.4
+## Group of live world enemies, scanned for chain pulls after a win (TID-532).
+const GROUP: StringName = &"world_enemy"
 const _GIVEUP_HOLD_TIME: float = 2.0
 ## Blue ghostly wash on night-hunt spectres (`"nocturnal": true` in the data).
 const SPECTRAL_TINT := Color(0.7, 0.85, 1.0, 0.85)
@@ -31,6 +33,7 @@ var _player_ref: CharacterBody3D = null
 var _sprite: Sprite3D = null
 
 func _ready() -> void:
+	add_to_group(GROUP)
 	var etype: String = str(enemy_data.get("enemy_type", ""))
 	var sprite: Sprite3D = _SpriteRegistry.make_billboard(
 			_SpriteRegistry.enemy_texture(etype, _is_roaming_boss, _is_boss),
@@ -113,6 +116,10 @@ func _process(delta: float) -> void:
 		_tick_reaction(delta)
 	elif _alert_state == _EnemyAlertState.State.CHASING:
 		_chase_player(delta, player, dist)
+
+## Alive and already coming for the player (alerted or chasing) — a chain-pull candidate.
+func is_pursuing() -> bool:
+	return _alive and _alert_state != _EnemyAlertState.State.IDLE
 
 func _resolve_player() -> CharacterBody3D:
 	if not is_instance_valid(_player_ref):

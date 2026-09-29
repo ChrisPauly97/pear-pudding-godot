@@ -242,6 +242,19 @@ reads them each tick; `BattleRealtime` loads overrides from the `combat_tuning` 
 and are saved on the device; Reset all restores defaults. Max-mana knobs apply from the next fight.
 
 
+## Chain pulls — the next enemy follows straight on (TID-532)
+
+When an in-place fight is won (`BattleVictory._on_battle_won`, standard path) and an `EnemyNPC` that is
+already **pursuing** (`is_pursuing()`: alive and ALERTED or CHASING; every EnemyNPC joins group
+`EnemyNPC.GROUP` = `world_enemy`) stands within `CHAIN_RADIUS` (9 world units) of the hero, it engages at once:
+`_start_chain()` lifts the 2 s post-battle `_proximity_engage_blocked` grace and calls its `engage()`, with an
+"Another one!" toast. `SceneManager.hold_fight_zoom` keeps the camera pushed in across the hand-off —
+`_thaw_world` skips the zoom-out while it is set, and `_freeze_world` keeps the original `battle_cam_size`
+meta instead of re-recording a zoomed size — so the chain never resets the camera; the last fight's thaw
+restores it. If the follow-up never starts within `CHAIN_GIVEUP_SECONDS` (1.5 s, e.g. it stood down) the held
+zoom is released. Solo only (no chain in a co-op session); detached (non-real-time) battles never chain.
+Covered by `tests/in_world_battle_smoke.gd` → `_check_chain_pull`.
+
 ## Adds — a second enemy joins (TID-551)
 
 An enemy that engages while a real-time in-world fight is running **joins it** instead of being refused

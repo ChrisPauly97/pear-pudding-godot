@@ -24,6 +24,13 @@ const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const _RewardToastFx = preload("res://scenes/world/RewardToastFx.gd")
 const _ZoneLevels = preload("res://game_logic/world/ZoneLevels.gd")
 const _RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
+const _EnemyNPC = preload("res://scenes/world/entities/EnemyNPC.gd")
+
+## Chain pulls (GID-135 / TID-532): a pursuing enemy this close to the hero when an
+## in-place fight is won engages at once, without the camera zooming out between.
+const CHAIN_RADIUS: float = 9.0
+## If the follow-up never starts (it stood down), release the held zoom after this.
+const CHAIN_GIVEUP_SECONDS: float = 1.5
 
 var _sm: _SceneManager
 
@@ -175,12 +182,16 @@ func _on_battle_won(result: Dictionary) -> void:
 	# GID-135 / TID-531: a routine in-world win skipped the blocking result
 	# card (BattleScene._emit_routine_victory_toast) — show the coins/XP/card
 	# news as floating toasts over the world instead, once it's reattached.
+	var chain: _EnemyNPC = _chain_candidate()
+	_sm.hold_fight_zoom = chain != null
 	if bool(result.get("in_world_toast", false)):
 		var reward_card: String = str(result.get("card_reward", ""))
 		_sm._restore_world(_show_reward_toasts.bind(coins_won + joined.x, xp_amount + joined.y, reward_card,
 				str(result.get("rt_tip", ""))))
 	else:
 		_sm._restore_world()
+	if chain != null:
+		_start_chain(chain)
 	# Chapter 2 beats 6 → 7 (GID-108 / TID-407): defeating the war-camp boss sets
 	# chapter2_warcamp_cleared and immediately shows the cliffhanger narration
 	# (reuses TID-405's ChapterEndingOverlay verbatim); closing it sets
@@ -193,6 +204,42 @@ func _on_battle_won(result: Dictionary) -> void:
 ## TID-531). Only ever called from `_restore_world`'s post-swap callback — see
 ## the CLAUDE.md spire-draft learning for why building this on the next line
 ## after `_restore_world()` instead would attach it to a scene about to die.
+## The nearest pursuing enemy within CHAIN_RADIUS of the hero, when the fight just
+## won was fought in place (the world is still in the tree); else null.
+func _chain_candidate() -> _EnemyNPC:
+	var world: Node = _sm._saved_world_scene
+	if world == null or not is_instance_valid(world) or not world.is_inside_tree() or NetworkManager.is_active():
+		return null
+	var player := world.get("_player") as Node3D
+	if player == null:
+		return null
+	var best: _EnemyNPC = null
+	var best_d: float = CHAIN_RADIUS
+	for n: Node in get_tree().get_nodes_in_group(_EnemyNPC.GROUP):
+		var e := n as _EnemyNPC
+		if e == null or not e.is_pursuing() or not e.is_inside_tree():
+			continue
+		var d: float = Vector2(e.global_position.x - player.global_position.x,
+				e.global_position.z - player.global_position.z).length()
+		if d <= best_d:
+			best = e
+			best_d = d
+	return best
+
+
+## Lets `enemy` engage straight away (lifting the post-battle grace), and drops the
+## held zoom if the follow-up fight never starts.
+func _start_chain(enemy: _EnemyNPC) -> void:
+	_sm._proximity_engage_blocked = false
+	GameBus.hud_message_requested.emit("Another one!")
+	enemy.engage()
+	get_tree().create_timer(CHAIN_GIVEUP_SECONDS, false).timeout.connect(func() -> void:
+		var world: Node = get_tree().current_scene
+		if _sm.current_state() == State.WORLD and world != null and world.has_meta("battle_cam_size"):
+			_sm.hold_fight_zoom = false
+			_sm._thaw_world(world))
+
+
 func _show_reward_toasts(coins_won: int, xp_won: int, reward_card_id: String, tip: String = "") -> void:
 	if tip != "":
 		_sm._toast.show_text("Tip", tip)  # the post-fight coaching line (TID-559)
