@@ -21,6 +21,7 @@ const AUTO_END_DELAY: float = 1.2
 
 var _battle: _BattleScene
 var _auto_end_pending: bool = false
+var _end_btn_label: String = ""
 
 
 func _init(battle: _BattleScene) -> void:
@@ -56,13 +57,16 @@ func check_auto_end() -> void:
 	if _auto_end_pending or not _auto_end_allowed() or has_move():
 		return
 	_auto_end_pending = true
-	var btn: Button = _battle._end_turn_btn
-	var label: String = btn.text
-	btn.text = "Ending turn…"
-	await get_tree().create_timer(AUTO_END_DELAY, false).timeout
+	_end_btn_label = _battle._end_turn_btn.text
+	_battle._end_turn_btn.text = "Ending turn…"
+	# A method connection (not `await`): if the battle closes during the grace, this
+	# node is freed with it and the connection goes too — no resume on a dead node.
+	get_tree().create_timer(AUTO_END_DELAY, false).timeout.connect(_finish_auto_end)
+
+
+func _finish_auto_end() -> void:
 	_auto_end_pending = false
-	if is_instance_valid(btn):
-		btn.text = label
+	_battle._end_turn_btn.text = _end_btn_label
 	if _auto_end_allowed() and not has_move():
 		_battle._on_end_turn()
 
