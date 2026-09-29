@@ -455,6 +455,7 @@ func _process(delta: float) -> void:
 		return
 	var dt: float = delta * _speed_factor()
 	skills.update(dt)
+	_battle.consumables.tick_quick(dt)
 	momentum.update()
 	onboarding.update(dt)
 	_tick_cast(dt)

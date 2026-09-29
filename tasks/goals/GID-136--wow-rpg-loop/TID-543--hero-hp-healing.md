@@ -25,6 +25,9 @@ User decision (TID-540): hero HP carries over between fights with slow out-of-co
 - Defeat at 0 HP → existing game-over/bed respawn routing (`docs/agent/player-home.md`).
 - Food: new consumable kind next to potions (`SaveManager.potions`, `GardenDefs.gd`, merchant stock) — eat out of
   combat: regen X HP over Y s, cancelled by engage. Hooks into TID-542 quick slot.
+- From TID-542: battle quick slots exist (`QuickSlots.gd`, `SaveManager.quick_slots`, Q / E). The **world** quick
+  slot was deferred here — add a world-HUD button (`_world_hud.register_action`) + Q key that drinks a healing
+  draught / eats food out of combat once `hero_hp` exists.
 - Early heals: heal spells today are cost 1 `mend`, `dawn_soothing_touch`… mostly branch-gated; add 1–2 neutral
   low-cost heal cards to the starter deck / merchant (`CardRegistry` const preload + `.uid`).
 

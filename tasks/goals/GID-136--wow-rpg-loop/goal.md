@@ -18,7 +18,7 @@ Raised by the user (2026-09-26): towns, NPCs with asks, tracked objectives like 
 | TID-536 | Zone Level Ranges & Enemy Levels (also prerequisite of GID-141) | agent | done | — |
 | TID-537 | Class Trainers & Skill Cards | agent | done | TID-536, TID-540 |
 | TID-538 | Gear Rarity, Item Level & Quest Reward Choice | agent | pending | TID-533, TID-536 |
-| TID-542 | Consumables — Inventory Use & D3-Style Quick Slot | agent | pending | — |
+| TID-542 | Consumables — Inventory Use & D3-Style Quick Slot | agent | done | — |
 | TID-543 | Persistent Hero HP & Healing (Food, Early Heals) | agent | pending | TID-540, TID-545 |
 | TID-556 | Skill Bar Loadout Picker | agent | done | TID-537 |
 | TID-557 | Training Dummy | agent | done | TID-537 |

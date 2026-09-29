@@ -42,6 +42,7 @@ const DEFS: Array = [
 	["proc_chance", "Free-cast chance per skill hit", 0.15, 0.0, 1.0, 0.01, "Momentum"],
 	["auto_proc_chance", "Free-cast chance per auto-attack hit", 0.05, 0.0, 1.0, 0.01, "Momentum"],
 	["round_seconds", "Status/upkeep pulse per side (s)", 6.0, 1.0, 15.0, 0.5, "Status effects"],
+	["potion_cooldown", "Quick-slot potion cooldown (s)", 20.0, 0.0, 90.0, 1.0, "Consumables"],
 ]
 
 var _values: Dictionary = {}

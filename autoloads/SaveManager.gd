@@ -83,7 +83,7 @@ const PERSISTED_FIELDS: Dictionary = {
 	"bag_size": 0,
 	"siege": {}, "last_siege_day": 0, "town_discounts": {},
 	"rival_encounters_won": 0, "rival_defeated": false,
-	"garden_plots": [{}, {}, {}], "seeds": {}, "plants": {}, "potions": {},
+	"garden_plots": [{}, {}, {}], "seeds": {}, "plants": {}, "potions": {}, "quick_slots": ["", ""],
 	"captured_signatures": [], "cantrip_cooldowns": {}, "dug_mounds": [],
 	"blight_cleansed_hearts": [], "discovered_landmarks": [],
 	"collected_mana_wells": [], "last_saved": "",
@@ -334,6 +334,8 @@ var garden_plots: Array[Dictionary] = []
 var seeds: Dictionary = {}    # seed_id -> count
 var plants: Dictionary = {}   # plant_id -> count
 var potions: Dictionary = {}  # potion_id -> count
+## Potion id per consumable quick slot (Q, E) — see game_logic/battle/QuickSlots.gd (TID-542).
+var quick_slots: Array[String] = ["", ""]
 
 var last_saved: String = ""
 
@@ -591,6 +593,7 @@ func new_game(head_start: bool = false) -> void:
 	seeds = {}
 	plants = {}
 	potions = {}
+	quick_slots = ["", ""]
 	captured_signatures = []
 	cantrip_cooldowns = {}
 	dug_mounds = []

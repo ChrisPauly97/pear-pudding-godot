@@ -206,8 +206,6 @@ var _game_over_handled: bool = false
 var _boss_phase2_triggered: bool = false
 var _hero_power_btn: Button = null
 var _hero_power_used: bool = false
-var _potion_btn: Button = null
-var _used_potion_this_battle: bool = false
 var _gambit_badge: Control = null
 
 # Battlefield Resonance UI (GID-059)
@@ -973,8 +971,7 @@ func _on_turn_ended(player_idx: int) -> void:
 				_check_game_over()
 		elif player_idx == boss_idx:
 			# Boss turn — run AI only on the authority.
-			if _potion_btn != null:
-				_potion_btn.disabled = true
+			consumables._refresh_potion_button()
 			_check_game_over()
 			if _is_pvp_host() and not _state.is_game_over() and not _state.puzzle_mode:
 				_run_ai_turn()
@@ -996,8 +993,7 @@ func _on_turn_ended(player_idx: int) -> void:
 			if _state.scripted_battle:
 				tutorials._maybe_show_scripted_tutorial_step(_state.player_turn_numbers[0])
 	elif player_idx == 1:
-		if _potion_btn != null:
-			_potion_btn.disabled = true
+		consumables._refresh_potion_button()
 		_check_game_over()
 		# PvP: the opponent is a remote human; never run the AI. Their turn advances
 		# via relayed intents (host applies them). _check_game_over above already

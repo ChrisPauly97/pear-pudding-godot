@@ -18,7 +18,7 @@
 | Structure | Hearthstone-like: two heroes (30 HP), 5 board slots each, mana +1/turn to 10, 1 draw/turn |
 | Enemy | `EnemyRegistry` deck of minions (e.g. `ghoul_pack` = 5 ghoul + zombies + skeleton); `phase2_deck` for bosses |
 | Skills | 32 passive + 16 active; one active = **hero power button** (`BattleConsumables`) |
-| Consumables | `SaveManager.potions`; one potion per battle via picker |
+| Consumables | `SaveManager.potions`; two Q / E quick slots with a shared cooldown (TID-542) |
 | Gear | 4 slots; gear can inject cards (`WeaponData.injected_card_id`) |
 | Soulbinding | Winning under a capture condition earns an enemy's signature **minion** card |
 | "Companion" | Already a term: Maiteln etc., one equipped passive (`CompanionRegistry`). Avoid the name clash. |

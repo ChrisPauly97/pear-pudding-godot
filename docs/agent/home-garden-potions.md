@@ -6,7 +6,7 @@
 - Growth advances on every day rollover via `days_elapsed`, so plants ripen even while the player is away.
 - Three seed types (sunpetal, moonroot, embercap) produce three plant types and three craftable potions.
 - Seeds are purchased from merchants (30 coins each); plants are crafted into potions via the Inventory crafting tab.
-- In battle, one potion may be consumed per battle from a HUD button; three effects are available (heal, draw, mana).
+- In battle, potions are drunk from two quick slots (Q / E) sharing one cooldown (TID-542); three effects are available (heal, draw, mana).
 
 ## How It Works
 
@@ -105,13 +105,23 @@ A "— Seeds —" section is appended after Trinkets in `_refresh()`. `_make_see
 
 `_refresh_craft()` appends a "— Potions —" section after card recipes, iterating `GardenDefs.POTION_RECIPES`. `_make_potion_craft_row()` shows ingredient requirements (plant counts + essence), highlighting shortfalls in red. `_do_craft_potion()` removes plants, spends essence (with rollback if essence is insufficient), calls `SaveManager.garden.add_potions(potion_id, 1)`, and emits `GameBus.potion_crafted(potion_id)`.
 
-### Potion Use in BattleScene (`scenes/battle/BattleScene.gd`)
+### Potion Use in Battle — Quick Slots (`scenes/battle/modules/BattleConsumables.gd`, TID-542)
 
-- `_potion_btn: Button` added to `$SidePanel` in `_add_potion_button()`. Visible only when the player owns at least one potion.
-- `_used_potion_this_battle: bool` is a local battle flag (not persisted — resuming a battle gives a fresh use).
-- `_refresh_potion_button()` disables the button when: already used this battle, no potions owned, or it is the enemy's turn. Called on `_ready()`, after effect application, and in `_on_turn_ended()`.
-- `_show_potion_picker()` opens a CanvasLayer overlay listing owned potions with Use/Cancel.
-- `_apply_potion_effect(potion_id)` applies the effect, decrements the potion count, sets `_used_potion_this_battle = true`, emits `GameBus.potion_used(potion_id)`:
+- **Slots:** `SaveManager.quick_slots` (persisted, `["", ""]`) holds a potion id per slot. `QuickSlots.resolve(slots, potions)`
+  (`game_logic/battle/QuickSlots.gd`) drops unknown/exhausted ids and tops empty slots up with owned potions not already
+  slotted (`GardenDefs.POTIONS` order), so a player who never assigns anything still has potions on Q / E. Assign on the
+  backpack **Items** tab (`ItemsPanel`: Q / E buttons per owned potion → `QuickSlots.assign`, which also clears the other slot).
+- **Buttons:** `_add_potion_button()` adds one `$SidePanel` button per slot (`consumables.quick_btns`), labelled
+  `[Q] Healing Draught ×2` (no key hint on Android) plus the cooldown left. Hidden when the slot resolves empty; disabled
+  on cooldown or off-turn. `_refresh_potion_button()` runs on setup, after a drink, on every turn change (BattleScene) and
+  on each whole-second change of the real-time cooldown. Keys **Q / E** via the module's `_unhandled_key_input`
+  (1–3 belong to the real-time skill bar).
+- **Cooldown** (replaces "one potion per battle"): shared by both slots. Turn-based: `COOLDOWN_TURNS` (3) of the
+  drinker's own turns (`player_turn_numbers[my_idx]` compared with the drink turn — nothing ticks). Real time:
+  `potion_cooldown` CombatTuning knob (20 s), ticked by `BattleRealtime._process` → `consumables.tick_quick(dt)`.
+  Not persisted: a resumed battle starts ready.
+- Hidden in puzzle and scripted battles.
+- `_apply_potion_effect(potion_id)` applies the effect, decrements the potion count, starts the cooldown, emits `GameBus.potion_used(potion_id)`:
   - `healing_draught` — `hero.health = mini(hero.health + 8, hero.max_health)`
   - `clarity_brew` — calls `player_state.draw_card()` twice
   - `ember_tonic` — `hero.mana = mini(hero.mana + 1, hero.max_mana)` (resets at next turn normally)
