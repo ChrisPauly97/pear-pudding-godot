@@ -163,9 +163,9 @@ Meshes, materials and ramps are shared statically. `splash_level(weather, ambien
 - **Co-op:** peers share only the weather id (already synced); strike timing is local-random per client — no RPC.
 - **Battles:** the detached WorldScene isn't in the tree, so no strikes or thunder play during a battle.
 
-### Sky & Fog (`WorldScene._setup_environment`, `DayNightCycle`)
+### Sky & Fog (`WorldLook.make_environment` via `WorldScene._setup_environment`, `DayNightCycle`)
 
-`_setup_environment()` creates a `ProceduralSkyMaterial` at startup, assigns it to a `Sky` resource, and sets `env.background_mode = BG_SKY`. Fog is enabled on the same `Environment` with `fog_density=0.004`. `DayNightCycle._apply_lighting()` calls `_get_sky_mat()` (lazy getter that resolves the sky chain) and updates `sky_top_color`, `sky_horizon_color`, `ground_horizon_color`, and `fog_light_color` each half-second tick.
+`WorldLook.make_environment()` (`scenes/world/WorldLook.gd`, called from `_setup_environment()`) creates a `ProceduralSkyMaterial` at startup, assigns it to a `Sky` resource, and sets `env.background_mode = BG_SKY`. Fog is enabled on the same `Environment` with `fog_density=0.004`. `DayNightCycle._apply_lighting()` calls `_get_sky_mat()` (lazy getter that resolves the sky chain) and updates `sky_top_color`, `sky_horizon_color`, `ground_horizon_color`, and `fog_light_color` each half-second tick.
 
 ### Height Fog (`game_logic/AtmosphereMath.gd`, `DayNightCycle`) — GID-130 / TID-494
 

@@ -34,8 +34,9 @@ const _WORLD_SCENE_PATH := "res://scenes/world/WorldScene.gd"
 ## ChestLoot) plus guildhall furnishings moving to CoopSession brought it to
 ## ~2125; this leaves a little slack for small incidental changes without
 ## inviting a slow climb back toward the old 9154. The table-driven chunk
-## unload (BID-055 follow-up, tests/chunk_unload_smoke.gd) took it to 2070.
-const _CEILING := 2080
+## unload (BID-055 follow-up, tests/chunk_unload_smoke.gd) took it to 2070, and
+## moving the environment / fill-light construction to WorldLook.gd to 2028.
+const _CEILING := 2040
 
 
 func test_worldscene_stays_under_line_ceiling() -> void:

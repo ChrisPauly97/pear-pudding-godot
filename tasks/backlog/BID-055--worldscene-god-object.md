@@ -190,5 +190,5 @@ must stay — `test_interact_priority`), `_process` (81), `_wire_gamebus_signals
 `_on_chunk_unloading` (55). The last was eight copies of the same "free the node, erase the id" block; it is now a
 single table loop (−29 lines → 2070). New `tests/chunk_unload_smoke.gd` (in CI) evicts a real overworld chunk and
 checks every node is freed and every lookup table entry dropped (verified to fail with the `queue_free` removed).
-Ceiling ratcheted 2100 → 2080. Next candidates: `_setup_environment` (53) + `apply_graphics_quality` into a world
-module; `_wire_gamebus_signals` into the modules that own each handler.
+Ceiling ratcheted 2100 → 2080. Then `_setup_environment`'s Environment + fill-light construction moved to
+`scenes/world/WorldLook.gd` (static builders) → 2028, ceiling 2040. Next candidate: `_wire_gamebus_signals` into the modules that own each handler.
