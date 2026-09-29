@@ -23,13 +23,13 @@ party too". Existing precedent: `tools/generate_sprites.py` generates props/land
 | TID-605 | Graveyard Dressing | agent | done | — |
 | TID-606 | Main Menu Key Art (captured twilight view, slow drift; still on Low) | agent | done | — |
 | TID-607 | Third-Party Art Inventory & Generation Roadmap | agent | done | TID-603 |
-| TID-608 | Before/After Captures & Docs | agent | pending | TID-603, TID-604, TID-605, TID-606, TID-607 |
+| TID-608 | Before/After Captures & Docs | agent | done | TID-603, TID-604, TID-605, TID-606, TID-607 |
 
 ## Acceptance Criteria
 
-- [ ] Undead Wanderer / Horde Shambler use original generated sprites (idle + walk) at the character target heights.
-- [ ] Every named quest giver / trainer has a distinct generated sprite.
-- [ ] The graveyard reads as a graveyard (headstones, low fence, crypt facade).
-- [ ] The main menu shows Madrian at dusk behind the buttons (static image on Low graphics).
-- [ ] A complete list of third-party art with a generation plan per asset.
-- [ ] BID-065/066/067 resolved; tests, lint, unsafe-hits, smokes pass.
+- [x] Undead Wanderer / Horde Shambler use original generated sprites (idle + walk) at the character target heights.
+- [x] Every named quest giver / trainer has a distinct generated sprite.
+- [x] The graveyard reads as a graveyard (headstones, low fence, crypt facade).
+- [x] The main menu shows Madrian at twilight behind the buttons (captured image with a slow drift; still on Low graphics).
+- [x] A complete list of third-party art with a generation plan per asset.
+- [x] BID-065/066/067 resolved; tests, lint, unsafe-hits, smokes pass.

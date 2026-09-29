@@ -2,7 +2,7 @@
 
 **Goal:** GID-143
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-603, TID-604, TID-605, TID-606, TID-607
 
 ## Lock
@@ -22,12 +22,15 @@ Close out GID-143.
 
 ## Plan
 
-_Written during Plan phase._
+Captures were taken per task (camps, Madrian NPCs, graveyard, menu); close BIDs, update CREDITS / game-appeal.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Before → after (xvfb, 1280×720): camps skull icons → skeletons / zombies; Madrian generic "Shepherd" sprites →
+  distinct Hilda / Wenna / Aldo…; graveyard brick ring → iron fence, headstones, crypt door; flat menu → twilight
+  key art.
+- CREDITS.md per-slot index updated; BID-065/066/067 archived.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`game-appeal.md` §6 #6; CREDITS.md.

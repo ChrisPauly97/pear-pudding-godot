@@ -144,8 +144,9 @@ Stated plainly so downstream work targets them rather than the pitch papering ov
    remaining gap is *variety*, not presence: every hand-authored town shares one peaceful
    track, so a distinct bed for a location under siege is still worth having.
 6. **Placeholder feel in places.** *(Partly addressed by GID-141 / TID-593–594: first-30-minutes audit fixed the
-   XP bar, NPC names, NPCs standing in walls and panel sizing; remaining art gaps are BID-065 (placeholder
-   undead / townsfolk sprites), BID-066 (graveyard dressing), BID-067 (menu key art).)* Visual polish shipped broadly (GID-070/089/114), but
+   XP bar, NPC names, NPCs standing in walls and panel sizing; GID-143 then generated the starter undead, the
+   named NPCs, graveyard dressing and menu key art (BID-065..067 resolved); the rest of the third-party art has a
+   generation roadmap, BID-068..072.)* Visual polish shipped broadly (GID-070/089/114), but
    the pixel-art-in-3D aesthetic still varies in finish between old and new systems.
 
 ---
