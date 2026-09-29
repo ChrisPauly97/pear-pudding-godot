@@ -182,3 +182,13 @@ future slice lands — see the test's own doc comment.
 Re-run the full function-prefix census before starting either slice — as this
 slice demonstrated, the numbers in this file's original body (written before
 the `simplify/dedup` merge) are no longer reliable.
+
+### Follow-up (2026-09-29) — chunk-unload table
+
+Census on this date: 109 functions, 2099 lines; the biggest bodies are `_ready` (158), `_handle_interact` (124,
+must stay — `test_interact_priority`), `_process` (81), `_wire_gamebus_signals` (78), `_spawn_player` (62) and
+`_on_chunk_unloading` (55). The last was eight copies of the same "free the node, erase the id" block; it is now a
+single table loop (−29 lines → 2070). New `tests/chunk_unload_smoke.gd` (in CI) evicts a real overworld chunk and
+checks every node is freed and every lookup table entry dropped (verified to fail with the `queue_free` removed).
+Ceiling ratcheted 2100 → 2080. Next candidates: `_setup_environment` (53) + `apply_graphics_quality` into a world
+module; `_wire_gamebus_signals` into the modules that own each handler.

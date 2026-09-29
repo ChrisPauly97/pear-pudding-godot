@@ -1088,55 +1088,28 @@ func _on_chunk_committed(_key: Vector2i, chunk_data: _ChunkData) -> void:
 		_active_landmark_data[lid] = l_data
 
 func _on_chunk_unloading(chunk_key: Vector2i, chunk_data: _ChunkData) -> void:
-	for e_data in chunk_data.enemies:
-		var eid: String = str(e_data.get("id", ""))
-		var enode: Node3D = _valid_node3d(_enemy_nodes.get(eid))
-		if is_instance_valid(enode):
-			enode.queue_free()
-		_enemy_nodes.erase(eid)
-	for c_data in chunk_data.chests:
-		var cid: String = str(c_data.get("id", ""))
-		_active_chest_data.erase(cid)
-		var cnode: Node3D = _valid_node3d(_chest_nodes.get(cid))
-		if is_instance_valid(cnode):
-			cnode.queue_free()
-		_chest_nodes.erase(cid)
-	for d_data in chunk_data.doors:
-		var did: String = str(d_data.get("id", ""))
-		_active_door_data.erase(did)
-		var dnode: Node3D = _valid_node3d(_door_nodes.get(did))
-		if is_instance_valid(dnode):
-			dnode.queue_free()
-		_door_nodes.erase(did)
-	for n_data in chunk_data.npcs:
-		var nid: String = str(n_data.get("id", ""))
-		_active_npc_data.erase(nid)
-		var nnode: Node3D = _valid_node3d(_npc_nodes.get(nid))
-		if is_instance_valid(nnode):
-			nnode.queue_free()
-		_npc_nodes.erase(nid)
-	for w_data in chunk_data.waystones:
-		var wid: String = str(w_data.get("id", ""))
-		_active_waystone_data.erase(wid)
-		var wnode: Node3D = _valid_node3d(_waystone_nodes.get(wid))
-		if is_instance_valid(wnode):
-			wnode.queue_free()
-		_waystone_nodes.erase(wid)
-	for m_data in chunk_data.burial_mounds:
-		var mid: String = str(m_data.get("id", ""))
-		var mnode: Node3D = _valid_node3d(_burial_mound_nodes.get(mid))
-		if is_instance_valid(mnode):
-			mnode.queue_free()
-		_burial_mound_nodes.erase(mid)
-	for l_data: Dictionary in chunk_data.landmarks:
-		var lid: String = str(l_data.get("id", ""))
-		_active_landmark_data.erase(lid)
-	for w_data in chunk_data.mana_wells:
-		var wid: String = str(w_data.get("id", ""))
-		var wnode: Node3D = _valid_node3d(_mana_well_nodes.get(wid))
-		if is_instance_valid(wnode):
-			wnode.queue_free()
-		_mana_well_nodes.erase(wid)
+	# Per entity kind: the chunk's list, the id → live node table and the id → data
+	# table the finders scan ({} where a kind keeps no such table). Freed nodes are
+	# checked before any cast (see _valid_node3d).
+	for entry: Array in [
+		[chunk_data.enemies, _enemy_nodes, {}],
+		[chunk_data.chests, _chest_nodes, _active_chest_data],
+		[chunk_data.doors, _door_nodes, _active_door_data],
+		[chunk_data.npcs, _npc_nodes, _active_npc_data],
+		[chunk_data.waystones, _waystone_nodes, _active_waystone_data],
+		[chunk_data.burial_mounds, _burial_mound_nodes, {}],
+		[chunk_data.landmarks, {}, _active_landmark_data],
+		[chunk_data.mana_wells, _mana_well_nodes, {}],
+	]:
+		var nodes: Dictionary = entry[1]
+		var data: Dictionary = entry[2]
+		for d: Variant in (entry[0] as Array):
+			var id: String = str((d as Dictionary).get("id", ""))
+			var node: Node3D = _valid_node3d(nodes.get(id))
+			if node != null:
+				node.queue_free()
+			nodes.erase(id)
+			data.erase(id)
 	nocturnal.evict_chunk(chunk_key)
 
 # ── ChunkRenderer registration callbacks (called via duck typing) ──────────────
