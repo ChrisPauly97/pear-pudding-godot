@@ -158,6 +158,12 @@ func _refresh() -> void:
 	_shop_list.add_child(_make_section_header("— Shoulders —"))
 	_add_equipment_section("shoulders", SceneManager.save_manager.owned_shoulders, coins, discounted)
 
+	# ---- Helmets / Boots sections (GID-137 / TID-563) --------------------
+	_shop_list.add_child(_make_section_header("— Helmets —"))
+	_add_equipment_section("helmet", SceneManager.save_manager.owned_helmets, coins, discounted)
+	_shop_list.add_child(_make_section_header("— Boots —"))
+	_add_equipment_section("boots", SceneManager.save_manager.owned_boots, coins, discounted)
+
 	# ---- Rings section ---------------------------------------------------
 	_shop_list.add_child(_make_section_header("— Rings —"))
 	_add_equipment_section("ring", SceneManager.save_manager.owned_rings, coins, discounted)

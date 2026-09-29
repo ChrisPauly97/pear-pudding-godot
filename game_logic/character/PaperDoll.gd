@@ -25,8 +25,8 @@
 ## grip). `build_frames()` caches SpriteFrames by look, so every co-op avatar
 ## in the same gear shares one set of textures.
 ##
-## Split for size: pixel helpers live in `PaperDollPixels.gd`, gear drawing in
-## `PaperDollGear.gd`; this file extends both (inherited statics, no qualifier).
+## Split for size: pixel helpers live in `PaperDollPixels.gd`, gear drawing (incl.
+## helmets and boots, TID-563) in `PaperDollGear.gd`; this file extends both (inherited statics, no qualifier).
 ##
 ## Adding gear: one `GEAR_VISUALS` entry keyed by the item id. `test_paper_doll`
 ## fails if an item in a `VISIBLE_SLOTS` slot of WeaponRegistry has none.
@@ -82,7 +82,8 @@ const ANIMS: Dictionary = {
 }
 
 ## Slots that change the hero's look. Rings are too small to read at 16 px.
-const VISIBLE_SLOTS: Array[String] = ["armor", "shoulders", "weapon", "offhand", "trinket"]
+## New slots go on the end: the co-op gear payload (`encode_gear`) is positional.
+const VISIBLE_SLOTS: Array[String] = ["armor", "shoulders", "weapon", "offhand", "trinket", "helmet", "boots"]
 
 const DEFAULT_APPEARANCE: Dictionary = {
 	"skin": Color8(252, 203, 163),
@@ -117,6 +118,14 @@ const GEAR_VISUALS: Dictionary = {
 	"buckler": {"style": "buckler", "main": Color8(104, 70, 48), "trim": Color8(139, 155, 180)},
 	"parrying_dagger": {"style": "dagger", "main": Color8(192, 203, 220), "trim": Color8(84, 54, 38)},
 	"arcane_focus": {"style": "orb", "main": Color8(146, 86, 190), "trim": Color8(247, 134, 151)},
+	# Helmets (TID-563) — drawn over the hair; row 0 of the frame is spare for a crest.
+	"leather_cap": {"style": "cap", "main": Color8(72, 59, 58), "trim": Color8(181, 128, 87)},
+	"iron_helm": {"style": "helm", "main": Color8(123, 137, 148), "trim": Color8(82, 96, 124)},
+	"hooded_cowl": {"style": "cowl", "main": Color8(61, 115, 79), "trim": Color8(38, 72, 56)},
+	# Boots (TID-563) — replace the boot colour; the style adds a shaft, plates or spurs.
+	"travel_boots": {"style": "boots", "main": Color8(49, 43, 46), "trim": Color8(181, 128, 87)},
+	"iron_greaves": {"style": "greaves", "main": Color8(72, 59, 58), "trim": Color8(139, 155, 180)},
+	"spurred_boots": {"style": "spurred", "main": Color8(49, 43, 46), "trim": Color8(192, 203, 220)},
 	# Trinkets — small accents on the belt or neck.
 	"bone_charm": {"style": "necklace", "main": Color8(226, 182, 148)},
 	"ember_flask": {"style": "flask", "main": Color8(218, 78, 56), "trim": Color8(123, 137, 148)},
@@ -231,7 +240,7 @@ static func render_pose(gear: Dictionary, appearance: Dictionary, p: Dictionary)
 	var front_hand := Vector2i(11, 18 + bob) + hand_r
 	if cloak:
 		_draw_cloak_back(img, armor, bob)
-	_draw_legs(img, look, p)
+	_draw_legs(img, look, p, _visual(gear, "boots"))
 	var behind: bool = bool(p["wpn_behind"])
 	if behind:
 		_draw_held(img, _visual(gear, "weapon"), front_hand, look, false, float(p["wpn"]))
@@ -240,6 +249,7 @@ static func render_pose(gear: Dictionary, appearance: Dictionary, p: Dictionary)
 	_draw_arm(img, look, armor, back_hand, bob, true)
 	_draw_arm(img, look, armor, front_hand, bob, false)
 	_draw_head(img, look, bob)
+	_draw_helmet(img, _visual(gear, "helmet"), bob)
 	if cloak:
 		_draw_cloak_front(img, armor, bob)
 	_draw_shoulders(img, _visual(gear, "shoulders"), bob)
@@ -261,9 +271,9 @@ static func _visual(gear: Dictionary, slot: String) -> Dictionary:
 
 # ── Body parts ───────────────────────────────────────────────────────────────
 
-static func _draw_legs(img: Image, look: Dictionary, p: Dictionary) -> void:
+static func _draw_legs(img: Image, look: Dictionary, p: Dictionary, boot_gear: Dictionary = {}) -> void:
 	var trousers: Color = _col(look, "trousers")
-	var boots: Color = _col(look, "boots")
+	var boots: Color = _col(boot_gear, "main") if not boot_gear.is_empty() else _col(look, "boots")
 	var bob: int = int(p["bob"])
 	# Hips span both legs so a stride never opens a gap under the belt.
 	_fill(img, 5, 18 + bob, 6, 1, trousers)
@@ -281,6 +291,8 @@ static func _draw_legs(img: Image, look: Dictionary, p: Dictionary) -> void:
 		_px(img, x + 3, boot_y + 2, boots)                             # toe, facing right
 		_rect(img, x, boot_y, 3, 1, _light(boots, 0.12))              # folded cuff
 		_rect(img, x, boot_y + 2, 4, 1, _shadow(boots, 0.35))          # worn sole
+		if not boot_gear.is_empty():
+			_draw_boot_gear(img, boot_gear, x, boot_y, side == 0)
 
 
 static func _draw_torso(img: Image, look: Dictionary, armor: Dictionary, bob: int) -> void:

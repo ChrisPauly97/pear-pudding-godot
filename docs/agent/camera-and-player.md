@@ -161,7 +161,7 @@ if player_chunk != last_chunk:
 The player sprite is drawn in code so gear changes the body. Files (an
 `extends` chain, so statics are inherited unqualified):
 `game_logic/character/PaperDollPixels.gd` (pixel helpers, grime dither,
-shadow/highlight tones) ← `PaperDollGear.gd` (cloak, shoulders, trinkets,
+shadow/highlight tones) ← `PaperDollGear.gd` (cloak, shoulders, helmets, boots, trinkets,
 held items + rotation) ← `PaperDoll.gd` (tables, API, body parts).
 `HeroAnim.gd` picks the animation each physics frame.
 
@@ -200,14 +200,18 @@ Footsteps fire on walk frames 0 and 4; `IdleLife.hero_bob` lifts the sprite
 on passing frames 2–3 / 6–7 (frames bake their own dip on 1 and 5).
 
 **Gear:** `GEAR_VISUALS` maps item id → `{style, main, trim}`. Styles: armour
-`vest`/`mail`/`cloak`; shoulders `pauldron`/`plate`/`spiked`; held
+`vest`/`mail`/`cloak`; shoulders `pauldron`/`plate`/`spiked`; helmet
+`cap`/`helm`/`cowl` (`_draw_helmet`, over the hair; frame row 0 spare for
+crests); boots `boots`/`greaves`/`spurred` (the item's `main` replaces the
+appearance boot colour, then `_draw_boot_gear` adds a shaft, shin plates or
+spurs per leg); held
 `dagger`/`sword`/`axe`/`staff`/`wand`/`crystal`/`orb`/`buckler`/`shield`;
 trinket `necklace`/`flask`/`coin`. Rings are not drawn. Adding an item = one
 entry (reuse a style or add a `match` branch); `test_paper_doll` fails if an
 item in a `VISIBLE_SLOTS` slot lacks one or draws nothing.
 
-**Draw order:** cloak back → legs → (weapon if `wpn_behind`) → torso → trinket
-→ back arm, front arm → head → cloak mantle → shoulders → off-hand → weapon.
+**Draw order:** cloak back → legs (+ boot gear) → (weapon if `wpn_behind`) → torso → trinket
+→ back arm, front arm → head → helmet → cloak mantle → shoulders → off-hand → weapon.
 
 **Appearance:** optional Dictionary overriding `DEFAULT_APPEARANCE` colours
 (skin, hair, eyes, shirt, trousers, boots, belt). Not persisted yet (TID-562).

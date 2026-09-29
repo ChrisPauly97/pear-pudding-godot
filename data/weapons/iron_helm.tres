@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://i2vsf3753607"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_iron_helm"]
+
+[resource]
+script = ExtResource("1_iron_helm")
+id = "iron_helm"
+display_name = "Iron Helm"
+description = "A dented nasal helm, more rust than shine. Your hero starts each battle with 2 armor."
+slot = "helmet"
+battle_effect_type = "starting_armor"
+battle_effect_value = 2
+injected_card_id = ""
+injected_card_count = 0

@@ -152,7 +152,7 @@ func test_gear_of_record_reads_equipped_fields() -> void:
 
 func test_gear_payload_round_trips() -> void:
 	var gear: Dictionary = {"armor": "warded_cloak", "shoulders": "spiked_spaulders", "weapon": "dawn_staff",
-			"offhand": "", "trinket": "bone_charm"}
+			"offhand": "", "trinket": "bone_charm", "helmet": "iron_helm", "boots": "spurred_boots"}
 	var back: Dictionary = _PaperDoll.decode_gear(_PaperDoll.encode_gear(gear))
 	for slot: String in _PaperDoll.VISIBLE_SLOTS:
 		assert_eq(str(back[slot]), str(gear[slot]), slot)
@@ -165,3 +165,24 @@ func test_gear_payload_rejects_junk() -> void:
 	assert_eq(str(g["weapon"]), "dusk_blade")
 	assert_eq(str(g["trinket"]), "", "short payload pads with empty slots")
 	assert_eq(_PaperDoll.decode_gear("not an array").size(), _PaperDoll.VISIBLE_SLOTS.size())
+
+
+func test_helmet_and_boots_draw_where_they_belong() -> void:
+	# TID-563: helmets change the head rows only, boots the leg/boot rows only.
+	var base: Image = _PaperDoll.render_frame({}, {})
+	for id: String in _WeaponRegistry.get_by_slot("helmet"):
+		var img: Image = _PaperDoll.render_frame({"helmet": id}, {})
+		assert_false(_rows_differ(base, img, 18, _PaperDoll.FRAME_H), "%s touches the legs" % id)
+		assert_true(_rows_differ(base, img, 0, 9), "%s leaves the head unchanged" % id)
+	for id: String in _WeaponRegistry.get_by_slot("boots"):
+		var img: Image = _PaperDoll.render_frame({"boots": id}, {})
+		assert_false(_rows_differ(base, img, 0, 18), "%s touches the upper body" % id)
+		assert_true(_rows_differ(base, img, 18, _PaperDoll.FRAME_H), "%s leaves the boots unchanged" % id)
+
+
+func _rows_differ(a: Image, b: Image, y0: int, y1: int) -> bool:
+	for y: int in range(y0, y1):
+		for x: int in a.get_width():
+			if a.get_pixel(x, y) != b.get_pixel(x, y):
+				return true
+	return false

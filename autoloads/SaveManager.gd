@@ -34,6 +34,7 @@ const MAX_LOADOUTS: int = 5
 const _OWNED_BY_SLOT: Dictionary = {
 	"armor": "owned_armor", "ring": "owned_rings", "trinket": "owned_trinkets",
 	"offhand": "owned_offhands", "shoulders": "owned_shoulders",
+	"helmet": "owned_helmets", "boots": "owned_boots",
 }
 
 ## Every persisted field, mapped to the value a missing or malformed entry falls
@@ -59,6 +60,7 @@ const PERSISTED_FIELDS: Dictionary = {
 	"equipped_armor": "", "equipped_ring": "", "equipped_trinket": "", "equipped_offhand": "",
 	"owned_armor": [], "owned_rings": [], "owned_trinkets": [], "owned_offhands": [],
 	"equipped_shoulders": "", "owned_shoulders": [],
+	"equipped_helmet": "", "owned_helmets": [], "equipped_boots": "", "owned_boots": [],
 	"collected_scrolls": [], "settings": {},
 	"achievement_progress": {}, "unlocked_achievements": [],
 	"visited_biomes": [], "visited_dungeon_rooms": [],
@@ -175,11 +177,15 @@ var equipped_ring: String = ""
 var equipped_trinket: String = ""
 var equipped_offhand: String = ""
 var equipped_shoulders: String = ""
+var equipped_helmet: String = ""
+var equipped_boots: String = ""
 var owned_armor: Array[String] = []
 var owned_rings: Array[String] = []
 var owned_trinkets: Array[String] = []
 var owned_offhands: Array[String] = []
 var owned_shoulders: Array[String] = []
+var owned_helmets: Array[String] = []
+var owned_boots: Array[String] = []
 
 # World generation — set when starting a new game from the biome selection screen
 var world_seed: int = 42
@@ -512,11 +518,15 @@ func new_game(head_start: bool = false) -> void:
 	equipped_trinket = ""
 	equipped_offhand = ""
 	equipped_shoulders = ""
+	equipped_helmet = ""
+	equipped_boots = ""
 	owned_armor = []
 	owned_rings = []
 	owned_trinkets = []
 	owned_offhands = []
 	owned_shoulders = []
+	owned_helmets = []
+	owned_boots = []
 	collected_scrolls = []
 	achievement_progress = {}
 	unlocked_achievements = []
@@ -1139,7 +1149,7 @@ func equip_weapon(weapon_id: String) -> void:
 	GameBus.equipment_changed.emit("weapon", weapon_id)
 
 ## Adds an equipment item to the appropriate owned array based on its slot.
-## slot must be "weapon", "armor", "ring", "trinket", "offhand" or "shoulders".
+## slot must be "weapon", "armor", "ring", "trinket", "offhand", "shoulders", "helmet" or "boots".
 func add_equipment(item_id: String, slot: String) -> void:
 	match slot:
 		"weapon":
@@ -1160,6 +1170,12 @@ func add_equipment(item_id: String, slot: String) -> void:
 		"shoulders":
 			if not owned_shoulders.has(item_id):
 				owned_shoulders.append(item_id)
+		"helmet":
+			if not owned_helmets.has(item_id):
+				owned_helmets.append(item_id)
+		"boots":
+			if not owned_boots.has(item_id):
+				owned_boots.append(item_id)
 	_dirty = true
 
 ## Equips an item into its slot. Pass "" to unequip.
@@ -1171,6 +1187,8 @@ func equip_item(item_id: String, slot: String) -> void:
 		"trinket":  equipped_trinket = item_id
 		"offhand":  equipped_offhand = item_id
 		"shoulders": equipped_shoulders = item_id
+		"helmet":   equipped_helmet  = item_id
+		"boots":    equipped_boots   = item_id
 	_dirty = true
 	GameBus.equipment_changed.emit(slot, item_id)
 

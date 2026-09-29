@@ -19,9 +19,10 @@ visibly changes the character.
 | TID-560 | Layered PaperDoll Renderer & Local Hero | agent | done | — |
 | TID-561 | Co-op Avatars Wear Their Gear | agent | done | TID-560 |
 | TID-562 | Hero Appearance Picker (skin, hair) | agent | pending | TID-560 |
-| TID-563 | Art Pass — Helmets, Boots Slot, Directional Frames | agent | pending | TID-560 |
+| TID-563 | Art Pass — Helmets & Boots Slots | agent | done | TID-560 |
 | TID-564 | Shoulders Slot & Gritty Art Pass | agent | done | TID-560 |
 | TID-565 | Smooth Walk, Swing & Jump Animations | agent | done | TID-564 |
+| TID-618 | Directional Hero Frames (back view, cast pose) | agent | pending | TID-563 |
 
 ## Acceptance Criteria
 
@@ -31,5 +32,6 @@ visibly changes the character.
 - [x] Shoulders slot with visible pauldrons; grounded, non-cartoon look
 - [x] 8-frame walk, weapon swing on engage, jump/fall/land
 - [x] Remote co-op avatars show each peer's own gear
+- [x] Helmet and boots slots with visible gear (TID-563)
 - [ ] Player can choose skin tone and hair at New Game
 - [ ] Tests, gdlint, unsafe-hits, smoke tests clean

@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://3kby0sitn33u"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_iron_greaves"]
+
+[resource]
+script = ExtResource("1_iron_greaves")
+id = "iron_greaves"
+display_name = "Iron Greaves"
+description = "Plated shins strapped over the boots. Your hero starts each battle with 2 armor."
+slot = "boots"
+battle_effect_type = "starting_armor"
+battle_effect_value = 2
+injected_card_id = ""
+injected_card_count = 0

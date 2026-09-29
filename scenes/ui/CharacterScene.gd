@@ -8,12 +8,17 @@ const CompanionData = preload("res://data/CompanionData.gd")
 const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 
-const _SLOTS: Array[String] = ["weapon", "offhand", "armor", "shoulders", "ring", "trinket"]
+## Laid out two per row (TID-563: eight slots no longer fit one column).
+const _SLOTS: Array[String] = [
+	"weapon", "offhand", "helmet", "shoulders", "armor", "boots", "ring", "trinket",
+]
 const _SLOT_LABELS: Dictionary = {
 	"weapon":  "Weapon",
 	"offhand": "Off Hand",
 	"armor":   "Armor",
 	"shoulders": "Shoulders",
+	"helmet":  "Helmet",
+	"boots":   "Boots",
 	"ring":    "Ring",
 	"trinket": "Trinket",
 }
@@ -103,13 +108,21 @@ func _build_ui() -> void:
 	var equip_hdr := _UiUtil.make_label("Equipment", int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER,
 			left_vbox)
 
+	var slot_grid := GridContainer.new()
+	slot_grid.columns = 2
+	slot_grid.add_theme_constant_override("h_separation", int(_ref * 0.010))
+	slot_grid.add_theme_constant_override("v_separation", int(_ref * 0.010))
+	left_vbox.add_child(slot_grid)
 	for slot in _SLOTS:
 		var btn := Button.new()
 		btn.custom_minimum_size = Vector2(0, _ref * 0.065)
-		btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
+		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		btn.add_theme_font_size_override("font_size", int(_ref * 0.020))
 		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		btn.clip_text = true
+		btn.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		btn.pressed.connect(_on_slot_pressed.bind(slot))
-		left_vbox.add_child(btn)
+		slot_grid.add_child(btn)
 		_slot_btns[slot] = btn
 
 	var companion_hdr := _UiUtil.make_label("Companion", int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER,

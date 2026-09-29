@@ -1,5 +1,5 @@
-## Gear drawing for the PaperDoll hero (GID-137): cloak, shoulders, trinkets
-## and held items, including rotating an angled weapon about its grip.
+## Gear drawing for the PaperDoll hero (GID-137): cloak, shoulders, helmets,
+## boots, trinkets and held items, including rotating an angled weapon about its grip.
 ## Extends the pixel helpers; PaperDoll extends this.
 extends "res://game_logic/character/PaperDollPixels.gd"
 
@@ -63,6 +63,66 @@ static func _draw_shoulders(img: Image, item: Dictionary, bob: int) -> void:
 				_px(img, x + 1, y - 2, _light(trim, 0.2))
 			_:
 				_rect(img, x, y, 4, 3, tone)
+
+
+## Helmets sit over the hair (head top is row `3 + bob`, face x 6–10, nose at 11).
+static func _draw_helmet(img: Image, item: Dictionary, bob: int) -> void:
+	if item.is_empty():
+		return
+	var main: Color = _col(item, "main")
+	var trim: Color = _col(item, "trim")
+	var y: int = 3 + bob
+	match str(item.get("style", "")):
+		"cap":
+			# Close-fitting leather skullcap with a stitched band and a chin strap.
+			_fill(img, 6, y - 2, 5, 1, main, 0.7)
+			_fill(img, 5, y - 1, 6, 1, main, 0.7)
+			_rect(img, 5, y, 6, 1, _shadow(main, 0.25))
+			_px(img, 8, y - 1, trim)                                   # seam
+			_px(img, 7, y - 2, _light(main, 0.12))
+			_rect(img, 6, y + 1, 1, 4, _shadow(trim, 0.1))             # strap down the cheek
+		"helm":
+			# Rounded iron dome, rolled brow band, back neck guard and a nasal bar.
+			_rect(img, 6, y - 3, 4, 1, _light(main, 0.2))
+			_fill(img, 5, y - 2, 6, 2, main, 0.8)
+			_rect(img, 5, y, 7, 1, _shadow(trim, 0.05))                # brow band
+			_fill(img, 5, y + 1, 1, 3, _shadow(main, 0.25), 0.8)       # neck guard
+			_rect(img, 10, y + 1, 1, 2, main)                          # nasal
+			_px(img, 7, y - 2, _light(main, 0.35))                     # dull shine
+			_px(img, 9, y - 1, _shadow(main, 0.3))                     # dent
+		"cowl":
+			# Deep hood: covers the crown and back of the head, shades the brow,
+			# and drapes onto the shoulders.
+			_fill(img, 6, y - 2, 5, 1, main, 0.8)
+			_fill(img, 4, y - 1, 7, 2, main, 0.8)
+			_fill(img, 4, y + 1, 2, 5, _shadow(main, 0.15), 0.8)
+			_rect(img, 7, y + 1, 4, 1, _shadow(main, 0.45))            # shadow over the eyes
+			_rect(img, 11, y - 1, 1, 3, _shadow(trim, 0.1))            # hood lip
+			_fill(img, 4, y + 6, 6, 1, _shadow(main, 0.1), 0.8)        # drape at the neck
+			_px(img, 5, y - 1, _light(main, 0.1))
+
+
+## Extra detail over one boot (`boot_y` = boot top row). The far leg sits in shade.
+static func _draw_boot_gear(img: Image, item: Dictionary, x: int, boot_y: int, far: bool) -> void:
+	var main: Color = _col(item, "main")
+	var trim: Color = _col(item, "trim")
+	if far:
+		main = _shadow(main, 0.2)
+		trim = _shadow(trim, 0.2)
+	match str(item.get("style", "")):
+		"boots":
+			# Tall road boots: the shaft climbs two rows up the shin, with a turned cuff.
+			_rect(img, x, boot_y - 2, 3, 2, main)
+			_rect(img, x, boot_y - 2, 3, 1, _light(main, 0.2))
+			_px(img, x + 1, boot_y, trim)                              # buckle
+		"greaves":
+			# Iron plates strapped over the shin.
+			_rect(img, x, boot_y - 3, 3, 3, trim)
+			_rect(img, x + 2, boot_y - 3, 1, 3, _light(trim, 0.2))
+			_rect(img, x, boot_y - 2, 3, 1, _shadow(trim, 0.3))        # strap
+		"spurred":
+			_px(img, x - 1, boot_y + 1, trim)                          # spur behind the heel
+			_px(img, x + 1, boot_y + 1, trim)                          # buckle
 
 
 static func _draw_trinket(img: Image, trinket: Dictionary, bob: int) -> void:
