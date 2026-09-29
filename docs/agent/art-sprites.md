@@ -380,3 +380,19 @@ deleted (the rival's `elf_m` recolour stays). See `camera-and-player.md`
 - **Characters** keep their `HEIGHT_*` target heights (16 px pack enemies at
   0.05 would be half the hero's height); the hero paper-doll quantizes to the
   palette. The tables above describe the pre-generation sources for history.
+
+## Generated characters (GID-143)
+
+`tools/generate_characters.py` builds original characters in the prop generator's style (palette from
+`tools/pixel_palette.py`, top-left light, 1 px outline; imports `Canvas` from `generate_sprites.py`) from a small
+humanoid rig (`_walk(frame)` leg/arm swing, `_legs`). Each character writes `<name>.png` (idle) plus
+`<name>_walk_1..4.png`, 20×30 px canvas trimmed to content. Run `python3 tools/generate_characters.py`
+(`--preview sheet.png` for a 4× contact sheet); needs Pillow. Re-import with `godot --headless --editor --quit`.
+
+| Sprite | Replaces | Used by |
+|---|---|---|
+| `enemy_skeleton` | 0x72 `skelet` (`enemy_undead.png`) | `undead_basic` (Undead Wanderer) — TID-603 |
+| `enemy_zombie` | 0x72 `skelet` | `undead_horde` (Horde Shambler) — TID-603 |
+
+World heights are unchanged (`HEIGHT_SMALL_UNDEAD`); `SpriteRegistry.make_billboard` scales to them. The old
+`enemy_undead*.png` files stay on disk (credited) but are no longer referenced.

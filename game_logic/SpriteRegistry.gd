@@ -12,7 +12,9 @@
 ## Callers: preload("res://game_logic/SpriteRegistry.gd")
 extends RefCounted
 
-const _ENEMY_UNDEAD       := preload("res://assets/textures/characters/enemy_undead.png")
+## GID-143: original generated sprites (tools/generate_characters.py).
+const _ENEMY_SKELETON     := preload("res://assets/textures/characters/enemy_skeleton.png")
+const _ENEMY_ZOMBIE       := preload("res://assets/textures/characters/enemy_zombie.png")
 const _ENEMY_UNDEAD_ELITE := preload("res://assets/textures/characters/enemy_undead_elite.png")
 const _ENEMY_GHOUL        := preload("res://assets/textures/characters/enemy_ghoul.png")
 const _ENEMY_RAIDER       := preload("res://assets/textures/characters/enemy_raider.png")
@@ -134,8 +136,10 @@ static func enemy_texture(etype: String, is_roaming_boss: bool = false, is_boss:
 	if is_roaming_boss:
 		return _ENEMY_TERROR
 	match etype:
-		"undead_basic", "undead_horde":
-			return _ENEMY_UNDEAD
+		"undead_basic":
+			return _ENEMY_SKELETON
+		"undead_horde":
+			return _ENEMY_ZOMBIE
 		"undead_elite":
 			return _ENEMY_UNDEAD_ELITE
 		"ghoul_pack":

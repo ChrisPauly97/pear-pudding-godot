@@ -2,7 +2,7 @@
 
 **Goal:** GID-143
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -24,12 +24,14 @@ BID-065: undead_basic / undead_horde render `enemy_undead.png` (0x72 skelet, 16 
 
 ## Plan
 
-_Written during Plan phase._
+Humanoid rig generator (`tools/generate_characters.py`) reusing the prop Canvas; skeleton (hood rag, rusty blade) and zombie (hunched, reaching, torn tunic), idle + 4 walk frames; map undead_basic / undead_horde in SpriteRegistry.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `tools/generate_characters.py`; `assets/textures/characters/enemy_skeleton*.png`, `enemy_zombie*.png` (+ imports).
+- `SpriteRegistry.enemy_texture`: undead_basic → skeleton, undead_horde → zombie; unused `_ENEMY_UNDEAD` const removed.
+- Verified in an xvfb capture of the starter camps. Suite green.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`art-sprites.md` "Generated characters".
