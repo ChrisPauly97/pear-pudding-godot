@@ -61,9 +61,9 @@ const LADDER: Array[Dictionary] = [
 			+ "interrupts the cast outright. It is off the global cooldown, so you can Kick in the middle "
 			+ "of anything else — but it has its own 12 second cooldown, so save it for the casts that hurt.")},
 	{"id": FEAT_MINIONS, "kind": "feature", "trainer": "combat", "level_req": 4, "cost": 40,
-		"title": "Summoning Minions",
-		"how_to": ("Your deck now joins the fight. Each battle you draw a hand of cards; drag a minion card "
-			+ "onto one of your board slots to summon it (it costs mana). Minions fight beside you and "
+		"title": "Summoning Allies",
+		"how_to": ("Your deck now joins the fight. Each battle you draw a hand of cards; drag an ally card "
+			+ "onto one of your board slots to summon it (it costs mana). Allies fight beside you and "
 			+ "soak up blows. Win a fight under an enemy's special condition and you can soulbind its "
 			+ "signature card — watch the victory screen for the hunt line.")},
 	{"id": FEAT_SPELLS, "kind": "feature", "trainer": "combat", "level_req": 5, "cost": 60,
@@ -73,8 +73,8 @@ const LADDER: Array[Dictionary] = [
 			+ "they hit, heal or buff once. A spell that lands the final blow counts for some soulbinds.")},
 	{"id": FEAT_COMPANION, "kind": "feature", "trainer": "maiteln", "level_req": 6, "cost": 80,
 		"title": "Fighting Beside Maiteln",
-		"how_to": ("Maiteln will stand with you in battle as your companion. He brings a passive bonus to every "
-			+ "fight and calls out advice while you learn. Choose or change your companion from the "
+		"how_to": ("Maiteln will stand with you in battle as your mentor. He brings a passive bonus to every "
+			+ "fight and calls out advice while you learn. Choose or change your mentor from the "
 			+ "Character page.")},
 	{"id": FEAT_SKILLS, "kind": "feature", "trainer": "maiteln", "level_req": 7, "cost": 100,
 		"title": "Your Magic & Skill Tree",

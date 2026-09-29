@@ -125,7 +125,7 @@ func _build_ui() -> void:
 		slot_grid.add_child(btn)
 		_slot_btns[slot] = btn
 
-	var companion_hdr := _UiUtil.make_label("Companion", int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER,
+	var companion_hdr := _UiUtil.make_label("Mentor", int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER,
 			left_vbox)
 
 	_companion_btn = Button.new()
@@ -192,12 +192,12 @@ func _refresh_slot_buttons() -> void:
 	if _companion_btn != null:
 		var cid: String = sm.active_companion
 		if cid == "":
-			_companion_btn.text = "  Companion:  (none)"
+			_companion_btn.text = "  Mentor:  (none)"
 			_companion_btn.modulate = Color(0.7, 0.7, 0.7)
 		else:
 			var c: CompanionData = CompanionRegistry.get_companion(cid)
 			var display: String = c.display_name if c != null else cid
-			_companion_btn.text = "  Companion:  %s" % display
+			_companion_btn.text = "  Mentor:  %s" % display
 			_companion_btn.modulate = Color(1.0, 1.0, 1.0)
 		if _selected_slot == "companion":
 			_companion_btn.modulate = Color(1.0, 1.0, 0.5)
@@ -237,13 +237,13 @@ func _refresh_picker() -> void:
 		_picker_list.add_child(row)
 
 func _refresh_companion_picker() -> void:
-	_picker_title.text = "Companions"
+	_picker_title.text = "Mentors"
 	_picker_title.modulate = Color(1.0, 1.0, 1.0)
 	var active_id: String = SceneManager.save_manager.active_companion
 	_unequip_btn.disabled = active_id == ""
 	var all_ids: Array[String] = CompanionRegistry.all_ids()
 	if all_ids.is_empty():
-		var none_lbl := _UiUtil.make_label("No companions available yet.", int(_ref * 0.022), Color(0.6, 0.6, 0.6),
+		var none_lbl := _UiUtil.make_label("No mentors available yet.", int(_ref * 0.022), Color(0.6, 0.6, 0.6),
 				HORIZONTAL_ALIGNMENT_CENTER, _picker_list)
 		return
 	for cid in all_ids:
@@ -383,7 +383,7 @@ func _show_companion_toast(companion_id: String) -> void:
 	if c == null:
 		return
 	var msg: String = str(_COMPANION_FIRST_EQUIP_TOAST.get(companion_id,
-		"%s joins you as a companion." % c.display_name))
+		"%s joins you as your mentor." % c.display_name))
 	SceneManager.show_toast(c.display_name, msg)
 
 func _on_unequip() -> void:

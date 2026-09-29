@@ -2,7 +2,7 @@
 
 **Goal:** GID-135
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-540
 
 ## Lock
@@ -28,12 +28,22 @@ User decision (TID-540): Maiteln-style passive helper = **Mentor** (one at a tim
 
 ## Plan
 
-_Written during Plan phase._
+Display text only (code identifiers, `card_class = "minion"` and the `equipped_companion`
+save field stay). Mentor = Maiteln-style helper, Ally = the player's creature cards,
+minion = enemy creatures.
 
 ## Changes Made
 
-_Filled after Build phase._
+- CharacterScene: Companion → Mentor (header, slot button, picker, first-equip toast).
+- BattleArena effects panel: "Mentor: <name>".
+- UnlockLadder: Maiteln lesson says mentor; "Summoning Minions" → "Summoning Allies".
+- SideQuests barrow quest, Rift "Keen Edge" boon, first-battle tutorial: allies.
+- SpellEffectLabels: friendly-minion wording → ally/allies (enemy minions unchanged).
+- Inventory filter + card kind labels (InventoryScene, CraftPanel): Minion → Ally.
+- Card descriptions "your minions" → "your allies" (5 cards).
+- Left alone: co-op "ally" meaning a teammate (`ally_revive`), BattlefieldRules
+  (applies to both sides), code/docs identifiers.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- None beyond this file: `combat-model.md` already defines the terms.

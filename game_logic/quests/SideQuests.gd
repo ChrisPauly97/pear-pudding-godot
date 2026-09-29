@@ -80,11 +80,11 @@ const QUESTS: Array[Dictionary] = [
 	{"id": "raise_the_fallen", "title": "Raise the Fallen", "giver": "old_tam", "giver_name": "Old Tam",
 		"prereqs": ["hedge_witch_chant"],
 		"summary": ("One sword alone won't hold the North Barrow. Those cards you carry — the Trainer can teach "
-			+ "you to call them up to fight beside you. Learn to summon minions, then clear four from the barrow."),
+			+ "you to call them up to fight beside you. Learn to summon allies, then clear four from the barrow."),
 		"done_text": ("Ha! Like a proper company. Ivy the chandler has a spark of the old craft about her — go "
 			+ "and see her before you head anywhere near the Hedge Ruins."),
 		"objectives": [
-			{"type": "learn", "target": "feat_minions", "count": 1, "label": "Learn to summon minions"},
+			{"type": "learn", "target": "feat_minions", "count": 1, "label": "Learn to summon allies"},
 			{"type": "kill", "target": "undead_horde", "count": 4, "label": "Barrow dead put down",
 				"map": "main", "tx": 33, "tz": -21}],
 		"min_level": 4, "rewards": {"xp": 270, "coins": 60}},

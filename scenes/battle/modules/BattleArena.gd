@@ -268,5 +268,5 @@ func _append_player_loadout(out: Array[Dictionary]) -> void:
 	if cid != "" and CompanionRegistry.is_unlocked(cid) and not _battle._state.scripted_battle:
 		var comp: CompanionData = CompanionRegistry.get_companion(cid)
 		if comp != null:
-			out.append({"title": "Companion: %s" % comp.display_name, "desc": comp.description,
+			out.append({"title": "Mentor: %s" % comp.display_name, "desc": comp.description,
 					"color": _COL_ALLY})

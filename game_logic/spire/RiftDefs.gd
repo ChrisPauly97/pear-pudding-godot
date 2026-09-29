@@ -52,7 +52,7 @@ const BOONS: Dictionary = {
 		"effect": "max_hp", "value": 6},
 	"boon_bulwark": {"name": "Bulwark", "desc": "Start every fight this run with 4 armor.",
 		"effect": "armor", "value": 4},
-	"boon_edge": {"name": "Keen Edge", "desc": "Your minions enter with +1 attack this run.",
+	"boon_edge": {"name": "Keen Edge", "desc": "Your allies enter with +1 attack this run.",
 		"effect": "minion_attack", "value": 1},
 }
 

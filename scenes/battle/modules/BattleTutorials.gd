@@ -50,7 +50,7 @@ func _show_battle_tutorial() -> void:
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 
 	var label := _UiUtil.make_label(
-			"Tap a card, then tap a green slot to play it.\nTap your minion, then tap an enemy to attack.\nHold any "
+			"Tap a card, then tap a green slot to play it.\nTap your ally, then tap an enemy to attack.\nHold any "
 				+ "card to see its details. (Dragging works too.)",
 			int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

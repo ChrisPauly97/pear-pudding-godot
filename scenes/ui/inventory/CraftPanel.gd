@@ -134,7 +134,7 @@ func _card_row(recipe: _CraftingRecipe, essence: int, owned: int, bag_full: bool
 	_UiUtil.make_label(str(tmpl.get("name", tid)), int(_ref * 0.022), _UiUtil.rarity_color(rarity),
 			HORIZONTAL_ALIGNMENT_LEFT, head)
 	var is_spell: bool = str(tmpl.get("card_class", "minion")) == "spell"
-	var kind: String = "Spell" if is_spell else "Minion  ⚔%d ♥%d" % [int(tmpl.get("attack", 0)),
+	var kind: String = "Spell" if is_spell else "Ally  ⚔%d ♥%d" % [int(tmpl.get("attack", 0)),
 			int(tmpl.get("health", 0))]
 	_UiUtil.make_label(kind, int(_ref * 0.018), Color(0.75, 0.75, 0.8), HORIZONTAL_ALIGNMENT_LEFT, head)
 	var desc := _UiUtil.make_label(str(tmpl.get("description", "")), int(_ref * 0.017), Color(0.7, 0.7, 0.7),
