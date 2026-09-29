@@ -8,6 +8,8 @@ const CompanionData = preload("res://data/CompanionData.gd")
 const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const _GearRolls = preload("res://game_logic/items/GearRolls.gd")
+const _PaperDoll = preload("res://game_logic/character/PaperDoll.gd")
+const _HeroAppearanceScene = preload("res://scenes/ui/HeroAppearanceScene.gd")
 
 ## Laid out two per row (TID-563: eight slots no longer fit one column).
 const _SLOTS: Array[String] = [
@@ -95,9 +97,13 @@ func _build_ui() -> void:
 		left_vbox.custom_minimum_size = Vector2(_vw * 0.30, 0)
 	content.add_child(left_vbox)
 
-	# Avatar placeholder
-	var avatar_rect := ColorRect.new()
-	avatar_rect.color = Color(0.25, 0.30, 0.40)
+	# The hero in their current gear and look (BID-076), with a Change Look button.
+	var avatar_rect := TextureRect.new()
+	avatar_rect.texture = _PaperDoll.idle_texture(_PaperDoll.gear_of(SceneManager.save_manager),
+			_PaperDoll.appearance_of(SceneManager.save_manager))
+	avatar_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	avatar_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	avatar_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	var avatar_size: float = _ref * 0.22
 	avatar_rect.custom_minimum_size = Vector2(avatar_size, avatar_size)
 	avatar_rect.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -105,6 +111,9 @@ func _build_ui() -> void:
 
 	var avatar_lbl := _UiUtil.make_label("Saimtar", int(_ref * 0.022), Color(0.8, 0.8, 0.8),
 			HORIZONTAL_ALIGNMENT_CENTER, left_vbox)
+	_UiUtil.make_button("Change Look", Vector2(_ref * 0.18, _ref * 0.05), int(_ref * 0.02),
+			func() -> void: _HeroAppearanceScene.open_editor(get_tree(), _rebuild_ui),
+			left_vbox).size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 
 	var equip_hdr := _UiUtil.make_label("Equipment", int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER,
 			left_vbox)
@@ -485,3 +494,4 @@ func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("character"):
 		get_viewport().set_input_as_handled()
 		_on_close()
+

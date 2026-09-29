@@ -487,6 +487,9 @@ Values apply immediately on change and persist across sessions. Dismissed by Clo
   goes to `BiomeSelectionScene`; Back clears it and returns to `SlotSelectScene`.
   `SaveManager.new_game()` moves the pending choice into the persisted `hero_appearance`.
 - Full-screen Control (not BaseOverlay); rebuilds on resize.
+- **Edit mode** (BID-076): `HeroAppearanceScene.open_editor(tree, on_closed)` opens it over the Character
+  screen (its **Change Look** button, under the hero's PaperDoll portrait); Save writes `hero_appearance` and emits
+  `equipment_changed("appearance", "")` so the hero and co-op avatars redraw.
 
 ### BiomeSelectionScene (`scenes/ui/BiomeSelectionScene.gd`)
 

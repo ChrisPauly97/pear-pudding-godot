@@ -4,12 +4,21 @@
 ## `new_game()` moves into the persisted `hero_appearance`.
 ##
 ## Every swatch is a Button, so mouse, touch and keyboard focus all work.
+##
+## Edit mode (BID-076, opened from the Character screen): Save writes straight into
+## `hero_appearance`, emits `equipment_changed("appearance", "")` so the hero and
+## co-op avatars redraw, and emits `closed`; Cancel just closes.
 extends Control
+
+signal closed
 
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _PaperDoll = preload("res://game_logic/character/PaperDoll.gd")
 
 const _ROW_LABELS: Dictionary = {"skin": "Skin", "hair": "Hair"}
+
+## Set before adding to the tree to edit a live save's look instead of a new game's.
+var edit_mode: bool = false
 
 var _choice: Dictionary = {"skin": 0, "hair": 0}
 var _preview: TextureRect = null
@@ -18,7 +27,7 @@ var _ref: float = 0.0
 
 
 func _ready() -> void:
-	_choice = SaveManager.pending_appearance.duplicate()
+	_choice = (SaveManager.hero_appearance if edit_mode else SaveManager.pending_appearance).duplicate()
 	for key: String in _PaperDoll.LOOK_OPTIONS:
 		_choice[key] = _PaperDoll.look_index(_choice, key)
 	_build_ui()
@@ -39,7 +48,8 @@ func _build_ui() -> void:
 
 	var bg := ColorRect.new()
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg.color = Color(0.06, 0.06, 0.10)
+	bg.color = Color(0.06, 0.06, 0.10, 0.96 if edit_mode else 1.0)
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(bg)
 
 	var center := CenterContainer.new()
@@ -65,8 +75,9 @@ func _build_ui() -> void:
 	var buttons := _UiUtil.make_hbox(int(_ref * 0.03), root)
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	var btn_size := Vector2(_ref * 0.18, _ref * 0.065)
-	_UiUtil.make_button("Back", btn_size, int(_ref * 0.026), _on_back, buttons)
-	var go := _UiUtil.make_button("Continue", btn_size, int(_ref * 0.026), _on_continue, buttons)
+	_UiUtil.make_button("Cancel" if edit_mode else "Back", btn_size, int(_ref * 0.026), _on_back, buttons)
+	var go := _UiUtil.make_button("Save" if edit_mode else "Continue", btn_size, int(_ref * 0.026), _on_continue,
+			buttons)
 	go.grab_focus.call_deferred()
 	_refresh()
 
@@ -113,10 +124,34 @@ func _on_pick(key: String, index: int) -> void:
 
 
 func _on_continue() -> void:
+	if edit_mode:
+		SaveManager.hero_appearance = _choice.duplicate()
+		SaveManager.mark_dirty()
+		GameBus.equipment_changed.emit("appearance", "")
+		closed.emit()
+		return
 	SaveManager.pending_appearance = _choice.duplicate()
 	get_tree().change_scene_to_file("res://scenes/ui/BiomeSelectionScene.tscn")
 
 
 func _on_back() -> void:
+	if edit_mode:
+		closed.emit()
+		return
 	SaveManager.pending_appearance = {}
 	get_tree().change_scene_to_file("res://scenes/ui/SlotSelectScene.tscn")
+
+
+## Opens the picker in edit mode over whatever is on screen (Character screen,
+## BID-076); `on_closed` runs after it closes, saved or not.
+static func open_editor(tree: SceneTree, on_closed: Callable) -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 120
+	tree.root.add_child(layer)
+	var editor: Control = (load("res://scenes/ui/HeroAppearanceScene.gd") as GDScript).new()
+	editor.set("edit_mode", true)
+	editor.set_anchors_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(editor)
+	editor.connect("closed", func() -> void:
+		layer.queue_free()
+		on_closed.call())
