@@ -73,7 +73,38 @@ func _run() -> Array[String]:
 	if int(state.get("turn_number")) == turn_at:
 		fails.append("turn did not end by itself with nothing playable")
 	await _check_pack_on_board(sm, fails)
+	await _check_enemy_spells(sm, save_manager, fails)
 	return fails
+
+## BID-078: a turn-based enemy whose deck is all damage spells actually hurts you.
+func _check_enemy_spells(sm: Node, save_manager: Object, fails: Array[String]) -> void:
+	sm.call("_finish_battle")
+	sm.call("_restore_world")
+	await _wait(900)
+	save_manager.call("set_setting", "auto_end_turn", false)
+	sm.call("_start_battle", {"enemy_type": "undead_basic", "is_boss": false,
+		"enemy_deck": ["shadow_bolt", "shadow_bolt", "shadow_bolt", "shadow_bolt", "shadow_bolt", "shadow_bolt"]})
+	await _wait(1500)
+	var st: Object = current_scene.get("_state")
+	if st == null:
+		fails.append("spell-deck battle did not start")
+		return
+	await _wait_for_my_turn(st)
+	var me: Object = (st.get("players") as Array)[0]
+	var hp_before: int = int((me.get("hero") as Object).get("health"))
+	var hp_after: int = hp_before
+	for _round in range(3):  # the enemy needs 2 mana for a bolt
+		var space := InputEventKey.new()
+		space.keycode = KEY_SPACE
+		space.pressed = true
+		root.push_input(space)
+		await _wait(400)
+		await _wait_for_my_turn(st)
+		hp_after = int((me.get("hero") as Object).get("health"))
+		if hp_after < hp_before:
+			break
+	if hp_after >= hp_before:
+		fails.append("an all-spell enemy did no damage on its turn (%d -> %d)" % [hp_before, hp_after])
 
 ## TID-541: a pack enemy's pack is already on the enemy board when the fight opens.
 func _check_pack_on_board(sm: Node, fails: Array[String]) -> void:

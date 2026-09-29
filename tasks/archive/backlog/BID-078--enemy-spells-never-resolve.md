@@ -21,3 +21,15 @@ queue the card for `BattleScene` to `resolve_spell(card, ai_idx)` (targets: the 
 time, allow spells in `choose_enemy_card` and resolve them on `enemy_cast` with an explicit target (the resolver's
 `_state.opponent()` is relative to `current_player_idx`, which real time pins to the player). Re-balance enemy
 decks that contain spells afterwards.
+
+## Resolution
+
+- Turn-based: `BasicAI`'s play action queues a played spell on `pending_auto_spells`; `BattleScene` already
+  flushes that with the AI as caster right after every AI action, so the effect resolves (current player = AI, so
+  the resolver's default opponent is correct — incl. the co-op boss).
+- Real time: `RealtimeCombat.choose_enemy_card` now considers spells; `BattleRealtime._after_enemy_play` resolves
+  them with an explicit target `{"type": "hero", "pidx": PLAYER}` (current_player_idx is pinned to the player).
+- Tests: `battle_input_flow_smoke._check_enemy_spells` (an all-shadow-bolt enemy hurts you on its turn) and
+  `realtime_battle_smoke._check_enemy_spell` (hits the player, not the caster) — both verified to fail without the fix.
+- Follow-up: enemy decks that carry spells (e.g. `forest_shade`) now actually use them — watch balance. "Solo"
+  ability enemies (TID-541) are now possible; the Warlord keeps its summoning deck for now.

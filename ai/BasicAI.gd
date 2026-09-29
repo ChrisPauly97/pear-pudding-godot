@@ -48,6 +48,9 @@ static func decide_turn(state: GameState, persona: String = PERSONA_BASIC) -> Ar
 					# which emit card_played for the human player's own plays
 					# (BID-006) — the AI opponent's plays need the same signal.
 					if c.card_class == "spell":
+						# BID-078: queue the effect — BattleScene flushes pending_auto_spells
+						# with the AI as caster right after each action (play_card only discards).
+						ai.pending_auto_spells.append(c)
 						GameBus.card_played.emit(c.template_id, "spell", -1)
 					else:
 						GameBus.card_played.emit(c.template_id, "board", ai.board.slots.find(c))

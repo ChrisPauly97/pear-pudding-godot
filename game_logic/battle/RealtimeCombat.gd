@@ -677,14 +677,15 @@ func _land_heavy(side: int, events: Array[Dictionary]) -> void:
 	hero.take_damage(heavy_damage())
 	events.append({"type": "enemy_heavy_hit", "side": side, "damage": before - hero.health})
 
-## An enemy picks the most expensive unit it can afford. Enemy spells are skipped:
-## the turn-based AI plays them without resolving an effect, so the prototype
-## does not spend mana on them. Heuristic only — AI personas apply in TID-541.
+## An enemy picks the most expensive card it can afford — units or spells (spells
+## resolve at the player in BattleRealtime._after_enemy_play, BID-078). Heuristic
+## only — AI personas apply in TID-541.
 func choose_enemy_card(side: int = ENEMY) -> CardInstance:
 	var ai: PlayerState = state.players[side]
 	var best: CardInstance = null
+	# Spells are castable too (BID-078): BattleRealtime resolves them on enemy_cast.
 	for c: CardInstance in ai.hand:
-		if c.card_class == "spell" or not ai.can_play(c):
+		if not ai.can_play(c):
 			continue
 		if best == null or ai.effective_cost(c) > ai.effective_cost(best):
 			best = c

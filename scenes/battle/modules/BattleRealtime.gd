@@ -533,6 +533,14 @@ func _after_enemy_play(card: CardInstance, ai_idx: int = RealtimeCombat.ENEMY) -
 		_battle.modifiers._apply_weather_to_summoned(card, ai_idx)
 		GameBus.card_played.emit(card.template_id, "board", _battle._state.players[ai_idx].board.slots.find(card))
 	else:
+		# BID-078: resolve the enemy's spell at the player. Real time pins
+		# current_player_idx to the player, so the resolver's default opponent would
+		# be the caster itself — name the target explicitly.
+		var snap := _battle._fx.snapshot()
+		_battle._resolver.resolve_spell(card, ai_idx, {"type": "hero", "pidx": RealtimeCombat.PLAYER})
+		_battle._fx.trigger_fx(snap)
+		_battle._refresh_all()
+		_battle._check_game_over()
 		GameBus.card_played.emit(card.template_id, "spell", -1)
 
 ## Clock rate: "realtime_slow" (tactical) runs at 60 %, and the Fast battle-speed

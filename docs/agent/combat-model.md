@@ -255,8 +255,9 @@ enemy hero):
   `SpriteRegistry.pack_member_texture(card_id)`), children of the leader so they chase and vanish with it.
 - **Solo** (ability-casting enemies): **not shipped.** An all-spell Warlord deck was tried and reverted after
   review — enemy spells never resolve: `PlayerState.play_card` just discards a spell (only auto-resolve cards
-  drawn go through `pending_auto_spells`), and real time's `RealtimeCombat.choose_enemy_card` skips spells. Needs
-  the enemy spell pipeline in BID-078 first.
+  drawn go through `pending_auto_spells`), and real time's `RealtimeCombat.choose_enemy_card` skipped spells.
+  BID-078 has since fixed that (BasicAI queues played spells for the flush; real time resolves them at the player
+  in `_after_enemy_play`), so an ability deck is now viable — not yet assigned to any enemy.
 - **Summoner**: everyone else keeps the current summoning deck.
 - Co-op PvE, PvP, puzzles and scripted fights don't use `_setup_solo_battle`, so they're unchanged.
 - Tests: `test_enemy_encounters.gd` (pack data; the Warlord keeps a summoning deck until BID-078); `battle_input_flow_smoke` checks the ghoul
