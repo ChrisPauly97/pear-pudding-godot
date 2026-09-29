@@ -97,7 +97,8 @@ func maybe_start(is_fresh: bool) -> void:
 	# TID-579: telegraphed heavy blows only once the player has Kick to answer them.
 	rt.heavy_enabled = SceneManager.save_manager.learned_abilities.has("kick") and not _battle._state.puzzle_mode
 	rt.weapon_speed[RealtimeCombat.PLAYER] = equipped_weapon_speed()
-	rt.offhand_damage[RealtimeCombat.PLAYER] = offhand_damage_for_item(str(SceneManager.save_manager.equipped_offhand))
+	rt.offhand_damage[RealtimeCombat.PLAYER] = offhand_damage_for_item(str(SceneManager.save_manager.equipped_offhand),
+			SceneManager.save_manager.gear.mult(str(SceneManager.save_manager.equipped_offhand)))
 	if _EnemyRegistry.is_passive(enemy_type):
 		rt.set_passive(RealtimeCombat.ENEMY)
 	_last_player_hp = _battle._state.players[RealtimeCombat.PLAYER].hero.health
@@ -169,13 +170,13 @@ static func equipped_weapon_speed() -> float:
 ## offhand gear has no real-time swing). Pure so tests can drive it without an
 ## autoload. The turn-based equivalent bonus (BattleModifiers) is skipped once
 ## real time is active, so the two never double up.
-static func offhand_damage_for_item(item_id: String) -> int:
+static func offhand_damage_for_item(item_id: String, mult: float = 1.0) -> int:
 	if item_id == "":
 		return 0
 	var weapon := _WeaponRegistry.get_weapon(item_id)
 	if weapon == null or weapon.battle_effect_type != "offhand_atk":
 		return 0
-	return _UpgradeDefs.effective_stat(weapon, 0)
+	return _UpgradeDefs.effective_stat(weapon, 0, mult)
 
 ## Opens the combat tuning panel over the battle (the clock pauses while it's open).
 func open_tuning() -> void:

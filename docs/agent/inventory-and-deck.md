@@ -176,6 +176,20 @@ Extends `BaseOverlay.gd`. Renders `SaveManager.mailbox.get_mailbox_instances()` 
 
 The player can equip items across eight slots: **weapon**, **offhand**, **armor**, **shoulders** (GID-137: leather/iron pauldrons, spiked spaulders), **helmet** (TID-563: leather cap +3 HP, iron helm +2 armor, hooded cowl +1 mana), **boots** (TID-563: travel boots +3 HP, iron greaves +2 armor, spurred boots +1 attack), **ring**, and **trinket**. CharacterScene lays the slot buttons out two per row. Each slot holds one item ID (empty string = nothing equipped). At battle start `BattleScene.modifiers._apply_equipment_effects()` loops over every slot, resolves each item via `WeaponRegistry`, and applies its effect to `PlayerState[0]` before the opening hand is drawn. All slot types use the same `WeaponData` resource and registry — the `slot` field distinguishes them.
 
+**Rarity & item level (GID-136 / TID-538):** every owned item has one roll, `{"rarity", "ilvl"}`, in
+`SaveManager.gear_rolls` (keyed by item id; missing = common, ilvl 1, so no migration). Rarities reuse the card
+ones (common / rare / epic / legendary, `UiUtil.rarity_color`). `GearRolls.mult(roll)` = rarity multiplier
+(1 / 1.25 / 1.5 / 2) × (1 + 2 % per item level above 1) feeds `UpgradeDefs.effective_stat(weapon, level, mult)`
+(rounded, never below the base value) — battle effects (`BattleModifiers._apply_equipment_effects`, real-time
+off-hand damage) and every display string (`get_display_string(…, mult)`). Sources: chests
+(`ChestLoot._maybe_drop_equipment(chance, tier, level)` — rarity weights by chest tier, item level = zone level
+on the overworld, else the player's level; 30 % of drops re-roll an owned item), victory weapon rewards (enemy
+difficulty tier, enemy level), shop purchases (common at your level) and quest turn-ins with a `gear_choice`
+(pick one of three, a rare roll at quest level + 1; `SaveQuests.turn_in(id, pick)`, the turn-in panel shows the
+three items with their rolled stats). `SaveManager.gear.grant(id, roll)` adds a new item or keeps the better roll
+("new" / "upgraded" / "kept"); an upgrade to an equipped item emits `equipment_changed`. CharacterScene colours
+item names by rarity and shows "Rare · ilvl 7". Co-op session records (BID-033) don't carry rolls yet.
+
 **Visuals (GID-137):** equipping emits `GameBus.equipment_changed(slot, id)` and the hero sprite redraws in the new gear. Every armour/shoulders/helmet/boots/weapon/offhand/trinket item needs a `PaperDoll.GEAR_VISUALS` entry (see `camera-and-player.md` → Paper-doll hero); rings are not drawn.
 
 Mana cap invariant: max_mana never permanently exceeds 10. The `starting_mana` effect grants a one-time turn-1 burst; `PlayerState.gain_mana_for_turn(turn)` resets `max_mana = min(10, turn)` on every subsequent turn, naturally undoing the boost.

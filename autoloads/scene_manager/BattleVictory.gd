@@ -25,6 +25,8 @@ const _RewardToastFx = preload("res://scenes/world/RewardToastFx.gd")
 const _ZoneLevels = preload("res://game_logic/world/ZoneLevels.gd")
 const _RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
 const _EnemyNPC = preload("res://scenes/world/entities/EnemyNPC.gd")
+const _GearRolls = preload("res://game_logic/items/GearRolls.gd")
+const _SaveGear = preload("res://autoloads/save_manager/SaveGear.gd")
 
 ## Chain pulls (GID-135 / TID-532): a pursuing enemy this close to the hero when an
 ## in-place fight is won engages at once, without the camera zooming out between.
@@ -98,7 +100,14 @@ func _on_battle_won(result: Dictionary) -> void:
 		_sm._bump_session_stat("cards_earned", 1)
 	var weapon_reward: String = str(result.get("weapon_reward", ""))
 	if weapon_reward != "":
-		_sm.save_manager.add_weapon(weapon_reward)
+		# TID-538: the drop rolls rarity by the enemy's tier and item level by its level.
+		var rng := RandomNumberGenerator.new()
+		rng.randomize()
+		var lvl: int = int(_sm.save_manager.pending_battle_enemy_data.get("enemy_level", _sm.save_manager.level))
+		var roll: Dictionary = _GearRolls.roll(drop_tier, lvl, rng)
+		var got: String = _sm.save_manager.gear.grant(weapon_reward, roll)
+		if got == "upgraded":
+			GameBus.hud_message_requested.emit(_SaveGear.drop_message(weapon_reward, roll, got))
 	# Soulbind signature capture (GID-061): grant signature card + persist capture.
 	var sig_capture: String = str(result.get("signature_capture", ""))
 	if sig_capture != "":

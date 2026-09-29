@@ -8,6 +8,7 @@ extends RefCounted
 
 const _SaveManager = preload("res://autoloads/SaveManager.gd")
 const _SideQuests = preload("res://game_logic/quests/SideQuests.gd")
+const _GearRolls = preload("res://game_logic/items/GearRolls.gd")
 
 var _save: _SaveManager
 
@@ -118,12 +119,20 @@ func progress_event(event_type: String, target: String = "", amount: int = 1) ->
 	return changed
 
 ## Hands a ready quest in: pays its rewards, sets its flag and records it.
-## Returns the rewards dict granted, or {} when it can't be turned in.
-func turn_in(id: String) -> Dictionary:
+## `gear_pick` is the chosen item of a `gear_choice` reward (TID-538; granted as a
+## rare roll at the quest level); an empty or unknown pick takes the first choice.
+## Returns the rewards dict granted (plus "gear" = the pick), or {} when it can't be turned in.
+func turn_in(id: String, gear_pick: String = "") -> Dictionary:
 	if not is_ready(id):
 		return {}
 	var q: Dictionary = _SideQuests.def(id)
-	var rewards: Dictionary = q.get("rewards", {})
+	var rewards: Dictionary = (q.get("rewards", {}) as Dictionary).duplicate()
+	var choice: Array = rewards.get("gear_choice", [])
+	if not choice.is_empty():
+		if not choice.has(gear_pick):
+			gear_pick = str(choice[0])
+		_save.gear.grant(gear_pick, quest_gear_roll(q))
+		rewards["gear"] = gear_pick
 	_save.quests_active.erase(id)
 	_save.quests_completed.append(id)
 	var coins: int = int(rewards.get("coins", 0))
@@ -141,6 +150,10 @@ func turn_in(id: String) -> Dictionary:
 	_save._dirty = true
 	GameBus.quest_turned_in.emit(id)
 	return rewards
+
+## The roll a quest's gear reward is granted at: QUEST_RARITY, item level one above the quest's.
+static func quest_gear_roll(q: Dictionary) -> Dictionary:
+	return {"rarity": _GearRolls.QUEST_RARITY, "ilvl": int(q.get("min_level", 1)) + 1}
 
 ## Active side quests as QuestLog entries.
 func log_entries() -> Array[Dictionary]:

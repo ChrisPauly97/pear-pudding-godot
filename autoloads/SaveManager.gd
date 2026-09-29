@@ -17,6 +17,7 @@ const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const _SkillBar = preload("res://game_logic/battle/SkillBar.gd")
 const _CombatOnboarding = preload("res://game_logic/battle/CombatOnboarding.gd")
 const _SaveGarden = preload("res://autoloads/save_manager/SaveGarden.gd")
+const _SaveGear = preload("res://autoloads/save_manager/SaveGear.gd")
 const _SaveBounties = preload("res://autoloads/save_manager/SaveBounties.gd")
 const _SaveQuests = preload("res://autoloads/save_manager/SaveQuests.gd")
 const _SaveLoadouts = preload("res://autoloads/save_manager/SaveLoadouts.gd")
@@ -60,7 +61,7 @@ const PERSISTED_FIELDS: Dictionary = {
 	"equipped_armor": "", "equipped_ring": "", "equipped_trinket": "", "equipped_offhand": "",
 	"owned_armor": [], "owned_rings": [], "owned_trinkets": [], "owned_offhands": [],
 	"equipped_shoulders": "", "owned_shoulders": [],
-	"hero_appearance": {},
+	"hero_appearance": {}, "gear_rolls": {},
 	"equipped_helmet": "", "owned_helmets": [], "equipped_boots": "", "owned_boots": [],
 	"collected_scrolls": [], "settings": {},
 	"achievement_progress": {}, "unlocked_achievements": [],
@@ -104,6 +105,7 @@ const REDEMPTION_FLAG_AWARDS: Dictionary = {
 
 ## Feature APIs over the persisted fields (autoloads/save_manager/), built in `_init`.
 var garden: _SaveGarden
+var gear: _SaveGear  # gear rarity / item level rolls (TID-538)
 var bounties: _SaveBounties
 var quests: _SaveQuests
 var decks: _SaveLoadouts
@@ -191,6 +193,8 @@ var owned_boots: Array[String] = []
 
 ## Hero look as PaperDoll preset indices, e.g. {"skin": 2, "hair": 1} (TID-562).
 var hero_appearance: Dictionary = {}
+## Item id → {"rarity", "ilvl"} (game_logic/items/GearRolls.gd, TID-538); missing = common ilvl 1.
+var gear_rolls: Dictionary = {}
 ## Picked on the New Game appearance screen; new_game() moves it into
 ## hero_appearance, so a picker abandoned via Back never leaks into a loaded save.
 var pending_appearance: Dictionary = {}
@@ -365,6 +369,7 @@ var _achievement_dirty: bool = false
 ## `SaveManagerScript.new()` without ever adding it to the tree.
 func _init() -> void:
 	garden = _SaveGarden.new(self)
+	gear = _SaveGear.new(self)
 	bounties = _SaveBounties.new(self)
 	quests = _SaveQuests.new(self)
 	decks = _SaveLoadouts.new(self)
@@ -540,6 +545,7 @@ func new_game(head_start: bool = false) -> void:
 	owned_shoulders = []
 	owned_helmets = []
 	owned_boots = []
+	gear_rolls = {}
 	hero_appearance = pending_appearance.duplicate()
 	pending_appearance = {}
 	collected_scrolls = []

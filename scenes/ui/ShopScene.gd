@@ -364,7 +364,9 @@ func _on_buy_equipment(item_id: String, slot: String, price: int) -> void:
 	if sm.coins < price:
 		return
 	sm.add_coins(-price)
-	sm.add_equipment(item_id, slot)
+	# TID-538: shop stock is common, at your level.
+	if sm.gear.grant(item_id, {"rarity": "common", "ilvl": sm.level}) == "":
+		sm.add_equipment(item_id, slot)
 	_refresh()
 
 func _make_pack_row(pack_id: String, pack_def: Dictionary, coins: int) -> VBoxContainer:

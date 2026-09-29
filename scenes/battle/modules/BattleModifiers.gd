@@ -58,6 +58,7 @@ func _apply_equipment_effects(player: PlayerState) -> void:
 		if weapon == null:
 			continue
 		var level: int = 0
+		var gm: float = sm.gear.mult(item_id)  # rarity / item level roll (TID-538)
 		if weapon.slot == "weapon":
 			var inst: Dictionary = sm.get_owned_weapon_by_id(item_id)
 			level = int(inst.get("upgrade_level", 0))
@@ -71,18 +72,18 @@ func _apply_equipment_effects(player: PlayerState) -> void:
 					player.draw_deck.append(CardInstance.new(tmpl))
 				injected_any = true
 			"starting_mana":
-				player.hero.bonus_mana += UpgradeDefs.effective_stat(weapon, level)
+				player.hero.bonus_mana += UpgradeDefs.effective_stat(weapon, level, gm)
 			"starting_hp":
-				var hp_bonus: int = UpgradeDefs.effective_stat(weapon, level)
+				var hp_bonus: int = UpgradeDefs.effective_stat(weapon, level, gm)
 				player.hero.health += hp_bonus
 				player.hero.max_health += hp_bonus
 			"passive_atk":
-				player.hero.attack += UpgradeDefs.effective_stat(weapon, level)
+				player.hero.attack += UpgradeDefs.effective_stat(weapon, level, gm)
 			"starting_armor":
-				player.hero.add_armor(UpgradeDefs.effective_stat(weapon, level))
+				player.hero.add_armor(UpgradeDefs.effective_stat(weapon, level, gm))
 			"offhand_atk":
 				if not realtime_mode:
-					var offhand_val: int = UpgradeDefs.effective_stat(weapon, level)
+					var offhand_val: int = UpgradeDefs.effective_stat(weapon, level, gm)
 					player.hero.attack += UpgradeDefs.offhand_turnbased_bonus(offhand_val)
 	if injected_any:
 		player.draw_deck.shuffle()

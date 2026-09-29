@@ -7,6 +7,7 @@ const CompanionRegistry = preload("res://autoloads/CompanionRegistry.gd")
 const CompanionData = preload("res://data/CompanionData.gd")
 const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
+const _GearRolls = preload("res://game_logic/items/GearRolls.gd")
 
 ## Laid out two per row (TID-563: eight slots no longer fit one column).
 const _SLOTS: Array[String] = [
@@ -186,6 +187,11 @@ func _refresh_slot_buttons() -> void:
 					display += " +%d" % lvl
 			btn.text = "  %s:  %s" % [label_name, display]
 			btn.modulate = Color(1.0, 1.0, 1.0)
+			# TID-538: the item's name reads in its rarity colour.
+			btn.add_theme_color_override("font_color",
+					_UiUtil.rarity_color(str(sm.gear.roll_of(equipped_id)["rarity"])))
+		if equipped_id == "":
+			btn.remove_theme_color_override("font_color")
 		if slot == _selected_slot:
 			btn.modulate = Color(1.0, 1.0, 0.5)
 	# Companion slot button
@@ -309,7 +315,9 @@ func _make_picker_row(item_id: String, w: WeaponData, is_equipped: bool) -> HBox
 		var wlvl: int = int(win.get("upgrade_level", 0))
 		if wlvl > 0:
 			disp_name += " +%d" % wlvl
-	name_lbl.text = disp_name
+	var roll: Dictionary = SceneManager.save_manager.gear.roll_of(item_id)
+	name_lbl.text = "%s  (%s)" % [disp_name, _GearRolls.label(roll)]
+	name_lbl.add_theme_color_override("font_color", _UiUtil.rarity_color(str(roll["rarity"])))
 	name_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_row.add_child(name_lbl)
@@ -324,7 +332,7 @@ func _make_picker_row(item_id: String, w: WeaponData, is_equipped: bool) -> HBox
 	if w.slot == "weapon":
 		var winst: Dictionary = sm.get_owned_weapon_by_id(item_id)
 		upgrade_level = int(winst.get("upgrade_level", 0))
-	effect_lbl.text = UpgradeDefs.get_display_string(w, upgrade_level)
+	effect_lbl.text = UpgradeDefs.get_display_string(w, upgrade_level, sm.gear.mult(item_id))
 	effect_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	effect_lbl.modulate = Color(0.9, 1.0, 0.7)
 	info_vbox.add_child(effect_lbl)
@@ -433,7 +441,8 @@ func _show_compare_tooltip(item_id: String, candidate: WeaponData, anchor: Contr
 	var equipped_lbl := Label.new()
 	equipped_lbl.text = "Equipped: %s\n%s" % [
 		(equipped.display_name if equipped != null else "(empty)"),
-		(UpgradeDefs.get_display_string(equipped, equipped_lvl) if equipped != null else "—"),
+		(UpgradeDefs.get_display_string(equipped, equipped_lvl, sm.gear.mult(equipped_id)) if equipped != null
+				else "—"),
 	]
 	equipped_lbl.add_theme_font_size_override("font_size", int(_ref * 0.020))
 	equipped_lbl.modulate = Color(0.75, 0.75, 0.75)
@@ -445,7 +454,7 @@ func _show_compare_tooltip(item_id: String, candidate: WeaponData, anchor: Contr
 	var candidate_lbl := Label.new()
 	candidate_lbl.text = "%s\n%s" % [
 		candidate.display_name,
-		UpgradeDefs.get_display_string(candidate, candidate_lvl),
+		UpgradeDefs.get_display_string(candidate, candidate_lvl, sm.gear.mult(item_id)),
 	]
 	candidate_lbl.add_theme_font_size_override("font_size", int(_ref * 0.020))
 	candidate_lbl.modulate = Color(0.6, 1.0, 0.7)
@@ -453,7 +462,8 @@ func _show_compare_tooltip(item_id: String, candidate: WeaponData, anchor: Contr
 	vb.add_child(candidate_lbl)
 
 	if equipped != null and equipped.battle_effect_type == candidate.battle_effect_type:
-		var delta: int = candidate.battle_effect_value - equipped.battle_effect_value
+		var delta: int = (UpgradeDefs.effective_stat(candidate, candidate_lvl, sm.gear.mult(item_id))
+				- UpgradeDefs.effective_stat(equipped, equipped_lvl, sm.gear.mult(equipped_id)))
 		if delta != 0:
 			var delta_lbl := _UiUtil.make_label("%+d vs equipped" % delta, int(_ref * 0.020),
 					Color(0.4, 1.0, 0.5) if delta > 0 else Color(1.0, 0.45, 0.4), HORIZONTAL_ALIGNMENT_LEFT, vb)

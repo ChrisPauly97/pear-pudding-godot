@@ -10,6 +10,11 @@ const SkillBar = preload("res://game_logic/battle/SkillBar.gd")
 const _SideQuests = preload("res://game_logic/quests/SideQuests.gd")
 const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
 const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
+const _GearRolls = preload("res://game_logic/items/GearRolls.gd")
+const _SaveQuests = preload("res://autoloads/save_manager/SaveQuests.gd")
+const _UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
+const WeaponData = preload("res://data/WeaponData.gd")
+const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 
 const _DUEL_PANEL_BG := Color(0.08, 0.08, 0.18, 0.96)
 ## TID-557: fixed enemy id for the town training dummy fight — see EnemyRegistry.gd.
@@ -117,14 +122,13 @@ func _quest_panel(npc: Dictionary, q: Dictionary, turn_in: bool) -> void:
 	var row := _UiUtil.make_hbox(int(vh * 0.02), vbox)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	var btn_size := Vector2(vh * 0.18, vh * 0.06)
-	if turn_in:
+	var choice: Array = (q.get("rewards", {}) as Dictionary).get("gear_choice", [])
+	if turn_in and not choice.is_empty():
+		_gear_choice_row(q, choice, layer, vbox, btn_size, font)
+	elif turn_in:
 		_UiUtil.make_button("Complete", btn_size, font, func() -> void:
 			layer.queue_free()
-			var rewards: Dictionary = sm.quests.turn_in(id)
-			if not rewards.is_empty():
-				GameBus.hud_message_requested.emit("Quest complete: %s  (%s)" % [str(q.get("title", "")),
-						reward_text(rewards)])
-			_world.quest_tracker.refresh(true), row)
+			_complete_quest(q, ""), row)
 	else:
 		_UiUtil.make_button("Accept", btn_size, font, func() -> void:
 			layer.queue_free()
@@ -139,6 +143,38 @@ func _quest_panel(npc: Dictionary, q: Dictionary, turn_in: bool) -> void:
 			interact_service(npc), row)
 
 ## "40 XP · 20 coins · 1 card" for a rewards dict.
+## Quest turn-in with a gear reward (TID-538): one button per item, showing what it
+## would give at the quest's roll; picking one completes the quest with it.
+func _gear_choice_row(q: Dictionary, choice: Array, layer: CanvasLayer, vbox: VBoxContainer, btn_size: Vector2,
+		font: int) -> void:
+	var vh: float = _world.get_viewport().get_visible_rect().size.y
+	var roll: Dictionary = _SaveQuests.quest_gear_roll(q)
+	_UiUtil.make_label("Choose your reward (%s):" % _GearRolls.label(roll), font, Color(1.0, 0.85, 0.4),
+			HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var row := _UiUtil.make_hbox(int(vh * 0.015), vbox)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	for idv: Variant in choice:
+		var item_id: String = str(idv)
+		var w: WeaponData = WeaponRegistry.get_weapon(item_id)
+		if w == null:
+			continue
+		var text: String = "%s\n%s" % [w.display_name, _UpgradeDefs.get_display_string(w, 0, _GearRolls.mult(roll))]
+		var btn := _UiUtil.make_button(text, Vector2(btn_size.x * 1.2, btn_size.y * 1.6), int(font * 0.9),
+				func() -> void:
+					layer.queue_free()
+					_complete_quest(q, item_id), row)
+		btn.add_theme_color_override("font_color", _UiUtil.rarity_color(str(roll["rarity"])))
+		btn.tooltip_text = w.description
+
+
+func _complete_quest(q: Dictionary, gear_pick: String) -> void:
+	var rewards: Dictionary = SceneManager.save_manager.quests.turn_in(str(q.get("id", "")), gear_pick)
+	if not rewards.is_empty():
+		GameBus.hud_message_requested.emit("Quest complete: %s  (%s)" % [str(q.get("title", "")),
+				reward_text(rewards)])
+	_world.quest_tracker.refresh(true)
+
+
 static func reward_text(rewards: Dictionary) -> String:
 	var parts: Array[String] = []
 	if int(rewards.get("xp", 0)) > 0:
@@ -148,6 +184,12 @@ static func reward_text(rewards: Dictionary) -> String:
 	var cards: Array = rewards.get("cards", [])
 	if not cards.is_empty():
 		parts.append("%d card%s" % [cards.size(), "" if cards.size() == 1 else "s"])
+	var gear: String = str(rewards.get("gear", ""))
+	if gear != "":
+		var gw: WeaponData = WeaponRegistry.get_weapon(gear)
+		parts.append(gw.display_name if gw != null else gear)
+	elif not (rewards.get("gear_choice", []) as Array).is_empty():
+		parts.append("a choice of gear")
 	return " · ".join(parts) if not parts.is_empty() else "their thanks"
 
 ## The generic path: a live NPC node picks its line from story flags (and

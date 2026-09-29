@@ -19,7 +19,8 @@
 ##   prereqs   — quest ids that must be turned in first
 ##   min_level — level needed before the giver offers it
 ##   req_flag  — story flag needed before it is offered ("" = none)
-##   rewards   — {xp, coins, cards: [template ids], flag: story flag set on turn-in}
+##   rewards   — {xp, coins, cards: [template ids], flag: story flag set on turn-in,
+##                gear_choice: [item ids] — pick one on turn-in, a rare roll at the quest level (TID-538)}
 ##
 ## Objective types (progressed by SaveQuests.progress_event(type, target)):
 ##   kill      — win a fight against `target` enemy type ("" = any)
@@ -64,7 +65,8 @@ const QUESTS: Array[Dictionary] = [
 			{"type": "use_skill", "target": "mend", "count": 1, "label": "Mend in a fight"},
 			{"type": "kill", "target": "undead_basic", "count": 4, "label": "South Field dead put down",
 				"map": "main", "tx": -7, "tz": 21}],
-		"min_level": 2, "rewards": {"xp": 180, "coins": 30}},
+		"min_level": 2, "rewards": {"xp": 180, "coins": 30,
+			"gear_choice": ["leather_cap", "travel_boots", "leather_pauldrons"]}},
 	{"id": "hedge_witch_chant", "title": "The Chanting in the Orchard", "giver": "brother_aldo",
 		"giver_name": "Brother Aldo", "prereqs": ["bruised_and_battered"],
 		"summary": ("The dead in the Old Orchard east of town are chanting — casting, I'd swear it. Learn Kick "
@@ -98,7 +100,8 @@ const QUESTS: Array[Dictionary] = [
 			{"type": "learn", "target": "feat_spells", "count": 1, "label": "Learn to cast spells"},
 			{"type": "kill", "target": "ghoul_pack", "count": 3, "label": "Hedge Ruins ghouls put down",
 				"map": "main", "tx": 53, "tz": -27}],
-		"min_level": 5, "rewards": {"xp": 350, "coins": 80, "flag": "town_quests_done"}},
+		"min_level": 5, "rewards": {"xp": 350, "coins": 80, "flag": "town_quests_done",
+			"gear_choice": ["iron_helm", "iron_greaves", "buckler"]}},
 	# ── Optional: levels 6–12 ─────────────────────────────────────────────────
 	{"id": "east_copse", "title": "Trouble in the East Copse", "giver": "old_tam", "giver_name": "Old Tam",
 		"prereqs": ["raise_the_fallen"],
@@ -140,7 +143,8 @@ const QUESTS: Array[Dictionary] = [
 		"done_text": "My flour! Well — what's left of it. Here, you've earned this.",
 		"objectives": [{"type": "kill", "target": "ghoul_pack", "count": 5, "label": "Wreck ghouls put down",
 			"map": "main", "tx": 40, "tz": 45}],
-		"min_level": 9, "rewards": {"xp": 600, "coins": 150}},
+		"min_level": 9, "rewards": {"xp": 600, "coins": 150,
+			"gear_choice": ["hooded_cowl", "spurred_boots", "chainmail"]}},
 	{"id": "old_bones", "title": "Old Bones", "giver": "gravedigger_madrian", "giver_name": "The Gravedigger",
 		"summary": ("Carry enough skeleton cards and the old bones listen to you. I'll teach you to dig — "
 			+ "then turn over one of the mounds here in my graveyard and see what the dead left behind."),
@@ -159,7 +163,8 @@ const QUESTS: Array[Dictionary] = [
 			{"type": "learn", "target": "feat_phase", "count": 1, "label": "Learn Ghost Phase (Gravedigger)"},
 			{"type": "open", "target": "sealed_crypt_chest", "count": 1, "label": "Crypt chest opened",
 				"map": "main", "tx": -13, "tz": 17}],
-		"min_level": 12, "rewards": {"xp": 1000, "coins": 250}},
+		"min_level": 12, "rewards": {"xp": 1000, "coins": 250,
+			"gear_choice": ["iron_pauldrons", "warded_cloak", "parrying_dagger"]}},
 	# ── Rifts (GID-142 / TID-599): one-time goals — the XP that repeat runs don't pay ──
 	{"id": "into_the_rift", "title": "Into the Rift", "giver": "rift_warden_madrian", "giver_name": "The Rift Warden",
 		"summary": ("There's a tear in the world just past this door. Learn the Rifts from the Combat Trainer, "
@@ -170,7 +175,8 @@ const QUESTS: Array[Dictionary] = [
 		"objectives": [
 			{"type": "learn", "target": "feat_spire", "count": 1, "label": "Learn the Rifts (Combat Trainer)"},
 			{"type": "rift_tier", "target": "grasslands:1", "count": 1, "label": "Grasslands Rift tier 1 cleared"}],
-		"min_level": 15, "rewards": {"xp": 1500, "coins": 300}},
+		"min_level": 15, "rewards": {"xp": 1500, "coins": 300,
+			"gear_choice": ["spiked_spaulders", "dusk_blade", "arcane_focus"]}},
 	{"id": "rift_grasslands_3", "title": "Grasslands Rift: Tier 3", "giver": "rift_warden_madrian",
 		"giver_name": "The Rift Warden", "prereqs": ["into_the_rift"],
 		"summary": "Push the Grasslands Rift to its third tier. The guardian there won't go easy.",
