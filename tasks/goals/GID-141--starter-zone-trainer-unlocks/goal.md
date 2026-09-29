@@ -59,11 +59,11 @@ Co-op/PvP stay reachable from the main menu. "Head Start (debug)" learns everyth
 
 ## Acceptance Criteria
 
-- [ ] A fresh save starts with only auto-attack + Strike in battle and no Dig/Phase/Mount/Skills/bounty/Spire/pack/night-hunt entry points.
-- [ ] Each level-up names the newly available training and which trainer teaches it; the trainer shows a "!" and the compass can point at them.
-- [ ] Nothing on the ladder becomes usable until learned at its trainer for gold; the trainer panel shows the full how-to text.
-- [ ] Starter-zone quest gold covers each training cost on the intended path without grinding.
-- [ ] A fresh save has no Maiteln in Madrian; townspeople quests (each exercising the most recent unlock) run first, and Maiteln appears only after they are done.
-- [ ] Existing saves keep everything they already had (no regression for players past the ladder).
-- [ ] Worst visual-finish gaps on the first-30-minutes path are fixed; game-appeal §6 #1 and #4 updated.
-- [ ] Tests, gdlint, unsafe-hits and scene smoke tests pass.
+- [x] A fresh save starts with only auto-attack + Strike in battle and no Dig/Phase/Mount/Skills/bounty/Spire/pack/night-hunt entry points.
+- [x] Each level-up names the newly available training and which trainer teaches it; the trainer shows a "!" and the compass can point at them.
+- [x] Nothing on the ladder becomes usable until learned at its trainer for gold; the trainer panel shows the full how-to text.
+- [x] Starter-zone quest gold covers each training cost on the intended path without grinding.
+- [x] A fresh save has no Maiteln in Madrian; townspeople quests (each exercising the most recent unlock) run first, and Maiteln appears only after they are done.
+- [x] Existing saves keep everything they already had (no regression for players past the ladder).
+- [x] Worst visual-finish gaps on the first-30-minutes path are fixed (art-sized ones logged as BID-065..067); game-appeal §6 #1 and #4 updated.
+- [x] Tests, gdlint, unsafe-hits and scene smoke tests pass.

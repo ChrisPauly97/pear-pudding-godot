@@ -30,10 +30,10 @@ fixed starter deck, one enemy per floor, boss every 7 floors, and 5 coins per fl
 
 ## Acceptance Criteria
 
-- [ ] Five rifts (one per biome), each with its own best tier and enemy pool; tier selection capped at best + 1.
-- [ ] Runs use the player's own deck; boons between floors are temporary and vanish at run end.
-- [ ] Repeating a cleared tier grants no XP; XP comes from first clears and one-time rift quests.
-- [ ] Rift quests exist for the first tiers of each rift; the first one is given at L15 training.
-- [ ] Existing saves keep their Spire record (migrated) and achievements/trophies still award.
-- [ ] Co-op rifts and the PvE leaderboard work per rift + tier.
-- [ ] Tests, gdlint, unsafe-hits and scene smoke tests pass.
+- [x] Five rifts (one per biome), each with its own best tier and enemy pool; tier selection capped at best + 1.
+- [x] Runs use the player's own deck; boons between floors are temporary and vanish at run end.
+- [x] Repeating a cleared tier grants no XP; XP comes from first clears and one-time rift quests.
+- [x] Rift quests exist for the first tiers of each rift; the first one is given at L15 training.
+- [x] Existing saves keep their Spire record (migrated) and achievements/trophies still award.
+- [x] Co-op rifts and the PvE leaderboard work per rift + tier (tier cap uses the host's best; co-op draft stays shared cards).
+- [x] Tests, gdlint, unsafe-hits and scene smoke tests pass.
