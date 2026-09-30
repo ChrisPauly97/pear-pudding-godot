@@ -212,3 +212,13 @@ the pattern never distorts over time. Still water (`|v_flow| ≤ 0.05`) keeps th
   the drawn shoreline), `lily_pad` on still water above `LILY_MIN` (sunk by `LILY_SINK` to the lowered surface).
   Capped at 40 per type per chunk. Sprites are `prop_reed_*` / `prop_lily_pad_*` from `tools/generate_sprites.py`,
   rendered through the normal prop MultiMesh path.
+
+### Stream sound (TID-644)
+
+AudioManager has a fourth ambience layer, `_water_layer` (`set_water_proximity(amount)`, key `stream`, gain
+`WATER_LAYER_GAIN × amount`, same crossfade as the others). Every 0.5 s `AmbientTouches.refresh()` probes water
+around the hero in rings of 0 / 2.5 / 5 / 7.5 / 10 units with 8 directions each (`_nearest_water`: nearest ring
+first, infinite world and water biomes only). It passes the distance through `AmbienceLayers.stream_gain()`: full
+within 2 u, silent past 10 u. `_exit_tree` fades the layer out for battles, menus and map changes. The loop is
+`AmbienceGen._gen_stream()` (a low wash, rising bubble blips and trickles) until a recorded `stream.ogg` lands
+(BID-083).

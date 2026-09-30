@@ -96,3 +96,14 @@ func test_music_duck_levels() -> void:
 	assert_eq(AmbienceLayers.music_duck(false, true), AmbienceLayers.DUCK_NARRATION)
 	assert_eq(AmbienceLayers.music_duck(true, true), AmbienceLayers.DUCK_DIALOGUE, "dialogue wins")
 	assert_lt(AmbienceLayers.DUCK_DIALOGUE, 1.0)
+
+
+## TID-644: the stream is loud beside the water and fades out with distance.
+func test_stream_gain_by_distance() -> void:
+	assert_almost_eq(AmbienceLayers.stream_gain(0.0), 1.0, 0.0001, "full beside the water")
+	assert_almost_eq(AmbienceLayers.stream_gain(AmbienceLayers.STREAM_FULL_RADIUS), 1.0, 0.0001)
+	assert_almost_eq(AmbienceLayers.stream_gain(AmbienceLayers.STREAM_HEAR_RADIUS), 0.0, 0.0001, "silent at the edge")
+	assert_almost_eq(AmbienceLayers.stream_gain(INF), 0.0, 0.0001, "silent with no water")
+	var mid: float = AmbienceLayers.stream_gain(6.0)
+	assert_true(mid > 0.0 and mid < 1.0, "fades in between")
+	assert_true(AmbienceLayers.LAYER_PATHS.has("stream"), "the stream layer can take a real recording")

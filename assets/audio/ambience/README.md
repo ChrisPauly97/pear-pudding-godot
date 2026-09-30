@@ -41,3 +41,12 @@ grasslands/forest, bright for desert, rumble for scorched, full for mountains),
 rendered from three back-to-back copies with only the middle copy kept, so the
 filter tail makes the loop seamless. Every `.ogg.import` here sets `loop=true`;
 `test_sfx_assets` fails if one doesn't.
+
+
+## Stream layer (GID-152 / TID-644)
+
+| File | Layer | Plays when |
+|---|---|---|
+| `stream.ogg` | water | within 10 world units of a stream or pond (infinite world), full within 2 |
+
+Missing → `AmbienceGen._gen_stream()` (low water wash, rising bubble blips, trickles).

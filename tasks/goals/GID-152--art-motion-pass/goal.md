@@ -15,7 +15,7 @@ fixed direction regardless of the stream's course. See `docs/agent/art-sprites.m
 |----|------|------|--------|------------|
 | [TID-642](TID-642--stream-flow.md) | Stream flow direction | agent | done | — |
 | [TID-643](TID-643--stream-foam-banks.md) | Stream foam and bank dressing | agent | done | TID-642 |
-| [TID-644](TID-644--stream-ambience.md) | Stream water ambience loop | agent | pending | — |
+| [TID-644](TID-644--stream-ambience.md) | Stream water ambience loop | agent | done | — |
 | [TID-645](TID-645--enemy-walk-cycles.md) | Enemy walk cycles | agent | done | — |
 | [TID-646](TID-646--enemy-combat-frames.md) | Enemy attack, hit and death frames | agent | pending | TID-645 |
 | [TID-647](TID-647--plant-wind-sway.md) | Tree and plant wind sway | agent | done | — |

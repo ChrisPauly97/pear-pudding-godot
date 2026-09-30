@@ -30,7 +30,7 @@ func test_ambience_files_exist_and_loop() -> void:
 	var paths: Array[String] = []
 	paths.assign(AudioManager.AMBIENCE_PATHS)
 	for key: String in _AmbienceLayers.LAYER_PATHS:
-		if key != "owls":  # no clean CC0 owl loop yet; synthesized fallback
+		if key not in ["owls", "stream"]:  # no clean CC0 loop yet (BID-073, BID-083); synthesized fallback
 			paths.append(str(_AmbienceLayers.LAYER_PATHS[key]))
 	for path: String in paths:
 		assert_true(ResourceLoader.exists(path), "missing %s" % path)

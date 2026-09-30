@@ -2,7 +2,7 @@
 
 **Goal:** GID-152
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -23,12 +23,18 @@ No water sound near streams; only rain and footstep splashes. Part of GID-152 (a
 
 ## Plan
 
-_Written during Plan phase._
+Synth `stream` layer in AmbienceGen, `stream_gain(distance)` rule, a fourth AudioManager layer, and a
+twice-a-second ring probe in AmbientTouches.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/AmbienceGen.gd`: `_gen_stream()`. `game_logic/AmbienceLayers.gd`: `stream` path, radii, `stream_gain()`.
+- `autoloads/AudioManager.gd`: `_water_layer`, `set_water_proximity()`.
+- `scenes/world/modules/AmbientTouches.gd`: `_nearest_water()` probe, fade-out on exit.
+- `tests/unit/test_ambience_layers.gd`: `test_stream_gain_by_distance` (synth loop covered by the existing loop test);
+  `test_sfx_assets` exempts `stream` like `owls`. Logged BID-083 (no CC0 recording yet).
+- `assets/audio/ambience/README.md`: stream row.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/terrain-rendering.md`: "Stream sound".
