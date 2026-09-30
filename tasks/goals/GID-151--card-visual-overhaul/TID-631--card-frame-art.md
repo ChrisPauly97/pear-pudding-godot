@@ -2,7 +2,7 @@
 
 **Goal:** GID-151
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -40,12 +40,12 @@ Shared facts (research 2026-09-30):
 
 ## Plan
 
-_Written during Plan phase._
+Generator script for frames/back/crest/gem/badges/plate; a small CardChrome registry (not SpriteRegistry, which is already 460 lines).
 
 ## Changes Made
 
-_Filled after Build phase._
+New `tools/generate_card_frames.py` → `assets/textures/cards/frame_{light,dark,verdant,rift,neutral}.png` (32×48, 6 px bevelled 9-slice border, corner studs), `card_back.png` (tileable lattice), `card_crest.png`, `gem_cost.png`, `badge_atk.png`, `badge_hp.png`, `plate_text.png`. New `game_logic/CardChrome.gd` (literal preloads + accessors). New `tests/unit/test_card_chrome.gd`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Covered in docs/agent/card-visuals.md (written in TID-632).
