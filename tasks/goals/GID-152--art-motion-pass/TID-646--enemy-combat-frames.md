@@ -2,7 +2,7 @@
 
 **Goal:** GID-152
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-645
 
 ## Lock
@@ -23,12 +23,19 @@ Realtime battle units only tween (lunges); enemies need attack / hit / death fra
 
 ## Plan
 
-_Written during Plan phase._
+Derive 7 combat frames per enemy from its idle (row shear + squash) in one tool; `CombatFrames` preload table;
+`TokenFrames` helper plays them on the battle token (attack on lunge, flinch on hero damage, death when fallen).
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `tools/derive_combat_frames.py`; 161 new `enemy_*_{attack_1..3,hit,death_1..3}.png`.
+- New `game_logic/CombatFrames.gd`, `scenes/battle/modules/TokenFrames.gd`.
+- `scenes/battle/modules/RealtimeVisuals.gd`: register / attack / observe hooks (+6 lines).
+- Test: `tests/unit/test_token_frames.gd`; `in_world_battle_smoke` and `battle_input_flow_smoke` clean.
+- Timings are constants in `TokenFrames` rather than CombatTuning knobs: they are presentation, not combat timing.
+- The world EnemyNPC does not play the death: its node is freed on return to WORLD whatever the outcome (win or
+  flee), so a death there could show on a fled fight.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/art-sprites.md`: "Enemy combat frames".

@@ -17,7 +17,7 @@ fixed direction regardless of the stream's course. See `docs/agent/art-sprites.m
 | [TID-643](TID-643--stream-foam-banks.md) | Stream foam and bank dressing | agent | done | TID-642 |
 | [TID-644](TID-644--stream-ambience.md) | Stream water ambience loop | agent | done | — |
 | [TID-645](TID-645--enemy-walk-cycles.md) | Enemy walk cycles | agent | done | — |
-| [TID-646](TID-646--enemy-combat-frames.md) | Enemy attack, hit and death frames | agent | pending | TID-645 |
+| [TID-646](TID-646--enemy-combat-frames.md) | Enemy attack, hit and death frames | agent | done | TID-645 |
 | [TID-647](TID-647--plant-wind-sway.md) | Tree and plant wind sway | agent | done | — |
 | [TID-648](TID-648--landmark-idle-loops.md) | Landmark idle loops | agent | done | — |
 | [TID-649](TID-649--campfire-flames.md) | Campfire flame frames | agent | done | — |
@@ -27,9 +27,9 @@ fixed direction regardless of the stream's course. See `docs/agent/art-sprites.m
 
 ## Acceptance Criteria
 
-- [ ] Stream ripples visibly flow along each stream, faster in narrows, seamless across chunks
-- [ ] Foam/bank dressing on streams and ponds; water ambience near streams
-- [ ] Enemies animate walking, attacking, taking hits and dying
-- [ ] Trees and plants sway with weather wind
-- [ ] Landmarks, campfires, NPCs, horse, chests and doors animate
-- [ ] Tests, gdlint, unsafe-hits and headless import clean
+- [x] Stream ripples visibly flow along each stream, faster in narrows, seamless across chunks
+- [x] Foam/bank dressing on streams and ponds; water ambience near streams
+- [x] Enemies animate walking, attacking, taking hits and dying
+- [x] Trees and plants sway with weather wind
+- [x] Landmarks, campfires, NPCs, horse, chests and doors animate
+- [x] Tests, gdlint, unsafe-hits and headless import clean

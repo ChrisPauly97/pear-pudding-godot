@@ -521,3 +521,21 @@ hinges, dark hall behind; `door_frame(0)` is `door()`) in `tools/generate_sprite
 - `ChestLoot._spring_mimic()` calls `Chest.reveal_mimic()` *before* emitting `enemy_engaged`, because the battle may
   start synchronously inside that emit.
 - The WorldScene door branch calls `Door.play_open()` (0.1 s per frame), so the swing plays under the transition wipe.
+
+## Enemy combat frames (GID-152 / TID-646)
+
+`tools/derive_combat_frames.py` post-processes every `enemy_<name>.png` idle (rig and roster alike; re-run after
+regenerating one) into `_attack_1..3` (wind-up lean back, strike lean forward, recover), `_hit` (flinch) and
+`_death_1..3` (buckle, slump, heap). Each frame shears rows (head moves most, feet fixed) and squashes toward the
+ground line. Frames are `2 × PAD` (8) px wider than the idle and keep its height, so a centred sprite never shifts.
+`game_logic/CombatFrames.gd` preloads them (`for_idle(idle)` → `{"attack", "hit", "death"}`).
+
+In real-time battles, `scenes/battle/modules/TokenFrames.gd` (owned by `RealtimeVisuals._token_frames`) drives each
+enemy token's `TextureRect`:
+
+- `register` in `_make_token` (enemy sides).
+- `attack` from `lunge_token` (0.05 / 0.14 / 0.12 s).
+- `observe(rt)` from `update`: a flinch (0.14 s) when the hero's health drops and no attack is playing, and a
+  one-time death sequence (0.12 s steps, stays on the heap) when the side falls.
+
+The token is mirrored for enemies, so "forward" in the sprite points at the player.
