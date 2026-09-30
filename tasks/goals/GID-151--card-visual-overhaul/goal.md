@@ -19,7 +19,7 @@ illustrations. Order: frames/backs/backgrounds → animations → illustrations.
 | TID-633 | Per-branch card backgrounds | agent | done | TID-632 |
 | TID-634 | Designed card back shared everywhere | agent | done | TID-632 |
 | TID-635 | Draw animation (deck → hand + flip) | agent | done | TID-634 |
-| TID-636 | Hover lift/tilt/glow + playable pulse | agent | pending | TID-632 |
+| TID-636 | Hover lift/tilt/glow + playable pulse | agent | done | TID-632 |
 | TID-637 | Play arc + landing burst; enemy flip-reveal | agent | pending | TID-634 |
 | TID-638 | Dissolve shader: spell cast + card death | agent | pending | TID-632 |
 | TID-639 | Spell runes for bloom/thorn/flux/fracture | agent | pending | — |

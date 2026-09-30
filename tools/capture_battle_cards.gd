@@ -3,7 +3,8 @@
 ##   OUT=/tmp/battle.png xvfb-run -a -s "-screen 0 1920x1080x24" \
 ##     godot --path . --rendering-driver opengl3 --resolution 1920x1080 -s tools/capture_battle_cards.gd
 ## DECK (comma list) sets the hand, MODE=realtime|turn, WAIT_MS delays the capture,
-## POST_MS the time after the hand is dealt (small values catch animations mid-flight).
+## HOVER=1 lifts the second hand card, POST_MS is the time after the hand is dealt
+## (small values catch animations mid-flight).
 extends SceneTree
 
 const _SceneFlow = preload("res://game_logic/SceneFlow.gd")
@@ -50,6 +51,9 @@ func _run() -> void:
 	await _wait(wait_ms)
 	var battle: Node = current_scene
 	var state: Object = battle.get("_state")
+	var t0: int = Time.get_ticks_msec()
+	while int(state.get("current_player_idx")) != 0 and Time.get_ticks_msec() - t0 < 15000:
+		await process_frame
 	var me: Object = (state.get("players") as Array)[0]
 	var hand: Array = me.get("hand")
 	hand.clear()
@@ -59,6 +63,13 @@ func _run() -> void:
 	battle.call("_refresh_all")
 	await _wait(int(OS.get_environment("POST_MS")) if OS.get_environment("POST_MS") != "" else 800)
 	var hv: Control = battle.get("_player_hand_view") as Control
+	if OS.get_environment("HOVER") != "" and hv != null and hv.get_child_count() > 1:
+		(battle.get("card_input") as Object).call("_set_hover_lift", hv.get_child(1), true)
+		await _wait(200)
+	if hv != null and hv.get_child_count() > 0:
+		var p0: Control = hv.get_child(0) as Control
+		var rim: StyleBoxFlat = p0.get_meta("card_style") as StyleBoxFlat
+		print("turn=", state.get("current_player_idx"), " glow=", p0.has_meta("glow_tween"), " rim=", rim != null)
 	if hv != null:
 		print("hand view visible=", hv.is_visible_in_tree(), " rect=", hv.get_global_rect(), " kids=", hv.get_child_count())
 	await RenderingServer.frame_post_draw

@@ -62,6 +62,14 @@ move. Durations × the battle speed scale.
   (`flip_out`). The opening hand deals in the same way. A refresh mid-flight simply shows the card early
   (`update_card_view` resets modulate / scale on reuse).
 
+- **Hover / press** — `BattleInput._set_hover_lift` → `CardMotion.set_hover`: lift ×1.25 from the bottom edge,
+  −3° tilt, brighter frame via `self_modulate`. Touch lifts while a finger is down (`InputEventScreenTouch`,
+  connected in `_bind_card_input` after its disconnect sweep). `update_card_view` resets rotation / self_modulate.
+- **Playable glow** — `apply_card_style` calls `CardMotion.set_playable_glow(panel, on)` for hand cards the local
+  player can play on their turn: a green `StyleBoxFlat` ring (meta `glow_style`) drawn just outside the card by
+  `CardMotion.draw_glow` from `_draw_rim`; its alpha pulses (looping tween, meta `glow_tween`) unless Reduce
+  Flashing is on. (The rim's own shadow can't be used: its transparent fill lets the shadow tint the whole card.)
+
 ## Integrations
 - `MagicTypes` (type list), `CardRegistry` templates (`magic_type`, `illustration`, `card_class`).
 - `tools/capture_battle_cards.gd` renders a battle screenshot under xvfb for eyeballing card changes.

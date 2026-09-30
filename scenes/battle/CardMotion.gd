@@ -7,12 +7,17 @@
 extends RefCounted
 
 const CardFace = preload("res://scenes/ui/CardFace.gd")
+const BattleJuice = preload("res://scenes/battle/BattleJuice.gd")
 
 const DRAW_TIME := 0.26
 const DRAW_STAGGER := 0.07
 const FLIP_TIME := 0.08
 const PLAY_TIME := 0.24
 const PLAY_ARC := 0.35   # arc height as a share of the travel distance
+const HOVER_TILT_DEG := -3.0
+const HOVER_GLOW := Color(1.18, 1.15, 1.0)
+const PLAYABLE_GLOW := Color(0.45, 1.0, 0.55)
+const PULSE_PERIOD := 1.1
 
 # Hand cards already dealt, by instance id (instance state; see deal_new_hand_cards).
 var _seen_hand: Dictionary = {}
@@ -95,3 +100,55 @@ static func flip_out(panel: Control, speed_scale: float) -> void:
 	var tw: Tween = panel.create_tween()
 	tw.tween_property(panel, "scale:x", 1.0, _dur(FLIP_TIME, speed_scale)) \
 			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
+## Hover / press feedback on a hand card: lift, a slight tilt and a brighter
+## frame (`self_modulate` only touches the panel's own frame and rim).
+static func set_hover(panel: Control, on: bool) -> void:
+	panel.pivot_offset = Vector2(panel.size.x * 0.5, panel.size.y)
+	panel.z_index = 20 if on else 0
+	panel.self_modulate = HOVER_GLOW if on else Color.WHITE
+	var tw: Tween = panel.create_tween().set_parallel(true)
+	tw.tween_property(panel, "scale", Vector2(1.25, 1.25) if on else Vector2.ONE,
+			0.08).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(panel, "rotation", deg_to_rad(HOVER_TILT_DEG) if on else 0.0, 0.08)
+
+## A soft green ring just outside a playable hand card, pulsing unless Reduce
+## Flashing is on. Idempotent. The ring is a StyleBoxFlat kept in the panel's
+## "glow_style" meta and drawn by draw_glow() from the card's draw hook.
+static func set_playable_glow(panel: Control, on: bool) -> void:
+	var running: Tween = (panel.get_meta("glow_tween") if panel.has_meta("glow_tween") else null) as Tween
+	if not on:
+		if running != null and running.is_valid():
+			running.kill()
+		panel.remove_meta("glow_tween")
+		panel.remove_meta("glow_style")
+		return
+	var glow: StyleBoxFlat = (panel.get_meta("glow_style") if panel.has_meta("glow_style") else null) as StyleBoxFlat
+	if glow == null:
+		glow = StyleBoxFlat.new()
+		glow.draw_center = false
+		glow.border_blend = true
+		glow.set_corner_radius_all(6)
+		glow.border_color = Color(PLAYABLE_GLOW, 0.6)
+		panel.set_meta("glow_style", glow)
+	glow.set_border_width_all(maxi(3, int(panel.custom_minimum_size.y * 0.02)))
+	if BattleJuice.reduce_flashing() or (running != null and running.is_valid()):
+		return
+	var tw: Tween = panel.create_tween().set_loops()
+	tw.tween_method(_glow_alpha.bind(panel, glow), 0.25, 0.8, PULSE_PERIOD * 0.5).set_trans(Tween.TRANS_SINE)
+	tw.tween_method(_glow_alpha.bind(panel, glow), 0.8, 0.25, PULSE_PERIOD * 0.5).set_trans(Tween.TRANS_SINE)
+	panel.set_meta("glow_tween", tw)
+
+static func _glow_alpha(a: float, panel: Control, glow: StyleBoxFlat) -> void:
+	if not is_instance_valid(panel):
+		return
+	glow.border_color = Color(PLAYABLE_GLOW, a)
+	panel.queue_redraw()
+
+## Draws the playable ring (if any) around `panel`; call from its draw signal.
+static func draw_glow(panel: Control) -> void:
+	if not panel.has_meta("glow_style"):
+		return
+	var glow: StyleBoxFlat = panel.get_meta("glow_style") as StyleBoxFlat
+	var w: float = float(glow.border_width_left)
+	panel.draw_style_box(glow, Rect2(Vector2(-w, -w), panel.size + Vector2(w, w) * 2.0))

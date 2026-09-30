@@ -2,7 +2,7 @@
 
 **Goal:** GID-151
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-632
 
 ## Lock
@@ -40,12 +40,12 @@ Shared facts (research 2026-09-30):
 
 ## Plan
 
-_Written during Plan phase._
+Extend the existing hover lift (BattleInput) with tilt + frame glow via CardMotion; add touch press parity; a pulsing glow ring for playable hand cards.
 
 ## Changes Made
 
-_Filled after Build phase._
+`CardMotion.set_hover`, `set_playable_glow`, `draw_glow`. `BattleInput`: touch-press lift, hover via CardMotion. `CardViewBuilder`: glow on playable hand cards, drawn from the rim hook; reuse resets rotation/self_modulate. Capture script: HOVER, waits for the player's turn.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+docs/agent/card-visuals.md (hover / playable glow).

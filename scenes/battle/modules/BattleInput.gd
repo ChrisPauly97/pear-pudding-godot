@@ -12,6 +12,7 @@ const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const Keywords = preload("res://game_logic/battle/Keywords.gd")
 const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
+const _CardMotion = preload("res://scenes/battle/CardMotion.gd")
 const SpellEffectResolver = preload("res://scenes/battle/SpellEffectResolver.gd")
 const BattleNetProtocol = preload("res://game_logic/net/BattleNetProtocol.gd")
 const _BattleTargeting = preload("res://scenes/battle/modules/BattleTargeting.gd")
@@ -28,6 +29,11 @@ func _bind_card_input(panel: PanelContainer, card: CardInstance, zone_id: String
 		panel.gui_input.disconnect(conn["callable"])
 	if zone_id == "hand":
 		_bind_hover_lift(panel)
+		# Touch has no hover: lift while a finger is down on the card (GID-151).
+		panel.gui_input.connect(func(ev: InputEvent) -> void:
+			var touch := ev as InputEventScreenTouch
+			if touch != null:
+				_set_hover_lift(panel, touch.pressed))
 	if zone_id == "hand" and _battle._state.current_player_idx == _battle._my_idx():
 		# Tap/click handler fires on release; it only fires when no native drag was started.
 		panel.gui_input.connect(func(event: InputEvent) -> void: _on_hand_card_input(event, card))
@@ -281,11 +287,7 @@ func _bind_hover_lift(panel: PanelContainer) -> void:
 func _set_hover_lift(panel: PanelContainer, on: bool) -> void:
 	if not is_instance_valid(panel) or not panel.visible:
 		return
-	panel.pivot_offset = Vector2(panel.size.x * 0.5, panel.size.y)
-	panel.z_index = 20 if on else 0
-	var tw: Tween = panel.create_tween()
-	tw.tween_property(panel, "scale", Vector2(1.25, 1.25) if on else Vector2.ONE,
-			0.08).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_CardMotion.set_hover(panel, on)
 
 func _on_enemy_card_input(event: InputEvent, target: CardInstance) -> void:
 	if not (event is InputEventMouseButton):

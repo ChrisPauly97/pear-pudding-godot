@@ -14,6 +14,7 @@ const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const BattleFx = preload("res://scenes/battle/BattleFx.gd")
 const CardArt = preload("res://scenes/battle/CardArt.gd")
 const CardFace = preload("res://scenes/ui/CardFace.gd")
+const CardMotion = preload("res://scenes/battle/CardMotion.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const COST_COLOR := Color.WHITE  # on the blue mana gem
@@ -352,6 +353,8 @@ func update_card_view(panel: PanelContainer, card: CardInstance, zone_id: String
 	panel.visible = true
 	panel.modulate = Color.WHITE
 	panel.scale = Vector2.ONE
+	panel.rotation = 0.0
+	panel.self_modulate = Color.WHITE
 	panel.z_index = 0
 	var vbox: VBoxContainer = panel.get_child(0) as VBoxContainer
 	var name_lbl: Label = vbox.get_node_or_null("NameLabel") as Label if vbox else null
@@ -473,6 +476,7 @@ static func _draw_rim(panel: PanelContainer) -> void:
 	var style: StyleBoxFlat = panel.get_meta("card_style") as StyleBoxFlat
 	if style != null:
 		panel.draw_style_box(style, Rect2(Vector2.ZERO, panel.size))
+	CardMotion.draw_glow(panel)
 
 func apply_card_style(panel: PanelContainer, card: CardInstance, zone_id: String) -> void:
 	var style: StyleBoxFlat = attach_card_style(panel)
@@ -484,6 +488,7 @@ func apply_card_style(panel: PanelContainer, card: CardInstance, zone_id: String
 	var magic_type: String = str(tmpl.get("magic_type", card.magic_type))
 	panel.add_theme_stylebox_override("panel", CardFace.frame_style(magic_type, card_size().y))
 	style.bg_color = Color.TRANSPARENT
+	CardMotion.set_playable_glow(panel, zone_id == "hand" and _is_local_turn() and _seat_player(0).can_play(card))
 	if zone_id == "hand" and not _seat_player(0).can_play(card):
 		style.bg_color = DIM_COLOR
 	elif zone_id == "hand" and _seat_player(0).effective_cost(card) < _seat_player(0).base_cost(card):
