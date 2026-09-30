@@ -128,9 +128,16 @@ CLOTH = {
 }
 
 
+IDLE_BLINK, IDLE_GLANCE = 5, 6
+
+
 def person(spec):
     """A standing townsperson from a spec: hair, dress/tunic colours, extras."""
     def draw(frame):
+        # Frames 0-4: idle + walk. 5 = blink, 6 = glance aside (idle pose; GID-152 / TID-650).
+        blink, glance = frame == IDLE_BLINK, frame == IDLE_GLANCE
+        if frame >= IDLE_BLINK:
+            frame = 0
         c = Canvas(W, H)
         lx, rx, bob = _walk(frame)
         top = 2 + bob
@@ -230,8 +237,14 @@ def person(spec):
                 c.blob(9.5, top + 10, 2.8, 3.6, hair)
             else:
                 c.blob(9.5, top + 8, 2.6, 1.8, hair)
-        c.set(8, top + 5, (34, 34, 34))
-        c.set(11, top + 5, (34, 34, 34))
+        if blink:
+            c.line(8, top + 5, 11, top + 5, P.SKIN[1])  # lids closed
+            c.set(8, top + 5, P.SKIN[0])
+            c.set(11, top + 5, P.SKIN[0])
+        else:
+            eye_dx = 1 if glance else 0
+            c.set(8 + eye_dx, top + 5, (34, 34, 34))
+            c.set(11 + eye_dx, top + 5, (34, 34, 34))
         c.outline()
         return c.image()
     return draw
@@ -487,6 +500,8 @@ WALKERS = {"npc_maiteln"}
 
 for _name, _spec in list(NPCS.items()) + list(CAST.items()):
     CHARACTERS[_name] = person(_spec)
+# People who stand about get idle-life frames (blink / glance); enemies animate by walking instead.
+PEOPLE = {n for n in list(NPCS) + list(CAST) if n.startswith("npc_") and n != "npc_maiteln"}  # Maiteln walks
 
 
 for _name in list(CHARACTERS):
@@ -517,18 +532,31 @@ def horse_frames():
     return out
 
 
-def walker_frames(fn):
-    """Idle + 4 walk frames, uncropped, then cropped to their shared content box (bottom row kept)."""
+def untrimmed(fn, idxs):
     generate_sprites.TRIM = False
     try:
-        fs = frames(fn)
+        return [fn(i) for i in idxs]
     finally:
         generate_sprites.TRIM = True
+
+
+def shared_box(fs):
+    """Union content box of frames, extended to the bottom row (the ground line)."""
     boxes = [f.getbbox() for f in fs if f.getbbox()]
-    x0 = min(b[0] for b in boxes)
-    y0 = min(b[1] for b in boxes)
-    x1 = max(b[2] for b in boxes)
-    return [f.crop((x0, y0, x1, f.height)) for f in fs]
+    return (min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), fs[0].height)
+
+
+def walker_frames(fn):
+    """Idle + 4 walk frames cropped to their shared content box, so the body never shifts between frames."""
+    fs = untrimmed(fn, range(5))
+    box = shared_box(fs)
+    return [f.crop(box) for f in fs]
+
+
+def idle_life_frames(fn, walker):
+    """Blink + glance frames cropped with the same box as the saved idle (TID-650)."""
+    box = shared_box(untrimmed(fn, range(5) if walker else [0]))
+    return [f.crop(box) for f in untrimmed(fn, [IDLE_BLINK, IDLE_GLANCE])]
 
 
 def main():
@@ -551,6 +579,10 @@ def main():
         else:
             fs = walker_frames(fn) if name in WALKERS else frames(fn)
         fs[0].save(OUT / f"{name}.png")
+        if name in PEOPLE:  # idle life: blink + glance (TID-650)
+            for i, im in enumerate(idle_life_frames(fn, name in WALKERS), 1):
+                assert im.size == fs[0].size, name
+                im.save(OUT / f"{name}_idle_{i}.png")
         if name not in WALKERS and name != "mount_horse":
             continue  # nothing animates their walk: idle only
         for i in range(1, 5):

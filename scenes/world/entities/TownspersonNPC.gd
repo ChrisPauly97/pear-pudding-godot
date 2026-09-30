@@ -6,6 +6,7 @@ const TextureGen = preload("res://game_logic/TextureGen.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const _ContactShadow = preload("res://game_logic/ContactShadow.gd")
 const _IdleLife = preload("res://game_logic/IdleLife.gd")
+const _IdleLoop = preload("res://scenes/world/entities/IdleLoop.gd")
 const _SpriteOutline = preload("res://game_logic/SpriteOutline.gd")
 
 var npc_data: Dictionary = {}
@@ -27,6 +28,9 @@ func _ready() -> void:
 	_SpriteOutline.apply(sprite)
 	_ContactShadow.register(self, _ContactShadow.radius_for_height(_SpriteRegistry.HEIGHT_NPC))
 	_IdleLife.register(sprite, _IdleLife.STYLE_BREATHE)
+	var blinker: Node = _IdleLoop.for_sprite(sprite, variant_seed)  # TID-650: blink / glance
+	if blinker != null:
+		add_child(blinker)
 	_add_name_label()
 
 func init_from_data(data: Dictionary) -> void:

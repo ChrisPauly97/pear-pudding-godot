@@ -472,3 +472,13 @@ Every enemy except the mimic has `enemy_<name>_walk_1..4.png`:
   `Sprite3D.texture` rather than using AnimatedSprite3D, so fades, idle bob and tints keep working, and calls
   `SpriteOutline.refresh()` on each swap. The timing lives in `game_logic/WalkCycleMath.gd` (8 fps; idle below
   0.3 u/s after a 0.15 s grace).
+
+## NPC idle life (GID-152 / TID-650)
+
+`person()` draws two extra poses: frame 5 is a blink (lids in skin tones) and frame 6 a glance (eyes 1 px aside).
+Every `npc_*` in `NPCS` / `CAST` except Maiteln (animated through his walk AnimatedSprite3D) writes
+`<name>_idle_1.png` (blink) and `_idle_2.png` (glance), cropped with the same box as the saved idle
+(`idle_life_frames`), so the silhouette never shifts. `game_logic/IdleFrames.gd` preloads them;
+`scenes/world/entities/IdleLoop.gd` (`for_sprite(sprite, seed)`, added by `TownspersonNPC` and `MerchantNPC`)
+swaps the Sprite3D texture on the `game_logic/IdleLoopMath.gd` schedule: hold idle 2.5–5.5 s, then a 0.14 s blink
+or (30 %) a 0.9 s glance, with a seeded per-NPC RNG and a staggered first beat. IdleLife's breathe keeps running.

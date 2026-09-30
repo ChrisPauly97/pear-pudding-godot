@@ -322,9 +322,6 @@ static func merchant_texture(is_traveling: bool) -> Texture2D:
 static func maiteln_texture() -> Texture2D:
 	return _NPC_MAITELN
 
-## 4-frame walk cycle for Maiteln's AnimatedSprite3D (BID-051). Empty if the
-## walk PNGs are ever removed — caller checks size before building animation
-## frames and falls back to a static Sprite3D.
 ## Walk frames for an idle character texture ([] when it has none) — TID-645.
 static func walk_frames(idle: Texture2D) -> Array[Texture2D]:
 	if idle == _NPC_MAITELN:
@@ -332,6 +329,9 @@ static func walk_frames(idle: Texture2D) -> Array[Texture2D]:
 	return _WalkFrames.for_idle(idle)
 
 
+## 4-frame walk cycle for Maiteln's AnimatedSprite3D (BID-051). Empty if the
+## walk PNGs are ever removed — caller checks size before building animation
+## frames and falls back to a static Sprite3D.
 static func maiteln_walk_frames() -> Array[Texture2D]:
 	return [_NPC_MAITELN_WALK_1, _NPC_MAITELN_WALK_2, _NPC_MAITELN_WALK_3, _NPC_MAITELN_WALK_4]
 

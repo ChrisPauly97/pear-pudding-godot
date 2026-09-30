@@ -155,7 +155,7 @@
 | [GID-149](goals/GID-149--new-enemy-roster/goal.md) | New Enemy Roster | done | 5 / 5 |
 | [GID-150](goals/GID-150--shared-helpers/goal.md) | Shared Helpers for Duplicated Code | done | 7 / 7 |
 | [GID-151](goals/GID-151--card-visual-overhaul/goal.md) | Card Visual Overhaul | done | 11 / 11 |
-| [GID-152](goals/GID-152--art-motion-pass/goal.md) | Art Motion Pass | in-progress | 5 / 11 |
+| [GID-152](goals/GID-152--art-motion-pass/goal.md) | Art Motion Pass | in-progress | 6 / 11 |
 
 ## Backlog
 
