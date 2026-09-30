@@ -26,6 +26,7 @@ var keywords: Array[String] = []
 var shroud_active: bool = false  # true until the first hit is absorbed; set false by game logic after absorption
 
 var collection_uid: String = ""
+var rarity: String = "common"  # collection rarity, for the card face (GID-151)
 var battle_kills: int = 0
 var dual_card_id: String = ""
 var active_face: String = ""
@@ -139,6 +140,7 @@ func to_dict() -> Dictionary:
 		"out_of_play": out_of_play,
 		"status_effects": status_effects.duplicate(),
 		"collection_uid": collection_uid,
+		"rarity": rarity,
 		"battle_kills": battle_kills,
 	}
 
@@ -170,4 +172,5 @@ func from_dict(d: Dictionary) -> void:
 	var se = d.get("status_effects", {})
 	status_effects = se if se is Dictionary else {}
 	collection_uid = str(d.get("collection_uid", ""))
+	rarity = str(d.get("rarity", "common"))
 	battle_kills = int(d.get("battle_kills", 0))

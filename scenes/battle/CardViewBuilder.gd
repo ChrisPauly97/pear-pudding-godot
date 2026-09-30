@@ -214,6 +214,7 @@ func _setup_empty_slot_panel(panel: PanelContainer, slot_idx: int, zone_id: Stri
 	panel.visible = true
 	panel.modulate = Color.WHITE
 	panel.scale = Vector2.ONE
+	panel.material = null  # a foil card may have left this slot (GID-151)
 	for ch in panel.get_children():
 		if not ch is LongPressDetector:
 			ch.queue_free()
@@ -479,6 +480,7 @@ static func _draw_rim(panel: PanelContainer) -> void:
 	if style != null:
 		panel.draw_style_box(style, Rect2(Vector2.ZERO, panel.size))
 	CardMotion.draw_glow(panel)
+	CardFace.draw_rarity_pip(panel, str(panel.get_meta("card_rarity", "")))
 
 func apply_card_style(panel: PanelContainer, card: CardInstance, zone_id: String) -> void:
 	var style: StyleBoxFlat = attach_card_style(panel)
@@ -489,6 +491,8 @@ func apply_card_style(panel: PanelContainer, card: CardInstance, zone_id: String
 	var tmpl: Dictionary = CardRegistry.get_template_for_face(card.template_id, card.active_face)
 	var magic_type: String = str(tmpl.get("magic_type", card.magic_type))
 	panel.set_meta("card_branch", str(tmpl.get("magic_branch", card.magic_branch)))
+	panel.set_meta("card_rarity", card.rarity)
+	panel.material = CardFace.foil_material(card.rarity)
 	panel.add_theme_stylebox_override("panel", CardFace.frame_style(magic_type, card_size().y))
 	style.bg_color = Color.TRANSPARENT
 	CardMotion.set_playable_glow(panel, zone_id == "hand" and _is_local_turn() and _seat_player(0).can_play(card))

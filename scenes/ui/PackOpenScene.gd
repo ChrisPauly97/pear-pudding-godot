@@ -172,6 +172,7 @@ func _populate_face(idx: int) -> void:
 	var card_h: float = _ref * 0.30
 	_card_face_bgs[idx].add_theme_stylebox_override("panel",
 			_CardFace.frame_style(str(tmpl.get("magic_type", "")), card_h))
+	_card_face_bgs[idx].material = _CardFace.foil_material(rarity)
 
 	var face: VBoxContainer = _card_face_contents[idx]
 

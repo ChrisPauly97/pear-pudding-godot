@@ -24,12 +24,12 @@ illustrations. Order: frames/backs/backgrounds → animations → illustrations.
 | TID-638 | Dissolve shader: spell cast + card death | agent | done | TID-632 |
 | TID-639 | Spell runes for bloom/thorn/flux/fracture | agent | done | — |
 | TID-640 | Creature illustrations for all minions/legendaries | agent | done | TID-632 |
-| TID-641 | Rarity frame treatments | agent | pending | TID-632 |
+| TID-641 | Rarity frame treatments | agent | done | TID-632 |
 
 ## Acceptance Criteria
 
-- [ ] Every card face (battle, backpack, inspect, pack opening) uses one framed builder
-- [ ] Every magic type has a frame, every branch a background, and there is one shared card back
-- [ ] Draw, play, spell-cast, death and enemy-play animations run without slowing real-time mode
-- [ ] Every card resolves to generated art (no TextureGen fallback)
-- [ ] Full suite, smoke tests, gdlint and unsafe-hits clean
+- [x] Every card face (battle, backpack, inspect, pack opening) uses one framed builder
+- [x] Every magic type has a frame, every branch a background, and there is one shared card back
+- [x] Draw, play, spell-cast, death and enemy-play animations run without slowing real-time mode
+- [x] Every card resolves to generated art (no TextureGen fallback)
+- [x] Full suite, smoke tests, gdlint and unsafe-hits clean

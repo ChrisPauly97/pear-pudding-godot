@@ -59,8 +59,11 @@ func _run() -> void:
 	var me: Object = (state.get("players") as Array)[0]
 	var hand: Array = me.get("hand")
 	hand.clear()
+	var rarities: Array[String] = ["common", "rare", "epic", "legendary"]
 	for id: String in deck.slice(0, 6):
-		hand.append(_CardInstance.new(_CardRegistry.get_template(id)))
+		var ci := _CardInstance.new(_CardRegistry.get_template(id))
+		ci.rarity = rarities[hand.size() % rarities.size()]  # show every rarity treatment
+		hand.append(ci)
 	(me.get("hero") as Object).set("mana", 10)
 	battle.call("_refresh_all")
 	await _wait(int(OS.get_environment("POST_MS")) if OS.get_environment("POST_MS") != "" else 800)

@@ -42,6 +42,7 @@ static func build(inst: Dictionary, tmpl: Dictionary, ref: float, tag: String = 
 	for st: String in ["normal", "focus", "pressed"]:
 		tile.add_theme_stylebox_override(st, sb)
 	tile.add_theme_stylebox_override("hover", sb_hover)
+	tile.material = CardFace.foil_material(rarity)
 	if dimmed:
 		tile.modulate = Color(0.55, 0.55, 0.55)
 

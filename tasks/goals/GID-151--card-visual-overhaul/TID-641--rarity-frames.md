@@ -2,7 +2,7 @@
 
 **Goal:** GID-151
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-632
 
 ## Lock
@@ -40,12 +40,12 @@ Shared facts (research 2026-09-30):
 
 ## Plan
 
-_Written during Plan phase._
+Carry rarity into battle CardInstance; draw a rarity pip on the frame; a shared foil sweep shader for epic/legendary on battle cards, backpack tiles and pack faces.
 
 ## Changes Made
 
-_Filled after Build phase._
+`CardInstance.rarity` (+ to/from_dict), set in `PlayerState.build_deck_from_instances`. New `assets/shaders/card_foil.gdshader` (+ .uid). `CardFace.foil_material`, `draw_rarity_pip`, `FOIL_STRENGTH`. `CardViewBuilder`: rarity meta, foil material, pip in the draw hook, material cleared on empty slots. CardTile / PackOpenScene foil. Fixed the Card Rarity tutorial (listed a non-existent Uncommon tier). Capture script cycles rarities.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+docs/agent/card-visuals.md (Rarity).

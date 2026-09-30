@@ -7,13 +7,19 @@
 extends RefCounted
 
 const CardChrome = preload("res://game_logic/CardChrome.gd")
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
+const _FOIL_SHADER := preload("res://assets/shaders/card_foil.gdshader")
 
 ## Card height (px) per whole-number upscale step of the 48 px frame.
 const PX_PER_SCALE := 110.0
 const BADGE_OUTLINE := Color(0.05, 0.05, 0.08)
+## Foil strength by rarity (TID-641); rarities not listed get no foil.
+const FOIL_STRENGTH: Dictionary = {"epic": 0.35, "legendary": 0.55}
 
 static var _scaled: Dictionary = {}   # "<rid>|<k>" -> Texture2D
 static var _styles: Dictionary = {}   # "<kind>|<key>|<k>" -> StyleBoxTexture
+static var _foils: Dictionary = {}    # rarity -> ShaderMaterial
+
 
 ## Whole-number upscale for a card `card_h` px tall.
 static func pixel_scale(card_h: float) -> int:
@@ -141,3 +147,30 @@ static func make_art(tex: Texture2D, height: float) -> TextureRect:
 	art.custom_minimum_size = Vector2(0.0, height)
 	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return art
+
+## Shared foil material for `rarity` (epic / legendary), else null. Set it as
+## a card panel's `material`: it lights the frame, not the contents.
+static func foil_material(rarity: String) -> ShaderMaterial:
+	if not FOIL_STRENGTH.has(rarity):
+		return null
+	if not _foils.has(rarity):
+		var mat := ShaderMaterial.new()
+		mat.shader = _FOIL_SHADER
+		mat.set_shader_parameter("tint", _UiUtil.rarity_color(rarity))
+		mat.set_shader_parameter("strength", float(FOIL_STRENGTH[rarity]))
+		_foils[rarity] = mat
+	return _foils[rarity] as ShaderMaterial
+
+## A small rarity-coloured diamond on the frame's top edge (rare and up);
+## call from the card panel's draw signal.
+static func draw_rarity_pip(panel: Control, rarity: String) -> void:
+	if rarity == "" or rarity == "common":
+		return
+	var r: float = maxf(4.0, panel.size.y * 0.025)
+	var c := Vector2(panel.size.x * 0.5, r * 0.9)
+	var pts := PackedVector2Array([c + Vector2(0, -r), c + Vector2(r, 0), c + Vector2(0, r), c + Vector2(-r, 0)])
+	panel.draw_colored_polygon(pts, BADGE_OUTLINE)
+	var inner := PackedVector2Array()
+	for p: Vector2 in pts:
+		inner.append(c + (p - c) * 0.65)
+	panel.draw_colored_polygon(inner, _UiUtil.rarity_color(rarity))

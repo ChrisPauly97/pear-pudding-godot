@@ -101,6 +101,18 @@ legendaries, a rune. `test_every_creature_card_has_generated_art` fails if a non
 Battle faces keep everything inside the card: art min `ART_FRAC` 0.1 of the height and flexes, ability text
 ≤ 3 lines, keyword font 1.6 % vh; spell-like legendaries hide the attack / health badges.
 
+### Rarity (TID-641)
+Rarity (common / rare / epic / legendary, from collection instances) now reaches battle: `CardInstance.rarity`
+(default common; in `to_dict` / `from_dict`), set by `PlayerState.build_deck_from_instances`. Enemy / generated
+cards stay common.
+- **Pip** — `CardFace.draw_rarity_pip` draws a rarity-coloured diamond (`UiUtil.rarity_color`) on the frame's top
+  edge for rare and up, from the battle card's draw hook (meta `card_rarity`).
+- **Foil** — `assets/shaders/card_foil.gdshader`: a screen-space light band sweeping diagonally (`TIME`), tinted by
+  rarity. `CardFace.foil_material(rarity)` (shared per rarity; `FOIL_STRENGTH` epic 0.35, legendary 0.55, else
+  null) is set as the panel's own `material`, so it lights the frame / rim / glow but not the contents. Used on
+  battle cards (`apply_card_style`; cleared when a slot empties), backpack tiles and pack-opening faces.
+- The "Card Rarity" tutorial text listed a non-existent Uncommon tier; it now names Common / Rare / Epic / Legendary.
+
 ## Integrations
 - `MagicTypes` (type list), `CardRegistry` templates (`magic_type`, `illustration`, `card_class`).
 - `tools/capture_battle_cards.gd` renders a battle screenshot under xvfb for eyeballing card changes.
