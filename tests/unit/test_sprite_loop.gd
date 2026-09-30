@@ -49,3 +49,13 @@ func test_campfire_builds_a_looping_billboard() -> void:
 		assert_eq(spr.texture, frames[0])
 		assert_true(holder.has_node(SpriteLoop.NODE_NAME), "the fire animates")
 		holder.free()
+
+
+## TID-652: opening one-shots line up with the sprites they replace.
+func test_opening_frames_match_their_canvases() -> void:
+	for f: Texture2D in LF.chest_opening():
+		assert_eq(f.get_size(), SR.chest_closed_texture().get_size(), "chest frames share the chest canvas")
+	for f: Texture2D in LF.door_opening():
+		assert_eq(f.get_size(), SR.door_texture().get_size(), "door frames share the door canvas")
+	assert_eq(LF.chest_opening()[1], SR.chest_open_texture(), "a chest settles on the open sprite")
+	assert_eq(LF.mimic_reveal()[1], SR.enemy_texture("mimic"), "a mimic settles on the mimic sprite")

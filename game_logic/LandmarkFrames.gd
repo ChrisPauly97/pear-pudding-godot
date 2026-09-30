@@ -34,6 +34,12 @@ const _CAMPFIRE_SMOULDER_1 := preload("res://assets/textures/props/campfire_smou
 const _CAMPFIRE_SMOULDER_2 := preload("res://assets/textures/props/campfire_smoulder_2.png")
 const _CAMPFIRE_SMOULDER_3 := preload("res://assets/textures/props/campfire_smoulder_3.png")
 const _CAMPFIRE_SMOULDER_4 := preload("res://assets/textures/props/campfire_smoulder_4.png")
+## Opening one-shots (TID-652): chest and door swing frames, the mimic reveal.
+const _CHEST_AJAR := preload("res://assets/textures/props/chest_ajar.png")
+const _CHEST_OPEN := preload("res://assets/textures/props/chest_open.png")
+const _DOOR_AJAR := preload("res://assets/textures/props/door_ajar.png")
+const _DOOR_OPEN := preload("res://assets/textures/props/door_open.png")
+const _MIMIC := preload("res://assets/textures/characters/enemy_mimic.png")
 
 const _TABLE: Dictionary = {
 	_WAYSTONE_ACTIVE: [_WAYSTONE_ACTIVE_1, _WAYSTONE_ACTIVE_2, _WAYSTONE_ACTIVE_3, _WAYSTONE_ACTIVE_4],
@@ -58,4 +64,22 @@ static func campfire(lit: bool) -> Array[Texture2D]:
 				_CAMPFIRE_LIT_6])
 	else:
 		out.assign([_CAMPFIRE_SMOULDER_1, _CAMPFIRE_SMOULDER_2, _CAMPFIRE_SMOULDER_3, _CAMPFIRE_SMOULDER_4])
+	return out
+
+
+## A chest opening: lid lifting on a line of gold light, then thrown back.
+static func chest_opening() -> Array[Texture2D]:
+	var out: Array[Texture2D] = [_CHEST_AJAR, _CHEST_OPEN]
+	return out
+
+
+## A mimic springing: the lid cracks, then the teeth.
+static func mimic_reveal() -> Array[Texture2D]:
+	var out: Array[Texture2D] = [_CHEST_AJAR, _MIMIC]
+	return out
+
+
+## A door swinging in on its hinges.
+static func door_opening() -> Array[Texture2D]:
+	var out: Array[Texture2D] = [_DOOR_AJAR, _DOOR_OPEN]
 	return out

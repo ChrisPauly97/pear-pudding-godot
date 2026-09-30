@@ -37,6 +37,23 @@ static func with_frames(sprite: Sprite3D, frames: Array[Texture2D], fps: float) 
 	return loop
 
 
+## Plays `frames` once on `sprite`, `frame_time` seconds each, and stays on the
+## last (chest lids, doors, the mimic reveal — TID-652). Returns the tween.
+static func play_once(sprite: Sprite3D, frames: Array[Texture2D], frame_time: float) -> Tween:
+	var tw: Tween = sprite.create_tween()
+	for i: int in frames.size():
+		if i > 0:
+			tw.tween_interval(frame_time)
+		tw.tween_callback(_show.bind(sprite, frames[i]))
+	return tw
+
+
+static func _show(sprite: Sprite3D, tex: Texture2D) -> void:
+	if is_instance_valid(sprite):
+		sprite.texture = tex
+		_SpriteOutline.refresh(sprite)
+
+
 ## Adds a loop under `parent` for `sprite` unless one is already there.
 static func ensure(parent: Node, sprite: Sprite3D) -> void:
 	if sprite == null or parent.has_node(NODE_NAME):

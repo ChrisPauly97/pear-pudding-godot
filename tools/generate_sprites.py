@@ -584,6 +584,53 @@ def chest(lid_open):
     return pad(c.image(), 16, 16)
 
 
+def chest_ajar():
+    """Opening frame between shut and open (TID-652): the lid lifts two pixels on a line of gold light."""
+    c = Canvas(16, 16)
+    x0, y0 = 1, 3
+    chest_body(c, False, x0, y0)
+    lid = [row[:] for row in c.px[y0:y0 + 5]]
+    for y in range(y0, y0 + 5):
+        c.px[y] = [None] * c.w
+    for i, row in enumerate(lid):
+        c.px[y0 - 2 + i] = row
+    for y in (y0 + 3, y0 + 4):                     # the gap: gold glow between lid and box
+        for x in range(x0, x0 + 14):
+            c.set(x, y, P.WOOD[0] if x in (x0, x0 + 13) else (P.GOLD[2] if y == y0 + 4 else P.GOLD[3]))
+    c.outline()
+    return pad(c.image(), 16, 16)
+
+
+def door_frame(swing):
+    """Door opening (TID-652): 0 shut (== door()), 1 ajar, 2 swung in on its left hinges, dark hall behind."""
+    if swing == 0:
+        return door()
+    c = Canvas(32, 32)
+    cx = 15.5
+    for y in range(2, 32):                                # stone arch frame
+        half = 12 if y > 9 else math.sqrt(max(0.0, 144 - (9 - y) ** 2 * 1.9))
+        c.line(cx - half, y, cx + half, y, P.STONE[1] if (y + int(half)) % 5 else P.STONE[2])
+    edge = 17 if swing == 1 else 10                       # the door's free edge as it swings in
+    for y in range(5, 32):
+        half = 9 if y > 11 else math.sqrt(max(0.0, 81 - (11 - y) ** 2 * 1.3))
+        for x in range(int(cx - half), int(cx + half) + 1):
+            if x <= edge:
+                c.set(x, y, P.WOOD[1] if (x - 7) % 4 else P.WOOD[0])
+            else:
+                c.set(x, y, (17, 17, 17) if y < 28 else (42, 34, 34))   # dark hall, a sliver of floor
+    c.line(7, 12, edge, 12, P.WOOD[2])
+    c.line(edge, 6, edge, 31, P.WOOD[3])                  # lit edge of the swinging door
+    for y in (13, 24):                                    # hinges
+        c.rect(7, y, 9 if swing == 2 else 12, y + 1, (42, 42, 58))
+        c.set(7, y, (123, 137, 148))
+    if swing == 1:
+        c.blob(15.5, 20, 1.4, 1.4, [(42, 42, 58), (82, 96, 124), (123, 137, 148), (192, 203, 220)])  # ring
+    c.set(5, 17, P.GREEN[1])                              # moss
+    c.set(26, 26, P.GREEN[2])
+    c.outline()
+    return pad(c.image(), 32, 32)
+
+
 def door():
     """Every map-transition door: an arched plank door in a stone frame, iron hinges and ring."""
     c = Canvas(32, 32)
@@ -623,6 +670,10 @@ LANDMARKS = {
     "chest_closed": lambda: chest(False),
     "chest_open": lambda: chest(True),
     "door": door,
+    # GID-152 / TID-652: opening frames.
+    "chest_ajar": chest_ajar,
+    "door_ajar": lambda: door_frame(1),
+    "door_open": lambda: door_frame(2),
 }
 
 

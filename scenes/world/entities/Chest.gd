@@ -2,6 +2,9 @@ extends Node3D
 
 const _WEB = preload("res://scenes/world/entities/WorldEntityBase.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
+const _SpriteLoop = preload("res://scenes/world/entities/SpriteLoop.gd")
+const _LandmarkFrames = preload("res://game_logic/LandmarkFrames.gd")
+const _OPEN_FRAME_TIME: float = 0.08
 const _LID_OPEN_ANGLE: float = -70.0
 
 # Shared across all fallback chest instances — created once
@@ -97,13 +100,20 @@ func mark_opened() -> void:
 	chest_data["opened"] = true
 	_animate_open()
 
+## The chest was a mimic (TID-652): the lid cracks, then the teeth show. Seen
+## during the battle transition, and throughout real-time fights in the world.
+func reveal_mimic() -> void:
+	if _sprite != null:
+		_SpriteLoop.play_once(_sprite, _LandmarkFrames.mimic_reveal(), _OPEN_FRAME_TIME)
+
+
 func set_highlighted(on: bool) -> void:
 	if _ring != null:
 		_ring.visible = on
 
 func _animate_open() -> void:
 	if _sprite != null:
-		_sprite.texture = _SpriteRegistry.chest_open_texture()
+		_SpriteLoop.play_once(_sprite, _LandmarkFrames.chest_opening(), _OPEN_FRAME_TIME)  # TID-652
 		var tw: Tween = _sprite.create_tween()
 		tw.tween_property(_sprite, "scale", Vector3(1.15, 0.85, 1.0),
 				0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)

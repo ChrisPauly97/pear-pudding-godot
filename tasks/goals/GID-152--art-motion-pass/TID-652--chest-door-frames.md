@@ -2,7 +2,7 @@
 
 **Goal:** GID-152
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -22,12 +22,18 @@ Chests swap closed→open instantly; doors have one frame; mimic has no reveal. 
 
 ## Plan
 
-_Written during Plan phase._
+Ajar frames for chest and door (plus a fully open door); one-shot `SpriteLoop.play_once`; hook chest open, mimic
+spring (before the engage emit) and door interaction.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `tools/generate_sprites.py`: `chest_ajar()`, `door_frame()`; 3 new props PNGs (existing ones unchanged).
+- `game_logic/LandmarkFrames.gd`: `chest_opening()`, `mimic_reveal()`, `door_opening()`.
+- `scenes/world/entities/SpriteLoop.gd`: `play_once()`.
+- `Chest.gd` (`_animate_open`, `reveal_mimic`), `Door.gd` (`play_open`), `ChestLoot._spring_mimic`,
+  WorldScene door branch (+3 lines).
+- Test: `test_sprite_loop::test_opening_frames_match_their_canvases`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/art-sprites.md`: "Opening frames".

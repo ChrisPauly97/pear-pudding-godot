@@ -507,3 +507,17 @@ curling up). `LandmarkFrames.campfire(lit)` preloads them; `scenes/world/entitie
 - **Wilderness camp** (`WildernessCamp.gd`) replaced its cylinder logs and cone flame with the smouldering variant,
   matching the story's cold camp ("No fire tonight"). NightLights still gives it the campfire glow, now read as
   ember light.
+
+## Opening frames (GID-152 / TID-652)
+
+`chest_ajar()` (lid lifted 2 px over a line of gold light) and `door_frame(1|2)` (door swinging in on its left
+hinges, dark hall behind; `door_frame(0)` is `door()`) in `tools/generate_sprites.py` write `chest_ajar.png`,
+`door_ajar.png` and `door_open.png` on the chest's 16×16 and door's 32×32 canvases. `LandmarkFrames` exposes
+`chest_opening()` (ajar → open), `mimic_reveal()` (ajar → `enemy_mimic.png`) and `door_opening()` (ajar → open);
+`SpriteLoop.play_once(sprite, frames, frame_time)` plays them with a tween and stays on the last frame.
+
+- `Chest._animate_open()` plays the opening (0.08 s per frame) alongside the existing squash and coin burst. Co-op
+  peers see it too, because `mark_opened` runs on them.
+- `ChestLoot._spring_mimic()` calls `Chest.reveal_mimic()` *before* emitting `enemy_engaged`, because the battle may
+  start synchronously inside that emit.
+- The WorldScene door branch calls `Door.play_open()` (0.1 s per frame), so the swing plays under the transition wipe.

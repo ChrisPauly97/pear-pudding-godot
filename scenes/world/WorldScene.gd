@@ -1654,6 +1654,9 @@ func _handle_interact() -> void:
 			return
 		var target_map: String = door.get("target_map", "")
 		var tdoor: String = door.get("target_door_id", "")
+		var door_node: Node3D = _valid_node3d(_door_nodes.get(door_id))
+		if door_node != null and door_node.has_method("play_open"):
+			door_node.call("play_open")  # TID-652: swings open under the transition wipe
 		AudioManager.play_sfx("door_enter")
 		# Auto-dismount when leaving the overworld for any named map
 		if SceneManager.save_manager.is_mounted and target_map != "main" and not target_map.is_empty():
