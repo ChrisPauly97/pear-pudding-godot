@@ -18,3 +18,9 @@ has no `owls.ogg`; `test_sfx_assets.test_ambience_files_exist_and_loop` skips it
 
 Find a CC0 owl/night-forest loop (freesound.org CC0 filter needs an account),
 drop it in as mono `owls.ogg` with `loop=true`, and remove the skip in the test.
+
+## Resolution
+
+A public-domain (PD Mark 1.0) tawny-owl field recording by Peter Cusack (radio aporee, via the Internet
+Archive) now ships as `assets/audio/ambience/owls.ogg`: the 45–99 s window, crossfaded seamless, mono 24 kHz.
+`test_sfx_assets` no longer exempts owls. Credited in `CREDITS.md`.

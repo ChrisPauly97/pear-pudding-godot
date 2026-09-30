@@ -211,7 +211,7 @@ TID-010 wires battle SFX; TID-011 wires world exploration SFX.
 | `AudioManager.gd` | `autoloads/AudioManager.gd` | Autoload; registered in `project.godot` |
 | `AmbienceLayers.gd` | `game_logic/AmbienceLayers.gd` | Pure layer-selection rules + `LAYER_PATHS` |
 | `AmbienceGen.gd` | `game_logic/AmbienceGen.gd` | Procedural weather/wildlife loop fallbacks |
-| Weather/time loops | `assets/audio/ambience/{rain,heavy_rain,wind,sandstorm,crackle,birds,crickets,owls}.ogg` | Optional — synthesized fallback when absent (TID-492 sources real ones) |
+| Weather/time loops | `assets/audio/ambience/{rain,heavy_rain,wind,sandstorm,crackle,birds,crickets,owls,stream}.ogg` | Optional — synthesized fallback when absent (TID-492 sources real ones) |
 | SFX files | `assets/audio/sfx/*.ogg` (+ `_N` takes) | All shipped (GID-145); a missing file falls back to SfxGen / FootstepSurface synthesis |
 | `FootstepSurface.gd` | `game_logic/FootstepSurface.gd` | Surface table + footstep synth fallbacks |
 | Music ogg files | `assets/audio/music/*.ogg` | **Present** (7 tracks, GID-116). 4 are CC-BY — attribution in `CREDITS.md` is a licence condition |

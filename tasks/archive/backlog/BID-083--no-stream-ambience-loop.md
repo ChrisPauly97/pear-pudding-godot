@@ -17,3 +17,9 @@ it alongside the owl layer (BID-073).
 
 Source a seamless CC0 babbling-brook loop (freesound CC0, Sonniss GDC bundle), convert to looping ogg, drop the
 exemption and credit it in `CREDITS.md`.
+
+## Resolution
+
+A public-domain (PD Mark 1.0) brook field recording by Matthes (radio aporee, via the Internet Archive) now
+ships as `assets/audio/ambience/stream.ogg`: 56–92 s, crossfaded seamless, mono 24 kHz. `test_sfx_assets` no
+longer exempts it; `AmbienceGen._gen_stream()` stays as the fallback. Credited in `CREDITS.md`.
