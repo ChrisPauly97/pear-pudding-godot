@@ -13,9 +13,17 @@ const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const BattleFx = preload("res://scenes/battle/BattleFx.gd")
 const CardArt = preload("res://scenes/battle/CardArt.gd")
+const CardFace = preload("res://scenes/ui/CardFace.gd")
+const CardMotion = preload("res://scenes/battle/CardMotion.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
-const COST_COLOR := Color(0.45, 0.75, 1.0)
+const COST_COLOR := Color.WHITE  # on the blue mana gem
+const HP_DAMAGED_COLOR := Color(1.0, 0.6, 0.55)
+## Rim fill over the frame when a card is unaffordable / not a valid target.
+const DIM_COLOR := Color(0.0, 0.0, 0.0, 0.5)
+## Minimum share of the card height for the illustration; it grows into any
+## height the text leaves over, so the stats row always sits at the bottom.
+const ART_FRAC := 0.1
 const COST_DISCOUNT_COLOR := Color(0.3, 1.0, 0.5)
 const COST_UNAFFORDABLE_COLOR := Color(1.0, 0.45, 0.45)
 
@@ -206,6 +214,7 @@ func _setup_empty_slot_panel(panel: PanelContainer, slot_idx: int, zone_id: Stri
 	panel.visible = true
 	panel.modulate = Color.WHITE
 	panel.scale = Vector2.ONE
+	panel.material = null  # a foil card may have left this slot (GID-151)
 	for ch in panel.get_children():
 		if not ch is LongPressDetector:
 			ch.queue_free()
@@ -265,20 +274,54 @@ func _apply_slot_enhancement_border(panel: Control, enh: Dictionary) -> void:
 	elif enh_type == "shroud":
 		style.border_color = Color(0.6, 0.6, 1.0)
 		style.set_border_width_all(3)
+	panel.queue_redraw()
 
 # -------------------------------------------------------------------------
 # Card view building
 # -------------------------------------------------------------------------
 
-## Attack/health line for a unit; spells have none (cost lives in CostLabel).
-func format_card_stats(card: CardInstance) -> String:
-	if card.card_class == "spell":
-		return "Spell"
-	return "%d / %d" % [card.attack, card.health]
-
-## Mana cost as shown on a card face: points in real time (×100), units otherwise.
+## Mana cost as shown on the card's gem: points in real time (×100), units otherwise.
 static func format_cost(points: int) -> String:
-	return "%d mana" % points
+	return "%d" % points
+
+## Bottom row: cost gem on the left, attack / health badges on the right
+## (hidden for spells). Rebuilt in place on recycled panels.
+func _build_stats_row(card: CardInstance) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.name = "StatsRow"
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_constant_override("separation", 0)
+	var d: float = card_size().x * 0.24
+	var fs: int = _font(0.017)
+	var cost := CardFace.make_badge("cost", "", d, fs)
+	cost.name = "CostLabel"
+	row.add_child(cost)
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(spacer)
+	var atk := CardFace.make_badge("atk", "", d, fs)
+	atk.name = "AtkLabel"
+	row.add_child(atk)
+	var hp := CardFace.make_badge("hp", "", d, fs)
+	hp.name = "HpLabel"
+	row.add_child(hp)
+	_refresh_stat_badges(row, card)
+	return row
+
+func _refresh_stat_badges(row: HBoxContainer, card: CardInstance) -> void:
+	# Spell-like legendaries (Time Warp, Soul Harvest) carry a spell_effect and no body.
+	var is_unit: bool = card.card_class != "spell" and not (card.card_class == "legendary" and card.spell_effect != "")
+	var atk: Label = row.get_node_or_null("AtkLabel") as Label
+	var hp: Label = row.get_node_or_null("HpLabel") as Label
+	if atk:
+		atk.visible = is_unit
+		CardFace.set_badge_text(atk, str(card.attack))
+	if hp:
+		hp.visible = is_unit
+		CardFace.set_badge_text(hp, str(card.health))
+		hp.add_theme_color_override("font_color",
+				HP_DAMAGED_COLOR if card.health < card.max_health else Color.WHITE)
 
 ## Cost in mana points for `zone_id` — hand cards include battlefield discounts.
 func _cost_points(card: CardInstance, zone_id: String) -> int:
@@ -291,7 +334,7 @@ func _cost_points(card: CardInstance, zone_id: String) -> int:
 ## a hand card is not affordable yet (so real-time players see what to wait for).
 func _refresh_cost_label(lbl: Label, card: CardInstance, zone_id: String) -> void:
 	var pts: int = _cost_points(card, zone_id)
-	lbl.text = format_cost(pts)
+	CardFace.set_badge_text(lbl, format_cost(pts))
 	var col: Color = COST_COLOR
 	if zone_id == "hand" and _state != null:
 		var p: PlayerState = _seat_player(0)
@@ -312,6 +355,8 @@ func update_card_view(panel: PanelContainer, card: CardInstance, zone_id: String
 	panel.visible = true
 	panel.modulate = Color.WHITE
 	panel.scale = Vector2.ONE
+	panel.rotation = 0.0
+	panel.self_modulate = Color.WHITE
 	panel.z_index = 0
 	var vbox: VBoxContainer = panel.get_child(0) as VBoxContainer
 	var name_lbl: Label = vbox.get_node_or_null("NameLabel") as Label if vbox else null
@@ -322,13 +367,13 @@ func update_card_view(panel: PanelContainer, card: CardInstance, zone_id: String
 		panel.add_child(build_card_vbox(card, is_board_zone))
 	else:
 		name_lbl.text = card.name
-		CardArt.apply(vbox, card, _vh)
-		var stats_lbl: Label = vbox.get_node_or_null("StatsLabel") as Label
-		if stats_lbl:
-			stats_lbl.text = format_card_stats(card)
-		var cost_lbl: Label = vbox.get_node_or_null("CostLabel") as Label
-		if cost_lbl:
-			_refresh_cost_label(cost_lbl, card, zone_id)
+		CardArt.apply(vbox, card, card_size().y * ART_FRAC, card_size().y)
+		var stats_row: HBoxContainer = vbox.get_node_or_null("StatsRow") as HBoxContainer
+		if stats_row:
+			_refresh_stat_badges(stats_row, card)
+			var cost_lbl: Label = stats_row.get_node_or_null("CostLabel") as Label
+			if cost_lbl:
+				_refresh_cost_label(cost_lbl, card, zone_id)
 		var desc_lbl: Label = vbox.get_node_or_null("DescLabel") as Label
 		if desc_lbl:
 			var ability_text: String = get_card_ability_text(card)
@@ -368,16 +413,15 @@ func get_card_ability_color(card: CardInstance) -> Color:
 
 func build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBoxContainer:
 	var vbox := VBoxContainer.new()
-	var name_lbl := _UiUtil.make_label(card.name, int(_font(0.020)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+	vbox.add_theme_constant_override("separation", int(_vh * 0.003))
+	var name_lbl := _UiUtil.make_label(card.name, int(_font(0.017)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	name_lbl.name = "NameLabel"
 	name_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	CardArt.apply(vbox, card, _vh)
-	var cost_lbl := _UiUtil.make_label("", int(_font(0.022)), COST_COLOR, HORIZONTAL_ALIGNMENT_CENTER)
-	cost_lbl.name = "CostLabel"
-	_refresh_cost_label(cost_lbl, card, "")
-	var stats_lbl := _UiUtil.make_label(format_card_stats(card), int(_font(0.020)), Color.WHITE,
-			HORIZONTAL_ALIGNMENT_CENTER)
-	stats_lbl.name = "StatsLabel"
+	name_lbl.add_theme_color_override("font_outline_color", CardFace.BADGE_OUTLINE)
+	name_lbl.add_theme_constant_override("outline_size", maxi(2, int(_font(0.017) * 0.2)))
+	CardArt.apply(vbox, card, card_size().y * ART_FRAC, card_size().y)
+	var stats_row: HBoxContainer = _build_stats_row(card)
+	_refresh_cost_label(stats_row.get_node("CostLabel") as Label, card, "")
 	var desc_lbl := Label.new()
 	desc_lbl.name = "DescLabel"
 	# Card faces only carry gameplay text (spell/emergence abilities). Minion
@@ -390,17 +434,19 @@ func build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBoxC
 	else:
 		desc_lbl.text = ""
 		desc_lbl.visible = false
-	desc_lbl.add_theme_font_size_override("font_size", _font(0.017))
+	desc_lbl.add_theme_font_size_override("font_size", _font(0.015))
 	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	desc_lbl.max_lines_visible = 3  # full text lives in the inspect overlay
+	desc_lbl.add_theme_stylebox_override("normal", CardFace.plate_style(card_size().y))
 	vbox.add_child(name_lbl)
-	vbox.add_child(cost_lbl)
-	vbox.add_child(stats_lbl)
 	vbox.add_child(desc_lbl)
 	var kw_row := HBoxContainer.new()
 	kw_row.name = "KeywordRow"
 	kw_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	update_keyword_badges(kw_row, card)
 	vbox.add_child(kw_row)
+	vbox.add_child(stats_row)
 	if with_status_row:
 		var sr := HBoxContainer.new()
 		sr.name = "StatusRow"
@@ -411,14 +457,30 @@ func build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBoxC
 ## Attaches (or reuses) the rounded StyleBoxFlat that carries a card panel's
 ## border. Kept in the panel's "card_style" meta so recolouring a card mutates
 ## the live box instead of allocating a new one every refresh.
+## Since GID-151 the panel's own stylebox is the pixel-art frame; this rim is
+## drawn over it (under the card's contents) from the panel's draw signal, so
+## highlight borders and the dimming fill still show on the framed card.
 static func attach_card_style(panel: PanelContainer) -> StyleBoxFlat:
 	var style: StyleBoxFlat = (panel.get_meta("card_style") if panel.has_meta("card_style") else null) as StyleBoxFlat
 	if style == null:
-		style = StyleBoxFlat.new()   # bg_color left at the engine default until apply_card_style runs
+		style = StyleBoxFlat.new()
 		style.set_corner_radius_all(4)
-		panel.add_theme_stylebox_override("panel", style)
+		style.bg_color = Color.TRANSPARENT
 		panel.set_meta("card_style", style)
+	if not panel.has_meta("card_rim_hooked"):
+		panel.set_meta("card_rim_hooked", true)
+		panel.draw.connect(_draw_rim.bind(panel))
 	return style
+
+## Empty board slots own their stylebox outright; only framed cards get a rim.
+static func _draw_rim(panel: PanelContainer) -> void:
+	if bool(panel.get_meta("is_empty_slot", false)) or not panel.has_meta("card_style"):
+		return
+	var style: StyleBoxFlat = panel.get_meta("card_style") as StyleBoxFlat
+	if style != null:
+		panel.draw_style_box(style, Rect2(Vector2.ZERO, panel.size))
+	CardMotion.draw_glow(panel)
+	CardFace.draw_rarity_pip(panel, str(panel.get_meta("card_rarity", "")))
 
 func apply_card_style(panel: PanelContainer, card: CardInstance, zone_id: String) -> void:
 	var style: StyleBoxFlat = attach_card_style(panel)
@@ -427,9 +489,15 @@ func apply_card_style(panel: PanelContainer, card: CardInstance, zone_id: String
 	style.border_width_left = 0
 	style.border_width_right = 0
 	var tmpl: Dictionary = CardRegistry.get_template_for_face(card.template_id, card.active_face)
-	style.bg_color = tmpl.get("color", Color(0.3, 0.3, 0.3)) if not tmpl.is_empty() else Color(0.3, 0.3, 0.3)
+	var magic_type: String = str(tmpl.get("magic_type", card.magic_type))
+	panel.set_meta("card_branch", str(tmpl.get("magic_branch", card.magic_branch)))
+	panel.set_meta("card_rarity", card.rarity)
+	panel.material = CardFace.foil_material(card.rarity)
+	panel.add_theme_stylebox_override("panel", CardFace.frame_style(magic_type, card_size().y))
+	style.bg_color = Color.TRANSPARENT
+	CardMotion.set_playable_glow(panel, zone_id == "hand" and _is_local_turn() and _seat_player(0).can_play(card))
 	if zone_id == "hand" and not _seat_player(0).can_play(card):
-		style.bg_color = style.bg_color.darkened(0.5)
+		style.bg_color = DIM_COLOR
 	elif zone_id == "hand" and _seat_player(0).effective_cost(card) < _seat_player(0).base_cost(card):
 		style.border_color = Color(0.3, 1.0, 0.5, 0.8)
 		style.border_width_top = 2
@@ -451,7 +519,7 @@ func apply_card_style(panel: PanelContainer, card: CardInstance, zone_id: String
 	elif zone_id == "enemy_board" and not _dragged_card.is_empty():
 		var valid_targets: Array[CardInstance] = get_ward_valid_targets(_seat_player(1).board.get_cards())
 		if not valid_targets.has(card):
-			style.bg_color = style.bg_color.darkened(0.45)
+			style.bg_color = DIM_COLOR
 	elif zone_id == "board" and not _dragged_card.is_empty() and _dragged_card.get("card") == card:
 		panel.pivot_offset = panel.custom_minimum_size * 0.5
 		panel.scale = Vector2(1.06, 1.06)
@@ -478,6 +546,7 @@ func apply_card_style(panel: PanelContainer, card: CardInstance, zone_id: String
 		var mark_targets: Array[CardInstance] = get_ward_valid_targets(_seat_player(1).board.get_cards())
 		show_mark = mark_targets.has(card)
 	_target_mark(panel, _font(0.018)).visible = show_mark
+	panel.queue_redraw()
 
 ## Lazily attaches a centered "◎ TARGET" overlay label to a panel. Overlay, not
 ## a vbox row — it must never shift the card layout when it toggles.
@@ -505,7 +574,7 @@ func update_keyword_badges(hbox: HBoxContainer, card: CardInstance) -> void:
 		Color(1.0,  0.6, 0.15),
 		Color(0.8,  0.8, 0.88),
 	]
-	var font_sz: int = _font(0.020)
+	var font_sz: int = _font(0.016)
 	for i in range(kw_keys.size()):
 		var kw: String = kw_keys[i]
 		if not card.keywords.has(kw):

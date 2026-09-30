@@ -154,6 +154,7 @@
 | [GID-148](goals/GID-148--backpack-ux/goal.md) | Backpack / Inventory UX | done | 1 / 1 |
 | [GID-149](goals/GID-149--new-enemy-roster/goal.md) | New Enemy Roster | done | 5 / 5 |
 | [GID-150](goals/GID-150--shared-helpers/goal.md) | Shared Helpers for Duplicated Code | done | 7 / 7 |
+| [GID-151](goals/GID-151--card-visual-overhaul/goal.md) | Card Visual Overhaul | done | 11 / 11 |
 
 ## Backlog
 
@@ -166,11 +167,13 @@ files in `tasks/archive/backlog/`.
 | [BID-055](backlog/BID-055--worldscene-god-object.md) | `WorldScene.gd` god-object decomposition, slice 1/3 done (co-op/net cluster folded into `CoopSession.gd`, line-ceiling guardrail added); original 9154/401 census was stale — see file's Progress section for real numbers and slices 2-3 (`_spawn_*`, `_start_*`); spawn position now in `SpawnPoint.gd` | code-smell | GID-123 research |
 | [BID-061](backlog/BID-061--spec-says-no-xp-system.md) | Spec says "No XP system planned" but XP/levels/skill points shipped (GID-030) | spec-gap | Tracked by TID-539 |
 | [BID-073](backlog/BID-073--no-owl-ambience-loop.md) | Night owl ambience layer still synthesized (no clean CC0 loop found) | content-gap | GID-145 / TID-616 |
+| [BID-079](backlog/BID-079--spec-four-card-types.md) | Spec still lists four card types | spec-gap | GID-151 research |
 
 ## Resolved Backlog
 
 | ID | Summary | Category | Discovered During |
 |----|---------|----------|-------------------|
+| [BID-080](archive/backlog/BID-080--silent-card-art-fallback.md) | Missing card art falls back silently to TextureGen | code-smell | Resolved: GID-151 TID-640 coverage test |
 | [BID-077](archive/backlog/BID-077--packs-keep-a-leader-hero.md) | Pack encounters still have an enemy hero (no leaderless 'clear the board' packs) | design-gap | Resolved: `undead_horde` is a leaderless pack (clear the board) |
 | [BID-078](archive/backlog/BID-078--enemy-spells-never-resolve.md) | Enemy spell cards never resolve (turn-based discards them, real time never picks them) | bug | Resolved: enemy spells resolve in both modes |
 | [BID-075](archive/backlog/BID-075--coop-loot-no-gear-rolls.md) | Co-op session loot grants gear without a rarity / item-level roll | design-inconsistency | Resolved: session characters carry gear rolls |

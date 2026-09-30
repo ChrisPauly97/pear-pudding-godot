@@ -8,6 +8,7 @@ const ZoneState = preload("res://game_logic/battle/ZoneState.gd")
 const GameState = preload("res://game_logic/battle/GameState.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _BattleJuice = preload("res://scenes/battle/BattleJuice.gd")
+const _CardMotion = preload("res://scenes/battle/CardMotion.gd")
 
 var _state: GameState
 var _vh: float
@@ -360,7 +361,7 @@ func settle_panel(panel: Control, z: int = 0) -> void:
 	if parent != null:
 		parent.queue_sort()
 
-## Shrinks/fades/rotates a ghost copy of `panel` in `_float_layer` so a death
+## Dissolves a ghost copy of `panel` in `_float_layer` so a death
 ## reads as a beat instead of a pop when `_refresh_all()` removes it. Not a
 ## coroutine — starts the tween immediately and returns it so callers can fire
 ## several deaths in parallel and await each returned Tween's `finished`.
@@ -377,11 +378,11 @@ func animate_death(panel: Control, speed_scale: float = 1.0) -> Tween:
 	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_float_layer.add_child(ghost)
 	ghost.pivot_offset = ghost.size * 0.5
-	var tw: Tween = ghost.create_tween()
-	tw.set_parallel(true)
-	tw.tween_property(ghost, "scale", Vector2(0.1, 0.1), scaled_duration(_BattlePacing.DEATH_ANIM, speed_scale))
-	tw.tween_property(ghost, "modulate:a", 0.0, scaled_duration(_BattlePacing.DEATH_ANIM, speed_scale))
-	tw.tween_property(ghost, "rotation", deg_to_rad(25.0), scaled_duration(_BattlePacing.DEATH_ANIM, speed_scale))
+	# Burns away in the card's branch colour (GID-151), sinking slightly.
+	var dur: float = scaled_duration(_BattlePacing.DEATH_ANIM, speed_scale)
+	var tw: Tween = _CardMotion.dissolve(ghost,
+			_CardMotion.card_color(str(panel.get_meta("card_branch", ""))), dur)
+	ghost.create_tween().tween_property(ghost, "scale", Vector2(0.92, 0.92), dur)
 	tw.finished.connect(func() -> void:
 		if is_instance_valid(ghost):
 			ghost.queue_free())
@@ -456,8 +457,19 @@ func pop_new_board_cards() -> void:
 		for c: CardInstance in _seat_player(seat).board.get_cards():
 			now[c.instance_id] = true
 			if not seen.has(c.instance_id):
-				_BattleJuice.pop_in(get_card_panel(c, is_enemy))
+				_enter_board(c, is_enemy)
 		_seen_board[seat] = now
+
+
+## Enemy cards are played face-down from the enemy hero and flip over on
+## their slot (GID-151); anything else new on the board pops in.
+func _enter_board(c: CardInstance, is_enemy: bool) -> void:
+	var panel: Control = get_card_panel(c, is_enemy)
+	if not is_enemy or _enemy_hero_view == null or not _enemy_hero_view.is_visible_in_tree():
+		_BattleJuice.pop_in(panel)
+		return
+	_CardMotion.reveal_play(_float_layer, panel, _enemy_hero_view.get_global_rect().get_center(), 1.0,
+			_CardMotion.card_color(c.magic_branch))
 
 
 ## Skips the pop-in for a card that already got its own entrance (the local

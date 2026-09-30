@@ -1,0 +1,35 @@
+# GID-151: Card Visual Overhaul
+
+## Objective
+
+Make cards look like real TCG cards: framed faces, branch backgrounds, a card back, motion, and full illustration coverage.
+
+## Context
+
+User (2026-09-30) asked for card backgrounds, art, card backs and card-play animations. Cards are flat coloured
+StyleBoxFlat panels with a small art strip; the enemy hand is a plain box; only 4 minions and 4 spell branches have
+illustrations. Order: frames/backs/backgrounds → animations → illustrations.
+
+## Tasks
+
+| ID | Name | Type | Status | Depends On |
+|----|------|------|--------|------------|
+| TID-631 | Card frame art generator | agent | done | — |
+| TID-632 | Shared card-face builder + bigger art window | agent | done | TID-631 |
+| TID-633 | Per-branch card backgrounds | agent | done | TID-632 |
+| TID-634 | Designed card back shared everywhere | agent | done | TID-632 |
+| TID-635 | Draw animation (deck → hand + flip) | agent | done | TID-634 |
+| TID-636 | Hover lift/tilt/glow + playable pulse | agent | done | TID-632 |
+| TID-637 | Play arc + landing burst; enemy flip-reveal | agent | done | TID-634 |
+| TID-638 | Dissolve shader: spell cast + card death | agent | done | TID-632 |
+| TID-639 | Spell runes for bloom/thorn/flux/fracture | agent | done | — |
+| TID-640 | Creature illustrations for all minions/legendaries | agent | done | TID-632 |
+| TID-641 | Rarity frame treatments | agent | done | TID-632 |
+
+## Acceptance Criteria
+
+- [x] Every card face (battle, backpack, inspect, pack opening) uses one framed builder
+- [x] Every magic type has a frame, every branch a background, and there is one shared card back
+- [x] Draw, play, spell-cast, death and enemy-play animations run without slowing real-time mode
+- [x] Every card resolves to generated art (no TextureGen fallback)
+- [x] Full suite, smoke tests, gdlint and unsafe-hits clean

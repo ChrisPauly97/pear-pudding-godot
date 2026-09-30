@@ -5,8 +5,10 @@ extends RefCounted
 
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const VeterancyUtil = preload("res://game_logic/VeterancyUtil.gd")
+const CardFace = preload("res://scenes/ui/CardFace.gd")
 
-const _MANA := Color(0.35, 0.62, 1.0)
+const _SELECTED_TINT := Color(0.7, 1.25, 0.75)
+const _HOVER_TINT := Color(1.25, 1.25, 1.25)
 const _ATK := Color(1.0, 0.78, 0.30)
 const _HP := Color(1.0, 0.42, 0.42)
 
@@ -30,18 +32,21 @@ static func build(inst: Dictionary, tmpl: Dictionary, ref: float, tag: String = 
 	tile.custom_minimum_size = sz
 	tile.focus_mode = Control.FOCUS_NONE
 	tile.tooltip_text = "%s\n%s" % [card_name, str(tmpl.get("description", ""))]
-	var border_w: int = maxi(2, int(ref * (0.007 if selected else 0.004)))
-	var sb := _UiUtil.make_style(card_color.darkened(0.55), int(ref * 0.012),
-			Color(0.45, 1.0, 0.55) if selected else rcol, border_w)
-	var sb_hover := _UiUtil.make_style(card_color.darkened(0.35), int(ref * 0.012),
-			Color(0.45, 1.0, 0.55) if selected else rcol.lightened(0.3), border_w)
+	# Framed like a battle card (GID-151); tinted copies mark hover / selection.
+	var frame: StyleBoxTexture = CardFace.frame_style(str(tmpl.get("magic_type", "")), sz.y)
+	var sb := frame.duplicate() as StyleBoxTexture
+	if selected:
+		sb.modulate_color = _SELECTED_TINT
+	var sb_hover := frame.duplicate() as StyleBoxTexture
+	sb_hover.modulate_color = _SELECTED_TINT if selected else _HOVER_TINT
 	for st: String in ["normal", "focus", "pressed"]:
 		tile.add_theme_stylebox_override(st, sb)
 	tile.add_theme_stylebox_override("hover", sb_hover)
+	tile.material = CardFace.foil_material(rarity)
 	if dimmed:
 		tile.modulate = Color(0.55, 0.55, 0.55)
 
-	var pad: float = ref * 0.008
+	var pad: float = sb.content_margin_left
 	var box := VBoxContainer.new()
 	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	box.offset_left = pad
@@ -70,8 +75,8 @@ static func build(inst: Dictionary, tmpl: Dictionary, ref: float, tag: String = 
 		_label("♥%d" % int(inst.get("health", 0)), int(ref * 0.018), _HP, HORIZONTAL_ALIGNMENT_CENTER, stats)
 
 	# ---- Overlays (absolute) ----
-	var gem := _gem(str(int(inst.get("cost", 0))), ref)
-	gem.position = Vector2(pad * 0.5, pad * 0.5)
+	var gem := CardFace.make_badge("cost", str(int(inst.get("cost", 0))), ref * 0.036, int(ref * 0.018))
+	gem.position = Vector2(pad * 0.4, pad * 0.4)
 	tile.add_child(gem)
 
 	var rlbl := _label(rarity.substr(0, 1).to_upper(), int(ref * 0.016), rcol, HORIZONTAL_ALIGNMENT_RIGHT, tile)
@@ -104,12 +109,9 @@ static func build(inst: Dictionary, tmpl: Dictionary, ref: float, tag: String = 
 static func _art(tmpl: Dictionary, card_name: String, card_color: Color, rcol: Color, ref: float) -> Control:
 	var illus: Texture2D = tmpl.get("illustration") as Texture2D
 	if illus != null:
-		var art := TextureRect.new()
-		art.texture = illus
-		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		var art := CardFace.make_art(illus, 0.0)
 		art.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		CardFace.set_art_background(art, str(tmpl.get("magic_branch", "")), tile_size(ref).y)
 		return art
 	var plate := PanelContainer.new()
 	plate.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -120,17 +122,6 @@ static func _art(tmpl: Dictionary, card_name: String, card_color: Color, rcol: C
 			HORIZONTAL_ALIGNMENT_CENTER, plate)
 	mono.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	return plate
-
-static func _gem(text: String, ref: float) -> PanelContainer:
-	var d: float = ref * 0.034
-	var gem := PanelContainer.new()
-	gem.custom_minimum_size = Vector2(d, d)
-	gem.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	gem.add_theme_stylebox_override("panel", _UiUtil.make_style(_MANA.darkened(0.2), int(d * 0.5),
-			Color(0.8, 0.9, 1.0), 1))
-	var lbl := _label(text, int(ref * 0.018), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, gem)
-	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	return gem
 
 static func _label(text: String, font_size: int, tint: Color, align: HorizontalAlignment, parent: Node) -> Label:
 	var lbl := _UiUtil.make_label(text, font_size, tint, align, parent)

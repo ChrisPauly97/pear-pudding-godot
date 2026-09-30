@@ -95,6 +95,7 @@ func build_deck_from_instances(insts: Array[Dictionary]) -> void:
 		tmpl["health"] += VeterancyUtil.hp_bonus_for(rank)
 		var ci := CardInstance.new(tmpl)
 		ci.collection_uid = str(inst.get("uid", ""))
+		ci.rarity = str(inst.get("rarity", "common"))
 		ci.name = VeterancyUtil.display_name(inst, str(tmpl.get("name", tid)))
 		draw_deck.append(ci)
 	draw_deck.shuffle()

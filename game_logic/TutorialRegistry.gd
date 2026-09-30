@@ -24,7 +24,7 @@ const _DATA: Dictionary = {
 	},
 	"card_rarity": {
 		"title": "Card Rarity",
-		"body": ("Cards come in four rarities: Common (grey), Uncommon (green), Rare (blue), and Legendary (gold). "
+		"body": ("Cards come in four rarities: Common (grey), Rare (blue), Epic (purple), and Legendary (gold). "
 				+ "Rarer cards have stronger effects and are harder to obtain — but you can craft any card using "
 				+ "Essence in the Inventory."),
 	},

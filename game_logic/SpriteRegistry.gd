@@ -12,6 +12,8 @@
 ## Callers: preload("res://game_logic/SpriteRegistry.gd")
 extends RefCounted
 
+const _CardArtRegistry = preload("res://game_logic/CardArtRegistry.gd")
+
 ## GID-143 / TID-605: graveyard dressing (tools/generate_sprites.py).
 const _GRAVEYARD_PROPS: Dictionary = {
 	"headstone_0": preload("res://assets/textures/props/headstone_0.png"),
@@ -130,14 +132,6 @@ const _PROP_VARIANTS: Dictionary = {
 	"tree_dead": [_PROP_TREE_DEAD_0, _PROP_TREE_DEAD_1],
 }
 
-const _CARD_GHOST         := preload("res://assets/textures/cards/card_ghost.png")
-const _CARD_SKELETON      := preload("res://assets/textures/cards/card_skeleton.png")
-const _CARD_ZOMBIE        := preload("res://assets/textures/cards/card_zombie.png")
-const _CARD_GHOUL         := preload("res://assets/textures/cards/card_ghoul.png")
-const _RUNE_DAWN          := preload("res://assets/textures/cards/rune_dawn.png")
-const _RUNE_DUSK          := preload("res://assets/textures/cards/rune_dusk.png")
-const _RUNE_EMBER         := preload("res://assets/textures/cards/rune_ember.png")
-const _RUNE_ASH           := preload("res://assets/textures/cards/rune_ash.png")
 
 const _CHEST_CLOSED       := preload("res://assets/textures/props/chest_closed.png")
 const _CHEST_OPEN         := preload("res://assets/textures/props/chest_open.png")
@@ -342,23 +336,10 @@ static func prop_texture(key: String) -> Texture2D:
 static func prop_variants(key: String) -> Array:
 	return _PROP_VARIANTS.get(key, []) as Array
 
-## Maps a card illustration key + magic branch to its texture.
-## illus_key is "ghost"/"skeleton"/"zombie"/"ghoul" for minions, or "spell"
-## (any non-creature key) for spell cards, which route by magic_branch
-## instead. Returns null for an unrecognized key/branch combination —
-## caller falls back to TextureGen.card_illustration().
+## Card illustration for `illus_key` (card id, or "spell") + branch; see
+## CardArtRegistry. Null → caller falls back to TextureGen.card_illustration().
 static func card_illustration_texture(illus_key: String, magic_branch: String) -> Texture2D:
-	match illus_key:
-		"ghost":    return _CARD_GHOST
-		"skeleton": return _CARD_SKELETON
-		"zombie":   return _CARD_ZOMBIE
-		"ghoul":    return _CARD_GHOUL
-	match magic_branch:
-		"dawn":  return _RUNE_DAWN
-		"dusk":  return _RUNE_DUSK
-		"ember": return _RUNE_EMBER
-		"ash":   return _RUNE_ASH
-	return null
+	return _CardArtRegistry.illustration(illus_key, magic_branch)
 
 ## Closed-chest sprite (with lock) — Chest.gd's unopened / default pose.
 static func chest_closed_texture() -> Texture2D:

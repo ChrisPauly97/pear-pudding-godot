@@ -4,6 +4,7 @@ const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const Keywords = preload("res://game_logic/battle/Keywords.gd")
 const SpellEffectLabels = preload("res://game_logic/battle/SpellEffectLabels.gd")
+const _CardFace = preload("res://scenes/ui/CardFace.gd")
 
 ## Mana points per cost unit (100 in real-time battles) — set before present().
 var mana_scale: int = 1
@@ -49,10 +50,11 @@ func _build_single_face_ui() -> void:
 	var panel_w: float = _vw * 0.6
 	var panel_h: float = _vh * 0.62
 	var panel := _build_centered_panel(panel_w, panel_h)
-	panel.add_theme_stylebox_override("panel", _make_dark_glass_style())
+	var tmpl: Dictionary = CardRegistry.get_template(_card.template_id if _card != null else "")
+	panel.add_theme_stylebox_override("panel", _CardFace.frame_style(str(tmpl.get("magic_type", "")), panel_h))
 
 	var inner := _build_margin_vbox(panel, 0.025, 0.016)
-	_build_face_body(inner, CardRegistry.get_template(_card.template_id if _card != null else ""), _card, true)
+	_build_face_body(inner, tmpl, _card, true)
 
 	var close_btn := _UiUtil.make_button("Close", Vector2(_vh * 0.18, _vh * 0.055), int(_font(0.025)), _close)
 	var btn_row := HBoxContainer.new()
@@ -101,10 +103,9 @@ func _build_face_panel(parent: HBoxContainer, tmpl: Dictionary, card: CardInstan
 	var face_panel := PanelContainer.new()
 	face_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	face_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var fs := _UiUtil.make_style(Color(0.08, 0.08, 0.18, 0.9), 6)
-	if is_active:
-		fs.border_color = Color(0.4, 1.0, 0.6)
-		fs.set_border_width_all(3)
+	var fs := _CardFace.frame_style(str(tmpl.get("magic_type", "")), _vh * 0.5).duplicate() as StyleBoxTexture
+	if not is_active:
+		fs.modulate_color = Color(0.6, 0.6, 0.65)
 	face_panel.add_theme_stylebox_override("panel", fs)
 	parent.add_child(face_panel)
 
@@ -123,24 +124,14 @@ func _build_face_panel(parent: HBoxContainer, tmpl: Dictionary, card: CardInstan
 	_build_face_body(vbox, tmpl, card if is_active else null, false)
 
 func _build_face_body(container: VBoxContainer, tmpl: Dictionary, card: CardInstance, show_status: bool) -> void:
-	# Color bar
-	var color_bar := ColorRect.new()
-	color_bar.custom_minimum_size = Vector2(0, _vh * 0.006)
-	color_bar.color = tmpl.get("color", Color(0.4, 0.4, 0.4)) if not tmpl.is_empty() else Color(0.4, 0.4, 0.4)
-	container.add_child(color_bar)
-
 	# Illustration — same texture the small card view shows, enlarged.
 	# 32×32 pixel art needs nearest filtering or it smears at this size.
 	var illus: Texture2D = null
 	if not tmpl.is_empty():
 		illus = tmpl.get("illustration") as Texture2D
 	if illus != null:
-		var art := TextureRect.new()
-		art.texture = illus
-		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		art.custom_minimum_size = Vector2(0.0, _vh * (0.14 if show_status else 0.09))
+		var art := _CardFace.make_art(illus, _vh * (0.14 if show_status else 0.09))
+		_CardFace.set_art_background(art, str(tmpl.get("magic_branch", "")), _vh * 0.3)
 		container.add_child(art)
 
 	# Name

@@ -42,6 +42,8 @@ const BattleFx = preload("res://scenes/battle/BattleFx.gd")
 const UiFx = preload("res://scenes/ui/UiFx.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const CardViewBuilder = preload("res://scenes/battle/CardViewBuilder.gd")
+const CardFace = preload("res://scenes/ui/CardFace.gd")
+const CardMotion = preload("res://scenes/battle/CardMotion.gd")
 const SpellEffectResolver = preload("res://scenes/battle/SpellEffectResolver.gd")
 const BattlePauseUI = preload("res://scenes/battle/BattlePauseUI.gd")
 const BattleResultUI = preload("res://scenes/battle/BattleResultUI.gd")
@@ -264,6 +266,7 @@ var _tutorial_overlay: Node = null
 
 # Dual-face flip tracking (GID-062): instance_ids already flipped this battle.
 var _flipped_dual_ids: Dictionary = {}
+var _card_motion := CardMotion.new()  # draw / play / dissolve tweens (GID-151)
 
 @onready var _enemy_hand_view: HBoxContainer = $EnemyArea/EnemyHandView
 @onready var _enemy_board_view: HBoxContainer = $EnemyArea/EnemyBoardView
@@ -603,6 +606,11 @@ func _do_play_card(card: CardInstance, player_idx: int) -> bool:
 		(_battle_weather == "snow" or _battle_weather == "blizzard") and
 		not _snow_discount_used[player_idx]
 	)
+	# The local caster's hand panel, captured before play_card() removes it (GID-151).
+	var cast_rect := Rect2()
+	if player_idx == _my_idx() and _local_player_idx >= 0:
+		var hp: Control = _hand_panel_node(card)
+		cast_rect = hp.get_global_rect() if hp != null else Rect2()
 	var ok: bool
 	if apply_discount:
 		var saved_cost: int = card.cost
@@ -613,6 +621,9 @@ func _do_play_card(card: CardInstance, player_idx: int) -> bool:
 			_snow_discount_used[player_idx] = true
 	else:
 		ok = _state.players[player_idx].play_card(card)
+	if ok and cast_rect.size != Vector2.ZERO and _float_layer != null:
+		CardMotion.cast_spell(_float_layer, _make_card_view(card, "ghost"), cast_rect, _speed_scale,
+				CardMotion.card_color(card.magic_branch))
 	if ok:
 		GameBus.card_played.emit(card.template_id, "spell", -1)
 		realtime.note_player_play(player_idx)
@@ -629,7 +640,9 @@ func _apply_ui_sizes() -> void:
 	if top_bar:
 		_view.set_card_scale(0.85)
 	var hero_h: float = _vh * (0.08 if top_bar else 0.10)
-	var board_h: float = _vh * (0.22 if top_bar else 0.27)
+	# Board rows hold 0.24 vh cards; 0.245 (not 0.27) keeps the hand row fully
+	# on screen at 16:9 once the hero panels grow to fit their text (GID-151).
+	var board_h: float = _vh * (0.22 if top_bar else 0.245)
 	# The enemy hand row (face-down card backs) is collapsed on all layouts —
 	# the count is shown on the enemy hero panel instead (GID-119 / TID-448).
 	# In top-bar modes it stays visible as an empty spacer under the bar.
@@ -796,7 +809,7 @@ func _slot_panel_center(zone_view: Node, slot_idx: int) -> Vector2:
 			return (child as Control).get_global_rect().get_center()
 	return (zone_view as Control).get_global_rect().get_center()
 
-## Ghost-tweens a card from its hand position to its new board slot so playing
+## Arcs a ghost of the card from its hand position to its new board slot so playing
 ## a minion reads as a placement instead of a teleport (TID-426). `from_rect`
 ## must be captured before `_do_play_card_at_slot` mutates hand/board state.
 func _animate_card_travel(card: CardInstance, from_rect: Rect2, to_pos: Vector2) -> void:
@@ -806,22 +819,8 @@ func _animate_card_travel(card: CardInstance, from_rect: Rect2, to_pos: Vector2)
 		return
 	if from_rect.size == Vector2.ZERO:
 		return
-	var ghost: PanelContainer = _make_card_ghost(card)
-	ghost.position = from_rect.position
-	ghost.size = from_rect.size
-	ghost.pivot_offset = from_rect.size * 0.5
-	ghost.scale = Vector2(0.85, 0.85)
-	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_float_layer.add_child(ghost)
-	var dur: float = BattleFx.scaled_duration(0.2, _speed_scale)
-	var tw: Tween = ghost.create_tween()
-	tw.set_parallel(true)
-	tw.tween_property(ghost, "position", to_pos - from_rect.size * 0.5,
-			dur).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_property(ghost, "scale", Vector2(1.0, 1.0), dur)
-	await tw.finished
-	if is_instance_valid(ghost):
-		ghost.queue_free()
+	await CardMotion.play_arc(_float_layer, _make_card_ghost(card), from_rect, to_pos, _speed_scale,
+			CardMotion.card_color(card.magic_branch))
 
 # -------------------------------------------------------------------------
 # UI Refresh
@@ -838,6 +837,7 @@ func _refresh_all() -> void:
 	_view.refresh_board_zone(_enemy_board_view, _state.players[_opp_idx()].board, "enemy_board")
 	_view.refresh_board_zone(_player_board_view, _state.players[_my_idx()].board, "board")
 	_view.refresh_zone(_player_hand_view, _state.players[_my_idx()].hand, "hand")
+	_card_motion.deal_new_hand_cards(_float_layer, _player_hand_view, _state.players[_my_idx()].hand, _speed_scale)
 	_view.refresh_hero(_enemy_hero_view, _state.players[_opp_idx()].hero, true,
 		_state.players[_opp_idx()].hand.size())
 	_view.refresh_hero(_player_hero_view, _state.players[_my_idx()].hero, false)
@@ -870,8 +870,7 @@ func _make_card_view(card: CardInstance, zone_id: String) -> PanelContainer:
 	# Prevent HBoxContainer from expanding cards horizontally beyond minimum_size.
 	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	if zone_id == "enemy_hand":
-		var back_style := _UiUtil.make_style(Color(0.15, 0.10, 0.28), 4)
-		panel.add_theme_stylebox_override("panel", back_style)
+		CardFace.apply_back(panel, _view.card_size().y)
 		panel.set_meta("is_card_back", true)
 		return panel
 	var is_board_zone: bool = (zone_id == "board" or zone_id == "enemy_board")
