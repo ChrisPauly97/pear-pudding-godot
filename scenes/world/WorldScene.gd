@@ -59,6 +59,8 @@ const _StarterCamps = preload("res://scenes/world/modules/StarterCamps.gd")
 const _RiftPortals = preload("res://scenes/world/modules/RiftPortals.gd")
 const _WorldLook = preload("res://scenes/world/WorldLook.gd")
 const _Critters = preload("res://scenes/world/modules/Critters.gd")
+const _WorldClock = preload("res://scenes/world/modules/WorldClock.gd")
+const _WorldShortcuts = preload("res://scenes/world/modules/WorldShortcuts.gd")
 const _HeroHealth = preload("res://scenes/world/modules/HeroHealth.gd")
 const _SpawnPoint = preload("res://game_logic/world/SpawnPoint.gd")
 const _TownSiege = preload("res://scenes/world/modules/TownSiege.gd")
@@ -143,7 +145,6 @@ const _NPC_PROMPT_LABELS: Dictionary = {
 const LANDMARK_DISCOVERY_RANGE: float = 9.0
 
 ## Menu actions that cancel any tap-to-move walk before opening.
-const _MENU_ACTIONS: Array[String] = ["inventory", "journal", "character", "skill_tree"]
 
 @export var map_name: String = "main"
 @export var target_door_id: String = ""
@@ -187,6 +188,8 @@ var quest_tracker: _QuestTracker = null   # modules/QuestTracker.gd (GID-140)
 var starter_camps: _StarterCamps = null   # modules/StarterCamps.gd (GID-141)
 var rift_portals: _RiftPortals = null   # modules/RiftPortals.gd (GID-142)
 var critters: _Critters = null   # modules/Critters.gd (GID-147)
+var world_clock: _WorldClock = null   # modules/WorldClock.gd (BID-055)
+var shortcuts: _WorldShortcuts = null   # modules/WorldShortcuts.gd (BID-055)
 var hero_health: _HeroHealth = null   # modules/HeroHealth.gd (TID-543)
 var current_town: String = ""  # stitched town the player is in; see story_place()
 var chest_loot: _ChestLoot = null    # modules/ChestLoot.gd
@@ -346,7 +349,6 @@ var _interact_timer: float = 0.0
 var _roaming_boss_timer: float = 0.0
 var _traveling_merchant_timer: float = 0.0
 var _card_shower_items: Array[Node3D] = []
-var _night_cue_played: bool = false
 
 # Day/night cycle — delegated to DayNightCycle component
 var _world_env: WorldEnvironment
@@ -478,44 +480,9 @@ func _ready() -> void:
 		add_child(_dungeon_session_ui)
 		_dungeon_session_ui.setup(_hud, func(text: String) -> void: _world_hud.show_dialogue(text))
 
-	# DayNightCycle owns time-of-day advancement, sun/moon lighting, and sky color.
-	_dnc = DayNightCycle.new()
-	_dnc.name = "DayNightCycle"
-	add_child(_dnc)
-	_dnc.setup(_sun, _moon, _world_env, _is_infinite, day_duration,
-		SceneManager.save_manager.time_of_day)
-	_sun_rays = _SunRaysFx.new()
-	_sun_rays.name = "SunRays"
-	add_child(_sun_rays)
-	_sun_rays.setup(_camera, _sun, _moon, _world_env.environment, _dnc)
+	# Day/night cycle + sun rays, and their day / night / dawn / storm reactions.
+	world_clock.setup()
 	apply_graphics_quality()
-	_dnc.day_passed.connect(func() -> void:
-		SceneManager.save_manager.increment_day()
-		GameBus.blight_changed.emit()
-		# GID-103 (TID-382): advance the shared co-op day counter (BID-039) — only the
-		# authority owns SessionState.days_elapsed; clients learn the new value from
-		# the next env broadcast.
-		if _coop_active and NetworkManager.is_host() and SessionStore.is_open():
-			var st_day = SessionStore.get_state()
-			if st_day != null:
-				st_day.days_elapsed += 1
-				SessionStore.mark_dirty()
-	)
-	if _is_infinite:
-		_dnc.night_started.connect(func() -> void:
-			if not _night_cue_played:
-				_night_cue_played = true
-				AudioManager.play_sfx("nightfall_ambient")
-		)
-		_dnc.dawn_arrived.connect(func() -> void:
-			nocturnal.despawn_all(true)
-			_night_cue_played = false
-		)
-		# Storm lightning (TID-487): thunder after the flash; reduce-flashing read live.
-		_dnc.thunder_rumbled.connect(func(pitch: float) -> void: AudioManager.play_sfx_varied("thunder", pitch, 0.05))
-		_dnc.flashing_allowed = func() -> bool: return not bool(
-			SceneManager.save_manager.get_setting("reduce_flashing", false))
-		_dnc.storms_allowed = WeatherManager.storms_enabled
 
 	if _is_infinite:
 		WorldEvents.register_all(self)
@@ -797,6 +764,8 @@ func _ensure_world_modules() -> void:
 	starter_camps = _ensure_world_module(starter_camps, _StarterCamps, "StarterCamps") as _StarterCamps
 	rift_portals = _ensure_world_module(rift_portals, _RiftPortals, "RiftPortals") as _RiftPortals
 	critters = _ensure_world_module(critters, _Critters, "Critters") as _Critters
+	world_clock = _ensure_world_module(world_clock, _WorldClock, "WorldClock") as _WorldClock
+	shortcuts = _ensure_world_module(shortcuts, _WorldShortcuts, "WorldShortcuts") as _WorldShortcuts
 	hero_health = _ensure_world_module(hero_health, _HeroHealth, "HeroHealth") as _HeroHealth
 
 func _ensure_world_module(existing: Node, script: GDScript, node_name: String) -> Node:
@@ -1341,9 +1310,7 @@ func _process(delta: float) -> void:
 	# dedicated-server mode (no local player) as well as in normal sessions.
 	if _coop_active:
 		_tick_coop(delta)
-	if _dnc:
-		_dnc.tick(delta)
-		AudioManager.set_time_of_day(_dnc.get_time_of_day())  # day/night ambience layer
+	world_clock.tick(delta)
 
 	if _player == null:
 		return
@@ -1561,52 +1528,8 @@ func _set_player_alpha(alpha: float) -> void:
 			c.a = alpha
 			sp.modulate = c
 
-func _pressed_menu_action(event: InputEvent) -> String:
-	for action: String in _MENU_ACTIONS:
-		if event.is_action_pressed(action):
-			return action
-	return ""
-
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("pause"):
-		# Esc closes an open fast-travel panel rather than pausing over it.
-		if not named_props.close_fast_travel() and _pause_overlay == null:
-			_open_pause()
-		get_viewport().set_input_as_handled()
-		return
-	if event.is_action_pressed("map_view"):
-		tap_move.clear()
-		_open_map_view()
-		get_viewport().set_input_as_handled()
-		return
-	var menu: String = _pressed_menu_action(event)
-	if menu != "":
-		tap_move.clear()
-		match menu:
-			"inventory": GameBus.inventory_requested.emit()
-			"journal": GameBus.journal_requested.emit()
-			"character": GameBus.character_requested.emit()
-			"skill_tree": GameBus.skill_tree_requested.emit()
-		get_viewport().set_input_as_handled()
-		return
-	var key_event: InputEventKey = event as InputEventKey
-	if key_event != null and key_event.pressed and not key_event.echo and key_event.keycode == KEY_G:
-		cantrips.activate_ghost_phase()
-		get_viewport().set_input_as_handled()
-	elif key_event != null and key_event.pressed and not key_event.echo and key_event.keycode == KEY_D:
-		# D is also move_right: dig only when a mound is in reach, and never
-		# consume the event, so walking right stays silent.
-		cantrips.activate_skeleton_dig(true)
-	elif key_event != null and key_event.pressed \
-			and (key_event.keycode == KEY_ENTER or key_event.keycode == KEY_KP_ENTER) \
-			and _coop_active and _chat_input != null and is_instance_valid(_chat_input) \
-			and not _chat_input.has_focus():
-		# Desktop chat-focus shortcut (TID-374). Mobile equivalent is the "Chat"
-		# HUD button (_chat_toggle_btn), which also reveals/focuses the input.
-		_chat_input.grab_focus()
-		get_viewport().set_input_as_handled()
-	elif tap_move.handle_input(event):
-		get_viewport().set_input_as_handled()
+	shortcuts.handle(event)  # keyboard shortcuts live in modules/WorldShortcuts.gd
 
 ## Entities whose interaction is simply "call one method on the node". Probed in
 ## this order and stopping at the first hit, exactly as the eight open-coded

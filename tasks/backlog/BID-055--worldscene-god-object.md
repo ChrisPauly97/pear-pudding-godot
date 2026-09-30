@@ -202,3 +202,12 @@ bodies: `_ready` (158), `_handle_interact` (124, stays), `_process` (81), `_spaw
 dedicated server's SPAWN-marker reference point moved to `game_logic/world/SpawnPoint.gd` (`resolve`, `map_spawn`),
 now unit-tested in `tests/unit/test_spawn_point.gd`. Behaviour unchanged. 1986 → 1953, ceiling 2000 → 1965.
 Remaining big bodies: `_ready` (~155), `_handle_interact` (124, stays), `_process` (81).
+
+### Follow-up (2026-09-30, GID-152 backlog pass) — clock and shortcuts
+
+Two more `_ready` / input seams became modules under `scenes/world/modules/`: `WorldClock` (DayNightCycle + sun-ray
+construction, the day / night / dawn / storm signal reactions and the per-frame clock tick; `_dnc` / `_sun_rays` stay
+WorldScene fields, shared) and `WorldShortcuts` (the whole `_unhandled_input` body plus `_MENU_ACTIONS`; WorldScene
+keeps a one-line forwarder). 1956 → 1879 lines, ceiling 1965 → 1890. Unit suite, world / chunk-unload / menu-hub /
+co-op smoke tests clean. Remaining big bodies: `_ready` (~110), `_handle_interact` (127, stays), `_process` (~78),
+`_build_player_hud` (46).

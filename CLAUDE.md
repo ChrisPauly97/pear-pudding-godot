@@ -370,7 +370,7 @@ created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
 | Module | Owns |
 |---|---|
 | `NocturnalSpawner.gd` (`nocturnal`) | Night Hunts spectre spawns, dawn fade-out, chunk eviction |
-| `Cantrips.gd` (`cantrips`) | Ghost Phase / Skeleton Dig activation (HUD buttons + G/D keys) |
+| `Cantrips.gd` (`cantrips`) | Ghost Phase / Skeleton Dig activation (HUD buttons; G/D keys arrive via `WorldShortcuts`) |
 | `HomeGarden.gd` (`home_garden`) | Home garden plot spawn + plant/grow/harvest panel (solo and guildhall) |
 | `StoryCast.gd` (`story_cast`) | Maiteln presence, wilderness camp, scout ambush, war-camp boss, rival encounters |
 | `TapToMove.gd` (`tap_move`) | Tap/click/drag pathing input, destination + reject markers, auto-interact on arrival |
@@ -390,6 +390,8 @@ created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
 | `RiftPortals.gd` (`rift_portals`) | Rift door panel: rift, best tier, tier picker, enter/resume (GID-142); portals come from `InfiniteWorldGen` |
 | `HeroHealth.gd` (`hero_health`) | Persistent hero HP out of combat (`HeroVitality`): regen, food meals, Q / "Eat" quick use, town + bed full heal, HUD HP bar (TID-543) |
 | `Critters.gd` (`critters`) | Ambient wildlife around the hero by biome (`CritterDef`, `entities/Critter.gd`): wander, flee, hover/hop; scenery only, not synced (GID-147) |
+| `WorldClock.gd` (`world_clock`) | Builds `_dnc` (DayNightCycle) + `_sun_rays`, wires day / night / dawn / storm reactions, per-frame clock tick (BID-055) |
+| `WorldShortcuts.gd` (`shortcuts`) | Keyboard shortcuts forwarded from `_unhandled_input`: pause, map view, menu actions, G/D cantrips, chat focus, then tap-to-move (BID-055) |
 
 BattleScene's single-player clusters live under `scenes/battle/modules/`, created by
 `BattleScene._ensure_battle_modules()`. Each has a `_battle` back-reference typed as
