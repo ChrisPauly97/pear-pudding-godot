@@ -2,6 +2,8 @@
 ## Spawned at ley line intersections on TILE_GRASS tiles; one-time collectible.
 extends Node3D
 
+const _WEB = preload("res://scenes/world/entities/WorldEntityBase.gd")
+
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 
 static var _well_mat: StandardMaterial3D
@@ -16,22 +18,12 @@ static func _ensure_shared_resources() -> void:
 	_well_mesh.top_radius = 0.35
 	_well_mesh.bottom_radius = 0.55
 	_well_mesh.height = 0.25
-	_well_mat = StandardMaterial3D.new()
-	_well_mat.albedo_color = Color(0.20, 0.22, 0.32)
-	_well_mat.emission_enabled = true
-	_well_mat.emission = Color(0.05, 0.75, 0.85)
-	_well_mat.emission_energy_multiplier = 1.2
-	_well_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_well_mat = _WEB.glow_material(Color(0.20, 0.22, 0.32), Color(0.05, 0.75, 0.85), 1.2)
 
 	_crystal_mesh = PrismMesh.new()
 	_crystal_mesh.size = Vector3(0.18, 0.40, 0.18)
-	_crystal_mat = StandardMaterial3D.new()
-	_crystal_mat.albedo_color = Color(0.2, 0.9, 1.0, 0.7)
+	_crystal_mat = _WEB.glow_material(Color(0.2, 0.9, 1.0, 0.7), Color(0.05, 0.85, 0.95), 1.8)
 	_crystal_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	_crystal_mat.emission_enabled = true
-	_crystal_mat.emission = Color(0.05, 0.85, 0.95)
-	_crystal_mat.emission_energy_multiplier = 1.8
-	_crystal_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 
 func _ready() -> void:
 	var tex: Texture2D = _SpriteRegistry.mana_well_texture()

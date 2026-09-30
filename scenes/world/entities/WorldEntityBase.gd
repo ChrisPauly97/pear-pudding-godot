@@ -15,6 +15,16 @@ static func unshaded_material(color: Color) -> StandardMaterial3D:
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	return mat
 
+## `unshaded_material` plus an emission glow — the bloom-feeding look shared by
+## crystals, flames, loot and beacons. Emission is what glows here: all world
+## geometry is unshaded, so lights have no effect on it.
+static func glow_material(color: Color, emission: Color, energy: float = 1.0) -> StandardMaterial3D:
+	var mat := unshaded_material(color)
+	mat.emission_enabled = true
+	mat.emission = emission
+	mat.emission_energy_multiplier = energy
+	return mat
+
 static func _make_mi(mesh: Mesh, mat: StandardMaterial3D) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
 	mi.mesh = mesh

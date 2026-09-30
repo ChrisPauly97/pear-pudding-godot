@@ -18,6 +18,7 @@ const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _GrassBlades = preload("res://scenes/world/GrassBlades.gd")
 const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
+const _MapMarkers = preload("res://scenes/ui/MapMarkers.gd")
 
 
 # ── Circle-clip shader: cuts the rectangular texture into a disc ───────────────
@@ -246,8 +247,8 @@ func _draw_waypoint(canvas: Control, origin: Vector3) -> void:
 		return
 	var tx: int = int(wp.get("tx", 0))
 	var tz: int = int(wp.get("tz", 0))
-	var wx: float = float(tx) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-	var wz: float = float(tz) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+	var wx: float = IsoConst.tile_center(tx)
+	var wz: float = IsoConst.tile_center(tz)
 	var center := Vector2(_half, _half)
 	var dot: Vector2 = _to_minimap(Vector3(wx, 0.0, wz), origin)
 	# Clamp to minimap circle edge if outside
@@ -277,15 +278,11 @@ func _draw_quests(canvas: Control, origin: Vector3) -> void:
 		if str(q.get("id", "")) == tracked_id:
 			tracked_dot = dot
 			continue
-		_draw_diamond(canvas, dot, 4.0, Color(col, 0.8))
+		_MapMarkers.draw_diamond(canvas, dot, 4.0, Color(col, 0.8))
 	if tracked_dot != Vector2.INF:
-		_draw_diamond(canvas, tracked_dot, 8.0, Color(0.0, 0.0, 0.0, 0.8))
 		var kind: String = str(_world.quest_tracker.tracked_quest().get("kind", ""))
-		_draw_diamond(canvas, tracked_dot, 6.0, _QuestLog.kind_color(kind))
-
-static func _draw_diamond(canvas: Control, at: Vector2, r: float, col: Color) -> void:
-	canvas.draw_colored_polygon(PackedVector2Array([
-		at + Vector2(0.0, -r), at + Vector2(r, 0.0), at + Vector2(0.0, r), at + Vector2(-r, 0.0)]), col)
+		_MapMarkers.draw_outlined_diamond(canvas, tracked_dot, 6.0, _QuestLog.kind_color(kind),
+				Color(0.0, 0.0, 0.0, 0.8))
 
 
 func _draw_group(canvas: Control, nodes: Dictionary, origin: Vector3,

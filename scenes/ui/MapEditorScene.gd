@@ -135,8 +135,8 @@ func _rebuild_tile_multimeshes(update_flat: bool = true, update_walls: bool = tr
 	for tz in range(WorldMap.MAP_HEIGHT):
 		for tx in range(WorldMap.MAP_WIDTH):
 			var tile: int = _world_map.get_tile(tx, tz)
-			var wx: float = tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-			var wz: float = tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+			var wx: float = IsoConst.tile_center(tx)
+			var wz: float = IsoConst.tile_center(tz)
 			if tile == WorldMap.TILE_WALL:
 				if update_walls:
 					var h: int = _world_map.get_height(tx, tz)
@@ -187,8 +187,8 @@ func _add_entity_markers() -> void:
 	for d in _world_map.doors:
 		_entity_markers.add_child(_make_marker(_mat_door, Vector3(d["x"], 0.5, d["z"])))
 	if _world_map.has_player_spawn():
-		var sx := _world_map.player_spawn_x * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-		var sz := _world_map.player_spawn_z * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+		var sx := IsoConst.tile_center(_world_map.player_spawn_x)
+		var sz := IsoConst.tile_center(_world_map.player_spawn_z)
 		_entity_markers.add_child(_make_marker(_mat_spawn, Vector3(sx, 0.5, sz)))
 
 func _make_marker(mat: StandardMaterial3D, pos: Vector3) -> MeshInstance3D:
@@ -366,9 +366,9 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _move_highlight(tx: int, tz: int) -> void:
 	_highlight_mesh.position = Vector3(
-		tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5,
+		IsoConst.tile_center(tx),
 		0.05,
-		tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+		IsoConst.tile_center(tz)
 	)
 
 func _screen_to_tile(screen_pos: Vector2) -> Vector2i:
@@ -411,20 +411,20 @@ func _paint_tile(tx: int, tz: int) -> void:
 			if was_wall:
 				_dirty_walls = true
 		3:  # Enemy — no tile geometry change
-			var wx := tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-			var wz := tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+			var wx := IsoConst.tile_center(tx)
+			var wz := IsoConst.tile_center(tz)
 			_world_map.enemies.append({"id": "enemy_%d" % Time.get_ticks_msec(), "x": wx, "z": wz, "alive": true,
 					"tracking": true})
 			_refresh_entity_markers()
 		4:  # Chest — no tile geometry change
-			var wx := tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-			var wz := tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+			var wx := IsoConst.tile_center(tx)
+			var wz := IsoConst.tile_center(tz)
 			_world_map.chests.append({"id": "chest_%d" % Time.get_ticks_msec(), "x": wx, "z": wz, "card_ids": ["ghost"],
 					"opened": false})
 			_refresh_entity_markers()
 		5:  # Door — no tile geometry change
-			var wx := tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-			var wz := tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+			var wx := IsoConst.tile_center(tx)
+			var wz := IsoConst.tile_center(tz)
 			_world_map.doors.append({"id": "door_%d" % Time.get_ticks_msec(), "x": wx, "z": wz, "target_map": "",
 					"target_door_id": ""})
 			_refresh_entity_markers()
@@ -439,8 +439,8 @@ func _erase_tile(tx: int, tz: int) -> void:
 	var was_wall := _world_map.get_tile(tx, tz) == WorldMap.TILE_WALL
 	_world_map.set_tile(tx, tz, WorldMap.TILE_GRASS)
 	_world_map.set_height(tx, tz, 0)
-	var wx := tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-	var wz := tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+	var wx := IsoConst.tile_center(tx)
+	var wz := IsoConst.tile_center(tz)
 	_world_map.enemies = _world_map.enemies.filter(func(e): return abs(e["x"]-wx)>0.5 or abs(e["z"]-wz)>0.5)
 	_world_map.chests = _world_map.chests.filter(func(c): return abs(c["x"]-wx)>0.5 or abs(c["z"]-wz)>0.5)
 	_world_map.doors = _world_map.doors.filter(func(d): return abs(d["x"]-wx)>0.5 or abs(d["z"]-wz)>0.5)

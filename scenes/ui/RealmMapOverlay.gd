@@ -11,6 +11,7 @@ signal closed
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
+const _MapMarkers = preload("res://scenes/ui/MapMarkers.gd")
 const _RealmMapOverlay = preload("res://scenes/ui/RealmMapOverlay.gd")
 
 const _COL_BG := Color(0.13, 0.19, 0.12)
@@ -182,9 +183,7 @@ func _draw_waypoint(c: Control) -> void:
 	if wp.is_empty() or not _RealmLayout.is_overworld(str(wp.get("map", ""))):
 		return
 	var tp: Vector2 = _tile_to_panel(Vector2(float(int(wp.get("tx", 0))) + 0.5, float(int(wp.get("tz", 0))) + 0.5))
-	c.draw_circle(tp, 6.0, _COL_WAYPOINT)
-	c.draw_line(tp + Vector2(0.0, -9.0), tp + Vector2(0.0, 9.0), _COL_WAYPOINT, 1.5)
-	c.draw_line(tp + Vector2(-9.0, 0.0), tp + Vector2(9.0, 0.0), _COL_WAYPOINT, 1.5)
+	_MapMarkers.draw_pin(c, tp, 6.0, _COL_WAYPOINT)
 
 
 func _draw_quests(c: Control, font: Font) -> void:
@@ -196,17 +195,12 @@ func _draw_quests(c: Control, font: Font) -> void:
 		var tracked: bool = str(q.get("id", "")) == _tracked_id
 		var r: float = 10.0 if tracked else 6.0
 		var col: Color = _QuestLog.kind_color(str(q.get("kind", "")))
-		c.draw_colored_polygon(_diamond(tp, r + 2.0), Color.BLACK)
-		c.draw_colored_polygon(_diamond(tp, r), col)
+		_MapMarkers.draw_outlined_diamond(c, tp, r, col)
 		if tracked:
 			c.draw_string_outline(font, tp + Vector2(r + 4.0, _font_size * 0.35), str(q.get("label", "")),
 				HORIZONTAL_ALIGNMENT_LEFT, -1, _font_size, 4, Color.BLACK)
 			c.draw_string(font, tp + Vector2(r + 4.0, _font_size * 0.35), str(q.get("label", "")),
 				HORIZONTAL_ALIGNMENT_LEFT, -1, _font_size, col)
-
-
-static func _diamond(at: Vector2, r: float) -> PackedVector2Array:
-	return PackedVector2Array([at + Vector2(0.0, -r), at + Vector2(r, 0.0), at + Vector2(0.0, r), at + Vector2(-r, 0.0)])
 
 
 func _set_waypoint_at(screen_pos: Vector2) -> void:

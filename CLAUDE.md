@@ -211,7 +211,9 @@ a content-hugging accept/decline prompt; both return `{"layer", "vbox"}`. Free
 the layer to dismiss.
 
 `BattleResultUI._build_result_overlay(bg, sep_frac)` is the shared full-screen
-result card. World entities get their billboard and name tag from
+result card. Map views draw quest diamonds and the waypoint pin through
+`scenes/ui/MapMarkers.gd`. Entity materials come from `WorldEntityBase`:
+`unshaded_material(color)` and `glow_material(color, emission, energy)`. World entities get their billboard and name tag from
 `SpriteRegistry.make_billboard()` / `make_name_label()`.
 
 ---
@@ -311,6 +313,7 @@ never add a separate level check. See `docs/agent/starter-zone-and-training.md`.
 ## Constants: IsoConst Is the Source of Truth
 
 All tile/size constants (`TILE_GRASS`, `TILE_SIZE`, `CHUNK_SIZE`, etc.) live in `autoloads/IsoConst.gd`. Reference as `IsoConst.TILE_SIZE`. Never add copies elsewhere.
+A tile's world-space centre is `IsoConst.tile_center(t)` — never write out `t * TILE_SIZE + TILE_SIZE * 0.5`.
 
 ---
 

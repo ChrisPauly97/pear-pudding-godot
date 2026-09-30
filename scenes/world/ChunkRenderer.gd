@@ -634,8 +634,8 @@ func _spawn_entities(world_scene: _WorldScene) -> void:
 			entity_root.add_child(dig_node)
 			if dig_node.has_method("init_from_data"):
 				dig_node.init_from_data(sm.active_treasure)
-			var wx: float = float(site_tx) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-			var wz: float = float(site_tz) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+			var wx: float = IsoConst.tile_center(site_tx)
+			var wz: float = IsoConst.tile_center(site_tz)
 			var wy: float = 0.0
 			if world_scene.has_method("get_terrain_height"):
 				wy = world_scene.get_terrain_height(wx, wz)
@@ -657,8 +657,8 @@ func _spawn_entities(world_scene: _WorldScene) -> void:
 		var lz: int = (h >> 16) % IsoConst.CHUNK_SIZE
 		if _chunk_data.get_tile(lx, lz) == IsoConst.TILE_GRASS:
 			var origin: Vector3 = _chunk_data.origin_world()
-			var wx: float = origin.x + float(lx) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-			var wz: float = origin.z + float(lz) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+			var wx: float = origin.x + IsoConst.tile_center(lx)
+			var wz: float = origin.z + IsoConst.tile_center(lz)
 			var wy: float = world_scene.get_terrain_height(wx, wz) + 0.1
 			var scroll_node: _StoryScroll = _StoryScrollScene.instantiate() as _StoryScroll
 			entity_root.add_child(scroll_node)

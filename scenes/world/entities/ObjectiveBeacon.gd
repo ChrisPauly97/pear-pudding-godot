@@ -38,11 +38,8 @@ func _ready() -> void:
 	ring_mesh.outer_radius = 0.86
 	ring_mesh.rings = 12
 	ring_mesh.ring_segments = 20
-	var ring_mat: StandardMaterial3D = _WEB.unshaded_material(Color(COLOR.r, COLOR.g, COLOR.b, 0.85))
+	var ring_mat: StandardMaterial3D = _WEB.glow_material(Color(COLOR.r, COLOR.g, COLOR.b, 0.85), COLOR, 1.6)
 	ring_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	ring_mat.emission_enabled = true
-	ring_mat.emission = COLOR
-	ring_mat.emission_energy_multiplier = 1.6
 	ring_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	var ring := MeshInstance3D.new()
 	ring.mesh = ring_mesh
@@ -80,10 +77,7 @@ func _ready() -> void:
 	arrow_mesh.height = 0.9
 	arrow_mesh.radial_segments = 4
 	arrow_mesh.rings = 1
-	var arrow_mat: StandardMaterial3D = _WEB.unshaded_material(COLOR)
-	arrow_mat.emission_enabled = true
-	arrow_mat.emission = COLOR
-	arrow_mat.emission_energy_multiplier = 1.9
+	var arrow_mat: StandardMaterial3D = _WEB.glow_material(COLOR, COLOR, 1.9)
 	arrow_mat.no_depth_test = true
 	_arrow = MeshInstance3D.new()
 	_arrow.mesh = arrow_mesh

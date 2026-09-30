@@ -38,6 +38,7 @@ const _LP_SLOP_PX: float = 12.0
 
 const _Transforms = preload("res://scenes/ui/MapViewTransforms.gd")
 const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
+const _MapMarkers = preload("res://scenes/ui/MapMarkers.gd")
 
 var _player: CharacterBody3D
 var _npc_nodes: Dictionary
@@ -226,8 +227,8 @@ func _draw_digsite(canvas: Control) -> void:
 	var at: Dictionary = SceneManager.save_manager.active_treasure
 	if at.is_empty() or bool(at.get("completed", false)):
 		return
-	var wx: float = float(int(at.get("site_x", 0))) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-	var wz: float = float(int(at.get("site_z", 0))) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+	var wx: float = IsoConst.tile_center(int(at.get("site_x", 0)))
+	var wz: float = IsoConst.tile_center(int(at.get("site_z", 0)))
 	var tp: Vector2 = _world_to_panel(wx, wz)
 	canvas.draw_arc(tp, 8.0, 0.0, TAU, 16, _DOT_DIGSITE, 2.0)
 	canvas.draw_line(tp + Vector2(-6.0, -6.0), tp + Vector2(6.0, 6.0), _DOT_DIGSITE, 2.0)
@@ -240,13 +241,10 @@ func _draw_waypoint(canvas: Control) -> void:
 		return
 	var tx: int = int(wp.get("tx", 0))
 	var tz: int = int(wp.get("tz", 0))
-	var wx: float = float(tx) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-	var wz: float = float(tz) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+	var wx: float = IsoConst.tile_center(tx)
+	var wz: float = IsoConst.tile_center(tz)
 	var tp: Vector2 = _world_to_panel(wx, wz)
-	# Filled circle + crosshair lines for a pin-style marker
-	canvas.draw_circle(tp, 7.0, _DOT_WAYPOINT)
-	canvas.draw_line(tp + Vector2(0.0, -9.0), tp + Vector2(0.0, 9.0), _DOT_WAYPOINT, 1.5)
-	canvas.draw_line(tp + Vector2(-9.0, 0.0), tp + Vector2(9.0, 0.0), _DOT_WAYPOINT, 1.5)
+	_MapMarkers.draw_pin(canvas, tp, 7.0, _DOT_WAYPOINT)
 
 
 ## Quest pins (GID-140): every active quest with a place on this map; the
@@ -262,10 +260,7 @@ func _draw_quests(canvas: Control) -> void:
 		var tp: Vector2 = _world_to_panel(pos.x, pos.z)
 		var r: float = 9.0 if str(q.get("id", "")) == _tracked_id else 6.0
 		var col: Color = _QuestLog.kind_color(str(q.get("kind", "")))
-		canvas.draw_colored_polygon(PackedVector2Array([tp + Vector2(0.0, -r - 2.0), tp + Vector2(r + 2.0, 0.0),
-			tp + Vector2(0.0, r + 2.0), tp + Vector2(-r - 2.0, 0.0)]), Color.BLACK)
-		canvas.draw_colored_polygon(PackedVector2Array([tp + Vector2(0.0, -r), tp + Vector2(r, 0.0),
-			tp + Vector2(0.0, r), tp + Vector2(-r, 0.0)]), col)
+		_MapMarkers.draw_outlined_diamond(canvas, tp, r, col)
 
 
 func _set_waypoint_at(screen_pos: Vector2) -> void:
