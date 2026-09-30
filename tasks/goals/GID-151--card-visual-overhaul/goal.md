@@ -23,7 +23,7 @@ illustrations. Order: frames/backs/backgrounds → animations → illustrations.
 | TID-637 | Play arc + landing burst; enemy flip-reveal | agent | done | TID-634 |
 | TID-638 | Dissolve shader: spell cast + card death | agent | done | TID-632 |
 | TID-639 | Spell runes for bloom/thorn/flux/fracture | agent | done | — |
-| TID-640 | Creature illustrations for all minions/legendaries | agent | pending | TID-632 |
+| TID-640 | Creature illustrations for all minions/legendaries | agent | done | TID-632 |
 | TID-641 | Rarity frame treatments | agent | pending | TID-632 |
 
 ## Acceptance Criteria

@@ -23,7 +23,7 @@ const HP_DAMAGED_COLOR := Color(1.0, 0.6, 0.55)
 const DIM_COLOR := Color(0.0, 0.0, 0.0, 0.5)
 ## Minimum share of the card height for the illustration; it grows into any
 ## height the text leaves over, so the stats row always sits at the bottom.
-const ART_FRAC := 0.2
+const ART_FRAC := 0.1
 const COST_DISCOUNT_COLOR := Color(0.3, 1.0, 0.5)
 const COST_UNAFFORDABLE_COLOR := Color(1.0, 0.45, 0.45)
 
@@ -309,7 +309,8 @@ func _build_stats_row(card: CardInstance) -> HBoxContainer:
 	return row
 
 func _refresh_stat_badges(row: HBoxContainer, card: CardInstance) -> void:
-	var is_unit: bool = card.card_class != "spell"
+	# Spell-like legendaries (Time Warp, Soul Harvest) carry a spell_effect and no body.
+	var is_unit: bool = card.card_class != "spell" and not (card.card_class == "legendary" and card.spell_effect != "")
 	var atk: Label = row.get_node_or_null("AtkLabel") as Label
 	var hp: Label = row.get_node_or_null("HpLabel") as Label
 	if atk:
@@ -435,6 +436,7 @@ func build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBoxC
 	desc_lbl.add_theme_font_size_override("font_size", _font(0.015))
 	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	desc_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	desc_lbl.max_lines_visible = 3  # full text lives in the inspect overlay
 	desc_lbl.add_theme_stylebox_override("normal", CardFace.plate_style(card_size().y))
 	vbox.add_child(name_lbl)
 	vbox.add_child(desc_lbl)
@@ -568,7 +570,7 @@ func update_keyword_badges(hbox: HBoxContainer, card: CardInstance) -> void:
 		Color(1.0,  0.6, 0.15),
 		Color(0.8,  0.8, 0.88),
 	]
-	var font_sz: int = _font(0.020)
+	var font_sz: int = _font(0.016)
 	for i in range(kw_keys.size()):
 		var kw: String = kw_keys[i]
 		if not card.keywords.has(kw):

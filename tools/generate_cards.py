@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 Generates the card illustrations (GID-144 / TID-611): minion portraits cropped
-from the generated world characters (tools/generate_characters.py) and the four
-spell-branch runes drawn as glyphs — replacing the 0x72 / Kenney portraits and
+from the generated world characters (tools/generate_characters.py) and the
+spell-branch runes drawn as glyphs (all eight branches, GID-151) — replacing the 0x72 / Kenney portraits and
 the game-icons.net (CC BY) runes. 32x32, same palette and outline as the props.
 
 Usage:
@@ -191,6 +191,59 @@ def rune_fracture():
     return _fit(c.image())
 
 
+# ---------------------------------------------------------------------------
+# Creature families (GID-151 / TID-640): one portrait per family, cropped from
+# the generated world sprites in assets/textures/. SpriteRegistry maps every
+# minion / legendary card id onto a family (or a rune, for spell-like ones).
+# ---------------------------------------------------------------------------
+
+TEX = Path(__file__).parent.parent / "assets" / "textures"
+
+FAMILIES = {
+    "wolf": "characters/enemy_wolf.png",
+    "wolf_pack": "characters/enemy_wolf_pack.png",
+    "scarab": "characters/enemy_scarab.png",
+    "scarab_swarm": "characters/enemy_scarab_swarm.png",
+    "barrow_king": "characters/enemy_barrow_king.png",
+    "bog_hag": "characters/enemy_bog_hag.png",
+    "ember_cultist": "characters/enemy_ember_cultist.png",
+    "rift_echo": "characters/enemy_rift_echo.png",
+    "scout": "characters/enemy_martarquas_scout.png",
+    "raider": "characters/enemy_raider.png",
+    "wendigo": "characters/enemy_frost_wendigo.png",
+    "warleader": "characters/enemy_warleader.png",
+    "terror": "characters/enemy_terror.png",
+    "undead_elite": "characters/enemy_undead_elite.png",
+    "worm": "characters/enemy_cactus_worm.png",
+    "stag": "characters/enemy_imbued_stag.png",
+    "duelist": "characters/enemy_duelist.png",
+    "rival": "characters/enemy_rival.png",
+    "monk": "characters/npc_brother_aldo.png",
+    "herbalist": "characters/npc_wenna_herbalist.png",
+    "trainer": "characters/npc_combat_trainer.png",
+    "warden": "characters/npc_rift_warden.png",
+    "treant": "props/prop_tree_oak_0.png",
+}
+
+BUST_MIN_H = 24   # sprites at least this tall get a head-and-shoulders crop
+BUST_ROWS = 18
+
+
+def family_portrait(rel):
+    """Whole sprite for beasts and short figures; a bust for tall humanoids."""
+    img = Image.open(TEX / rel).convert("RGBA")
+    img = img.crop(img.getbbox())
+    if img.height >= BUST_MIN_H and not rel.startswith("props/"):
+        cx = img.width // 2
+        img = img.crop((max(0, cx - 10), 0, min(img.width, cx + 10), BUST_ROWS))
+        img = img.crop(img.getbbox())
+    scale = max(1, min(S // img.width, S // img.height))
+    img = img.resize((img.width * scale, img.height * scale), Image.NEAREST)
+    if img.width > S or img.height > S:
+        img.thumbnail((S, S), Image.NEAREST)
+    return _fit(img)
+
+
 CARDS = {
     "card_ghost": lambda: portrait(GC.spectre),
     "card_skeleton": lambda: portrait(GC.skeleton),
@@ -205,6 +258,7 @@ CARDS = {
     "rune_flux": rune_flux,
     "rune_fracture": rune_fracture,
 }
+CARDS.update({f"card_{k}": (lambda rel=rel: family_portrait(rel)) for k, rel in FAMILIES.items()})
 
 
 def main():

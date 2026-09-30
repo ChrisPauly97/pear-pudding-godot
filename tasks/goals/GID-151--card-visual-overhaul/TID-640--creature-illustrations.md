@@ -2,7 +2,7 @@
 
 **Goal:** GID-151
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-632
 
 ## Lock
@@ -40,12 +40,12 @@ Shared facts (research 2026-09-30):
 
 ## Plan
 
-_Written during Plan phase._
+Family portraits cropped from the existing generated world sprites; card id → family table; coverage test.
 
 ## Changes Made
 
-_Filled after Build phase._
+`tools/generate_cards.py` `FAMILIES` → 23 `card_<family>.png`. New `game_logic/CardArtRegistry.gd` (card art moved out of SpriteRegistry to stay under 500 lines) with `_CARD_ART` for all 39 minions/legendaries. Test: no creature falls back to TextureGen. `CardViewBuilder`: art min 0.1, desc ≤ 3 lines, smaller keyword font (cards with keywords overflowed), no badges on spell-like legendaries. BID-080 resolved.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+docs/agent/card-visuals.md (creature art).

@@ -92,6 +92,14 @@ move. Durations × the battle speed scale.
 `tools/generate_characters.py` sprites and one rune per spell branch — dawn, dusk, ember, ash, and (TID-639)
 bloom (flower), thorn (bramble), flux (vortex), fracture (split crystal). `SpriteRegistry.card_illustration_texture`
 maps them; `test_card_chrome.test_every_branch_has_a_spell_rune` keeps every MagicTypes branch covered.
+Creature cards (TID-640): `generate_cards.py` `FAMILIES` crops one portrait per family from the world sprites in
+`assets/textures/characters/` (tall humanoids get an 18-row bust; props/tree kept whole) → `card_<family>.png`.
+`game_logic/CardArtRegistry.gd` (split out of SpriteRegistry, which delegates `card_illustration_texture`) holds
+the literal preloads and `_CARD_ART`, mapping every minion / legendary card id to a family or, for spell-like
+legendaries, a rune. `test_every_creature_card_has_generated_art` fails if a non-spell card would fall back to
+`TextureGen`. New creature cards need a `_CARD_ART` row.
+Battle faces keep everything inside the card: art min `ART_FRAC` 0.1 of the height and flexes, ability text
+≤ 3 lines, keyword font 1.6 % vh; spell-like legendaries hide the attack / health badges.
 
 ## Integrations
 - `MagicTypes` (type list), `CardRegistry` templates (`magic_type`, `illustration`, `card_class`).

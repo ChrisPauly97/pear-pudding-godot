@@ -5,6 +5,7 @@ extends "res://tests/framework/test_case.gd"
 const CardChrome = preload("res://game_logic/CardChrome.gd")
 const MagicTypes = preload("res://game_logic/MagicTypes.gd")
 const SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
+const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 
 func test_every_magic_type_has_a_frame() -> void:
 	for mt: String in MagicTypes.all_types():
@@ -38,3 +39,11 @@ func test_every_branch_has_a_spell_rune() -> void:
 	for mt: String in MagicTypes.all_types():
 		for b: String in MagicTypes.branches_for(mt):
 			assert_not_null(SpriteRegistry.card_illustration_texture("spell", b), "%s has no spell rune" % b)
+
+func test_every_creature_card_has_generated_art() -> void:
+	for id: String in CardRegistry.get_all_ids():
+		var tmpl: Dictionary = CardRegistry.get_template(id)
+		if str(tmpl.get("card_class", "")) == "spell":
+			continue
+		assert_not_null(SpriteRegistry.card_illustration_texture(id, str(tmpl.get("magic_branch", ""))),
+				"%s has no card art (falls back to TextureGen)" % id)
