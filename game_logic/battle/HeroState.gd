@@ -1,6 +1,8 @@
 class_name HeroState
 extends RefCounted
 
+const _StatusEffects = preload("res://game_logic/battle/StatusEffects.gd")
+
 var player_id: int
 var health: int = 30
 var max_health: int = 30
@@ -30,15 +32,7 @@ func is_alive() -> bool:
 func take_damage(dmg: int) -> void:
 	if dmg <= 0 or leaderless:
 		return
-	if has_status("armor"):
-		var av: int = get_status_value("armor")
-		var absorbed: int = mini(av, dmg)
-		dmg -= absorbed
-		var remaining: int = av - absorbed
-		if remaining <= 0:
-			clear_status("armor")
-		else:
-			status_effects["armor"] = remaining
+	dmg = _StatusEffects.absorb_armor(status_effects, dmg)
 	health = max(0, health - dmg)
 
 func heal(n: int) -> void:

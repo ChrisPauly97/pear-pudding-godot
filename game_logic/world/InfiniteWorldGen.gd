@@ -113,8 +113,8 @@ static func landmark_for_chunk(p_cx: int, p_cz: int, world_seed: int) -> Diction
 	# Centre tile of chunk
 	var tx: int = IsoConst.CHUNK_SIZE / 2
 	var tz: int = IsoConst.CHUNK_SIZE / 2
-	var wx: float = float(p_cx * IsoConst.CHUNK_SIZE + tx) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-	var wz: float = float(p_cz * IsoConst.CHUNK_SIZE + tz) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+	var wx: float = IsoConst.tile_center(p_cx * IsoConst.CHUNK_SIZE + tx)
+	var wz: float = IsoConst.tile_center(p_cz * IsoConst.CHUNK_SIZE + tz)
 	return {
 		"id": lid,
 		"variant": variant,
@@ -278,8 +278,8 @@ static func _gen_ruins(chunk: ChunkData, p_cx: int, p_cz: int, world_seed: int) 
 
 	# Register each wall opening as a door entity pointing to a procedural dungeon
 	for door_pos in doors:
-		var wx: float = float(p_cx * IsoConst.CHUNK_SIZE + door_pos.x) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-		var wz: float = float(p_cz * IsoConst.CHUNK_SIZE + door_pos.y) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+		var wx: float = IsoConst.tile_center(p_cx * IsoConst.CHUNK_SIZE + door_pos.x)
+		var wz: float = IsoConst.tile_center(p_cz * IsoConst.CHUNK_SIZE + door_pos.y)
 		var dungeon_seed: int = abs(_chunk_seed(p_cx, p_cz, world_seed) ^ (door_pos.x * 1000003 + door_pos.y * 999983))
 		chunk.doors.append({
 			"id": "door_%d_%d_%d_%d" % [p_cx, p_cz, door_pos.x, door_pos.y],
@@ -369,8 +369,8 @@ static func _gen_entities(chunk: ChunkData, p_cx: int, p_cz: int, world_seed: in
 	for i in range(enemy_count):
 		var idx: int = rng.randi_range(0, grass_tiles.size() - 1)
 		var tile: Vector2i = grass_tiles[idx]
-		var wx: float = float(p_cx * IsoConst.CHUNK_SIZE + tile.x) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-		var wz: float = float(p_cz * IsoConst.CHUNK_SIZE + tile.y) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+		var wx: float = IsoConst.tile_center(p_cx * IsoConst.CHUNK_SIZE + tile.x)
+		var wz: float = IsoConst.tile_center(p_cz * IsoConst.CHUNK_SIZE + tile.y)
 		var et: String = enemy_type_at(etype, biome, wx, wz, world_seed)
 		chunk.enemies.append({
 			"id": uid_base + str(i),
@@ -384,8 +384,8 @@ static func _gen_entities(chunk: ChunkData, p_cx: int, p_cz: int, world_seed: in
 	if rng.randi_range(0, 2) == 0 and grass_tiles.size() > enemy_count:
 		var idx: int = rng.randi_range(0, grass_tiles.size() - 1)
 		var tile: Vector2i = grass_tiles[idx]
-		var wx: float = float(p_cx * IsoConst.CHUNK_SIZE + tile.x) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-		var wz: float = float(p_cz * IsoConst.CHUNK_SIZE + tile.y) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+		var wx: float = IsoConst.tile_center(p_cx * IsoConst.CHUNK_SIZE + tile.x)
+		var wz: float = IsoConst.tile_center(p_cz * IsoConst.CHUNK_SIZE + tile.y)
 		var card_ids: Array[String] = ["ghost", "skeleton", "zombie", "ghoul"]
 		var cid: String = card_ids[rng.randi_range(0, card_ids.size() - 1)]
 		chunk.chests.append({
@@ -399,8 +399,8 @@ static func _gen_entities(chunk: ChunkData, p_cx: int, p_cz: int, world_seed: in
 	if rng.randi_range(0, 3) == 0 and grass_tiles.size() > 0:
 		var idx: int = rng.randi_range(0, grass_tiles.size() - 1)
 		var tile: Vector2i = grass_tiles[idx]
-		var wx: float = float(p_cx * IsoConst.CHUNK_SIZE + tile.x) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-		var wz: float = float(p_cz * IsoConst.CHUNK_SIZE + tile.y) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+		var wx: float = IsoConst.tile_center(p_cx * IsoConst.CHUNK_SIZE + tile.x)
+		var wz: float = IsoConst.tile_center(p_cz * IsoConst.CHUNK_SIZE + tile.y)
 		var lines: Array = BiomeDef.NPC_LINES[biome]
 		var dialogue: String = lines[rng.randi_range(0, lines.size() - 1)]
 		chunk.npcs.append({
@@ -414,8 +414,8 @@ static func _gen_entities(chunk: ChunkData, p_cx: int, p_cz: int, world_seed: in
 			and rng.randi_range(0, 19) == 0 and grass_tiles.size() > 0:
 		var idx: int = rng.randi_range(0, grass_tiles.size() - 1)
 		var tile: Vector2i = grass_tiles[idx]
-		var wx: float = float(p_cx * IsoConst.CHUNK_SIZE + tile.x) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-		var wz: float = float(p_cz * IsoConst.CHUNK_SIZE + tile.y) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+		var wx: float = IsoConst.tile_center(p_cx * IsoConst.CHUNK_SIZE + tile.x)
+		var wz: float = IsoConst.tile_center(p_cz * IsoConst.CHUNK_SIZE + tile.y)
 		chunk.npcs.append({
 			"id": "m_%d_%d_0" % [p_cx, p_cz],
 			"x": wx, "z": wz,
@@ -429,8 +429,8 @@ static func _gen_entities(chunk: ChunkData, p_cx: int, p_cz: int, world_seed: in
 	if mound_rng.randi_range(0, 9) == 0 and grass_tiles.size() > 0:
 		var idx: int = mound_rng.randi_range(0, grass_tiles.size() - 1)
 		var tile: Vector2i = grass_tiles[idx]
-		var wx: float = float(p_cx * IsoConst.CHUNK_SIZE + tile.x) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-		var wz: float = float(p_cz * IsoConst.CHUNK_SIZE + tile.y) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+		var wx: float = IsoConst.tile_center(p_cx * IsoConst.CHUNK_SIZE + tile.x)
+		var wz: float = IsoConst.tile_center(p_cz * IsoConst.CHUNK_SIZE + tile.y)
 		chunk.burial_mounds.append({
 			"id": "mound_%d_%d_0" % [p_cx, p_cz],
 			"x": wx, "z": wz,
@@ -445,8 +445,8 @@ static func _gen_entities(chunk: ChunkData, p_cx: int, p_cz: int, world_seed: in
 		var ptile: Vector2i = grass_tiles[portal_rng.randi_range(0, grass_tiles.size() - 1)]
 		chunk.doors.append({
 			"id": "rift_portal_%d_%d" % [p_cx, p_cz],
-			"x": float(p_cx * IsoConst.CHUNK_SIZE + ptile.x) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5,
-			"z": float(p_cz * IsoConst.CHUNK_SIZE + ptile.y) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5,
+			"x": IsoConst.tile_center(p_cx * IsoConst.CHUNK_SIZE + ptile.x),
+			"z": IsoConst.tile_center(p_cz * IsoConst.CHUNK_SIZE + ptile.y),
 			"target_map": "rift:" + RiftDefs.rift_for_biome(biome),
 			"target_door_id": "", "flag_key": "",
 		})
@@ -459,8 +459,8 @@ static func _gen_entities(chunk: ChunkData, p_cx: int, p_cz: int, world_seed: in
 		var tile: Vector2i = grass_tiles[idx]
 		var wtx: int = p_cx * IsoConst.CHUNK_SIZE + tile.x
 		var wtz: int = p_cz * IsoConst.CHUNK_SIZE + tile.y
-		var wx: float = float(wtx) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-		var wz: float = float(wtz) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+		var wx: float = IsoConst.tile_center(wtx)
+		var wz: float = IsoConst.tile_center(wtz)
 		chunk.waystones.append({
 			"id": "world:%d:%d" % [wtx, wtz],
 			"x": wx, "z": wz,
@@ -481,16 +481,16 @@ static func _gen_entities(chunk: ChunkData, p_cx: int, p_cz: int, world_seed: in
 			var wtz2: int = p_cz * IsoConst.CHUNK_SIZE + lz2
 			if realm_chunk and not grass_tiles.has(Vector2i(lx2, lz2)):
 				continue
-			var wx2: float = float(wtx2) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-			var wz2: float = float(wtz2) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+			var wx2: float = IsoConst.tile_center(wtx2)
+			var wz2: float = IsoConst.tile_center(wtz2)
 			var s: float = TerrainMath.ley_intersection_strength(wx2, wz2, world_seed)
 			if s > best_strength:
 				best_strength = s
 				best_wtx = wtx2
 				best_wtz = wtz2
 	if best_strength > 0.0 and best_wtx >= 0:
-		var well_wx: float = float(best_wtx) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-		var well_wz: float = float(best_wtz) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+		var well_wx: float = IsoConst.tile_center(best_wtx)
+		var well_wz: float = IsoConst.tile_center(best_wtz)
 		chunk.mana_wells.append({
 			"id": "well_%d_%d" % [p_cx, p_cz],
 			"tx": best_wtx,

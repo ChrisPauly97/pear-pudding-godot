@@ -19,7 +19,7 @@ const _CardRegistry      = preload("res://autoloads/CardRegistry.gd")
 const _CoopNightHunts    = preload("res://game_logic/CoopNightHunts.gd")
 const _CoopSiege         = preload("res://game_logic/CoopSiege.gd")
 const _GearRolls = preload("res://game_logic/items/GearRolls.gd")
-const _EnemyScene        = preload("res://scenes/world/entities/EnemyNPC.tscn")
+const _LooseEnemySpawner = preload("res://scenes/world/LooseEnemySpawner.gd")
 const _LootRoll          = preload("res://game_logic/net/LootRoll.gd")
 const _RunSummaryScene   = preload("res://scenes/ui/RunSummaryScene.tscn")
 const _RunSummarySceneScript = preload("res://scenes/ui/RunSummaryScene.gd")
@@ -75,22 +75,14 @@ func _coop_spawn_night_hunt(days: int) -> void:
 		if eid == "" or _world._coop_removed_enemies.has(eid):
 			continue  # already engaged/defeated earlier tonight (e.g. re-entering the map)
 		var off: Vector2 = entry.get("offset", Vector2.ZERO)
-		var wx: float = gate.x + off.x
-		var wz: float = gate.z + off.y
-		var wy: float = _world.get_terrain_height(wx, wz) + 0.5
-		var node: Node3D = _EnemyScene.instantiate() as Node3D
-		if node == null:
-			continue
-		node.set_meta("is_nocturnal", true)
-		node.call("init_from_data", {
+		var node: Node3D = _LooseEnemySpawner.spawn(_world, {
 			"id": eid,
 			"enemy_type": str(entry.get("enemy_type", "spectre_wisp")),
 			"tracking": true,
 			"nocturnal": true,
-		})
-		node.position = Vector3(wx, wy, wz)
-		_world._entity_root.add_child(node)
-		_world.register_loose_enemy(eid, node)
+		}, gate.x + off.x, gate.z + off.y)
+		if node == null:
+			continue
 		_coop_night_hunt_nodes[eid] = node
 		spawned_any = true
 	if spawned_any:
@@ -790,16 +782,11 @@ func _coop_spawn_siege_wave() -> void:
 		if eid == "" or _world._coop_removed_enemies.has(eid):
 			continue
 		var off: Vector2 = entry.get("offset", Vector2.ZERO)
-		var wx: float = gate.x + off.x
-		var wz: float = gate.z + off.y
-		var wy: float = _world.get_terrain_height(wx, wz) + 0.5
-		var node: Node3D = _EnemyScene.instantiate() as Node3D
+		var node: Node3D = _LooseEnemySpawner.spawn(_world,
+				{"id": eid, "enemy_type": str(entry.get("enemy_type", "martarquas_raider_1"))},
+				gate.x + off.x, gate.z + off.y)
 		if node == null:
 			continue
-		node.call("init_from_data", {"id": eid, "enemy_type": str(entry.get("enemy_type", "martarquas_raider_1"))})
-		node.position = Vector3(wx, wy, wz)
-		_world._entity_root.add_child(node)
-		_world.register_loose_enemy(eid, node)
 		_world._coop_siege_wave_nodes[eid] = node
 	GameBus.hud_message_requested.emit(
 		"Wave %d of %d: Siege intensifies…" % [_world._coop_siege_wave + 1, _CoopSiege.WAVE_COUNT])
@@ -824,14 +811,8 @@ func _on_siege_boss_phase_received(siege_id: int) -> void:
 	if _world._coop_removed_enemies.has(boss_id):
 		return  # already resolved (e.g. a re-delivered broadcast on late reconciliation)
 	var gate: Vector3 = _world.realm_regions.siege_gate(_world.story_place())
-	var node: Node3D = _EnemyScene.instantiate() as Node3D
-	if node == null:
-		return
-	var wy: float = _world.get_terrain_height(gate.x, gate.z) + 0.5
-	node.position = Vector3(gate.x, wy, gate.z)
-	node.call("init_from_data", {"id": boss_id, "enemy_type": _CoopSiege.boss_enemy_type(), "tracking": false})
-	_world._entity_root.add_child(node)
-	_world.register_loose_enemy(boss_id, node)
+	_LooseEnemySpawner.spawn(_world, {"id": boss_id, "enemy_type": _CoopSiege.boss_enemy_type(), "tracking": false},
+			gate.x, gate.z)
 
 ## Host-only: watches the current wave's engage-lock state; called every frame
 ## from _process while a siege is active.

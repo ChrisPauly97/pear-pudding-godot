@@ -23,9 +23,7 @@ static func _ensure_shared_resources() -> void:
 	_log_mesh.bottom_radius = 0.06
 	_log_mesh.height = 0.5
 
-	_flame_mat = _WEB.unshaded_material(Color(1.0, 0.55, 0.15))
-	_flame_mat.emission_enabled = true
-	_flame_mat.emission = Color(1.0, 0.45, 0.05)
+	_flame_mat = _WEB.glow_material(Color(1.0, 0.55, 0.15), Color(1.0, 0.45, 0.05))
 	_flame_mesh = CylinderMesh.new()
 	_flame_mesh.top_radius = 0.02
 	_flame_mesh.bottom_radius = 0.18

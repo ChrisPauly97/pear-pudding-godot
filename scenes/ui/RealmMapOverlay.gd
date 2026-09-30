@@ -11,6 +11,8 @@ signal closed
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
+const _LongPressTracker = preload("res://scenes/ui/LongPressTracker.gd")
+const _MapMarkers = preload("res://scenes/ui/MapMarkers.gd")
 const _RealmMapOverlay = preload("res://scenes/ui/RealmMapOverlay.gd")
 
 const _COL_BG := Color(0.13, 0.19, 0.12)
@@ -21,8 +23,6 @@ const _COL_WAYSTONE := Color(0.40, 0.90, 1.00)
 const _COL_WAYPOINT := Color(0.20, 0.80, 1.00)
 ## Tiles of wilderness shown around the realm's outline.
 const _MARGIN_TILES: float = 32.0
-const _LP_THRESHOLD: float = 0.5
-const _LP_SLOP_PX: float = 12.0
 
 class _MapLayer extends Control:
 	var overlay: _RealmMapOverlay
@@ -46,9 +46,7 @@ var _bounds := Rect2()   # in overworld tiles
 var _scale: float = 1.0  # panel px per tile
 var _font_size: int = 12
 var _layer: _MapLayer
-var _lp_active: bool = false
-var _lp_pos: Vector2 = Vector2.ZERO
-var _lp_elapsed: float = 0.0
+var _long_press := _LongPressTracker.new()
 
 
 func setup(player: Node3D, map_name: String, quests: Array[Dictionary], tracked: Dictionary) -> void:
@@ -182,9 +180,7 @@ func _draw_waypoint(c: Control) -> void:
 	if wp.is_empty() or not _RealmLayout.is_overworld(str(wp.get("map", ""))):
 		return
 	var tp: Vector2 = _tile_to_panel(Vector2(float(int(wp.get("tx", 0))) + 0.5, float(int(wp.get("tz", 0))) + 0.5))
-	c.draw_circle(tp, 6.0, _COL_WAYPOINT)
-	c.draw_line(tp + Vector2(0.0, -9.0), tp + Vector2(0.0, 9.0), _COL_WAYPOINT, 1.5)
-	c.draw_line(tp + Vector2(-9.0, 0.0), tp + Vector2(9.0, 0.0), _COL_WAYPOINT, 1.5)
+	_MapMarkers.draw_pin(c, tp, 6.0, _COL_WAYPOINT)
 
 
 func _draw_quests(c: Control, font: Font) -> void:
@@ -196,17 +192,12 @@ func _draw_quests(c: Control, font: Font) -> void:
 		var tracked: bool = str(q.get("id", "")) == _tracked_id
 		var r: float = 10.0 if tracked else 6.0
 		var col: Color = _QuestLog.kind_color(str(q.get("kind", "")))
-		c.draw_colored_polygon(_diamond(tp, r + 2.0), Color.BLACK)
-		c.draw_colored_polygon(_diamond(tp, r), col)
+		_MapMarkers.draw_outlined_diamond(c, tp, r, col)
 		if tracked:
 			c.draw_string_outline(font, tp + Vector2(r + 4.0, _font_size * 0.35), str(q.get("label", "")),
 				HORIZONTAL_ALIGNMENT_LEFT, -1, _font_size, 4, Color.BLACK)
 			c.draw_string(font, tp + Vector2(r + 4.0, _font_size * 0.35), str(q.get("label", "")),
 				HORIZONTAL_ALIGNMENT_LEFT, -1, _font_size, col)
-
-
-static func _diamond(at: Vector2, r: float) -> PackedVector2Array:
-	return PackedVector2Array([at + Vector2(0.0, -r), at + Vector2(r, 0.0), at + Vector2(0.0, r), at + Vector2(-r, 0.0)])
 
 
 func _set_waypoint_at(screen_pos: Vector2) -> void:
@@ -220,11 +211,8 @@ func _close() -> void:
 
 
 func _process(delta: float) -> void:
-	if _lp_active:
-		_lp_elapsed += delta
-		if _lp_elapsed >= _LP_THRESHOLD:
-			_lp_active = false
-			_set_waypoint_at(_lp_pos)
+	if _long_press.tick(delta):
+		_set_waypoint_at(_long_press.start_pos)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -244,15 +232,13 @@ func _unhandled_input(event: InputEvent) -> void:
 	var st := event as InputEventScreenTouch
 	if st != null:
 		if st.pressed and _panel.has_point(st.position):
-			_lp_active = true
-			_lp_elapsed = 0.0
-			_lp_pos = st.position
+			_long_press.press(st.position)
 		elif st.pressed:
 			get_viewport().set_input_as_handled()
 			_close()
 		else:
-			_lp_active = false
+			_long_press.cancel()
 		return
 	var sd := event as InputEventScreenDrag
-	if sd != null and _lp_active and sd.position.distance_to(_lp_pos) > _LP_SLOP_PX:
-		_lp_active = false
+	if sd != null:
+		_long_press.move(sd.position)

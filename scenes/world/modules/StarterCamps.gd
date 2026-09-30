@@ -9,7 +9,7 @@ extends Node
 const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const _StarterZone = preload("res://game_logic/world/StarterZone.gd")
 const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
-const _EnemyScene: PackedScene = preload("res://scenes/world/entities/EnemyNPC.tscn")
+const _LooseEnemySpawner = preload("res://scenes/world/LooseEnemySpawner.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 
@@ -40,7 +40,7 @@ func tick(delta: float) -> void:
 		return
 	for camp: Dictionary in _StarterZone.CAMPS:
 		var t: Vector2i = camp["tile"]
-		var centre := Vector3((float(t.x) + 0.5) * IsoConst.TILE_SIZE, 0.0, (float(t.y) + 0.5) * IsoConst.TILE_SIZE)
+		var centre := Vector3(IsoConst.tile_center(t.x), 0.0, IsoConst.tile_center(t.y))
 		var near: bool = Vector2(centre.x - player.position.x, centre.z - player.position.z).length() \
 				<= _StarterZone.ACTIVE_RANGE
 		for slot: int in range(int(camp["count"])):
@@ -68,22 +68,17 @@ func _update_slot(camp: Dictionary, slot: int, near: bool) -> void:
 
 func _spawn(camp: Dictionary, slot: int, id: String) -> void:
 	var t: Vector2i = _StarterZone.slot_tile(camp, slot)
-	var x: float = (float(t.x) + 0.5) * IsoConst.TILE_SIZE
-	var z: float = (float(t.y) + 0.5) * IsoConst.TILE_SIZE
+	var x: float = IsoConst.tile_center(t.x)
+	var z: float = IsoConst.tile_center(t.y)
 	var etype: String = str(camp["enemy_type"])
-	var node: Node3D = _EnemyScene.instantiate() as Node3D
-	node.call("init_from_data", {
+	_members[id] = _LooseEnemySpawner.spawn(_world, {
 		"id": id,
 		"enemy_type": etype,
 		"enemy_deck": _EnemyRegistry.get_deck(etype),
 		"tracking": bool(camp.get("tracking", false)),
 		"enemy_level": int(camp["level"]),
 		"camp": str(camp["id"]),
-	})
-	node.position = Vector3(x, _world.get_terrain_height(x, z) + 0.5, z)
-	_world._entity_root.add_child(node)
-	_members[id] = node
-	_world.register_loose_enemy(id, node)
+	}, x, z)
 
 ## GID-149: the unique Barrow King, spawned beside his crypt once it is opened.
 func _update_barrow_king(player: Node3D) -> void:
@@ -94,17 +89,13 @@ func _update_barrow_king(player: Node3D) -> void:
 			or not _StarterZone.barrow_king_awake(save.quests_completed, save.defeated_enemies):
 		return
 	var t: Vector2i = bk["tile"]
-	var x: float = (float(t.x) + 0.5) * IsoConst.TILE_SIZE
-	var z: float = (float(t.y) + 0.5) * IsoConst.TILE_SIZE
+	var x: float = IsoConst.tile_center(t.x)
+	var z: float = IsoConst.tile_center(t.y)
 	if Vector2(x - player.position.x, z - player.position.z).length() > _StarterZone.ACTIVE_RANGE:
 		return
-	var node: Node3D = _EnemyScene.instantiate() as Node3D
-	node.call("init_from_data", {"id": id, "enemy_type": str(bk["enemy_type"]), "tracking": false,
-		"enemy_deck": _EnemyRegistry.get_deck(str(bk["enemy_type"])), "enemy_level": int(bk["level"])})
-	node.position = Vector3(x, _world.get_terrain_height(x, z) + 0.5, z)
-	_world._entity_root.add_child(node)
-	_members[id] = node
-	_world.register_loose_enemy(id, node)
+	_members[id] = _LooseEnemySpawner.spawn(_world, {"id": id, "enemy_type": str(bk["enemy_type"]),
+		"tracking": false, "enemy_deck": _EnemyRegistry.get_deck(str(bk["enemy_type"])),
+		"enemy_level": int(bk["level"])}, x, z)
 
 func _despawn(id: String, node: Node3D) -> void:
 	_members.erase(id)

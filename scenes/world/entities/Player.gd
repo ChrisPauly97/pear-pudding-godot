@@ -265,9 +265,9 @@ func _physics_process(delta: float) -> void:
 		# Steer toward the current waypoint centre.
 		var wp: Vector2i = _path_waypoints[_path_wp_index]
 		var wp_world := Vector3(
-			(float(wp.x) + 0.5) * IsoConst.TILE_SIZE,
+			IsoConst.tile_center(wp.x),
 			position.y,
-			(float(wp.y) + 0.5) * IsoConst.TILE_SIZE)
+			IsoConst.tile_center(wp.y))
 		var delta_v: Vector3 = wp_world - position
 		delta_v.y = 0.0
 		var dist_sq: float = delta_v.x * delta_v.x + delta_v.z * delta_v.z

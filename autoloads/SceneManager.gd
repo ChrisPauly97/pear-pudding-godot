@@ -1255,8 +1255,8 @@ func teleport_to_waystone(waystone_id: String) -> void:
 		if parts.size() >= 3:
 			var tx: int = int(parts[1])
 			var tz: int = int(parts[2])
-			_teleport_overworld(float(tx) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5,
-				float(tz) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5)
+			_teleport_overworld(IsoConst.tile_center(tx),
+				IsoConst.tile_center(tz))
 
 ## Loads the overworld with the player at world (wx, wz), clearing the map stack.
 func _teleport_overworld(wx: float, wz: float) -> void:

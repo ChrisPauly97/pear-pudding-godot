@@ -3,6 +3,8 @@
 ## Defeating it marks the heart cleansed and awards Redemption Points.
 extends Node3D
 
+const _WEB = preload("res://scenes/world/entities/WorldEntityBase.gd")
+
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 
@@ -24,12 +26,7 @@ static func _ensure_shared_resources() -> void:
 	_heart_mesh.radius = 0.55
 	_heart_mesh.height = 1.1
 
-	_heart_mat = StandardMaterial3D.new()
-	_heart_mat.albedo_color = Color(0.20, 0.0, 0.28)
-	_heart_mat.emission_enabled = true
-	_heart_mat.emission = Color(0.55, 0.0, 0.70)
-	_heart_mat.emission_energy_multiplier = 1.8
-	_heart_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_heart_mat = _WEB.glow_material(Color(0.20, 0.0, 0.28), Color(0.55, 0.0, 0.70), 1.8)
 
 	_glow_mesh = SphereMesh.new()
 	_glow_mesh.radius = 0.80

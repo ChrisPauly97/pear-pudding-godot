@@ -7,8 +7,7 @@ extends Node
 
 const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
-const _EnemyScene = preload("res://scenes/world/entities/EnemyNPC.tscn")
-const _EnemyNPC = preload("res://scenes/world/entities/EnemyNPC.gd")
+const _LooseEnemySpawner = preload("res://scenes/world/LooseEnemySpawner.gd")
 const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
@@ -100,11 +99,9 @@ func _spawn_raiders(p_map_name: String, stage: int) -> void:
 		# Walking back into a stitched town re-runs entry (GID-138): keep the live ones.
 		if is_instance_valid(_world._enemy_nodes.get(raider_id)):
 			continue
-		var node: _EnemyNPC = _EnemyScene.instantiate() as _EnemyNPC
-		node.position = Vector3(wx, _world.get_terrain_height(wx, wz) + 0.5, wz)
 		# BID-041: the enemy type must go through init_from_data — EnemyNPC has
 		# no `enemy_type` property, so setting one silently spawned undead_basic.
-		node.init_from_data({
+		_LooseEnemySpawner.spawn(_world, {
 			"id": raider_id,
 			"x": wx,
 			"z": wz,
@@ -112,9 +109,7 @@ func _spawn_raiders(p_map_name: String, stage: int) -> void:
 			"tracking": false,
 			"enemy_type": enemy_type,
 			"enemy_deck": EnemyRegistry.get_deck(enemy_type),
-		})
-		_world._entity_root.add_child(node)
-		_world.register_loose_enemy(raider_id, node)
+		}, wx, wz)
 
 ## "<Town> Under Attack!" across the top of the HUD while the siege runs.
 func _setup_banner(p_map_name: String) -> void:

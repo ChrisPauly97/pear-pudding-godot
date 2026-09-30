@@ -32,12 +32,12 @@ const _DOT_EVENT    := Color(0.95, 0.60, 0.15)   # amber: event room
 const _DOT_DIGSITE  := Color(1.00, 0.65, 0.15)   # gold: active treasure dig site
 const _DOT_WAYSTONE  := Color(0.40, 0.90, 1.00)   # cyan: waystone (dormant or active)
 const _DOT_WAYPOINT  := Color(0.20, 0.80, 1.00)   # bright cyan: custom player waypoint
-const _LP_THRESHOLD: float = 0.5
-const _LP_SLOP_PX: float = 12.0
 
 
 const _Transforms = preload("res://scenes/ui/MapViewTransforms.gd")
 const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
+const _LongPressTracker = preload("res://scenes/ui/LongPressTracker.gd")
+const _MapMarkers = preload("res://scenes/ui/MapMarkers.gd")
 
 var _player: CharacterBody3D
 var _npc_nodes: Dictionary
@@ -60,9 +60,7 @@ var _tracked_id: String = ""
 var _rally_targets: Array[Dictionary] = []
 
 # Long-press state (mobile waypoint placement)
-var _lp_active: bool = false
-var _lp_pos: Vector2 = Vector2.ZERO
-var _lp_elapsed: float = 0.0
+var _long_press := _LongPressTracker.new()
 
 # ── Inner dot-drawing layer ───────────────────────────────────────────────────
 class _DotLayer extends Control:
@@ -226,8 +224,8 @@ func _draw_digsite(canvas: Control) -> void:
 	var at: Dictionary = SceneManager.save_manager.active_treasure
 	if at.is_empty() or bool(at.get("completed", false)):
 		return
-	var wx: float = float(int(at.get("site_x", 0))) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-	var wz: float = float(int(at.get("site_z", 0))) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+	var wx: float = IsoConst.tile_center(int(at.get("site_x", 0)))
+	var wz: float = IsoConst.tile_center(int(at.get("site_z", 0)))
 	var tp: Vector2 = _world_to_panel(wx, wz)
 	canvas.draw_arc(tp, 8.0, 0.0, TAU, 16, _DOT_DIGSITE, 2.0)
 	canvas.draw_line(tp + Vector2(-6.0, -6.0), tp + Vector2(6.0, 6.0), _DOT_DIGSITE, 2.0)
@@ -240,13 +238,10 @@ func _draw_waypoint(canvas: Control) -> void:
 		return
 	var tx: int = int(wp.get("tx", 0))
 	var tz: int = int(wp.get("tz", 0))
-	var wx: float = float(tx) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-	var wz: float = float(tz) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+	var wx: float = IsoConst.tile_center(tx)
+	var wz: float = IsoConst.tile_center(tz)
 	var tp: Vector2 = _world_to_panel(wx, wz)
-	# Filled circle + crosshair lines for a pin-style marker
-	canvas.draw_circle(tp, 7.0, _DOT_WAYPOINT)
-	canvas.draw_line(tp + Vector2(0.0, -9.0), tp + Vector2(0.0, 9.0), _DOT_WAYPOINT, 1.5)
-	canvas.draw_line(tp + Vector2(-9.0, 0.0), tp + Vector2(9.0, 0.0), _DOT_WAYPOINT, 1.5)
+	_MapMarkers.draw_pin(canvas, tp, 7.0, _DOT_WAYPOINT)
 
 
 ## Quest pins (GID-140): every active quest with a place on this map; the
@@ -262,10 +257,7 @@ func _draw_quests(canvas: Control) -> void:
 		var tp: Vector2 = _world_to_panel(pos.x, pos.z)
 		var r: float = 9.0 if str(q.get("id", "")) == _tracked_id else 6.0
 		var col: Color = _QuestLog.kind_color(str(q.get("kind", "")))
-		canvas.draw_colored_polygon(PackedVector2Array([tp + Vector2(0.0, -r - 2.0), tp + Vector2(r + 2.0, 0.0),
-			tp + Vector2(0.0, r + 2.0), tp + Vector2(-r - 2.0, 0.0)]), Color.BLACK)
-		canvas.draw_colored_polygon(PackedVector2Array([tp + Vector2(0.0, -r), tp + Vector2(r, 0.0),
-			tp + Vector2(0.0, r), tp + Vector2(-r, 0.0)]), col)
+		_MapMarkers.draw_outlined_diamond(canvas, tp, r, col)
 
 
 func _set_waypoint_at(screen_pos: Vector2) -> void:
@@ -445,11 +437,8 @@ func _request_rally(peer_id: int) -> void:
 
 
 func _process(delta: float) -> void:
-	if _lp_active:
-		_lp_elapsed += delta
-		if _lp_elapsed >= _LP_THRESHOLD:
-			_lp_active = false
-			_set_waypoint_at(_lp_pos)
+	if _long_press.tick(delta):
+		_set_waypoint_at(_long_press.start_pos)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -472,13 +461,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		var e := event as InputEventScreenTouch
 		if e.pressed:
 			if _is_in_panel(e.position):
-				_lp_active = true
-				_lp_elapsed = 0.0
-				_lp_pos = e.position
+				_long_press.press(e.position)
 		else:
-			_lp_active = false
+			_long_press.cancel()
 
 	if event is InputEventScreenDrag:
 		var e := event as InputEventScreenDrag
-		if _lp_active and e.position.distance_to(_lp_pos) > _LP_SLOP_PX:
-			_lp_active = false
+		_long_press.move(e.position)

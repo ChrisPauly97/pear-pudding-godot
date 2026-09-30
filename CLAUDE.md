@@ -187,6 +187,7 @@ const _UiUtil = preload("res://scenes/ui/UiUtil.gd")   # inherited by BaseOverla
 _UiUtil.make_button(text, Vector2(w, h), font_size, on_pressed, parent)
 _UiUtil.make_label(text, font_size, tint, align, parent)
 _UiUtil.make_hbox(separation, parent) / make_vbox(separation, parent)
+_UiUtil.make_grid(columns, h_sep, v_sep, parent)
 _UiUtil.make_margin(left, top, right, bottom, parent)
 _UiUtil.make_centered_panel(w, h, vw, vh, parent)
 _UiUtil.make_style(bg, radius, border_color, border_width)   # rounded StyleBoxFlat
@@ -211,7 +212,14 @@ a content-hugging accept/decline prompt; both return `{"layer", "vbox"}`. Free
 the layer to dismiss.
 
 `BattleResultUI._build_result_overlay(bg, sep_frac)` is the shared full-screen
-result card. World entities get their billboard and name tag from
+result card. Map views draw quest diamonds and the waypoint pin through
+`scenes/ui/MapMarkers.gd`. Hold-to-act timing (threshold + drag slop) is
+`scenes/ui/LongPressTracker.gd`; `LongPressDetector` wraps it for a Control. Entity materials come from `WorldEntityBase`:
+`unshaded_material(color)` and `glow_material(color, emission, energy)`.
+Enemies placed by code (not chunk data) spawn through
+`scenes/world/LooseEnemySpawner.gd` (`spawn(world, data, x, z)`), which also
+registers them as loose. Minion/hero status rules shared by `CardInstance` and
+`HeroState` live in `game_logic/battle/StatusEffects.gd`. World entities get their billboard and name tag from
 `SpriteRegistry.make_billboard()` / `make_name_label()`.
 
 ---
@@ -311,6 +319,7 @@ never add a separate level check. See `docs/agent/starter-zone-and-training.md`.
 ## Constants: IsoConst Is the Source of Truth
 
 All tile/size constants (`TILE_GRASS`, `TILE_SIZE`, `CHUNK_SIZE`, etc.) live in `autoloads/IsoConst.gd`. Reference as `IsoConst.TILE_SIZE`. Never add copies elsewhere.
+A tile's world-space centre is `IsoConst.tile_center(t)` — never write out `t * TILE_SIZE + TILE_SIZE * 0.5`.
 
 ---
 

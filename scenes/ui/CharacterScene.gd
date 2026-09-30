@@ -118,11 +118,7 @@ func _build_ui() -> void:
 	var equip_hdr := _UiUtil.make_label("Equipment", int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER,
 			left_vbox)
 
-	var slot_grid := GridContainer.new()
-	slot_grid.columns = 2
-	slot_grid.add_theme_constant_override("h_separation", int(_ref * 0.010))
-	slot_grid.add_theme_constant_override("v_separation", int(_ref * 0.010))
-	left_vbox.add_child(slot_grid)
+	var slot_grid := _UiUtil.make_grid(2, int(_ref * 0.010), int(_ref * 0.010), left_vbox)
 	for slot in _SLOTS:
 		var btn := Button.new()
 		btn.custom_minimum_size = Vector2(0, _ref * 0.065)

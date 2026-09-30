@@ -90,12 +90,7 @@ static func _get_body_mat(card_color: Color, rarity: String) -> StandardMaterial
 		return cached
 	# Emission feeds the bloom post-process so the card visibly glows.
 	# (All geometry in this game is unshaded so OmniLight3D has no effect.)
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = card_color
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.emission_enabled = true
-	mat.emission = _glow_color_for(rarity)
-	mat.emission_energy_multiplier = 2.5
+	var mat: StandardMaterial3D = _WEB.glow_material(card_color, _glow_color_for(rarity), 2.5)
 	_body_mats[key] = mat
 	return mat
 
@@ -104,12 +99,7 @@ static func _get_halo_mat(rarity: String) -> StandardMaterial3D:
 	if cached != null:
 		return cached
 	var glow_color: Color = _glow_color_for(rarity)
-	var halo_mat := StandardMaterial3D.new()
-	halo_mat.albedo_color = glow_color
-	halo_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	halo_mat.emission_enabled = true
-	halo_mat.emission = glow_color
-	halo_mat.emission_energy_multiplier = 3.5
+	var halo_mat: StandardMaterial3D = _WEB.glow_material(glow_color, glow_color, 3.5)
 	halo_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 	_halo_mats[rarity] = halo_mat
 	return halo_mat
@@ -119,12 +109,7 @@ static func _get_beam_mat(rarity: String) -> StandardMaterial3D:
 	if cached != null:
 		return cached
 	var glow_color: Color = _glow_color_for(rarity)
-	var beam_mat := StandardMaterial3D.new()
-	beam_mat.albedo_color = glow_color
-	beam_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	beam_mat.emission_enabled = true
-	beam_mat.emission = glow_color
-	beam_mat.emission_energy_multiplier = 2.0
+	var beam_mat: StandardMaterial3D = _WEB.glow_material(glow_color, glow_color, 2.0)
 	beam_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	beam_mat.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y
 	beam_mat.grow = true
@@ -209,20 +194,14 @@ static func _ensure_coin_resources() -> void:
 	# Gold coin disc — flat cylinder with strong emission for bloom
 	var coin_color: Color = Color(1.0, 0.82, 0.1)
 	var coin_glow: Color  = Color(1.0, 0.65, 0.0)
-	_coin_mat = _WEB.unshaded_material(coin_color)
-	_coin_mat.emission_enabled = true
-	_coin_mat.emission = coin_glow
-	_coin_mat.emission_energy_multiplier = 3.0
+	_coin_mat = _WEB.glow_material(coin_color, coin_glow, 3.0)
 	_coin_mesh = CylinderMesh.new()
 	_coin_mesh.top_radius = 0.18
 	_coin_mesh.bottom_radius = 0.18
 	_coin_mesh.height = 0.06
 	_coin_mesh.radial_segments = 16
 	# Large billboard glow halo behind coin — same approach as cards
-	_coin_halo_mat = _WEB.unshaded_material(coin_glow)
-	_coin_halo_mat.emission_enabled = true
-	_coin_halo_mat.emission = coin_glow
-	_coin_halo_mat.emission_energy_multiplier = 4.0
+	_coin_halo_mat = _WEB.glow_material(coin_glow, coin_glow, 4.0)
 	_coin_halo_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 	_coin_halo_mesh = QuadMesh.new()
 	_coin_halo_mesh.size = Vector2(0.65, 0.65)

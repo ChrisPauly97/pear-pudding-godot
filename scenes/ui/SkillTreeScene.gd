@@ -53,10 +53,7 @@ func _build_magic_choice() -> void:
 
 	# Two columns rather than one row: four types would each be ~14% vw wide in a
 	# single HBox, which is unreadable on a phone.
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", int(_vw * 0.04))
-	grid.add_theme_constant_override("v_separation", int(_ref * 0.020))
+	var grid := _UiUtil.make_grid(2, int(_vw * 0.04), int(_ref * 0.020))
 	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	vbox.add_child(grid)
 
@@ -267,11 +264,7 @@ func _refresh_cross_magic() -> void:
 	var node_w: float = (_vw * 0.90 - _vw * 0.015 * 3) / 4.0
 	var node_h: float = _ref * 0.19
 
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", int(_vw * 0.04))
-	grid.add_theme_constant_override("v_separation", int(_ref * 0.012))
-	_skill_container.add_child(grid)
+	var grid := _UiUtil.make_grid(2, int(_vw * 0.04), int(_ref * 0.012), _skill_container)
 	_skill_container.custom_minimum_size = Vector2(0, 0)
 
 	for sid: String in ids:

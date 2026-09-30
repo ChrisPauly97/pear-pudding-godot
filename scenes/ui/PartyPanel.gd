@@ -109,11 +109,7 @@ func _build_ui() -> void:
 	var actions_title := _UiUtil.make_label("Actions", int(_vh * 0.026), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT,
 			content)
 
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", int(_ref * 0.02))
-	grid.add_theme_constant_override("v_separation", int(_ref * 0.015))
-	content.add_child(grid)
+	var grid := _UiUtil.make_grid(2, int(_ref * 0.02), int(_ref * 0.015), content)
 
 	if show_loot_mode:
 		_loot_btn = _add_action_button(grid, loot_mode_label, on_loot_mode_toggle, false)

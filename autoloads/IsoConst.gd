@@ -74,6 +74,10 @@ const VETERANCY_RANKS: Array = [
 	{"kills_threshold": 40, "battles_threshold": 60, "hp_bonus": 3, "atk_bonus": 2, "title": "the Legendary"},
 ]
 
+## World coordinate of the centre of tile `t` along one axis.
+static func tile_center(t: float) -> float:
+	return t * TILE_SIZE + TILE_SIZE * 0.5
+
 func tile_to_world(tx: int, tz: int) -> Vector3:
 	return Vector3(tx * TILE_SIZE, 0.0, tz * TILE_SIZE)
 

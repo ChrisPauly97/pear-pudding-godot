@@ -168,7 +168,7 @@ func _populate_face(idx: int) -> void:
 		SceneManager.save_manager.reset_pity()
 
 	# Set face background to a darkened version of the rarity colour.
-	var rc: Color = _rarity_color(rarity)
+	var rc: Color = _UiUtil.rarity_color(rarity)
 	_card_face_bgs[idx].color = rc.darkened(0.75)
 
 	var face: VBoxContainer = _card_face_contents[idx]
@@ -183,14 +183,6 @@ func _populate_face(idx: int) -> void:
 
 	var stats_lbl := _UiUtil.make_label("%d / %d" % [atk, hp], int(_ref * 0.025), Color.WHITE,
 			HORIZONTAL_ALIGNMENT_CENTER, face)
-
-func _rarity_color(rarity: String) -> Color:
-	match rarity:
-		"common":    return Color(0.80, 0.80, 0.80)
-		"rare":      return Color(0.20, 0.50, 1.00)
-		"epic":      return Color(0.70, 0.20, 1.00)
-		"legendary": return Color(1.00, 0.75, 0.00)
-	return Color(0.80, 0.80, 0.80)
 
 func _check_all_revealed() -> void:
 	for f: bool in _flipped:
