@@ -3,7 +3,7 @@
 ##   OUT=/tmp/battle.png xvfb-run -a -s "-screen 0 1920x1080x24" \
 ##     godot --path . --rendering-driver opengl3 --resolution 1920x1080 -s tools/capture_battle_cards.gd
 ## DECK (comma list) sets the hand, MODE=realtime|turn, WAIT_MS delays the capture,
-## CAST=<ms> casts the hand's draw spell, DEATH=<ms> kills the enemy board,
+## BOARD=1 puts minions on both boards, CAST=<ms> casts the hand's draw spell, DEATH=<ms> kills the enemy board,
 ## REVEAL=<ms> has the enemy play a card and captures <ms> later,
 ## HOVER=1 lifts the second hand card, POST_MS is the time after the hand is dealt
 ## (small values catch animations mid-flight).
@@ -65,6 +65,11 @@ func _run() -> void:
 		ci.rarity = rarities[hand.size() % rarities.size()]  # show every rarity treatment
 		hand.append(ci)
 	(me.get("hero") as Object).set("mana", 10)
+	if OS.get_environment("BOARD") != "":
+		for id: String in ["treant", "sig_alpha_wolf"]:
+			(me.get("board") as Object).call("add_card", _CardInstance.new(_CardRegistry.get_template(id)))
+			var foe_ci := _CardInstance.new(_CardRegistry.get_template("void_wyrm"))
+			(((state.get("players") as Array)[1] as Object).get("board") as Object).call("add_card", foe_ci)
 	battle.call("_refresh_all")
 	await _wait(int(OS.get_environment("POST_MS")) if OS.get_environment("POST_MS") != "" else 800)
 	if OS.get_environment("REVEAL") != "":
