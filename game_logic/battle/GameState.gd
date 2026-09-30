@@ -199,17 +199,10 @@ func end_turn() -> void:
 ## In team battle: game over when one whole team's heroes are all dead.
 ## In 2-player: game over when any hero dies (unchanged).
 func is_game_over() -> bool:
+	_resolve_leaderless()
 	if team_battle:
-		var team0_alive: bool = false
-		var team1_alive: bool = false
-		for i in range(players.size()):
-			var t: int = player_teams[i] if i < player_teams.size() else 0
-			if players[i].hero.is_alive():
-				if t == 0:
-					team0_alive = true
-				else:
-					team1_alive = true
-		return not (team0_alive and team1_alive)
+		var alive: Array[bool] = _teams_alive()
+		return not (alive[0] and alive[1])
 	if coop_battle:
 		# Boss dead → party wins.
 		if not players[players.size() - 1].hero.is_alive():
@@ -224,26 +217,31 @@ func is_game_over() -> bool:
 			return true
 	return false
 
+## Leaderless packs (BID-077) fall once their board is clear: the hidden stand-in
+## hero dies here, so every "hero at 0 HP" win path (turn-based and real time) holds.
+func _resolve_leaderless() -> void:
+	for p in players:
+		if p.hero.leaderless and p.hero.health > 0 and p.board.get_cards().is_empty():
+			p.hero.health = 0
+
+## Team battle: [team 0 has a living hero, team 1 has a living hero].
+func _teams_alive() -> Array[bool]:
+	var alive: Array[bool] = [false, false]
+	for i in range(players.size()):
+		if players[i].hero.is_alive():
+			var t: int = player_teams[i] if i < player_teams.size() else 0
+			alive[0 if t == 0 else 1] = true
+	return alive
+
 ## Returns the player_id of the winner (-1 if undecided).
 ## In co-op: returns 0 when allies win (boss dead), boss's player_id when boss wins.
 ## In team battle: returns the surviving team id (0 or 1), or -1 if undecided.
 ## In 2-player: returns the surviving player_id.
 func winner() -> int:
+	_resolve_leaderless()
 	if team_battle:
-		var team0_alive: bool = false
-		var team1_alive: bool = false
-		for i in range(players.size()):
-			var t: int = player_teams[i] if i < player_teams.size() else 0
-			if players[i].hero.is_alive():
-				if t == 0:
-					team0_alive = true
-				else:
-					team1_alive = true
-		if team0_alive and not team1_alive:
-			return 0
-		if team1_alive and not team0_alive:
-			return 1
-		return -1
+		var alive: Array[bool] = _teams_alive()
+		return -1 if alive[0] == alive[1] else (0 if alive[0] else 1)
 	if coop_battle:
 		var boss_idx: int = players.size() - 1
 		if not players[boss_idx].hero.is_alive():

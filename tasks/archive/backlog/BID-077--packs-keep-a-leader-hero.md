@@ -24,3 +24,12 @@ Not started on purpose — a choice is needed first:
   must pick a pack member, and the enemy-side hero swing / heavy blow must be off.
 - Cheapest mechanism: keep a hidden, invulnerable enemy hero and kill it when the board empties, so every
   existing win path still works.
+
+## Resolution (2026-09-30)
+
+Decided: `undead_horde` becomes the leaderless pack, via the cheapest mechanism (hidden, invulnerable stand-in hero
+killed when its board empties). `ghoul_pack` keeps its named leader. Shipped: `HeroState.leaderless`,
+`GameState._resolve_leaderless()`, `PlayerState.hero_unreachable()`, real-time targeting of the weakest pack unit,
+no stand-in swings / heavy blows, "PACK / Clear the board" hero strip, `EnemyRegistry.is_leaderless()`. The existing
+`spell_final_blow` capture condition already reads as "a spell kills the last minion". Tests:
+`tests/unit/test_leaderless_pack.gd`, `tests/realtime_battle_smoke.gd`. See `docs/agent/combat-model.md`.

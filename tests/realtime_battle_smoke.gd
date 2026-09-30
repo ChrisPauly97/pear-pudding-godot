@@ -13,6 +13,7 @@ extends SceneTree
 const _BATTLE_SCENE_PATH: String = "res://scenes/battle/BattleScene.tscn"
 const _GameState = preload("res://game_logic/battle/GameState.gd")
 const _CardInstance = preload("res://game_logic/battle/CardInstance.gd")
+const _PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const _ENEMY_DECK: Array[String] = ["ghost", "ghost", "ghost", "skeleton", "skeleton", "skeleton",
 	"ghost", "ghost", "ghost", "skeleton", "skeleton", "skeleton"]
@@ -26,6 +27,7 @@ func _go() -> void:
 	var ok: bool = await _run()
 	ok = await _run_onboarding() and ok
 	ok = await _run_mentor_barks_scenario() and ok
+	ok = await _run_leaderless_pack() and ok
 	print("\nrealtime_battle_smoke: %s" % ("PASS" if ok else "FAIL"))
 	quit(0 if ok else 1)
 
@@ -185,6 +187,39 @@ func _run_mentor_barks_scenario() -> bool:
 	battle.queue_free()
 	await process_frame
 	save_manager.set("active_companion", "")
+	return fails.is_empty()
+
+## BID-077: the Horde Shambler is a leaderless pack — its pack starts on the board,
+## the hidden hero can't be hit, and clearing the board ends the fight in a win.
+func _run_leaderless_pack() -> bool:
+	var battle: Node = (load(_BATTLE_SCENE_PATH) as PackedScene).instantiate()
+	battle.set("enemy_data", {"enemy_type": "undead_horde", "is_boss": false, "enemy_deck": _ENEMY_DECK})
+	root.add_child(battle)
+	await process_frame
+	await process_frame
+	_dismiss_popups(battle)
+	var fails: Array[String] = []
+	var state: _GameState = battle.get("_state")
+	var enemy: _PlayerState = state.players[1]
+	if not enemy.hero.leaderless:
+		fails.append("undead_horde's hero is not leaderless")
+	if enemy.board.get_cards().is_empty():
+		fails.append("the horde's pack did not start on the board")
+	var hp: int = enemy.hero.health
+	enemy.hero.take_damage(99)
+	if enemy.hero.health != hp:
+		fails.append("the leaderless stand-in took damage")
+	for c: _CardInstance in enemy.board.get_cards().duplicate():
+		enemy.board.remove_card(c)
+	await process_frame
+	if not state.is_game_over() or state.winner() != 0:
+		fails.append("clearing the pack's board did not win the fight")
+	for f: String in fails:
+		print("  [FAIL] leaderless pack: " + f)
+	if fails.is_empty():
+		print("  [PASS] leaderless pack: hero untouchable, board clear wins")
+	battle.queue_free()
+	await process_frame
 	return fails.is_empty()
 
 func _dismiss_popups(battle: Node) -> void:

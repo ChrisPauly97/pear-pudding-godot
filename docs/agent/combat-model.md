@@ -258,6 +258,17 @@ enemy hero):
   drawn go through `pending_auto_spells`), and real time's `RealtimeCombat.choose_enemy_card` skipped spells.
   BID-078 has since fixed that (BasicAI queues played spells for the flush; real time resolves them at the player
   in `_after_enemy_play`), so an ability deck is now viable — not yet assigned to any enemy.
+- **Leaderless pack** (BID-077, `undead_horde`): an entry with `"leaderless": true`
+  (`EnemyRegistry.is_leaderless(type)`) has no hero to fight. `_place_enemy_pack` sets
+  `HeroState.leaderless` once the pack is on the board; that stand-in hero takes no damage (`take_damage` no-ops)
+  and never swings or winds up heavy blows in real time (`main_hand_damage` → 0). `GameState._resolve_leaderless()`
+  (run by `is_game_over()` / `winner()`) drops it to 0 HP when its board is empty, so every existing "enemy hero
+  dead" win path, reward and capture check works unchanged. The horde's deck still reinforces, so it is a race to
+  clear the board. `PlayerState.hero_unreachable()` (Ward or leaderless) blocks attacking / dropping on the hero;
+  spells can't target it; the hero strip reads **PACK / Clear the board** with no HP bar. Real-time auto-attacks go
+  at the weakest pack unit (`RealtimeCombat._weakest_pack_member`). The flag persists through `HeroState.to_dict()`
+  for resumed fights. The horde's `spell_final_blow` soulbind already means "a spell kills the last minion".
+  Tests: `test_leaderless_pack.gd`, `realtime_battle_smoke` (real horde fight: pack on board, untouchable, clear wins).
 - **Summoner**: everyone else keeps the current summoning deck.
 - Co-op PvE, PvP, puzzles and scripted fights don't use `_setup_solo_battle`, so they're unchanged.
 - Tests: `test_enemy_encounters.gd` (pack data; the Warlord keeps a summoning deck until BID-078); `battle_input_flow_smoke` checks the ghoul

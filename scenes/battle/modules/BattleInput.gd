@@ -360,11 +360,10 @@ func _on_enemy_hero_tap(pidx: int = -1) -> void:
 		_battle._dragged_card.clear()
 		_battle._refresh_all()
 		return
-	# Ward: cannot attack hero while any Ward minion is alive on that enemy's board
+	# Ward (or a leaderless pack): the hero can't be hit; keep the attacker selected
 	var def_idx: int = pidx if pidx >= 0 else _battle._opp_idx()
-	for ec: CardInstance in _battle._state.players[def_idx].board.get_cards():
-		if ec.keywords.has(Keywords.WARD):
-			return  # keep attacker selected; player must target the Ward minion
+	if _battle._state.players[def_idx].hero_unreachable():
+		return
 	_attempt_attack(attacker, null, def_idx)
 
 func _on_empty_slot_input(event: InputEvent, slot_idx: int) -> void:

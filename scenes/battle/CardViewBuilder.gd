@@ -574,6 +574,10 @@ func refresh_hero(hero_node: PanelContainer, hero: HeroState, is_enemy: bool, ha
 	var hp_lbl: Label = vbox.get_node("HPLabel") as Label
 	hp_lbl.text = "HP  %d / %d" % [hero.health, hero.max_health]
 	var bar: ProgressBar = vbox.get_node("HPBar") as ProgressBar
+	bar.visible = not hero.leaderless
+	if hero.leaderless:  # BID-077: no leader — the pack itself is the fight
+		(vbox.get_node("NameLabel") as Label).text = "PACK"
+		hp_lbl.text = "Clear the board"
 	bar.max_value = hero.max_health
 	bar.value = hero.health
 	var mana_lbl: Label = vbox.get_node_or_null("ManaLabel") as Label
@@ -593,14 +597,10 @@ func refresh_hero(hero_node: PanelContainer, hero: HeroState, is_enemy: bool, ha
 	style.corner_radius_top_right   = 6
 	style.corner_radius_bottom_left = 6
 	style.corner_radius_bottom_right = 6
-	var ward_blocks_hero: bool = false
-	if is_enemy and not _dragged_card.is_empty():
-		for ec: CardInstance in _seat_player(1).board.get_cards():
-			if ec.keywords.has(Keywords.WARD):
-				ward_blocks_hero = true
-				break
+	var ward_blocks_hero: bool = is_enemy and not _dragged_card.is_empty() and _seat_player(1).hero_unreachable()
 	var is_attack_targetable: bool = is_enemy and not _dragged_card.is_empty() and not ward_blocks_hero
-	var is_spell_targetable: bool = is_enemy and _targeting_active and not _targeting_friendly
+	var is_spell_targetable: bool = (is_enemy and _targeting_active and not _targeting_friendly
+			and not hero.leaderless)
 	if hero_node is Control:
 		_target_mark(hero_node as Control, _font(0.022)).visible = \
 			is_attack_targetable or is_spell_targetable

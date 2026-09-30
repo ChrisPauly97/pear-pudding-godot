@@ -49,6 +49,7 @@ static func _ensure_loaded() -> void:
 			"drop_pool": ["skeleton", "zombie", "dawn_acolyte", "dusk_wraith", "shrouded_wraith", "dusk_seer",
 					"void_creeper"],
 			"pack": ["zombie", "skeleton", "ghost"],  # starts on the board; shown beside it in the world (TID-541)
+			"leaderless": true,  # no enemy hero: clear the board to win (BID-077)
 			"coin_reward": 8,
 			"is_boss": false,
 			"boss_hp": 0,
@@ -626,6 +627,11 @@ static func get_pack(type_id: String) -> Array[String]:
 	var out: Array[String] = []
 	out.assign((_enemies.get(type_id, {}) as Dictionary).get("pack", []))
 	return out
+
+## Leaderless packs (BID-077): no enemy hero to hit — the fight ends when the pack's board is clear.
+static func is_leaderless(type_id: String) -> bool:
+	_ensure_loaded()
+	return bool((_enemies.get(type_id, {}) as Dictionary).get("leaderless", false))
 
 static func get_drop_pool(type_id: String) -> Array[String]:
 	_ensure_loaded()

@@ -350,13 +350,15 @@ func record_persistent_hp(won: bool) -> void:
 
 ## Puts `enemy_type`'s pack (EnemyRegistry.get_pack) on the enemy board, scaled to
 ## `tier` like its deck and ready to act — what you saw beside it in the world.
+## A leaderless pack (BID-077) has no hero to hit: the fight is won by clearing its board.
 func _place_enemy_pack(enemy_type: String, tier: int) -> void:
 	var enemy: PlayerState = _battle._state.players[1]
 	_trait_type = enemy_type
 	_trait_tier = tier
 	for cid: String in EnemyRegistry.get_pack(enemy_type):
 		if not _EnemyTraits.place(enemy, _EnemyTraits.make_unit(cid, tier, enemy.minion_attack_bonus)):
-			return
+			break
+	enemy.hero.leaderless = EnemyRegistry.is_leaderless(enemy_type) and not enemy.board.get_cards().is_empty()
 
 # ── Fight traits (GID-149 / TID-621) ────────────────────────────────────────
 
