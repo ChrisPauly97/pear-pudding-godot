@@ -2,7 +2,7 @@
 
 **Goal:** GID-151
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -40,12 +40,12 @@ Shared facts (research 2026-09-30):
 
 ## Plan
 
-_Written during Plan phase._
+Four new rune glyphs in generate_cards.py + SpriteRegistry arms + a coverage test.
 
 ## Changes Made
 
-_Filled after Build phase._
+`tools/generate_cards.py`: `rune_bloom`, `rune_thorn`, `rune_flux`, `rune_fracture` (existing PNGs regenerate byte-identical). `SpriteRegistry` preloads + match arms. Test: every branch resolves to a registry rune.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+docs/agent/card-visuals.md (Illustrations).

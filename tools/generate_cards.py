@@ -128,6 +128,69 @@ def rune_ash():
     return _fit(c.image())
 
 
+def rune_bloom():
+    """Bloom: a five-petal flower opening over two leaves."""
+    c = Canvas(S, S)
+    c.line(16, 18, 16, 28, P.GREEN[1])
+    c.blob(10, 24, 4.5, 2.2, P.GREEN)
+    c.blob(22, 22, 4.5, 2.2, P.GREEN)
+    for i in range(5):
+        a = -math.pi / 2 + i * 2 * math.pi / 5
+        c.blob(16 + math.cos(a) * 6, 12 + math.sin(a) * 6, 4.0, 4.0, P.PINK)
+    c.blob(16, 12, 3.0, 3.0, P.GOLD)
+    c.outline()
+    return _fit(c.image())
+
+
+def rune_thorn():
+    """Thorn: a twisting bramble stem studded with hooked spikes."""
+    c = Canvas(S, S)
+    pts = [(16 + math.sin(t / 4.0) * 5, t) for t in range(3, 30)]
+    for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+        c.line(x0, y0, x1, y1, P.EARTH[3])
+        c.line(x0 + 1, y0, x1 + 1, y1, P.EARTH[2])
+    for i, (x, y) in enumerate(pts[2::4]):
+        d = 1 if i % 2 == 0 else -1
+        c.line(x + d, y, x + d * 5, y - 3, P.STONE_WARM[3])
+        c.set(x + d * 5, y - 4, P.STONE_WARM[2])
+    c.blob(12, 20, 3.0, 1.6, P.GREEN)
+    c.outline()
+    return _fit(c.image())
+
+
+def rune_flux():
+    """Flux: a teal vortex spiralling into a bright core."""
+    c = Canvas(S, S)
+    for i in range(160):
+        t = i / 160.0
+        a = t * math.pi * 5.0
+        r = 13.0 * (1.0 - t) + 1.0
+        ramp = P.TEAL[1] if t < 0.4 else P.TEAL[2] if t < 0.8 else P.TEAL[3]
+        c.set(16 + math.cos(a) * r, 16 + math.sin(a) * r, ramp)
+        c.set(16 + math.cos(a) * r + 1, 16 + math.sin(a) * r, ramp)
+    c.blob(16, 16, 2.2, 2.2, P.WATER)
+    c.outline()
+    return _fit(c.image())
+
+
+def rune_fracture():
+    """Fracture: a cracked crystal shard splitting apart."""
+    c = Canvas(S, S)
+    for dx, ramp in ((-3, P.BLUE), (3, P.PURPLE)):
+        for y in range(4, 29):
+            w = 5 - abs(y - 16) * 5 / 12.0
+            for x in range(int(16 + dx - w), int(16 + dx + w) + 1):
+                side = x < 16 + dx
+                c.set(x, y, ramp[3] if side and y < 14 else ramp[2] if side else ramp[1])
+    for y in range(4, 29):
+        c.set(16 + ((y // 3) % 2) * 1 - 0, y, None)
+    c.line(16, 4, 14, 10, P.WHITE)
+    c.line(14, 10, 17, 17, P.WHITE)
+    c.line(17, 17, 15, 28, P.WHITE)
+    c.outline()
+    return _fit(c.image())
+
+
 CARDS = {
     "card_ghost": lambda: portrait(GC.spectre),
     "card_skeleton": lambda: portrait(GC.skeleton),
@@ -137,6 +200,10 @@ CARDS = {
     "rune_dusk": rune_dusk,
     "rune_ember": rune_ember,
     "rune_ash": rune_ash,
+    "rune_bloom": rune_bloom,
+    "rune_thorn": rune_thorn,
+    "rune_flux": rune_flux,
+    "rune_fracture": rune_fracture,
 }
 
 

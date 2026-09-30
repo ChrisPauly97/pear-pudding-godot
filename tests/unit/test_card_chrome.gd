@@ -4,6 +4,7 @@ extends "res://tests/framework/test_case.gd"
 
 const CardChrome = preload("res://game_logic/CardChrome.gd")
 const MagicTypes = preload("res://game_logic/MagicTypes.gd")
+const SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 
 func test_every_magic_type_has_a_frame() -> void:
 	for mt: String in MagicTypes.all_types():
@@ -32,3 +33,8 @@ func test_every_branch_has_a_background() -> void:
 		for b: String in MagicTypes.branches_for(mt):
 			assert_true(CardChrome.has_background(b), "%s has no card background" % b)
 	assert_not_null(CardChrome.background_texture(""), "neutral background")
+
+func test_every_branch_has_a_spell_rune() -> void:
+	for mt: String in MagicTypes.all_types():
+		for b: String in MagicTypes.branches_for(mt):
+			assert_not_null(SpriteRegistry.card_illustration_texture("spell", b), "%s has no spell rune" % b)

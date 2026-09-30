@@ -87,6 +87,12 @@ move. Durations × the battle speed scale.
     local caster's hand panel rect before `play_card`, then `CardMotion.cast_spell` lifts a face ghost to the
     screen centre (×1.3), holds, sparks, and dissolves. Fire-and-forget; never delays resolution.
 
+### Illustrations
+`tools/generate_cards.py` draws the 32×32 card art: creature portraits cropped from
+`tools/generate_characters.py` sprites and one rune per spell branch — dawn, dusk, ember, ash, and (TID-639)
+bloom (flower), thorn (bramble), flux (vortex), fracture (split crystal). `SpriteRegistry.card_illustration_texture`
+maps them; `test_card_chrome.test_every_branch_has_a_spell_rune` keeps every MagicTypes branch covered.
+
 ## Integrations
 - `MagicTypes` (type list), `CardRegistry` templates (`magic_type`, `illustration`, `card_class`).
 - `tools/capture_battle_cards.gd` renders a battle screenshot under xvfb for eyeballing card changes.

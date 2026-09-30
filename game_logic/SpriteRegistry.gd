@@ -138,6 +138,10 @@ const _RUNE_DAWN          := preload("res://assets/textures/cards/rune_dawn.png"
 const _RUNE_DUSK          := preload("res://assets/textures/cards/rune_dusk.png")
 const _RUNE_EMBER         := preload("res://assets/textures/cards/rune_ember.png")
 const _RUNE_ASH           := preload("res://assets/textures/cards/rune_ash.png")
+const _RUNE_BLOOM         := preload("res://assets/textures/cards/rune_bloom.png")
+const _RUNE_THORN         := preload("res://assets/textures/cards/rune_thorn.png")
+const _RUNE_FLUX          := preload("res://assets/textures/cards/rune_flux.png")
+const _RUNE_FRACTURE      := preload("res://assets/textures/cards/rune_fracture.png")
 
 const _CHEST_CLOSED       := preload("res://assets/textures/props/chest_closed.png")
 const _CHEST_OPEN         := preload("res://assets/textures/props/chest_open.png")
@@ -358,6 +362,10 @@ static func card_illustration_texture(illus_key: String, magic_branch: String) -
 		"dusk":  return _RUNE_DUSK
 		"ember": return _RUNE_EMBER
 		"ash":   return _RUNE_ASH
+		"bloom": return _RUNE_BLOOM
+		"thorn": return _RUNE_THORN
+		"flux":  return _RUNE_FLUX
+		"fracture": return _RUNE_FRACTURE
 	return null
 
 ## Closed-chest sprite (with lock) — Chest.gd's unopened / default pose.
