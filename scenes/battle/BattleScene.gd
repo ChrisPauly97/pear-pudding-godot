@@ -801,7 +801,7 @@ func _slot_panel_center(zone_view: Node, slot_idx: int) -> Vector2:
 			return (child as Control).get_global_rect().get_center()
 	return (zone_view as Control).get_global_rect().get_center()
 
-## Ghost-tweens a card from its hand position to its new board slot so playing
+## Arcs a ghost of the card from its hand position to its new board slot so playing
 ## a minion reads as a placement instead of a teleport (TID-426). `from_rect`
 ## must be captured before `_do_play_card_at_slot` mutates hand/board state.
 func _animate_card_travel(card: CardInstance, from_rect: Rect2, to_pos: Vector2) -> void:
@@ -811,22 +811,8 @@ func _animate_card_travel(card: CardInstance, from_rect: Rect2, to_pos: Vector2)
 		return
 	if from_rect.size == Vector2.ZERO:
 		return
-	var ghost: PanelContainer = _make_card_ghost(card)
-	ghost.position = from_rect.position
-	ghost.size = from_rect.size
-	ghost.pivot_offset = from_rect.size * 0.5
-	ghost.scale = Vector2(0.85, 0.85)
-	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_float_layer.add_child(ghost)
-	var dur: float = BattleFx.scaled_duration(0.2, _speed_scale)
-	var tw: Tween = ghost.create_tween()
-	tw.set_parallel(true)
-	tw.tween_property(ghost, "position", to_pos - from_rect.size * 0.5,
-			dur).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_property(ghost, "scale", Vector2(1.0, 1.0), dur)
-	await tw.finished
-	if is_instance_valid(ghost):
-		ghost.queue_free()
+	await CardMotion.play_arc(_float_layer, _make_card_ghost(card), from_rect, to_pos, _speed_scale,
+			CardMotion.card_color(card.magic_branch))
 
 # -------------------------------------------------------------------------
 # UI Refresh

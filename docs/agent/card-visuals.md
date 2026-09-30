@@ -70,6 +70,14 @@ move. Durations × the battle speed scale.
   `CardMotion.draw_glow` from `_draw_rim`; its alpha pulses (looping tween, meta `glow_tween`) unless Reduce
   Flashing is on. (The rim's own shadow can't be used: its transparent fill lets the shadow tint the whole card.)
 
+- **Play arc** — `BattleScene._animate_card_travel` (awaited by `BattleTargeting` slot plays) delegates to
+  `CardMotion.play_arc`: the ghost follows a quadratic curve (peak `PLAY_ARC` × distance above the midpoint,
+  slight lean), swells then settles, and `BattleJuice.sparks` bursts in the branch colour (`card_color`) on landing.
+- **Enemy flip-reveal** — `BattleFx.pop_new_board_cards` → `_enter_board`: a new enemy board card is hidden, a
+  card back flies from the enemy hero panel to its slot, turns edge-on and the face flips out with a burst
+  (`CardMotion.reveal_play`). If the enemy hero panel isn't visible it falls back to `pop_in`, which own-side
+  entrances (AI/net summons) still use.
+
 ## Integrations
 - `MagicTypes` (type list), `CardRegistry` templates (`magic_type`, `illustration`, `card_class`).
 - `tools/capture_battle_cards.gd` renders a battle screenshot under xvfb for eyeballing card changes.

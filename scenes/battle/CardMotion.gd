@@ -8,6 +8,7 @@ extends RefCounted
 
 const CardFace = preload("res://scenes/ui/CardFace.gd")
 const BattleJuice = preload("res://scenes/battle/BattleJuice.gd")
+const MagicTypes = preload("res://game_logic/MagicTypes.gd")
 
 const DRAW_TIME := 0.26
 const DRAW_STAGGER := 0.07
@@ -100,6 +101,75 @@ static func flip_out(panel: Control, speed_scale: float) -> void:
 	var tw: Tween = panel.create_tween()
 	tw.tween_property(panel, "scale:x", 1.0, _dur(FLIP_TIME, speed_scale)) \
 			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
+## Burst colour for a card's landing / dissolve: its branch colour, or a warm
+## white for cards with no branch.
+static func card_color(branch: String) -> Color:
+	return MagicTypes.branch_color(branch) if branch != "" else Color(1.0, 0.95, 0.8)
+
+## Point on the quadratic curve a → c → b at `t`.
+static func _bezier(a: Vector2, c: Vector2, b: Vector2, t: float) -> Vector2:
+	return a.lerp(c, t).lerp(c.lerp(b, t), t)
+
+## Flies `ghost` (added to `layer` here) from `from_rect` along an arc to
+## `to_pos` (global centre), then bursts sparks in `color` where it lands.
+## Awaitable; frees the ghost.
+static func play_arc(layer: CanvasLayer, ghost: Control, from_rect: Rect2, to_pos: Vector2, speed_scale: float,
+		color: Color) -> void:
+	var size: Vector2 = from_rect.size
+	ghost.size = size
+	ghost.pivot_offset = size * 0.5
+	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ghost.position = from_rect.position
+	ghost.scale = Vector2(0.85, 0.85)
+	layer.add_child(ghost)
+	var a: Vector2 = from_rect.get_center()
+	var ctrl: Vector2 = (a + to_pos) * 0.5 + Vector2(0.0, -a.distance_to(to_pos) * PLAY_ARC)
+	var lean: float = deg_to_rad(8.0) * signf(to_pos.x - a.x)
+	var mover := func(t: float) -> void:
+		if is_instance_valid(ghost):
+			ghost.position = _bezier(a, ctrl, to_pos, t) - size * 0.5
+			ghost.rotation = lean * sin(t * PI)
+	var dur: float = _dur(PLAY_TIME, speed_scale)
+	var tw: Tween = ghost.create_tween().set_parallel(true)
+	tw.tween_method(mover, 0.0, 1.0, dur).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(ghost, "scale", Vector2(1.08, 1.08), dur * 0.5)
+	tw.chain().tween_property(ghost, "scale", Vector2.ONE, _dur(0.06, speed_scale))
+	await tw.finished
+	BattleJuice.sparks(layer, to_pos, color, 3)
+	if is_instance_valid(ghost):
+		ghost.queue_free()
+
+## An enemy's new board card: a card back flies from `from` (global) to the
+## slot, turns edge-on and the face flips out with a burst. The real panel is
+## hidden until then. Not awaited by callers.
+static func reveal_play(layer: CanvasLayer, panel: Control, from: Vector2, speed_scale: float, color: Color) -> void:
+	if panel == null or not is_instance_valid(panel) or layer == null or not is_instance_valid(layer):
+		return
+	panel.modulate.a = 0.0
+	await panel.get_tree().process_frame
+	if not is_instance_valid(panel) or not is_instance_valid(layer):
+		return
+	var rect: Rect2 = panel.get_global_rect()
+	if rect.size == Vector2.ZERO:
+		panel.modulate.a = 1.0
+		return
+	var ghost: PanelContainer = make_back(rect.size)
+	ghost.position = from - rect.size * 0.5
+	ghost.scale = Vector2(0.7, 0.7)
+	layer.add_child(ghost)
+	var dur: float = _dur(PLAY_TIME, speed_scale)
+	var tw: Tween = ghost.create_tween().set_parallel(true)
+	tw.tween_property(ghost, "position", rect.position, dur).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(ghost, "scale", Vector2.ONE, dur)
+	tw.chain().tween_property(ghost, "scale:x", 0.0, _dur(FLIP_TIME, speed_scale))
+	await tw.finished
+	if is_instance_valid(ghost):
+		ghost.queue_free()
+	if not is_instance_valid(panel):
+		return
+	flip_out(panel, speed_scale)
+	BattleJuice.sparks(layer, rect.get_center(), color, 3)
 
 ## Hover / press feedback on a hand card: lift, a slight tilt and a brighter
 ## frame (`self_modulate` only touches the panel's own frame and rim).

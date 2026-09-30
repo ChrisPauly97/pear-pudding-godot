@@ -8,6 +8,7 @@ const ZoneState = preload("res://game_logic/battle/ZoneState.gd")
 const GameState = preload("res://game_logic/battle/GameState.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _BattleJuice = preload("res://scenes/battle/BattleJuice.gd")
+const _CardMotion = preload("res://scenes/battle/CardMotion.gd")
 
 var _state: GameState
 var _vh: float
@@ -456,8 +457,19 @@ func pop_new_board_cards() -> void:
 		for c: CardInstance in _seat_player(seat).board.get_cards():
 			now[c.instance_id] = true
 			if not seen.has(c.instance_id):
-				_BattleJuice.pop_in(get_card_panel(c, is_enemy))
+				_enter_board(c, is_enemy)
 		_seen_board[seat] = now
+
+
+## Enemy cards are played face-down from the enemy hero and flip over on
+## their slot (GID-151); anything else new on the board pops in.
+func _enter_board(c: CardInstance, is_enemy: bool) -> void:
+	var panel: Control = get_card_panel(c, is_enemy)
+	if not is_enemy or _enemy_hero_view == null or not _enemy_hero_view.is_visible_in_tree():
+		_BattleJuice.pop_in(panel)
+		return
+	_CardMotion.reveal_play(_float_layer, panel, _enemy_hero_view.get_global_rect().get_center(), 1.0,
+			_CardMotion.card_color(c.magic_branch))
 
 
 ## Skips the pop-in for a card that already got its own entrance (the local

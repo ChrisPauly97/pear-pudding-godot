@@ -3,6 +3,7 @@
 ##   OUT=/tmp/battle.png xvfb-run -a -s "-screen 0 1920x1080x24" \
 ##     godot --path . --rendering-driver opengl3 --resolution 1920x1080 -s tools/capture_battle_cards.gd
 ## DECK (comma list) sets the hand, MODE=realtime|turn, WAIT_MS delays the capture,
+## REVEAL=<ms> has the enemy play a card and captures <ms> later,
 ## HOVER=1 lifts the second hand card, POST_MS is the time after the hand is dealt
 ## (small values catch animations mid-flight).
 extends SceneTree
@@ -62,6 +63,11 @@ func _run() -> void:
 	(me.get("hero") as Object).set("mana", 10)
 	battle.call("_refresh_all")
 	await _wait(int(OS.get_environment("POST_MS")) if OS.get_environment("POST_MS") != "" else 800)
+	if OS.get_environment("REVEAL") != "":
+		var foe: Object = (state.get("players") as Array)[1]
+		(foe.get("board") as Object).call("add_card", _CardInstance.new(_CardRegistry.get_template("ash_warden")))
+		battle.call("_refresh_all")
+		await _wait(int(OS.get_environment("REVEAL")))
 	var hv: Control = battle.get("_player_hand_view") as Control
 	if OS.get_environment("HOVER") != "" and hv != null and hv.get_child_count() > 1:
 		(battle.get("card_input") as Object).call("_set_hover_lift", hv.get_child(1), true)

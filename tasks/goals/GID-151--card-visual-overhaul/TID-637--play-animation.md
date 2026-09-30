@@ -2,7 +2,7 @@
 
 **Goal:** GID-151
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-634
 
 ## Lock
@@ -40,12 +40,12 @@ Shared facts (research 2026-09-30):
 
 ## Plan
 
-_Written during Plan phase._
+Move the hand→board travel tween into CardMotion as an arc + landing burst; enemy board entrances become a flip-reveal from the enemy hero.
 
 ## Changes Made
 
-_Filled after Build phase._
+`CardMotion.play_arc`, `reveal_play`, `card_color`. `BattleScene._animate_card_travel` delegates (shorter). `BattleFx._enter_board` replaces enemy pop-ins. Capture script: REVEAL.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+docs/agent/card-visuals.md (play arc, enemy flip-reveal).
