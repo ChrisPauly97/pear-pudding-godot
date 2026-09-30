@@ -381,6 +381,37 @@ ENEMIES = {
          "....ll..ll...."], ECHO),
 }
 
+# GID-152 / TID-645: walk frames derived from the idle sprite. The bottom rows
+# (legs, tail tip, worm body) split at the centre and stride in opposite
+# directions; the frames between strides bob the body down a pixel. Floaters
+# (no legs to stride) only bob. Frames are padded one pixel each side so a
+# stride never clips; the sprite is centred, so idle and walk still line up.
+FLOATERS = {"rift_echo"}
+STRIDE = [(1, -1, 0), (0, 0, 1), (-1, 1, 0), (0, 0, 1)]  # (left dx, right dx, bob)
+
+
+def walk_frames(idle, legs_frac=0.3, floater=False):
+    w, h = idle.size
+    leg_top = h - max(2, int(round(h * legs_frac)))
+    mid = w // 2
+    out = []
+    for lx, rx, bob in STRIDE:
+        if floater:
+            lx = rx = 0
+        f = Image.new("RGBA", (w + 2, h), (0, 0, 0, 0))
+        body = idle.crop((0, 0, w, leg_top))
+        f.alpha_composite(body, (1, bob))
+        left = idle.crop((0, leg_top, mid, h))
+        right = idle.crop((mid, leg_top, w, h))
+        # Legs first so the body's lower edge (bobbed down) overlaps the hip.
+        legs = Image.new("RGBA", (w + 2, h), (0, 0, 0, 0))
+        legs.alpha_composite(left, (1 + lx, leg_top))
+        legs.alpha_composite(right, (1 + mid + rx, leg_top))
+        legs.alpha_composite(f)
+        out.append(legs)
+    return out
+
+
 if __name__ == "__main__":
     for key, frames in CRITTERS.items():
         pal = {"mouse": MOUSE, "rat": RAT, "butterfly": FLY, "bee": BEE, "scorched_larva": LARVA,
@@ -389,4 +420,7 @@ if __name__ == "__main__":
             build(rows, pal, shade=key not in ("butterfly", "bee")).save(
                 os.path.join(ROOT, "critters", "%s_%d.png" % (key, i)))
     for key, (rows, pal) in ENEMIES.items():
-        build(rows, pal).save(os.path.join(ROOT, "characters", "enemy_%s.png" % key))
+        idle = build(rows, pal)
+        idle.save(os.path.join(ROOT, "characters", "enemy_%s.png" % key))
+        for i, fr in enumerate(walk_frames(idle, floater=key in FLOATERS)):
+            fr.save(os.path.join(ROOT, "characters", "enemy_%s_walk_%d.png" % (key, i + 1)))

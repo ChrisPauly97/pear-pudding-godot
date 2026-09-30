@@ -19,6 +19,7 @@ from pathlib import Path
 
 from PIL import Image
 
+import generate_sprites
 import pixel_palette as P
 from generate_sprites import Canvas, chest_body, pad
 
@@ -127,9 +128,16 @@ CLOTH = {
 }
 
 
+IDLE_BLINK, IDLE_GLANCE = 5, 6
+
+
 def person(spec):
     """A standing townsperson from a spec: hair, dress/tunic colours, extras."""
     def draw(frame):
+        # Frames 0-4: idle + walk. 5 = blink, 6 = glance aside (idle pose; GID-152 / TID-650).
+        blink, glance = frame == IDLE_BLINK, frame == IDLE_GLANCE
+        if frame >= IDLE_BLINK:
+            frame = 0
         c = Canvas(W, H)
         lx, rx, bob = _walk(frame)
         top = 2 + bob
@@ -229,8 +237,14 @@ def person(spec):
                 c.blob(9.5, top + 10, 2.8, 3.6, hair)
             else:
                 c.blob(9.5, top + 8, 2.6, 1.8, hair)
-        c.set(8, top + 5, (34, 34, 34))
-        c.set(11, top + 5, (34, 34, 34))
+        if blink:
+            c.line(8, top + 5, 11, top + 5, P.SKIN[1])  # lids closed
+            c.set(8, top + 5, P.SKIN[0])
+            c.set(11, top + 5, P.SKIN[0])
+        else:
+            eye_dx = 1 if glance else 0
+            c.set(8 + eye_dx, top + 5, (34, 34, 34))
+            c.set(11 + eye_dx, top + 5, (34, 34, 34))
         c.outline()
         return c.image()
     return draw
@@ -339,10 +353,10 @@ def horse(frame):
     lx, rx, _bob = _walk(frame)
     coat = [(72, 45, 38), (118, 70, 50), (160, 100, 64), (197, 140, 96)]
     mane = [(34, 24, 24), (58, 40, 36), (72, 59, 58), (96, 72, 64)]
-    for x0, dx in ((7, lx), (10, rx), (20, rx), (23, lx)):   # legs
-        c.line(x0, 20, x0 + dx * 0.5, 29, coat[1])
-        c.line(x0 + 1, 20, x0 + 1 + dx * 0.5, 29, coat[0])
-        c.rect(int(x0 + dx * 0.5), 30, int(x0 + dx * 0.5) + 1, 31, DARK)
+    for x0, dx in ((7, lx), (10, rx), (20, rx), (23, lx)):   # legs (full swing: a trot reads at 32 px)
+        c.line(x0, 20, x0 + dx, 29, coat[1])
+        c.line(x0 + 1, 20, x0 + 1 + dx, 29, coat[0])
+        c.rect(int(x0 + dx), 30, int(x0 + dx) + 1, 31, DARK)
     c.blob(15, 17, 10.0, 4.8, coat)                        # barrel
     c.blob(6, 16, 3.2, 3.8, coat)                          # hindquarters
     c.line(4, 14, 1, 21, mane[1])                          # tail
@@ -479,17 +493,70 @@ CHARACTERS = {
     "mount_horse": horse,
 }
 
-# Only these get walk frames; the loader animates Maiteln alone (SpriteRegistry.maiteln_walk_frames), so the rest
-# are idle-only and their pack walk frames were deleted (TID-610).
+# These get walk frames: Maiteln (SpriteRegistry.maiteln_walk_frames) and every enemy, which animate while they
+# move (WalkCycle, GID-152 / TID-645). Walkers' frames share one crop box so the body never shifts between frames.
 WALKERS = {"npc_maiteln"}
 
 
 for _name, _spec in list(NPCS.items()) + list(CAST.items()):
     CHARACTERS[_name] = person(_spec)
+# People who stand about get idle-life frames (blink / glance); enemies animate by walking instead.
+PEOPLE = {n for n in list(NPCS) + list(CAST) if n.startswith("npc_") and n != "npc_maiteln"}  # Maiteln walks
+
+
+for _name in list(CHARACTERS):
+    if _name.startswith("enemy_") and _name != "enemy_mimic":  # the mimic lies in wait, it never walks
+        WALKERS.add(_name)
 
 
 def frames(fn):
     return [fn(i) for i in range(5)]
+
+
+def horse_frames():
+    """Idle + 4 trot frames on the horse's fixed 32×32 canvas, all placed where the idle lands (bottom-centre of its
+    trimmed box), so the saddle — and the rider on it — never shifts; only the legs move."""
+    idle = horse(0)
+    generate_sprites.TRIM = False
+    try:
+        raw = [horse(i) for i in range(5)]
+    finally:
+        generate_sprites.TRIM = True
+    box = raw[0].getbbox()
+    dx = (32 - (box[2] - box[0])) // 2 - box[0]
+    out = [idle]
+    for fr in raw[1:]:
+        f = Image.new("RGBA", fr.size, (0, 0, 0, 0))
+        f.alpha_composite(fr, (dx, 0)) if dx >= 0 else f.alpha_composite(fr.crop((-dx, 0, fr.width, fr.height)))
+        out.append(f)
+    return out
+
+
+def untrimmed(fn, idxs):
+    generate_sprites.TRIM = False
+    try:
+        return [fn(i) for i in idxs]
+    finally:
+        generate_sprites.TRIM = True
+
+
+def shared_box(fs):
+    """Union content box of frames, extended to the bottom row (the ground line)."""
+    boxes = [f.getbbox() for f in fs if f.getbbox()]
+    return (min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), fs[0].height)
+
+
+def walker_frames(fn):
+    """Idle + 4 walk frames cropped to their shared content box, so the body never shifts between frames."""
+    fs = untrimmed(fn, range(5))
+    box = shared_box(fs)
+    return [f.crop(box) for f in fs]
+
+
+def idle_life_frames(fn, walker):
+    """Blink + glance frames cropped with the same box as the saved idle (TID-650)."""
+    box = shared_box(untrimmed(fn, range(5) if walker else [0]))
+    return [f.crop(box) for f in untrimmed(fn, [IDLE_BLINK, IDLE_GLANCE])]
 
 
 def main():
@@ -507,9 +574,16 @@ def main():
         return
     OUT.mkdir(parents=True, exist_ok=True)
     for name, fn in CHARACTERS.items():
-        fs = frames(fn)
+        if name == "mount_horse":
+            fs = horse_frames()
+        else:
+            fs = walker_frames(fn) if name in WALKERS else frames(fn)
         fs[0].save(OUT / f"{name}.png")
-        if name not in WALKERS:
+        if name in PEOPLE:  # idle life: blink + glance (TID-650)
+            for i, im in enumerate(idle_life_frames(fn, name in WALKERS), 1):
+                assert im.size == fs[0].size, name
+                im.save(OUT / f"{name}_idle_{i}.png")
+        if name not in WALKERS and name != "mount_horse":
             continue  # nothing animates their walk: idle only
         for i in range(1, 5):
             fs[i].save(OUT / f"{name}_walk_{i}.png")

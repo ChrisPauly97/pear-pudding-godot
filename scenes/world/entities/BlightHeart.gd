@@ -7,6 +7,7 @@ const _WEB = preload("res://scenes/world/entities/WorldEntityBase.gd")
 
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
+const _SpriteLoop = preload("res://scenes/world/entities/SpriteLoop.gd")
 
 ## Crystal-cluster sprite target height — boss-sized landmark.
 const _HEART_HEIGHT: float = 1.5
@@ -47,6 +48,7 @@ func _ready() -> void:
 		_SpriteRegistry.setup_sprite(sprite, tex)  # drawn at its height in px (tools/generate_sprites.py)
 		_SpriteRegistry.apply_billboard_flags(sprite)
 		add_child(sprite)
+		_SpriteLoop.ensure(self, sprite)  # TID-648: heartbeat
 		core = sprite
 	else:
 		var mesh_inst := MeshInstance3D.new()

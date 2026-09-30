@@ -39,6 +39,8 @@ static func _build(key: String) -> AudioStreamWAV:
 			s = _gen_crickets()
 		"owls":
 			s = _gen_owls()
+		"stream":
+			s = _gen_stream()
 		_:
 			s = _gen_wind()
 	_SfxGen._make_seamless(s, int(0.15 * MIX_RATE))
@@ -178,4 +180,28 @@ static func _gen_owls() -> PackedFloat32Array:
 		for i in m:
 			hoot[i] *= sin(PI * float(i) / float(m))
 		_add_into(bed, hoot, int(hoot_times[idx] * MIX_RATE))
+	return bed
+
+
+
+# ── Place layers ──────────────────────────────────────────────────────────
+
+## Babbling stream (GID-152 / TID-644): a soft low wash of moving water with a
+## steady scatter of short rising "bloop" bubbles and a few trickles.
+static func _gen_stream() -> PackedFloat32Array:
+	var dur: float = 6.0
+	var bed: PackedFloat32Array = _scaled(_SfxGen._lowpass(_SfxGen._noise(dur, 1.0, 1414), 0.05), 0.22)
+	_swell(bed, 3.0, 0.25)
+	var r: RandomNumberGenerator = _SfxGen._rng(1415)
+	for _b in 90:
+		var f: float = r.randf_range(380.0, 900.0)
+		var blip: PackedFloat32Array = _SfxGen._sine_sweep(f, f * r.randf_range(1.4, 2.1), r.randf_range(0.025, 0.06),
+				r.randf_range(0.04, 0.11))
+		_SfxGen._apply_env_ad(blip, 0.003, 70.0)
+		_add_into(bed, blip, r.randi_range(0, bed.size() - 1))
+	for c in 20:
+		var trickle: PackedFloat32Array = _scaled(_SfxGen._lowpass(_SfxGen._noise(r.randf_range(0.08, 0.2), 1.0,
+				1500 + c), 0.3), r.randf_range(0.05, 0.1))
+		_SfxGen._apply_env_ad(trickle, 0.01, 18.0)
+		_add_into(bed, trickle, r.randi_range(0, bed.size() - 1))
 	return bed

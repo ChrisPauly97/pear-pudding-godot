@@ -37,7 +37,7 @@ const _WORLD_SCENE_PATH := "res://scenes/world/WorldScene.gd"
 ## unload (BID-055 follow-up, tests/chunk_unload_smoke.gd) took it to 2070, and
 ## moving the environment / fill-light construction to WorldLook.gd to 2028, and
 ## moving module-owned GameBus wiring into the modules to 1986.
-const _CEILING := 1965
+const _CEILING := 1890
 
 
 func test_worldscene_stays_under_line_ceiling() -> void:

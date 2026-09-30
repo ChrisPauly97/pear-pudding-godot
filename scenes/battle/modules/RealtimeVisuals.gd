@@ -15,6 +15,7 @@ const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const _PaperDoll = preload("res://game_logic/character/PaperDoll.gd")
 const _DiagonalBoard = preload("res://scenes/battle/modules/DiagonalBoard.gd")
+const _TokenFrames = preload("res://scenes/battle/modules/TokenFrames.gd")
 
 const READY_COLOR := Color(0.35, 1.0, 0.45)
 const CHARGING_COLOR := Color(0.45, 0.75, 1.0)
@@ -45,6 +46,8 @@ var _strip: Control = null
 var _focus_ring: Panel = null
 ## Global-cooldown sweep shades over the hand cards, pooled (cards rebuild on refresh).
 var _hand_shades: Array[ColorRect] = []
+## Enemy token attack / hit / death frames (GID-152 / TID-646).
+var _token_frames: _TokenFrames = _TokenFrames.new()
 
 func _init(battle: _BattleScene) -> void:
 	_battle = battle
@@ -202,6 +205,7 @@ func _make_token(tex: Texture2D, hero_view: PanelContainer, side: int) -> PanelC
 	pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if side != RealtimeCombat.PLAYER:
 		pic.flip_h = true
+		_token_frames.register(side, pic)
 	vbox.add_child(pic)
 	hero_view.reparent(vbox, false)
 	hero_view.custom_minimum_size = Vector2(0.0, vh * 0.09)
@@ -265,6 +269,7 @@ func update(rt: RealtimeCombat, player_cast: Dictionary) -> void:
 	for side: Variant in add_rows.keys():
 		_update_units(rt, int(side), add_rows[side] as Control)
 	_update_player_cast(player_cast)
+	_token_frames.observe(rt)
 	_place_strip(_battle.get_viewport().get_visible_rect().size, _battle._vh * 0.015)
 	_update_focus_ring(rt)
 
@@ -395,6 +400,7 @@ func lunge_token(side: int, target_pos: Vector2) -> void:
 	if tok == null or tok.has_meta("lunging"):
 		return
 	tok.set_meta("lunging", true)
+	_token_frames.attack(side)
 	var home: Vector2 = tok.global_position
 	var out: Vector2 = home + (target_pos - tok.get_global_rect().get_center()) * 0.45
 	tok.z_index = 20

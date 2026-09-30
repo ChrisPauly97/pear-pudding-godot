@@ -32,6 +32,21 @@ const _DigSpot           = preload("res://scenes/world/entities/DigSpot.gd")
 const _StoryScroll       = preload("res://scenes/world/entities/StoryScroll.gd")
 const _BlightHeart       = preload("res://scenes/world/entities/BlightHeart.gd")
 const InfiniteWorldGen   = preload("res://game_logic/world/InfiniteWorldGen.gd")
+const _PropSwayShader    = preload("res://assets/shaders/prop_sway.gdshader")
+const _PropSwayShaderLit = preload("res://assets/shaders/prop_sway_lit.gdshader")
+
+## Props that bend in the wind (TID-647): key -> [lean at full wind in world
+## units, seconds per sway]. Anything absent (rocks, cacti, ash) stays rigid.
+const PROP_SWAY: Dictionary = {
+	"tree_oak": [0.12, 3.4],
+	"tree_pine": [0.1, 3.8],
+	"tree_snowpine": [0.08, 4.0],
+	"tree_dead": [0.05, 4.4],
+	"fern": [0.06, 2.4],
+	"flower": [0.07, 2.0],
+	"reed": [0.08, 1.8],
+	"thorn": [0.03, 3.0],
+}
 
 # Tile neighbourhood radius used when building the tile_grid snapshot.
 # Must match what WorldScene._snapshot_tile_grid_for() uses.
@@ -137,9 +152,11 @@ static func prepare_terrain(
 	var ley_field := PackedFloat32Array()
 	ley_field.resize(nvx * nvz)
 	var water_field := PackedFloat32Array()
+	var flow_field := PackedVector2Array()  # stream current, CUSTOM0 (TID-642)
 	var dry_points := PackedVector2Array()
 	if has_water:
 		water_field.resize(nvx * nvz)
+		flow_field.resize(nvx * nvz)
 		dry_points = _water_dry_points(chunk_data, tile_grid, grid_min_x, grid_min_z, grid_w)
 	for iz2 in range(nvz):
 		for ix2 in range(nvx):
@@ -147,12 +164,15 @@ static func prepare_terrain(
 			var gz2: float = chunk_origin.z + float(iz2) * step
 			ley_field[iz2 * nvx + ix2] = TerrainMath.ley_intensity(gx2, gz2, world_seed)
 			if has_water:
-				water_field[iz2 * nvx + ix2] = _WaterMath.water_at(gx2, gz2, world_seed, dry_points)
+				var wv: float = _WaterMath.water_at(gx2, gz2, world_seed, dry_points)
+				water_field[iz2 * nvx + ix2] = wv
+				if wv > 0.01:
+					flow_field[iz2 * nvx + ix2] = _WaterMath.flow_at(gx2, gz2, world_seed)
 
 	var terrain_res: Dictionary = TerrainMath.build_terrain_mesh(
 			hfield, grid_tile_lookup,
 			chunk_origin.x, chunk_origin.z,
-			nvx, nvz, step, IsoConst.HILL_PEAK_H, ley_field, water_field)
+			nvx, nvz, step, IsoConst.HILL_PEAK_H, ley_field, water_field, flow_field)
 
 	var wall_face_mesh: ArrayMesh = TerrainMath.build_wall_face_mesh(
 			grid_tile_lookup, grid_height_lookup,
@@ -178,6 +198,9 @@ static func prepare_terrain(
 			chunk_data, grid_tile_lookup, hfield, chunk_origin, nvx, world_seed, dry_points)
 	prop_positions.merge(_TreeScatter.compute(
 			chunk_data, grid_tile_lookup, hfield, chunk_origin, nvx, world_seed, dry_points))
+	if has_water:
+		prop_positions.merge(_compute_water_edge_props(
+				chunk_data, grid_tile_lookup, hfield, chunk_origin, nvx, world_seed, dry_points))
 
 	return {
 		"mesh":           terrain_res["mesh"],
@@ -305,6 +328,49 @@ static func _compute_prop_positions(
 				var dz: float = (float((hash_s >> 8) & 0xFF) / 255.0 - 0.5) * 0.9
 				arr.append(Vector3(base.x + dx, _TreeScatter.height_at_local(hfield, nvx, base.x + dx, base.z + dz),
 						base.z + dz))
+	return result
+
+## Reeds along stream banks and lily pads on still ponds (TID-643): up to four
+## candidate spots per grass tile, each kept by WaterMath.edge_prop.
+static func _compute_water_edge_props(
+		chunk_data: _ChunkData,
+		grid_tile_lookup: Callable,
+		hfield: PackedFloat32Array,
+		chunk_origin: Vector3,
+		nvx: int,
+		world_seed: int,
+		dry_points: PackedVector2Array) -> Dictionary:
+	const MAX_PER_TYPE: int = 40
+	var result: Dictionary = {"reed": [], "lily_pad": []}
+	var cx: int = chunk_data.cx
+	var cz: int = chunk_data.cz
+	var hash_s: int = (world_seed ^ (cx * 15731) ^ (cz * 789221) ^ 0x5bd1e995) & 0x7FFFFFFF
+	var ts: float = IsoConst.TILE_SIZE
+	for lz in range(IsoConst.CHUNK_SIZE):
+		for lx in range(IsoConst.CHUNK_SIZE):
+			var tile: int = grid_tile_lookup.call(cx * IsoConst.CHUNK_SIZE + lx, cz * IsoConst.CHUNK_SIZE + lz)
+			if tile != IsoConst.TILE_GRASS:
+				continue
+			for k in 4:
+				hash_s = (hash_s * 1103515245 + 12345 + k * 977) & 0x7FFFFFFF
+				var lpx: float = (float(lx) + 0.15 + 0.7 * float(hash_s & 0xFF) / 255.0) * ts
+				var lpz: float = (float(lz) + 0.15 + 0.7 * float((hash_s >> 8) & 0xFF) / 255.0) * ts
+				var wx: float = chunk_origin.x + lpx
+				var wz: float = chunk_origin.z + lpz
+				var w: float = _WaterMath.water_at(wx, wz, world_seed, dry_points)
+				if w <= _WaterMath.REED_MIN:
+					continue
+				var roll: float = float((hash_s >> 16) & 0x7FFF) / 32767.0
+				var key: String = _WaterMath.edge_prop(w, _WaterMath.flow_at(wx, wz, world_seed), roll)
+				if key == "":
+					continue
+				var arr: Array = result[key] as Array
+				if arr.size() >= MAX_PER_TYPE:
+					continue
+				var y: float = _TreeScatter.height_at_local(hfield, nvx, lpx, lpz)
+				if key == "lily_pad":
+					y -= _WaterMath.LILY_SINK
+				arr.append(Vector3(lpx, y, lpz))
 	return result
 
 # ── Main entry point (main thread only) ───────────────────────────────────
@@ -468,14 +534,7 @@ static func _get_prop_visual(key_str: String, variant: int = 0) -> Dictionary:
 		px = 0.5 / 16.0  # procedural fallback: old 0.5-unit quad for a 16 px texture
 	if tex == null:
 		return {}
-	var mat := StandardMaterial3D.new()
-	mat.albedo_texture = tex
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
-	mat.alpha_scissor_threshold = 0.5
-	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	mat.billboard_keep_scale = true  # per-instance mirror (TID-522)
-	_apply_lit(mat)
+	var mat: Material = _make_sway_material(key_str, tex) if PROP_SWAY.has(key_str) else _make_prop_material(tex)
 	var quad := QuadMesh.new()
 	var size := Vector2(float(tex.get_width()), float(tex.get_height())) * px
 	quad.size = size
@@ -484,6 +543,31 @@ static func _get_prop_visual(key_str: String, variant: int = 0) -> Dictionary:
 	var entry: Dictionary = {"mat": mat, "mesh": quad}
 	_prop_visual_cache[cache_key] = entry
 	return entry
+
+static func _make_prop_material(tex: Texture2D) -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.albedo_texture = tex
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+	mat.alpha_scissor_threshold = 0.5
+	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	_apply_lit(mat)
+	return mat
+
+
+## Same look as _make_prop_material, plus the wind lean (prop_sway shader).
+static func _make_sway_material(key_str: String, tex: Texture2D) -> ShaderMaterial:
+	# The shader reads the grass wind globals; register them if grass hasn't yet.
+	GrassBlades._ensure_global_param("grass_wind_scale", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 1.0)
+	GrassBlades._ensure_global_param("grass_wind_lean", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
+	var knobs: Array = PROP_SWAY[key_str] as Array
+	var mat := ShaderMaterial.new()
+	mat.shader = _PropSwayShaderLit if _lit_world else _PropSwayShader
+	mat.set_shader_parameter("albedo_texture", tex)
+	mat.set_shader_parameter("sway_amount", float(knobs[0]))
+	mat.set_shader_parameter("sway_period", float(knobs[1]))
+	return mat
+
 
 func _build_props(_biome: int, prop_positions: Dictionary) -> void:
 	if prop_positions.is_empty():
@@ -512,20 +596,16 @@ func _add_prop_multimesh(key_str: String, variant: int, positions: Array) -> voi
 	var visual: Dictionary = _get_prop_visual(key_str, variant)
 	if visual.is_empty():
 		return
-	var mat: StandardMaterial3D = visual["mat"]
+	var mat: Material = visual["mat"]
 	var quad: QuadMesh = visual["mesh"]
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.instance_count = positions.size()
 	mm.mesh = quad
 	for i in range(positions.size()):
-		var pos: Vector3 = positions[i] as Vector3
-		# Mirror variety only: scaling would break the shared pixel size. Trees
-		# keep their baked upper-left light, so they never mirror.
-		var flip: float = -1.0 if fposmod(pos.x * 3.7 + pos.z * 1.3, 2.0) > 1.0 else 1.0
-		if _TreeScatter.is_tree_key(key_str):
-			flip = 1.0
-		mm.set_instance_transform(i, Transform3D(Basis.from_scale(Vector3(flip, 1.0, 1.0)), pos))
+		# No per-instance mirror: the billboard rebuilds its scale from basis
+		# lengths (sign lost), and the art's baked top-left light must not flip (BID-082).
+		mm.set_instance_transform(i, Transform3D(Basis(), positions[i] as Vector3))
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm
 	mmi.material_override = mat
@@ -737,7 +817,11 @@ static func set_lit_world(on: bool) -> void:
 	_lit_world = on
 	for entry: Variant in _prop_visual_cache.values():
 		var d: Dictionary = entry
-		_apply_lit(d.get("mat") as StandardMaterial3D)
+		var sway := d.get("mat") as ShaderMaterial
+		if sway != null:
+			sway.shader = _PropSwayShaderLit if on else _PropSwayShader
+		else:
+			_apply_lit(d.get("mat") as StandardMaterial3D)
 	for m: Variant in _landmark_mat_cache.values():
 		_apply_lit(m as StandardMaterial3D)
 

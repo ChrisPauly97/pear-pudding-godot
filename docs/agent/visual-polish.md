@@ -400,3 +400,17 @@ Since GID-118, **character/enemy/NPC sprites use real pixel art** from
 and still generates props, mount, and card illustrations until TID-447 wires those
 slots. No `.gdshader` or `.uid` sidecars are needed (PNGs get `.import` sidecars from
 the editor/headless import; those are committed).
+
+## Plant wind sway (GID-152 / TID-647)
+
+Trees and soft plants lean with the weather wind. `ChunkRenderer.PROP_SWAY` maps a prop key to `[lean at full wind
+(world units), seconds per sway]`; those keys get a `ShaderMaterial` on `prop_sway.gdshader` /
+`prop_sway_lit.gdshader` (shared `prop_sway.gdshaderinc`) instead of the StandardMaterial3D, with the same look
+(camera-facing billboard keeping scale, alpha scissor 0.5, nearest filtering, unshaded or lit per
+`set_lit_world`). Rocks, boulders, cacti, ash, embers, lichen, mushrooms and lily pads stay rigid.
+
+The vertex stage leans the quad's top (weight = height²) along the camera's right axis by
+`dot(plant_wind_dir, right) × (sway × grass_wind_scale + grass_wind_lean) × sway_amount`, with time stepped at 6 fps
+and the offset rounded to whole texels (0.05 u), phase hashed from the instance position. Wind comes from the grass
+globals (`grass_wind_scale` / `grass_wind_lean`, written from `WeatherLook`) plus the new `plant_wind_dir` global
+(project.godot `[shader_globals]`, set in `GrassBlades.set_wind_direction`).

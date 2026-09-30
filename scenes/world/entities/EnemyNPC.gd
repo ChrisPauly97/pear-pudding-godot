@@ -6,6 +6,7 @@ const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const _EnemyAlertState = preload("res://game_logic/world/EnemyAlertState.gd")
 const _ContactShadow = preload("res://game_logic/ContactShadow.gd")
 const _IdleLife = preload("res://game_logic/IdleLife.gd")
+const _WalkCycle = preload("res://scenes/world/entities/WalkCycle.gd")
 const _SpriteOutline = preload("res://game_logic/SpriteOutline.gd")
 const _ZoneLevels = preload("res://game_logic/world/ZoneLevels.gd")
 
@@ -53,6 +54,7 @@ func _ready() -> void:
 	elif _is_boss:
 		scale = Vector3(1.3, 1.3, 1.3)
 	_add_pack_followers(etype)
+	_add_walk_cycle()
 	if _tracking:
 		_setup_proximity_area()
 		_setup_awareness_area()
@@ -348,6 +350,21 @@ func _add_difficulty_pip(enemy_type: String) -> void:
 ## Pack encounters (TID-541): the units that will start on the enemy board stand
 ## around the leader, slightly smaller, so the world shows what you'll fight.
 ## Children of this node, so they wander, chase and vanish with it.
+## GID-152 / TID-645: stride while moving (the leader and its pack alike).
+func _add_walk_cycle() -> void:
+	var walk: _WalkCycle = _WalkCycle.new()
+	walk.name = "WalkCycle"
+	walk.add_sprite(_sprite, _SpriteRegistry.walk_frames(_sprite.texture))
+	for child: Node in get_children():
+		var follower := child as Sprite3D
+		if follower != null and follower != _sprite and follower.name.begins_with("PackFollower"):
+			walk.add_sprite(follower, _SpriteRegistry.walk_frames(follower.texture))
+	if walk.has_tracks():
+		add_child(walk)
+	else:
+		walk.free()
+
+
 func _add_pack_followers(etype: String) -> void:
 	var pack: Array[String] = EnemyRegistry.get_pack(etype)
 	var height: float = _SpriteRegistry.enemy_world_height(etype, false, false) * 0.8

@@ -34,10 +34,19 @@ mono or stereo, a few seconds to a minute.
 
 ## Shipped files (GID-145 / TID-616)
 
-Every slot except `owls.ogg` has a real CC0 loop (sources in `CREDITS.md`); owls
-still use the `AmbienceGen` synth. The five biome beds are the same wind loop
+Every slot has a real loop (sources in `CREDITS.md`): CC0 packs, plus public-domain
+field recordings for `owls.ogg` and `stream.ogg` (BID-073 / BID-083). The five biome beds are the same wind loop
 run through different filters/playback rates (low-passed breeze for
 grasslands/forest, bright for desert, rumble for scorched, full for mountains),
 rendered from three back-to-back copies with only the middle copy kept, so the
 filter tail makes the loop seamless. Every `.ogg.import` here sets `loop=true`;
 `test_sfx_assets` fails if one doesn't.
+
+
+## Stream layer (GID-152 / TID-644)
+
+| File | Layer | Plays when |
+|---|---|---|
+| `stream.ogg` | water | within 10 world units of a stream or pond (infinite world), full within 2 |
+
+A brook field recording (see CREDITS.md); `AmbienceGen._gen_stream()` stays as the fallback.

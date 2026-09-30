@@ -59,6 +59,7 @@ varying float v_d1;         // fbm noise channel 1, computed per-vertex
 varying float v_ley;        // ley line intensity [0..1], baked into UV2.x per vertex
 varying float v_dip;        // 0 low .. 1 high flat-ground jitter (TID-515 puddles)
 varying float v_water;      // stream/pond intensity [0..1], baked into UV2.y (GID-134 / TID-524)
+varying vec2  v_flow;       // stream current (dir × speed), baked into CUSTOM0.xy (TID-642); 0 = still
 
 // -- noise for micro grass detail on flat areas --
 float hash2(vec2 p) {
@@ -124,6 +125,7 @@ void vertex() {
 	// Streams and ponds (UV2.y): the water surface sits a little below the
 	// meadow so it reads as a channel; collision is untouched (the hero wades).
 	v_water = UV2.y;
+	v_flow = CUSTOM0.xy;
 	if (v_water > 0.01 && v_path < 0.5) {
 		VERTEX.y -= smoothstep(0.1, 0.6, v_water) * 0.2 * flat_factor;
 	}
@@ -347,11 +349,43 @@ void fragment() {
 			float depth = wv - 0.24;
 			vec3 wcol = depth < 0.2 ? vec3(0.20, 0.40, 0.43)
 				: (depth < 0.45 ? vec3(0.14, 0.31, 0.40) : vec3(0.09, 0.22, 0.34));
-			// Ripple streaks, stretched along the flow and stepped in time.
+			// Ripple streaks, stepped in time. Streams scroll them along the
+			// baked current (TID-642) as a two-phase flow map: each layer drifts
+			// for one cycle then resets while hidden, so the pattern never
+			// smears out; still ponds keep a slow wind drift.
 			float frame = floor(TIME * 4.0) / 4.0;
-			float rip = vnoise(wq * vec2(1.2, 3.0) + vec2(frame * 0.35, frame * 0.2));
+			float rip;
+			float foam = 0.0;
+			float spd = length(v_flow);
+			if (spd > 0.05) {
+				const float CYCLE = 1.5;
+				const float RIPPLE_SPEED = 1.5;  // world units / s at flow speed 1
+				float ph0 = fract(frame / CYCLE);
+				float ph1 = fract(frame / CYCLE + 0.5);
+				vec2 w0 = wq - v_flow * ph0 * CYCLE * RIPPLE_SPEED;
+				vec2 w1 = wq - v_flow * ph1 * CYCLE * RIPPLE_SPEED + vec2(17.3, 9.1);
+				float r0 = vnoise(w0 * 1.8);
+				float r1 = vnoise(w1 * 1.8);
+				// Threshold each layer, then fade it by weight: a streak pops in or
+				// out whole (pixel look) instead of the blend washing both out.
+				float bl = abs(2.0 * ph0 - 1.0);
+				float s0 = step(0.68, r0) * step(0.25, 1.0 - bl);
+				float s1 = step(0.68, r1) * step(0.25, bl);
+				rip = max(s0, s1);
+				// Foam (TID-643): white flecks riding the current, thick in the
+				// narrows (fast water) and along the banks, thin mid-stream.
+				float f0 = vnoise(w0 * 3.4 + vec2(5.1, 2.7));
+				float f1 = vnoise(w1 * 3.4 + vec2(5.1, 2.7));
+				float fl = mix(step(0.2, 1.0 - bl) * f0, step(0.2, bl) * f1, step(0.5, bl));
+				float rapids = smoothstep(1.2, 1.9, spd);
+				float bank = 1.0 - smoothstep(0.02, 0.12, depth);
+				foam = step(0.9 - 0.08 * max(rapids, bank), fl);
+			} else {
+				rip = vnoise(wq * vec2(1.2, 3.0) + vec2(frame * 0.35, frame * 0.2));
+			}
 			wcol = mix(wcol, wcol * 1.3 + vec3(0.03), step(0.7, rip));
 			wcol = mix(wcol, vec3(0.80, 0.90, 0.93), step(0.992, blink) * step(0.05, depth));
+			wcol = mix(wcol, vec3(0.86, 0.93, 0.94), foam);
 			// One-texel pale shoreline where the water meets the bank.
 			// fwidth(v_water) is its change per screen pixel; a texel spans ~2.5.
 			wcol = mix(wcol, vec3(0.48, 0.62, 0.58), step(depth, fwidth(v_water) * 2.5));

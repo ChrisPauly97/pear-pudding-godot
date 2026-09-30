@@ -23,6 +23,10 @@ const _RainParticles = preload("res://game_logic/RainParticles.gd")
 const _WeatherParticles = preload("res://scenes/world/WeatherParticles.gd")
 const _WaterMath = preload("res://game_logic/world/WaterMath.gd")
 const _ChunkRenderer = preload("res://scenes/world/ChunkRenderer.gd")
+const _AmbienceLayers = preload("res://game_logic/AmbienceLayers.gd")
+## Stream sound probe (TID-644): rings of sample points around the hero.
+const WATER_PROBE_RADII: Array[float] = [0.0, 2.5, 5.0, 7.5, 10.0]
+const WATER_PROBE_DIRS: int = 8
 
 const REFRESH_INTERVAL: float = 0.5
 const FIREFLY_LIFT: float = 1.0
@@ -71,6 +75,7 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	_free_weather_rig()
+	AudioManager.set_water_proximity(0.0)  # battles, menus and map changes leave the stream behind
 
 
 ## Weather visuals: particle rig, sky/fog look (DayNightCycle, TID-486) and grass
@@ -153,6 +158,7 @@ func refresh() -> void:
 			and _ChunkRenderer.water_at_world(_world._csm, p.x, p.z, SceneManager.save_manager.world_seed)
 				> _WaterMath.WET_LEVEL)
 	_apply_ground_wet(wading or (_world._dnc != null and _world._dnc.wetness() > WET_SPLASH_THRESHOLD))
+	AudioManager.set_water_proximity(_AmbienceLayers.stream_gain(_nearest_water(p)))
 	var on: bool = bool(knobs.get("ambient_particles", false)) and _world._is_infinite
 	var biome: int = _world._current_biome if on else -1
 	var weather: String = WeatherManager.shown(WeatherManager.current_weather)
@@ -191,6 +197,22 @@ func refresh() -> void:
 		_AmbientParticles.set_mist_tint(_AmbientParticles.mist_color(sun_h))
 	if _leaves != null and _leaf_level > 0.0:
 		_AmbientParticles.apply_wind(_leaves.process_material as ParticleProcessMaterial, wind_dir, wind_scale)
+
+
+## Distance to the nearest wet sample around `p` (INF when none / not the
+## infinite world): nearest ring first, so wading stops at the first sample.
+func _nearest_water(p: Vector3) -> float:
+	if not _world._is_infinite or _world._csm == null or not _WaterMath.biome_has_water(_world._current_biome):
+		return INF
+	var ws: int = SceneManager.save_manager.world_seed
+	for r: float in WATER_PROBE_RADII:
+		var n: int = 1 if r == 0.0 else WATER_PROBE_DIRS
+		for i: int in n:
+			var a: float = TAU * float(i) / float(n)
+			var w: float = _ChunkRenderer.water_at_world(_world._csm, p.x + cos(a) * r, p.z + sin(a) * r, ws)
+			if w > _WaterMath.WET_LEVEL:
+				return r
+	return INF
 
 
 func _spawn(node: GPUParticles3D, knobs: Dictionary) -> GPUParticles3D:

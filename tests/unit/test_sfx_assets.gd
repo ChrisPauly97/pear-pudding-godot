@@ -30,8 +30,7 @@ func test_ambience_files_exist_and_loop() -> void:
 	var paths: Array[String] = []
 	paths.assign(AudioManager.AMBIENCE_PATHS)
 	for key: String in _AmbienceLayers.LAYER_PATHS:
-		if key != "owls":  # no clean CC0 owl loop yet; synthesized fallback
-			paths.append(str(_AmbienceLayers.LAYER_PATHS[key]))
+		paths.append(str(_AmbienceLayers.LAYER_PATHS[key]))
 	for path: String in paths:
 		assert_true(ResourceLoader.exists(path), "missing %s" % path)
 		var stream := load(path) as AudioStreamOggVorbis

@@ -20,6 +20,7 @@ const AMBIENCE_CROSSFADE: float = 2.0
 const BIOME_LAYER_GAIN: float = 0.4
 const WEATHER_LAYER_GAIN: float = 0.5
 const TIME_LAYER_GAIN: float = 0.3
+const WATER_LAYER_GAIN: float = 0.45  # stream babble near water (TID-644), × proximity
 const _SILENT_DB: float = -80.0
 
 # Music ducking fade times (levels live in AmbienceLayers.music_duck).
@@ -107,6 +108,7 @@ class AmbLayer:
 var _biome_layer := AmbLayer.new()
 var _weather_layer := AmbLayer.new()
 var _time_layer := AmbLayer.new()
+var _water_layer := AmbLayer.new()
 var _amb_biome: int = -1          # currently playing biome id (-1 = none / named map)
 var _weather_id: String = ""      # last WeatherManager weather id
 var _in_named_map: bool = false
@@ -378,7 +380,13 @@ func get_ambience_keys() -> Dictionary:
 	return {"biome": _biome_layer.key, "weather": _weather_layer.key, "time": _time_layer.key}
 
 func _all_layers() -> Array[AmbLayer]:
-	return [_biome_layer, _weather_layer, _time_layer]
+	return [_biome_layer, _weather_layer, _time_layer, _water_layer]
+
+## Stream babble near water (GID-152 / TID-644): `amount` 0..1 from
+## AmbienceLayers.stream_gain(); 0 fades the layer out.
+func set_water_proximity(amount: float) -> void:
+	var key: String = "stream" if amount > 0.01 else ""
+	_crossfade_layer(_water_layer, key, _layer_stream(key), WATER_LAYER_GAIN * amount)
 
 func _in_battle() -> bool:
 	return SceneManager.current_state() == _SceneFlow.State.BATTLE

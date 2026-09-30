@@ -233,6 +233,29 @@ func test_build_terrain_mesh_hmap_data_matches_input() -> void:
 	var hmap: HeightMapShape3D = result["hmap"] as HeightMapShape3D
 	assert_almost_eq(hmap.map_data[4], 1.5, 0.001)
 
+
+## TID-642: a flow field lands in CUSTOM0 (RG float); without one there is none.
+func test_build_terrain_mesh_bakes_flow_into_custom0() -> void:
+	var nvx: int = 3
+	var nvz: int = 3
+	var flow := PackedVector2Array()
+	flow.resize(nvx * nvz)
+	flow[4] = Vector2(0.5, -1.0)
+	var result: Dictionary = TerrainMath.build_terrain_mesh(
+		_flat_hfield(nvx, nvz), _tile_all_grass,
+		0.0, 0.0, nvx, nvz, IsoConst.TILE_SIZE, 2.0,
+		PackedFloat32Array(), PackedFloat32Array(), flow)
+	var mesh: ArrayMesh = result["mesh"] as ArrayMesh
+	var arrays: Array = mesh.surface_get_arrays(0)
+	var custom: PackedFloat32Array = arrays[Mesh.ARRAY_CUSTOM0]
+	assert_almost_eq(custom[8], 0.5, 0.001)
+	assert_almost_eq(custom[9], -1.0, 0.001)
+	var plain: ArrayMesh = TerrainMath.build_terrain_mesh(
+		_flat_hfield(nvx, nvz), _tile_all_grass,
+		0.0, 0.0, nvx, nvz, IsoConst.TILE_SIZE, 2.0)["mesh"] as ArrayMesh
+	assert_eq(plain.surface_get_arrays(0)[Mesh.ARRAY_CUSTOM0], null, "no flow, no CUSTOM0")
+
+
 # Mixed terrain: hill at (5,5) h=3, wall at (2,8), cracked wall at (9,3) h=2.
 func _make_packed_grids() -> Array:
 	var tile_grid := PackedInt32Array()

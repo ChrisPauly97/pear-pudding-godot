@@ -187,3 +187,38 @@ The grass shader is a thin header plus a shared body include (`grass_tuft.gdshad
 #### Grass colour (GID-131 / TID-506)
 
 Tufts map the atlas tone onto `color_base × 0.6 → color_mid → color_tip` (defaults muted to sit on the Grasslands ground: base (0.12, 0.23, 0.07), mid (0.22, 0.35, 0.11), tip (0.34, 0.46, 0.16)) (tones are quantised in the atlas, so the result stays flat pixel-art colour). (Historically the blades used a smooth gradient that replaced three hard bands whose olive base read as dark spikes.) New defaults are base (0.18, 0.38, 0.13), mid (0.32, 0.58, 0.19), tip (0.56, 0.80, 0.30). A hash of the blade root (`v_root_world`) jitters brightness ±10 %, and one in five blades gets a drier tint. Contact shadows darken the lower blade (`mix(contact_shadow(root), 1, UV.y × 0.6)`).
+
+## Stream current (GID-152 / TID-642)
+
+Streams flow. `WaterMath.flow_at(wx, wz, seed)` returns the current as direction × speed: the stream is the zero
+contour of the stream noise, so the direction is the noise gradient turned 90° (continuous across the contour, so
+one orientation along the whole stream and across chunk borders). Speed = gradient magnitude /
+`FLOW_TYPICAL_GRADIENT`, clamped `FLOW_MIN_SPEED..FLOW_MAX_SPEED`, so narrow stretches run faster. Ponds (pond noise
+dominating) and dry ground return zero. The only reversals are near noise saddles where two branches meet.
+
+`ChunkRenderer` samples it at every wet vertex (> 0.01) and `TerrainMath.build_terrain_mesh(..., flow_field)` bakes
+it into `CUSTOM0.xy` (`ARRAY_CUSTOM_RG_FLOAT`; skirts and meshes without a flow field read zero). The shader's
+`v_flow` scrolls ripple streaks as a two-phase flow map (`CYCLE` 1.5 s, `RIPPLE_SPEED` 1.5 u/s at speed 1): each
+layer is thresholded then shown only while its weight is ≥ 0.25, so streaks pop in whole rather than smearing, and
+the pattern never distorts over time. Still water (`|v_flow| ≤ 0.05`) keeps the old slow wind drift.
+
+### Foam and bank dressing (TID-643)
+
+- **Foam:** the flowing-water branch also scrolls a finer noise (`×3.4`) with the same two-phase offsets and draws
+  pale flecks where it passes `0.9 − 0.08·max(rapids, bank)`: `rapids` ramps in at flow speed 1.2–1.9 (narrows),
+  `bank` in the shallowest depth band. Still ponds get no foam.
+- **Reeds / lily pads:** `ChunkRenderer._compute_water_edge_props` tries four hashed spots per grass tile in water
+  biomes and asks `WaterMath.edge_prop(water, flow, roll)`: `reed` on the bank band (`REED_MIN..REED_MAX`, straddling
+  the drawn shoreline), `lily_pad` on still water above `LILY_MIN` (sunk by `LILY_SINK` to the lowered surface).
+  Capped at 40 per type per chunk. Sprites are `prop_reed_*` / `prop_lily_pad_*` from `tools/generate_sprites.py`,
+  rendered through the normal prop MultiMesh path.
+
+### Stream sound (TID-644)
+
+AudioManager has a fourth ambience layer, `_water_layer` (`set_water_proximity(amount)`, key `stream`, gain
+`WATER_LAYER_GAIN × amount`, same crossfade as the others). Every 0.5 s `AmbientTouches.refresh()` probes water
+around the hero in rings of 0 / 2.5 / 5 / 7.5 / 10 units with 8 directions each (`_nearest_water`: nearest ring
+first, infinite world and water biomes only). It passes the distance through `AmbienceLayers.stream_gain()`: full
+within 2 u, silent past 10 u. `_exit_tree` fades the layer out for battles, menus and map changes. The loop is
+`AmbienceGen._gen_stream()` (a low wash, rising bubble blips and trickles) until a recorded `stream.ogg` lands
+(BID-083).

@@ -13,6 +13,7 @@
 extends RefCounted
 
 const _CardArtRegistry = preload("res://game_logic/CardArtRegistry.gd")
+const _WalkFrames = preload("res://game_logic/WalkFrames.gd")
 
 ## GID-143 / TID-605: graveyard dressing (tools/generate_sprites.py).
 const _GRAVEYARD_PROPS: Dictionary = {
@@ -55,6 +56,7 @@ const _ENEMY_FROST_WENDIGO := preload("res://assets/textures/characters/enemy_fr
 const _ENEMY_RIFT_ECHO := preload("res://assets/textures/characters/enemy_rift_echo.png")
 const _ENEMY_BARROW_KING := preload("res://assets/textures/characters/enemy_barrow_king.png")
 const _ENEMY_IMBUED_STAG  := preload("res://assets/textures/characters/enemy_imbued_stag.png")
+
 
 const _NPC_TOWNSPERSON    := preload("res://assets/textures/characters/npc_townsperson.png")
 const _NPC_TOWNSPERSON_2  := preload("res://assets/textures/characters/npc_townsperson_2.png")
@@ -104,6 +106,12 @@ const _PROP_BOULDER_2 := preload("res://assets/textures/props/prop_boulder_2.png
 const _PROP_LICHEN_0 := preload("res://assets/textures/props/prop_lichen_0.png")
 const _PROP_LICHEN_1 := preload("res://assets/textures/props/prop_lichen_1.png")
 const _PROP_LICHEN_2 := preload("res://assets/textures/props/prop_lichen_2.png")
+const _PROP_REED_0 := preload("res://assets/textures/props/prop_reed_0.png")
+const _PROP_REED_1 := preload("res://assets/textures/props/prop_reed_1.png")
+const _PROP_REED_2 := preload("res://assets/textures/props/prop_reed_2.png")
+const _PROP_LILY_PAD_0 := preload("res://assets/textures/props/prop_lily_pad_0.png")
+const _PROP_LILY_PAD_1 := preload("res://assets/textures/props/prop_lily_pad_1.png")
+const _PROP_LILY_PAD_2 := preload("res://assets/textures/props/prop_lily_pad_2.png")
 ## Trees (scripts/gen_tree_sprites.py), scattered in groves by TreeScatter.
 const _PROP_TREE_OAK_0 := preload("res://assets/textures/props/prop_tree_oak_0.png")
 const _PROP_TREE_OAK_1 := preload("res://assets/textures/props/prop_tree_oak_1.png")
@@ -126,6 +134,8 @@ const _PROP_VARIANTS: Dictionary = {
 	"ember": [_PROP_EMBER_0, _PROP_EMBER_1, _PROP_EMBER_2],
 	"boulder": [_PROP_BOULDER_0, _PROP_BOULDER_1, _PROP_BOULDER_2],
 	"lichen": [_PROP_LICHEN_0, _PROP_LICHEN_1, _PROP_LICHEN_2],
+	"reed": [_PROP_REED_0, _PROP_REED_1, _PROP_REED_2],            # stream banks (TID-643)
+	"lily_pad": [_PROP_LILY_PAD_0, _PROP_LILY_PAD_1, _PROP_LILY_PAD_2],  # still ponds (TID-643)
 	"tree_oak": [_PROP_TREE_OAK_0, _PROP_TREE_OAK_1, _PROP_TREE_OAK_2],
 	"tree_pine": [_PROP_TREE_PINE_0, _PROP_TREE_PINE_1, _PROP_TREE_PINE_2],
 	"tree_snowpine": [_PROP_TREE_SNOWPINE_0, _PROP_TREE_SNOWPINE_1],
@@ -311,6 +321,13 @@ static func merchant_texture(is_traveling: bool) -> Texture2D:
 
 static func maiteln_texture() -> Texture2D:
 	return _NPC_MAITELN
+
+## Walk frames for an idle character texture ([] when it has none) — TID-645.
+static func walk_frames(idle: Texture2D) -> Array[Texture2D]:
+	if idle == _NPC_MAITELN:
+		return maiteln_walk_frames()
+	return _WalkFrames.for_idle(idle)
+
 
 ## 4-frame walk cycle for Maiteln's AnimatedSprite3D (BID-051). Empty if the
 ## walk PNGs are ever removed — caller checks size before building animation

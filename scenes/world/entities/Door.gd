@@ -3,6 +3,8 @@ extends Node3D
 const _RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
 const _WEB = preload("res://scenes/world/entities/WorldEntityBase.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
+const _SpriteLoop = preload("res://scenes/world/entities/SpriteLoop.gd")
+const _LandmarkFrames = preload("res://game_logic/LandmarkFrames.gd")
 const _PlaceNames = preload("res://game_logic/PlaceNames.gd")
 
 static var _door_mat: StandardMaterial3D
@@ -47,6 +49,12 @@ func _ready() -> void:
 		else:
 			mi.material_override = _door_mat
 		mi.position = Vector3(0.0, 0.9, 0.0)
+
+## Swings the door open (TID-652) — played under the map-transition wipe.
+func play_open() -> void:
+	if _sprite != null:
+		_SpriteLoop.play_once(_sprite, _LandmarkFrames.door_opening(), 0.1)
+
 
 func set_highlighted(on: bool) -> void:
 	if _ring != null:

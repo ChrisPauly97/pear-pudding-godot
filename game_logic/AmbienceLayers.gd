@@ -17,7 +17,13 @@ const LAYER_PATHS: Dictionary = {
 	"birds": "res://assets/audio/ambience/birds.ogg",
 	"crickets": "res://assets/audio/ambience/crickets.ogg",
 	"owls": "res://assets/audio/ambience/owls.ogg",
+	"stream": "res://assets/audio/ambience/stream.ogg",  # near streams and ponds (TID-644)
 }
+
+## Stream layer (GID-152 / TID-644): heard within STREAM_HEAR_RADIUS world units
+## of water, full at STREAM_FULL_RADIUS or closer.
+const STREAM_HEAR_RADIUS: float = 10.0
+const STREAM_FULL_RADIUS: float = 2.0
 
 ## WeatherManager weather id → [layer key, gain 0..1]. Unknown ids are silent.
 const _WEATHER_LAYERS: Dictionary = {
@@ -114,3 +120,8 @@ static func all_layer_keys() -> Array[String]:
 	for k: String in LAYER_PATHS:
 		out.append(k)
 	return out
+
+
+## Stream layer gain 0..1 from the distance to the nearest water (INF = none).
+static func stream_gain(nearest_water: float) -> float:
+	return 1.0 - smoothstep(STREAM_FULL_RADIUS, STREAM_HEAR_RADIUS, nearest_water)

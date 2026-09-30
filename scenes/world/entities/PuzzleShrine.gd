@@ -1,6 +1,7 @@
 extends Node3D
 
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
+const _SpriteLoop = preload("res://scenes/world/entities/SpriteLoop.gd")
 
 static var _shrine_mat: StandardMaterial3D
 static var _shrine_mesh: PrismMesh
@@ -27,6 +28,8 @@ func _ready() -> void:
 		_SpriteRegistry.setup_sprite(_sprite, tex)  # drawn at its height in px (tools/generate_sprites.py)
 		_SpriteRegistry.apply_billboard_flags(_sprite)
 		add_child(_sprite)
+		if _puzzle_id == "" or not SaveManager.is_puzzle_solved(_puzzle_id):
+			_SpriteLoop.ensure(self, _sprite)  # TID-648: the orb pulses until solved
 	else:
 		_ensure_shared_resources()
 		var body := MeshInstance3D.new()
@@ -50,6 +53,7 @@ func setup(puzzle_id: String, player_node: Node3D) -> void:
 
 func _dim_solved() -> void:
 	if _sprite != null:
+		_SpriteLoop.stop(self)
 		_sprite.modulate = Color(0.5, 0.5, 0.55)
 		for child: Node in get_children():
 			var light: OmniLight3D = child as OmniLight3D

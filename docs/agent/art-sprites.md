@@ -453,3 +453,89 @@ the nine named NPCs (`generate_characters.py`), menu key art (in-engine capture)
 
 Batches are tracked as backlog items: B0 BID-068, B1 BID-069, B2 BID-070, B3 BID-071, B4 BID-072. When a batch
 lands, update this table, `CREDITS.md` (drop the source if nothing uses it) and the per-slot index.
+
+## Enemy walk cycles (GID-152 / TID-645)
+
+Every enemy except the mimic has `enemy_<name>_walk_1..4.png`:
+
+- **Rig enemies** (`tools/generate_characters.py`: skeleton, zombie, elite, ghoul, spectre, warleader, terror, raider,
+  duelist, rival) use the rig's own `_walk(frame)` poses. Every enemy is in `WALKERS`; a walker's five frames are
+  drawn uncropped (`generate_sprites.TRIM = False`) and cropped to one shared box (`walker_frames`), so the body
+  never shifts between frames. That widened `enemy_ghoul.png` from 21 to 23 px; heights are unchanged.
+- **Roster enemies** (`scripts/gen_creature_sprites.py` ASCII sprites) get derived frames (`walk_frames`): the bottom
+  30 % split at the centre and stride ±1 px in opposite directions, with bob frames between. `FLOATERS` (rift echo)
+  only bob. Frames are 2 px wider than the idle (1 px each side) so a stride never clips; sprites are centred.
+- **Runtime:** `game_logic/WalkFrames.gd` holds one preload per frame and the idle → frames table;
+  `SpriteRegistry.walk_frames(idle)` answers for enemies and Maiteln. `EnemyNPC._add_walk_cycle()` adds a
+  `scenes/world/entities/WalkCycle.gd` child that reads the enemy's speed from its position each frame, so chases,
+  co-op interpolation and scripted moves all animate. Pack followers stride with their leader. It swaps
+  `Sprite3D.texture` rather than using AnimatedSprite3D, so fades, idle bob and tints keep working, and calls
+  `SpriteOutline.refresh()` on each swap. The timing lives in `game_logic/WalkCycleMath.gd` (8 fps; idle below
+  0.3 u/s after a 0.15 s grace).
+
+## NPC idle life (GID-152 / TID-650)
+
+`person()` draws two extra poses: frame 5 is a blink (lids in skin tones) and frame 6 a glance (eyes 1 px aside).
+Every `npc_*` in `NPCS` / `CAST` except Maiteln (animated through his walk AnimatedSprite3D) writes
+`<name>_idle_1.png` (blink) and `_idle_2.png` (glance), cropped with the same box as the saved idle
+(`idle_life_frames`), so the silhouette never shifts. `game_logic/IdleFrames.gd` preloads them;
+`scenes/world/entities/IdleLoop.gd` (`for_sprite(sprite, seed)`, added by `TownspersonNPC` and `MerchantNPC`)
+swaps the Sprite3D texture on the `game_logic/IdleLoopMath.gd` schedule: hold idle 2.5–5.5 s, then a 0.14 s blink
+or (30 %) a 0.9 s glance, with a seeded per-NPC RNG and a staggered first beat. IdleLife's breathe keeps running.
+
+## Landmark loops (GID-152 / TID-648)
+
+`waystone(active, phase)`, `mana_well(phase)`, `shrine(phase)` and `blight_heart(phase)` in
+`tools/generate_sprites.py` take a 0–3 phase; phase 0 is byte-identical to the still. `ANIMATED` writes
+`<name>_anim_1..4.png` for `waystone_active`, `mana_well`, `puzzle_shrine` and `blight_heart` (asserting equal sizes):
+glints climbing the runes, glints drifting on the well water, shrine glyphs lighting in turn with an orb flare, and a
+heartbeat (eyes flare) on the blight heart. `game_logic/LandmarkFrames.gd` preloads them (still → frames);
+`scenes/world/entities/SpriteLoop.gd` loops a Sprite3D at 5 fps from a random offset (`ensure(parent, sprite)` /
+`stop(parent)`). Waystones loop once active (at spawn or on `_set_active_visual`), shrines until solved
+(`_dim_solved` stops it), wells and hearts always. Dormant waystones stay still.
+
+## Campfires (GID-152 / TID-649)
+
+`campfire(phase, lit)` in `tools/generate_sprites.py` draws a stone ring and crossed logs on a fixed 24×30 canvas
+(written with `TRIM` off so frames never shift): `campfire_lit_1..6.png` (three flame tongues whose heights and
+sway change per frame, stray sparks) and `campfire_smoulder_1..4.png` (embers blinking in the ash, a smoke wisp
+curling up). `LandmarkFrames.campfire(lit)` preloads them; `scenes/world/entities/CampfireVisual.gd`
+`build(parent, lit)` adds the billboard and a `SpriteLoop.with_frames()` loop (9 fps lit, 3 fps smouldering).
+
+- **Dungeon rest sites** (`npc_type == "rest_site"`, spawned as TownspersonNPC) now show a burning campfire instead
+  of a townsperson sprite.
+- **Wilderness camp** (`WildernessCamp.gd`) replaced its cylinder logs and cone flame with the smouldering variant,
+  matching the story's cold camp ("No fire tonight"). NightLights still gives it the campfire glow, now read as
+  ember light.
+
+## Opening frames (GID-152 / TID-652)
+
+`chest_ajar()` (lid lifted 2 px over a line of gold light) and `door_frame(1|2)` (door swinging in on its left
+hinges, dark hall behind; `door_frame(0)` is `door()`) in `tools/generate_sprites.py` write `chest_ajar.png`,
+`door_ajar.png` and `door_open.png` on the chest's 16×16 and door's 32×32 canvases. `LandmarkFrames` exposes
+`chest_opening()` (ajar → open), `mimic_reveal()` (ajar → `enemy_mimic.png`) and `door_opening()` (ajar → open);
+`SpriteLoop.play_once(sprite, frames, frame_time)` plays them with a tween and stays on the last frame.
+
+- `Chest._animate_open()` plays the opening (0.08 s per frame) alongside the existing squash and coin burst. Co-op
+  peers see it too, because `mark_opened` runs on them.
+- `ChestLoot._spring_mimic()` calls `Chest.reveal_mimic()` *before* emitting `enemy_engaged`, because the battle may
+  start synchronously inside that emit.
+- The WorldScene door branch calls `Door.play_open()` (0.1 s per frame), so the swing plays under the transition wipe.
+
+## Enemy combat frames (GID-152 / TID-646)
+
+`tools/derive_combat_frames.py` post-processes every `enemy_<name>.png` idle (rig and roster alike; re-run after
+regenerating one) into `_attack_1..3` (wind-up lean back, strike lean forward, recover), `_hit` (flinch) and
+`_death_1..3` (buckle, slump, heap). Each frame shears rows (head moves most, feet fixed) and squashes toward the
+ground line. Frames are `2 × PAD` (8) px wider than the idle and keep its height, so a centred sprite never shifts.
+`game_logic/CombatFrames.gd` preloads them (`for_idle(idle)` → `{"attack", "hit", "death"}`).
+
+In real-time battles, `scenes/battle/modules/TokenFrames.gd` (owned by `RealtimeVisuals._token_frames`) drives each
+enemy token's `TextureRect`:
+
+- `register` in `_make_token` (enemy sides).
+- `attack` from `lunge_token` (0.05 / 0.14 / 0.12 s).
+- `observe(rt)` from `update`: a flinch (0.14 s) when the hero's health drops and no attack is playing, and a
+  one-time death sequence (0.12 s steps, stays on the heap) when the side falls.
+
+The token is mirrored for enemies, so "forward" in the sprite points at the player.

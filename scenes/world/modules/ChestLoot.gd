@@ -76,6 +76,9 @@ func open(chest: Dictionary, px: float, pz: float) -> void:
 	_maybe_drop_equipment(chance, tier, level)
 
 func _spring_mimic(chest: Dictionary, px: float, pz: float) -> void:
+	var node: Node3D = _world._valid_node3d(_world._chest_nodes.get(str(chest.get("id", ""))))
+	if node != null and node.has_method("reveal_mimic"):
+		node.call("reveal_mimic")  # TID-652: before the engage, which may start the battle synchronously
 	AudioManager.play_sfx("enemy_alert")
 	SceneManager.show_toast("It's a Mimic!", "Prepare for battle!")
 	var mimic_deck: Array[String] = []

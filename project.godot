@@ -154,6 +154,11 @@ anti_aliasing/quality/msaa_3d=2
 
 [shader_globals]
 
+plant_wind_dir={
+"type": "vec2",
+"value": Vector2(1, 0.35)
+}
+
 cloud_shadow_strength={
 "type": "float",
 "value": 0.0

@@ -97,8 +97,15 @@ class Canvas:
         return trim(img)
 
 
+# Animation frames are cropped together by the caller (one box for every frame,
+# so the sprite does not shift between frames); it turns this off meanwhile.
+TRIM = True
+
+
 def trim(img):
     """Crop to content, keeping the bottom row as the ground line."""
+    if not TRIM:
+        return img
     box = img.getbbox()
     if box is None:
         return img
@@ -285,6 +292,45 @@ def ember(seed):
     return c.image()
 
 
+def reed(seed):
+    """Bank reeds (TID-643): a tuft of thin blades, a couple of cattail heads."""
+    rng = random.Random(seed)
+    c = Canvas(19, 20)
+    blades = rng.randint(4, 5)
+    for k in range(blades):
+        x0 = 9 + (k - (blades - 1) / 2) * 2.5 + rng.uniform(-0.3, 0.3)
+        top = rng.randint(3, 9)
+        lean = (k - (blades - 1) / 2) * 1.2 + rng.uniform(-0.8, 0.8)  # fan outwards
+        col = P.GREEN[2] if k % 2 else P.TEAL[1]
+        c.line(x0, 19, x0 + lean, top, col)
+        c.set(x0 + lean * 0.3, 14, P.GREEN[3] if k % 3 == 0 else col)  # light catch
+    for k in range(rng.choice((1, 2, 2))):
+        x = 9 + (k * 2 - 1) * 1.2 + rng.uniform(-0.3, 0.3)
+        top = rng.randint(2, 5)
+        c.line(x, 19, x, top + 3, P.GREEN[1])
+        c.rect(int(x), top, int(x) + 1, top + 3, P.WOOD[1])       # cattail head
+        c.set(int(x), top, P.WOOD[3])
+    c.outline()
+    return c.image()
+
+
+def lily_pad(seed):
+    """A lily pad seen from the iso camera (flat ellipse, notch), some in bloom."""
+    rng = random.Random(seed)
+    c = Canvas(14, 8)
+    c.blob(7, 4, 5.5, 2.6, P.GREEN, rng, 0.15, light_bias=0.3)
+    notch = rng.choice((-1, 1))
+    c.line(7, 4, 7 - notch * 4, 5, P.GREEN[1])                      # vein
+    for i in range(1, 7):                                            # wedge cut to the rim
+        for y in (3, 4) if i > 2 else (4,):
+            c.px[y][7 + notch * i] = None
+    if seed % 2 == 0:                                                # in bloom
+        c.blob(5 - notch, 2, 1.6, 1.3, P.PINK)
+        c.set(5 - notch, 2, P.GOLD[2])
+    c.outline()
+    return c.image()
+
+
 PROPS = {
     "flower": (flower, 5),
     "rock": (rock, 4),
@@ -296,13 +342,15 @@ PROPS = {
     "thorn": (thorn, 3),
     "ash_pile": (ash_pile, 3),
     "ember": (ember, 3),
+    "reed": (reed, 3),
+    "lily_pad": (lily_pad, 3),
 }
 
 
 # ── Landmarks ────────────────────────────────────────────────────────────────
 
-def waystone(active):
-    # 1.9 world units = 38 px.
+def waystone(active, phase=0):
+    # 1.9 world units = 38 px. Active phases 1-3 (TID-648): the bright glint climbs the runes.
     c = Canvas(16, 38)
     c.rect(2, 33, 13, 37, P.STONE[1])            # plinth
     c.rect(2, 33, 13, 33, P.STONE[3])
@@ -320,19 +368,24 @@ def waystone(active):
         c.set(7, y + 1, runes[1])
         c.set(8, y + 2, runes[2] if active else runes[0])
     if active:
-        c.set(6, 9, P.GOLD[3])
-        c.set(9, 21, P.GOLD[3])
+        glints = [((6, 9), (9, 21)), ((6, 27), (9, 15)), ((6, 21), (9, 9)), ((6, 15), (9, 27))][phase]
+        for x, y in glints:
+            c.set(x, y, P.GOLD[3])
+        if phase:
+            c.set(7, (28, 22, 16)[phase - 1], P.GOLD[3])  # the rune the glow is passing
     c.outline()
     return c.image()
 
 
-def mana_well():
+def mana_well(phase=0):
     # 1.1 world units = 22 px: a stone ring with glowing water.
     c = Canvas(22, 22)
     c.blob(10.5, 15, 10, 6, P.STONE, None)
     c.blob(10.5, 13.5, 7.5, 3.2, P.WATER)
-    c.set(8, 12, P.WHITE)
-    c.set(13, 14, P.WATER[3])
+    # Glints drift across the water (TID-648); phase 0 is the still image.
+    glint, ripple = [((8, 12), (13, 14)), ((10, 12), (7, 14)), ((12, 13), (9, 15)), ((6, 13), (12, 12))][phase]
+    c.set(*glint, P.WHITE)
+    c.set(*ripple, P.WATER[3])
     for x in range(3, 19, 4):                     # rim blocks
         c.set(x, 17, P.STONE[0])
         c.set(x, 18, P.STONE[0])
@@ -345,8 +398,9 @@ def mana_well():
     return c.image()
 
 
-def shrine():
-    # 1.3 world units = 26 px: stepped stone altar with a glowing orb.
+def shrine(phase=0):
+    # 1.3 world units = 26 px: stepped stone altar with a glowing orb. Phases 1-3 (TID-648): the orb swells
+    # and the glyphs light in turn.
     c = Canvas(20, 26)
     c.rect(1, 21, 18, 25, P.STONE[1])
     c.rect(1, 21, 18, 21, P.STONE[3])
@@ -354,10 +408,10 @@ def shrine():
     c.rect(4, 12, 4, 20, P.STONE[3])
     c.rect(14, 12, 15, 20, P.STONE[1])
     c.rect(3, 11, 16, 12, P.STONE[3])
-    c.blob(9.5, 7, 3.4, 3.4, P.PURPLE)
+    c.blob(9.5, 7, 3.4, 3.4, P.PURPLE if phase != 2 else [P.PURPLE[1], P.PURPLE[1], P.PURPLE[2], P.PINK[3]])
     c.set(8, 5, P.WHITE)
-    for x, y in ((7, 15), (9, 16), (11, 15), (9, 18)):
-        c.set(x, y, P.PURPLE[2])
+    for i, (x, y) in enumerate(((7, 15), (9, 16), (11, 15), (9, 18))):
+        c.set(x, y, P.PINK[3] if phase and i == phase else P.PURPLE[2])
     c.outline()
     return c.image()
 
@@ -382,8 +436,9 @@ def burial_mound():
     return c.image()
 
 
-def blight_heart():
-    # 1.5 world units = 30 px: purple crystal cluster around a skull.
+def blight_heart(phase=0):
+    # 1.5 world units = 30 px: purple crystal cluster around a skull. Phases 1-3 (TID-648): a heartbeat —
+    # the eyes flare and the crystal tips brighten, then fade.
     rng = random.Random(7)
     c = Canvas(22, 30)
     spikes = [(11, 2, 3.0), (6, 9, 2.2), (16, 8, 2.4), (3, 16, 1.8), (19, 15, 1.9)]
@@ -395,9 +450,13 @@ def blight_heart():
                 i = 3 if x < sx - half * 0.3 and t < 0.5 else (2 if x <= sx else 1)
                 c.set(x, y, P.PURPLE[i if i < 3 else 2] if i != 3 else P.PINK[3])
     c.blob(11, 22, 4.5, 4.0, [P.STONE[1], P.STONE[2], P.STONE[3], P.WHITE])
-    c.set(9, 22, P.OUTLINE)
-    c.set(13, 22, P.OUTLINE)
+    eye = [P.OUTLINE, P.PINK[2], P.PINK[3], P.PURPLE[1]][phase]
+    c.set(9, 22, eye)
+    c.set(13, 22, eye)
     c.set(11, 24, P.OUTLINE)
+    if phase in (1, 2):
+        for sx, sy, _w in spikes:
+            c.set(sx, sy + 1, P.PINK[3])
     for _ in range(4):
         c.set(rng.randint(4, 18), rng.randint(26, 29), P.PURPLE[1])
     c.rect(4, 27, 18, 29, P.PURPLE[0])
@@ -525,6 +584,53 @@ def chest(lid_open):
     return pad(c.image(), 16, 16)
 
 
+def chest_ajar():
+    """Opening frame between shut and open (TID-652): the lid lifts two pixels on a line of gold light."""
+    c = Canvas(16, 16)
+    x0, y0 = 1, 3
+    chest_body(c, False, x0, y0)
+    lid = [row[:] for row in c.px[y0:y0 + 5]]
+    for y in range(y0, y0 + 5):
+        c.px[y] = [None] * c.w
+    for i, row in enumerate(lid):
+        c.px[y0 - 2 + i] = row
+    for y in (y0 + 3, y0 + 4):                     # the gap: gold glow between lid and box
+        for x in range(x0, x0 + 14):
+            c.set(x, y, P.WOOD[0] if x in (x0, x0 + 13) else (P.GOLD[2] if y == y0 + 4 else P.GOLD[3]))
+    c.outline()
+    return pad(c.image(), 16, 16)
+
+
+def door_frame(swing):
+    """Door opening (TID-652): 0 shut (== door()), 1 ajar, 2 swung in on its left hinges, dark hall behind."""
+    if swing == 0:
+        return door()
+    c = Canvas(32, 32)
+    cx = 15.5
+    for y in range(2, 32):                                # stone arch frame
+        half = 12 if y > 9 else math.sqrt(max(0.0, 144 - (9 - y) ** 2 * 1.9))
+        c.line(cx - half, y, cx + half, y, P.STONE[1] if (y + int(half)) % 5 else P.STONE[2])
+    edge = 17 if swing == 1 else 10                       # the door's free edge as it swings in
+    for y in range(5, 32):
+        half = 9 if y > 11 else math.sqrt(max(0.0, 81 - (11 - y) ** 2 * 1.3))
+        for x in range(int(cx - half), int(cx + half) + 1):
+            if x <= edge:
+                c.set(x, y, P.WOOD[1] if (x - 7) % 4 else P.WOOD[0])
+            else:
+                c.set(x, y, (17, 17, 17) if y < 28 else (42, 34, 34))   # dark hall, a sliver of floor
+    c.line(7, 12, edge, 12, P.WOOD[2])
+    c.line(edge, 6, edge, 31, P.WOOD[3])                  # lit edge of the swinging door
+    for y in (13, 24):                                    # hinges
+        c.rect(7, y, 9 if swing == 2 else 12, y + 1, (42, 42, 58))
+        c.set(7, y, (123, 137, 148))
+    if swing == 1:
+        c.blob(15.5, 20, 1.4, 1.4, [(42, 42, 58), (82, 96, 124), (123, 137, 148), (192, 203, 220)])  # ring
+    c.set(5, 17, P.GREEN[1])                              # moss
+    c.set(26, 26, P.GREEN[2])
+    c.outline()
+    return pad(c.image(), 32, 32)
+
+
 def door():
     """Every map-transition door: an arched plank door in a stone frame, iron hinges and ring."""
     c = Canvas(32, 32)
@@ -564,6 +670,71 @@ LANDMARKS = {
     "chest_closed": lambda: chest(False),
     "chest_open": lambda: chest(True),
     "door": door,
+    # GID-152 / TID-652: opening frames.
+    "chest_ajar": chest_ajar,
+    "door_ajar": lambda: door_frame(1),
+    "door_open": lambda: door_frame(2),
+}
+
+
+def _fire_pit(c):
+    """Stone ring and crossed logs, 24×20 canvas, ground at the bottom row."""
+    c.blob(12, 17, 10.5, 2.6, P.STONE, None)
+    c.blob(12, 17, 7.5, 1.6, [P.OUTLINE, (42, 34, 34), (42, 34, 34), (72, 59, 58)])  # ash bed
+    c.line(5, 18, 18, 14, P.WOOD[0])
+    c.line(5, 17, 18, 13, P.WOOD[2])
+    c.line(6, 13, 19, 18, P.WOOD[1])
+    c.line(6, 12, 19, 17, P.WOOD[3])
+
+
+def campfire(phase, lit=True):
+    """Rest-site campfire (TID-649): licking flames over crossed logs, 6 frames. Unlit (phase 0..3): smouldering
+    embers blinking in the ash and a thin smoke wisp curling up (the story's cold wilderness camp)."""
+    c = Canvas(24, 30)
+    pit = Canvas(24, 20)
+    _fire_pit(pit)
+    for y in range(20):
+        for x in range(24):
+            if pit.px[y][x] is not None:
+                c.px[y + 10][x] = pit.px[y][x]
+    rng = random.Random(phase * 31 + (0 if lit else 7))
+    if lit:
+        # Three tongues whose heights and sway change per frame.
+        tongues = [(9, 9 + (phase * 2) % 4, -1), (12, 5 + (phase * 3) % 4, 0), (15, 8 + (phase + 1) % 3, 1)]
+        for x0, top, lean in tongues:
+            h = 24 - top
+            for i in range(h):
+                t = i / max(1, h - 1)                     # 0 at the base
+                y = 24 - i
+                w = 2.6 * (1.0 - t) ** 0.8
+                sway = math.sin(t * 3.0 + phase * 1.1) * 0.9 * t + lean * t
+                ramp = P.FIRE
+                for dx in range(-3, 4):
+                    if abs(dx) <= w:
+                        k = 3 if abs(dx) < w * 0.35 and t < 0.6 else (2 if abs(dx) < w * 0.7 else 1)
+                        c.set(x0 + dx + sway, y, ramp[k])
+        for _ in range(2):                                 # sparks
+            c.set(rng.randint(8, 16), rng.randint(1, 8), P.FIRE[2 + rng.randint(0, 1)])
+    else:
+        for i, (x, y) in enumerate(((9, 26), (12, 27), (15, 26), (11, 25))):
+            c.set(x, y, [P.RED[1], P.FIRE[1], P.FIRE[2]][(i + phase) % 3])
+        smoke = [P.STONE[1], P.STONE[2]]
+        for i in range(10):                                 # wisp rising and curling
+            y = 22 - i * 2
+            x = 12 + math.sin(i * 0.8 + phase * 1.57) * (0.6 + i * 0.25)
+            if y >= 1 and (i + phase) % 4 != 3:
+                c.set(x, y, smoke[i % 2])
+                c.set(x, y - 1, smoke[(i + 1) % 2])
+    c.outline()
+    return c.image()
+
+
+# Looping landmark animations (GID-152 / TID-648): <name>_anim_1..4.png, frame 1 = the still image.
+ANIMATED = {
+    "waystone_active": lambda ph: waystone(True, ph),
+    "mana_well": mana_well,
+    "puzzle_shrine": shrine,
+    "blight_heart": blight_heart,
 }
 
 
@@ -577,6 +748,21 @@ def main():
             img = fn(v * 7 + 3)
             img.save(OUT / f"prop_{key}_{v}.png")
             out.append(img)
+    for name, fn in ANIMATED.items():
+        fs = [fn(ph) for ph in range(4)]
+        assert all(f.size == fs[0].size for f in fs), name  # frames must line up with the still
+        for ph, f in enumerate(fs):
+            f.save(OUT / f"{name}_anim_{ph + 1}.png")
+    # Campfires (TID-649): fixed canvas (no per-frame trim) so flames and smoke never shift the pit.
+    generate_sprites_trim = globals()["TRIM"]
+    globals()["TRIM"] = False
+    try:
+        for ph in range(6):
+            campfire(ph, True).save(OUT / f"campfire_lit_{ph + 1}.png")
+        for ph in range(4):
+            campfire(ph, False).save(OUT / f"campfire_smoulder_{ph + 1}.png")
+    finally:
+        globals()["TRIM"] = generate_sprites_trim
     for name, fn in LANDMARKS.items():
         img = fn()
         img.save(OUT / f"{name}.png")

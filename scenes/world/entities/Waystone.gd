@@ -2,6 +2,7 @@ extends Node3D
 
 const _WEB = preload("res://scenes/world/entities/WorldEntityBase.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
+const _SpriteLoop = preload("res://scenes/world/entities/SpriteLoop.gd")
 
 static var _dormant_mat: StandardMaterial3D
 static var _active_mat: StandardMaterial3D
@@ -30,6 +31,8 @@ func _ready() -> void:
 		_SpriteRegistry.setup_sprite(_sprite, tex)  # drawn at its height in px (tools/generate_sprites.py)
 		_SpriteRegistry.apply_billboard_flags(_sprite)
 		add_child(_sprite)
+		if bool(waystone_data.get("active", false)):
+			_SpriteLoop.ensure(self, _sprite)  # TID-648: glints climb the runes
 		if mi:
 			mi.visible = false
 		return
@@ -60,6 +63,7 @@ func mark_activated() -> void:
 func _set_active_visual() -> void:
 	if _sprite != null:
 		_sprite.texture = _SpriteRegistry.waystone_texture(true)
+		_SpriteLoop.ensure(self, _sprite)
 		return
 	_ensure_shared_resources()
 	var mi := find_child("MeshInstance3D", true, false)

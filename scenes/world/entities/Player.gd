@@ -37,6 +37,7 @@ const _ContactShadow = preload("res://game_logic/ContactShadow.gd")
 const _SpriteOutline = preload("res://game_logic/SpriteOutline.gd")
 
 const _HeroAnim = preload("res://game_logic/character/HeroAnim.gd")
+const _WalkCycle = preload("res://scenes/world/entities/WalkCycle.gd")
 const PIXEL_SIZE: float = 0.05     # larger per-pixel size to match 32px sprite scale
 
 # ── Riding pose ───────────────────────────────────────────────────────────────
@@ -175,16 +176,15 @@ func _build_sprite() -> void:
 	_mount_sprite.no_depth_test = false
 	_mount_sprite.double_sided = true
 	_mount_sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	# Feet-at-y=0 from the real texture height (CLAUDE.md Sprite3D rule) — don't
-	# assume a fixed pixel height, the real mount_horse.png differs from the old
-	# TextureGen fallback's 24px. Stays at z=0 (hooves flush with the ground);
-	# the rider is the one that moves, along the camera axis, when mounted.
+	# Feet-at-y=0 from the real texture height (CLAUDE.md Sprite3D rule). Stays at z=0 (hooves
+	# flush with the ground); the rider is the one that moves, along the camera axis, when mounted.
 	var mount_tex_h: float = float(_mount_sprite.texture.get_height())
 	_mount_pose_pos = Vector3(0.0, mount_tex_h * PIXEL_SIZE * 0.5, 0.0)
 	_mount_sprite.position = _mount_pose_pos
 	_mount_sprite.offset = Vector2(_SADDLE_OFFSET_PX, 0.0)
 	_mount_sprite.visible = false
 	add_child(_mount_sprite)
+	add_child(_WalkCycle.for_sprite(_mount_sprite, "MountTrot"))  # TID-651: trots (legs only; saddle fixed)
 
 	# Dust particles: emit from feet while moving (foot dust on the ground,
 	# heavier mount dust while riding — swapped by _update_mount_visuals()).

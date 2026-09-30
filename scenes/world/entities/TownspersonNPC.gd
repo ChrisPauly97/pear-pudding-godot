@@ -6,6 +6,8 @@ const TextureGen = preload("res://game_logic/TextureGen.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const _ContactShadow = preload("res://game_logic/ContactShadow.gd")
 const _IdleLife = preload("res://game_logic/IdleLife.gd")
+const _IdleLoop = preload("res://scenes/world/entities/IdleLoop.gd")
+const _CampfireVisual = preload("res://scenes/world/entities/CampfireVisual.gd")
 const _SpriteOutline = preload("res://game_logic/SpriteOutline.gd")
 
 var npc_data: Dictionary = {}
@@ -16,6 +18,9 @@ var _dialogue_group: String = ""
 func _ready() -> void:
 	add_to_group("interactable")
 	_ring = build_highlight_ring(self, 0.55)
+	if str(npc_data.get("npc_type", "")) == "rest_site":
+		_CampfireVisual.build(self, true)  # a dungeon rest site is a campfire, not a person (TID-649)
+		return
 	# Stable per-NPC look: same id/name always picks the same variant.
 	var variant_seed: int = hash(str(npc_data.get("id", "")) + _extract_name())
 	var tex: Texture2D = _SpriteRegistry.named_npc_texture(str(npc_data.get("id", "")))
@@ -27,6 +32,9 @@ func _ready() -> void:
 	_SpriteOutline.apply(sprite)
 	_ContactShadow.register(self, _ContactShadow.radius_for_height(_SpriteRegistry.HEIGHT_NPC))
 	_IdleLife.register(sprite, _IdleLife.STYLE_BREATHE)
+	var blinker: Node = _IdleLoop.for_sprite(sprite, variant_seed)  # TID-650: blink / glance
+	if blinker != null:
+		add_child(blinker)
 	_add_name_label()
 
 func init_from_data(data: Dictionary) -> void:

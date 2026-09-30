@@ -82,6 +82,15 @@ Files were trimmed, converted to mono Ogg Vorbis and peak-normalised with ffmpeg
 - **"Crickets Ambient Noise - loopable"** by **Wolfgang_**: night crickets layer.
   https://opengameart.org/content/crickets-ambient-noise-loopable
 
+Public Domain Mark 1.0 field recordings from **radio aporee ::: maps** (via the Internet Archive): no rights
+reserved, credited with thanks. Trimmed to a quiet-edged window, crossfaded into a seamless loop, mixed to mono,
+halved to 24 kHz and peak-normalised (GID-152 backlog, BID-073 / BID-083).
+
+- **"The babbling of a brook, uncovered"** (Schleiden, Germany) by **Matthes**: stream layer (`stream.ogg`, 56–92 s).
+  https://archive.org/details/aporee_21934_25484
+- **"A lone tawny owl calls nearby…"** (Chediston, Suffolk) by **Peter Cusack**: night owl layer (`owls.ogg`,
+  45–99 s). https://archive.org/details/aporee_68716_81482
+
 ### Siege music
 
 - **"Epic Boss Battle [Seamlessly Looping]"** by **Juhani Junkala** (uploaded by SubspaceAudio): CC0.
