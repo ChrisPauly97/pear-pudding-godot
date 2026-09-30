@@ -187,3 +187,17 @@ The grass shader is a thin header plus a shared body include (`grass_tuft.gdshad
 #### Grass colour (GID-131 / TID-506)
 
 Tufts map the atlas tone onto `color_base × 0.6 → color_mid → color_tip` (defaults muted to sit on the Grasslands ground: base (0.12, 0.23, 0.07), mid (0.22, 0.35, 0.11), tip (0.34, 0.46, 0.16)) (tones are quantised in the atlas, so the result stays flat pixel-art colour). (Historically the blades used a smooth gradient that replaced three hard bands whose olive base read as dark spikes.) New defaults are base (0.18, 0.38, 0.13), mid (0.32, 0.58, 0.19), tip (0.56, 0.80, 0.30). A hash of the blade root (`v_root_world`) jitters brightness ±10 %, and one in five blades gets a drier tint. Contact shadows darken the lower blade (`mix(contact_shadow(root), 1, UV.y × 0.6)`).
+
+## Stream current (GID-152 / TID-642)
+
+Streams flow. `WaterMath.flow_at(wx, wz, seed)` returns the current as direction × speed: the stream is the zero
+contour of the stream noise, so the direction is the noise gradient turned 90° (continuous across the contour, so
+one orientation along the whole stream and across chunk borders). Speed = gradient magnitude /
+`FLOW_TYPICAL_GRADIENT`, clamped `FLOW_MIN_SPEED..FLOW_MAX_SPEED`, so narrow stretches run faster. Ponds (pond noise
+dominating) and dry ground return zero. The only reversals are near noise saddles where two branches meet.
+
+`ChunkRenderer` samples it at every wet vertex (> 0.01) and `TerrainMath.build_terrain_mesh(..., flow_field)` bakes
+it into `CUSTOM0.xy` (`ARRAY_CUSTOM_RG_FLOAT`; skirts and meshes without a flow field read zero). The shader's
+`v_flow` scrolls ripple streaks as a two-phase flow map (`CYCLE` 1.5 s, `RIPPLE_SPEED` 1.5 u/s at speed 1): each
+layer is thresholded then shown only while its weight is ≥ 0.25, so streaks pop in whole rather than smearing, and
+the pattern never distorts over time. Still water (`|v_flow| ≤ 0.05`) keeps the old slow wind drift.

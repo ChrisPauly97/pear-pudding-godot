@@ -137,9 +137,11 @@ static func prepare_terrain(
 	var ley_field := PackedFloat32Array()
 	ley_field.resize(nvx * nvz)
 	var water_field := PackedFloat32Array()
+	var flow_field := PackedVector2Array()  # stream current, CUSTOM0 (TID-642)
 	var dry_points := PackedVector2Array()
 	if has_water:
 		water_field.resize(nvx * nvz)
+		flow_field.resize(nvx * nvz)
 		dry_points = _water_dry_points(chunk_data, tile_grid, grid_min_x, grid_min_z, grid_w)
 	for iz2 in range(nvz):
 		for ix2 in range(nvx):
@@ -147,12 +149,15 @@ static func prepare_terrain(
 			var gz2: float = chunk_origin.z + float(iz2) * step
 			ley_field[iz2 * nvx + ix2] = TerrainMath.ley_intensity(gx2, gz2, world_seed)
 			if has_water:
-				water_field[iz2 * nvx + ix2] = _WaterMath.water_at(gx2, gz2, world_seed, dry_points)
+				var wv: float = _WaterMath.water_at(gx2, gz2, world_seed, dry_points)
+				water_field[iz2 * nvx + ix2] = wv
+				if wv > 0.01:
+					flow_field[iz2 * nvx + ix2] = _WaterMath.flow_at(gx2, gz2, world_seed)
 
 	var terrain_res: Dictionary = TerrainMath.build_terrain_mesh(
 			hfield, grid_tile_lookup,
 			chunk_origin.x, chunk_origin.z,
-			nvx, nvz, step, IsoConst.HILL_PEAK_H, ley_field, water_field)
+			nvx, nvz, step, IsoConst.HILL_PEAK_H, ley_field, water_field, flow_field)
 
 	var wall_face_mesh: ArrayMesh = TerrainMath.build_wall_face_mesh(
 			grid_tile_lookup, grid_height_lookup,

@@ -2,7 +2,7 @@
 
 **Goal:** GID-152
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -26,12 +26,20 @@ Stream ripples in `assets/shaders/terrain.gdshader` (~L343) drift in one fixed d
 
 ## Plan
 
-_Written during Plan phase._
+1. `WaterMath.flow_at`: perpendicular of the stream-noise gradient, speed from gradient magnitude, zero in ponds.
+2. `TerrainMath.build_terrain_mesh` optional `flow_field` → `CUSTOM0` (RG float); ChunkRenderer bakes it at wet vertices.
+3. Shader: two-phase flow-map ripples along `v_flow`; ponds keep the old drift.
+4. Tests for flow bounds/orientation and the CUSTOM0 bake; render check under xvfb.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/world/WaterMath.gd`: `flow_at()` + `FLOW_*` constants (typical gradient measured: median 0.026 in streams).
+- `game_logic/TerrainMath.gd`: `build_terrain_mesh(..., flow_field)` writes `ARRAY_CUSTOM0`.
+- `scenes/world/ChunkRenderer.gd`: bakes `flow_field` alongside `water_field`.
+- `assets/shaders/terrain.gdshader`: `v_flow` varying; flowing ripples (two-phase, per-layer threshold).
+- Tests: `test_water_math::test_flow_runs_along_streams`, `test_terrain_math::test_build_terrain_mesh_bakes_flow_into_custom0`.
+- Verified render under xvfb/opengl3 (frames differ, streaks move along the current).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/terrain-rendering.md`: new "Stream current" section.

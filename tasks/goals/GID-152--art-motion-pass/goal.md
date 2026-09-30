@@ -13,7 +13,7 @@ fixed direction regardless of the stream's course. See `docs/agent/art-sprites.m
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| [TID-642](TID-642--stream-flow.md) | Stream flow direction | agent | pending | — |
+| [TID-642](TID-642--stream-flow.md) | Stream flow direction | agent | done | — |
 | [TID-643](TID-643--stream-foam-banks.md) | Stream foam and bank dressing | agent | pending | TID-642 |
 | [TID-644](TID-644--stream-ambience.md) | Stream water ambience loop | agent | pending | — |
 | [TID-645](TID-645--enemy-walk-cycles.md) | Enemy walk cycles | agent | pending | — |

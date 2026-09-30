@@ -34,3 +34,30 @@ func test_water_keeps_clear_of_structures() -> void:
 	assert_almost_eq(W.structure_fade(0.0, 0.0, PackedVector2Array()), 1.0, 0.0001)
 	assert_lte(W.DRY_RADIUS + W.DRY_FADE, 5.0,
 		"fade reach must fit the chunk grid margin or water seams at chunk borders")
+
+
+## TID-642: the current runs along the stream, zero off it, and has one
+## orientation along the stream. It can only reverse near a saddle of the
+## noise (two branches meeting, gradient → 0), so reversals must be rare.
+func test_flow_runs_along_streams() -> void:
+	var flowing: int = 0
+	var reversed: int = 0
+	for i in 2000:
+		var x: float = float(i % 50) * 3.1 + 2000.0
+		var z: float = float(i / 50) * 2.9
+		var f: Vector2 = W.flow_at(x, z, 42)
+		if not W.is_wet(x, z, 42):
+			if W.intensity(x, z, 42) <= 0.0:
+				assert_eq(f, Vector2.ZERO, "no current on dry ground")
+			continue
+		if f == Vector2.ZERO:
+			continue  # pond
+		flowing += 1
+		var spd: float = f.length()
+		assert_true(spd >= W.FLOW_MIN_SPEED - 0.001 and spd <= W.FLOW_MAX_SPEED + 0.001, "speed %f clamped" % spd)
+		# One step along the current stays roughly parallel (continuous field).
+		var next: Vector2 = W.flow_at(x + f.x / spd, z + f.y / spd, 42)
+		if next != Vector2.ZERO and f.normalized().dot(next.normalized()) < 0.0:
+			reversed += 1
+	assert_gt(flowing, 0, "some streams flow")
+	assert_lt(float(reversed), float(flowing) * 0.05, "current rarely reverses (%d / %d)" % [reversed, flowing])
