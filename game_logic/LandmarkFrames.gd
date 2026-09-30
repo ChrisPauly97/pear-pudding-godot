@@ -1,4 +1,4 @@
-## Looping landmark frames (GID-152 / TID-648): the still texture -> four
+## Looping landmark frames (GID-152 / TID-648, campfires TID-649): the still texture -> four
 ## frames (frame 1 = the still). One preload per file for Android; regenerate
 ## with tools/generate_sprites.py (ANIMATED).
 extends RefCounted
@@ -23,6 +23,17 @@ const _BLIGHT_HEART_1 := preload("res://assets/textures/props/blight_heart_anim_
 const _BLIGHT_HEART_2 := preload("res://assets/textures/props/blight_heart_anim_2.png")
 const _BLIGHT_HEART_3 := preload("res://assets/textures/props/blight_heart_anim_3.png")
 const _BLIGHT_HEART_4 := preload("res://assets/textures/props/blight_heart_anim_4.png")
+## Campfires (TID-649): a burning rest-site fire and the story's smouldering wilderness camp.
+const _CAMPFIRE_LIT_1 := preload("res://assets/textures/props/campfire_lit_1.png")
+const _CAMPFIRE_LIT_2 := preload("res://assets/textures/props/campfire_lit_2.png")
+const _CAMPFIRE_LIT_3 := preload("res://assets/textures/props/campfire_lit_3.png")
+const _CAMPFIRE_LIT_4 := preload("res://assets/textures/props/campfire_lit_4.png")
+const _CAMPFIRE_LIT_5 := preload("res://assets/textures/props/campfire_lit_5.png")
+const _CAMPFIRE_LIT_6 := preload("res://assets/textures/props/campfire_lit_6.png")
+const _CAMPFIRE_SMOULDER_1 := preload("res://assets/textures/props/campfire_smoulder_1.png")
+const _CAMPFIRE_SMOULDER_2 := preload("res://assets/textures/props/campfire_smoulder_2.png")
+const _CAMPFIRE_SMOULDER_3 := preload("res://assets/textures/props/campfire_smoulder_3.png")
+const _CAMPFIRE_SMOULDER_4 := preload("res://assets/textures/props/campfire_smoulder_4.png")
 
 const _TABLE: Dictionary = {
 	_WAYSTONE_ACTIVE: [_WAYSTONE_ACTIVE_1, _WAYSTONE_ACTIVE_2, _WAYSTONE_ACTIVE_3, _WAYSTONE_ACTIVE_4],
@@ -36,4 +47,15 @@ const _TABLE: Dictionary = {
 static func for_still(still: Texture2D) -> Array[Texture2D]:
 	var out: Array[Texture2D] = []
 	out.assign(_TABLE.get(still, []) as Array)
+	return out
+
+
+## Campfire loop: burning (6 frames) or smouldering embers + smoke (4 frames).
+static func campfire(lit: bool) -> Array[Texture2D]:
+	var out: Array[Texture2D] = []
+	if lit:
+		out.assign([_CAMPFIRE_LIT_1, _CAMPFIRE_LIT_2, _CAMPFIRE_LIT_3, _CAMPFIRE_LIT_4, _CAMPFIRE_LIT_5,
+				_CAMPFIRE_LIT_6])
+	else:
+		out.assign([_CAMPFIRE_SMOULDER_1, _CAMPFIRE_SMOULDER_2, _CAMPFIRE_SMOULDER_3, _CAMPFIRE_SMOULDER_4])
 	return out

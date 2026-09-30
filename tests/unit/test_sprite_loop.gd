@@ -34,3 +34,18 @@ func test_loop_cycles_then_stops_on_the_still() -> void:
 	SpriteLoop.stop(holder)
 	assert_eq(spr.texture, LF.for_still(SR.mana_well_texture())[0], "settles on the still frame")
 	holder.free()
+
+
+## TID-649: rest sites burn, the story's wilderness camp only smoulders.
+func test_campfire_builds_a_looping_billboard() -> void:
+	const CV = preload("res://scenes/world/entities/CampfireVisual.gd")
+	for lit: bool in [true, false]:
+		var frames: Array[Texture2D] = LF.campfire(lit)
+		assert_eq(frames.size(), 6 if lit else 4)
+		for f: Texture2D in frames:
+			assert_eq(f.get_size(), frames[0].get_size(), "campfire frames share one canvas")
+		var holder := Node3D.new()
+		var spr: Sprite3D = CV.build(holder, lit)
+		assert_eq(spr.texture, frames[0])
+		assert_true(holder.has_node(SpriteLoop.NODE_NAME), "the fire animates")
+		holder.free()

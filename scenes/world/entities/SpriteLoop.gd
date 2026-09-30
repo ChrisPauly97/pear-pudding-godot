@@ -14,20 +14,26 @@ const FPS: float = 5.0
 
 var _sprite: Sprite3D = null
 var _frames: Array[Texture2D] = []
+var _fps: float = FPS
 var _t: float = 0.0
 var _shown: int = -1
 
 
 ## A SpriteLoop for `sprite`'s current texture, or null when it has no frames.
 static func for_sprite(sprite: Sprite3D) -> Node:
-	var frames: Array[Texture2D] = _LandmarkFrames.for_still(sprite.texture)
+	return with_frames(sprite, _LandmarkFrames.for_still(sprite.texture), FPS)
+
+
+## A SpriteLoop playing `frames` on `sprite` at `fps`, or null when there are none.
+static func with_frames(sprite: Sprite3D, frames: Array[Texture2D], fps: float) -> Node:
 	if frames.is_empty():
 		return null
 	var loop: _Self = _Self.new()
 	loop.name = NODE_NAME
 	loop._sprite = sprite
 	loop._frames = frames
-	loop._t = randf() * float(frames.size()) / FPS  # neighbours don't pulse in step
+	loop._fps = fps
+	loop._t = randf() * float(frames.size()) / fps  # neighbours don't pulse in step
 	return loop
 
 
@@ -55,7 +61,7 @@ func _process(delta: float) -> void:
 	if not is_instance_valid(_sprite):
 		return
 	_t += delta
-	var f: int = int(floor(_t * FPS)) % _frames.size()
+	var f: int = int(floor(_t * _fps)) % _frames.size()
 	if f == _shown:
 		return
 	_shown = f

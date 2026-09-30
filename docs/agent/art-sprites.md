@@ -493,3 +493,17 @@ heartbeat (eyes flare) on the blight heart. `game_logic/LandmarkFrames.gd` prelo
 `scenes/world/entities/SpriteLoop.gd` loops a Sprite3D at 5 fps from a random offset (`ensure(parent, sprite)` /
 `stop(parent)`). Waystones loop once active (at spawn or on `_set_active_visual`), shrines until solved
 (`_dim_solved` stops it), wells and hearts always. Dormant waystones stay still.
+
+## Campfires (GID-152 / TID-649)
+
+`campfire(phase, lit)` in `tools/generate_sprites.py` draws a stone ring and crossed logs on a fixed 24×30 canvas
+(written with `TRIM` off so frames never shift): `campfire_lit_1..6.png` (three flame tongues whose heights and
+sway change per frame, stray sparks) and `campfire_smoulder_1..4.png` (embers blinking in the ash, a smoke wisp
+curling up). `LandmarkFrames.campfire(lit)` preloads them; `scenes/world/entities/CampfireVisual.gd`
+`build(parent, lit)` adds the billboard and a `SpriteLoop.with_frames()` loop (9 fps lit, 3 fps smouldering).
+
+- **Dungeon rest sites** (`npc_type == "rest_site"`, spawned as TownspersonNPC) now show a burning campfire instead
+  of a townsperson sprite.
+- **Wilderness camp** (`WildernessCamp.gd`) replaced its cylinder logs and cone flame with the smouldering variant,
+  matching the story's cold camp ("No fire tonight"). NightLights still gives it the campfire glow, now read as
+  ember light.

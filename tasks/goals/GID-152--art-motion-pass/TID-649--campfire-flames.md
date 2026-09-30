@@ -2,7 +2,7 @@
 
 **Goal:** GID-152
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -23,12 +23,18 @@ Campfires (WildernessCamp, dungeon campfire chamber) have glow only (`NightLight
 
 ## Plan
 
-_Written during Plan phase._
+Generated lit (6) and smouldering (4) campfire frames; `CampfireVisual` helper on `SpriteLoop.with_frames`;
+use it for dungeon rest sites (were a townsperson sprite) and the wilderness camp (story-cold).
 
 ## Changes Made
 
-_Filled after Build phase._
+- `tools/generate_sprites.py`: `_fire_pit`, `campfire()`; 10 new `props/campfire_*.png`.
+- `game_logic/LandmarkFrames.gd`: `campfire(lit)`. `scenes/world/entities/SpriteLoop.gd`: `with_frames(sprite,
+  frames, fps)`. New `scenes/world/entities/CampfireVisual.gd`.
+- `TownspersonNPC.gd`: rest sites draw a campfire. `WildernessCamp.gd`: meshes → smouldering sprite.
+- Sparks are pixels in the flame frames instead of a GPUParticles3D emitter (cheaper on mobile, same read).
+- Test: `test_sprite_loop::test_campfire_builds_a_looping_billboard`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/art-sprites.md`: "Campfires".

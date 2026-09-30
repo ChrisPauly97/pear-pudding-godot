@@ -626,6 +626,58 @@ LANDMARKS = {
 }
 
 
+def _fire_pit(c):
+    """Stone ring and crossed logs, 24×20 canvas, ground at the bottom row."""
+    c.blob(12, 17, 10.5, 2.6, P.STONE, None)
+    c.blob(12, 17, 7.5, 1.6, [P.OUTLINE, (42, 34, 34), (42, 34, 34), (72, 59, 58)])  # ash bed
+    c.line(5, 18, 18, 14, P.WOOD[0])
+    c.line(5, 17, 18, 13, P.WOOD[2])
+    c.line(6, 13, 19, 18, P.WOOD[1])
+    c.line(6, 12, 19, 17, P.WOOD[3])
+
+
+def campfire(phase, lit=True):
+    """Rest-site campfire (TID-649): licking flames over crossed logs, 6 frames. Unlit (phase 0..3): smouldering
+    embers blinking in the ash and a thin smoke wisp curling up (the story's cold wilderness camp)."""
+    c = Canvas(24, 30)
+    pit = Canvas(24, 20)
+    _fire_pit(pit)
+    for y in range(20):
+        for x in range(24):
+            if pit.px[y][x] is not None:
+                c.px[y + 10][x] = pit.px[y][x]
+    rng = random.Random(phase * 31 + (0 if lit else 7))
+    if lit:
+        # Three tongues whose heights and sway change per frame.
+        tongues = [(9, 9 + (phase * 2) % 4, -1), (12, 5 + (phase * 3) % 4, 0), (15, 8 + (phase + 1) % 3, 1)]
+        for x0, top, lean in tongues:
+            h = 24 - top
+            for i in range(h):
+                t = i / max(1, h - 1)                     # 0 at the base
+                y = 24 - i
+                w = 2.6 * (1.0 - t) ** 0.8
+                sway = math.sin(t * 3.0 + phase * 1.1) * 0.9 * t + lean * t
+                ramp = P.FIRE
+                for dx in range(-3, 4):
+                    if abs(dx) <= w:
+                        k = 3 if abs(dx) < w * 0.35 and t < 0.6 else (2 if abs(dx) < w * 0.7 else 1)
+                        c.set(x0 + dx + sway, y, ramp[k])
+        for _ in range(2):                                 # sparks
+            c.set(rng.randint(8, 16), rng.randint(1, 8), P.FIRE[2 + rng.randint(0, 1)])
+    else:
+        for i, (x, y) in enumerate(((9, 26), (12, 27), (15, 26), (11, 25))):
+            c.set(x, y, [P.RED[1], P.FIRE[1], P.FIRE[2]][(i + phase) % 3])
+        smoke = [P.STONE[1], P.STONE[2]]
+        for i in range(10):                                 # wisp rising and curling
+            y = 22 - i * 2
+            x = 12 + math.sin(i * 0.8 + phase * 1.57) * (0.6 + i * 0.25)
+            if y >= 1 and (i + phase) % 4 != 3:
+                c.set(x, y, smoke[i % 2])
+                c.set(x, y - 1, smoke[(i + 1) % 2])
+    c.outline()
+    return c.image()
+
+
 # Looping landmark animations (GID-152 / TID-648): <name>_anim_1..4.png, frame 1 = the still image.
 ANIMATED = {
     "waystone_active": lambda ph: waystone(True, ph),
@@ -650,6 +702,16 @@ def main():
         assert all(f.size == fs[0].size for f in fs), name  # frames must line up with the still
         for ph, f in enumerate(fs):
             f.save(OUT / f"{name}_anim_{ph + 1}.png")
+    # Campfires (TID-649): fixed canvas (no per-frame trim) so flames and smoke never shift the pit.
+    generate_sprites_trim = globals()["TRIM"]
+    globals()["TRIM"] = False
+    try:
+        for ph in range(6):
+            campfire(ph, True).save(OUT / f"campfire_lit_{ph + 1}.png")
+        for ph in range(4):
+            campfire(ph, False).save(OUT / f"campfire_smoulder_{ph + 1}.png")
+    finally:
+        globals()["TRIM"] = generate_sprites_trim
     for name, fn in LANDMARKS.items():
         img = fn()
         img.save(OUT / f"{name}.png")

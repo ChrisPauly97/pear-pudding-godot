@@ -20,7 +20,7 @@ fixed direction regardless of the stream's course. See `docs/agent/art-sprites.m
 | [TID-646](TID-646--enemy-combat-frames.md) | Enemy attack, hit and death frames | agent | pending | TID-645 |
 | [TID-647](TID-647--plant-wind-sway.md) | Tree and plant wind sway | agent | done | — |
 | [TID-648](TID-648--landmark-idle-loops.md) | Landmark idle loops | agent | done | — |
-| [TID-649](TID-649--campfire-flames.md) | Campfire flame frames | agent | pending | — |
+| [TID-649](TID-649--campfire-flames.md) | Campfire flame frames | agent | done | — |
 | [TID-650](TID-650--npc-idle-loops.md) | NPC idle loops | agent | done | — |
 | [TID-651](TID-651--horse-trot.md) | Horse trot cycle | agent | done | — |
 | [TID-652](TID-652--chest-door-frames.md) | Chest and door opening frames | agent | pending | — |
