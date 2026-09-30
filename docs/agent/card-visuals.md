@@ -78,6 +78,15 @@ move. Durations × the battle speed scale.
   (`CardMotion.reveal_play`). If the enemy hero panel isn't visible it falls back to `pop_in`, which own-side
   entrances (AI/net summons) still use.
 
+- **Dissolve** — `assets/shaders/card_dissolve.gdshader`: blocky screen-space value noise (`FRAGCOORD` / `cell_px`,
+  so a whole card tree dissolves as one via `use_parent_material`), glowing `edge_color` band, `progress` 0→1.
+  `CardMotion.apply_dissolve` / `dissolve(node, color, dur)`.
+  - Deaths: `BattleFx.animate_death` dissolves the ghost in the card's branch colour (panel meta `card_branch`,
+    set by `apply_card_style`) over `BattlePacing.DEATH_ANIM`, sinking to 92 %.
+  - Spells: `BattleScene._do_play_card` (the one choke point for local, AI-free and net spell plays) captures the
+    local caster's hand panel rect before `play_card`, then `CardMotion.cast_spell` lifts a face ghost to the
+    screen centre (×1.3), holds, sparks, and dissolves. Fire-and-forget; never delays resolution.
+
 ## Integrations
 - `MagicTypes` (type list), `CardRegistry` templates (`magic_type`, `illustration`, `card_class`).
 - `tools/capture_battle_cards.gd` renders a battle screenshot under xvfb for eyeballing card changes.

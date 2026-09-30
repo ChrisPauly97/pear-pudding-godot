@@ -486,6 +486,7 @@ func apply_card_style(panel: PanelContainer, card: CardInstance, zone_id: String
 	style.border_width_right = 0
 	var tmpl: Dictionary = CardRegistry.get_template_for_face(card.template_id, card.active_face)
 	var magic_type: String = str(tmpl.get("magic_type", card.magic_type))
+	panel.set_meta("card_branch", str(tmpl.get("magic_branch", card.magic_branch)))
 	panel.add_theme_stylebox_override("panel", CardFace.frame_style(magic_type, card_size().y))
 	style.bg_color = Color.TRANSPARENT
 	CardMotion.set_playable_glow(panel, zone_id == "hand" and _is_local_turn() and _seat_player(0).can_play(card))

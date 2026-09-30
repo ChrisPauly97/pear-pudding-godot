@@ -3,6 +3,7 @@
 ##   OUT=/tmp/battle.png xvfb-run -a -s "-screen 0 1920x1080x24" \
 ##     godot --path . --rendering-driver opengl3 --resolution 1920x1080 -s tools/capture_battle_cards.gd
 ## DECK (comma list) sets the hand, MODE=realtime|turn, WAIT_MS delays the capture,
+## CAST=<ms> casts the hand's draw spell, DEATH=<ms> kills the enemy board,
 ## REVEAL=<ms> has the enemy play a card and captures <ms> later,
 ## HOVER=1 lifts the second hand card, POST_MS is the time after the hand is dealt
 ## (small values catch animations mid-flight).
@@ -68,6 +69,20 @@ func _run() -> void:
 		(foe.get("board") as Object).call("add_card", _CardInstance.new(_CardRegistry.get_template("ash_warden")))
 		battle.call("_refresh_all")
 		await _wait(int(OS.get_environment("REVEAL")))
+	if OS.get_environment("CAST") != "":
+		for c: Object in hand:
+			if str(c.get("card_class")) == "spell" and str(c.get("spell_effect")) == "draw_card":
+				battle.call("_do_play_card", c, 0)
+				break
+		await _wait(int(OS.get_environment("CAST")))
+	if OS.get_environment("DEATH") != "":
+		var fx: Object = battle.get("_fx")
+		var snap: Array = fx.call("snapshot")
+		var foe_board: Object = ((state.get("players") as Array)[1] as Object).get("board")
+		for c: Object in (foe_board.call("get_cards") as Array):
+			foe_board.call("remove_card", c)
+		battle.call("_animate_deaths_from_snapshot", snap)
+		await _wait(int(OS.get_environment("DEATH")))
 	var hv: Control = battle.get("_player_hand_view") as Control
 	if OS.get_environment("HOVER") != "" and hv != null and hv.get_child_count() > 1:
 		(battle.get("card_input") as Object).call("_set_hover_lift", hv.get_child(1), true)

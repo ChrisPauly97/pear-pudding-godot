@@ -9,12 +9,16 @@ extends RefCounted
 const CardFace = preload("res://scenes/ui/CardFace.gd")
 const BattleJuice = preload("res://scenes/battle/BattleJuice.gd")
 const MagicTypes = preload("res://game_logic/MagicTypes.gd")
+const _DISSOLVE_SHADER := preload("res://assets/shaders/card_dissolve.gdshader")
 
 const DRAW_TIME := 0.26
 const DRAW_STAGGER := 0.07
 const FLIP_TIME := 0.08
 const PLAY_TIME := 0.24
 const PLAY_ARC := 0.35   # arc height as a share of the travel distance
+const CAST_TIME := 0.22
+const CAST_HOLD := 0.12
+const DISSOLVE_TIME := 0.45
 const HOVER_TILT_DEG := -3.0
 const HOVER_GLOW := Color(1.18, 1.15, 1.0)
 const PLAYABLE_GLOW := Color(0.45, 1.0, 0.55)
@@ -170,6 +174,50 @@ static func reveal_play(layer: CanvasLayer, panel: Control, from: Vector2, speed
 		return
 	flip_out(panel, speed_scale)
 	BattleJuice.sparks(layer, rect.get_center(), color, 3)
+
+## Gives `node` (and, through use_parent_material, its whole subtree) the
+## dissolve material with a `color` burning edge. Returns the material.
+static func apply_dissolve(node: CanvasItem, color: Color) -> ShaderMaterial:
+	var mat := ShaderMaterial.new()
+	mat.shader = _DISSOLVE_SHADER
+	mat.set_shader_parameter("edge_color", color)
+	var h: float = (node as Control).size.y if node is Control else 200.0
+	mat.set_shader_parameter("cell_px", maxf(2.0, h / 64.0))
+	node.material = mat
+	for d: Node in node.find_children("*", "CanvasItem", true, false):
+		(d as CanvasItem).use_parent_material = true
+	return mat
+
+## Burns `node` away over `duration`; returns the tween (await .finished).
+static func dissolve(node: CanvasItem, color: Color, duration: float) -> Tween:
+	var mat: ShaderMaterial = apply_dissolve(node, color)
+	var tw: Tween = node.create_tween()
+	tw.tween_method(func(v: float) -> void: mat.set_shader_parameter("progress", v), 0.0, 1.0, duration)
+	return tw
+
+## A cast spell: its card lifts from `from_rect` to the middle of the screen,
+## holds a beat, then dissolves in `color`. Fire-and-forget (never slows play).
+static func cast_spell(layer: CanvasLayer, ghost: Control, from_rect: Rect2, speed_scale: float, color: Color) -> void:
+	var size: Vector2 = from_rect.size
+	ghost.size = size
+	ghost.pivot_offset = size * 0.5
+	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ghost.position = from_rect.position
+	ghost.modulate.a = 1.0
+	layer.add_child(ghost)
+	var centre: Vector2 = ghost.get_viewport_rect().size * 0.5
+	var tw: Tween = ghost.create_tween().set_parallel(true)
+	tw.tween_property(ghost, "position", centre - size * 0.5, _dur(CAST_TIME, speed_scale)) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(ghost, "scale", Vector2(1.3, 1.3), _dur(CAST_TIME, speed_scale))
+	tw.chain().tween_interval(_dur(CAST_HOLD, speed_scale))
+	await tw.finished
+	if not is_instance_valid(ghost):
+		return
+	BattleJuice.sparks(layer, centre, color, 5)
+	await dissolve(ghost, color, _dur(DISSOLVE_TIME, speed_scale)).finished
+	if is_instance_valid(ghost):
+		ghost.queue_free()
 
 ## Hover / press feedback on a hand card: lift, a slight tilt and a brighter
 ## frame (`self_modulate` only touches the panel's own frame and rim).

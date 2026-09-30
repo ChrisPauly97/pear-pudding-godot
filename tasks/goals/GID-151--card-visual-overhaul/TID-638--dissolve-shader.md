@@ -2,7 +2,7 @@
 
 **Goal:** GID-151
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-632
 
 ## Lock
@@ -40,12 +40,12 @@ Shared facts (research 2026-09-30):
 
 ## Plan
 
-_Written during Plan phase._
+One canvas_item dissolve shader driven by screen-space noise so whole ghost trees burn together; used by deaths and a new spell-cast beat.
 
 ## Changes Made
 
-_Filled after Build phase._
+New `assets/shaders/card_dissolve.gdshader` (+ .uid). `CardMotion.apply_dissolve`, `dissolve`, `cast_spell`. `BattleFx.animate_death` dissolves in branch colour. `BattleScene._do_play_card` fires the cast beat for local spells. `CardViewBuilder` stores `card_branch` meta. Capture script: CAST, DEATH.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+docs/agent/card-visuals.md (dissolve).

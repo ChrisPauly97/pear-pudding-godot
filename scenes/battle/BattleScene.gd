@@ -606,6 +606,11 @@ func _do_play_card(card: CardInstance, player_idx: int) -> bool:
 		(_battle_weather == "snow" or _battle_weather == "blizzard") and
 		not _snow_discount_used[player_idx]
 	)
+	# The local caster's hand panel, captured before play_card() removes it (GID-151).
+	var cast_rect := Rect2()
+	if player_idx == _my_idx() and _local_player_idx >= 0:
+		var hp: Control = _hand_panel_node(card)
+		cast_rect = hp.get_global_rect() if hp != null else Rect2()
 	var ok: bool
 	if apply_discount:
 		var saved_cost: int = card.cost
@@ -616,6 +621,9 @@ func _do_play_card(card: CardInstance, player_idx: int) -> bool:
 			_snow_discount_used[player_idx] = true
 	else:
 		ok = _state.players[player_idx].play_card(card)
+	if ok and cast_rect.size != Vector2.ZERO and _float_layer != null:
+		CardMotion.cast_spell(_float_layer, _make_card_view(card, "ghost"), cast_rect, _speed_scale,
+				CardMotion.card_color(card.magic_branch))
 	if ok:
 		GameBus.card_played.emit(card.template_id, "spell", -1)
 		realtime.note_player_play(player_idx)

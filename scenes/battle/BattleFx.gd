@@ -361,7 +361,7 @@ func settle_panel(panel: Control, z: int = 0) -> void:
 	if parent != null:
 		parent.queue_sort()
 
-## Shrinks/fades/rotates a ghost copy of `panel` in `_float_layer` so a death
+## Dissolves a ghost copy of `panel` in `_float_layer` so a death
 ## reads as a beat instead of a pop when `_refresh_all()` removes it. Not a
 ## coroutine — starts the tween immediately and returns it so callers can fire
 ## several deaths in parallel and await each returned Tween's `finished`.
@@ -378,11 +378,11 @@ func animate_death(panel: Control, speed_scale: float = 1.0) -> Tween:
 	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_float_layer.add_child(ghost)
 	ghost.pivot_offset = ghost.size * 0.5
-	var tw: Tween = ghost.create_tween()
-	tw.set_parallel(true)
-	tw.tween_property(ghost, "scale", Vector2(0.1, 0.1), scaled_duration(_BattlePacing.DEATH_ANIM, speed_scale))
-	tw.tween_property(ghost, "modulate:a", 0.0, scaled_duration(_BattlePacing.DEATH_ANIM, speed_scale))
-	tw.tween_property(ghost, "rotation", deg_to_rad(25.0), scaled_duration(_BattlePacing.DEATH_ANIM, speed_scale))
+	# Burns away in the card's branch colour (GID-151), sinking slightly.
+	var dur: float = scaled_duration(_BattlePacing.DEATH_ANIM, speed_scale)
+	var tw: Tween = _CardMotion.dissolve(ghost,
+			_CardMotion.card_color(str(panel.get_meta("card_branch", ""))), dur)
+	ghost.create_tween().tween_property(ghost, "scale", Vector2(0.92, 0.92), dur)
 	tw.finished.connect(func() -> void:
 		if is_instance_valid(ghost):
 			ghost.queue_free())

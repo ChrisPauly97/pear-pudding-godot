@@ -154,7 +154,7 @@
 | [GID-148](goals/GID-148--backpack-ux/goal.md) | Backpack / Inventory UX | done | 1 / 1 |
 | [GID-149](goals/GID-149--new-enemy-roster/goal.md) | New Enemy Roster | done | 5 / 5 |
 | [GID-150](goals/GID-150--shared-helpers/goal.md) | Shared Helpers for Duplicated Code | done | 7 / 7 |
-| [GID-151](goals/GID-151--card-visual-overhaul/goal.md) | Card Visual Overhaul | in progress | 7 / 11 |
+| [GID-151](goals/GID-151--card-visual-overhaul/goal.md) | Card Visual Overhaul | in progress | 8 / 11 |
 
 ## Backlog
 
