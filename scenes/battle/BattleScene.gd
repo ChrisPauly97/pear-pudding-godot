@@ -42,6 +42,7 @@ const BattleFx = preload("res://scenes/battle/BattleFx.gd")
 const UiFx = preload("res://scenes/ui/UiFx.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const CardViewBuilder = preload("res://scenes/battle/CardViewBuilder.gd")
+const CardFace = preload("res://scenes/ui/CardFace.gd")
 const SpellEffectResolver = preload("res://scenes/battle/SpellEffectResolver.gd")
 const BattlePauseUI = preload("res://scenes/battle/BattlePauseUI.gd")
 const BattleResultUI = preload("res://scenes/battle/BattleResultUI.gd")
@@ -872,8 +873,7 @@ func _make_card_view(card: CardInstance, zone_id: String) -> PanelContainer:
 	# Prevent HBoxContainer from expanding cards horizontally beyond minimum_size.
 	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	if zone_id == "enemy_hand":
-		var back_style := _UiUtil.make_style(Color(0.15, 0.10, 0.28), 4)
-		panel.add_theme_stylebox_override("panel", back_style)
+		CardFace.apply_back(panel, _view.card_size().y)
 		panel.set_meta("is_card_back", true)
 		return panel
 	var is_board_zone: bool = (zone_id == "board" or zone_id == "enemy_board")

@@ -17,7 +17,7 @@ illustrations. Order: frames/backs/backgrounds → animations → illustrations.
 | TID-631 | Card frame art generator | agent | done | — |
 | TID-632 | Shared card-face builder + bigger art window | agent | done | TID-631 |
 | TID-633 | Per-branch card backgrounds | agent | done | TID-632 |
-| TID-634 | Designed card back shared everywhere | agent | pending | TID-632 |
+| TID-634 | Designed card back shared everywhere | agent | done | TID-632 |
 | TID-635 | Draw animation (deck → hand + flip) | agent | pending | TID-634 |
 | TID-636 | Hover lift/tilt/glow + playable pulse | agent | pending | TID-632 |
 | TID-637 | Play arc + landing burst; enemy flip-reveal | agent | pending | TID-634 |

@@ -43,6 +43,11 @@ must match the generator. `test_card_chrome` fails if a `MagicTypes` type has no
   badges hidden for spells; HP turns pale red when damaged), optional `StatusRow`.
 - Board rows are 0.245 vh (was 0.27) so the hand row fits a 16:9 screen with the hero panels' natural height.
 
+### Card back
+`CardFace.apply_back()` dresses the battle enemy-hand panels (`BattleScene._make_card_view`, meta `is_card_back`;
+that row only shows in co-op / team top-bar layouts) and the pack-opening backs (`PanelContainer`s flipped by
+`PackOpenScene._flip_card`). Draw / enemy-play animations reuse it.
+
 ### Other card views
 - `CardTile` (backpack): frame stylebox; hover / selected are `modulate_color` tints of the same frame; gem via `make_badge`.
 - `PackOpenScene`: face is a `Panel` with the card's frame, art, name and badges.

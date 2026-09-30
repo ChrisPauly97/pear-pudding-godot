@@ -18,7 +18,7 @@ var _ref: float = 0.0
 var _flipped: Array[bool] = []
 var _card_wrappers: Array[Control] = []
 var _visual_nodes: Array[Control] = []
-var _card_backs: Array[ColorRect] = []
+var _card_backs: Array[PanelContainer] = []
 var _card_face_bgs: Array[Panel] = []
 var _card_face_contents: Array[VBoxContainer] = []
 var _tap_buttons: Array[Button] = []
@@ -84,17 +84,12 @@ func _make_card_slot(idx: int, card_w: float, card_h: float) -> Control:
 	visual.pivot_offset = Vector2(card_w * 0.5, card_h * 0.5)
 	wrapper.add_child(visual)
 
-	# Card back.
-	var back := ColorRect.new()
-	back.color = Color(0.22, 0.22, 0.35)
+	# Card back (shared design, GID-151).
+	var back := PanelContainer.new()
 	back.set_anchors_preset(Control.PRESET_FULL_RECT)
+	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_CardFace.apply_back(back, card_h)
 	visual.add_child(back)
-
-	var back_lbl := _UiUtil.make_label("?", int(card_h * 0.28))
-	back_lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
-	back_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	back_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	back.add_child(back_lbl)
 
 	# Card face frame (magic-type frame, set on reveal; hidden until then).
 	var face_bg := Panel.new()
@@ -191,9 +186,9 @@ func _populate_face(idx: int) -> void:
 	var name_lbl := _UiUtil.make_label(card_name, int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, face)
 	name_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
-	var stats := _UiUtil.make_hbox(int(_ref * 0.01), face)
+	var stats := _UiUtil.make_hbox(int(_ref * 0.004), face)
 	stats.alignment = BoxContainer.ALIGNMENT_CENTER
-	var d: float = card_h * 0.17
+	var d: float = card_h * 0.15
 	var fs: int = int(_ref * 0.02)
 	stats.add_child(_CardFace.make_badge("cost", str(cost), d, fs))
 	if str(tmpl.get("card_class", "minion")) != "spell":
