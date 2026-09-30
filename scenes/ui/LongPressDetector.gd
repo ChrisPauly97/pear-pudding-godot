@@ -2,26 +2,23 @@ extends Node
 
 signal long_pressed
 
-const THRESHOLD_SEC: float = 0.5
-const SLOP_PX: float = 12.0
+const _LongPressTracker = preload("res://scenes/ui/LongPressTracker.gd")
 
-var _holding: bool = false
-var _elapsed: float = 0.0
+const THRESHOLD_SEC: float = _LongPressTracker.THRESHOLD_SEC
+const SLOP_PX: float = _LongPressTracker.SLOP_PX
+
+var _press := _LongPressTracker.new()
 var _touch_index: int = -1
-var _start_pos: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
 	set_process(false)
 
 func _process(delta: float) -> void:
-	if _holding:
-		_elapsed += delta
-		if _elapsed >= THRESHOLD_SEC:
-			_holding = false
-			set_process(false)
-			long_pressed.emit()
-	else:
+	if not _press.is_holding():
 		set_process(false)
+	elif _press.tick(delta):
+		set_process(false)
+		long_pressed.emit()
 
 func _input(event: InputEvent) -> void:
 	# Only activate if the press starts within the parent Control's rect.
@@ -38,35 +35,31 @@ func _input(event: InputEvent) -> void:
 				if hit != null and hit is Button and parent.is_ancestor_of(hit):
 					return
 				_touch_index = e.index
-				_start_pos = e.position
-				_holding = true
-				_elapsed = 0.0
-				set_process(true)
+				_begin(e.position)
 		else:
 			if e.index == _touch_index:
 				_cancel()
 	elif event is InputEventScreenDrag:
 		var e := event as InputEventScreenDrag
-		if e.index == _touch_index and e.position.distance_to(_start_pos) > SLOP_PX:
+		if e.index == _touch_index and _press.strayed(e.position):
 			_cancel()
 	elif event is InputEventMouseButton:
 		var e := event as InputEventMouseButton
 		if e.button_index == MOUSE_BUTTON_LEFT:
 			if e.pressed:
 				if parent.get_global_rect().has_point(e.position):
-					_start_pos = e.position
-					_holding = true
-					_elapsed = 0.0
-					set_process(true)
+					_begin(e.position)
 			else:
 				_cancel()
 	elif event is InputEventMouseMotion:
-		if _holding:
-			var e := event as InputEventMouseMotion
-			if e.position.distance_to(_start_pos) > SLOP_PX:
-				_cancel()
+		if _press.is_holding() and _press.strayed((event as InputEventMouseMotion).position):
+			_cancel()
+
+func _begin(pos: Vector2) -> void:
+	_press.press(pos)
+	set_process(true)
 
 func _cancel() -> void:
-	_holding = false
+	_press.cancel()
 	_touch_index = -1
 	set_process(false)

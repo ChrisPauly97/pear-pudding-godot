@@ -20,6 +20,7 @@ times, and the quest diamond / waypoint pin drawn separately by all three map vi
 | TID-627 | Loose enemy spawns, terrain and chunk lookups | agent | done | — |
 | TID-628 | Battle banners, attack drags, armor | agent | done | — |
 | TID-629 | UI grids, panels and small dups | agent | done | — |
+| TID-630 | Shared long-press tracking | agent | done | — |
 
 ## Acceptance Criteria
 

@@ -153,7 +153,7 @@
 | [GID-147](goals/GID-147--wildlife/goal.md) | Wildlife — Ambient Critters, Cactus Worms, Imbued Stags | done | 3 / 3 |
 | [GID-148](goals/GID-148--backpack-ux/goal.md) | Backpack / Inventory UX | done | 1 / 1 |
 | [GID-149](goals/GID-149--new-enemy-roster/goal.md) | New Enemy Roster | done | 5 / 5 |
-| [GID-150](goals/GID-150--shared-helpers/goal.md) | Shared Helpers for Duplicated Code | done | 6 / 6 |
+| [GID-150](goals/GID-150--shared-helpers/goal.md) | Shared Helpers for Duplicated Code | done | 7 / 7 |
 
 ## Backlog
 

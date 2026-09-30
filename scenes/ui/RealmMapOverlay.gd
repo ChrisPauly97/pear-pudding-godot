@@ -11,6 +11,7 @@ signal closed
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
+const _LongPressTracker = preload("res://scenes/ui/LongPressTracker.gd")
 const _MapMarkers = preload("res://scenes/ui/MapMarkers.gd")
 const _RealmMapOverlay = preload("res://scenes/ui/RealmMapOverlay.gd")
 
@@ -22,8 +23,6 @@ const _COL_WAYSTONE := Color(0.40, 0.90, 1.00)
 const _COL_WAYPOINT := Color(0.20, 0.80, 1.00)
 ## Tiles of wilderness shown around the realm's outline.
 const _MARGIN_TILES: float = 32.0
-const _LP_THRESHOLD: float = 0.5
-const _LP_SLOP_PX: float = 12.0
 
 class _MapLayer extends Control:
 	var overlay: _RealmMapOverlay
@@ -47,9 +46,7 @@ var _bounds := Rect2()   # in overworld tiles
 var _scale: float = 1.0  # panel px per tile
 var _font_size: int = 12
 var _layer: _MapLayer
-var _lp_active: bool = false
-var _lp_pos: Vector2 = Vector2.ZERO
-var _lp_elapsed: float = 0.0
+var _long_press := _LongPressTracker.new()
 
 
 func setup(player: Node3D, map_name: String, quests: Array[Dictionary], tracked: Dictionary) -> void:
@@ -214,11 +211,8 @@ func _close() -> void:
 
 
 func _process(delta: float) -> void:
-	if _lp_active:
-		_lp_elapsed += delta
-		if _lp_elapsed >= _LP_THRESHOLD:
-			_lp_active = false
-			_set_waypoint_at(_lp_pos)
+	if _long_press.tick(delta):
+		_set_waypoint_at(_long_press.start_pos)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -238,15 +232,13 @@ func _unhandled_input(event: InputEvent) -> void:
 	var st := event as InputEventScreenTouch
 	if st != null:
 		if st.pressed and _panel.has_point(st.position):
-			_lp_active = true
-			_lp_elapsed = 0.0
-			_lp_pos = st.position
+			_long_press.press(st.position)
 		elif st.pressed:
 			get_viewport().set_input_as_handled()
 			_close()
 		else:
-			_lp_active = false
+			_long_press.cancel()
 		return
 	var sd := event as InputEventScreenDrag
-	if sd != null and _lp_active and sd.position.distance_to(_lp_pos) > _LP_SLOP_PX:
-		_lp_active = false
+	if sd != null:
+		_long_press.move(sd.position)

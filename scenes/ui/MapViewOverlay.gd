@@ -32,12 +32,11 @@ const _DOT_EVENT    := Color(0.95, 0.60, 0.15)   # amber: event room
 const _DOT_DIGSITE  := Color(1.00, 0.65, 0.15)   # gold: active treasure dig site
 const _DOT_WAYSTONE  := Color(0.40, 0.90, 1.00)   # cyan: waystone (dormant or active)
 const _DOT_WAYPOINT  := Color(0.20, 0.80, 1.00)   # bright cyan: custom player waypoint
-const _LP_THRESHOLD: float = 0.5
-const _LP_SLOP_PX: float = 12.0
 
 
 const _Transforms = preload("res://scenes/ui/MapViewTransforms.gd")
 const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
+const _LongPressTracker = preload("res://scenes/ui/LongPressTracker.gd")
 const _MapMarkers = preload("res://scenes/ui/MapMarkers.gd")
 
 var _player: CharacterBody3D
@@ -61,9 +60,7 @@ var _tracked_id: String = ""
 var _rally_targets: Array[Dictionary] = []
 
 # Long-press state (mobile waypoint placement)
-var _lp_active: bool = false
-var _lp_pos: Vector2 = Vector2.ZERO
-var _lp_elapsed: float = 0.0
+var _long_press := _LongPressTracker.new()
 
 # ── Inner dot-drawing layer ───────────────────────────────────────────────────
 class _DotLayer extends Control:
@@ -440,11 +437,8 @@ func _request_rally(peer_id: int) -> void:
 
 
 func _process(delta: float) -> void:
-	if _lp_active:
-		_lp_elapsed += delta
-		if _lp_elapsed >= _LP_THRESHOLD:
-			_lp_active = false
-			_set_waypoint_at(_lp_pos)
+	if _long_press.tick(delta):
+		_set_waypoint_at(_long_press.start_pos)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -467,13 +461,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		var e := event as InputEventScreenTouch
 		if e.pressed:
 			if _is_in_panel(e.position):
-				_lp_active = true
-				_lp_elapsed = 0.0
-				_lp_pos = e.position
+				_long_press.press(e.position)
 		else:
-			_lp_active = false
+			_long_press.cancel()
 
 	if event is InputEventScreenDrag:
 		var e := event as InputEventScreenDrag
-		if _lp_active and e.position.distance_to(_lp_pos) > _LP_SLOP_PX:
-			_lp_active = false
+		_long_press.move(e.position)

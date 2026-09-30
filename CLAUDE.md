@@ -213,7 +213,8 @@ the layer to dismiss.
 
 `BattleResultUI._build_result_overlay(bg, sep_frac)` is the shared full-screen
 result card. Map views draw quest diamonds and the waypoint pin through
-`scenes/ui/MapMarkers.gd`. Entity materials come from `WorldEntityBase`:
+`scenes/ui/MapMarkers.gd`. Hold-to-act timing (threshold + drag slop) is
+`scenes/ui/LongPressTracker.gd`; `LongPressDetector` wraps it for a Control. Entity materials come from `WorldEntityBase`:
 `unshaded_material(color)` and `glow_material(color, emission, energy)`.
 Enemies placed by code (not chunk data) spawn through
 `scenes/world/LooseEnemySpawner.gd` (`spawn(world, data, x, z)`), which also
