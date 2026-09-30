@@ -453,3 +453,22 @@ the nine named NPCs (`generate_characters.py`), menu key art (in-engine capture)
 
 Batches are tracked as backlog items: B0 BID-068, B1 BID-069, B2 BID-070, B3 BID-071, B4 BID-072. When a batch
 lands, update this table, `CREDITS.md` (drop the source if nothing uses it) and the per-slot index.
+
+## Enemy walk cycles (GID-152 / TID-645)
+
+Every enemy except the mimic has `enemy_<name>_walk_1..4.png`:
+
+- **Rig enemies** (`tools/generate_characters.py`: skeleton, zombie, elite, ghoul, spectre, warleader, terror, raider,
+  duelist, rival) use the rig's own `_walk(frame)` poses. Every enemy is in `WALKERS`; a walker's five frames are
+  drawn uncropped (`generate_sprites.TRIM = False`) and cropped to one shared box (`walker_frames`), so the body
+  never shifts between frames. That widened `enemy_ghoul.png` from 21 to 23 px; heights are unchanged.
+- **Roster enemies** (`scripts/gen_creature_sprites.py` ASCII sprites) get derived frames (`walk_frames`): the bottom
+  30 % split at the centre and stride ±1 px in opposite directions, with bob frames between. `FLOATERS` (rift echo)
+  only bob. Frames are 2 px wider than the idle (1 px each side) so a stride never clips; sprites are centred.
+- **Runtime:** `game_logic/WalkFrames.gd` holds one preload per frame and the idle → frames table;
+  `SpriteRegistry.walk_frames(idle)` answers for enemies and Maiteln. `EnemyNPC._add_walk_cycle()` adds a
+  `scenes/world/entities/WalkCycle.gd` child that reads the enemy's speed from its position each frame, so chases,
+  co-op interpolation and scripted moves all animate. Pack followers stride with their leader. It swaps
+  `Sprite3D.texture` rather than using AnimatedSprite3D, so fades, idle bob and tints keep working, and calls
+  `SpriteOutline.refresh()` on each swap. The timing lives in `game_logic/WalkCycleMath.gd` (8 fps; idle below
+  0.3 u/s after a 0.15 s grace).

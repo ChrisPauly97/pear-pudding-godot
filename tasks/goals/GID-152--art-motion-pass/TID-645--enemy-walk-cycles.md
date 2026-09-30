@@ -2,7 +2,7 @@
 
 **Goal:** GID-152
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -24,12 +24,19 @@ Every enemy is a single static frame; they wander and chase with only an idle bo
 
 ## Plan
 
-_Written during Plan phase._
+1. Rig enemies → `WALKERS`, frames cropped to a shared box. ASCII roster → derived stride/bob frames.
+2. `WalkFrames.gd` preload table + `SpriteRegistry.walk_frames()`.
+3. `WalkCycle` node on EnemyNPC (leader + pack followers): swap Sprite3D textures by measured speed.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `tools/generate_sprites.py` (`TRIM` switch), `tools/generate_characters.py` (all enemies but mimic walk,
+  `walker_frames` shared crop), `scripts/gen_creature_sprites.py` (`walk_frames`, `FLOATERS`).
+- 88 new `enemy_*_walk_{1..4}.png`; `enemy_ghoul.png` regenerated 2 px wider.
+- New `game_logic/WalkFrames.gd`, `game_logic/WalkCycleMath.gd`, `scenes/world/entities/WalkCycle.gd`.
+- `game_logic/SpriteRegistry.gd`: `walk_frames()`. `scenes/world/entities/EnemyNPC.gd`: `_add_walk_cycle()`.
+- Test: `tests/unit/test_walk_cycle.gd`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/art-sprites.md`: "Enemy walk cycles".

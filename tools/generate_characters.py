@@ -19,6 +19,7 @@ from pathlib import Path
 
 from PIL import Image
 
+import generate_sprites
 import pixel_palette as P
 from generate_sprites import Canvas, chest_body, pad
 
@@ -479,8 +480,8 @@ CHARACTERS = {
     "mount_horse": horse,
 }
 
-# Only these get walk frames; the loader animates Maiteln alone (SpriteRegistry.maiteln_walk_frames), so the rest
-# are idle-only and their pack walk frames were deleted (TID-610).
+# These get walk frames: Maiteln (SpriteRegistry.maiteln_walk_frames) and every enemy, which animate while they
+# move (WalkCycle, GID-152 / TID-645). Walkers' frames share one crop box so the body never shifts between frames.
 WALKERS = {"npc_maiteln"}
 
 
@@ -488,8 +489,27 @@ for _name, _spec in list(NPCS.items()) + list(CAST.items()):
     CHARACTERS[_name] = person(_spec)
 
 
+for _name in list(CHARACTERS):
+    if _name.startswith("enemy_") and _name != "enemy_mimic":  # the mimic lies in wait, it never walks
+        WALKERS.add(_name)
+
+
 def frames(fn):
     return [fn(i) for i in range(5)]
+
+
+def walker_frames(fn):
+    """Idle + 4 walk frames, uncropped, then cropped to their shared content box (bottom row kept)."""
+    generate_sprites.TRIM = False
+    try:
+        fs = frames(fn)
+    finally:
+        generate_sprites.TRIM = True
+    boxes = [f.getbbox() for f in fs if f.getbbox()]
+    x0 = min(b[0] for b in boxes)
+    y0 = min(b[1] for b in boxes)
+    x1 = max(b[2] for b in boxes)
+    return [f.crop((x0, y0, x1, f.height)) for f in fs]
 
 
 def main():
@@ -507,7 +527,7 @@ def main():
         return
     OUT.mkdir(parents=True, exist_ok=True)
     for name, fn in CHARACTERS.items():
-        fs = frames(fn)
+        fs = walker_frames(fn) if name in WALKERS else frames(fn)
         fs[0].save(OUT / f"{name}.png")
         if name not in WALKERS:
             continue  # nothing animates their walk: idle only

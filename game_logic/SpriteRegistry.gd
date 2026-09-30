@@ -13,6 +13,7 @@
 extends RefCounted
 
 const _CardArtRegistry = preload("res://game_logic/CardArtRegistry.gd")
+const _WalkFrames = preload("res://game_logic/WalkFrames.gd")
 
 ## GID-143 / TID-605: graveyard dressing (tools/generate_sprites.py).
 const _GRAVEYARD_PROPS: Dictionary = {
@@ -55,6 +56,7 @@ const _ENEMY_FROST_WENDIGO := preload("res://assets/textures/characters/enemy_fr
 const _ENEMY_RIFT_ECHO := preload("res://assets/textures/characters/enemy_rift_echo.png")
 const _ENEMY_BARROW_KING := preload("res://assets/textures/characters/enemy_barrow_king.png")
 const _ENEMY_IMBUED_STAG  := preload("res://assets/textures/characters/enemy_imbued_stag.png")
+
 
 const _NPC_TOWNSPERSON    := preload("res://assets/textures/characters/npc_townsperson.png")
 const _NPC_TOWNSPERSON_2  := preload("res://assets/textures/characters/npc_townsperson_2.png")
@@ -323,6 +325,13 @@ static func maiteln_texture() -> Texture2D:
 ## 4-frame walk cycle for Maiteln's AnimatedSprite3D (BID-051). Empty if the
 ## walk PNGs are ever removed — caller checks size before building animation
 ## frames and falls back to a static Sprite3D.
+## Walk frames for an idle character texture ([] when it has none) — TID-645.
+static func walk_frames(idle: Texture2D) -> Array[Texture2D]:
+	if idle == _NPC_MAITELN:
+		return maiteln_walk_frames()
+	return _WalkFrames.for_idle(idle)
+
+
 static func maiteln_walk_frames() -> Array[Texture2D]:
 	return [_NPC_MAITELN_WALK_1, _NPC_MAITELN_WALK_2, _NPC_MAITELN_WALK_3, _NPC_MAITELN_WALK_4]
 

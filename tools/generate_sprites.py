@@ -97,8 +97,15 @@ class Canvas:
         return trim(img)
 
 
+# Animation frames are cropped together by the caller (one box for every frame,
+# so the sprite does not shift between frames); it turns this off meanwhile.
+TRIM = True
+
+
 def trim(img):
     """Crop to content, keeping the bottom row as the ground line."""
+    if not TRIM:
+        return img
     box = img.getbbox()
     if box is None:
         return img
