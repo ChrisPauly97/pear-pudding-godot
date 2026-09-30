@@ -172,11 +172,11 @@ static func generate_chunk(p_cx: int, p_cz: int, world_seed: int) -> ChunkData:
 	chunk.has_entities = true
 	return chunk
 
-## Enemies standing on a ley line in stag country are Imbued Stags.
+## Enemies standing on a ley line are Imbued Stags in stag country and Riftborn Echoes in dry country.
 static func enemy_type_at(pool_type: String, biome: int, wx: float, wz: float, world_seed: int) -> String:
-	if BiomeDef.LEY_STAG_BIOMES.has(biome) and TerrainMath.is_on_ley_line(wx, wz, world_seed):
-		return "imbued_stag"
-	return pool_type
+	if not TerrainMath.is_on_ley_line(wx, wz, world_seed): return pool_type
+	return "imbued_stag" if BiomeDef.LEY_STAG_BIOMES.has(biome) \
+			else ("rift_echo" if BiomeDef.LEY_ECHO_BIOMES.has(biome) else pool_type)
 
 # Generate tile/height data only (no entities) — used for border ring
 static func generate_chunk_data_only(p_cx: int, p_cz: int, world_seed: int) -> ChunkData:

@@ -381,6 +381,103 @@ static func _ensure_loaded() -> void:
 			"lore_text": ("The war-leader who drove the muster on Marsax hold. Steal his plans and the tribe's whole "
 					+ "campaign unravels — but he does not give ground easily."),
 		},
+		# ── GID-149 new enemy roster ──────────────────────────────────────────
+		"wolf_pack": {
+			"display_name": "Grey Wolf Alpha",
+			"deck": ["wolf", "wolf", "wolf", "wolf", "wolf", "wolf", "wolf", "wolf", "dagger_throw", "dagger_throw"],
+			"pack": ["wolf", "wolf", "wolf"],  # starts on the board; circles the Alpha in the world
+			"drop_pool": ["wolf", "dagger_throw", "surge_spirit"],
+			"coin_reward": 6, "is_boss": false, "boss_hp": 0, "phase2_deck": [],
+			"difficulty_tier": 1, "ai_persona": "aggro",
+			"traits": ["howl"],
+			"lore_text": ("Grey wolves came down from the hills when the dead began to walk; the living were easier "
+					+ "prey. They hunt as one, and when the pack is thinned the Alpha howls for more."),
+			"signature_card": "sig_alpha_wolf", "capture_condition": "no_ally_lost", "capture_param": 0,
+		},
+		"bog_hag": {
+			"display_name": "Bog Hag",
+			"deck": ["thorn_bramble_snare", "thorn_bramble_snare", "thorn_thorn_volley", "thorn_thorn_volley",
+					"bloom_germinate", "bloom_germinate", "wither", "wither", "treant", "treant", "drain"],
+			"drop_pool": ["treant", "thorn_bramble_snare", "bloom_germinate", "wither"],
+			"coin_reward": 10, "is_boss": false, "boss_hp": 0, "phase2_deck": [],
+			"difficulty_tier": 2, "ai_persona": "control",
+			"lore_text": ("She was a village healer once, before the marsh taught her what else a herb can do. She "
+					+ "stirs her pools and waits, and her curses are slow — slow enough to stop, if you are quick."),
+			"signature_card": "sig_cauldron_toad", "capture_condition": "hero_hp_at_least", "capture_param": 20,
+		},
+		"martarquas_scout": {
+			"display_name": "Martarquas Scout",
+			"deck": ["dagger_throw", "dagger_throw", "dagger_throw", "shadow_bolt", "shadow_bolt", "brittle",
+					"brittle", "skeleton", "skeleton", "ghost", "ghost"],
+			"drop_pool": ["dagger_throw", "shadow_bolt", "brittle", "shrouded_wraith"],
+			"coin_reward": 9, "is_boss": false, "boss_hp": 0, "phase2_deck": [],
+			"difficulty_tier": 2, "ai_persona": "aggro",
+			"lore_text": ("The tribe's eyes on the roads. Scouts travel light, strike first and never stay for a "
+					+ "fair fight — the muster behind them needs to know what the alliance is doing."),
+			"signature_card": "sig_pathfinder", "capture_condition": "win_by_turn", "capture_param": 5,
+		},
+		"scarab_swarm": {
+			"display_name": "Scarab Queen",
+			"deck": ["scarab", "scarab", "scarab", "scarab", "scarab", "scarab", "scarab", "scarab",
+					"thorn_thorn_volley", "thorn_thorn_volley", "flux_momentum"],
+			"pack": ["scarab", "scarab", "scarab", "scarab", "scarab"],
+			"drop_pool": ["scarab", "thorn_thorn_volley", "flux_momentum"],
+			"coin_reward": 11, "is_boss": false, "boss_hp": 0, "phase2_deck": [],
+			"difficulty_tier": 2, "ai_persona": "aggro",
+			"traits": ["brood"],
+			"lore_text": ("Under the dunes the queen lays without end. Her brood boils up through the sand at anything "
+					+ "that stops to rest — clear them fast, or she will simply lay more."),
+			"signature_card": "sig_scarab_matriarch", "capture_condition": "spell_final_blow", "capture_param": 0,
+		},
+		"ember_cultist": {
+			"display_name": "Ember Cultist",
+			"deck": ["ember_imp", "ember_imp", "ember_imp", "ember_imp", "ember_heat_wave", "ember_heat_wave",
+					"ember_cinder", "ember_cinder", "ember_cinder", "ember_flame_lance", "ember_flame_lance"],
+			"drop_pool": ["ember_imp", "ember_cinder", "ember_flame_lance", "ember_heat_wave"],
+			"coin_reward": 14, "is_boss": false, "boss_hp": 0, "phase2_deck": [],
+			"difficulty_tier": 3, "ai_persona": "control",
+			"lore_text": ("Zealots who believe the scorched lands are a promise, not a ruin. They chant in rings of "
+					+ "braziers and call up imps from the coals to do their fighting."),
+			"signature_card": "sig_cinder_acolyte", "capture_condition": "no_minion_hero_attacks", "capture_param": 0,
+		},
+		"frost_wendigo": {
+			"display_name": "Frost Wendigo",
+			"deck": ["ghoul", "ghoul", "ghoul", "ghoul", "zombie", "zombie", "ash_bone_spear", "ash_bone_spear",
+					"brittle", "brittle", "shadow_bolt", "shadow_bolt"],
+			"drop_pool": ["ghoul", "ash_bone_spear", "brittle", "shadow_bolt"],
+			"coin_reward": 18, "is_boss": false, "boss_hp": 0, "phase2_deck": [],
+			"difficulty_tier": 4, "ai_persona": "aggro",
+			"traits": ["frenzy"],
+			"lore_text": ("Only seen on the peaks after dark, and only once. It is always hungry, and the longer a "
+					+ "fight goes on the hungrier it gets. End it quickly or not at all."),
+			"signature_card": "sig_wendigo_antler", "capture_condition": "win_by_turn", "capture_param": 7,
+		},
+		"rift_echo": {
+			"display_name": "Riftborn Echo",
+			"deck": ["flux_kinetic_bolt", "flux_kinetic_bolt", "flux_momentum", "flux_displace", "fracture_fault",
+					"ghost", "ghost", "skeleton", "skeleton", "zombie"],
+			"drop_pool": ["flux_kinetic_bolt", "flux_displace", "fracture_fault", "fracture_shardfall"],
+			"coin_reward": 13, "is_boss": false, "boss_hp": 0, "phase2_deck": [],
+			"difficulty_tier": 3, "ai_persona": "control",
+			"traits": ["mirror"],
+			"lore_text": ("Where a ley line runs through dry country the rift leaks, and what leaks out wears your "
+					+ "face. It knows your spells, because it learned them from you."),
+			"signature_card": "sig_echo_shard", "capture_condition": "hero_hp_at_least", "capture_param": 15,
+		},
+		"barrow_king": {
+			"display_name": "The Barrow King",
+			"deck": ["skeleton", "skeleton", "skeleton", "skeleton", "ghost", "ghost", "ghoul", "ghoul", "zombie",
+					"zombie"],
+			"drop_pool": ["ghoul", "ash_bone_spear", "soul_rend", "shrouded_wraith"],
+			"coin_reward": 60, "is_boss": true, "boss_hp": 55,
+			"phase2_deck": ["ash_bone_spear", "ash_bone_spear", "ash_desecrate", "ash_desecrate", "soul_rend",
+					"shadow_bolt", "drain", "skeleton", "skeleton"],
+			"difficulty_tier": 4, "ai_persona": "control",
+			"lore_text": ("Madrian's first lord, buried with his guard beneath the graveyard. Open his crypt and he "
+					+ "wakes to defend it: first with the guard, then — when they fall — with the old death-magic "
+					+ "he was buried to keep quiet."),
+			"signature_card": "sig_barrow_crown", "capture_condition": "no_ally_lost", "capture_param": 0,
+		},
 		"rival_isfig_1": {
 			"display_name": "Isfig",
 			"deck": ["ghost", "ghost", "ghost", "skeleton", "skeleton", "skeleton", "mend", "wither"],
@@ -515,6 +612,13 @@ static func get_deck(type_id: String) -> Array[String]:
 	return result
 
 ## Returns the drop pool for a type. Falls back to a single ghost if unknown.
+## Fight traits (GID-149): named rules BattleModifiers applies (see game_logic/battle/EnemyTraits.gd).
+static func get_traits(type_id: String) -> Array[String]:
+	_ensure_loaded()
+	var out: Array[String] = []
+	out.assign((_enemies.get(type_id, {}) as Dictionary).get("traits", []))
+	return out
+
 ## Pack encounters (GID-135 / TID-541): the units that start on the enemy board —
 ## the same ones drawn beside the leader in the world. Empty for everyone else.
 static func get_pack(type_id: String) -> Array[String]:
@@ -649,7 +753,9 @@ static func is_tracking(type_id: String) -> bool:
 	return type_id == "undead_elite" or type_id == "ghoul_pack" or type_id == "roaming_terror" \
 		or type_id == "spectre_wisp" or type_id == "spectre_haunt" or type_id == "spectre_dread" \
 		or type_id == "scorched_revenant" or type_id == "mountain_troll" or type_id == "stone_golem" \
-		or type_id == "hollow_steward" or type_id == "martarquas_vanguard" or type_id == "imbued_stag"
+		or type_id == "hollow_steward" or type_id == "martarquas_vanguard" or type_id == "imbued_stag" \
+		or type_id == "wolf_pack" or type_id == "martarquas_scout" or type_id == "frost_wendigo" \
+		or type_id == "rift_echo"
 
 ## Returns true if this enemy type boosts card drop rarity by one tier on defeat.
 static func get_night_drop_boost(type_id: String) -> bool:

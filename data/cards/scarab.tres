@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://l6czsgg2fgtq"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_scarab"]
+
+[resource]
+script = ExtResource("1_scarab")
+id = "scarab"
+card_name = "Dune Scarab"
+cost = 1
+attack = 1
+health = 1
+card_class = "minion"
+description = "One is a nuisance. The swarm is the problem."
+color = Color(0.85, 0.7, 0.35, 1)

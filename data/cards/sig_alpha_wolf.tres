@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://m7iv79zpy07u"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_sig_alpha_wolf"]
+
+[resource]
+script = ExtResource("1_sig_alpha_wolf")
+id = "sig_alpha_wolf"
+card_name = "Alpha of the Grey"
+cost = 4
+attack = 3
+health = 3
+card_class = "minion"
+description = "The pack follows where it leads."
+color = Color(0.7, 0.68, 0.62, 1)
+keywords = PackedStringArray("surge")
+emergence_effect = "emergence_buff_friendly"
+emergence_power = 1
+can_craft = false
+is_unique = true

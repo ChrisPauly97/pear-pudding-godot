@@ -518,6 +518,7 @@ func _setup_solo_battle() -> void:
 	if enemy_data.has("enemy_deck"):
 		var enemy_deck: Array[String] = []
 		enemy_deck.assign(enemy_data["enemy_deck"])
+		enemy_deck = modifiers.trait_deck(_enemy_type, enemy_deck)  # GID-149: mirror
 		_state.players[1].build_deck(enemy_deck, _enemy_tier)
 		_state.players[1].draw_opening_hand(4)
 	modifiers._place_enemy_pack(_enemy_type, _enemy_tier)  # TID-541: packs start on the board
@@ -1009,6 +1010,7 @@ func _on_turn_ended(player_idx: int) -> void:
 		if _pvp:
 			return
 		if not _state.is_game_over() and not _state.puzzle_mode:
+			modifiers.apply_enemy_traits(_state.player_turn_numbers[1])  # GID-149
 			if _resolver.extra_turn_granted:
 				_resolver.extra_turn_granted = false
 				_state.end_turn()

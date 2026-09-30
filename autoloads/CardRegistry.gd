@@ -109,6 +109,18 @@ const _C_SIG_PACK_LEADER   := preload("res://data/cards/sig_pack_leader.tres")
 const _C_SIG_SHAMBLER      := preload("res://data/cards/sig_shambler.tres")
 const _C_SIG_WANDERER      := preload("res://data/cards/sig_wanderer.tres")
 const _C_SIG_WARLORD       := preload("res://data/cards/sig_warlord.tres")
+# GID-149 new enemy roster: minions + signatures.
+const _C_WOLF              := preload("res://data/cards/wolf.tres")
+const _C_TREANT            := preload("res://data/cards/treant.tres")
+const _C_SCARAB            := preload("res://data/cards/scarab.tres")
+const _C_SIG_ALPHA_WOLF    := preload("res://data/cards/sig_alpha_wolf.tres")
+const _C_SIG_CAULDRON_TOAD := preload("res://data/cards/sig_cauldron_toad.tres")
+const _C_SIG_PATHFINDER    := preload("res://data/cards/sig_pathfinder.tres")
+const _C_SIG_SCARAB_MATRIARCH := preload("res://data/cards/sig_scarab_matriarch.tres")
+const _C_SIG_CINDER_ACOLYTE := preload("res://data/cards/sig_cinder_acolyte.tres")
+const _C_SIG_WENDIGO_ANTLER := preload("res://data/cards/sig_wendigo_antler.tres")
+const _C_SIG_ECHO_SHARD    := preload("res://data/cards/sig_echo_shard.tres")
+const _C_SIG_BARROW_CROWN  := preload("res://data/cards/sig_barrow_crown.tres")
 const _C_ISFIG_SHADOW_ECHO := preload("res://data/cards/isfig_shadow_echo.tres")
 const _C_EMBER_COVENANT    := preload("res://data/cards/ember_covenant.tres")
 const _C_PYRE_WARDEN       := preload("res://data/cards/pyre_warden.tres")
@@ -152,6 +164,9 @@ static func _ensure_loaded() -> void:
 		_C_RADIANCE, _C_RALLY, _C_RESTORE, _C_SCORCH, _C_SHADOW_BOLT,
 		_C_SHADOW_WARD,
 		_C_SIG_PACK_LEADER, _C_SIG_SHAMBLER, _C_SIG_WANDERER, _C_SIG_WARLORD,
+		_C_WOLF, _C_TREANT, _C_SCARAB, _C_SIG_ALPHA_WOLF, _C_SIG_CAULDRON_TOAD, _C_SIG_PATHFINDER,
+		_C_SIG_SCARAB_MATRIARCH, _C_SIG_CINDER_ACOLYTE, _C_SIG_WENDIGO_ANTLER, _C_SIG_ECHO_SHARD,
+		_C_SIG_BARROW_CROWN,
 		_C_SHROUDED_WRAITH, _C_SIPHON, _C_SKELETON, _C_SOUL_HARVEST, _C_SOUL_REND,
 		_C_SPARK, _C_SURGE_SPIRIT, _C_TIME_WARP, _C_VEILED_PALADIN,
 		_C_VOID_CREEPER, _C_VOID_WYRM, _C_WITHER, _C_ZOMBIE,

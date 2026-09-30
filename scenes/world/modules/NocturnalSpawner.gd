@@ -11,6 +11,8 @@ const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const _EnemyScene = preload("res://scenes/world/entities/EnemyNPC.tscn")
 const _ChunkData = preload("res://game_logic/world/ChunkData.gd")
+const _InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
+const _BiomeDef = preload("res://game_logic/world/BiomeDef.gd")
 
 const MAX_ALIVE: int = 12
 const SPAWN_INTERVAL_MIN: float = 30.0
@@ -21,6 +23,7 @@ const SPAWN_TRIES: int = 20
 ## Chunks from the origin at which the tougher spectres start to appear.
 const HAUNT_FROM_CHUNK: int = 3
 const DREAD_FROM_CHUNK: int = 8
+const WENDIGO_CHANCE: float = 0.25
 
 var _world: _WorldScene = null
 
@@ -48,8 +51,19 @@ func tick(delta: float) -> void:
 	var spawn_pos: Vector3 = _find_spawn_pos(player.position)
 	if spawn_pos == Vector3.ZERO:
 		return
-	_spawn(spawn_pos, _tier_for(player.position))
+	_spawn(spawn_pos, _type_for(player.position))
 	_maybe_show_tutorial()
+
+## GID-149: one night spawn in WENDIGO_CHANCE on the peaks is a Frost Wendigo.
+func _type_for(pos: Vector3) -> String:
+	var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
+	var biome: int = _InfiniteWorldGen.biome_for_chunk(floori(pos.x / chunk_world), floori(pos.z / chunk_world),
+			_world.world_seed)
+	return wendigo_or(_tier_for(pos), biome, randf())
+
+## Pure pick (tests): mountains + roll under WENDIGO_CHANCE → wendigo.
+static func wendigo_or(spectre: String, biome: int, roll: float) -> String:
+	return "frost_wendigo" if biome == _BiomeDef.MOUNTAINS and roll < WENDIGO_CHANCE else spectre
 
 ## Spectre type for a spawn near `pos`: tougher the further from the origin.
 static func _tier_for(pos: Vector3) -> String:

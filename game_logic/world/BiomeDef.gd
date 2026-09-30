@@ -76,16 +76,18 @@ const WALL_TINT: Array[Color] = [
 ## dedicated Chapter 1 story bosses (hollow_steward, martarquas_vanguard) are
 ## named-map-only.
 const ENEMY_POOLS: Array = [
-	["undead_basic", "undead_horde", "wraith"],        # Grasslands
-	["undead_basic", "forest_shade", "ghoul_pack"],     # Forest
-	["cactus_worm", "sand_stalker", "undead_horde"],    # Desert
-	["scorched_revenant", "undead_elite"],              # Scorched
+	["undead_basic", "wolf_pack", "undead_horde", "martarquas_scout", "wraith"],  # Grasslands
+	["undead_basic", "wolf_pack", "forest_shade", "bog_hag", "ghoul_pack"],       # Forest
+	["cactus_worm", "sand_stalker", "scarab_swarm", "undead_horde"],              # Desert
+	["scorched_revenant", "ember_cultist", "undead_elite"],                       # Scorched
 	["mountain_troll", "stone_golem"],                  # Mountains
 ]
 
 # Biomes where an enemy standing on a ley line is an Imbued Stag instead of the
 # pool type (the stags drink the essence rising from the lines).
 const LEY_STAG_BIOMES: Array[int] = [GRASSLANDS, FOREST, MOUNTAINS]
+## Dry-country ley lines leak rift echoes instead (GID-149).
+const LEY_ECHO_BIOMES: Array[int] = [DESERT, SCORCHED]
 
 # Per-biome Environment.adjustment scalars (brightness, contrast, saturation).
 # Grasslands: vivid; Forest: cool/desaturated; Desert: bleached; Scorched: dark/muted; Mountains: crisp/cold.
