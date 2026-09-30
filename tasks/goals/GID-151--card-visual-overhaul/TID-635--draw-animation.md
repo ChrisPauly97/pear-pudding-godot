@@ -2,7 +2,7 @@
 
 **Goal:** GID-151
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-634
 
 ## Lock
@@ -40,12 +40,12 @@ Shared facts (research 2026-09-30):
 
 ## Plan
 
-_Written during Plan phase._
+CardMotion helper; BattleScene instance tracks dealt hand ids and deals new ones in from the hand row's right end.
 
 ## Changes Made
 
-_Filled after Build phase._
+New `scenes/battle/CardMotion.gd` (`deal_new_hand_cards`, `deal_in`, `flip_out`, `make_back`). `BattleScene`: `_card_motion` + one call after the hand refresh. `tools/capture_battle_cards.gd` gets POST_MS for mid-animation captures.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+docs/agent/card-visuals.md (Motion section).

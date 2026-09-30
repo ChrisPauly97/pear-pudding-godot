@@ -53,6 +53,15 @@ that row only shows in co-op / team top-bar layouts) and the pack-opening backs 
 - `PackOpenScene`: face is a `Panel` with the card's frame, art, name and badges.
 - `CardInspectOverlay`: the panel is the card's frame; dual-face panels dim the inactive face.
 
+### Motion (`scenes/battle/CardMotion.gd`)
+Ghost copies in the battle's float layer (`_float_layer`, CanvasLayer 128) so container-laid-out panels never
+move. Durations × the battle speed scale.
+- **Draw deal-in** — `BattleScene._card_motion` (an instance; it remembers dealt hand ids) runs
+  `deal_new_hand_cards()` after every hand refresh. Each new card's real panel is hidden, a card back flies
+  from the right end of the hand row (tilted, staggered 0.07 s), turns edge-on, and the face flips out
+  (`flip_out`). The opening hand deals in the same way. A refresh mid-flight simply shows the card early
+  (`update_card_view` resets modulate / scale on reuse).
+
 ## Integrations
 - `MagicTypes` (type list), `CardRegistry` templates (`magic_type`, `illustration`, `card_class`).
 - `tools/capture_battle_cards.gd` renders a battle screenshot under xvfb for eyeballing card changes.

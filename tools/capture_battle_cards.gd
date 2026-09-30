@@ -2,7 +2,8 @@
 ## can be eyeballed (GID-151). Needs a real or virtual display:
 ##   OUT=/tmp/battle.png xvfb-run -a -s "-screen 0 1920x1080x24" \
 ##     godot --path . --rendering-driver opengl3 --resolution 1920x1080 -s tools/capture_battle_cards.gd
-## DECK (comma list) sets the hand, MODE=realtime|turn, WAIT_MS delays the capture.
+## DECK (comma list) sets the hand, MODE=realtime|turn, WAIT_MS delays the capture,
+## POST_MS the time after the hand is dealt (small values catch animations mid-flight).
 extends SceneTree
 
 const _SceneFlow = preload("res://game_logic/SceneFlow.gd")
@@ -56,7 +57,7 @@ func _run() -> void:
 		hand.append(_CardInstance.new(_CardRegistry.get_template(id)))
 	(me.get("hero") as Object).set("mana", 10)
 	battle.call("_refresh_all")
-	await _wait(500)
+	await _wait(int(OS.get_environment("POST_MS")) if OS.get_environment("POST_MS") != "" else 800)
 	var hv: Control = battle.get("_player_hand_view") as Control
 	if hv != null:
 		print("hand view visible=", hv.is_visible_in_tree(), " rect=", hv.get_global_rect(), " kids=", hv.get_child_count())

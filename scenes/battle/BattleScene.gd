@@ -43,6 +43,7 @@ const UiFx = preload("res://scenes/ui/UiFx.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const CardViewBuilder = preload("res://scenes/battle/CardViewBuilder.gd")
 const CardFace = preload("res://scenes/ui/CardFace.gd")
+const CardMotion = preload("res://scenes/battle/CardMotion.gd")
 const SpellEffectResolver = preload("res://scenes/battle/SpellEffectResolver.gd")
 const BattlePauseUI = preload("res://scenes/battle/BattlePauseUI.gd")
 const BattleResultUI = preload("res://scenes/battle/BattleResultUI.gd")
@@ -265,6 +266,7 @@ var _tutorial_overlay: Node = null
 
 # Dual-face flip tracking (GID-062): instance_ids already flipped this battle.
 var _flipped_dual_ids: Dictionary = {}
+var _card_motion := CardMotion.new()  # draw / play / dissolve tweens (GID-151)
 
 @onready var _enemy_hand_view: HBoxContainer = $EnemyArea/EnemyHandView
 @onready var _enemy_board_view: HBoxContainer = $EnemyArea/EnemyBoardView
@@ -841,6 +843,7 @@ func _refresh_all() -> void:
 	_view.refresh_board_zone(_enemy_board_view, _state.players[_opp_idx()].board, "enemy_board")
 	_view.refresh_board_zone(_player_board_view, _state.players[_my_idx()].board, "board")
 	_view.refresh_zone(_player_hand_view, _state.players[_my_idx()].hand, "hand")
+	_card_motion.deal_new_hand_cards(_float_layer, _player_hand_view, _state.players[_my_idx()].hand, _speed_scale)
 	_view.refresh_hero(_enemy_hero_view, _state.players[_opp_idx()].hero, true,
 		_state.players[_opp_idx()].hand.size())
 	_view.refresh_hero(_player_hero_view, _state.players[_my_idx()].hero, false)
