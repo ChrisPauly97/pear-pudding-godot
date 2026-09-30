@@ -195,3 +195,10 @@ Ceiling ratcheted 2100 → 2080. Then `_setup_environment`'s Environment + fill-
 `CoopActivities.wire_permanent_signals`, `CoopPvP.wire_permanent_signals`; same connect order) → 1986, ceiling 2000;
 `chunk_unload_smoke` also asserts that wiring (incl. the `coop_pve_battle_ended` handler order). Remaining big
 bodies: `_ready` (158), `_handle_interact` (124, stays), `_process` (81), `_spawn_player` (62).
+
+### Follow-up (2026-09-30) — spawn position
+
+`_spawn_player`'s position rules (interior-exit token, saved restore, door, SPAWN marker / Madrian fallback) and the
+dedicated server's SPAWN-marker reference point moved to `game_logic/world/SpawnPoint.gd` (`resolve`, `map_spawn`),
+now unit-tested in `tests/unit/test_spawn_point.gd`. Behaviour unchanged. 1986 → 1953, ceiling 2000 → 1965.
+Remaining big bodies: `_ready` (~155), `_handle_interact` (124, stays), `_process` (81).

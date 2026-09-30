@@ -60,7 +60,7 @@ const _RiftPortals = preload("res://scenes/world/modules/RiftPortals.gd")
 const _WorldLook = preload("res://scenes/world/WorldLook.gd")
 const _Critters = preload("res://scenes/world/modules/Critters.gd")
 const _HeroHealth = preload("res://scenes/world/modules/HeroHealth.gd")
-const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
+const _SpawnPoint = preload("res://game_logic/world/SpawnPoint.gd")
 const _TownSiege = preload("res://scenes/world/modules/TownSiege.gd")
 const _SunRaysFx = preload("res://scenes/world/SunRaysFx.gd")
 const _TapToMove = preload("res://scenes/world/modules/TapToMove.gd")
@@ -454,10 +454,8 @@ func _ready() -> void:
 	var _server_ref_pos: Vector3 = Vector3.ZERO
 	if NetworkManager.is_dedicated_server():
 		if not _is_infinite and world_map != null and world_map.has_player_spawn():
-			_server_ref_pos = Vector3(
-				(float(world_map.player_spawn_x) + 0.5) * IsoConst.TILE_SIZE,
-				0.0,
-				(float(world_map.player_spawn_z) + 0.5) * IsoConst.TILE_SIZE)
+			var ref: Vector2 = _SpawnPoint.map_spawn(world_map)
+			_server_ref_pos = Vector3(ref.x, 0.0, ref.y)
 		print("[Server] World loaded: %s" % map_name)
 	else:
 		_spawn_player()
@@ -903,42 +901,11 @@ func _build_grass_blades_node() -> void:
 	add_child(_grass)
 
 func _spawn_player() -> void:
-	var px: float = 3.0 * IsoConst.TILE_SIZE
-	var pz: float = 3.0 * IsoConst.TILE_SIZE
-
-	if _is_infinite:
-		var madrian: Vector3 = _RealmLayout.spawn_pos("madrian")  # new game (GID-138)
-		px = madrian.x
-		pz = madrian.z
-		var back: Variant = _RealmLayout.parse_pos_token(target_door_id)  # leaving an interior
-		if back is Vector3:
-			px = (back as Vector3).x
-			pz = (back as Vector3).z
-		elif SceneManager.save_manager.current_map == map_name and \
-				(SceneManager.save_manager.player_x != 0.0 or SceneManager.save_manager.player_z != 0.0):
-			px = SceneManager.save_manager.player_x
-			pz = SceneManager.save_manager.player_z
-	else:
-		var default_px: float = (float(world_map.player_spawn_x) + 0.5) * IsoConst.TILE_SIZE \
-				if world_map.has_player_spawn() else 3.0 * IsoConst.TILE_SIZE
-		var default_pz: float = (float(world_map.player_spawn_z) + 0.5) * IsoConst.TILE_SIZE \
-				if world_map.has_player_spawn() else 3.0 * IsoConst.TILE_SIZE
-		if not target_door_id.is_empty():
-			var door := world_map.find_door_by_id(target_door_id)
-			px = door.get("x", default_px) if not door.is_empty() else default_px
-			pz = door.get("z", default_pz) if not door.is_empty() else default_pz
-		elif SceneManager.save_manager.current_map == map_name and \
-				(SceneManager.save_manager.player_x != 0.0 or SceneManager.save_manager.player_z != 0.0):
-			# Restore saved position when the save file records this map as the player's
-			# last location. The current_map == map_name guard is sufficient — it is only
-			# true when loading a save where the player was already in this map. Fresh
-			# entries (new game, door travel, waystone) always leave save_manager.current_map
-			# pointing to the previous map, so they fall through to the spawn default.
-			px = SceneManager.save_manager.player_x
-			pz = SceneManager.save_manager.player_z
-		else:
-			px = default_px
-			pz = default_pz
+	var sm := SceneManager.save_manager
+	var spawn: Vector2 = _SpawnPoint.resolve(_is_infinite, map_name, world_map, target_door_id,
+			sm.current_map, Vector2(sm.player_x, sm.player_z))
+	var px: float = spawn.x
+	var pz: float = spawn.y
 
 	# Co-op: nudge the joining client +2 tiles so the two avatars don't perfectly
 	# overlap at the shared spawn marker (cosmetic; they walk apart immediately).

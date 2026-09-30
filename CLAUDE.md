@@ -520,7 +520,7 @@ commas; split long strings as `("..." + "...")`). Files over 500 lines carry a
 
 ## Named Map Player Spawn vs. Saved Position
 
-`_spawn_player()` uses `save_manager.current_map == map_name` to restore saved position. **Don't add extra guards** — `current_map` is only set to the target map on `continue_game()`, so fresh entry paths naturally fall through to spawn/door position.
+`_spawn_player()` resolves its position via `game_logic/world/SpawnPoint.resolve()`, which uses `save_manager.current_map == map_name` to restore saved position. **Don't add extra guards** — `current_map` is only set to the target map on `continue_game()`, so fresh entry paths naturally fall through to spawn/door position.
 
 | Entry path | Position used |
 |---|---|
