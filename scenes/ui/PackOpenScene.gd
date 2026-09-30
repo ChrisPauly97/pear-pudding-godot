@@ -5,6 +5,7 @@ signal closed
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
+const _CardFace = preload("res://scenes/ui/CardFace.gd")
 
 # Set before add_child() via SceneManager.
 var _rolled_cards: Array[Dictionary] = []
@@ -18,7 +19,7 @@ var _flipped: Array[bool] = []
 var _card_wrappers: Array[Control] = []
 var _visual_nodes: Array[Control] = []
 var _card_backs: Array[ColorRect] = []
-var _card_face_bgs: Array[ColorRect] = []
+var _card_face_bgs: Array[Panel] = []
 var _card_face_contents: Array[VBoxContainer] = []
 var _tap_buttons: Array[Button] = []
 
@@ -95,16 +96,21 @@ func _make_card_slot(idx: int, card_w: float, card_h: float) -> Control:
 	back_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	back.add_child(back_lbl)
 
-	# Card face background (rarity colour, hidden until reveal).
-	var face_bg := ColorRect.new()
-	face_bg.color = Color(0.12, 0.12, 0.20)
+	# Card face frame (magic-type frame, set on reveal; hidden until then).
+	var face_bg := Panel.new()
 	face_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	face_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	face_bg.visible = false
 	visual.add_child(face_bg)
 
 	# Card face content (labels, hidden until reveal).
 	var face_content := VBoxContainer.new()
 	face_content.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var inset: float = _CardFace.frame_style("", card_h).content_margin_left
+	face_content.offset_left = inset
+	face_content.offset_top = inset
+	face_content.offset_right = -inset
+	face_content.offset_bottom = -inset
 	face_content.alignment = BoxContainer.ALIGNMENT_CENTER
 	face_content.add_theme_constant_override("separation", int(card_h * 0.04))
 	face_content.visible = false
@@ -167,22 +173,30 @@ func _populate_face(idx: int) -> void:
 	if rarity == "legendary":
 		SceneManager.save_manager.reset_pity()
 
-	# Set face background to a darkened version of the rarity colour.
 	var rc: Color = _UiUtil.rarity_color(rarity)
-	_card_face_bgs[idx].color = rc.darkened(0.75)
+	var card_h: float = _ref * 0.30
+	_card_face_bgs[idx].add_theme_stylebox_override("panel",
+			_CardFace.frame_style(str(tmpl.get("magic_type", "")), card_h))
 
 	var face: VBoxContainer = _card_face_contents[idx]
 
-	var rarity_lbl := _UiUtil.make_label(rarity.to_upper(), int(_ref * 0.018), rc, HORIZONTAL_ALIGNMENT_CENTER, face)
+	_UiUtil.make_label(rarity.to_upper(), int(_ref * 0.018), rc, HORIZONTAL_ALIGNMENT_CENTER, face)
+
+	var illus: Texture2D = tmpl.get("illustration") as Texture2D
+	if illus != null:
+		face.add_child(_CardFace.make_art(illus, card_h * 0.38))
 
 	var name_lbl := _UiUtil.make_label(card_name, int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, face)
 	name_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
-	var cost_lbl := _UiUtil.make_label("Cost: %d" % cost, int(_ref * 0.018), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER,
-			face)
-
-	var stats_lbl := _UiUtil.make_label("%d / %d" % [atk, hp], int(_ref * 0.025), Color.WHITE,
-			HORIZONTAL_ALIGNMENT_CENTER, face)
+	var stats := _UiUtil.make_hbox(int(_ref * 0.01), face)
+	stats.alignment = BoxContainer.ALIGNMENT_CENTER
+	var d: float = card_h * 0.17
+	var fs: int = int(_ref * 0.02)
+	stats.add_child(_CardFace.make_badge("cost", str(cost), d, fs))
+	if str(tmpl.get("card_class", "minion")) != "spell":
+		stats.add_child(_CardFace.make_badge("atk", str(atk), d, fs))
+		stats.add_child(_CardFace.make_badge("hp", str(hp), d, fs))
 
 func _check_all_revealed() -> void:
 	for f: bool in _flipped:

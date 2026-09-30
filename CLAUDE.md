@@ -193,6 +193,8 @@ _UiUtil.make_centered_panel(w, h, vw, vh, parent)
 _UiUtil.make_style(bg, radius, border_color, border_width)   # rounded StyleBoxFlat
 ```
 
+Card faces (frame, back, badges, art) come from `scenes/ui/CardFace.gd` — see `docs/agent/card-visuals.md`.
+
 Styling comes from the project theme (`scenes/ui/UiTheme.gd`, merged into the
 engine default theme at startup), so factory widgets need no stylebox overrides.
 Only add `add_theme_stylebox_override` for a genuinely bespoke look. Headings use
@@ -694,6 +696,7 @@ Agent-owned feature docs. Each covers Key Features, How It Works, Integrations, 
 | [docs/agent/audio-soundtrack.md](docs/agent/audio-soundtrack.md) | Curated CC0/CC-BY music shortlist per slot (7 slots), acquisition/conversion steps, attribution requirements |
 | [docs/agent/art-sprites.md](docs/agent/art-sprites.md) | Curated CC0/CC-BY sprite shortlist: enemy archetypes, NPCs, props, mount, card art; manifest, acquisition steps, attribution |
 | [docs/agent/game-appeal.md](docs/agent/game-appeal.md) | Appeal analysis: player motivations, personas, differentiation, weaknesses, first-session hook visibility |
+| [docs/agent/card-visuals.md](docs/agent/card-visuals.md) | Card frames per magic type, card back, badges, CardFace builder, card animations (GID-151) |
 | [docs/agent/rifts.md](docs/agent/rifts.md) | Spire reworked as per-biome rifts: tier ladders, guardian floors, boons, rift quests, entrances (GID-142) |
 | [docs/agent/starter-zone-and-training.md](docs/agent/starter-zone-and-training.md) | Unlock ladder (one system per level), trainer-taught unlocks for gold, starter zone + quest chain (GID-141) |
 | [docs/human/story.md](docs/human/story.md) | Story bible: characters, chapters, NPC dialogue, map specs (human-owned) |

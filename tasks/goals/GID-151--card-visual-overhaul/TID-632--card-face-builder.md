@@ -2,7 +2,7 @@
 
 **Goal:** GID-151
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-631
 
 ## Lock
@@ -40,12 +40,12 @@ Shared facts (research 2026-09-30):
 
 ## Plan
 
-_Written during Plan phase._
+Shared `CardFace` builder over the CardChrome art; battle cards keep their node/meta contracts (vbox child 0, `card_style` meta) so recycled panels, RealtimeVisuals and highlight code keep working.
 
 ## Changes Made
 
-_Filled after Build phase._
+New `scenes/ui/CardFace.gd`. `CardViewBuilder`: frame stylebox per magic type, rim drawn over it (highlights/dimming), stats row with gem/atk/hp badges, text plate, flexible art height, `format_cost` is the bare number. `CardArt`: nearest filter + expanding art. `CardTile`, `PackOpenScene`, `CardInspectOverlay` adopt frames/badges/art. `BattleScene` board rows 0.27→0.245 vh (hand row was 29 px off-screen at 1920×1080). New `tools/capture_battle_cards.gd` (xvfb screenshot). Gem redrawn round.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+New docs/agent/card-visuals.md; CLAUDE.md doc table + UI factory note.

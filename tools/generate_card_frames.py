@@ -144,17 +144,19 @@ def crest():
 
 
 def gem_cost():
-    """Blue faceted mana gem (12x12) the cost number sits on."""
+    """Round blue mana gem (12x12) with a diamond facet; the cost number sits on it."""
     g = Grid(12, 12)
+    base = _badge(P.BLUE)
     for y in range(12):
-        w = 5 - abs(y - 5.5) + 0.5
         for x in range(12):
-            dx = x - 5.5
-            if abs(dx) <= w:
-                col = P.BLUE[3] if dx < -1 and y < 6 else P.BLUE[2] if dx < 1 else P.BLUE[1]
-                if abs(dx) > w - 1:
-                    col = P.OUTLINE
-                g.set(x, y, col)
+            r, gg, b, a = base.getpixel((x, y))
+            if a:
+                g.set(x, y, (r, gg, b))
+    for y in range(3, 9):
+        w = 2 - abs(y - 5.5) + 0.5
+        for x in range(12):
+            if abs(x - 5.5) <= w:
+                g.set(x, y, P.BLUE[3] if y < 6 and x < 6 else P.BLUE[2])
     return g.image()
 
 

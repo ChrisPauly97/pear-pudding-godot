@@ -4,6 +4,7 @@ extends RefCounted
 
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
+const CardFace = preload("res://scenes/ui/CardFace.gd")
 
 const NODE_NAME := "IllustrationRect"
 
@@ -12,21 +13,18 @@ static func texture_for(card: CardInstance) -> Texture2D:
 	return tmpl.get("illustration") as Texture2D
 
 ## Adds, swaps or hides the art on a (possibly reused) card vbox to match
-## `card`. The art rect is always the vbox's first child.
-static func apply(vbox: VBoxContainer, card: CardInstance, vh: float) -> void:
-	set_texture(vbox, texture_for(card), vh)
+## `card`. The art rect is always the vbox's first child, `art_h` px tall.
+static func apply(vbox: VBoxContainer, card: CardInstance, art_h: float) -> void:
+	set_texture(vbox, texture_for(card), art_h)
 
-static func set_texture(vbox: VBoxContainer, illus: Texture2D, vh: float) -> void:
+static func set_texture(vbox: VBoxContainer, illus: Texture2D, art_h: float) -> void:
 	var art: TextureRect = vbox.get_node_or_null(NODE_NAME) as TextureRect
 	if art == null:
 		if illus == null:
 			return
-		art = TextureRect.new()
+		art = CardFace.make_art(null, art_h)
 		art.name = NODE_NAME
-		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		art.custom_minimum_size = Vector2(0.0, vh * 0.07)
-		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		art.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		vbox.add_child(art)
 		vbox.move_child(art, 0)
 	art.texture = illus

@@ -629,7 +629,9 @@ func _apply_ui_sizes() -> void:
 	if top_bar:
 		_view.set_card_scale(0.85)
 	var hero_h: float = _vh * (0.08 if top_bar else 0.10)
-	var board_h: float = _vh * (0.22 if top_bar else 0.27)
+	# Board rows hold 0.24 vh cards; 0.245 (not 0.27) keeps the hand row fully
+	# on screen at 16:9 once the hero panels grow to fit their text (GID-151).
+	var board_h: float = _vh * (0.22 if top_bar else 0.245)
 	# The enemy hand row (face-down card backs) is collapsed on all layouts —
 	# the count is shown on the enemy hero panel instead (GID-119 / TID-448).
 	# In top-bar modes it stays visible as an empty spacer under the bar.
