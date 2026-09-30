@@ -6,6 +6,8 @@
 ##   hero_hp_at_most        — player hero HP <= capture_param at game-over
 ##   no_minion_hero_attacks — player never attacked enemy hero with a minion
 ##   win_by_turn            — turn_number <= capture_param when game ends
+##   no_ally_lost           — none of the player's allies died (no minion in their discard) — GID-149
+##   hero_hp_at_least       — player hero HP >= capture_param at game-over — GID-149
 ##
 ## Usage:
 ##   var tracker := CaptureTracker.new("no_minion_hero_attacks", 0)
@@ -15,6 +17,16 @@
 extends RefCounted
 
 const _GameState = preload("res://game_logic/battle/GameState.gd")
+const _CardInstance = preload("res://game_logic/battle/CardInstance.gd")
+## Condition id → UI text (`%d` takes the param).
+const CONDITION_TEXT: Dictionary = {
+	"spell_final_blow": "Win with a spell landing the final blow on the enemy's last minion",
+	"no_minion_hero_attacks": "Win without attacking the enemy hero with a minion",
+	"hero_hp_at_most": "Win with your hero at %d HP or below",
+	"win_by_turn": "Win by turn %d",
+	"no_ally_lost": "Win without losing an ally",
+	"hero_hp_at_least": "Win with your hero at %d HP or more",
+}
 
 var _condition: String = ""
 var _param: int = 0
@@ -56,20 +68,20 @@ func is_satisfied(state: _GameState) -> bool:
 			if state == null:
 				return false
 			return int(state.turn_number) <= _param
+		"no_ally_lost":
+			if state == null:
+				return false
+			for c: _CardInstance in state.players[0].discard:
+				if c != null and c.card_class == "minion":
+					return false
+			return true
+		"hero_hp_at_least":
+			return state != null and int(state.players[0].hero.health) >= _param
 		_:
 			# gdlint:ignore = max-returns
 			return false
 
 ## Returns a human-readable description of the condition for the UI.
 func condition_text() -> String:
-	match _condition:
-		"spell_final_blow":
-			return "Win with a spell landing the final blow on the enemy's last minion"
-		"no_minion_hero_attacks":
-			return "Win without attacking the enemy hero with a minion"
-		"hero_hp_at_most":
-			return "Win with your hero at %d HP or below" % _param
-		"win_by_turn":
-			return "Win by turn %d" % _param
-		_:
-			return ""
+	var text: String = str(CONDITION_TEXT.get(_condition, ""))
+	return text % _param if text.contains("%d") else text

@@ -440,3 +440,30 @@ Ground critters wander within a radius of home on dry grass/hill and flee the he
 inside 2.5 units; butterflies/bees hover, rabbits hop. No health, battles, saves
 or co-op sync. Sprites: `scripts/gen_creature_sprites.py` (also draws the cactus
 worm and imbued stag enemy sprites).
+
+## New Enemy Roster (GID-149)
+
+Eight enemies, all rows in `EnemyRegistry._ensure_loaded()`, with art from
+`scripts/gen_creature_sprites.py` (`enemy_<type>.png`, plus `enemy_wolf.png` /
+`enemy_scarab.png` pack members via `SpriteRegistry.pack_member_texture`).
+
+| Type | Where | Tier | Trait | Signature / capture |
+|---|---|---|---|---|
+| `wolf_pack` (Grey Wolf Alpha + 3 wolves) | Grasslands, Forest pools | 1 | `howl`: +1 wolf on enemy round 3 | `sig_alpha_wolf` / `no_ally_lost` |
+| `bog_hag` | Forest pool | 2 | — (Thorn/Bloom poison control deck) | `sig_cauldron_toad` / `hero_hp_at_least` 20 |
+| `martarquas_scout` | Grasslands pool, tracking | 2 | — (fast aggro) | `sig_pathfinder` / `win_by_turn` 5 |
+| `scarab_swarm` (Queen + 5 scarabs) | Desert pool | 2 | `brood`: refills one scarab a round up to 5 | `sig_scarab_matriarch` / `spell_final_blow` |
+| `ember_cultist` | Scorched pool | 3 | — (Ember imps + burn) | `sig_cinder_acolyte` / `no_minion_hero_attacks` |
+| `frost_wendigo` | Mountain night spawn (25% of night spawns, `NocturnalSpawner.wendigo_or`) | 4 | `frenzy`: all enemy minions +1 atk a round from round 7 | `sig_wendigo_antler` / `win_by_turn` 7 |
+| `rift_echo` | Ley lines in Desert/Scorched (`BiomeDef.LEY_ECHO_BIOMES`) | 3 | `mirror`: its spells become the player's own | `sig_echo_shard` / `hero_hp_at_least` 15 |
+| `barrow_king` (boss, 55 HP, phase 2) | Outside Madrian's crypt once `sealed_crypt` is complete (`StarterZone.BARROW_KING`, spawned by `StarterCamps`) | 4 | boss phase 2 death-magic deck | `sig_barrow_crown` / `no_ally_lost` |
+
+**Traits** live in `game_logic/battle/EnemyTraits.gd` (pure; `traits` array per
+registry row, read with `EnemyRegistry.get_traits`). `BattleModifiers.apply_enemy_traits(round)`
+runs at the start of each enemy turn (turn-based, `player_turn_numbers[1]`) or each enemy
+round (real time, `BattleRealtime._on_round`); `BattleModifiers.trait_deck` applies `mirror`
+before the enemy deck is built. Messages show as a float label (turn-based) or toast (real time).
+
+The Barrow King's id (`barrow_king_madrian`) has no `camp_` prefix, so beating him is saved
+in `defeated_enemies` and he never returns. New minion cards `wolf`, `treant`, `scarab` are
+normal collectibles. Scope cut: the Ember Cultist's brazier board hazard (not built).

@@ -45,6 +45,7 @@ func tick(delta: float) -> void:
 				<= _StarterZone.ACTIVE_RANGE
 		for slot: int in range(int(camp["count"])):
 			_update_slot(camp, slot, near)
+	_update_barrow_king(player)
 
 func _update_slot(camp: Dictionary, slot: int, near: bool) -> void:
 	var id: String = _StarterZone.member_id(camp, slot)
@@ -79,6 +80,27 @@ func _spawn(camp: Dictionary, slot: int, id: String) -> void:
 		"enemy_level": int(camp["level"]),
 		"camp": str(camp["id"]),
 	})
+	node.position = Vector3(x, _world.get_terrain_height(x, z) + 0.5, z)
+	_world._entity_root.add_child(node)
+	_members[id] = node
+	_world.register_loose_enemy(id, node)
+
+## GID-149: the unique Barrow King, spawned beside his crypt once it is opened.
+func _update_barrow_king(player: Node3D) -> void:
+	var bk: Dictionary = _StarterZone.BARROW_KING
+	var id: String = str(bk["id"])
+	var save := SceneManager.save_manager
+	if _world._valid_node3d(_members.get(id)) != null \
+			or not _StarterZone.barrow_king_awake(save.quests_completed, save.defeated_enemies):
+		return
+	var t: Vector2i = bk["tile"]
+	var x: float = (float(t.x) + 0.5) * IsoConst.TILE_SIZE
+	var z: float = (float(t.y) + 0.5) * IsoConst.TILE_SIZE
+	if Vector2(x - player.position.x, z - player.position.z).length() > _StarterZone.ACTIVE_RANGE:
+		return
+	var node: Node3D = _EnemyScene.instantiate() as Node3D
+	node.call("init_from_data", {"id": id, "enemy_type": str(bk["enemy_type"]), "tracking": false,
+		"enemy_deck": _EnemyRegistry.get_deck(str(bk["enemy_type"])), "enemy_level": int(bk["level"])})
 	node.position = Vector3(x, _world.get_terrain_height(x, z) + 0.5, z)
 	_world._entity_root.add_child(node)
 	_members[id] = node

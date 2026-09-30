@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://bfiwm37vjnes"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_sig_scarab_matriarch"]
+
+[resource]
+script = ExtResource("1_sig_scarab_matriarch")
+id = "sig_scarab_matriarch"
+card_name = "Scarab Matriarch"
+cost = 4
+attack = 2
+health = 4
+card_class = "minion"
+description = "She lays the swarm and guards it."
+color = Color(0.9, 0.75, 0.3, 1)
+keywords = PackedStringArray("ward")
+emergence_effect = "emergence_draw"
+emergence_power = 1
+can_craft = false
+is_unique = true

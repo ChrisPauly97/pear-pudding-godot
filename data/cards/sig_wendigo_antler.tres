@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://d5vrwoybej5f"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_sig_wendigo_antler"]
+
+[resource]
+script = ExtResource("1_sig_wendigo_antler")
+id = "sig_wendigo_antler"
+card_name = "Antlered Hunger"
+cost = 5
+attack = 5
+health = 3
+card_class = "minion"
+description = "Cold, starving, and faster than it looks."
+color = Color(0.7, 0.8, 0.9, 1)
+keywords = PackedStringArray("surge")
+can_craft = false
+is_unique = true

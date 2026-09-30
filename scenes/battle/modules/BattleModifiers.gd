@@ -26,8 +26,12 @@ const Gambits = preload("res://game_logic/battle/Gambits.gd")
 const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
+const _EnemyTraits = preload("res://game_logic/battle/EnemyTraits.gd")
 
 var _battle: _BattleScene
+## Enemy type + tier the fight traits apply for (set with the pack).
+var _trait_type: String = ""
+var _trait_tier: int = 1
 
 
 func _init(battle: _BattleScene) -> void:
@@ -348,20 +352,32 @@ func record_persistent_hp(won: bool) -> void:
 ## `tier` like its deck and ready to act — what you saw beside it in the world.
 func _place_enemy_pack(enemy_type: String, tier: int) -> void:
 	var enemy: PlayerState = _battle._state.players[1]
-	var slot: int = 0
+	_trait_type = enemy_type
+	_trait_tier = tier
 	for cid: String in EnemyRegistry.get_pack(enemy_type):
-		var tmpl: Dictionary = CardRegistry.get_template(cid)
-		if tmpl.is_empty():
-			continue
-		while slot < enemy.board.slots.size() and enemy.board.slots[slot] != null:
-			slot += 1
-		if slot >= enemy.board.slots.size():
+		if not _EnemyTraits.place(enemy, _EnemyTraits.make_unit(cid, tier, enemy.minion_attack_bonus)):
 			return
-		tmpl = tmpl.duplicate()
-		var scaled: Dictionary = CardDropUtil.enemy_card_stats(cid, tier)
-		tmpl["attack"] = scaled.get("attack", tmpl.get("attack", 0))
-		tmpl["health"] = scaled.get("health", tmpl.get("health", 0))
-		var unit := CardInstance.new(tmpl)
-		unit.attack += enemy.minion_attack_bonus
-		unit.summoning_sick = false
-		enemy.board.slots[slot] = unit
+
+# ── Fight traits (GID-149 / TID-621) ────────────────────────────────────────
+
+## Enemy deck for `enemy_type` after deck-shaping traits (mirror: the player's own spells).
+func trait_deck(enemy_type: String, deck: Array[String]) -> Array[String]:
+	if not EnemyRegistry.get_traits(enemy_type).has("mirror"):
+		return deck
+	var spells: Array[String] = []
+	var p: PlayerState = _battle._state.players[0]
+	for c: CardInstance in p.draw_deck + p.hand:
+		if c.card_class == "spell" and not spells.has(c.template_id):
+			spells.append(c.template_id)
+	return _EnemyTraits.mirror_deck(deck, spells)
+
+## Start of enemy round `round_n`: howl / brood / frenzy (see EnemyTraits).
+func apply_enemy_traits(round_n: int) -> void:
+	var traits: Array[String] = EnemyRegistry.get_traits(_trait_type)
+	if traits.is_empty() or _battle._state.players.size() < 2:
+		return
+	for line: String in _EnemyTraits.on_enemy_round(_battle._state, 1, traits, round_n, _trait_tier):
+		if _battle.realtime != null and _battle.realtime.is_active():
+			_battle.realtime.toast(line)
+		else:
+			_battle._fx.spawn_float_label(_battle._fx.pos_of_hero(true), line, Color(1.0, 0.75, 0.35))

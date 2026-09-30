@@ -53,6 +53,15 @@ const GRAVEYARD_MOUNDS: Array[Vector2i] = [Vector2i(-28, 17), Vector2i(-24, 22),
 const GRAVEYARD_LOCAL_RECT := Rect2i(8, 47, 11, 10)
 const CRYPT_DOOR_LOCAL := Vector2i(24, 53)
 
+## GID-149: the Barrow King wakes outside his crypt once "The Sealed Crypt" is
+## done. Unique (no ID_PREFIX), so beating him is saved like any named enemy.
+const BARROW_KING := {"id": "barrow_king_madrian", "enemy_type": "barrow_king", "tile": Vector2i(-13, 22),
+	"level": 14, "requires_quest": "sealed_crypt"}
+
+## True when the Barrow King should stand at his crypt.
+static func barrow_king_awake(completed_quests: Array, defeated: Array) -> bool:
+	return completed_quests.has(str(BARROW_KING["requires_quest"])) and not defeated.has(str(BARROW_KING["id"]))
+
 ## [key, Madrian-local tile, axis, offset] for every graveyard prop. `axis` "" =
 ## camera-facing billboard (headstones); "x" / "z" = a flat panel running along
 ## that world axis, so the fence and the crypt door follow the isometric lines

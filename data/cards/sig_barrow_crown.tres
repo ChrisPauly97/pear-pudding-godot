@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://84ddziocuv68"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_sig_barrow_crown"]
+
+[resource]
+script = ExtResource("1_sig_barrow_crown")
+id = "sig_barrow_crown"
+card_name = "Crowned Barrow Knight"
+cost = 6
+attack = 5
+health = 6
+card_class = "minion"
+description = "It kept the crown. It kept the oath."
+color = Color(0.75, 0.65, 0.3, 1)
+keywords = PackedStringArray("ward")
+emergence_effect = "emergence_heal_hero"
+emergence_power = 3
+can_craft = false
+is_unique = true

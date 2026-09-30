@@ -69,6 +69,8 @@ var _cast_delay: float = 0.0
 var _cast_pushbacks: int = 0
 var _last_player_hp: int = 0
 var _enemy_tier: int = 1
+## Enemy rounds elapsed, for the fight traits (GID-149).
+var _enemy_rounds: int = 0
 ## TID-580: seconds of hit-stop left (the combat clock holds; the screen doesn't).
 var _hitstop_left: float = 0.0
 
@@ -486,6 +488,8 @@ func _process(delta: float) -> void:
 				swings.append(ev)
 			"enemy_cast":
 				_after_enemy_play(ev["card"] as CardInstance, int(ev.get("side", RealtimeCombat.ENEMY)))
+			"round":
+				_on_round(int(ev.get("side", -1)))
 			"proc":
 				momentum.on_proc()
 			"enemy_down":
@@ -526,6 +530,12 @@ func _animate_swing(ev: Dictionary) -> void:
 		_battle._fx.animate_attack(panel, to, 1.0)
 
 ## Mirrors the post-action steps of BattleScene._execute_ai_actions.
+## GID-149: fight traits tick on each enemy round.
+func _on_round(side: int) -> void:
+	if side == RealtimeCombat.ENEMY:
+		_enemy_rounds += 1
+		_battle.modifiers.apply_enemy_traits(_enemy_rounds)
+
 func _after_enemy_play(card: CardInstance, ai_idx: int = RealtimeCombat.ENEMY) -> void:
 	_battle._resolver.flush_auto_spells(ai_idx)
 	if card.card_class != "spell":

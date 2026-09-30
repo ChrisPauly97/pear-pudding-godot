@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://mmgk66hc62tm"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_treant"]
+
+[resource]
+script = ExtResource("1_treant")
+id = "treant"
+card_name = "Bog Treant"
+cost = 3
+attack = 1
+health = 5
+card_class = "minion"
+description = "A stump of marsh-wood that learned to stand guard."
+color = Color(0.4, 0.55, 0.35, 1)
+keywords = PackedStringArray("ward")

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://7wxise9plhzd"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_wolf"]
+
+[resource]
+script = ExtResource("1_wolf")
+id = "wolf"
+card_name = "Grey Wolf"
+cost = 2
+attack = 2
+health = 1
+card_class = "minion"
+description = "Lean and quick, it never hunts alone."
+color = Color(0.62, 0.6, 0.55, 1)
+keywords = PackedStringArray("surge")

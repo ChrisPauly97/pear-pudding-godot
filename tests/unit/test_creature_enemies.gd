@@ -37,5 +37,6 @@ func test_stags_stand_on_ley_lines() -> void:
 	assert_true(on != Vector2.INF, "found a ley line")
 	assert_eq(_Gen.enemy_type_at("wraith", _BiomeDef.GRASSLANDS, on.x, on.y, seed_v), "imbued_stag", "stag on line")
 	assert_eq(_Gen.enemy_type_at("wraith", _BiomeDef.GRASSLANDS, off.x, off.y, seed_v), "wraith", "pool type off it")
-	assert_eq(_Gen.enemy_type_at("sand_stalker", _BiomeDef.DESERT, on.x, on.y, seed_v), "sand_stalker",
-			"no stags in the desert")
+	assert_eq(_Gen.enemy_type_at("sand_stalker", _BiomeDef.DESERT, on.x, on.y, seed_v), "rift_echo",
+			"desert ley lines leak rift echoes, not stags (GID-149)")
+	assert_eq(_Gen.enemy_type_at("sand_stalker", _BiomeDef.DESERT, off.x, off.y, seed_v), "sand_stalker")

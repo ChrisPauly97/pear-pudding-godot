@@ -42,6 +42,16 @@ const _ENEMY_TERROR       := preload("res://assets/textures/characters/enemy_ter
 const _ENEMY_MIMIC        := preload("res://assets/textures/characters/enemy_mimic.png")
 const _ENEMY_SPECTRE      := preload("res://assets/textures/characters/enemy_spectre.png")
 const _ENEMY_CACTUS_WORM  := preload("res://assets/textures/characters/enemy_cactus_worm.png")
+const _ENEMY_WOLF_PACK := preload("res://assets/textures/characters/enemy_wolf_pack.png")
+const _ENEMY_WOLF := preload("res://assets/textures/characters/enemy_wolf.png")
+const _ENEMY_BOG_HAG := preload("res://assets/textures/characters/enemy_bog_hag.png")
+const _ENEMY_MARTARQUAS_SCOUT := preload("res://assets/textures/characters/enemy_martarquas_scout.png")
+const _ENEMY_SCARAB_SWARM := preload("res://assets/textures/characters/enemy_scarab_swarm.png")
+const _ENEMY_SCARAB := preload("res://assets/textures/characters/enemy_scarab.png")
+const _ENEMY_EMBER_CULTIST := preload("res://assets/textures/characters/enemy_ember_cultist.png")
+const _ENEMY_FROST_WENDIGO := preload("res://assets/textures/characters/enemy_frost_wendigo.png")
+const _ENEMY_RIFT_ECHO := preload("res://assets/textures/characters/enemy_rift_echo.png")
+const _ENEMY_BARROW_KING := preload("res://assets/textures/characters/enemy_barrow_king.png")
 const _ENEMY_IMBUED_STAG  := preload("res://assets/textures/characters/enemy_imbued_stag.png")
 
 const _NPC_TOWNSPERSON    := preload("res://assets/textures/characters/npc_townsperson.png")
@@ -163,6 +173,8 @@ const HEIGHT_RIVAL: float = 1.4           # rival duelist — mirrors the player
 const HEIGHT_BOSS: float = 1.9            # warleader/terror, before node scale
 const HEIGHT_NPC: float = 1.4             # townsfolk, Maiteln
 const HEIGHT_MERCHANT: float = 1.3
+const HEIGHT_BEAST: float = 1.05           # wolves (GID-149)
+const HEIGHT_WENDIGO: float = 2.1          # gaunt, antlered; towers over the hero
 const HEIGHT_STAG: float = 1.8             # antler tips; body sits around hero chest height
 
 ## GID-143 / TID-604: named quest givers and trainers wear their own generated
@@ -211,6 +223,22 @@ static func enemy_texture(etype: String, is_roaming_boss: bool = false, is_boss:
 			return _ENEMY_CACTUS_WORM
 		"imbued_stag":
 			return _ENEMY_IMBUED_STAG
+		"wolf_pack":
+			return _ENEMY_WOLF_PACK
+		"bog_hag":
+			return _ENEMY_BOG_HAG
+		"martarquas_scout":
+			return _ENEMY_MARTARQUAS_SCOUT
+		"scarab_swarm":
+			return _ENEMY_SCARAB_SWARM
+		"ember_cultist":
+			return _ENEMY_EMBER_CULTIST
+		"frost_wendigo":
+			return _ENEMY_FROST_WENDIGO
+		"rift_echo":
+			return _ENEMY_RIFT_ECHO
+		"barrow_king":
+			return _ENEMY_BARROW_KING
 	if is_boss:
 		return _ENEMY_WARLEADER
 	return null
@@ -224,6 +252,10 @@ static func pack_member_texture(card_id: String) -> Texture2D:
 			return _ENEMY_ZOMBIE
 		"ghost":
 			return _ENEMY_SPECTRE
+		"wolf":
+			return _ENEMY_WOLF
+		"scarab":
+			return _ENEMY_SCARAB
 	return _ENEMY_SKELETON
 
 ## Target world height for an enemy sprite, matching enemy_texture()'s
@@ -251,6 +283,16 @@ static func enemy_world_height(etype: String, is_roaming_boss: bool = false, is_
 			return HEIGHT_SOLDIER
 		"imbued_stag":
 			return HEIGHT_STAG
+		"wolf_pack":
+			return HEIGHT_BEAST
+		"scarab_swarm":
+			return HEIGHT_SMALL_UNDEAD * 0.75
+		"bog_hag", "martarquas_scout", "ember_cultist":
+			return HEIGHT_SOLDIER
+		"rift_echo":
+			return HEIGHT_RIVAL
+		"frost_wendigo":
+			return HEIGHT_WENDIGO
 	if is_boss:
 		return HEIGHT_BOSS
 	return HEIGHT_SOLDIER

@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://hkfoyx3v0ee8"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_sig_echo_shard"]
+
+[resource]
+script = ExtResource("1_sig_echo_shard")
+id = "sig_echo_shard"
+card_name = "Echo Shard"
+cost = 3
+attack = 2
+health = 3
+card_class = "minion"
+description = "A splinter of yourself, remembering what you meant to do."
+color = Color(0.65, 0.45, 0.95, 1)
+emergence_effect = "emergence_draw"
+emergence_power = 1
+can_craft = false
+is_unique = true

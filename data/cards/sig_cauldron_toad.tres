@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://w5wh31l17a1w"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_sig_cauldron_toad"]
+
+[resource]
+script = ExtResource("1_sig_cauldron_toad")
+id = "sig_cauldron_toad"
+card_name = "Cauldron Toad"
+cost = 3
+attack = 1
+health = 4
+card_class = "minion"
+description = "It has sat in the hag's pot so long it sweats venom."
+color = Color(0.45, 0.6, 0.3, 1)
+emergence_effect = "emergence_apply_poison"
+emergence_power = 2
+can_craft = false
+is_unique = true
