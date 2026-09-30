@@ -13,6 +13,9 @@ var bonus_mana: int = 0  # permanent per-game mana bonus from skills/equipment
 ## `bonus_mana` and effect values stay in units — convert with gain_mana/drain_mana.
 var mana_scale: int = 1
 var attack: int = 0
+## Leaderless pack (BID-077): a hidden stand-in with no leader to hit. It takes
+## no damage and never swings; GameState kills it once its board is empty.
+var leaderless: bool = false
 
 # Status effects: key = effect_id ("poison","armor","freeze","stun"), value = duration/stacks int
 var status_effects: Dictionary = {}
@@ -25,7 +28,7 @@ func is_alive() -> bool:
 
 # Reduces health by dmg, consuming armor first.
 func take_damage(dmg: int) -> void:
-	if dmg <= 0:
+	if dmg <= 0 or leaderless:
 		return
 	if has_status("armor"):
 		var av: int = get_status_value("armor")
@@ -95,6 +98,7 @@ func to_dict() -> Dictionary:
 		"mana_scale": mana_scale,
 		"attack": attack,
 		"status_effects": status_effects.duplicate(),
+		"leaderless": leaderless,
 	}
 
 func from_dict(d: Dictionary) -> void:
@@ -106,5 +110,6 @@ func from_dict(d: Dictionary) -> void:
 	bonus_mana = int(d.get("bonus_mana", 0))
 	mana_scale = maxi(1, int(d.get("mana_scale", 1)))
 	attack = int(d.get("attack", 0))
+	leaderless = bool(d.get("leaderless", false))
 	var se = d.get("status_effects", {})
 	status_effects = se if se is Dictionary else {}

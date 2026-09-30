@@ -437,6 +437,8 @@ func swing_speed(side: int) -> float:
 ## Scaled by swing speed ÷ unarmed speed, so a slow two-hander hits harder per
 ## swing and a dagger lighter, at roughly the same damage per second.
 func main_hand_damage(side: int) -> int:
+	if state.players[side].hero.leaderless:  # BID-077: no leader to swing
+		return 0
 	var base: int = state.players[side].hero.attack + unarmed[side]
 	if base <= 0:
 		return 0
@@ -530,7 +532,17 @@ func pick_target(side: int) -> CardInstance:
 			return focus_target
 	var opp: int = target_enemy() if side == PLAYER else PLAYER
 	var wards: Array[CardInstance] = _wards(opp)
-	return wards[0] if not wards.is_empty() else null
+	if not wards.is_empty():
+		return wards[0]
+	return _weakest_pack_member(opp) if state.players[opp].hero.leaderless else null
+
+## A leaderless pack's hero can't be hit (BID-077), so swings go at its weakest unit.
+func _weakest_pack_member(side: int) -> CardInstance:
+	var best: CardInstance = null
+	for c: CardInstance in state.players[side].board.get_cards():
+		if c.is_alive() and (best == null or c.health < best.health):
+			best = c
+	return best
 
 func _wards(side: int) -> Array[CardInstance]:
 	var out: Array[CardInstance] = []
@@ -644,7 +656,7 @@ func _tick_enemy(side: int, delta: float, events: Array[Dictionary]) -> void:
 		return
 	if not gcd_ready(side):
 		return
-	if heavy_enabled and _heavy_timer[side] <= 0.0:
+	if heavy_enabled and _heavy_timer[side] <= 0.0 and not state.players[side].hero.leaderless:
 		_heavy_timer[side] = tune.get_f("heavy_every")
 		casting[side] = make_heavy_card()
 		pushbacks[side] = 0

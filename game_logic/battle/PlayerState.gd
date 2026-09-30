@@ -145,6 +145,16 @@ func draw_opening_hand(count: int = 4) -> void:
 
 ## Returns the effective mana cost of a card in mana points (cost units ×
 ## `hero.mana_scale`), applying biome and time-of-day rules.
+## True when attacks can't reach this hero: a Ward unit is up, or there is no
+## leader to hit (leaderless pack, BID-077).
+func hero_unreachable() -> bool:
+	if hero.leaderless:
+		return true
+	for c: CardInstance in board.get_cards():
+		if c.keywords.has(Keywords.WARD):
+			return true
+	return false
+
 func effective_cost(card: CardInstance) -> int:
 	if next_card_free:
 		return 0

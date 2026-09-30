@@ -42,10 +42,7 @@ func _setup_board_drop_zone() -> void:
 			var attacker: CardInstance = drag_data["attacker"] as CardInstance
 			if attacker == null or not attacker.can_attack():
 				return false
-			for ec: CardInstance in _battle._state.players[_battle._opp_idx()].board.get_cards():
-				if ec.keywords.has(Keywords.WARD):
-					return false
-			return true,
+			return not _battle._state.players[_battle._opp_idx()].hero_unreachable(),
 		func(_pos: Vector2, data: Variant) -> void:
 			if not (data is Dictionary):
 				return
