@@ -482,3 +482,14 @@ Every `npc_*` in `NPCS` / `CAST` except Maiteln (animated through his walk Anima
 `scenes/world/entities/IdleLoop.gd` (`for_sprite(sprite, seed)`, added by `TownspersonNPC` and `MerchantNPC`)
 swaps the Sprite3D texture on the `game_logic/IdleLoopMath.gd` schedule: hold idle 2.5–5.5 s, then a 0.14 s blink
 or (30 %) a 0.9 s glance, with a seeded per-NPC RNG and a staggered first beat. IdleLife's breathe keeps running.
+
+## Landmark loops (GID-152 / TID-648)
+
+`waystone(active, phase)`, `mana_well(phase)`, `shrine(phase)` and `blight_heart(phase)` in
+`tools/generate_sprites.py` take a 0–3 phase; phase 0 is byte-identical to the still. `ANIMATED` writes
+`<name>_anim_1..4.png` for `waystone_active`, `mana_well`, `puzzle_shrine` and `blight_heart` (asserting equal sizes):
+glints climbing the runes, glints drifting on the well water, shrine glyphs lighting in turn with an orb flare, and a
+heartbeat (eyes flare) on the blight heart. `game_logic/LandmarkFrames.gd` preloads them (still → frames);
+`scenes/world/entities/SpriteLoop.gd` loops a Sprite3D at 5 fps from a random offset (`ensure(parent, sprite)` /
+`stop(parent)`). Waystones loop once active (at spawn or on `_set_active_visual`), shrines until solved
+(`_dim_solved` stops it), wells and hearts always. Dormant waystones stay still.

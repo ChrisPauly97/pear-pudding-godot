@@ -2,7 +2,7 @@
 
 **Goal:** GID-152
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -23,12 +23,16 @@ Waystone, mana well, blight heart and puzzle shrine are static PNGs (only NightL
 
 ## Plan
 
-_Written during Plan phase._
+Phase argument on the four landmark drawers (phase 0 = unchanged still), `ANIMATED` frame export,
+`LandmarkFrames` preload table, `SpriteLoop` node wired into Waystone / ManaWell / PuzzleShrine / BlightHeart.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `tools/generate_sprites.py`: phased drawers + `ANIMATED`; 16 new `props/*_anim_{1..4}.png` (stills unchanged).
+- New `game_logic/LandmarkFrames.gd`, `scenes/world/entities/SpriteLoop.gd`.
+- `Waystone.gd`, `ManaWell.gd`, `PuzzleShrine.gd` (stops when solved), `BlightHeart.gd`: attach the loop.
+- Test: `tests/unit/test_sprite_loop.gd`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/art-sprites.md`: "Landmark loops".

@@ -349,8 +349,8 @@ PROPS = {
 
 # ── Landmarks ────────────────────────────────────────────────────────────────
 
-def waystone(active):
-    # 1.9 world units = 38 px.
+def waystone(active, phase=0):
+    # 1.9 world units = 38 px. Active phases 1-3 (TID-648): the bright glint climbs the runes.
     c = Canvas(16, 38)
     c.rect(2, 33, 13, 37, P.STONE[1])            # plinth
     c.rect(2, 33, 13, 33, P.STONE[3])
@@ -368,19 +368,24 @@ def waystone(active):
         c.set(7, y + 1, runes[1])
         c.set(8, y + 2, runes[2] if active else runes[0])
     if active:
-        c.set(6, 9, P.GOLD[3])
-        c.set(9, 21, P.GOLD[3])
+        glints = [((6, 9), (9, 21)), ((6, 27), (9, 15)), ((6, 21), (9, 9)), ((6, 15), (9, 27))][phase]
+        for x, y in glints:
+            c.set(x, y, P.GOLD[3])
+        if phase:
+            c.set(7, (28, 22, 16)[phase - 1], P.GOLD[3])  # the rune the glow is passing
     c.outline()
     return c.image()
 
 
-def mana_well():
+def mana_well(phase=0):
     # 1.1 world units = 22 px: a stone ring with glowing water.
     c = Canvas(22, 22)
     c.blob(10.5, 15, 10, 6, P.STONE, None)
     c.blob(10.5, 13.5, 7.5, 3.2, P.WATER)
-    c.set(8, 12, P.WHITE)
-    c.set(13, 14, P.WATER[3])
+    # Glints drift across the water (TID-648); phase 0 is the still image.
+    glint, ripple = [((8, 12), (13, 14)), ((10, 12), (7, 14)), ((12, 13), (9, 15)), ((6, 13), (12, 12))][phase]
+    c.set(*glint, P.WHITE)
+    c.set(*ripple, P.WATER[3])
     for x in range(3, 19, 4):                     # rim blocks
         c.set(x, 17, P.STONE[0])
         c.set(x, 18, P.STONE[0])
@@ -393,8 +398,9 @@ def mana_well():
     return c.image()
 
 
-def shrine():
-    # 1.3 world units = 26 px: stepped stone altar with a glowing orb.
+def shrine(phase=0):
+    # 1.3 world units = 26 px: stepped stone altar with a glowing orb. Phases 1-3 (TID-648): the orb swells
+    # and the glyphs light in turn.
     c = Canvas(20, 26)
     c.rect(1, 21, 18, 25, P.STONE[1])
     c.rect(1, 21, 18, 21, P.STONE[3])
@@ -402,10 +408,10 @@ def shrine():
     c.rect(4, 12, 4, 20, P.STONE[3])
     c.rect(14, 12, 15, 20, P.STONE[1])
     c.rect(3, 11, 16, 12, P.STONE[3])
-    c.blob(9.5, 7, 3.4, 3.4, P.PURPLE)
+    c.blob(9.5, 7, 3.4, 3.4, P.PURPLE if phase != 2 else [P.PURPLE[1], P.PURPLE[1], P.PURPLE[2], P.PINK[3]])
     c.set(8, 5, P.WHITE)
-    for x, y in ((7, 15), (9, 16), (11, 15), (9, 18)):
-        c.set(x, y, P.PURPLE[2])
+    for i, (x, y) in enumerate(((7, 15), (9, 16), (11, 15), (9, 18))):
+        c.set(x, y, P.PINK[3] if phase and i == phase else P.PURPLE[2])
     c.outline()
     return c.image()
 
@@ -430,8 +436,9 @@ def burial_mound():
     return c.image()
 
 
-def blight_heart():
-    # 1.5 world units = 30 px: purple crystal cluster around a skull.
+def blight_heart(phase=0):
+    # 1.5 world units = 30 px: purple crystal cluster around a skull. Phases 1-3 (TID-648): a heartbeat —
+    # the eyes flare and the crystal tips brighten, then fade.
     rng = random.Random(7)
     c = Canvas(22, 30)
     spikes = [(11, 2, 3.0), (6, 9, 2.2), (16, 8, 2.4), (3, 16, 1.8), (19, 15, 1.9)]
@@ -443,9 +450,13 @@ def blight_heart():
                 i = 3 if x < sx - half * 0.3 and t < 0.5 else (2 if x <= sx else 1)
                 c.set(x, y, P.PURPLE[i if i < 3 else 2] if i != 3 else P.PINK[3])
     c.blob(11, 22, 4.5, 4.0, [P.STONE[1], P.STONE[2], P.STONE[3], P.WHITE])
-    c.set(9, 22, P.OUTLINE)
-    c.set(13, 22, P.OUTLINE)
+    eye = [P.OUTLINE, P.PINK[2], P.PINK[3], P.PURPLE[1]][phase]
+    c.set(9, 22, eye)
+    c.set(13, 22, eye)
     c.set(11, 24, P.OUTLINE)
+    if phase in (1, 2):
+        for sx, sy, _w in spikes:
+            c.set(sx, sy + 1, P.PINK[3])
     for _ in range(4):
         c.set(rng.randint(4, 18), rng.randint(26, 29), P.PURPLE[1])
     c.rect(4, 27, 18, 29, P.PURPLE[0])
@@ -615,6 +626,15 @@ LANDMARKS = {
 }
 
 
+# Looping landmark animations (GID-152 / TID-648): <name>_anim_1..4.png, frame 1 = the still image.
+ANIMATED = {
+    "waystone_active": lambda ph: waystone(True, ph),
+    "mana_well": mana_well,
+    "puzzle_shrine": shrine,
+    "blight_heart": blight_heart,
+}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--preview", help="write a contact sheet here")
@@ -625,6 +645,11 @@ def main():
             img = fn(v * 7 + 3)
             img.save(OUT / f"prop_{key}_{v}.png")
             out.append(img)
+    for name, fn in ANIMATED.items():
+        fs = [fn(ph) for ph in range(4)]
+        assert all(f.size == fs[0].size for f in fs), name  # frames must line up with the still
+        for ph, f in enumerate(fs):
+            f.save(OUT / f"{name}_anim_{ph + 1}.png")
     for name, fn in LANDMARKS.items():
         img = fn()
         img.save(OUT / f"{name}.png")

@@ -5,6 +5,7 @@ extends Node3D
 const _WEB = preload("res://scenes/world/entities/WorldEntityBase.gd")
 
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
+const _SpriteLoop = preload("res://scenes/world/entities/SpriteLoop.gd")
 
 static var _well_mat: StandardMaterial3D
 static var _well_mesh: CylinderMesh
@@ -32,6 +33,7 @@ func _ready() -> void:
 		_SpriteRegistry.setup_sprite(sprite, tex)  # drawn at its height in px (tools/generate_sprites.py)
 		_SpriteRegistry.apply_billboard_flags(sprite)
 		add_child(sprite)
+		_SpriteLoop.ensure(self, sprite)  # TID-648: glints drift on the water
 		return
 	_ensure_shared_resources()
 	var base_inst := MeshInstance3D.new()
