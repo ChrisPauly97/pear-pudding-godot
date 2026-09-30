@@ -26,3 +26,9 @@ func test_chrome_pieces_load() -> void:
 	for tex: Texture2D in [CardChrome.back_texture(), CardChrome.crest_texture(), CardChrome.gem_texture(),
 			CardChrome.attack_badge_texture(), CardChrome.health_badge_texture(), CardChrome.plate_texture()]:
 		assert_not_null(tex)
+
+func test_every_branch_has_a_background() -> void:
+	for mt: String in MagicTypes.all_types():
+		for b: String in MagicTypes.branches_for(mt):
+			assert_true(CardChrome.has_background(b), "%s has no card background" % b)
+	assert_not_null(CardChrome.background_texture(""), "neutral background")

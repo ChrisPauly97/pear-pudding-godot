@@ -362,7 +362,7 @@ func update_card_view(panel: PanelContainer, card: CardInstance, zone_id: String
 		panel.add_child(build_card_vbox(card, is_board_zone))
 	else:
 		name_lbl.text = card.name
-		CardArt.apply(vbox, card, card_size().y * ART_FRAC)
+		CardArt.apply(vbox, card, card_size().y * ART_FRAC, card_size().y)
 		var stats_row: HBoxContainer = vbox.get_node_or_null("StatsRow") as HBoxContainer
 		if stats_row:
 			_refresh_stat_badges(stats_row, card)
@@ -414,7 +414,7 @@ func build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBoxC
 	name_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	name_lbl.add_theme_color_override("font_outline_color", CardFace.BADGE_OUTLINE)
 	name_lbl.add_theme_constant_override("outline_size", maxi(2, int(_font(0.017) * 0.2)))
-	CardArt.apply(vbox, card, card_size().y * ART_FRAC)
+	CardArt.apply(vbox, card, card_size().y * ART_FRAC, card_size().y)
 	var stats_row: HBoxContainer = _build_stats_row(card)
 	_refresh_cost_label(stats_row.get_node("CostLabel") as Label, card, "")
 	var desc_lbl := Label.new()

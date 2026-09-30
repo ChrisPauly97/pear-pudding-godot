@@ -14,8 +14,13 @@ static func texture_for(card: CardInstance) -> Texture2D:
 
 ## Adds, swaps or hides the art on a (possibly reused) card vbox to match
 ## `card`. The art rect is always the vbox's first child, `art_h` px tall.
-static func apply(vbox: VBoxContainer, card: CardInstance, art_h: float) -> void:
+## `card_h` (> 0) also lays the branch background behind the art (GID-151).
+static func apply(vbox: VBoxContainer, card: CardInstance, art_h: float, card_h: float = 0.0) -> void:
 	set_texture(vbox, texture_for(card), art_h)
+	var art: TextureRect = vbox.get_node_or_null(NODE_NAME) as TextureRect
+	if art != null and card_h > 0.0:
+		var tmpl: Dictionary = CardRegistry.get_template_for_face(card.template_id, card.active_face)
+		CardFace.set_art_background(art, str(tmpl.get("magic_branch", card.magic_branch)), card_h)
 
 static func set_texture(vbox: VBoxContainer, illus: Texture2D, art_h: float) -> void:
 	var art: TextureRect = vbox.get_node_or_null(NODE_NAME) as TextureRect

@@ -5,13 +5,16 @@
 - Pixel-art **frame per magic type** (light / dark / verdant / rift + neutral) on every card face.
 - Shared **card back** (gold trim, tiled lattice, Pear Pudding crest).
 - Round **cost gem / attack / health badges** and a dark **text plate** for ability text.
+- Tileable **branch background** behind every illustration (ember sparks, dawn rays, dusk mist, ash flakes, bloom
+  flowers, thorn vines, flux waves, fracture cracks; neutral bricks).
 - One builder (`scenes/ui/CardFace.gd`) used by battle cards, backpack tiles, pack opening and the inspect overlay.
 
 ## How It Works
 
 ### Art (`tools/generate_card_frames.py`)
 Writes `assets/textures/cards/frame_<type>.png` (32×48, 6 px bevelled border, corner studs), `card_back.png`,
-`card_crest.png`, `gem_cost.png`, `badge_atk.png`, `badge_hp.png`, `plate_text.png`. Colours come from
+`card_crest.png`, `gem_cost.png`, `badge_atk.png`, `badge_hp.png`, `plate_text.png`, and 16×16 tileable
+`bg_<branch>.png` (+ `bg_neutral.png`). Colours come from
 `tools/pixel_palette.py`. Frame edges are uniform so they can stretch; the back's centre is a tileable lattice.
 `game_logic/CardChrome.gd` preloads them (Android rule) and exposes accessors; `FRAME_MARGIN` / `PLATE_MARGIN`
 must match the generator. `test_card_chrome` fails if a `MagicTypes` type has no frame.
@@ -24,6 +27,9 @@ must match the generator. `test_card_chrome` fails if a `MagicTypes` type has no
 - `make_badge(kind, text, d, font)` — Label on a gem/badge stylebox; `set_badge_text` shrinks 3+ digit numbers
   (real-time costs are mana points ×100).
 - `make_art(tex, h)` — nearest-filtered illustration rect (the project default filter is linear, which smeared 32 px art).
+- `set_art_background(art, branch, card_h)` — adds / swaps an `ArtBackground` TextureRect (tiled, upscaled,
+  `show_behind_parent`) inside the illustration rect. `CardArt.apply(..., card_h)` calls it for battle cards.
+  `test_card_chrome` fails if a MagicTypes branch has no background.
 - `apply_back(panel, card_h)` — back stylebox + centred `BackCrest`.
 
 ### Battle cards (`CardViewBuilder`)

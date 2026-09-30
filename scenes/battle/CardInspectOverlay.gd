@@ -130,7 +130,9 @@ func _build_face_body(container: VBoxContainer, tmpl: Dictionary, card: CardInst
 	if not tmpl.is_empty():
 		illus = tmpl.get("illustration") as Texture2D
 	if illus != null:
-		container.add_child(_CardFace.make_art(illus, _vh * (0.14 if show_status else 0.09)))
+		var art := _CardFace.make_art(illus, _vh * (0.14 if show_status else 0.09))
+		_CardFace.set_art_background(art, str(tmpl.get("magic_branch", "")), _vh * 0.3)
+		container.add_child(art)
 
 	# Name
 	var name_lbl := _UiUtil.make_label(

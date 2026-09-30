@@ -115,6 +115,22 @@ static func set_badge_text(lbl: Label, text: String) -> void:
 	var fs: int = base if text.length() <= 2 else int(base * 2.2 / float(text.length()))
 	lbl.add_theme_font_size_override("font_size", maxi(8, fs))
 
+## Puts the branch's tiled background behind an illustration rect (reused
+## panels swap it in place). `card_h` picks the pixel scale.
+static func set_art_background(art: TextureRect, branch: String, card_h: float) -> void:
+	var bg: TextureRect = art.get_node_or_null("ArtBackground") as TextureRect
+	if bg == null:
+		bg = TextureRect.new()
+		bg.name = "ArtBackground"
+		bg.show_behind_parent = true
+		bg.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		bg.stretch_mode = TextureRect.STRETCH_TILE
+		bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		art.add_child(bg)
+	bg.texture = upscaled(CardChrome.background_texture(branch), pixel_scale(card_h))
+
 ## Pixel-art illustration rect (nearest filtering; 32 px art smears otherwise).
 static func make_art(tex: Texture2D, height: float) -> TextureRect:
 	var art := TextureRect.new()

@@ -184,7 +184,9 @@ func _populate_face(idx: int) -> void:
 
 	var illus: Texture2D = tmpl.get("illustration") as Texture2D
 	if illus != null:
-		face.add_child(_CardFace.make_art(illus, card_h * 0.38))
+		var art := _CardFace.make_art(illus, card_h * 0.38)
+		_CardFace.set_art_background(art, str(tmpl.get("magic_branch", "")), card_h)
+		face.add_child(art)
 
 	var name_lbl := _UiUtil.make_label(card_name, int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, face)
 	name_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

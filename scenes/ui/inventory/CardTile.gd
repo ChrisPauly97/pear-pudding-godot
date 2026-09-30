@@ -110,6 +110,7 @@ static func _art(tmpl: Dictionary, card_name: String, card_color: Color, rcol: C
 	if illus != null:
 		var art := CardFace.make_art(illus, 0.0)
 		art.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		CardFace.set_art_background(art, str(tmpl.get("magic_branch", "")), tile_size(ref).y)
 		return art
 	var plate := PanelContainer.new()
 	plate.size_flags_vertical = Control.SIZE_EXPAND_FILL

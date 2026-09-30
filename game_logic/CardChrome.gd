@@ -20,6 +20,15 @@ const _GEM_COST      := preload("res://assets/textures/cards/gem_cost.png")
 const _BADGE_ATK     := preload("res://assets/textures/cards/badge_atk.png")
 const _BADGE_HP      := preload("res://assets/textures/cards/badge_hp.png")
 const _PLATE_TEXT    := preload("res://assets/textures/cards/plate_text.png")
+const _BG_EMBER      := preload("res://assets/textures/cards/bg_ember.png")
+const _BG_DAWN       := preload("res://assets/textures/cards/bg_dawn.png")
+const _BG_DUSK       := preload("res://assets/textures/cards/bg_dusk.png")
+const _BG_ASH        := preload("res://assets/textures/cards/bg_ash.png")
+const _BG_BLOOM      := preload("res://assets/textures/cards/bg_bloom.png")
+const _BG_THORN      := preload("res://assets/textures/cards/bg_thorn.png")
+const _BG_FLUX       := preload("res://assets/textures/cards/bg_flux.png")
+const _BG_FRACTURE   := preload("res://assets/textures/cards/bg_fracture.png")
+const _BG_NEUTRAL    := preload("res://assets/textures/cards/bg_neutral.png")
 
 const _FRAMES: Dictionary = {
 	"light": _FRAME_LIGHT,
@@ -28,12 +37,31 @@ const _FRAMES: Dictionary = {
 	"rift": _FRAME_RIFT,
 }
 
+## Tileable backgrounds behind the illustration, per MagicTypes branch (TID-633).
+const _BACKGROUNDS: Dictionary = {
+	"ember": _BG_EMBER,
+	"dawn": _BG_DAWN,
+	"dusk": _BG_DUSK,
+	"ash": _BG_ASH,
+	"bloom": _BG_BLOOM,
+	"thorn": _BG_THORN,
+	"flux": _BG_FLUX,
+	"fracture": _BG_FRACTURE,
+}
+
 ## Frame for a MagicTypes type; unknown / empty types get the neutral frame.
 static func frame_texture(magic_type: String) -> Texture2D:
 	return _FRAMES.get(magic_type, _FRAME_NEUTRAL) as Texture2D
 
 static func has_frame(magic_type: String) -> bool:
 	return _FRAMES.has(magic_type)
+
+## Art background for a branch; unknown / empty branches get the neutral one.
+static func background_texture(branch: String) -> Texture2D:
+	return _BACKGROUNDS.get(branch, _BG_NEUTRAL) as Texture2D
+
+static func has_background(branch: String) -> bool:
+	return _BACKGROUNDS.has(branch)
 
 static func back_texture() -> Texture2D:
 	return _CARD_BACK

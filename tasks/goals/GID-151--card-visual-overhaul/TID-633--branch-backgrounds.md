@@ -2,7 +2,7 @@
 
 **Goal:** GID-151
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-632
 
 ## Lock
@@ -40,12 +40,12 @@ Shared facts (research 2026-09-30):
 
 ## Plan
 
-_Written during Plan phase._
+Extend the chrome generator with 16×16 tileable branch patterns; tile them (pixel-upscaled) behind the illustration rect in every card view.
 
 ## Changes Made
 
-_Filled after Build phase._
+`tools/generate_card_frames.py` → `bg_{ember,dawn,dusk,ash,bloom,thorn,flux,fracture,neutral}.png`. `CardChrome.background_texture/has_background`. `CardFace.set_art_background`. `CardArt.apply` takes `card_h` and lays the background (face-aware branch). CardTile, PackOpenScene, CardInspectOverlay use it too. Test: every branch has a background.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+docs/agent/card-visuals.md updated.

@@ -186,6 +186,115 @@ def plate_text():
     return g.image()
 
 
+# ---------------------------------------------------------------------------
+# Branch backgrounds (TID-633): 16x16 tileable, low-contrast patterns shown
+# behind the card illustration. Keys must match MagicTypes branches.
+# ---------------------------------------------------------------------------
+
+BG = 16
+
+
+def _bg(base):
+    g = Grid(BG, BG)
+    g.rect(0, 0, BG - 1, BG - 1, base)
+    return g
+
+
+def _dots(g, pts, col):
+    for x, y in pts:
+        g.set(x % BG, y % BG, col)
+
+
+def bg_ember():
+    g = _bg((62, 20, 30))
+    _dots(g, ((2, 13), (9, 6), (13, 11), (5, 2)), P.RED[0])
+    _dots(g, ((3, 12), (10, 5), (14, 10), (6, 1)), P.FIRE[0])
+    return g.image()
+
+
+def bg_dawn():
+    g = _bg((72, 59, 58))
+    for x in range(BG):
+        if x % 4 == 0:
+            for y in range(BG):
+                if (x + y) % 8 < 2:
+                    g.set(x, y, P.WOOD[2])
+    _dots(g, ((2, 2), (10, 10)), P.GOLD[0])
+    return g.image()
+
+
+def bg_dusk():
+    g = _bg((42, 30, 50))
+    for y in range(BG):
+        for x in range(BG):
+            if (x * 3 + y * 5) % 16 == 0:
+                g.set(x, y, (63, 38, 49))
+    _dots(g, ((3, 4), (12, 9)), P.PURPLE[1])
+    _dots(g, ((7, 13),), P.PURPLE[2])
+    return g.image()
+
+
+def bg_ash():
+    g = _bg((42, 42, 58))
+    _dots(g, ((1, 3), (6, 9), (11, 1), (14, 12), (4, 14), (9, 6)), (82, 96, 124))
+    _dots(g, ((2, 4), (12, 2)), P.STONE[2])
+    return g.image()
+
+
+def bg_bloom():
+    g = _bg((30, 58, 45))
+    for cx, cy in ((4, 4), (12, 12)):
+        for dx, dy in ((0, -1), (0, 1), (-1, 0), (1, 0)):
+            g.set(cx + dx, cy + dy, P.GREEN[1])
+        g.set(cx, cy, P.PINK[1])
+    _dots(g, ((12, 3), (3, 11)), P.GREEN[0])
+    return g.image()
+
+
+def bg_thorn():
+    g = _bg((42, 44, 34))
+    for i in range(BG):
+        g.set(i, (i + 3) % BG, P.EARTH[1])
+    for x, y in ((4, 7), (10, 13), (14, 1)):
+        g.set(x, y - 1, P.EARTH[2])
+        g.set(x + 1, y, P.GREEN[0])
+    return g.image()
+
+
+def bg_flux():
+    g = _bg((20, 34, 46))
+    for x in range(BG):
+        y = int(round(4 + 2 * __import__("math").sin(x / BG * 2 * 3.14159)))
+        g.set(x, y, P.TEAL[1])
+        g.set(x, (y + 8) % BG, (38, 72, 56))
+    return g.image()
+
+
+def bg_fracture():
+    g = _bg((20, 27, 42))
+    for x, y in ((1, 2), (2, 3), (3, 3), (4, 4), (4, 5), (5, 6), (9, 9), (10, 10), (10, 11), (11, 11),
+                 (12, 12), (13, 14), (7, 12), (6, 13)):
+        g.set(x, y, P.BLUE[0])
+    _dots(g, ((4, 4), (10, 10)), P.BLUE[1])
+    return g.image()
+
+
+def bg_neutral():
+    g = _bg((34, 34, 46))
+    for y in range(BG):
+        for x in range(BG):
+            if y % 8 == 0 or (x + (4 if y // 8 else 0)) % 8 == 0:
+                g.set(x, y, (42, 42, 58))
+    return g.image()
+
+
+BACKGROUNDS = {
+    "ember": bg_ember, "dawn": bg_dawn, "dusk": bg_dusk, "ash": bg_ash,
+    "bloom": bg_bloom, "thorn": bg_thorn, "flux": bg_flux, "fracture": bg_fracture,
+    "neutral": bg_neutral,
+}
+
+
 def all_images():
     imgs = {f"frame_{k}": (lambda k=k: frame(k)) for k in FRAMES}
     imgs.update({
@@ -196,6 +305,7 @@ def all_images():
         "badge_hp": lambda: _badge(P.RED),
         "plate_text": plate_text,
     })
+    imgs.update({f"bg_{k}": fn for k, fn in BACKGROUNDS.items()})
     return {name: fn() for name, fn in imgs.items()}
 
 
