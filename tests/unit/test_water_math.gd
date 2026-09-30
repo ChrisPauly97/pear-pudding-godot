@@ -61,3 +61,13 @@ func test_flow_runs_along_streams() -> void:
 			reversed += 1
 	assert_gt(flowing, 0, "some streams flow")
 	assert_lt(float(reversed), float(flowing) * 0.05, "current rarely reverses (%d / %d)" % [reversed, flowing])
+
+
+## TID-643: reeds on the bank band, lily pads only on still deep water.
+func test_edge_props_follow_the_water() -> void:
+	assert_eq(W.edge_prop(0.2, Vector2(0.0, 1.0), 0.0), "reed", "reeds on a stream bank")
+	assert_eq(W.edge_prop(0.2, Vector2.ZERO, 0.99), "", "the roll thins them out")
+	assert_eq(W.edge_prop(0.8, Vector2.ZERO, 0.0), "lily_pad", "lily pads on a still pond")
+	assert_eq(W.edge_prop(0.8, Vector2(1.0, 0.0), 0.0), "", "no lily pads in a current")
+	assert_eq(W.edge_prop(0.45, Vector2.ZERO, 0.0), "", "open water between bank and pads")
+	assert_eq(W.edge_prop(0.05, Vector2.ZERO, 0.0), "", "dry ground")

@@ -285,6 +285,45 @@ def ember(seed):
     return c.image()
 
 
+def reed(seed):
+    """Bank reeds (TID-643): a tuft of thin blades, a couple of cattail heads."""
+    rng = random.Random(seed)
+    c = Canvas(19, 20)
+    blades = rng.randint(4, 5)
+    for k in range(blades):
+        x0 = 9 + (k - (blades - 1) / 2) * 2.5 + rng.uniform(-0.3, 0.3)
+        top = rng.randint(3, 9)
+        lean = (k - (blades - 1) / 2) * 1.2 + rng.uniform(-0.8, 0.8)  # fan outwards
+        col = P.GREEN[2] if k % 2 else P.TEAL[1]
+        c.line(x0, 19, x0 + lean, top, col)
+        c.set(x0 + lean * 0.3, 14, P.GREEN[3] if k % 3 == 0 else col)  # light catch
+    for k in range(rng.choice((1, 2, 2))):
+        x = 9 + (k * 2 - 1) * 1.2 + rng.uniform(-0.3, 0.3)
+        top = rng.randint(2, 5)
+        c.line(x, 19, x, top + 3, P.GREEN[1])
+        c.rect(int(x), top, int(x) + 1, top + 3, P.WOOD[1])       # cattail head
+        c.set(int(x), top, P.WOOD[3])
+    c.outline()
+    return c.image()
+
+
+def lily_pad(seed):
+    """A lily pad seen from the iso camera (flat ellipse, notch), some in bloom."""
+    rng = random.Random(seed)
+    c = Canvas(14, 8)
+    c.blob(7, 4, 5.5, 2.6, P.GREEN, rng, 0.15, light_bias=0.3)
+    notch = rng.choice((-1, 1))
+    c.line(7, 4, 7 - notch * 4, 5, P.GREEN[1])                      # vein
+    for i in range(1, 7):                                            # wedge cut to the rim
+        for y in (3, 4) if i > 2 else (4,):
+            c.px[y][7 + notch * i] = None
+    if seed % 2 == 0:                                                # in bloom
+        c.blob(5 - notch, 2, 1.6, 1.3, P.PINK)
+        c.set(5 - notch, 2, P.GOLD[2])
+    c.outline()
+    return c.image()
+
+
 PROPS = {
     "flower": (flower, 5),
     "rock": (rock, 4),
@@ -296,6 +335,8 @@ PROPS = {
     "thorn": (thorn, 3),
     "ash_pile": (ash_pile, 3),
     "ember": (ember, 3),
+    "reed": (reed, 3),
+    "lily_pad": (lily_pad, 3),
 }
 
 

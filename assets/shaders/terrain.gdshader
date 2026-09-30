@@ -355,6 +355,7 @@ void fragment() {
 			// smears out; still ponds keep a slow wind drift.
 			float frame = floor(TIME * 4.0) / 4.0;
 			float rip;
+			float foam = 0.0;
 			float spd = length(v_flow);
 			if (spd > 0.05) {
 				const float CYCLE = 1.5;
@@ -371,11 +372,20 @@ void fragment() {
 				float s0 = step(0.68, r0) * step(0.25, 1.0 - bl);
 				float s1 = step(0.68, r1) * step(0.25, bl);
 				rip = max(s0, s1);
+				// Foam (TID-643): white flecks riding the current, thick in the
+				// narrows (fast water) and along the banks, thin mid-stream.
+				float f0 = vnoise(w0 * 3.4 + vec2(5.1, 2.7));
+				float f1 = vnoise(w1 * 3.4 + vec2(5.1, 2.7));
+				float fl = mix(step(0.2, 1.0 - bl) * f0, step(0.2, bl) * f1, step(0.5, bl));
+				float rapids = smoothstep(1.2, 1.9, spd);
+				float bank = 1.0 - smoothstep(0.02, 0.12, depth);
+				foam = step(0.9 - 0.08 * max(rapids, bank), fl);
 			} else {
 				rip = vnoise(wq * vec2(1.2, 3.0) + vec2(frame * 0.35, frame * 0.2));
 			}
 			wcol = mix(wcol, wcol * 1.3 + vec3(0.03), step(0.7, rip));
 			wcol = mix(wcol, vec3(0.80, 0.90, 0.93), step(0.992, blink) * step(0.05, depth));
+			wcol = mix(wcol, vec3(0.86, 0.93, 0.94), foam);
 			// One-texel pale shoreline where the water meets the bank.
 			// fwidth(v_water) is its change per screen pixel; a texel spans ~2.5.
 			wcol = mix(wcol, vec3(0.48, 0.62, 0.58), step(depth, fwidth(v_water) * 2.5));

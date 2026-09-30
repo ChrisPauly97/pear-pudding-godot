@@ -35,6 +35,16 @@ const FLOW_TYPICAL_GRADIENT: float = 0.026  # median in streams (seed 42 sample)
 const FLOW_MIN_SPEED: float = 0.5
 const FLOW_MAX_SPEED: float = 2.0
 
+## Water-edge props (TID-643): reeds on the bank band straddling the drawn
+## shoreline (~0.24), lily pads on still deep water; chance per tile.
+const REED_MIN: float = 0.14
+const REED_MAX: float = 0.3
+const REED_CHANCE: float = 0.45
+const LILY_MIN: float = 0.6
+const LILY_CHANCE: float = 0.3
+## Lily pads float at the lowered water surface, not the bank height.
+const LILY_SINK: float = 0.18
+
 static var _stream: FastNoiseLite = null
 static var _pond: FastNoiseLite = null
 static var _seed: int = -1
@@ -111,6 +121,17 @@ static func flow_at(wx: float, wz: float, world_seed: int) -> Vector2:
 		return Vector2.ZERO
 	var speed: float = clampf(mag / FLOW_TYPICAL_GRADIENT, FLOW_MIN_SPEED, FLOW_MAX_SPEED)
 	return Vector2(-g.y, g.x) / mag * speed
+
+
+## Water-edge dressing (TID-643) for one spot: "reed" on a bank (water just
+## below the wet line), "lily_pad" on still, deep pond water, else "". `roll`
+## is the caller's deterministic 0..1 hash for this spot.
+static func edge_prop(water: float, flow: Vector2, roll: float) -> String:
+	if water > REED_MIN and water < REED_MAX:
+		return "reed" if roll < REED_CHANCE else ""
+	if water > LILY_MIN and flow == Vector2.ZERO:
+		return "lily_pad" if roll < LILY_CHANCE else ""
+	return ""
 
 
 static func _ensure(world_seed: int) -> void:

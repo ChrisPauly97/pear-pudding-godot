@@ -201,3 +201,14 @@ it into `CUSTOM0.xy` (`ARRAY_CUSTOM_RG_FLOAT`; skirts and meshes without a flow 
 `v_flow` scrolls ripple streaks as a two-phase flow map (`CYCLE` 1.5 s, `RIPPLE_SPEED` 1.5 u/s at speed 1): each
 layer is thresholded then shown only while its weight is ≥ 0.25, so streaks pop in whole rather than smearing, and
 the pattern never distorts over time. Still water (`|v_flow| ≤ 0.05`) keeps the old slow wind drift.
+
+### Foam and bank dressing (TID-643)
+
+- **Foam:** the flowing-water branch also scrolls a finer noise (`×3.4`) with the same two-phase offsets and draws
+  pale flecks where it passes `0.9 − 0.08·max(rapids, bank)`: `rapids` ramps in at flow speed 1.2–1.9 (narrows),
+  `bank` in the shallowest depth band. Still ponds get no foam.
+- **Reeds / lily pads:** `ChunkRenderer._compute_water_edge_props` tries four hashed spots per grass tile in water
+  biomes and asks `WaterMath.edge_prop(water, flow, roll)`: `reed` on the bank band (`REED_MIN..REED_MAX`, straddling
+  the drawn shoreline), `lily_pad` on still water above `LILY_MIN` (sunk by `LILY_SINK` to the lowered surface).
+  Capped at 40 per type per chunk. Sprites are `prop_reed_*` / `prop_lily_pad_*` from `tools/generate_sprites.py`,
+  rendered through the normal prop MultiMesh path.

@@ -183,6 +183,9 @@ static func prepare_terrain(
 			chunk_data, grid_tile_lookup, hfield, chunk_origin, nvx, world_seed, dry_points)
 	prop_positions.merge(_TreeScatter.compute(
 			chunk_data, grid_tile_lookup, hfield, chunk_origin, nvx, world_seed, dry_points))
+	if has_water:
+		prop_positions.merge(_compute_water_edge_props(
+				chunk_data, grid_tile_lookup, hfield, chunk_origin, nvx, world_seed, dry_points))
 
 	return {
 		"mesh":           terrain_res["mesh"],
@@ -310,6 +313,49 @@ static func _compute_prop_positions(
 				var dz: float = (float((hash_s >> 8) & 0xFF) / 255.0 - 0.5) * 0.9
 				arr.append(Vector3(base.x + dx, _TreeScatter.height_at_local(hfield, nvx, base.x + dx, base.z + dz),
 						base.z + dz))
+	return result
+
+## Reeds along stream banks and lily pads on still ponds (TID-643): up to four
+## candidate spots per grass tile, each kept by WaterMath.edge_prop.
+static func _compute_water_edge_props(
+		chunk_data: _ChunkData,
+		grid_tile_lookup: Callable,
+		hfield: PackedFloat32Array,
+		chunk_origin: Vector3,
+		nvx: int,
+		world_seed: int,
+		dry_points: PackedVector2Array) -> Dictionary:
+	const MAX_PER_TYPE: int = 40
+	var result: Dictionary = {"reed": [], "lily_pad": []}
+	var cx: int = chunk_data.cx
+	var cz: int = chunk_data.cz
+	var hash_s: int = (world_seed ^ (cx * 15731) ^ (cz * 789221) ^ 0x5bd1e995) & 0x7FFFFFFF
+	var ts: float = IsoConst.TILE_SIZE
+	for lz in range(IsoConst.CHUNK_SIZE):
+		for lx in range(IsoConst.CHUNK_SIZE):
+			var tile: int = grid_tile_lookup.call(cx * IsoConst.CHUNK_SIZE + lx, cz * IsoConst.CHUNK_SIZE + lz)
+			if tile != IsoConst.TILE_GRASS:
+				continue
+			for k in 4:
+				hash_s = (hash_s * 1103515245 + 12345 + k * 977) & 0x7FFFFFFF
+				var lpx: float = (float(lx) + 0.15 + 0.7 * float(hash_s & 0xFF) / 255.0) * ts
+				var lpz: float = (float(lz) + 0.15 + 0.7 * float((hash_s >> 8) & 0xFF) / 255.0) * ts
+				var wx: float = chunk_origin.x + lpx
+				var wz: float = chunk_origin.z + lpz
+				var w: float = _WaterMath.water_at(wx, wz, world_seed, dry_points)
+				if w <= _WaterMath.REED_MIN:
+					continue
+				var roll: float = float((hash_s >> 16) & 0x7FFF) / 32767.0
+				var key: String = _WaterMath.edge_prop(w, _WaterMath.flow_at(wx, wz, world_seed), roll)
+				if key == "":
+					continue
+				var arr: Array = result[key] as Array
+				if arr.size() >= MAX_PER_TYPE:
+					continue
+				var y: float = _TreeScatter.height_at_local(hfield, nvx, lpx, lpz)
+				if key == "lily_pad":
+					y -= _WaterMath.LILY_SINK
+				arr.append(Vector3(lpx, y, lpz))
 	return result
 
 # ── Main entry point (main thread only) ───────────────────────────────────

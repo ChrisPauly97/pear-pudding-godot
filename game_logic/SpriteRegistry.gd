@@ -104,6 +104,12 @@ const _PROP_BOULDER_2 := preload("res://assets/textures/props/prop_boulder_2.png
 const _PROP_LICHEN_0 := preload("res://assets/textures/props/prop_lichen_0.png")
 const _PROP_LICHEN_1 := preload("res://assets/textures/props/prop_lichen_1.png")
 const _PROP_LICHEN_2 := preload("res://assets/textures/props/prop_lichen_2.png")
+const _PROP_REED_0 := preload("res://assets/textures/props/prop_reed_0.png")
+const _PROP_REED_1 := preload("res://assets/textures/props/prop_reed_1.png")
+const _PROP_REED_2 := preload("res://assets/textures/props/prop_reed_2.png")
+const _PROP_LILY_PAD_0 := preload("res://assets/textures/props/prop_lily_pad_0.png")
+const _PROP_LILY_PAD_1 := preload("res://assets/textures/props/prop_lily_pad_1.png")
+const _PROP_LILY_PAD_2 := preload("res://assets/textures/props/prop_lily_pad_2.png")
 ## Trees (scripts/gen_tree_sprites.py), scattered in groves by TreeScatter.
 const _PROP_TREE_OAK_0 := preload("res://assets/textures/props/prop_tree_oak_0.png")
 const _PROP_TREE_OAK_1 := preload("res://assets/textures/props/prop_tree_oak_1.png")
@@ -126,6 +132,8 @@ const _PROP_VARIANTS: Dictionary = {
 	"ember": [_PROP_EMBER_0, _PROP_EMBER_1, _PROP_EMBER_2],
 	"boulder": [_PROP_BOULDER_0, _PROP_BOULDER_1, _PROP_BOULDER_2],
 	"lichen": [_PROP_LICHEN_0, _PROP_LICHEN_1, _PROP_LICHEN_2],
+	"reed": [_PROP_REED_0, _PROP_REED_1, _PROP_REED_2],            # stream banks (TID-643)
+	"lily_pad": [_PROP_LILY_PAD_0, _PROP_LILY_PAD_1, _PROP_LILY_PAD_2],  # still ponds (TID-643)
 	"tree_oak": [_PROP_TREE_OAK_0, _PROP_TREE_OAK_1, _PROP_TREE_OAK_2],
 	"tree_pine": [_PROP_TREE_PINE_0, _PROP_TREE_PINE_1, _PROP_TREE_PINE_2],
 	"tree_snowpine": [_PROP_TREE_SNOWPINE_0, _PROP_TREE_SNOWPINE_1],
