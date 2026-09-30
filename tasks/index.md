@@ -155,7 +155,7 @@
 | [GID-149](goals/GID-149--new-enemy-roster/goal.md) | New Enemy Roster | done | 5 / 5 |
 | [GID-150](goals/GID-150--shared-helpers/goal.md) | Shared Helpers for Duplicated Code | done | 7 / 7 |
 | [GID-151](goals/GID-151--card-visual-overhaul/goal.md) | Card Visual Overhaul | done | 11 / 11 |
-| [GID-152](goals/GID-152--art-motion-pass/goal.md) | Art Motion Pass | in-progress | 2 / 11 |
+| [GID-152](goals/GID-152--art-motion-pass/goal.md) | Art Motion Pass | in-progress | 3 / 11 |
 
 ## Backlog
 
@@ -170,6 +170,7 @@ files in `tasks/archive/backlog/`.
 | [BID-073](backlog/BID-073--no-owl-ambience-loop.md) | Night owl ambience layer still synthesized (no clean CC0 loop found) | content-gap | GID-145 / TID-616 |
 | [BID-079](backlog/BID-079--spec-four-card-types.md) | Spec still lists four card types | spec-gap | GID-151 research |
 | [BID-081](backlog/BID-081--no-water-in-towns.md) | No water in named maps / towns; no bridges | content-gap | GID-152 research |
+| [BID-082](backlog/BID-082--prop-mirror-flip-noop.md) | Ground-prop mirror flip never renders (billboard keep-scale drops the sign) | code-smell | GID-152 / TID-647 |
 
 ## Resolved Backlog
 

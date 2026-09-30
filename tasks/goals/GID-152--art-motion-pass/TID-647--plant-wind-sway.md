@@ -2,7 +2,7 @@
 
 **Goal:** GID-152
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -24,12 +24,19 @@ Trees, ferns, flowers are static; grass already sways with weather wind. Part of
 
 ## Plan
 
-_Written during Plan phase._
+1. `prop_sway` shader pair replicating the StandardMaterial billboard, plus a stepped, texel-snapped top lean.
+2. `ChunkRenderer.PROP_SWAY` per-key knobs; sway keys get the ShaderMaterial; `set_lit_world` swaps its shader.
+3. `plant_wind_dir` global fed from `GrassBlades.set_wind_direction`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `assets/shaders/prop_sway.gdshaderinc`, `prop_sway.gdshader`, `prop_sway_lit.gdshader` (+ `.uid`).
+- `scenes/world/ChunkRenderer.gd`: `PROP_SWAY`, `_make_prop_material()` / `_make_sway_material()`, lit toggle.
+- `scenes/world/GrassBlades.gd`: sets `plant_wind_dir`; `project.godot`: global declared.
+- Test: `test_lit_world::test_sway_props_use_sway_shader`. Render check: at rest identical to the old material;
+  under wind the tree top moves between frames.
+- Logged BID-082 (prop mirror flip never rendered).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/visual-polish.md`: "Plant wind sway".

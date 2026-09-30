@@ -263,6 +263,8 @@ func _make_tuft_mesh() -> ArrayMesh:
 	return mesh
 
 func set_wind_direction(dir: Vector2) -> void:
+	# Trees and plants lean the same way (prop_sway shader, TID-647).
+	RenderingServer.global_shader_parameter_set("plant_wind_dir", dir)
 	if _mat:
 		_mat.set_shader_parameter("wind_direction", dir)
 

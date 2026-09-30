@@ -32,6 +32,21 @@ const _DigSpot           = preload("res://scenes/world/entities/DigSpot.gd")
 const _StoryScroll       = preload("res://scenes/world/entities/StoryScroll.gd")
 const _BlightHeart       = preload("res://scenes/world/entities/BlightHeart.gd")
 const InfiniteWorldGen   = preload("res://game_logic/world/InfiniteWorldGen.gd")
+const _PropSwayShader    = preload("res://assets/shaders/prop_sway.gdshader")
+const _PropSwayShaderLit = preload("res://assets/shaders/prop_sway_lit.gdshader")
+
+## Props that bend in the wind (TID-647): key -> [lean at full wind in world
+## units, seconds per sway]. Anything absent (rocks, cacti, ash) stays rigid.
+const PROP_SWAY: Dictionary = {
+	"tree_oak": [0.12, 3.4],
+	"tree_pine": [0.1, 3.8],
+	"tree_snowpine": [0.08, 4.0],
+	"tree_dead": [0.05, 4.4],
+	"fern": [0.06, 2.4],
+	"flower": [0.07, 2.0],
+	"reed": [0.08, 1.8],
+	"thorn": [0.03, 3.0],
+}
 
 # Tile neighbourhood radius used when building the tile_grid snapshot.
 # Must match what WorldScene._snapshot_tile_grid_for() uses.
@@ -519,14 +534,7 @@ static func _get_prop_visual(key_str: String, variant: int = 0) -> Dictionary:
 		px = 0.5 / 16.0  # procedural fallback: old 0.5-unit quad for a 16 px texture
 	if tex == null:
 		return {}
-	var mat := StandardMaterial3D.new()
-	mat.albedo_texture = tex
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
-	mat.alpha_scissor_threshold = 0.5
-	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	mat.billboard_keep_scale = true  # per-instance mirror (TID-522)
-	_apply_lit(mat)
+	var mat: Material = _make_sway_material(key_str, tex) if PROP_SWAY.has(key_str) else _make_prop_material(tex)
 	var quad := QuadMesh.new()
 	var size := Vector2(float(tex.get_width()), float(tex.get_height())) * px
 	quad.size = size
@@ -535,6 +543,32 @@ static func _get_prop_visual(key_str: String, variant: int = 0) -> Dictionary:
 	var entry: Dictionary = {"mat": mat, "mesh": quad}
 	_prop_visual_cache[cache_key] = entry
 	return entry
+
+static func _make_prop_material(tex: Texture2D) -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.albedo_texture = tex
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+	mat.alpha_scissor_threshold = 0.5
+	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	mat.billboard_keep_scale = true  # per-instance mirror (TID-522)
+	_apply_lit(mat)
+	return mat
+
+
+## Same look as _make_prop_material, plus the wind lean (prop_sway shader).
+static func _make_sway_material(key_str: String, tex: Texture2D) -> ShaderMaterial:
+	# The shader reads the grass wind globals; register them if grass hasn't yet.
+	GrassBlades._ensure_global_param("grass_wind_scale", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 1.0)
+	GrassBlades._ensure_global_param("grass_wind_lean", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
+	var knobs: Array = PROP_SWAY[key_str] as Array
+	var mat := ShaderMaterial.new()
+	mat.shader = _PropSwayShaderLit if _lit_world else _PropSwayShader
+	mat.set_shader_parameter("albedo_texture", tex)
+	mat.set_shader_parameter("sway_amount", float(knobs[0]))
+	mat.set_shader_parameter("sway_period", float(knobs[1]))
+	return mat
+
 
 func _build_props(_biome: int, prop_positions: Dictionary) -> void:
 	if prop_positions.is_empty():
@@ -563,7 +597,7 @@ func _add_prop_multimesh(key_str: String, variant: int, positions: Array) -> voi
 	var visual: Dictionary = _get_prop_visual(key_str, variant)
 	if visual.is_empty():
 		return
-	var mat: StandardMaterial3D = visual["mat"]
+	var mat: Material = visual["mat"]
 	var quad: QuadMesh = visual["mesh"]
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -788,7 +822,11 @@ static func set_lit_world(on: bool) -> void:
 	_lit_world = on
 	for entry: Variant in _prop_visual_cache.values():
 		var d: Dictionary = entry
-		_apply_lit(d.get("mat") as StandardMaterial3D)
+		var sway := d.get("mat") as ShaderMaterial
+		if sway != null:
+			sway.shader = _PropSwayShaderLit if on else _PropSwayShader
+		else:
+			_apply_lit(d.get("mat") as StandardMaterial3D)
 	for m: Variant in _landmark_mat_cache.values():
 		_apply_lit(m as StandardMaterial3D)
 
