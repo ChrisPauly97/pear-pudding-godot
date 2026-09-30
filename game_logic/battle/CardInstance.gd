@@ -1,6 +1,8 @@
 class_name CardInstance
 extends RefCounted
 
+const _StatusEffects = preload("res://game_logic/battle/StatusEffects.gd")
+
 static var _next_id: int = 0
 
 var instance_id: String
@@ -73,15 +75,7 @@ func take_damage(dmg: int) -> void:
 	if shroud_active:
 		shroud_active = false
 		return
-	if has_status("armor"):
-		var av: int = get_status_value("armor")
-		var absorbed: int = mini(av, dmg)
-		dmg -= absorbed
-		var remaining: int = av - absorbed
-		if remaining <= 0:
-			clear_status("armor")
-		else:
-			status_effects["armor"] = remaining
+	dmg = _StatusEffects.absorb_armor(status_effects, dmg)
 	health = max(0, health - dmg)
 
 func start_turn() -> void:

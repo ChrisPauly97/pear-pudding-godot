@@ -170,8 +170,8 @@ func screen_to_tile(screen_pos: Vector2) -> Vector2i:
 	return IsoConst.world_to_tile(hit.x, hit.z)
 
 static func _tile_centre(tile: Vector2i) -> Vector3:
-	return Vector3((float(tile.x) + 0.5) * IsoConst.TILE_SIZE, _MARKER_Y,
-		(float(tile.y) + 0.5) * IsoConst.TILE_SIZE)
+	return Vector3(IsoConst.tile_center(tile.x), _MARKER_Y,
+		IsoConst.tile_center(tile.y))
 
 func _place_dest_marker(pos: Vector3) -> void:
 	if not is_instance_valid(_dest_marker):

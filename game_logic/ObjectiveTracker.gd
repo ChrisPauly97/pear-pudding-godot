@@ -80,9 +80,9 @@ static func target_world_pos(target: Dictionary, map_name: String) -> Variant:
 	if obj.is_empty():
 		return null
 	return Vector3(
-		(float(int(obj["tx"])) + 0.5) * IsoConst.TILE_SIZE,
+		IsoConst.tile_center(int(obj["tx"])),
 		0.0,
-		(float(int(obj["tz"])) + 0.5) * IsoConst.TILE_SIZE)
+		IsoConst.tile_center(int(obj["tz"])))
 
 ## The current main-story step (see StoryQuests.STEPS), or {} past the last one.
 static func current_objective(flags: Dictionary) -> Dictionary:

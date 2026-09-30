@@ -148,6 +148,16 @@ static func _init_box(box: BoxContainer, separation: int, parent: Node) -> void:
 	if parent != null:
 		parent.add_child(box)
 
+## GridContainer with its column count and both separations set in one call.
+static func make_grid(columns: int, h_separation: int, v_separation: int, parent: Node = null) -> GridContainer:
+	var grid := GridContainer.new()
+	grid.columns = columns
+	grid.add_theme_constant_override("h_separation", h_separation)
+	grid.add_theme_constant_override("v_separation", v_separation)
+	if parent != null:
+		parent.add_child(grid)
+	return grid
+
 ## Panel of exactly `w` x `h`, centred in a `vw` x `vh` viewport.
 static func make_centered_panel(w: float, h: float, vw: float, vh: float,
 		parent: Node = null) -> PanelContainer:

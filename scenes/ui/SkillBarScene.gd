@@ -61,11 +61,7 @@ func _build_ui() -> void:
 	root_vbox.add_child(scroll)
 	attach_drag_scroll(scroll)
 
-	_ability_grid = GridContainer.new()
-	_ability_grid.columns = 2 if _vw < _vh else 3
-	_ability_grid.add_theme_constant_override("h_separation", int(_vw * 0.02))
-	_ability_grid.add_theme_constant_override("v_separation", int(_ref * 0.015))
-	scroll.add_child(_ability_grid)
+	_ability_grid = _UiUtil.make_grid(2 if _vw < _vh else 3, int(_vw * 0.02), int(_ref * 0.015), scroll)
 
 func _on_slot_pressed(slot: int) -> void:
 	_selected_slot = slot

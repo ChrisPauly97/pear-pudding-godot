@@ -139,6 +139,6 @@ static func _entity_points(cd: _ChunkData, chunk_origin: Vector3) -> Array[Vecto
 	# Landmark tx/tz are chunk-local; keep the whole footprint clear.
 	var lm_r: float = (float(_InfiniteWorldGen.LANDMARK_FP) + 1.5) * IsoConst.TILE_SIZE
 	for lm: Dictionary in cd.landmarks:
-		pts.append(Vector3(chunk_origin.x + (float(lm.get("tx", 0)) + 0.5) * IsoConst.TILE_SIZE,
-				chunk_origin.z + (float(lm.get("tz", 0)) + 0.5) * IsoConst.TILE_SIZE, lm_r))
+		pts.append(Vector3(chunk_origin.x + IsoConst.tile_center(lm.get("tx", 0)),
+				chunk_origin.z + IsoConst.tile_center(lm.get("tz", 0)), lm_r))
 	return pts

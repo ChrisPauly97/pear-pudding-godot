@@ -103,15 +103,7 @@ static func get_height_at(wx: float, wz: float,
 				if dist_sq < nearest_wall_sq:
 					nearest_wall_sq = dist_sq
 
-	var h: float = 0.0
-	# Hills must not smooth into wall tiles — suppress hill contribution within
-	# one tile of any wall so walls always meet the ground at a right angle.
-	var wall_tile_sq: float = IsoConst.TILE_SIZE * IsoConst.TILE_SIZE
-	if min_dist_sq_hill < hill_r_sq and nearest_wall_sq >= wall_tile_sq:
-		var t: float = 1.0 - sqrt(min_dist_sq_hill) / curve_r
-		t = t * t * (3.0 - 2.0 * t)
-		h = nearest_hill_peak * t
-	return h
+	return _hill_blend(min_dist_sq_hill, nearest_wall_sq, nearest_hill_peak, curve_r)
 
 ## Packed-grid fast path of get_height_at: identical algorithm and output, but the
 ## tile/height lookups index PackedInt32Arrays directly instead of going through a
@@ -158,13 +150,20 @@ static func get_height_at_grid(wx: float, wz: float,
 				if dist_sq < nearest_wall_sq:
 					nearest_wall_sq = dist_sq
 
-	var h: float = 0.0
+	return _hill_blend(min_dist_sq_hill, nearest_wall_sq, nearest_hill_peak, curve_r)
+
+## Shared tail of get_height_at / get_height_at_grid: smoothstep the nearest
+## hill's peak over `curve_r`. Hills must not smooth into wall tiles — the hill
+## contribution is suppressed within one tile of any wall so walls always meet
+## the ground at a right angle.
+static func _hill_blend(min_dist_sq_hill: float, nearest_wall_sq: float,
+		nearest_hill_peak: float, curve_r: float) -> float:
 	var wall_tile_sq: float = IsoConst.TILE_SIZE * IsoConst.TILE_SIZE
-	if min_dist_sq_hill < hill_r_sq and nearest_wall_sq >= wall_tile_sq:
-		var t: float = 1.0 - sqrt(min_dist_sq_hill) / curve_r
-		t = t * t * (3.0 - 2.0 * t)
-		h = nearest_hill_peak * t
-	return h
+	if min_dist_sq_hill >= curve_r * curve_r or nearest_wall_sq < wall_tile_sq:
+		return 0.0
+	var t: float = 1.0 - sqrt(min_dist_sq_hill) / curve_r
+	t = t * t * (3.0 - 2.0 * t)
+	return nearest_hill_peak * t
 
 ## Compute a packed height field for a grid of vertices — get_height_at sampled
 ## once per vertex, so the smoothstep algorithm lives in exactly one place.

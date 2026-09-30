@@ -187,6 +187,7 @@ const _UiUtil = preload("res://scenes/ui/UiUtil.gd")   # inherited by BaseOverla
 _UiUtil.make_button(text, Vector2(w, h), font_size, on_pressed, parent)
 _UiUtil.make_label(text, font_size, tint, align, parent)
 _UiUtil.make_hbox(separation, parent) / make_vbox(separation, parent)
+_UiUtil.make_grid(columns, h_sep, v_sep, parent)
 _UiUtil.make_margin(left, top, right, bottom, parent)
 _UiUtil.make_centered_panel(w, h, vw, vh, parent)
 _UiUtil.make_style(bg, radius, border_color, border_width)   # rounded StyleBoxFlat
@@ -213,7 +214,11 @@ the layer to dismiss.
 `BattleResultUI._build_result_overlay(bg, sep_frac)` is the shared full-screen
 result card. Map views draw quest diamonds and the waypoint pin through
 `scenes/ui/MapMarkers.gd`. Entity materials come from `WorldEntityBase`:
-`unshaded_material(color)` and `glow_material(color, emission, energy)`. World entities get their billboard and name tag from
+`unshaded_material(color)` and `glow_material(color, emission, energy)`.
+Enemies placed by code (not chunk data) spawn through
+`scenes/world/LooseEnemySpawner.gd` (`spawn(world, data, x, z)`), which also
+registers them as loose. Minion/hero status rules shared by `CardInstance` and
+`HeroState` live in `game_logic/battle/StatusEffects.gd`. World entities get their billboard and name tag from
 `SpriteRegistry.make_billboard()` / `make_name_label()`.
 
 ---

@@ -166,34 +166,26 @@ func has_chunk_data(key: Vector2i) -> bool:
 func get_chunk_data(key: Vector2i) -> _ChunkData:
 	return _chunk_data_cache.get(key) as _ChunkData
 
+## The cached ChunkData holding global tile (wtx, wtz), generating tile-only
+## data first if that chunk is not cached yet.
+func _chunk_for_tile(wtx: int, wtz: int) -> _ChunkData:
+	var key := Vector2i(floori(float(wtx) / IsoConst.CHUNK_SIZE), floori(float(wtz) / IsoConst.CHUNK_SIZE))
+	if not _chunk_data_cache.has(key):
+		_chunk_data_cache[key] = InfiniteWorldGen.generate_chunk_data_only(key.x, key.y, _world_seed)
+	return _chunk_data_cache[key] as _ChunkData
+
 ## Returns the tile type at global tile coordinates (wtx, wtz).
 ## Generates tile-only data if the chunk is not yet cached.
 func get_tile_global(wtx: int, wtz: int) -> int:
 	if not _is_infinite:
 		return _world_map.get_tile(wtx, wtz)
-	var cx: int = int(floor(float(wtx) / float(IsoConst.CHUNK_SIZE)))
-	var cz: int = int(floor(float(wtz) / float(IsoConst.CHUNK_SIZE)))
-	var key := Vector2i(cx, cz)
-	if not _chunk_data_cache.has(key):
-		_chunk_data_cache[key] = InfiniteWorldGen.generate_chunk_data_only(cx, cz, _world_seed)
-	var lx: int = wtx - cx * IsoConst.CHUNK_SIZE
-	var lz: int = wtz - cz * IsoConst.CHUNK_SIZE
-	var chunk: _ChunkData = _chunk_data_cache[key]
-	return chunk.get_tile(lx, lz)
+	return _chunk_for_tile(wtx, wtz).get_tile(posmod(wtx, IsoConst.CHUNK_SIZE), posmod(wtz, IsoConst.CHUNK_SIZE))
 
 ## Returns the height value at global tile coordinates (wtx, wtz).
 func get_height_global(wtx: int, wtz: int) -> int:
 	if not _is_infinite:
 		return _world_map.get_height(wtx, wtz)
-	var cx: int = int(floor(float(wtx) / float(IsoConst.CHUNK_SIZE)))
-	var cz: int = int(floor(float(wtz) / float(IsoConst.CHUNK_SIZE)))
-	var key := Vector2i(cx, cz)
-	if not _chunk_data_cache.has(key):
-		_chunk_data_cache[key] = InfiniteWorldGen.generate_chunk_data_only(cx, cz, _world_seed)
-	var lx: int = wtx - cx * IsoConst.CHUNK_SIZE
-	var lz: int = wtz - cz * IsoConst.CHUNK_SIZE
-	var chunk: _ChunkData = _chunk_data_cache[key]
-	return chunk.get_height(lx, lz)
+	return _chunk_for_tile(wtx, wtz).get_height(posmod(wtx, IsoConst.CHUNK_SIZE), posmod(wtz, IsoConst.CHUNK_SIZE))
 
 ## Builds the packed tile-grid snapshot needed by ChunkRenderer.prepare_terrain().
 ## Returns [tile_grid, height_grid, grid_min_x, grid_min_z, grid_w].

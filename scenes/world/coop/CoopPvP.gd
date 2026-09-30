@@ -423,11 +423,7 @@ func _accept_challenge(from_id: int) -> void:
 	var ranked: bool = _pending_challenge_ranked
 	if my_deck.size() < IsoConst.DECK_MIN:
 		_world._show_tip("Your deck is too small to duel.")
-		if _world._net_sync != null:
-			if _world._session_dedicated:
-				_world._net_sync.rpc_id(1, "relay_pvp_response", from_id, false, [])
-			else:
-				_world._net_sync.rpc_id(from_id, "respond_battle", false, [])
+		_send_pvp_decline(from_id)
 		_world._pending_challenge_from = -1
 		_pending_challenge_ranked = false
 		_pending_challenge_armed_at = -1
@@ -451,14 +447,20 @@ func _accept_challenge(from_id: int) -> void:
 func _decline_challenge(from_id: int) -> void:
 	_dismiss_challenge_panel()
 	_pending_challenge_ranked = false
-	if _world._net_sync != null:
-		if _world._session_dedicated:
-			_world._net_sync.rpc_id(1, "relay_pvp_response", from_id, false, [])
-		else:
-			_world._net_sync.rpc_id(from_id, "respond_battle", false, [])
+	_send_pvp_decline(from_id)
 	_world._pending_challenge_from = -1
 	_pending_challenge_deck = []
 	_pending_challenge_armed_at = -1
+
+## Tells challenger `from_id` the duel is off — via the server's relay in a
+## dedicated session, directly otherwise.
+func _send_pvp_decline(from_id: int) -> void:
+	if _world._net_sync == null:
+		return
+	if _world._session_dedicated:
+		_world._net_sync.rpc_id(1, "relay_pvp_response", from_id, false, [])
+	else:
+		_world._net_sync.rpc_id(from_id, "respond_battle", false, [])
 
 # ── TID-431 (BID-034): challenge handshake timeouts ───────────────────────────
 # An unanswered duel/wager/draft-duel challenge (or a stuck dedicated-server

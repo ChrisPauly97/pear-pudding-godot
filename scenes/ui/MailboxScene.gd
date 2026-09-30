@@ -49,10 +49,7 @@ func _build_ui() -> void:
 	wrapper.add_child(_grid_scroll)
 	attach_drag_scroll(_grid_scroll)
 
-	_grid = GridContainer.new()
-	_grid.add_theme_constant_override("h_separation", int(_ref * 0.010))
-	_grid.add_theme_constant_override("v_separation", int(_ref * 0.010))
-	_grid_scroll.add_child(_grid)
+	_grid = _UiUtil.make_grid(1, int(_ref * 0.010), int(_ref * 0.010), _grid_scroll)
 
 func _refresh() -> void:
 	_hide_detail()

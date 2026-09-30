@@ -248,22 +248,23 @@ func _toggle_emote_wheel() -> void:
 		return
 	_show_emote_wheel()
 
-func _show_emote_wheel() -> void:
-	if _emote_wheel_panel != null and is_instance_valid(_emote_wheel_panel):
-		return
+## Dark rounded HUD panel `right_frac` × vh in from the right edge, holding a
+## `columns`-wide button grid. The caller keeps `grid.get_parent()` to dismiss it.
+func _build_hud_button_grid(right_frac: float, columns: int) -> GridContainer:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var vh: float = vp.y
 	var panel := PanelContainer.new()
-	var style := _UiUtil.make_style(Color(0.05, 0.05, 0.1, 0.90), 8)
-	panel.add_theme_stylebox_override("panel", style)
-	panel.position = Vector2(vp.x - vh * 0.52, vh * 0.66)
+	panel.add_theme_stylebox_override("panel", _UiUtil.make_style(Color(0.05, 0.05, 0.1, 0.90), 8))
+	panel.position = Vector2(vp.x - vh * right_frac, vh * 0.66)
 	_world._hud.add_child(panel)
-	_emote_wheel_panel = panel
-	var grid := GridContainer.new()
-	grid.columns = 3
-	grid.add_theme_constant_override("h_separation", int(vh * 0.010))
-	grid.add_theme_constant_override("v_separation", int(vh * 0.010))
-	panel.add_child(grid)
+	return _UiUtil.make_grid(columns, int(vh * 0.010), int(vh * 0.010), panel)
+
+func _show_emote_wheel() -> void:
+	if _emote_wheel_panel != null and is_instance_valid(_emote_wheel_panel):
+		return
+	var vh: float = get_viewport().get_visible_rect().size.y
+	var grid: GridContainer = _build_hud_button_grid(0.52, 3)
+	_emote_wheel_panel = grid.get_parent() as PanelContainer
 	var emote_ids: Array[String] = _SocialSync.EMOTE_IDS
 	for eid: String in emote_ids:
 		var label: String = str(_SocialSync.EMOTE_LABELS.get(eid, eid))
@@ -464,19 +465,9 @@ func _toggle_chat_quick_panel() -> void:
 func _show_chat_quick_panel() -> void:
 	if _chat_quick_panel != null and is_instance_valid(_chat_quick_panel):
 		return
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var vh: float = vp.y
-	var panel := PanelContainer.new()
-	var style := _UiUtil.make_style(Color(0.05, 0.05, 0.1, 0.90), 8)
-	panel.add_theme_stylebox_override("panel", style)
-	panel.position = Vector2(vp.x - vh * 0.40, vh * 0.66)
-	_world._hud.add_child(panel)
-	_chat_quick_panel = panel
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", int(vh * 0.010))
-	grid.add_theme_constant_override("v_separation", int(vh * 0.010))
-	panel.add_child(grid)
+	var vh: float = get_viewport().get_visible_rect().size.y
+	var grid: GridContainer = _build_hud_button_grid(0.40, 2)
+	_chat_quick_panel = grid.get_parent() as PanelContainer
 	var presets: Array[String] = _ChatSync.QUICK_PRESETS
 	for preset: String in presets:
 		var btn := _UiUtil.make_button(preset, Vector2(vh * 0.18, vh * 0.055), int(vh * 0.018))

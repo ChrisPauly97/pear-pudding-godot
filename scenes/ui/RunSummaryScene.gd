@@ -73,17 +73,7 @@ func _build_ui() -> void:
 		["Time Played",    "%02d:%02d" % [minutes, seconds]],
 	]
 
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", int(_vw * 0.04))
-	grid.add_theme_constant_override("v_separation", int(_ref * 0.012))
-	root_vbox.add_child(grid)
-
-	for row: Array in stat_rows:
-		var key_lbl := _UiUtil.make_label(str(row[0]), int(_ref * 0.024), Color(0.75, 0.75, 0.75),
-				HORIZONTAL_ALIGNMENT_LEFT, grid)
-
-		var val_lbl := _UiUtil.make_label(str(row[1]), int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT, grid)
+	_build_stat_grid(root_vbox, stat_rows)
 
 	# Separator
 	var sep2 := HSeparator.new()
@@ -146,17 +136,7 @@ func _build_spire_ui() -> void:
 		["Best Floor",        str(int(spire_stats.get("best_floor", floors_cleared)))],
 	]
 
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", int(_vw * 0.04))
-	grid.add_theme_constant_override("v_separation", int(_ref * 0.012))
-	root_vbox.add_child(grid)
-
-	for row: Array in stat_rows:
-		var key_lbl := _UiUtil.make_label(str(row[0]), int(_ref * 0.024), Color(0.75, 0.75, 0.75),
-				HORIZONTAL_ALIGNMENT_LEFT, grid)
-
-		var val_lbl := _UiUtil.make_label(str(row[1]), int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT, grid)
+	_build_stat_grid(root_vbox, stat_rows)
 
 	# Draft deck list (up to 8 cards)
 	var draft_ids: Array = spire_stats.get("draft_deck_ids", [])
@@ -224,16 +204,7 @@ func _build_coop_spire_ui() -> void:
 		["Floors Cleared", str(floors_cleared)],
 		["Party Size", str(int(coop_stats.get("party_size", 1)))],
 	]
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", int(_vw * 0.04))
-	grid.add_theme_constant_override("v_separation", int(_ref * 0.012))
-	root_vbox.add_child(grid)
-	for row: Array in stat_rows:
-		var key_lbl := _UiUtil.make_label(str(row[0]), int(_ref * 0.024), Color(0.75, 0.75, 0.75),
-				HORIZONTAL_ALIGNMENT_LEFT, grid)
-
-		var val_lbl := _UiUtil.make_label(str(row[1]), int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT, grid)
+	_build_stat_grid(root_vbox, stat_rows)
 
 	var roster: Array = coop_stats.get("roster", [])
 	if roster.size() > 0:
@@ -257,3 +228,10 @@ func _build_coop_spire_ui() -> void:
 
 	var continue_btn := _UiUtil.make_button("Continue", Vector2(_ref * 0.32, _ref * 0.07), int(_ref * 0.028),
 			func() -> void: continue_pressed.emit(), btn_wrap2)
+
+## Two-column "label  value" grid for a summary's `[[label, value], …]` rows.
+func _build_stat_grid(parent: Node, stat_rows: Array) -> void:
+	var grid := _UiUtil.make_grid(2, int(_vw * 0.04), int(_ref * 0.012), parent)
+	for row: Array in stat_rows:
+		_UiUtil.make_label(str(row[0]), int(_ref * 0.024), Color(0.75, 0.75, 0.75), HORIZONTAL_ALIGNMENT_LEFT, grid)
+		_UiUtil.make_label(str(row[1]), int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT, grid)

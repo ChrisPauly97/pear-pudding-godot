@@ -19,8 +19,8 @@ const _FALLBACK_TILES := 3.0
 ## the map has none. Also the dedicated server's streaming reference point.
 static func map_spawn(world_map: WorldMap) -> Vector2:
 	if world_map != null and world_map.has_player_spawn():
-		return Vector2((float(world_map.player_spawn_x) + 0.5) * IsoConst.TILE_SIZE,
-				(float(world_map.player_spawn_z) + 0.5) * IsoConst.TILE_SIZE)
+		return Vector2(IsoConst.tile_center(world_map.player_spawn_x),
+				IsoConst.tile_center(world_map.player_spawn_z))
 	return Vector2(_FALLBACK_TILES, _FALLBACK_TILES) * IsoConst.TILE_SIZE
 
 

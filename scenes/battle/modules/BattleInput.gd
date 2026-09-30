@@ -14,6 +14,7 @@ const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const SpellEffectResolver = preload("res://scenes/battle/SpellEffectResolver.gd")
 const BattleNetProtocol = preload("res://game_logic/net/BattleNetProtocol.gd")
+const _BattleTargeting = preload("res://scenes/battle/modules/BattleTargeting.gd")
 
 var _battle: _BattleScene
 
@@ -69,24 +70,13 @@ func _bind_card_input(panel: PanelContainer, card: CardInstance, zone_id: String
 		panel.set_drag_forwarding(
 			func(_pos: Vector2) -> Variant: return null,
 			func(_pos: Vector2, data: Variant) -> bool:
-				if not (data is Dictionary):
-					return false
-				var drag_data: Dictionary = data as Dictionary
-				if not drag_data.has("attacker"):
-					return false
-				var attacker: CardInstance = drag_data["attacker"] as CardInstance
-				if attacker == null or not attacker.can_attack():
+				if _BattleTargeting.ready_attacker(data) == null:
 					return false
 				var valid: Array[CardInstance] = _battle._view.get_ward_valid_targets(
 					_battle._state.players[_battle._opp_idx()].board.get_cards())
 				return valid.has(card),
 			func(_pos: Vector2, data: Variant) -> void:
-				if not (data is Dictionary):
-					return
-				var drag_data: Dictionary = data as Dictionary
-				if not drag_data.has("attacker"):
-					return
-				var attacker: CardInstance = drag_data["attacker"] as CardInstance
+				var attacker: CardInstance = _BattleTargeting.drag_attacker(data)
 				if attacker != null:
 					_attempt_attack(attacker, card)
 		)

@@ -14,6 +14,20 @@ const BattleNetProtocol = preload("res://game_logic/net/BattleNetProtocol.gd")
 
 var _battle: _BattleScene
 
+## The card an attack drag carries (`{"attacker": card}`, built by BattleInput's
+## board drag), or null when `data` is any other drag.
+static func drag_attacker(data: Variant) -> CardInstance:
+	if not (data is Dictionary):
+		return null
+	var drag_data: Dictionary = data as Dictionary
+	if not drag_data.has("attacker"):
+		return null
+	return drag_data["attacker"] as CardInstance
+
+## `drag_attacker`, but only when that card can still attack this turn.
+static func ready_attacker(data: Variant) -> CardInstance:
+	var attacker: CardInstance = drag_attacker(data)
+	return attacker if attacker != null and attacker.can_attack() else null
 
 func _init(battle: _BattleScene) -> void:
 	_battle = battle
@@ -34,22 +48,11 @@ func _setup_board_drop_zone() -> void:
 	_battle._enemy_hero_view.set_drag_forwarding(
 		func(_pos: Vector2) -> Variant: return null,
 		func(_pos: Vector2, data: Variant) -> bool:
-			if not (data is Dictionary):
-				return false
-			var drag_data: Dictionary = data as Dictionary
-			if not drag_data.has("attacker"):
-				return false
-			var attacker: CardInstance = drag_data["attacker"] as CardInstance
-			if attacker == null or not attacker.can_attack():
+			if ready_attacker(data) == null:
 				return false
 			return not _battle._state.players[_battle._opp_idx()].hero_unreachable(),
 		func(_pos: Vector2, data: Variant) -> void:
-			if not (data is Dictionary):
-				return
-			var drag_data: Dictionary = data as Dictionary
-			if not drag_data.has("attacker"):
-				return
-			var attacker: CardInstance = drag_data["attacker"] as CardInstance
+			var attacker: CardInstance = drag_attacker(data)
 			if attacker != null:
 				_battle.card_input._attempt_attack(attacker, null)
 	)

@@ -109,7 +109,7 @@ static func to_local_tile(town: String, world: Vector2i) -> Vector2i:
 ## World-space position (tile centre) of a town-local tile.
 static func to_world_pos(town: String, local: Vector2i) -> Vector3:
 	var w: Vector2i = to_world_tile(town, local)
-	return Vector3((float(w.x) + 0.5) * IsoConst.TILE_SIZE, 0.0, (float(w.y) + 0.5) * IsoConst.TILE_SIZE)
+	return Vector3(IsoConst.tile_center(w.x), 0.0, IsoConst.tile_center(w.y))
 
 ## World-unit shift that moves a town-local world position into the overworld.
 static func world_shift(town: String) -> Vector2:
@@ -279,7 +279,7 @@ static func spawn_pos(town: String) -> Vector3:
 ## World position of a story site from STORY_SITES (tile centre).
 static func site_pos(site: String) -> Vector3:
 	var t: Vector2i = STORY_SITES.get(site, Vector2i.ZERO)
-	return Vector3((float(t.x) + 0.5) * IsoConst.TILE_SIZE, 0.0, (float(t.y) + 0.5) * IsoConst.TILE_SIZE)
+	return Vector3(IsoConst.tile_center(t.x), 0.0, IsoConst.tile_center(t.y))
 
 ## The stitched door leading into `map_name` (an interior), or {}.
 static func door_into(map_name: String) -> Dictionary:

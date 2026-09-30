@@ -17,6 +17,9 @@ times, and the quest diamond / waypoint pin drawn separately by all three map vi
 | TID-624 | `WorldEntityBase.glow_material()` | agent | done | — |
 | TID-625 | `IsoConst.tile_center()` | agent | done | — |
 | TID-626 | `MapMarkers` shared map-marker drawing | agent | done | — |
+| TID-627 | Loose enemy spawns, terrain and chunk lookups | agent | done | — |
+| TID-628 | Battle banners, attack drags, armor | agent | done | — |
+| TID-629 | UI grids, panels and small dups | agent | done | — |
 
 ## Acceptance Criteria
 

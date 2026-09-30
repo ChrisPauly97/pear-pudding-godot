@@ -30,60 +30,43 @@ func setup(parent: Node, vh: float, float_layer: CanvasLayer, collect_veterancy_
 # Boss banners
 # -------------------------------------------------------------------------
 
-func show_boss_banner(enemy_data: Dictionary) -> void:
+## A centred, drop-shadowed banner line `y_frac` of the viewport down, on top
+## of everything in `_parent`. Callers own replacing and fading it.
+func _make_banner(text: String, size_frac: float, tint: Color, y_frac: float) -> Label:
 	var vp: Vector2 = _parent.get_viewport().get_visible_rect().size
-	var font_size: int = int(_vh * 0.045)
-	var enemy_type: String = str(enemy_data.get("enemy_type", ""))
-	var lbl := _UiUtil.make_label("* %s *" % EnemyRegistry.get_display_name(enemy_type), int(font_size))
-	lbl.add_theme_color_override("font_color", Color(1.0, 0.75, 0.0))
+	var font_size: int = int(_vh * size_frac)
+	var lbl := _UiUtil.make_label(text, font_size, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+	lbl.add_theme_color_override("font_color", tint)
 	lbl.add_theme_color_override("font_shadow_color", Color.BLACK)
 	lbl.add_theme_constant_override("shadow_offset_x", 2)
 	lbl.add_theme_constant_override("shadow_offset_y", 2)
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.size = Vector2(vp.x, font_size * 2)
-	lbl.position = Vector2(0.0, _vh * 0.08)
+	lbl.position = Vector2(0.0, _vh * y_frac)
 	_parent.add_child(lbl)
 	_parent.move_child(lbl, _parent.get_child_count() - 1)
+	return lbl
+
+func _replace_boss_banner(lbl: Label) -> void:
 	if _boss_banner != null and is_instance_valid(_boss_banner):
 		_boss_banner.queue_free()
 	_boss_banner = lbl
 	start_banner_fade(lbl)
 
+func show_boss_banner(enemy_data: Dictionary) -> void:
+	var enemy_type: String = str(enemy_data.get("enemy_type", ""))
+	_replace_boss_banner(_make_banner("* %s *" % EnemyRegistry.get_display_name(enemy_type), 0.045,
+			Color(1.0, 0.75, 0.0), 0.08))
+
 func show_phase2_banner() -> void:
-	var vp: Vector2 = _parent.get_viewport().get_visible_rect().size
-	var font_size: int = int(_vh * 0.04)
-	var lbl := _UiUtil.make_label("- PHASE 2 -", int(font_size))
-	lbl.add_theme_color_override("font_color", Color(1.0, 0.2, 0.2))
-	lbl.add_theme_color_override("font_shadow_color", Color.BLACK)
-	lbl.add_theme_constant_override("shadow_offset_x", 2)
-	lbl.add_theme_constant_override("shadow_offset_y", 2)
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.size = Vector2(vp.x, font_size * 2)
-	lbl.position = Vector2(0.0, _vh * 0.4)
-	_parent.add_child(lbl)
-	_parent.move_child(lbl, _parent.get_child_count() - 1)
-	if _boss_banner != null and is_instance_valid(_boss_banner):
-		_boss_banner.queue_free()
-	_boss_banner = lbl
-	start_banner_fade(lbl)
+	_replace_boss_banner(_make_banner("- PHASE 2 -", 0.04, Color(1.0, 0.2, 0.2), 0.4))
 
 ## World-encounter ambush banner (GID-113 / TID-421, TID-422). Positioned
 ## below the boss banner's y so a boss ambush can show both at once without
 ## overlap. Owns its own field so it never fights `_boss_banner`'s
 ## fade/replace bookkeeping.
 func show_ambush_banner(is_bonus: bool) -> void:
-	var vp: Vector2 = _parent.get_viewport().get_visible_rect().size
-	var font_size: int = int(_vh * 0.04)
-	var lbl := _UiUtil.make_label("Ambush!" if is_bonus else "Ambushed!", int(font_size))
-	lbl.add_theme_color_override("font_color", Color(0.4, 1.0, 0.4) if is_bonus else Color(1.0, 0.3, 0.3))
-	lbl.add_theme_color_override("font_shadow_color", Color.BLACK)
-	lbl.add_theme_constant_override("shadow_offset_x", 2)
-	lbl.add_theme_constant_override("shadow_offset_y", 2)
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.size = Vector2(vp.x, font_size * 2)
-	lbl.position = Vector2(0.0, _vh * 0.16)
-	_parent.add_child(lbl)
-	_parent.move_child(lbl, _parent.get_child_count() - 1)
+	var lbl: Label = _make_banner("Ambush!" if is_bonus else "Ambushed!", 0.04,
+			Color(0.4, 1.0, 0.4) if is_bonus else Color(1.0, 0.3, 0.3), 0.16)
 	if _ambush_banner != null and is_instance_valid(_ambush_banner):
 		_ambush_banner.queue_free()
 	_ambush_banner = lbl

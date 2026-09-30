@@ -27,13 +27,9 @@ func _build_ui() -> void:
 
 	var panel_w: float = vp.x * 0.55
 	var panel_h: float = _vh * 0.54
-	var panel := PanelContainer.new()
-	var style := _UiUtil.make_style(Color(0.08, 0.08, 0.15, 0.97), 12)
-	panel.add_theme_stylebox_override("panel", style)
-	panel.custom_minimum_size = Vector2(panel_w, panel_h)
-	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
+	var panel := _UiUtil.make_centered_panel(panel_w, panel_h, vp.x, vp.y, self)
+	panel.add_theme_stylebox_override("panel", _UiUtil.make_style(Color(0.08, 0.08, 0.15, 0.97), 12))
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	add_child(panel)
 
 	var margin := _UiUtil.make_margin(int(_vh * 0.03), int(_vh * 0.03), int(_vh * 0.03), int(_vh * 0.03), panel)
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)

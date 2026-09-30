@@ -9,7 +9,7 @@ extends Node
 
 const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const _WorldScene = preload("res://scenes/world/WorldScene.gd")
-const _EnemyScene = preload("res://scenes/world/entities/EnemyNPC.tscn")
+const _LooseEnemySpawner = preload("res://scenes/world/LooseEnemySpawner.gd")
 const _ChunkData = preload("res://game_logic/world/ChunkData.gd")
 const _InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
 const _BiomeDef = preload("res://game_logic/world/BiomeDef.gd")
@@ -86,22 +86,17 @@ func _prune_and_count() -> int:
 	return alive
 
 func _spawn(pos: Vector3, enemy_type: String) -> void:
-	var node: Node3D = _EnemyScene.instantiate() as Node3D
-	if node == null:
-		return
 	_id_counter += 1
 	var spawn_id: String = "nocturnal_%d" % _id_counter
-	node.set_meta("is_nocturnal", true)
-	node.call("init_from_data", {
+	var node: Node3D = _LooseEnemySpawner.spawn_at(_world, {
 		"id": spawn_id,
 		"enemy_type": enemy_type,
 		"tracking": true,
 		"nocturnal": true,
-	})
-	node.position = pos
-	_world._entity_root.add_child(node)
+	}, pos)
+	if node == null:
+		return
 	_enemies[spawn_id] = {"node": node, "chunk": _chunk_of(pos.x, pos.z)}
-	_world.register_loose_enemy(spawn_id, node)
 
 ## Once per session on the first night spawn, and only until the player has
 ## seen it once.
