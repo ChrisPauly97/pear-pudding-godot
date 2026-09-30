@@ -340,10 +340,10 @@ def horse(frame):
     lx, rx, _bob = _walk(frame)
     coat = [(72, 45, 38), (118, 70, 50), (160, 100, 64), (197, 140, 96)]
     mane = [(34, 24, 24), (58, 40, 36), (72, 59, 58), (96, 72, 64)]
-    for x0, dx in ((7, lx), (10, rx), (20, rx), (23, lx)):   # legs
-        c.line(x0, 20, x0 + dx * 0.5, 29, coat[1])
-        c.line(x0 + 1, 20, x0 + 1 + dx * 0.5, 29, coat[0])
-        c.rect(int(x0 + dx * 0.5), 30, int(x0 + dx * 0.5) + 1, 31, DARK)
+    for x0, dx in ((7, lx), (10, rx), (20, rx), (23, lx)):   # legs (full swing: a trot reads at 32 px)
+        c.line(x0, 20, x0 + dx, 29, coat[1])
+        c.line(x0 + 1, 20, x0 + 1 + dx, 29, coat[0])
+        c.rect(int(x0 + dx), 30, int(x0 + dx) + 1, 31, DARK)
     c.blob(15, 17, 10.0, 4.8, coat)                        # barrel
     c.blob(6, 16, 3.2, 3.8, coat)                          # hindquarters
     c.line(4, 14, 1, 21, mane[1])                          # tail
@@ -498,6 +498,25 @@ def frames(fn):
     return [fn(i) for i in range(5)]
 
 
+def horse_frames():
+    """Idle + 4 trot frames on the horse's fixed 32×32 canvas, all placed where the idle lands (bottom-centre of its
+    trimmed box), so the saddle — and the rider on it — never shifts; only the legs move."""
+    idle = horse(0)
+    generate_sprites.TRIM = False
+    try:
+        raw = [horse(i) for i in range(5)]
+    finally:
+        generate_sprites.TRIM = True
+    box = raw[0].getbbox()
+    dx = (32 - (box[2] - box[0])) // 2 - box[0]
+    out = [idle]
+    for fr in raw[1:]:
+        f = Image.new("RGBA", fr.size, (0, 0, 0, 0))
+        f.alpha_composite(fr, (dx, 0)) if dx >= 0 else f.alpha_composite(fr.crop((-dx, 0, fr.width, fr.height)))
+        out.append(f)
+    return out
+
+
 def walker_frames(fn):
     """Idle + 4 walk frames, uncropped, then cropped to their shared content box (bottom row kept)."""
     generate_sprites.TRIM = False
@@ -527,9 +546,12 @@ def main():
         return
     OUT.mkdir(parents=True, exist_ok=True)
     for name, fn in CHARACTERS.items():
-        fs = walker_frames(fn) if name in WALKERS else frames(fn)
+        if name == "mount_horse":
+            fs = horse_frames()
+        else:
+            fs = walker_frames(fn) if name in WALKERS else frames(fn)
         fs[0].save(OUT / f"{name}.png")
-        if name not in WALKERS:
+        if name not in WALKERS and name != "mount_horse":
             continue  # nothing animates their walk: idle only
         for i in range(1, 5):
             fs[i].save(OUT / f"{name}_walk_{i}.png")

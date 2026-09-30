@@ -2,7 +2,7 @@
 
 **Goal:** GID-152
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -22,12 +22,17 @@
 
 ## Plan
 
-_Written during Plan phase._
+Trot frames from the existing horse rig (full leg swing), placed on the idle's canvas so the saddle never moves;
+reuse the TID-645 `WalkCycle` on `Player._mount_sprite`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `tools/generate_characters.py`: `horse_frames()`, full leg swing; `mount_horse_walk_1..4.png` (idle unchanged).
+- `game_logic/WalkFrames.gd`: horse entry. `scenes/world/entities/WalkCycle.gd`: `for_sprite()` factory.
+- `scenes/world/entities/Player.gd`: `MountTrot` child (kept at the 500-line cap by tightening a comment).
+- Test: `test_walk_cycle::test_horse_trots_in_place`.
+- No per-frame saddle table needed (body rows identical across frames), unlike the task's research note.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/rideable-mounts.md`: Trot bullet.

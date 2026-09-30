@@ -7,6 +7,8 @@ extends Node
 
 const _WalkCycleMath = preload("res://game_logic/WalkCycleMath.gd")
 const _SpriteOutline = preload("res://game_logic/SpriteOutline.gd")
+const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
+const _Self = preload("res://scenes/world/entities/WalkCycle.gd")
 
 var _tracks: Array[Dictionary] = []  # {"sprite", "idle", "frames"}
 var _state: Dictionary = {}
@@ -14,7 +16,15 @@ var _last_pos: Vector3 = Vector3.INF
 var _shown: int = -1
 
 
-## Animate `sprite` with its registry walk frames; no-op when it has none.
+## A WalkCycle named `node_name` driving `sprite` with its registry walk frames.
+static func for_sprite(sprite: Sprite3D, node_name: String) -> Node:
+	var wc: _Self = _Self.new()
+	wc.name = node_name
+	wc.add_sprite(sprite, _SpriteRegistry.walk_frames(sprite.texture))
+	return wc
+
+
+## Animate `sprite` with `frames`; no-op when there are none.
 func add_sprite(sprite: Sprite3D, frames: Array[Texture2D]) -> void:
 	if sprite == null or frames.is_empty():
 		return

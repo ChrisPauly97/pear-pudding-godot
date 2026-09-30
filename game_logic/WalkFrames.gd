@@ -1,4 +1,4 @@
-## Enemy walk frames (GID-152 / TID-645): one preload per file (Android packs
+## Enemy walk frames (GID-152 / TID-645) and the horse's trot (TID-651): one preload per file (Android packs
 ## only what is preloaded) and the idle texture -> four walk frames table that
 ## SpriteRegistry.walk_frames() reads. Regenerate the PNGs with
 ## tools/generate_characters.py and scripts/gen_creature_sprites.py.
@@ -114,8 +114,14 @@ const _ZOMBIE_1 := preload("res://assets/textures/characters/enemy_zombie_walk_1
 const _ZOMBIE_2 := preload("res://assets/textures/characters/enemy_zombie_walk_2.png")
 const _ZOMBIE_3 := preload("res://assets/textures/characters/enemy_zombie_walk_3.png")
 const _ZOMBIE_4 := preload("res://assets/textures/characters/enemy_zombie_walk_4.png")
+const _MOUNT_HORSE := preload("res://assets/textures/characters/mount_horse.png")
+const _MOUNT_HORSE_1 := preload("res://assets/textures/characters/mount_horse_walk_1.png")
+const _MOUNT_HORSE_2 := preload("res://assets/textures/characters/mount_horse_walk_2.png")
+const _MOUNT_HORSE_3 := preload("res://assets/textures/characters/mount_horse_walk_3.png")
+const _MOUNT_HORSE_4 := preload("res://assets/textures/characters/mount_horse_walk_4.png")
 
 const _TABLE: Dictionary = {
+	_MOUNT_HORSE: [_MOUNT_HORSE_1, _MOUNT_HORSE_2, _MOUNT_HORSE_3, _MOUNT_HORSE_4],
 	_BARROW_KING: [_BARROW_KING_1, _BARROW_KING_2, _BARROW_KING_3, _BARROW_KING_4],
 	_BOG_HAG: [_BOG_HAG_1, _BOG_HAG_2, _BOG_HAG_3, _BOG_HAG_4],
 	_CACTUS_WORM: [_CACTUS_WORM_1, _CACTUS_WORM_2, _CACTUS_WORM_3, _CACTUS_WORM_4],
@@ -141,7 +147,7 @@ const _TABLE: Dictionary = {
 }
 
 
-## The four walk frames for an idle enemy texture ([] when it has none).
+## The four walk frames for an idle enemy (or horse) texture ([] when it has none).
 static func for_idle(idle: Texture2D) -> Array[Texture2D]:
 	var out: Array[Texture2D] = []
 	out.assign(_TABLE.get(idle, []) as Array)

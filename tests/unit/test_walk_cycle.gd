@@ -55,3 +55,12 @@ func test_walk_cycle_swaps_and_restores_texture() -> void:
 	wc._process(0.5)
 	assert_eq(spr.texture, idle, "stopping restores the idle frame")
 	holder.free()
+
+
+## TID-651: the horse trots on the idle's canvas, so the saddle never moves.
+func test_horse_trots_in_place() -> void:
+	var idle: Texture2D = SR.mount_texture()
+	var frames: Array[Texture2D] = SR.walk_frames(idle)
+	assert_eq(frames.size(), 4, "the horse trots")
+	for f: Texture2D in frames:
+		assert_eq(f.get_size(), idle.get_size(), "trot frames share the idle canvas")

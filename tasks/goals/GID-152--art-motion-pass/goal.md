@@ -22,7 +22,7 @@ fixed direction regardless of the stream's course. See `docs/agent/art-sprites.m
 | [TID-648](TID-648--landmark-idle-loops.md) | Landmark idle loops | agent | pending | — |
 | [TID-649](TID-649--campfire-flames.md) | Campfire flame frames | agent | pending | — |
 | [TID-650](TID-650--npc-idle-loops.md) | NPC idle loops | agent | pending | — |
-| [TID-651](TID-651--horse-trot.md) | Horse trot cycle | agent | pending | — |
+| [TID-651](TID-651--horse-trot.md) | Horse trot cycle | agent | done | — |
 | [TID-652](TID-652--chest-door-frames.md) | Chest and door opening frames | agent | pending | — |
 
 ## Acceptance Criteria
