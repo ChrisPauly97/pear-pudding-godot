@@ -18,3 +18,8 @@ keep the look identical.
 
 Either drop the flip (dead code) or honour it: flip `UV.x` in the shaders from the sign of the instance basis
 determinant (props' baked top-left light would then flip too — why trees opt out).
+
+## Resolution
+
+Dropped the dead flip (and `billboard_keep_scale`) in `ChunkRenderer._add_prop_multimesh`: honouring it would
+mirror the props' baked top-left light. Rendering is unchanged.

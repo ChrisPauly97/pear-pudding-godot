@@ -551,7 +551,6 @@ static func _make_prop_material(tex: Texture2D) -> StandardMaterial3D:
 	mat.alpha_scissor_threshold = 0.5
 	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	mat.billboard_keep_scale = true  # per-instance mirror (TID-522)
 	_apply_lit(mat)
 	return mat
 
@@ -604,13 +603,9 @@ func _add_prop_multimesh(key_str: String, variant: int, positions: Array) -> voi
 	mm.instance_count = positions.size()
 	mm.mesh = quad
 	for i in range(positions.size()):
-		var pos: Vector3 = positions[i] as Vector3
-		# Mirror variety only: scaling would break the shared pixel size. Trees
-		# keep their baked upper-left light, so they never mirror.
-		var flip: float = -1.0 if fposmod(pos.x * 3.7 + pos.z * 1.3, 2.0) > 1.0 else 1.0
-		if _TreeScatter.is_tree_key(key_str):
-			flip = 1.0
-		mm.set_instance_transform(i, Transform3D(Basis.from_scale(Vector3(flip, 1.0, 1.0)), pos))
+		# No per-instance mirror: the billboard rebuilds its scale from basis
+		# lengths (sign lost), and the art's baked top-left light must not flip (BID-082).
+		mm.set_instance_transform(i, Transform3D(Basis(), positions[i] as Vector3))
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm
 	mmi.material_override = mat

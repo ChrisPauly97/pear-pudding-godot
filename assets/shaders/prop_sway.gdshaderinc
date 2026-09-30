@@ -32,7 +32,7 @@ void vertex() {
 	float top = 1.0 - UV.y;  // QuadMesh: UV.y = 0 at the top edge
 	float sx = length(MODEL_MATRIX[0].xyz);
 	VERTEX.x += lean * top * top / max(sx, 0.001);
-	// Billboard (BaseMaterial3D BILLBOARD_ENABLED + billboard_keep_scale).
+	// Billboard (BaseMaterial3D BILLBOARD_ENABLED, instance scale kept; instances are unscaled).
 	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(MAIN_CAM_INV_VIEW_MATRIX[0], MAIN_CAM_INV_VIEW_MATRIX[1],
 			MAIN_CAM_INV_VIEW_MATRIX[2], MODEL_MATRIX[3]);
 	MODELVIEW_MATRIX = MODELVIEW_MATRIX * mat4(vec4(sx, 0.0, 0.0, 0.0),

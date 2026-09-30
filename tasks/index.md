@@ -170,13 +170,13 @@ files in `tasks/archive/backlog/`.
 | [BID-073](backlog/BID-073--no-owl-ambience-loop.md) | Night owl ambience layer still synthesized (no clean CC0 loop found) | content-gap | GID-145 / TID-616 |
 | [BID-079](backlog/BID-079--spec-four-card-types.md) | Spec still lists four card types | spec-gap | GID-151 research |
 | [BID-081](backlog/BID-081--no-water-in-towns.md) | No water in named maps / towns; no bridges | content-gap | GID-152 research |
-| [BID-082](backlog/BID-082--prop-mirror-flip-noop.md) | Ground-prop mirror flip never renders (billboard keep-scale drops the sign) | code-smell | GID-152 / TID-647 |
 | [BID-083](backlog/BID-083--no-stream-ambience-loop.md) | Stream ambience layer still synthesized (no CC0 loop yet) | content-gap | GID-152 / TID-644 |
 
 ## Resolved Backlog
 
 | ID | Summary | Category | Discovered During |
 |----|---------|----------|-------------------|
+| [BID-082](archive/backlog/BID-082--prop-mirror-flip-noop.md) | Ground-prop mirror flip never renders (billboard keep-scale drops the sign) | code-smell | GID-152 / TID-647 |
 | [BID-080](archive/backlog/BID-080--silent-card-art-fallback.md) | Missing card art falls back silently to TextureGen | code-smell | Resolved: GID-151 TID-640 coverage test |
 | [BID-077](archive/backlog/BID-077--packs-keep-a-leader-hero.md) | Pack encounters still have an enemy hero (no leaderless 'clear the board' packs) | design-gap | Resolved: `undead_horde` is a leaderless pack (clear the board) |
 | [BID-078](archive/backlog/BID-078--enemy-spells-never-resolve.md) | Enemy spell cards never resolve (turn-based discards them, real time never picks them) | bug | Resolved: enemy spells resolve in both modes |
