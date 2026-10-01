@@ -174,6 +174,7 @@ files in `tasks/archive/backlog/`.
 
 | ID | Summary | Category | Discovered During |
 |----|---------|----------|-------------------|
+| [BID-084](archive/backlog/BID-084--level-one-enemy-summons.md) | Level-1 hero (Strike only, no hand) faced summoning enemies | design-gap | Resolved: enemies summon only once `feat_minions` is learned |
 | [BID-083](archive/backlog/BID-083--no-stream-ambience-loop.md) | Stream ambience layer still synthesized (no CC0 loop yet) | content-gap | GID-152 / TID-644 |
 | [BID-073](archive/backlog/BID-073--no-owl-ambience-loop.md) | Night owl ambience layer still synthesized (no clean CC0 loop found) | content-gap | GID-145 / TID-616 |
 | [BID-082](archive/backlog/BID-082--prop-mirror-flip-noop.md) | Ground-prop mirror flip never renders (billboard keep-scale drops the sign) | code-smell | GID-152 / TID-647 |

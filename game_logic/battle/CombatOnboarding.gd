@@ -8,7 +8,7 @@
 ##   level 5 — + spell cards in the hand (`feat_spells`)
 ##
 ## Skills need no filtering here: SkillBar only ever holds learned ids. This
-## decides the hand, spells, the slow first clock, and the onboarding "stage"
+## decides the hand, spells, enemy summons, the slow first clock, and the onboarding "stage"
 ## (how many of the combat unlocks are learned; -1 once all are). Existing saves
 ## were migrated with every unlock (SaveMigrations v44), so they get the full
 ## fight. Pure logic; `BattleOnboarding` applies it.
@@ -30,6 +30,11 @@ static func stage_for(learned: Array) -> int:
 ## The hand (and your unit slots) only appear once minions are learned.
 static func shows_hand(learned: Array) -> bool:
 	return learned.has(UnlockLadder.FEAT_MINIONS)
+
+## Enemies only summon minions once the player can field their own: a level-1
+## hero with Strike alone can't keep up with a growing enemy board.
+static func enemy_summons(learned: Array) -> bool:
+	return shows_hand(learned)
 
 ## Spell cards stay out of the battle deck until spells are learned.
 static func allows_spells(learned: Array) -> bool:

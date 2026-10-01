@@ -65,6 +65,9 @@ var weapon_speed: Array[float] = []
 ## interrupts it and Guard / armor soaks it. Off until the player can answer it
 ## (BattleRealtime enables it once Kick is learned).
 var heavy_enabled: bool = false
+## Most minions each enemy side may field. 0 until the player can field Allies
+## (BattleRealtime sets it from CombatOnboarding); adds that join later inherit it.
+var enemy_minion_cap: int = MAX_ENEMY_MINIONS
 
 ## The original enemy's cast — kept as properties for callers from before adds.
 var enemy_casting: CardInstance:
@@ -137,7 +140,7 @@ func _init_side(i: int, level: int) -> void:
 	_offhand_swing.append(tune.get_f("offhand_swing"))
 	_hero_swing[i] = swing_speed(i)
 	var p: PlayerState = state.players[i]
-	p.max_units = MAX_ALLIES if i == PLAYER else MAX_ENEMY_MINIONS
+	p.max_units = MAX_ALLIES if i == PLAYER else enemy_minion_cap
 	var h := p.hero
 	h.mana_scale = MANA_SCALE
 	h.max_mana = max_mana_for(level, h.bonus_mana, tune)
@@ -175,6 +178,12 @@ func add_enemy(ps: PlayerState, level: int = 1) -> int:
 	_hero_swing[idx] = swing_speed(idx) * 0.5
 	start_gcd(idx)
 	return idx
+## Caps every enemy side's minions (current sides now, adds as they join).
+func set_enemy_minion_cap(cap: int) -> void:
+	enemy_minion_cap = cap
+	for side: int in enemy_sides():
+		state.players[side].max_units = cap
+
 func set_passive(side: int) -> void:
 	_passive_sides[side] = true
 func is_passive(side: int) -> bool:

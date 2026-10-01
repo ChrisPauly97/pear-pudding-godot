@@ -404,17 +404,20 @@ cards (`RealtimeVisuals.update_hand_sweep`, pooled overlays on the root; full sh
 `docs/agent/starter-zone-and-training.md`). `game_logic/battle/CombatOnboarding.gd` reads
 `SaveManager.learned_abilities`:
 
-| Learned | Bar | Hand / Allies | Spell cards |
-|---|---|---|---|
-| nothing (level 1) | Strike | hidden | — |
-| + `mend` (L2) | Strike, Mend | hidden | — |
-| + `kick` (L3) | Strike, Mend, Kick | hidden | — |
-| + `feat_minions` (L4) | as learned | shown | removed from the battle deck |
-| + `feat_spells` (L5) | as learned | shown | in the deck (full fight, `stage` −1) |
+| Learned | Bar | Hand / Allies | Enemy minions | Spell cards |
+|---|---|---|---|---|
+| nothing (level 1) | Strike | hidden | none | — |
+| + `mend` (L2) | Strike, Mend | hidden | none | — |
+| + `kick` (L3) | Strike, Mend, Kick | hidden | none | — |
+| + `feat_minions` (L4) | as learned | shown | up to 2 | removed from the battle deck |
+| + `feat_spells` (L5) | as learned | shown | up to 2 | in the deck (full fight, `stage` −1) |
 
 - The bar needs no filter: `SkillBar` only holds learned ids.
 - Spells: `BattleModifiers._apply_combat_unlocks()` strips `card_class == "spell"` cards from the draw deck
   (not in puzzle / scripted battles).
+- Enemy minions (BID-084): `CombatOnboarding.enemy_summons()` is false until `feat_minions`, and
+  `BattleRealtime` then calls `RealtimeCombat.set_enemy_minion_cap(0)` — every enemy side (and any add that joins
+  later) gets `max_units = 0`, so `can_play` rejects its minion cards. Pre-placed pack units are unaffected.
 - Slow clock (60 %): only the very first fight (`realtime_fights == 0`, nothing learned).
 - **Battle mode:** a hand-less player always fights in real time — `SaveManager.battle_mode()` (use it instead of
   reading the `battle_mode` setting) returns `"realtime"` until `feat_minions`; after that the setting decides.

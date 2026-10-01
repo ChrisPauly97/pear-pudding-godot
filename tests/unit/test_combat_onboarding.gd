@@ -27,6 +27,11 @@ func test_hand_and_spells_follow_the_ladder() -> void:
 	assert_false(CombatOnboarding.allows_spells([UnlockLadder.FEAT_MINIONS]))
 	assert_true(CombatOnboarding.allows_spells([UnlockLadder.FEAT_SPELLS]))
 
+func test_enemies_summon_only_once_minions_learned() -> void:
+	assert_false(CombatOnboarding.enemy_summons([]), "Strike-only hero faces no enemy minions")
+	assert_false(CombatOnboarding.enemy_summons(["mend", "kick"]))
+	assert_true(CombatOnboarding.enemy_summons([UnlockLadder.FEAT_MINIONS]))
+
 func test_slow_clock_only_first_fight() -> void:
 	assert_true(CombatOnboarding.slow_clock(0, []))
 	assert_false(CombatOnboarding.slow_clock(1, []))
