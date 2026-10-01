@@ -1,5 +1,5 @@
 ## Real-time onboarding in the fight (GID-135 / TID-552, TID-553; ladder-based
-## since GID-141 / TID-588): hides the hand until minions are learned, slows the
+## since GID-141 / TID-588): hides the hand (Ally slots shown locked) until minions are learned, slows the
 ## very first fight's clock, and
 ## shows one-shot tips the first time something happens — each a
 ## `TutorialRegistry` popup (pauses the clock, remembered via "seen_tutorial_*"
@@ -12,6 +12,7 @@ extends RefCounted
 const _BattleScene = preload("res://scenes/battle/BattleScene.gd")
 const _BattleRealtime = preload("res://scenes/battle/modules/BattleRealtime.gd")
 const CombatOnboarding = preload("res://game_logic/battle/CombatOnboarding.gd")
+const UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const RealtimeCombat = preload("res://game_logic/battle/RealtimeCombat.gd")
 const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
@@ -57,9 +58,10 @@ func slow_clock() -> bool:
 ## After the UI is built: hide what isn't taught yet and show the opening tip.
 func apply() -> void:
 	if not shows_hand():
-		# No cards → no Allies either: hide the hand and your empty unit slots.
+		# No cards yet: hide the hand, but show your Ally slots locked so the
+		# enemy's summons have something to look forward to.
 		_battle._player_hand_view.visible = false
-		_battle._player_board_view.visible = false
+		_realtime.lock_ally_slots(UnlockLadder.level_req(UnlockLadder.FEAT_MINIONS))
 	tip("rt_intro", _realtime.skills.button_for("strike"))
 	# First fight with a newly learned skill: its tip (each shows once ever).
 	for id: String in ["mend", "kick"]:

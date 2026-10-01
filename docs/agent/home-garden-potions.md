@@ -138,14 +138,15 @@ A "— Seeds —" section is appended after Trinkets in `_refresh()`. `_make_see
   lowers `hero.health` to `battle_start_hp(max, frac)` (≥ 1). `record_persistent_hp(won)` (in `_check_game_over`,
   before the standard victory/defeat) saves `health / max_health`, or `RESPAWN_FRAC` (0.5) on a loss — so Retry
   and Respawn both start at half.
-- **World** (`scenes/world/modules/HeroHealth.gd`, `hero_health`): regen empty→full in `REGEN_FULL_SECONDS`
-  (240 s) while in the world; save marked dirty every 5 %. `full_heal()` on entering a stitched town
+- **World** (`scenes/world/modules/HeroHealth.gd`, `hero_health`): regen empty→full in `regen_seconds(level)`
+  while in the world — 45 s at level 1 (`REGEN_NEW_SECONDS`), linear up to `REGEN_FULL_SECONDS` (240 s) at
+  `REGEN_FULL_LEVEL` (10), so a new hero is never stranded (BID-085); save marked dirty every 5 %. `full_heal()` on entering a stitched town
   (`RealmRegions._set_town`) and at the home bed (`PlayerHome.use_bed`). HUD: red HP bar above the XP bar in the
   bottom-left chip (`WorldHUD.set_hero_hp`, green tint while eating).
 - **Quick use:** Q key / "[Q] Eat" button (ability column, visible while hurt with something usable):
   `best_world_item()` eats food first, else drinks a healing draught (+8 of 30). Only healing works out of battle.
 - **Food:** `HeroVitality.FOODS` — Travel Bread (8 coins, 40 % over 10 s), Roast Fowl (20 coins, 100 % over 15 s);
-  counts in `SaveManager.foods` (persisted), sold in the shop's **Food** section. A meal is interrupted by
+  counts in `SaveManager.foods` (persisted; `new_game` grants `STARTER_FOODS` = 3 Travel Bread), sold in the shop's **Food** section. A meal is interrupted by
   `GameBus.enemy_engaged`.
 - **Dungeon rest sites / events** (`DungeonSessionUI`) now heal / hurt the persistent HP (`REST_SITE_HEAL`,
   `HeroVitality.hurt`) instead of a display-only 30-HP counter.

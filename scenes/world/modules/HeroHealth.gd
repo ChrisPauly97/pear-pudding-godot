@@ -35,7 +35,7 @@ func _process(delta: float) -> void:
 	var sm := SceneManager.save_manager
 	if sm.hero_hp_frac < 1.0:
 		var rate: float = _meal_rate if _meal_left > 0.0 else 0.0
-		sm.hero_hp_frac = _HeroVitality.regen(sm.hero_hp_frac, delta, rate)
+		sm.hero_hp_frac = _HeroVitality.regen(sm.hero_hp_frac, delta, rate, _HeroVitality.regen_seconds(sm.level))
 		_meal_left = maxf(0.0, _meal_left - delta)
 		if absf(sm.hero_hp_frac - _saved_at) >= _SAVE_STEP or sm.hero_hp_frac >= 1.0:
 			_saved_at = sm.hero_hp_frac

@@ -105,3 +105,17 @@ func test_interrupt_targets_the_given_enemy() -> void:
 	rt.cast_remaining[side] = 5.0
 	assert_null(rt.interrupt_enemy_cast(1), "the first enemy wasn't casting")
 	assert_eq(rt.interrupt_enemy_cast(side), c)
+
+func test_minion_cap_holds_for_the_enemy_and_later_adds() -> void:
+	var rt := _rt()
+	rt.set_enemy_minion_cap(1)
+	assert_eq(rt.state.players[0].max_units, RealtimeCombat.MAX_ALLIES, "your Allies are untouched")
+	assert_eq(rt.state.players[1].max_units, 1)
+	var minion := _card()
+	var second := _card()
+	rt.state.players[1].hand.append_array([minion, second])
+	assert_true(rt.state.players[1].can_play(minion))
+	rt.state.players[1].play_card(minion)
+	assert_false(rt.state.players[1].can_play(second), "a capped enemy summons only one")
+	var side: int = _add(rt)
+	assert_eq(rt.state.players[side].max_units, 1, "an add joining later inherits the cap")

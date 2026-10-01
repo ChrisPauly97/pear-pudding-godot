@@ -35,6 +35,17 @@ func test_regen_and_meals() -> void:
 	assert_eq(_HeroVitality.meal_rate("bogus"), 0.0)
 
 
+func test_regen_is_quick_for_new_heroes() -> void:
+	assert_almost_eq(_HeroVitality.regen_seconds(1), _HeroVitality.REGEN_NEW_SECONDS, 0.001)
+	assert_almost_eq(_HeroVitality.regen_seconds(_HeroVitality.REGEN_FULL_LEVEL), _HeroVitality.REGEN_FULL_SECONDS, 0.001)
+	assert_almost_eq(_HeroVitality.regen_seconds(40), _HeroVitality.REGEN_FULL_SECONDS, 0.001, "capped")
+	assert_true(_HeroVitality.regen_seconds(3) < _HeroVitality.regen_seconds(6))
+	var f: float = _HeroVitality.regen(0.0, 30.0, 0.0, _HeroVitality.regen_seconds(1))
+	assert_true(f > 0.5, "a level-1 hero is past half HP after 30 s")
+	for id: String in _HeroVitality.STARTER_FOODS:
+		assert_true(_HeroVitality.FOODS.has(id), "starter food %s exists" % id)
+
+
 func test_best_world_item_prefers_food() -> void:
 	assert_eq(_HeroVitality.best_world_item({"travel_bread": 1}, {"healing_draught": 3}), "travel_bread")
 	assert_eq(_HeroVitality.best_world_item({"travel_bread": 0}, {"healing_draught": 3}), "healing_draught")
@@ -46,10 +57,10 @@ func test_fields_persist_and_reset() -> void:
 		assert_true(SaveManagerScript.PERSISTED_FIELDS.has(f), f)
 	var sm := SaveManagerScript.new()
 	sm.hero_hp_frac = 0.2
-	sm.foods = {"travel_bread": 2}
+	sm.foods = {"travel_bread": 9, "roast_fowl": 4}
 	sm.new_game()
 	assert_eq(sm.hero_hp_frac, 1.0)
-	assert_eq(sm.foods.size(), 0)
+	assert_eq(sm.foods, _HeroVitality.STARTER_FOODS, "a new hero starts with the starter food only")
 	sm.free()
 
 
