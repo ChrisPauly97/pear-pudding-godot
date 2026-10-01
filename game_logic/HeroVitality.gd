@@ -7,8 +7,14 @@
 ## Pure — the world module `HeroHealth.gd` and `BattleModifiers` drive it.
 extends RefCounted
 
-## Seconds for out-of-combat regen to go from empty to full.
+## Seconds for out-of-combat regen to go from empty to full (from REGEN_FULL_LEVEL on).
 const REGEN_FULL_SECONDS: float = 240.0
+## A level-1 hero refills this fast, so the starter zone never strands them (BID-085);
+## the time grows linearly to REGEN_FULL_SECONDS at REGEN_FULL_LEVEL.
+const REGEN_NEW_SECONDS: float = 45.0
+const REGEN_FULL_LEVEL: int = 10
+## Food every new character starts with (food id -> count).
+const STARTER_FOODS: Dictionary = {"travel_bread": 3}
 ## HP fraction after a lost fight (respawn or retry).
 const RESPAWN_FRAC: float = 0.5
 ## Dungeon rest site "Rest" (was a display-only +8 of 30 before TID-543).
@@ -56,9 +62,16 @@ static func hurt(frac: float, points: int) -> float:
 	return maxf(1.0 / 30.0, frac - float(points) / 30.0)
 
 
+## Seconds for regen to go from empty to full at hero `level`.
+static func regen_seconds(level: int) -> float:
+	var t: float = clampf(float(level - 1) / float(REGEN_FULL_LEVEL - 1), 0.0, 1.0)
+	return lerpf(REGEN_NEW_SECONDS, REGEN_FULL_SECONDS, t)
+
+
 ## Out-of-combat regen over `delta` seconds, plus `meal_rate` (fraction per second).
-static func regen(frac: float, delta: float, meal_rate: float = 0.0) -> float:
-	return minf(1.0, frac + delta * (1.0 / REGEN_FULL_SECONDS + meal_rate))
+static func regen(frac: float, delta: float, meal_rate: float = 0.0,
+		full_seconds: float = REGEN_FULL_SECONDS) -> float:
+	return minf(1.0, frac + delta * (1.0 / full_seconds + meal_rate))
 
 
 ## Fraction per second a food heals while eaten.

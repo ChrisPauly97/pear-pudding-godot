@@ -4,6 +4,7 @@ extends "res://tests/framework/test_case.gd"
 
 const CombatOnboarding = preload("res://game_logic/battle/CombatOnboarding.gd")
 const UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
+const RealtimeCombat = preload("res://game_logic/battle/RealtimeCombat.gd")
 const SkillBar = preload("res://game_logic/battle/SkillBar.gd")
 const TutorialRegistry = preload("res://game_logic/TutorialRegistry.gd")
 
@@ -27,10 +28,10 @@ func test_hand_and_spells_follow_the_ladder() -> void:
 	assert_false(CombatOnboarding.allows_spells([UnlockLadder.FEAT_MINIONS]))
 	assert_true(CombatOnboarding.allows_spells([UnlockLadder.FEAT_SPELLS]))
 
-func test_enemies_summon_only_once_minions_learned() -> void:
-	assert_false(CombatOnboarding.enemy_summons([]), "Strike-only hero faces no enemy minions")
-	assert_false(CombatOnboarding.enemy_summons(["mend", "kick"]))
-	assert_true(CombatOnboarding.enemy_summons([UnlockLadder.FEAT_MINIONS]))
+func test_enemy_minion_cap_follows_the_ladder() -> void:
+	assert_eq(CombatOnboarding.enemy_minion_cap([]), 1, "a Strike-only hero still sees one summon")
+	assert_eq(CombatOnboarding.enemy_minion_cap(["mend", "kick"]), 1)
+	assert_eq(CombatOnboarding.enemy_minion_cap([UnlockLadder.FEAT_MINIONS]), RealtimeCombat.MAX_ENEMY_MINIONS)
 
 func test_slow_clock_only_first_fight() -> void:
 	assert_true(CombatOnboarding.slow_clock(0, []))

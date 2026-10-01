@@ -406,18 +406,22 @@ cards (`RealtimeVisuals.update_hand_sweep`, pooled overlays on the root; full sh
 
 | Learned | Bar | Hand / Allies | Enemy minions | Spell cards |
 |---|---|---|---|---|
-| nothing (level 1) | Strike | hidden | none | — |
-| + `mend` (L2) | Strike, Mend | hidden | none | — |
-| + `kick` (L3) | Strike, Mend, Kick | hidden | none | — |
+| nothing (level 1) | Strike | locked | 1 | — |
+| + `mend` (L2) | Strike, Mend | locked | 1 | — |
+| + `kick` (L3) | Strike, Mend, Kick | locked | 1 | — |
 | + `feat_minions` (L4) | as learned | shown | up to 2 | removed from the battle deck |
 | + `feat_spells` (L5) | as learned | shown | up to 2 | in the deck (full fight, `stage` −1) |
 
 - The bar needs no filter: `SkillBar` only holds learned ids.
 - Spells: `BattleModifiers._apply_combat_unlocks()` strips `card_class == "spell"` cards from the draw deck
   (not in puzzle / scripted battles).
-- Enemy minions (BID-084): `CombatOnboarding.enemy_summons()` is false until `feat_minions`, and
-  `BattleRealtime` then calls `RealtimeCombat.set_enemy_minion_cap(0)` — every enemy side (and any add that joins
-  later) gets `max_units = 0`, so `can_play` rejects its minion cards. Pre-placed pack units are unaffected.
+- Enemy minions (BID-084 / BID-085): `CombatOnboarding.enemy_minion_cap()` is 1 until `feat_minions` (then
+  `MAX_ENEMY_MINIONS`); `BattleRealtime` passes it to `RealtimeCombat.set_enemy_minion_cap()`, which sets
+  `max_units` on every enemy side and on adds that join later, so `can_play` rejects extra minion cards. The new
+  player still sees a summon without facing a full board. Pre-placed pack units are unaffected.
+- Locked Ally slots (BID-085): with no hand the hand row is hidden but your Ally slots stay, each empty one under a
+  "Locked · Allies at Lv N" plate (`scenes/battle/modules/AllySlotLocks.gd`, owned by `RealtimeVisuals`, placed per
+  frame; the plates swallow taps). N is `UnlockLadder.level_req(FEAT_MINIONS)`.
 - Slow clock (60 %): only the very first fight (`realtime_fights == 0`, nothing learned).
 - **Battle mode:** a hand-less player always fights in real time — `SaveManager.battle_mode()` (use it instead of
   reading the `battle_mode` setting) returns `"realtime"` until `feat_minions`; after that the setting decides.

@@ -68,7 +68,7 @@ the real numbers.
 ### Combat gates (TID-588)
 
 Documented in `docs/agent/combat-model.md` → "New-player onboarding": bar = learned skills, hand from
-`feat_minions` (enemies summon minions from then on too — BID-084), spell cards from `feat_spells`, companion from `feat_companion`, real-time forced until the hand
+`feat_minions` (Ally slots shown locked until then; enemies field 1 minion before it, 2 after — BID-085), spell cards from `feat_spells`, companion from `feat_companion`, real-time forced until the hand
 exists (`SaveManager.battle_mode()`), Maiteln barks up to level 12.
 
 ### World & menu gates (TID-589)

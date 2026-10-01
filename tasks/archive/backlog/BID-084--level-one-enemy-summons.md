@@ -20,3 +20,6 @@ Same pattern as heavy blows (gated on Kick): `CombatOnboarding.enemy_summons(lea
 learned). Otherwise `BattleRealtime` calls `RealtimeCombat.set_enemy_minion_cap(0)`, which sets `max_units = 0` on
 every enemy side and on adds that join later (`enemy_minion_cap`), so enemy `can_play` rejects minion cards. Tests:
 `test_combat_onboarding`, `test_realtime_adds`.
+
+**Superseded by BID-085:** playtest wanted enemies to summon early (so the player sees what's coming), so the
+pre-`feat_minions` cap is 1, not 0 (`CombatOnboarding.enemy_minion_cap`).

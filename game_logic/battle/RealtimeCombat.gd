@@ -65,7 +65,7 @@ var weapon_speed: Array[float] = []
 ## interrupts it and Guard / armor soaks it. Off until the player can answer it
 ## (BattleRealtime enables it once Kick is learned).
 var heavy_enabled: bool = false
-## Most minions each enemy side may field. 0 until the player can field Allies
+## Most minions each enemy side may field. 1 until the player can field Allies
 ## (BattleRealtime sets it from CombatOnboarding); adds that join later inherit it.
 var enemy_minion_cap: int = MAX_ENEMY_MINIONS
 

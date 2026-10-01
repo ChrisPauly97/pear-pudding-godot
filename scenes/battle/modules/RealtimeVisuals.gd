@@ -16,6 +16,7 @@ const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const _PaperDoll = preload("res://game_logic/character/PaperDoll.gd")
 const _DiagonalBoard = preload("res://scenes/battle/modules/DiagonalBoard.gd")
 const _TokenFrames = preload("res://scenes/battle/modules/TokenFrames.gd")
+const _AllySlotLocks = preload("res://scenes/battle/modules/AllySlotLocks.gd")
 
 const READY_COLOR := Color(0.35, 1.0, 0.45)
 const CHARGING_COLOR := Color(0.45, 0.75, 1.0)
@@ -46,6 +47,8 @@ var _strip: Control = null
 var _focus_ring: Panel = null
 ## Global-cooldown sweep shades over the hand cards, pooled (cards rebuild on refresh).
 var _hand_shades: Array[ColorRect] = []
+## Locked Ally slot covers while minions aren't learned (null = unlocked).
+var _slot_locks: _AllySlotLocks = null
 ## Enemy token attack / hit / death frames (GID-152 / TID-646).
 var _token_frames: _TokenFrames = _TokenFrames.new()
 
@@ -269,6 +272,8 @@ func update(rt: RealtimeCombat, player_cast: Dictionary) -> void:
 	for side: Variant in add_rows.keys():
 		_update_units(rt, int(side), add_rows[side] as Control)
 	_update_player_cast(player_cast)
+	if _slot_locks != null:
+		_slot_locks.update()
 	_token_frames.observe(rt)
 	_place_strip(_battle.get_viewport().get_visible_rect().size, _battle._vh * 0.015)
 	_update_focus_ring(rt)
@@ -297,6 +302,10 @@ func update_hand_sweep(frac: float) -> void:
 		var top: float = r.size.y * clampf(frac, 0.0, 1.0)
 		shade.global_position = Vector2(r.position.x, r.position.y + top)
 		shade.size = Vector2(r.size.x, r.size.y - top)
+
+## Covers your empty Ally slots with "Locked · Lv N" plates until minions are learned.
+func lock_ally_slots(level: int) -> void:
+	_slot_locks = _AllySlotLocks.new(_battle, _root, level)
 
 func _update_focus_ring(rt: RealtimeCombat) -> void:
 	if _focus_ring == null:

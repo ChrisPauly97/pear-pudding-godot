@@ -99,9 +99,8 @@ func maybe_start(is_fresh: bool) -> void:
 	rt = RealtimeCombat.new(_battle._state, [player_level, enemy_level], tuning)
 	# TID-579: telegraphed heavy blows only once the player has Kick to answer them.
 	rt.heavy_enabled = SceneManager.save_manager.learned_abilities.has("kick") and not _battle._state.puzzle_mode
-	# Enemies summon only once the player can field Allies of their own.
-	if not _CombatOnboarding.enemy_summons(SceneManager.save_manager.learned_abilities):
-		rt.set_enemy_minion_cap(0)
+	# Before the player can field Allies, enemies summon just one minion.
+	rt.set_enemy_minion_cap(_CombatOnboarding.enemy_minion_cap(SceneManager.save_manager.learned_abilities))
 	rt.weapon_speed[RealtimeCombat.PLAYER] = equipped_weapon_speed()
 	rt.offhand_damage[RealtimeCombat.PLAYER] = offhand_damage_for_item(str(SceneManager.save_manager.equipped_offhand),
 			SceneManager.save_manager.gear.mult(str(SceneManager.save_manager.equipped_offhand)))
@@ -357,6 +356,11 @@ func hit_feel(strength: int) -> void:
 ## Hero token for `side` (onboarding spotlights), or null.
 func token(side: int) -> Control:
 	return _visuals.token(side) if _visuals != null else null
+
+## Shows your Ally slots as locked until `level` (minions not learned yet).
+func lock_ally_slots(level: int) -> void:
+	if _visuals != null:
+		_visuals.lock_ally_slots(level)
 
 func unit_panel(card: CardInstance, side: int) -> Control:
 	return _visuals.unit_panel(card, side) if _visuals != null else null
