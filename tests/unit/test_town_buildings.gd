@@ -86,7 +86,11 @@ func test_split_walls_and_stubs_still_make_rooms() -> void:
 func test_meshes_build_for_every_town_building() -> void:
 	for b: Dictionary in RealmLayout.buildings_world():
 		var roof: ArrayMesh = BuildingMesh.build_roof(b)
-		assert_eq(roof.get_surface_count(), 1, "roof for %s" % str(b["rect"]))
+		# roof, then gable ends + chimney on houses (towers are roof only)
+		var want: int = 1 if b["kind"] == TownBuildings.KIND_TOWER else 2
+		assert_true(roof.get_surface_count() >= want, "roof surfaces for %s" % str(b["rect"]))
+		var arrays: Array = roof.surface_get_arrays(0)
+		assert_false((arrays[Mesh.ARRAY_TEX_UV] as PackedVector2Array).is_empty(), "roof is UV-mapped")
 		var aabb: AABB = roof.get_aabb()
 		assert_gt(aabb.end.y, BuildingMesh.wall_top(b), "roof rises above the walls")
 		var trim: ArrayMesh = BuildingMesh.build_trim(b)

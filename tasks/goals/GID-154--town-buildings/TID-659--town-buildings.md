@@ -45,6 +45,11 @@ player is inside its footprint (grown by 1).
 - `tests/unit/test_town_buildings.gd` (new, 6 tests). Full suite 3002/3002, world smoke 0 SCRIPT ERRORs, unsafe-hits,
   gdlint clean; verified visually with xvfb captures (Madrian, Maykalene, roof fade inside).
 
+- Follow-up (user: "roof textures are baaad"): flat vertex-colour stripes replaced by pixel-art textures —
+  `tools/generate_roof_textures.py` → clay / slate / thatch / wood shingle / mossy clay roofs + timber-framed gable;
+  roof mesh UV-mapped (3 surfaces: roof, gable, brick chimney) with a ridge cap; view gives each surface a
+  nearest-filtered textured material and fades all three.
+
 ## Documentation Updates
 
-`docs/agent/named-maps-and-dungeons.md`: "Town buildings" section.
+`docs/agent/named-maps-and-dungeons.md`: "Town buildings" section (incl. textures). `CREDITS.md`: roof texture row.

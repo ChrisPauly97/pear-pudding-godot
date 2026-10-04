@@ -13,6 +13,17 @@ const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const _BuildingMesh = preload("res://game_logic/world/BuildingMesh.gd")
 
+## Indexed by BuildingMesh.roof_style().
+const ROOF_TEXTURES: Array[Texture2D] = [
+	preload("res://assets/textures/pixel_art/roof_clay_pixel.png"),
+	preload("res://assets/textures/pixel_art/roof_slate_pixel.png"),
+	preload("res://assets/textures/pixel_art/roof_thatch_pixel.png"),
+	preload("res://assets/textures/pixel_art/roof_shingle_pixel.png"),
+	preload("res://assets/textures/pixel_art/roof_moss_pixel.png"),
+]
+const _TexGable: Texture2D = preload("res://assets/textures/pixel_art/gable_pixel.png")
+const _TexBrick: Texture2D = preload("res://assets/textures/pixel_art/wall_side_pixel.png")
+
 const FADE_TIME: float = 0.25
 ## Roofs and trim stop drawing past this camera distance.
 const DRAW_DISTANCE: float = 140.0
@@ -22,7 +33,8 @@ static var _glass_mat: StandardMaterial3D = null
 
 var _world: _WorldScene = null
 var _root: Node3D = null
-## One entry per building: {"rect": Rect2i, "roof": MeshInstance3D, "mat": StandardMaterial3D}.
+## One entry per building: {"rect": Rect2i, "roof": MeshInstance3D, "mats": Array of its
+## StandardMaterial3D (roof, gable, chimney), "shown": bool}.
 var _roofs: Array[Dictionary] = []
 var _last_tile := Vector2i(1 << 30, 1 << 30)
 
@@ -50,8 +62,14 @@ func _build() -> void:
 	_root.name = "TownBuildings"
 	_world.add_child(_root)
 	for b: Dictionary in RealmLayout.buildings_world():
-		var roof_mat := _make_mat(Color.WHITE, false)
-		var roof := _mesh_node(_BuildingMesh.build_roof(b), roof_mat)
+		var rect: Rect2i = b["rect"]
+		var roof := _mesh_node(_BuildingMesh.build_roof(b), null)
+		var mats: Array[StandardMaterial3D] = []
+		for tex: Texture2D in [ROOF_TEXTURES[_BuildingMesh.roof_style(rect)], _TexGable, _TexBrick]:
+			var m := _make_mat(Color.WHITE, false, tex)
+			if mats.size() < roof.mesh.get_surface_count():
+				roof.set_surface_override_material(mats.size(), m)
+			mats.append(m)
 		_root.add_child(roof)
 		var trim := _mesh_node(_BuildingMesh.build_trim(b), null)
 		if trim.mesh.get_surface_count() > 0:
@@ -59,7 +77,7 @@ func _build() -> void:
 		if trim.mesh.get_surface_count() > 1:
 			trim.set_surface_override_material(1, _glass())
 		_root.add_child(trim)
-		_roofs.append({"rect": b["rect"], "roof": roof, "mat": roof_mat, "shown": true})
+		_roofs.append({"rect": rect, "roof": roof, "mats": mats, "shown": true})
 
 func _mesh_node(mesh: ArrayMesh, mat: Material) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
@@ -73,21 +91,28 @@ func _set_roof_shown(r: Dictionary, shown: bool) -> void:
 		return
 	r["shown"] = shown
 	var roof: MeshInstance3D = r["roof"]
-	var mat: StandardMaterial3D = r["mat"]
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	var mats: Array[StandardMaterial3D] = []
+	mats.assign(r["mats"])
 	roof.visible = true
-	var tw := roof.create_tween()
-	tw.tween_property(mat, "albedo_color:a", 1.0 if shown else 0.0, FADE_TIME)
-	tw.tween_callback(func() -> void:
+	var tw := roof.create_tween().set_parallel(true)
+	for mat: StandardMaterial3D in mats:
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		tw.tween_property(mat, "albedo_color:a", 1.0 if shown else 0.0, FADE_TIME)
+	tw.chain().tween_callback(func() -> void:
 		if shown:
-			mat.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
+			for mat: StandardMaterial3D in mats:
+				mat.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
 		else:
 			roof.visible = false)
 
-## Vertex-coloured, double-sided (roof slopes are seen from either side).
-static func _make_mat(tint: Color, emissive: bool) -> StandardMaterial3D:
+## Vertex-coloured, double-sided (roof slopes are seen from either side);
+## pixel-art textures sample nearest-neighbour like the terrain.
+static func _make_mat(tint: Color, emissive: bool, tex: Texture2D = null) -> StandardMaterial3D:
 	var mat := StandardMaterial3D.new()
 	mat.vertex_color_use_as_albedo = true
+	if tex != null:
+		mat.albedo_texture = tex
+		mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
 	mat.albedo_color = tint
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	mat.roughness = 0.9
