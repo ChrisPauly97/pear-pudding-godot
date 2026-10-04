@@ -26,7 +26,7 @@ const TALES: Array[Dictionary] = [
 		"after": "", "solve_flag": "legend_recipe"},
 	{"id": "rhyme", "npc": "little_pip", "npc_name": "Little Pip", "town": "maykalene",
 		"title": "The Skipping Rhyme",
-		"lines": ("Pear so gold, never old, hangs where no orchard grows! Climb the cliff and mind your toes, "
+		"lines": ("Pear so gold, never old, hangs where no orchard grows! Past the road where no one goes, "
 			+ "Mother Perrine knows, knows, knows! ...That's how the rhyme goes. Gran taught me."),
 		"riddle": "Pear so gold, never old, hangs where no orchard grows.",
 		"after": "soldier", "solve_flag": "legend_golden_pear"},

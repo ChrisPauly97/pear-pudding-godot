@@ -109,7 +109,7 @@ the tales from certain townsfolk and solves each riddle in the world.
 
 ### The Riddles
 1. **The Burnt Recipe:** dig at dusk beside three leaning standing stones.
-2. **The Golden Pear:** a lone pear tree on a cliff in the wilds, reached by a hidden path.
+2. **The Golden Pear:** a lone pear tree in a quiet glade, far from any road or orchard.
 3. **Spectre's Sigh:** defeat a spectre on a Night Hunt while carrying the recipe.
 4. **The Brew:** stir the ingredients at the ruined queen's well while it rains.
 

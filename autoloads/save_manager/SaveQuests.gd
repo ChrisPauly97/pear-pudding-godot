@@ -9,6 +9,7 @@ extends RefCounted
 const _SaveManager = preload("res://autoloads/SaveManager.gd")
 const _SideQuests = preload("res://game_logic/quests/SideQuests.gd")
 const _GearRolls = preload("res://game_logic/items/GearRolls.gd")
+const _RiddleSpots = preload("res://game_logic/world/RiddleSpots.gd")
 
 var _save: _SaveManager
 
@@ -87,6 +88,8 @@ func abandon(id: String) -> void:
 ## Counts one (or `amount`) of an event toward every active quest objective it
 ## matches. Returns true when any progress changed.
 func progress_event(event_type: String, target: String = "", amount: int = 1) -> bool:
+	if event_type == "kill":
+		_legend_sigh(target)
 	var changed: bool = false
 	for idv: Variant in _save.quests_active.keys():
 		var id: String = str(idv)
@@ -165,3 +168,13 @@ func log_entries() -> Array[Dictionary]:
 			continue
 		out.append({"quest": q, "progress": progress_of(id), "ready": is_ready(id)})
 	return out
+
+
+## GID-153: every won fight reports its kills here (spectres included), so the Pear
+## Pudding legend's Spectre's Sigh rides along. Not a side quest: no log, no marks.
+func _legend_sigh(enemy_type: String) -> void:
+	if not _RiddleSpots.earns_sigh(enemy_type, _save.story_flags):
+		return
+	_save.set_story_flag(_RiddleSpots.SIGH_FLAG)
+	GameBus.legend_riddle_solved.emit("spectre_sigh")
+	GameBus.hud_message_requested.emit(_RiddleSpots.SIGH_TEXT)

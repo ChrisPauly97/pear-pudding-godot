@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="MapData" load_steps=7 format=3 uid="uid://7o2gje34z0qf"]
+[gd_resource type="Resource" script_class="MapData" load_steps=8 format=3 uid="uid://7o2gje34z0qf"]
 
 [ext_resource type="Script" uid="uid://fycqebooc6ig" path="res://game_logic/world/resources/MapData.gd" id="1_mapdata"]
 [ext_resource type="Script" uid="uid://r18om43tz40b" path="res://game_logic/world/resources/MapDoor.gd" id="2_mapdoor"]
@@ -106,6 +106,16 @@ tile_x = 35
 tile_z = 35
 puzzle_id = "puzzle_attack_order"
 
+[sub_resource type="Resource" id="MapNpc_6"]
+script = ExtResource("3_mapnpc")
+entity_id = "lisette_bard"
+tile_x = 46
+tile_z = 69
+dialogue = "A coin for a song, traveller? I know every ballad from here to the sea."
+npc_type = ""
+flag_key = ""
+after_dialogue = ""
+
 [resource]
 script = ExtResource("1_mapdata")
 map_name = "blancogov"
@@ -118,7 +128,7 @@ spawn_z = 12
 enemies = []
 chests = []
 doors = [SubResource("MapDoor_1"), SubResource("MapDoor_2")]
-npcs = [SubResource("MapNpc_1"), SubResource("MapNpc_2"), SubResource("MapNpc_3"), SubResource("MapNpc_4"), SubResource("MapNpc_5")]
+npcs = [SubResource("MapNpc_1"), SubResource("MapNpc_2"), SubResource("MapNpc_3"), SubResource("MapNpc_4"), SubResource("MapNpc_5"), SubResource("MapNpc_6")]
 scrolls = [SubResource("MapScroll_1"), SubResource("MapScroll_2")]
 shrines = [SubResource("MapPuzzleShrine_1")]
 waystones = []

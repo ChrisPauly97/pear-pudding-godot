@@ -47,7 +47,7 @@ Pure static `SPOTS` table + `evaluate(spot, action, ctx) -> idle | hint | missin
 | id | prop | overworld tile | tale | condition | sets |
 |---|---|---|---|---|---|
 | `leaning_stones` | `legend_stones` | (-6, 46) west of the Madrian→Maykalene road | soldier | Skeleton Dig at dusk | `legend_recipe` |
-| `golden_pear_tree` | `legend_pear_tree` (→ `_bare`) | (112, 148) east of the Maykalene→Blancogov road | rhyme | look, any time | `legend_golden_pear` |
+| `golden_pear_tree` | `legend_pear_tree` (→ `_bare`) | (112, 148) east of the Maykalene→Blancogov road, in a glade | rhyme | look, any time | `legend_golden_pear` |
 | `queens_well` | `legend_well` | (-62, 300) south of the Blancogov→Larik road | farmer | rain/storm + recipe, pear, sigh | `legend_pudding_owned` |
 
 - Before the tale is heard a spot is plain scenery (`idle` line). Afterwards the wrong hour/weather/action gives a
@@ -62,6 +62,22 @@ Pure static `SPOTS` table + `evaluate(spot, action, ctx) -> idle | hint | missin
 - **Art:** `tools/generate_legend_props.py` → `assets/textures/props/legend_*.png`, preloaded in
   `SpriteRegistry._LEGEND_PROPS` (`legend_prop(key)`).
 - **Tests:** `tests/unit/test_riddle_spots.gd`.
+
+### Content & Payoff (TID-657)
+
+- **Tellers** placed with `scripts/add_map_npc.py` (plain townsfolk, no name label, no type): `old_garrick` madrian
+  (35, 27) by the inn, `little_pip` maykalene (54, 48), `lisette_bard` blancogov (46, 69), `farmer_odd` larik
+  (57, 45). Their map `dialogue` is the everyday line once the tale is told (or before its turn).
+- **Glades:** `RealmLayout.legend_site_distance()` folds each spot into `reserved_distance` (+`LEGEND_SITE_PAD`
+  0.5, so never a path tile) and `chunk_touches_realm` counts a spot's chunk. World gen therefore flattens the
+  ground, keeps streams/ponds, trees, ruins, landmarks and random spawns away — a natural clearing, no marker.
+- **Spectre's Sigh:** `RiddleSpots.earns_sigh(type, flags)` (spectre kill + bard's tale + recipe). Checked in
+  `SaveQuests.progress_event("kill")`, which every won fight calls for every kill (spectres included). Sets
+  `legend_sigh`, emits `legend_riddle_solved("spectre_sigh")`, toasts `SIGH_TEXT`.
+- **Brew:** solving `queens_well` (`PUDDING_FLAG`) runs `Legend._brew_pudding`: `garden.grant_legendary("pear_pudding")`
+  and a gold modal (flask icon, the solved text, how the flask works, "Drink deep").
+- **Tests:** `tests/unit/test_pear_pudding_legend.gd` — tellers placed in their towns, glades reserved but unmarked,
+  glades grass/flat/dry/spawn-free across seeds, the full chain, sigh gating, one-time grant, no quest-log leak.
 
 ## Integrations
 

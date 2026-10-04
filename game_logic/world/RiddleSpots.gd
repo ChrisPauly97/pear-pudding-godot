@@ -20,6 +20,14 @@ const RESULT_MISSING: String = "missing"  # right moment, ingredients missing
 const RESULT_SOLVED: String = "solved"    # the riddle resolves now
 const RESULT_DONE: String = "done"        # already solved
 
+## Spectre's Sigh ("Ask the dead what they sighed"): beating a spectre (Night Hunts)
+## once the bard's tale is heard, while carrying the Burnt Recipe.
+const SIGH_FLAG: String = "legend_sigh"
+const SIGH_TEXT: String = ("As the spectre fades, it lets out one last sigh — and the scorched recipe in your pack "
+	+ "drinks it in. A faint new line glows on the vellum: \"...a spectre's sigh.\"")
+## Set by the queen's well; owning it means owning Perrine's Bottomless Pudding.
+const PUDDING_FLAG: String = "legend_pudding_owned"
+
 const SPOTS: Array[Dictionary] = [
 	{"id": "leaning_stones", "prop": "legend_stones", "tile": Vector2i(-6, 46), "height": 2.6,
 		"tale": "soldier", "needs": [], "time": "dusk", "weather": [], "action": "dig",
@@ -90,6 +98,13 @@ static func evaluate(spot: Dictionary, action: String, ctx: Dictionary) -> Strin
 		if not bool(flags.get(str(f), false)):
 			return RESULT_MISSING
 	return RESULT_SOLVED
+
+
+## Spectre's Sigh ("Ask the dead what they sighed"): beating a spectre (Night Hunts)
+## once the bard's tale is heard, while carrying the Burnt Recipe.
+static func earns_sigh(enemy_type: String, flags: Dictionary) -> bool:
+	return enemy_type.begins_with("spectre") and _Tales.is_heard("bard", flags) \
+			and bool(flags.get("legend_recipe", false)) and not bool(flags.get(SIGH_FLAG, false))
 
 
 ## The line to show for `result` (hint/missing fall back to idle when a spot has none).
