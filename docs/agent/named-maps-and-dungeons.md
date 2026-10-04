@@ -261,6 +261,29 @@ sites sit on roads between towns, and doors/ids are stitched correctly.
   return token, and translates the player waypoint.
 - **Co-op** still hosts on the named `madrian` map (BID-063).
 
+### Town buildings (GID-154)
+
+Town houses are authored as rings of 1-high wall tiles; the overworld raises them into buildings.
+
+- `game_logic/world/TownBuildings.gd` (pure) — `detect(wm, crop)` returns `{heights, buildings}`.
+  Rooms are found from their **floor**: open tiles are flood-filled with doorway gaps (a non-wall tile between two
+  walls) treated as closed; every region that stays inside the crop and is ≤ `MAX_SPAN` (20) tiles a side, with
+  ≥ 60 % wall on its border, is a `house` (`HOUSE_LEVELS` = 3). Its non-wall, non-corner border tiles are `doors`.
+  A solid wall block ≥ 3×3 is a `tower` (4 levels). A wall component longer than `MAX_SPAN` (town walls) is a
+  rampart (2 levels). Anything thinner than 3 tiles (fences) keeps its authored height.
+- `RealmLayout.building_plan(town)` caches the plan; `stamp_tile` returns the raised height for those wall tiles, so
+  `build_wall_face_mesh` and `_build_walls_physics` draw and collide with tall walls with no renderer change.
+  `buildings_world()` gives every footprint in overworld tiles.
+- `game_logic/world/BuildingMesh.gd` (pure) — `build_roof(b)`: gabled roof along the long axis (pitch
+  `PITCH`, rise clamped `MIN_RISE..MAX_RISE`, `EAVE` overhang, shingle bands, plaster gables, chimney on houses
+  ≥ 30 tiles) or a pyramid for towers; colour from `roof_color(rect)`. `build_trim(b)`: wood lintels over door gaps,
+  a painted door on the camera-facing (+Z) wall of closed houses, framed windows every `WINDOW_EVERY` border tiles
+  (surface 0 wood, surface 1 emissive glass).
+- `scenes/world/TownBuildingsView.gd` (RefCounted, owned by `RealmRegions.buildings`, ticked from
+  `RealmRegions.tick()`) builds every roof/trim on the first overworld tick and fades a roof out while the player's
+  tile is inside its footprint grown by 1 (NPCs indoors stay visible). Scenery only — not saved or synced.
+- Interiors (door-entered named maps) and infinite-world ruins keep 1-high walls.
+
 ### Adding / moving a stitched town
 
 1. Add a `TOWNS` row (crop must include every entity you want stitched and the

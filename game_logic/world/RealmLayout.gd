@@ -15,6 +15,7 @@ extends RefCounted
 
 const _WorldMap = preload("res://game_logic/world/WorldMap.gd")
 const _RiddleSpots = preload("res://game_logic/world/RiddleSpots.gd")
+const _TownBuildings = preload("res://game_logic/world/TownBuildings.gd")
 
 const _MADRIAN := preload("res://assets/maps/madrian.tres")
 const _MAYKALENE := preload("res://assets/maps/maykalene.tres")
@@ -81,6 +82,7 @@ const STORY_SITES: Dictionary = {
 
 static var _maps: Dictionary = {}  # town → WorldMap (built on first use)
 static var _entity_cache: Dictionary = {}  # kind → Array[Dictionary]
+static var _plans: Dictionary = {}  # town → TownBuildings.detect() result
 
 static func town_names() -> Array[String]:
 	var out: Array[String] = []
@@ -215,7 +217,10 @@ static func stamp_tile(wtx: int, wtz: int, noise_tile: int, noise_height: int) -
 	if town != "":
 		var wm: _WorldMap = town_map(town)
 		var local: Vector2i = to_local_tile(town, Vector2i(wtx, wtz))
-		return Vector2i(wm.get_tile(local.x, local.y), wm.get_height(local.x, local.y))
+		var tile: int = wm.get_tile(local.x, local.y)
+		var raised: Dictionary = building_plan(town)["heights"]
+		var levels: int = int(raised.get(local, 0))
+		return Vector2i(tile, levels if levels > 0 else wm.get_height(local.x, local.y))
 	var d: float = reserved_distance(wtx, wtz)
 	if d <= 0.0:
 		return Vector2i(IsoConst.TILE_PATH, 0)
@@ -225,6 +230,37 @@ static func stamp_tile(wtx: int, wtz: int, noise_tile: int, noise_height: int) -
 	if h <= 0:
 		return Vector2i(IsoConst.TILE_GRASS, 0)
 	return Vector2i(noise_tile, h)
+
+## The town's building plan (TownBuildings.detect over its crop), built once.
+static func building_plan(town: String) -> Dictionary:
+	if _plans.has(town):
+		var cached: Dictionary = _plans[town]
+		return cached
+	var wm: _WorldMap = town_map(town)
+	var plan: Dictionary = {"heights": {}, "buildings": []}
+	if wm != null:
+		plan = _TownBuildings.detect(wm, crop_of(town))
+	_plans[town] = plan
+	return plan
+
+## Every stitched building in overworld tiles: the TownBuildings dicts with
+## "rect" and "doors" moved into the overworld and a "town" key added.
+static func buildings_world() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for town: String in town_names():
+		var off: Vector2i = offset_of(town)
+		var list: Array = building_plan(town)["buildings"]
+		for b: Dictionary in list:
+			var moved: Dictionary = b.duplicate()
+			var rect: Rect2i = b["rect"]
+			moved["rect"] = Rect2i(rect.position + off, rect.size)
+			var doors: Array[Vector2i] = []
+			for d: Vector2i in b["doors"]:
+				doors.append(d + off)
+			moved["doors"] = doors
+			moved["town"] = town
+			out.append(moved)
+	return out
 
 ## Moves a town-local entity dict into the overworld (returns a copy).
 static func _shift_entity(e: Dictionary, shift: Vector2) -> Dictionary:

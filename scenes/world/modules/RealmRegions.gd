@@ -13,12 +13,18 @@ const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const _PlaceNames = preload("res://game_logic/PlaceNames.gd")
 const _WorldMap = preload("res://game_logic/world/WorldMap.gd")
 const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
+const _TownBuildingsView = preload("res://scenes/world/TownBuildingsView.gd")
 
+## Roofs, windows and roof fading on the towns' buildings.
+var buildings: _TownBuildingsView = null
 var _world: _WorldScene = null
 var _last_tile := Vector2i(1 << 30, 1 << 30)
 
 ## Per-frame (overworld only): cheap until the player changes tile.
 func tick() -> void:
+	if buildings == null:
+		buildings = _TownBuildingsView.new(_world)
+	buildings.tick()
 	if _world._player == null:
 		return
 	var tile := Vector2i(int(floor(_world._player.position.x / IsoConst.TILE_SIZE)),
