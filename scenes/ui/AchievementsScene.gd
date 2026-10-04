@@ -58,12 +58,13 @@ func _make_row(a: Dictionary, is_unlocked: bool, current: int) -> Control:
 	var text_vbox := _UiUtil.make_vbox(int(_vh * 0.003), hbox)
 	text_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	var name_lbl := _UiUtil.make_label(str(a.get("name", "")), int(_vh * 0.022))
+	var text: Array[String] = AchievementRegistry.display_text(a, is_unlocked)
+	var name_lbl := _UiUtil.make_label(text[0], int(_vh * 0.022))
 	if not is_unlocked:
 		name_lbl.modulate = Color(0.55, 0.55, 0.55)
 	text_vbox.add_child(name_lbl)
 
-	var desc_lbl := _UiUtil.make_label(str(a.get("description", "")), int(_vh * 0.022), Color(0.65, 0.65, 0.65),
+	var desc_lbl := _UiUtil.make_label(text[1], int(_vh * 0.022), Color(0.65, 0.65, 0.65),
 			HORIZONTAL_ALIGNMENT_LEFT, text_vbox)
 	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 

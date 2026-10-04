@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="MapData" load_steps=5 format=3 uid="uid://9mshzraxdgak"]
+[gd_resource type="Resource" script_class="MapData" load_steps=6 format=3 uid="uid://9mshzraxdgak"]
 
 [ext_resource type="Script" uid="uid://fycqebooc6ig" path="res://game_logic/world/resources/MapData.gd" id="1_mapdata"]
 [ext_resource type="Script" uid="uid://r18om43tz40b" path="res://game_logic/world/resources/MapDoor.gd" id="2_mapdoor"]
@@ -51,6 +51,16 @@ tile_z = 58
 scroll_id = "scroll_larik_letter"
 flag_key = ""
 
+[sub_resource type="Resource" id="MapNpc_3"]
+script = ExtResource("3_mapnpc")
+entity_id = "farmer_odd"
+tile_x = 57
+tile_z = 45
+dialogue = "Turnips don't grow themselves. Neither does sense, round here."
+npc_type = ""
+flag_key = ""
+after_dialogue = ""
+
 [resource]
 script = ExtResource("1_mapdata")
 map_name = "larik"
@@ -63,7 +73,7 @@ spawn_z = 90
 enemies = []
 chests = []
 doors = [SubResource("MapDoor_1"), SubResource("MapDoor_2")]
-npcs = [SubResource("MapNpc_1"), SubResource("MapNpc_2")]
+npcs = [SubResource("MapNpc_1"), SubResource("MapNpc_2"), SubResource("MapNpc_3")]
 scrolls = [SubResource("MapScroll_1")]
 shrines = []
 triggers = []

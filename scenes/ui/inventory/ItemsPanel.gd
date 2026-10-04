@@ -8,6 +8,9 @@ const GardenDefs = preload("res://game_logic/GardenDefs.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _QuickSlots = preload("res://game_logic/battle/QuickSlots.gd")
 
+const LEGENDARY_TINT := Color(1.0, 0.8, 0.35)
+const _PUDDING_ICON := preload("res://assets/icons/items/pear_pudding.png")
+
 var _ref: float = 0.0
 var _list: VBoxContainer
 
@@ -31,8 +34,11 @@ func refresh() -> void:
 	for potion_id: String in GardenDefs.POTIONS:
 		var info: Dictionary = GardenDefs.POTIONS[potion_id]
 		var count: int = int(sm.potions.get(potion_id, 0))
-		var row := _row(str(info.get("display_name", potion_id)), count,
-				str(info.get("description", "")), Color(0.55, 0.8, 1.0))
+		var legendary: bool = GardenDefs.is_legendary(potion_id)
+		if legendary and count <= 0:
+			continue  # a secret until found (GID-153)
+		var row := _row(str(info.get("display_name", potion_id)), count, str(info.get("description", "")),
+				LEGENDARY_TINT if legendary else Color(0.55, 0.8, 1.0), legendary)
 		if count <= 0:
 			continue
 		for i: int in _QuickSlots.SLOTS:
@@ -64,7 +70,7 @@ func _header(text: String) -> void:
 	var lbl := _UiUtil.make_label(text, int(_ref * 0.021), Color(0.85, 0.78, 0.55), HORIZONTAL_ALIGNMENT_LEFT, _list)
 	lbl.theme_type_variation = &"TitleLabel"
 
-func _row(title: String, count: int, desc: String, tint: Color) -> HBoxContainer:
+func _row(title: String, count: int, desc: String, tint: Color, legendary: bool = false) -> HBoxContainer:
 	var panel := PanelContainer.new()
 	panel.add_theme_stylebox_override("panel", _UiUtil.make_style(Color(0.1, 0.1, 0.14, 0.85), int(_ref * 0.010),
 			tint.darkened(0.5) if count > 0 else Color(0.25, 0.25, 0.3), 1))
@@ -73,8 +79,16 @@ func _row(title: String, count: int, desc: String, tint: Color) -> HBoxContainer
 	var m: int = int(_ref * 0.008)
 	var row := _UiUtil.make_hbox(int(_ref * 0.012), _UiUtil.make_margin(m, m, m, m, panel))
 
-	var badge := _UiUtil.make_label("×%d" % count, int(_ref * 0.024), tint, HORIZONTAL_ALIGNMENT_CENTER, row)
-	badge.custom_minimum_size = Vector2(_ref * 0.07, 0.0)
+	if legendary:
+		var icon := TextureRect.new()
+		icon.texture = _PUDDING_ICON
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.custom_minimum_size = Vector2(_ref * 0.07, _ref * 0.07)
+		row.add_child(icon)
+	else:
+		var badge := _UiUtil.make_label("×%d" % count, int(_ref * 0.024), tint, HORIZONTAL_ALIGNMENT_CENTER, row)
+		badge.custom_minimum_size = Vector2(_ref * 0.07, 0.0)
 	var info := _UiUtil.make_vbox(0, row)
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_UiUtil.make_label(title, int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, info)

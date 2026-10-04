@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="MapData" load_steps=6 format=3 uid="uid://mox3abb3uun3"]
+[gd_resource type="Resource" script_class="MapData" load_steps=7 format=3 uid="uid://mox3abb3uun3"]
 
 [ext_resource type="Script" uid="uid://fycqebooc6ig" path="res://game_logic/world/resources/MapData.gd" id="1_mapdata"]
 [ext_resource type="Script" uid="uid://r18om43tz40b" path="res://game_logic/world/resources/MapDoor.gd" id="2_mapdoor"]
@@ -113,6 +113,16 @@ tile_x = 35
 tile_z = 30
 puzzle_id = "puzzle_ward_bypass"
 
+[sub_resource type="Resource" id="MapNpc_8"]
+script = ExtResource("3_mapnpc")
+entity_id = "little_pip"
+tile_x = 54
+tile_z = 48
+dialogue = "Wanna play skipping? I know all the rhymes. Gran taught me every one!"
+npc_type = ""
+flag_key = ""
+after_dialogue = ""
+
 [resource]
 script = ExtResource("1_mapdata")
 map_name = "maykalene"
@@ -125,7 +135,7 @@ spawn_z = 5
 enemies = []
 chests = []
 doors = [SubResource("MapDoor_1"), SubResource("MapDoor_2")]
-npcs = [SubResource("MapNpc_1"), SubResource("MapNpc_2"), SubResource("MapNpc_3"), SubResource("MapNpc_4"), SubResource("MapNpc_5"), SubResource("MapNpc_6"), SubResource("MapNpc_7")]
+npcs = [SubResource("MapNpc_1"), SubResource("MapNpc_2"), SubResource("MapNpc_3"), SubResource("MapNpc_4"), SubResource("MapNpc_5"), SubResource("MapNpc_6"), SubResource("MapNpc_7"), SubResource("MapNpc_8")]
 scrolls = [SubResource("MapScroll_1")]
 shrines = [SubResource("MapPuzzleShrine_1")]
 waystones = []

@@ -9,6 +9,7 @@ const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const SkillBar = preload("res://game_logic/battle/SkillBar.gd")
 const _SideQuests = preload("res://game_logic/quests/SideQuests.gd")
 const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
+const _Tales = preload("res://game_logic/quests/Tales.gd")
 const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const _GearRolls = preload("res://game_logic/items/GearRolls.gd")
 const _SaveQuests = preload("res://autoloads/save_manager/SaveQuests.gd")
@@ -31,6 +32,8 @@ func interact(npc: Dictionary) -> void:
 	if npc_id != "":
 		SceneManager.save_manager.quests.progress_event("talk", npc_id)
 	if show_quest_panel(npc):
+		return
+	if show_tale_panel(npc):
 		return
 	# GID-141: a trainer with training waiting teaches first; "Other business"
 	# (shop, stable, board) is one tap away on the trainer panel's NPC.
@@ -94,6 +97,43 @@ func show_quest_panel(npc: Dictionary) -> bool:
 		_quest_panel(npc, offers[0], false)
 		return true
 	return false
+
+# ── Pear Pudding tales (GID-153 / TID-654) ──────────────────────────────────
+
+## Tells `npc`'s Pear Pudding tale if one is due (Tales.tale_for_npc). Heard on
+## open, so closing the panel still counts. No mark ever advertises it.
+func show_tale_panel(npc: Dictionary) -> bool:
+	var sm := SceneManager.save_manager
+	var tale: Dictionary = _Tales.tale_for_npc(str(npc.get("id", "")), sm.story_flags)
+	if tale.is_empty():
+		return false
+	var tale_id: String = str(tale["id"])
+	sm.set_story_flag(_Tales.flag_for(tale_id))
+	GameBus.legend_tale_heard.emit(tale_id)
+	var vh: float = _world.get_viewport().get_visible_rect().size.y
+	var modal: Dictionary = _world._build_modal(0.7, 0.42, _DUEL_PANEL_BG, 0.016, 0.03, 0.5)
+	var layer: CanvasLayer = modal["layer"]
+	var vbox: VBoxContainer = modal["vbox"]
+	var font: int = int(vh * 0.022)
+	var title := _UiUtil.make_label(str(tale.get("title", "")), int(vh * 0.032), Color(1.0, 0.8, 0.35),
+			HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	title.theme_type_variation = &"TitleLabel"
+	_UiUtil.make_label(str(tale.get("npc_name", "")), int(vh * 0.02), Color(0.8, 0.8, 0.85),
+			HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var body := _UiUtil.make_label("\"%s\"" % str(tale.get("lines", "")), font, Color.WHITE,
+			HORIZONTAL_ALIGNMENT_LEFT, vbox)
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_UiUtil.make_label("A tale worth remembering. (Journal › Old Tales)", int(vh * 0.018),
+			Color(0.75, 0.7, 0.55), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var row := _UiUtil.make_hbox(int(vh * 0.02), vbox)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	var btn_size := Vector2(vh * 0.18, vh * 0.06)
+	_UiUtil.make_button("Farewell", btn_size, font, layer.queue_free, row)
+	if str(npc.get("npc_type", "")) != "":
+		_UiUtil.make_button("Other business", btn_size, font, func() -> void:
+			layer.queue_free()
+			interact_service(npc), row)
+	return true
 
 func _quest_panel(npc: Dictionary, q: Dictionary, turn_in: bool) -> void:
 	var sm := SceneManager.save_manager

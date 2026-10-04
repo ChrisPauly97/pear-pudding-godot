@@ -14,6 +14,7 @@
 extends RefCounted
 
 const _WorldMap = preload("res://game_logic/world/WorldMap.gd")
+const _RiddleSpots = preload("res://game_logic/world/RiddleSpots.gd")
 
 const _MADRIAN := preload("res://assets/maps/madrian.tres")
 const _MAYKALENE := preload("res://assets/maps/maykalene.tres")
@@ -63,6 +64,11 @@ const DROPPED_DOORS: Array[String] = ["madrian:door_11", "madrian:door_13"]
 ## Overworld spawn tokens ride in SceneManager's door_stack (in place of a door
 ## id) so leaving an interior puts the player back where they went in.
 const POS_TOKEN_PREFIX: String = "pos:"
+
+## GID-153: each Pear Pudding riddle spot sits in a small natural glade. The
+## spots count as reserved ground (flat, no trees, water, ruins or random
+## spawns) but never reach 0, so no path tile marks them.
+const LEGEND_SITE_PAD: float = 0.5
 
 ## Fixed overworld tiles for the story beats that used to spawn "a few tiles
 ## from the player" (TID-572): each sits on the road the story sends you along.
@@ -145,6 +151,7 @@ static func is_road_tile(wtx: int, wtz: int) -> bool:
 ## Distance (tiles) from a tile to the nearest town rectangle or road; 0 inside.
 static func reserved_distance(wtx: int, wtz: int) -> float:
 	var best: float = maxf(0.0, road_distance(float(wtx), float(wtz)) - ROAD_HALF_WIDTH)
+	best = minf(best, legend_site_distance(wtx, wtz))
 	for k: Variant in TOWNS.keys():
 		var r: Rect2i = world_rect(str(k))
 		var dx: int = maxi(0, maxi(r.position.x - wtx, wtx - (r.end.x - 1)))
@@ -154,13 +161,23 @@ static func reserved_distance(wtx: int, wtz: int) -> float:
 			return 0.0
 	return best
 
-## True when any tile of chunk (cx, cz), grown by BLEND_MARGIN, touches a town or road.
+static func legend_site_distance(wtx: int, wtz: int) -> float:
+	var best: float = INF
+	for spot: Dictionary in _RiddleSpots.SPOTS:
+		var t: Vector2i = spot["tile"]
+		best = minf(best, Vector2(wtx - t.x, wtz - t.y).length() + LEGEND_SITE_PAD)
+	return best
+
+## True when any tile of chunk (cx, cz), grown by BLEND_MARGIN, touches a town, road or legend glade.
 static func chunk_touches_realm(cx: int, cz: int) -> bool:
 	var cs: int = IsoConst.CHUNK_SIZE
 	var m: int = int(ceil(BLEND_MARGIN))
 	var area := Rect2i(cx * cs - m, cz * cs - m, cs + 2 * m, cs + 2 * m)
 	for k: Variant in TOWNS.keys():
 		if area.intersects(world_rect(str(k))):
+			return true
+	for spot: Dictionary in _RiddleSpots.SPOTS:
+		if area.has_point(spot["tile"] as Vector2i):
 			return true
 	var half: float = float(cs) * 0.5
 	var centre := Vector2(float(cx * cs) + half, float(cz * cs) + half)

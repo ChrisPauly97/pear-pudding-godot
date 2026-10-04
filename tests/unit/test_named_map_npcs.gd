@@ -228,9 +228,10 @@ func test_larik_has_player_spawn() -> void:
 	assert_eq(wm.player_spawn_z, 90)
 
 
-func test_larik_has_two_npcs_one_scroll_two_doors() -> void:
+## Two story NPCs plus Odd the Farmer, the Pear Pudding legend's teller (GID-153).
+func test_larik_has_three_npcs_one_scroll_two_doors() -> void:
 	var wm := WorldMapScript.new("larik")
-	assert_eq(wm.npcs.size(), 2)
+	assert_eq(wm.npcs.size(), 3)
 	assert_eq(wm.scrolls.size(), 1)
 	assert_eq(wm.doors.size(), 2)
 

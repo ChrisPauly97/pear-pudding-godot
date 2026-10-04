@@ -4,6 +4,7 @@ extends Object
 # condition_type values: "battles_won", "enemies_defeated", "cards_earned",
 #   "biomes_visited", "chests_opened", "specific_flag",
 #   "dawn_battle_won", "dusk_battle_won"
+# Optional "secret": true shows "???" in AchievementsScene until unlocked (GID-153).
 
 const ACHIEVEMENTS: Array = [
 	{
@@ -115,10 +116,26 @@ const ACHIEVEMENTS: Array = [
 		"reward_card_id": "",
 		"flag_key": "bestiary_complete",
 	},
+	{
+		"id": "spoonful_of_legend",
+		"name": "A Spoonful of Legend",
+		"description": "Brew Mother Perrine's lost Pear Pudding.",
+		"condition_type": "specific_flag",
+		"target_value": 1,
+		"reward_card_id": "",
+		"flag_key": "legend_pudding_owned",
+		"secret": true,
+	},
 ]
 
 static func get_all() -> Array:
 	return ACHIEVEMENTS
+
+## Name/description as AchievementsScene shows them: secret ones stay "???" until unlocked.
+static func display_text(a: Dictionary, is_unlocked: bool) -> Array[String]:
+	if bool(a.get("secret", false)) and not is_unlocked:
+		return ["???", "A secret. Some say the old tales hold the answer."]
+	return [str(a.get("name", "")), str(a.get("description", ""))]
 
 static func get_achievement(id: String) -> Dictionary:
 	for a: Dictionary in ACHIEVEMENTS:

@@ -15,6 +15,7 @@
 |---|---|
 | [Characters](#characters) | Protagonist, companions, lords, royalty |
 | [The Prophecy](#the-prophecy) | Background lore driving the plot |
+| [Legends: The Pear Pudding](#legends-the-pear-pudding) | Secret legend, the four tellers and their riddles |
 | [Introduction](#introduction) | Saimtar in Madrian, meeting Maiteln |
 | [Chapter 1: Into the Wild World](#chapter-1-into-the-wild-world) | Journey to Maykalene and Blancogov |
 | [Chapter 2: The Road to Larik](#chapter-2-the-road-to-larik) | Council's charge, Larik, the siege of Marsax hold, the traitor |
@@ -85,6 +86,36 @@ form an alliance against them and eventually crushed them — but they were neve
 If the Martarquas reformed and launched another attack while the alliance was unprepared, the
 consequences would be catastrophic. The prophecy foretells their rising again, which is why Maiteln
 must warn every lord and the king before it is too late.
+
+---
+
+## Legends: The Pear Pudding
+
+Long before King Eldar, his grandfather lay dying of a wasting curse no healer could name.
+Old Mother Perrine, the royal alchemist, brewed him a remedy from a golden pear that never
+rots, a spectre's last sigh and moonroot, stirred in rainwater at the queen's well. The king
+rose the next morning. The court called it "Pear Pudding", half in jest. Perrine vanished
+soon after, her recipe burnt and scattered. Only tales remain.
+
+This is a secret: no quest giver, marker or quest log entry points to it. The player hears
+the tales from certain townsfolk and solves each riddle in the world.
+
+### The Tellers
+- **Old soldier (Madrian):** "My grandsire swore the old king was dead by dusk and laughing by dawn.
+  Where three stones lean and the sun goes down, the earth remembers."
+- **Child's skipping rhyme (Maykalene):** "Pear so gold, never old, hangs where no orchard grows."
+- **Tavern bard (Blancogov):** "She asked the dead what they sighed, and bottled the answer."
+- **Grumbling farmer (Larik):** "Stir it where the old queen drank, when the rain sings. Nonsense, if you ask me."
+
+### The Riddles
+1. **The Burnt Recipe:** dig at dusk beside three leaning standing stones.
+2. **The Golden Pear:** a lone pear tree in a quiet glade, far from any road or orchard.
+3. **Spectre's Sigh:** defeat a spectre on a Night Hunt while carrying the recipe.
+4. **The Brew:** stir the ingredients at the ruined queen's well while it rains.
+
+### Reward
+Perrine's Bottomless Pudding, a legendary flask that never empties. One sip per battle
+restores the hero fully, clears ailments and grants a spark of mana.
 
 ---
 

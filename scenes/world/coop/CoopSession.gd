@@ -40,6 +40,7 @@ const _SessionState      = preload("res://game_logic/net/SessionState.gd")
 const _SpireFloorGen     = preload("res://game_logic/spire/SpireFloorGen.gd")
 const _TournamentSync    = preload("res://game_logic/net/TournamentSync.gd")
 const _WorldObjectSync   = preload("res://game_logic/net/WorldObjectSync.gd")
+const _Tales             = preload("res://game_logic/quests/Tales.gd")
 
 # ── Party Guildhall furnishings (GID-106 / TID-393) ──────────────────────────
 # Trophies, garden and a stash chest furnishing the otherwise-empty guildhall
@@ -1286,7 +1287,7 @@ func _on_local_story_flag_set(key: String) -> void:
 	# not just co-op, because this handler only exists inside a session.
 	if not _world._coop_active or _world._net_sync == null or not NetworkManager.is_active():
 		return
-	if _coop_story_flag_syncing:
+	if _coop_story_flag_syncing or _Tales.is_personal_flag(key):
 		return
 	var value: bool = SceneManager.save_manager.get_story_flag(key)
 	if NetworkManager.is_host():

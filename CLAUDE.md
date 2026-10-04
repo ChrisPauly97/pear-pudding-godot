@@ -392,6 +392,7 @@ created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
 | `Critters.gd` (`critters`) | Ambient wildlife around the hero by biome (`CritterDef`, `entities/Critter.gd`): wander, flee, hover/hop; scenery only, not synced (GID-147) |
 | `WorldClock.gd` (`world_clock`) | Builds `_dnc` (DayNightCycle) + `_sun_rays`, wires day / night / dawn / storm reactions, per-frame clock tick (BID-055) |
 | `WorldShortcuts.gd` (`shortcuts`) | Keyboard shortcuts forwarded from `_unhandled_input`: pause, map view, menu actions, G/D cantrips, chat focus, then tap-to-move (BID-055) |
+| `Legend.gd` (`legend`) | Pear Pudding legend riddle spots (`RiddleSpots`): unmarked overworld props, look / Dig resolution, `try_dig` from Cantrips (GID-153) |
 
 BattleScene's single-player clusters live under `scenes/battle/modules/`, created by
 `BattleScene._ensure_battle_modules()`. Each has a `_battle` back-reference typed as
@@ -701,4 +702,5 @@ Agent-owned feature docs. Each covers Key Features, How It Works, Integrations, 
 | [docs/agent/card-visuals.md](docs/agent/card-visuals.md) | Card frames per magic type, card back, badges, CardFace builder, card animations (GID-151) |
 | [docs/agent/rifts.md](docs/agent/rifts.md) | Spire reworked as per-biome rifts: tier ladders, guardian floors, boons, rift quests, entrances (GID-142) |
 | [docs/agent/starter-zone-and-training.md](docs/agent/starter-zone-and-training.md) | Unlock ladder (one system per level), trainer-taught unlocks for gold, starter zone + quest chain (GID-141) |
+| [docs/agent/legends-pear-pudding.md](docs/agent/legends-pear-pudding.md) | Secret Pear Pudding legend: townsfolk tales, Old Tales journal, riddle spots, Bottomless Pudding (GID-153) |
 | [docs/human/story.md](docs/human/story.md) | Story bible: characters, chapters, NPC dialogue, map specs (human-owned) |

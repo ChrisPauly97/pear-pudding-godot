@@ -50,6 +50,8 @@ func activate_skeleton_dig(quiet: bool = false) -> void:
 		return
 	var mound: Node3D = _world._find_nearby_burial_mound(player.position.x, player.position.z, IsoConst.INTERACT_RANGE)
 	if mound == null:
+		if _world.legend.try_dig(player.position.x, player.position.z):
+			return
 		if not quiet:
 			GameBus.hud_message_requested.emit("No burial mound nearby to dig.")
 		return

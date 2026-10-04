@@ -33,6 +33,10 @@ const POTIONS: Dictionary = {
 	"healing_draught": {"display_name": "Healing Draught", "essence_cost": 0, "description": "Battle: restore 8 HP."},
 	"clarity_brew":    {"display_name": "Clarity Brew",    "essence_cost": 0, "description": "Battle: draw 2 cards."},
 	"ember_tonic":     {"display_name": "Ember Tonic",     "essence_cost": 0, "description": "Battle: gain 1 mana."},
+	# GID-153: the one legendary potion, from the secret Pear Pudding legend. Never brewed
+	# here (no recipe), never consumed — refills every battle, one sip each (LegendaryPotions).
+	"pear_pudding": {"display_name": "Perrine's Bottomless Pudding", "essence_cost": 0, "legendary": true,
+		"description": "Legendary. Never empties: one sip per battle restores full HP, clears ailments, +1 mana."},
 }
 
 const POTION_RECIPES: Dictionary = {
@@ -52,6 +56,12 @@ const POTION_RECIPES: Dictionary = {
 		"ingredients": {"embercap_plant": 2},
 	},
 }
+
+## True for a potion that is never consumed (GID-153).
+static func is_legendary(potion_id: String) -> bool:
+	var info: Dictionary = POTIONS.get(potion_id, {})
+	return bool(info.get("legendary", false))
+
 
 ## Returns the growth stage for a planted plot.
 ## 0 is never returned here — callers should check plot emptiness before calling.
