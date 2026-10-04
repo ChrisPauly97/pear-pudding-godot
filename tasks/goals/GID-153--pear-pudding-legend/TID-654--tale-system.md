@@ -2,7 +2,7 @@
 
 **Goal:** GID-153
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -36,12 +36,20 @@ condition fits, records a tale flag, and adds the riddle text to a new Journal p
 
 ## Plan
 
-_Written during Plan phase._
+Static `Tales.gd` table + helpers (story-flag state only); `NpcInteractions.show_tale_panel` after the quest
+panel; Journal "Old Tales" tab gated on a heard tale; `GameBus.legend_tale_heard`; keep legend flags out of co-op
+sync; unit tests incl. a guard that quest systems never reference the legend.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/quests/Tales.gd` (new): four tales (soldier, rhyme, bard, farmer) with lines, riddle, order, solve flag.
+- `scenes/world/modules/NpcInteractions.gd`: `show_tale_panel()` wired into `interact()`.
+- `scenes/ui/JournalScene.gd`: "Old Tales" tab (hidden until first tale).
+- `autoloads/GameBus.gd`: `legend_tale_heard(tale_id)`.
+- `scenes/world/coop/CoopSession.gd`: personal `legend_*` flags not synced to the party.
+- `tests/unit/test_tales.gd` (new, 5 tests). Full suite, world/menu smokes, unsafe-hits, gdlint clean.
+- Teller NPCs themselves are placed by TID-657.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+New `docs/agent/legends-pear-pudding.md`; row added to the CLAUDE.md docs table.

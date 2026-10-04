@@ -33,7 +33,7 @@ Reward is deliberately one-off and permanent (user direction): it must feel rewa
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | [TID-653](TID-653--story-legend.md) | Pear Pudding legend + four tales in `story.md` | human-action | done | — |
-| [TID-654](TID-654--tale-system.md) | Tale system: conditional rumour lines, Journal "Old Tales", puzzle flags | agent | pending | — |
+| [TID-654](TID-654--tale-system.md) | Tale system: conditional rumour lines, Journal "Old Tales", puzzle flags | agent | done | — |
 | [TID-655](TID-655--riddle-spot-entity.md) | Riddle-spot entity gated by time/weather/cantrip/item | agent | pending | — |
 | [TID-656](TID-656--bottomless-pudding.md) | Perrine's Bottomless Pudding legendary item + battle effect + icon | agent | done | — |
 | [TID-657](TID-657--puzzle-content.md) | Puzzle content: tales, spots, brew scene, reward, tests | agent | pending | TID-654, TID-655, TID-656 |

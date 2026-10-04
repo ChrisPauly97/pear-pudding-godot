@@ -4,6 +4,7 @@ const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const LandmarkNames  = preload("res://game_logic/world/LandmarkNames.gd")
 const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
 const _StoryQuests = preload("res://game_logic/quests/StoryQuests.gd")
+const _Tales = preload("res://game_logic/quests/Tales.gd")
 
 var hub_mode: bool = false
 
@@ -81,6 +82,13 @@ func _build_ui() -> void:
 			_on_tab_selected.bind("discoveries"), tab_bar)
 	_tab_discoveries_btn.flat = true
 	_tab_discoveries_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	# GID-153: the secret Pear Pudding legend — the tab only exists once a tale is heard.
+	if not _Tales.heard(SaveManager.story_flags).is_empty():
+		var tales_btn := _UiUtil.make_button("Old Tales", Vector2(0, _vh * 0.05), int(_vh * 0.022),
+				_on_tab_selected.bind("tales"), tab_bar)
+		tales_btn.flat = true
+		tales_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	# ── Treasure status row ───────────────────────────────────────────────────
 	_treasure_label = Label.new()
@@ -174,6 +182,10 @@ func _show_empty_state() -> void:
 	elif _active_tab == "bestiary":
 		_update_bestiary_header()
 		_title_label.text = "Select an entry"
+	elif _active_tab == "tales":
+		_header_label.text = "Old Tales — %d / %d Heard" % [_Tales.heard(SaveManager.story_flags).size(),
+				_Tales.TALES.size()]
+		_title_label.text = "Select a tale"
 	elif _active_tab == "discoveries":
 		var found: int = SaveManager.discovered_landmarks.size()
 		_header_label.text = "Discoveries — %d Landmarks Found" % found
@@ -230,6 +242,8 @@ func _on_tab_selected(tab: String) -> void:
 		_populate_scroll_list()
 	elif tab == "bestiary":
 		_populate_bestiary_list()
+	elif tab == "tales":
+		_populate_tales_list()
 	else:
 		_populate_discoveries_list()
 
@@ -304,6 +318,29 @@ func _on_track_pressed() -> void:
 	SaveManager.set_tracked_quest(_quest_selected_id)
 	_populate_quest_list()
 	_on_quest_selected(_quest_selected_id)
+
+# ── Old Tales tab (GID-153) ──────────────────────────────────────────────────
+
+func _populate_tales_list() -> void:
+	for child in _scroll_list.get_children():
+		child.queue_free()
+	for t: Dictionary in _Tales.heard(SaveManager.story_flags):
+		var solved: bool = _Tales.is_solved(t, SaveManager.story_flags)
+		var btn := _UiUtil.make_button(("✓ " if solved else "") + str(t["title"]), Vector2(_vw * 0.22, _vh * 0.06),
+				int(_vh * 0.020), _on_tale_selected.bind(str(t["id"])), _scroll_list)
+		btn.flat = true
+		btn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		btn.add_theme_color_override("font_color", Color(1.0, 0.8, 0.35))
+
+func _on_tale_selected(tale_id: String) -> void:
+	var t: Dictionary = _Tales.def(tale_id)
+	_title_label.text = str(t.get("title", ""))
+	_title_label.modulate = Color(1.0, 0.85, 0.4)
+	var solved: bool = _Tales.is_solved(t, SaveManager.story_flags)
+	_lore_label.text = "[color=gray]Heard from %s[/color]\n\n[i]\"%s\"[/i]\n\n[b]%s[/b]%s" % [
+		str(t.get("npc_name", "")), str(t.get("lines", "")), str(t.get("riddle", "")),
+		"\n\n[color=#9c6]Solved.[/color]" if solved else ""]
+	_replay_btn.hide()
 
 func _populate_discoveries_list() -> void:
 	for child in _scroll_list.get_children():
