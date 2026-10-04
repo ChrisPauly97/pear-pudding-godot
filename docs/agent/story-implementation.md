@@ -435,6 +435,11 @@ tutorial-battle fallback used elsewhere in this goal). See `docs/agent/multiplay
 
 ---
 
+### Pear Pudding Legend (GID-153)
+
+A secret side story kept out of every quest system: tales (`Tales.gd`), riddle spots (`RiddleSpots.gd`) and the
+`legend_*` story flags (personal, never co-op synced). See `legends-pear-pudding.md`.
+
 ## Integrations with Other Features
 
 | System | Direction | Details |

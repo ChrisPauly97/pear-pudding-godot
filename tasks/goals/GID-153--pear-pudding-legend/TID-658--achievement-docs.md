@@ -2,7 +2,7 @@
 
 **Goal:** GID-153
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-657
 
 ## Lock
@@ -26,12 +26,14 @@ Close the goal: an achievement for brewing the pudding and documentation for the
 
 ## Plan
 
-_Written during Plan phase._
+Secret `specific_flag` achievement on `legend_pudding_owned`, "???" until unlocked; finish the docs.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/AchievementRegistry.gd`: `spoonful_of_legend` (secret), `display_text()`.
+- `scenes/ui/AchievementsScene.gd`: rows use `display_text()`.
+- `tests/unit/test_pear_pudding_legend.gd`: achievement test. Full suite + menu smoke, unsafe-hits, gdlint clean.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`legends-pear-pudding.md` (Achievement, Integrations); `story-implementation.md` pointer section.

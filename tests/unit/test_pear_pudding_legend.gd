@@ -9,7 +9,7 @@ const RealmLayout      = preload("res://game_logic/world/RealmLayout.gd")
 const InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
 const WaterMath        = preload("res://game_logic/world/WaterMath.gd")
 const LegendaryPotions = preload("res://game_logic/battle/LegendaryPotions.gd")
-const QuestLog         = preload("res://game_logic/quests/QuestLog.gd")
+const AchievementRegistry = preload("res://game_logic/AchievementRegistry.gd")
 
 const SEEDS: Array[int] = [1, 42, 9999]
 
@@ -114,3 +114,11 @@ func test_legend_never_appears_in_the_quest_log() -> void:
 		_sm.story_flags[Tales.flag_for(str(t["id"]))] = true
 	for e: Dictionary in _sm.quests.log_entries():
 		assert_false(str(e).contains("legend"), "quest log entry leaks the legend")
+
+func test_brewing_unlocks_the_secret_achievement() -> void:
+	var a: Dictionary = AchievementRegistry.get_achievement("spoonful_of_legend")
+	assert_false(a.is_empty())
+	assert_eq(AchievementRegistry.display_text(a, false)[0], "???", "secret until unlocked")
+	assert_eq(AchievementRegistry.display_text(a, true)[0], "A Spoonful of Legend")
+	_sm.set_story_flag(RiddleSpots.PUDDING_FLAG)
+	assert_true(_sm.unlocked_achievements.has("spoonful_of_legend"))

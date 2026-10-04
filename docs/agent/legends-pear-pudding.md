@@ -79,10 +79,16 @@ Pure static `SPOTS` table + `evaluate(spot, action, ctx) -> idle | hint | missin
 - **Tests:** `tests/unit/test_pear_pudding_legend.gd` — tellers placed in their towns, glades reserved but unmarked,
   glades grass/flat/dry/spawn-free across seeds, the full chain, sigh gating, one-time grant, no quest-log leak.
 
+### Achievement (TID-658)
+
+`AchievementRegistry` entry `spoonful_of_legend` ("A Spoonful of Legend"), `specific_flag` on
+`legend_pudding_owned`, `"secret": true`. `AchievementRegistry.display_text(a, unlocked)` returns `???` and a
+teaser line until it unlocks; `AchievementsScene` reads it. The toast fires on unlock as usual.
+
 ## Integrations
 
-- Story flags (`SaveManager.set_story_flag`), GameBus, NpcInteractions, JournalScene, CoopSession.
-- Tellers are placed in the stitched towns by TID-657 (`scripts/add_map_npc.py`).
+- Story flags (`SaveManager.set_story_flag`), GameBus, NpcInteractions, JournalScene, CoopSession, world gen
+  (`RealmLayout.reserved_distance`), SaveQuests kill events, quick-slot potions, AchievementRegistry.
 
 ## Asset Requirements
 

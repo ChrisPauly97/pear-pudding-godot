@@ -37,13 +37,13 @@ Reward is deliberately one-off and permanent (user direction): it must feel rewa
 | [TID-655](TID-655--riddle-spot-entity.md) | Riddle-spot entity gated by time/weather/cantrip/item | agent | done | — |
 | [TID-656](TID-656--bottomless-pudding.md) | Perrine's Bottomless Pudding legendary item + battle effect + icon | agent | done | — |
 | [TID-657](TID-657--puzzle-content.md) | Puzzle content: tales, spots, brew scene, reward, tests | agent | done | TID-654, TID-655, TID-656 |
-| [TID-658](TID-658--achievement-docs.md) | Achievement + agent docs | agent | pending | TID-657 |
+| [TID-658](TID-658--achievement-docs.md) | Achievement + agent docs | agent | done | TID-657 |
 
 ## Acceptance Criteria
 
-- [ ] No marker, waypoint, quest-giver mark or Quest Log row ever points at the quest
-- [ ] Each of the four tales is only heard from its NPC and lands on the Journal "Old Tales" page as riddle text
-- [ ] Each puzzle spot does nothing outside its condition and progresses the legend inside it
-- [ ] Brewing grants Perrine's Bottomless Pudding exactly once; it is never consumed and refills every battle
-- [ ] Progress persists through save/load and the full chain is covered by tests
-- [ ] Achievement unlocks on brewing; agent docs describe the system
+- [x] No marker, waypoint, quest-giver mark or Quest Log row ever points at the quest
+- [x] Each of the four tales is only heard from its NPC and lands on the Journal "Old Tales" page as riddle text
+- [x] Each puzzle spot does nothing outside its condition and progresses the legend inside it
+- [x] Brewing grants Perrine's Bottomless Pudding exactly once; it is never consumed and refills every battle
+- [x] Progress persists through save/load and the full chain is covered by tests
+- [x] Achievement unlocks on brewing; agent docs describe the system
