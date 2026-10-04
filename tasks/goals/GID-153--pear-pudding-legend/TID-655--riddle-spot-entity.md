@@ -2,7 +2,7 @@
 
 **Goal:** GID-153
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -37,12 +37,23 @@ scenery (or invisible) and gives at most a subtle flavour line, never a marker.
 
 ## Plan
 
-_Written during Plan phase._
+Pure `RiddleSpots.gd` (table, `phase`, `evaluate`, `line_for`); `RiddleSpot` billboard entity; `Legend` world
+module spawning spots on the overworld and resolving looks/Digs; WorldScene interaction wiring within the line
+ceiling; Cantrips Dig fallback; pixel-art props; unit tests.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/world/RiddleSpots.gd` (new): three spots (stones, pear tree, queen's well) with conditions and lines.
+- `scenes/world/entities/RiddleSpot.gd` (new), `scenes/world/modules/Legend.gd` (new, `WorldScene.legend`).
+- `scenes/world/WorldScene.gd`: module wiring, `riddle_spot` priority entry, "EXAMINE" prompt, finder (1889/1890 lines).
+- `scenes/world/modules/Cantrips.gd`: Dig falls through to `legend.try_dig`.
+- `autoloads/GameBus.gd`: `legend_riddle_solved(spot_id)`.
+- `game_logic/SpriteRegistry.gd`: `_LEGEND_PROPS`, `legend_prop()`.
+- `tools/generate_legend_props.py` + four `assets/textures/props/legend_*.png`.
+- `tests/unit/test_riddle_spots.gd` (7 tests). Full suite, world/chunk/menu smokes, unsafe-hits, gdlint clean;
+  a headless probe confirmed the 3 spots spawn on `main` and the pear tree solves.
+- Placement on walkable, tree-free ground and the brew payoff are TID-657.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`docs/agent/legends-pear-pudding.md` Riddle Spots section; `Legend.gd` row in the CLAUDE.md world-module table.

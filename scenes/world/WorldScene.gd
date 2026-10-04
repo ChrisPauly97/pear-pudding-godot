@@ -56,6 +56,7 @@ const _NamedMapProps = preload("res://scenes/world/modules/NamedMapProps.gd")
 const _RealmRegions = preload("res://scenes/world/modules/RealmRegions.gd")
 const _QuestTracker = preload("res://scenes/world/modules/QuestTracker.gd")
 const _StarterCamps = preload("res://scenes/world/modules/StarterCamps.gd")
+const _Legend = preload("res://scenes/world/modules/Legend.gd")
 const _RiftPortals = preload("res://scenes/world/modules/RiftPortals.gd")
 const _WorldLook = preload("res://scenes/world/WorldLook.gd")
 const _Critters = preload("res://scenes/world/modules/Critters.gd")
@@ -130,7 +131,7 @@ const INTERACT_INTERVAL: float = 0.15  # check interactions at ~7 Hz, not 60
 const INTERACT_PRIORITY: PackedStringArray = [
 	"downed_peer",
 	"door", "chest", "npc", "scroll", "wilderness_camp", "maiteln", "shrine",
-	"digspot", "burial_mound", "mana_well", "waystone", "mailbox", "garden_plot",
+	"digspot", "burial_mound", "riddle_spot", "mana_well", "waystone", "mailbox", "garden_plot",
 	"blight_heart", "scout_ambush", "enemy",
 ]
 
@@ -186,6 +187,7 @@ var named_props: _NamedMapProps = null   # modules/NamedMapProps.gd
 var realm_regions: _RealmRegions = null   # modules/RealmRegions.gd (GID-138)
 var quest_tracker: _QuestTracker = null   # modules/QuestTracker.gd (GID-140)
 var starter_camps: _StarterCamps = null   # modules/StarterCamps.gd (GID-141)
+var legend: _Legend = null   # modules/Legend.gd (GID-153)
 var rift_portals: _RiftPortals = null   # modules/RiftPortals.gd (GID-142)
 var critters: _Critters = null   # modules/Critters.gd (GID-147)
 var world_clock: _WorldClock = null   # modules/WorldClock.gd (BID-055)
@@ -762,6 +764,7 @@ func _ensure_world_modules() -> void:
 	realm_regions = _ensure_world_module(realm_regions, _RealmRegions, "RealmRegions") as _RealmRegions
 	quest_tracker = _ensure_world_module(quest_tracker, _QuestTracker, "QuestTracker") as _QuestTracker
 	starter_camps = _ensure_world_module(starter_camps, _StarterCamps, "StarterCamps") as _StarterCamps
+	legend = _ensure_world_module(legend, _Legend, "Legend") as _Legend
 	rift_portals = _ensure_world_module(rift_portals, _RiftPortals, "RiftPortals") as _RiftPortals
 	critters = _ensure_world_module(critters, _Critters, "Critters") as _Critters
 	world_clock = _ensure_world_module(world_clock, _WorldClock, "WorldClock") as _WorldClock
@@ -1242,6 +1245,9 @@ func _find_nearby_door(px: float, pz: float, range_dist: float) -> Dictionary:
 			best_dist_sq = dist_sq
 	return best
 
+func _find_nearby_riddle_spot(px: float, pz: float, range_dist: float) -> Node3D:
+	return _first_node_in_range(legend.spot_nodes, px, pz, range_dist)
+
 func _find_nearby_digspot(px: float, pz: float, range_dist: float) -> Node3D:
 	if not is_instance_valid(_digspot_node):
 		_digspot_node = null
@@ -1350,6 +1356,7 @@ func _process(delta: float) -> void:
 		_tick_card_shower()
 		nocturnal.tick(delta)
 		starter_camps.tick(delta)
+		legend.tick(delta)
 		realm_regions.tick()
 		_csm.process_streaming(_player.position, _player.velocity, _camera.get_frustum())
 
@@ -1440,6 +1447,8 @@ func _interact_prompt_label(px: float, pz: float) -> String:
 		return "DIG"
 	if _find_nearby_burial_mound(px, pz, r) != null:
 		return "DIG"
+	if _find_nearby_riddle_spot(px, pz, r) != null:
+		return "EXAMINE"
 	if _find_nearby_mana_well(px, pz, r) != null:
 		return "FILL"
 	if not _find_nearby_waystone(px, pz, r).is_empty():
@@ -1546,6 +1555,7 @@ func _try_simple_interaction(px: float, pz: float) -> bool:
 		[_find_nearby_shrine, "interact"],
 		[_find_nearby_digspot, "dig"],
 		[_find_nearby_burial_mound, "interact"],
+		[_find_nearby_riddle_spot, "interact"],
 	]:
 		var finder: Callable = entry[0]
 		var method: String = entry[1]

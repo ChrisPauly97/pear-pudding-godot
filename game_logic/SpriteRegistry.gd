@@ -143,6 +143,14 @@ const _PROP_VARIANTS: Dictionary = {
 }
 
 
+## Pear Pudding legend riddle spots (GID-153, tools/generate_legend_props.py).
+const _LEGEND_PROPS: Dictionary = {
+	"legend_stones": preload("res://assets/textures/props/legend_stones.png"),
+	"legend_pear_tree": preload("res://assets/textures/props/legend_pear_tree.png"),
+	"legend_pear_tree_bare": preload("res://assets/textures/props/legend_pear_tree_bare.png"),
+	"legend_well": preload("res://assets/textures/props/legend_well.png"),
+}
+
 const _CHEST_CLOSED       := preload("res://assets/textures/props/chest_closed.png")
 const _CHEST_OPEN         := preload("res://assets/textures/props/chest_open.png")
 const _DOOR               := preload("res://assets/textures/props/door.png")
@@ -348,6 +356,10 @@ static func mount_texture() -> Texture2D:
 static func prop_texture(key: String) -> Texture2D:
 	var v: Array = prop_variants(key)
 	return v[0] if not v.is_empty() else null
+
+## A legend riddle-spot prop texture (null if unknown).
+static func legend_prop(key: String) -> Texture2D:
+	return _LEGEND_PROPS.get(key) as Texture2D
 
 ## Every variant texture for a ground prop key ([] if unknown).
 static func prop_variants(key: String) -> Array:

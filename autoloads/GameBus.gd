@@ -56,6 +56,8 @@ signal story_flag_set(flag: String)
 signal story_scroll_collected(scroll_id: String)
 ## GID-153: a Pear Pudding legend tale was heard for the first time (Tales.gd).
 signal legend_tale_heard(tale_id: String)
+## GID-153: a Pear Pudding riddle spot was solved (RiddleSpots.gd).
+signal legend_riddle_solved(spot_id: String)
 signal all_scrolls_collected()
 
 # Achievement signals

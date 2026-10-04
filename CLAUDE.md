@@ -392,6 +392,7 @@ created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
 | `Critters.gd` (`critters`) | Ambient wildlife around the hero by biome (`CritterDef`, `entities/Critter.gd`): wander, flee, hover/hop; scenery only, not synced (GID-147) |
 | `WorldClock.gd` (`world_clock`) | Builds `_dnc` (DayNightCycle) + `_sun_rays`, wires day / night / dawn / storm reactions, per-frame clock tick (BID-055) |
 | `WorldShortcuts.gd` (`shortcuts`) | Keyboard shortcuts forwarded from `_unhandled_input`: pause, map view, menu actions, G/D cantrips, chat focus, then tap-to-move (BID-055) |
+| `Legend.gd` (`legend`) | Pear Pudding legend riddle spots (`RiddleSpots`): unmarked overworld props, look / Dig resolution, `try_dig` from Cantrips (GID-153) |
 
 BattleScene's single-player clusters live under `scenes/battle/modules/`, created by
 `BattleScene._ensure_battle_modules()`. Each has a `_battle` back-reference typed as
