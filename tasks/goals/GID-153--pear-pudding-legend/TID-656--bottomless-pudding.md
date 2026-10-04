@@ -2,7 +2,7 @@
 
 **Goal:** GID-153
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -36,12 +36,23 @@ clear statuses, +1 mana. Shares the normal potion cooldown so it can't stack wit
 
 ## Plan
 
-_Written during Plan phase._
+Model the pudding as a potion id with a `legendary` flag so quick slots, the bag and PvP relay reuse the potion
+path. Owned = `potions[id] == 1`; never decremented. One-sip-per-battle state lives on a per-battle
+`LegendaryPotions` instance in BattleConsumables. Shared effect helper for local + PvP host. Hidden from the bag
+until owned. Icon from the app-icon flask.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/GardenDefs.gd`: `pear_pudding` POTIONS entry (`legendary`), `is_legendary()`.
+- `game_logic/battle/LegendaryPotions.gd` (new): per-battle sip gate, `apply_pear_pudding(hero)`.
+- `game_logic/battle/StatusEffects.gd`: `AILMENTS`, `clear_ailments()`.
+- `scenes/battle/modules/BattleConsumables.gd`: legendary branch (no consume, once per battle, "∞"/"sipped" label).
+- `scenes/battle/net/BattleNet.gd`: host applies a client's pudding sip.
+- `autoloads/save_manager/SaveGarden.gd`: `grant_legendary()`.
+- `scenes/ui/inventory/ItemsPanel.gd`: legendary row hidden until owned, gold tint, flask icon.
+- `tools/generate_app_icon.py`: also writes `assets/icons/items/pear_pudding.png`.
+- `tests/unit/test_legendary_potions.gd` (new, 6 tests). Full suite + battle smokes pass, no SCRIPT ERROR.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`docs/agent/home-garden-potions.md`: Legendary Potion section.

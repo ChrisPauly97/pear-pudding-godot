@@ -56,6 +56,15 @@ func add_potions(potion_id: String, count: int) -> void:
 	_save.potions[potion_id] = int(_save.potions.get(potion_id, 0)) + count
 	_save._dirty = true
 
+## Grants a legendary potion (GID-153): owned once, never stacked or consumed.
+## Returns false if it was already owned.
+func grant_legendary(potion_id: String) -> bool:
+	if int(_save.potions.get(potion_id, 0)) > 0:
+		return false
+	_save.potions[potion_id] = 1
+	_save._dirty = true
+	return true
+
 func remove_potions(potion_id: String, count: int) -> bool:
 	var current: int = int(_save.potions.get(potion_id, 0))
 	if current < count:

@@ -16,8 +16,11 @@ const GardenDefs = preload("res://game_logic/GardenDefs.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const BattleNetProtocol = preload("res://game_logic/net/BattleNetProtocol.gd")
 const _QuickSlots = preload("res://game_logic/battle/QuickSlots.gd")
+const _LegendaryPotions = preload("res://game_logic/battle/LegendaryPotions.gd")
 
 var quick: _QuickSlots = _QuickSlots.new()
+## Legendary potions refill per battle: this module is rebuilt with each BattleScene.
+var legendary: _LegendaryPotions = _LegendaryPotions.new()
 var quick_btns: Array[Button] = []
 var _battle: _BattleScene
 
@@ -65,9 +68,12 @@ func _refresh_potion_button() -> void:
 		var info: Dictionary = GardenDefs.POTIONS[id]
 		var key: String = "" if OS.has_feature("android") else "[%s] " % _QuickSlots.KEY_LABELS[i]
 		var wait: String = "" if ready else "  (%d%s)" % [left, "s" if rtm else ""]
-		btn.text = "%s%s ×%d%s" % [key, str(info.get("display_name", id)), int(sm.potions.get(id, 0)), wait]
+		var sip_ok: bool = legendary.can_sip(id)
+		var count: String = ("∞" if sip_ok else "sipped") if GardenDefs.is_legendary(id) \
+				else "×%d" % int(sm.potions.get(id, 0))
+		btn.text = "%s%s %s%s" % [key, str(info.get("display_name", id)), count, wait]
 		btn.tooltip_text = str(info.get("description", ""))
-		btn.disabled = not ready or not my_turn
+		btn.disabled = not ready or not my_turn or not sip_ok
 
 
 func _on_quick_pressed(slot: int) -> void:
@@ -111,7 +117,11 @@ func _my_turn_number() -> int:
 
 func _apply_potion_effect(potion_id: String) -> void:
 	var sm := SceneManager.save_manager
-	if not sm.garden.remove_potions(potion_id, 1):
+	if GardenDefs.is_legendary(potion_id):
+		if not legendary.can_sip(potion_id) or int(sm.potions.get(potion_id, 0)) <= 0:
+			return
+		legendary.mark_sipped(potion_id)
+	elif not sm.garden.remove_potions(potion_id, 1):
 		return
 	var cd: float = _battle.realtime.rt.tune.get_f("potion_cooldown") if _is_realtime() else 0.0
 	quick.start(_my_turn_number(), cd)
@@ -134,6 +144,10 @@ func _apply_potion_effect(potion_id: String) -> void:
 		"ember_tonic":
 			player.hero.gain_mana(1)
 			_battle._fx.spawn_float_label(_battle._fx.pos_of_hero(false), "+1 Mana", Color(0.4, 0.8, 1.0))
+		_LegendaryPotions.PEAR_PUDDING:
+			_LegendaryPotions.apply_pear_pudding(player.hero)
+			_battle._fx.spawn_float_labels(snap_pot)
+			_battle._fx.spawn_float_label(_battle._fx.pos_of_hero(false), "Pear Pudding!", Color(1.0, 0.85, 0.35))
 	GameBus.potion_used.emit(potion_id)
 	_battle._refresh_all()
 	_refresh_potion_button()

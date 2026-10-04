@@ -9,6 +9,7 @@ Writes into assets/icons/app/:
   icon_monochrome_432.png  adaptive monochrome (themed icons, Android 13+)
   icon_main_192.png        legacy launcher icon (layers flattened, rounded square)
   icon_512.png             project / desktop icon
+and assets/icons/items/pear_pudding.png (128px flask, the legendary potion's bag icon — GID-153).
 
 Usage: python3 tools/generate_app_icon.py   (needs Pillow)
 """
@@ -207,6 +208,17 @@ def _flatten(size, corner_frac):
     return _down(bg, size)
 
 
+def item_icon(size):
+    """The Bottomless Pudding flask alone, with a golden glow, on a transparent square."""
+    big = size * SS
+    img = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+    glow = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+    ImageDraw.Draw(glow).ellipse([big * 0.14, big * 0.2, big * 0.86, big * 0.92], fill=(255, 210, 110, 120))
+    img.alpha_composite(glow.filter(ImageFilter.GaussianBlur(big * 0.06)))
+    _flask(ImageDraw.Draw(img), big * 0.48, big * 0.56, big * 0.95)
+    return _down(img, size)
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     big = BASE * SS
@@ -215,6 +227,9 @@ def main():
     _down(foreground(big, mono=True), BASE).save(os.path.join(OUT, "icon_monochrome_432.png"))
     _flatten(192, 0.22).save(os.path.join(OUT, "icon_main_192.png"))
     _flatten(512, 0.22).save(os.path.join(OUT, "icon_512.png"))
+    items = os.path.join(OUT, "..", "items")
+    os.makedirs(items, exist_ok=True)
+    item_icon(128).save(os.path.join(items, "pear_pudding.png"))
     print("wrote icons to", os.path.normpath(OUT))
 
 
