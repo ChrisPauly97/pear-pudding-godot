@@ -2,7 +2,7 @@
 
 **Goal:** GID-153
 **Type:** human-action
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -27,12 +27,13 @@ canon so later story work doesn't contradict them. The agent drafts; the human p
 
 ## Plan
 
-_Written during Plan phase._
+Draft presented in chat; user approved and asked the agent to apply it.
 
 ## Changes Made
 
-_Filled after Build phase._
+User asked the agent to make the edit. Added `## Legends: The Pear Pudding` (legend, tellers, riddles,
+reward) after `## The Prophecy` in `docs/human/story.md`, plus a Contents row.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None (human doc only).
