@@ -2,7 +2,7 @@
 
 **Goal:** GID-164
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -29,12 +29,18 @@ Validation for every task: headless import parse check, `scripts/unsafe-hits.sh`
 
 ## Plan
 
-_Written during Plan phase._
+- CharacterPresence: gather both groups every 0.25 s into records (radius / style / phase / base read once), shadow candidates pre-culled to 60 u, idle sprites to MAX_DISTANCE + 4; per frame touch only the records (freed-node safe). StringName param names built once.
+- TownLife: per-NPC record cached per spawned node (`is_same` on the raw dict value), siege town and record pruning at 1 Hz.
+- WalkCycle: `tick(delta)` extracted; TownLife turns the walker's cycle's processing off and ticks it from `_drive` (far walkers tick with the summed skipped time). Found while testing: townsfolk art has **no walk frames**, so their 100 cycles were empty per-frame callbacks — WalkCycle now disables processing when it has no tracks. (The remaining ~99 processing cycles are enemies', which do animate.)
+- `faces_left` error: did not reproduce in the baseline or later profiles (`CritterDef.faces_left` is a static and resolves); nothing to fix.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/world/modules/CharacterPresence.gd`, `scenes/world/modules/TownLife.gd`, `scenes/world/entities/WalkCycle.gd`.
+- Tests: `test_walk_cycle::test_trackless_cycle_does_not_process`; `town_life_smoke` asserts walkers' cycles don't self-process.
+- Profile (_process µs/frame): CharacterPresence 267 → 18, TownLife 126 → 77, AmbientTouches 211 → 7 (from the TID-674 probe cache).
+- Validation: import, gdlint, unsafe-hits, 3022 passed / 0 failed, 0 SCRIPT ERROR, all smoke tests.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/visual-polish.md` (contact shadows, idle life), `docs/agent/enemies-and-npcs.md` (TownLife walk cycle).

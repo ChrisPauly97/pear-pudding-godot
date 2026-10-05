@@ -64,3 +64,17 @@ func test_horse_trots_in_place() -> void:
 	assert_eq(frames.size(), 4, "the horse trots")
 	for f: Texture2D in frames:
 		assert_eq(f.get_size(), idle.get_size(), "trot frames share the idle canvas")
+
+
+## GID-164 / TID-676: a cycle with nothing to animate costs no per-frame callback.
+func test_trackless_cycle_does_not_process() -> void:
+	var empty: Node = WalkCycle.new()
+	empty.set_process(true)  # what entering the tree does for a script with _process
+	empty.call("_ready")
+	assert_false(empty.is_processing(), "no tracks → no _process")
+	var spr := Sprite3D.new()
+	var frames: Array[Texture2D] = [ImageTexture.create_from_image(Image.create(2, 2, false, Image.FORMAT_RGBA8))]
+	empty.call("add_sprite", spr, frames)
+	assert_true(empty.is_processing(), "adding a track turns it on")
+	spr.free()
+	empty.free()

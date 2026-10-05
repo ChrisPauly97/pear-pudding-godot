@@ -57,6 +57,10 @@ func _run() -> Array[String]:
 		var n: Node3D = nodes[id]
 		if n.global_position.distance_to(start[id] as Vector3) > 0.5:
 			moved += 1
+			# TownLife steps the walk cycle itself (GID-164 / TID-676).
+			var wc: Node = n.get_node_or_null("TownWalk")
+			if wc != null and wc.is_processing():
+				fails.append("%s walk cycle still self-processing" % id)
 		var d: Dictionary = data[id]
 		if absf(float(d["x"]) - n.global_position.x) > 0.01 or absf(float(d["z"]) - n.global_position.z) > 0.01:
 			fails.append("%s interaction data lags its node" % id)

@@ -29,13 +29,27 @@ func add_sprite(sprite: Sprite3D, frames: Array[Texture2D]) -> void:
 	if sprite == null or frames.is_empty():
 		return
 	_tracks.append({"sprite": sprite, "idle": sprite.texture, "frames": frames})
+	set_process(true)
 
 
 func has_tracks() -> bool:
 	return not _tracks.is_empty()
 
 
+## Nothing to animate → no per-frame callback (most townsfolk art has no walk
+## frames; GID-164 / TID-676). `add_sprite` after this turns it back on.
+func _ready() -> void:
+	set_process(has_tracks())
+
+
 func _process(delta: float) -> void:
+	tick(delta)
+
+
+## One step over `delta` seconds. An owner that drives this itself (TownLife,
+## GID-164 / TID-676) turns processing off and calls it — far walkers then step
+## only on the frames they move, with the time they skipped.
+func tick(delta: float) -> void:
 	var owner3d := get_parent() as Node3D
 	if owner3d == null or _tracks.is_empty() or delta <= 0.0:
 		return
