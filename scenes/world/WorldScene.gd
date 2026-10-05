@@ -982,9 +982,6 @@ func register_loose_enemy(eid: String, node: Node3D) -> void:
 	_enemy_nodes[eid] = node
 	_loose_enemy_nodes[eid] = node
 
-func get_entity_root() -> Node3D:
-	return _entity_root
-
 func _tick_traveling_merchant(delta: float) -> void:
 	if not _active_npc_data.has("traveling_merchant"):
 		return

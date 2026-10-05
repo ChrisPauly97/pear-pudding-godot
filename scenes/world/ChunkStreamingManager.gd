@@ -149,10 +149,6 @@ func _drain_deferred_physics() -> void:
 			renderer.build_physics()
 			return
 
-## Returns the chunk coordinate the player was last seen in.
-func get_last_player_chunk() -> Vector2i:
-	return _last_player_chunk
-
 ## Returns the last tracked movement direction (XZ plane), used by WorldScene for
 ## directional actions such as ghost phase.
 func get_last_move_dir() -> Vector2:

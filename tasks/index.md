@@ -162,6 +162,7 @@
 | [GID-156](goals/GID-156--living-towns/goal.md) | Living Towns — Walkers, Schedules, Town Critters | done | 4 / 4 |
 | [GID-157](goals/GID-157--coordinate-helpers/goal.md) | Codebase Cleanup — Coordinate Helpers | done | 1 / 1 |
 | [GID-158](goals/GID-158--ui-factory-adoption/goal.md) | Codebase Cleanup — UI Factory Adoption | done | 1 / 1 |
+| [GID-159](goals/GID-159--dead-code-sweep/goal.md) | Codebase Cleanup — Dead Code Sweep | done | 1 / 1 |
 
 ## Backlog
 
@@ -176,12 +177,12 @@ files in `tasks/archive/backlog/`.
 | [BID-079](backlog/BID-079--spec-four-card-types.md) | Spec still lists four card types | spec-gap | GID-151 research |
 | [BID-081](backlog/BID-081--no-water-in-towns.md) | No water in named maps / towns; no bridges | content-gap | GID-152 research |
 | [BID-086](backlog/BID-086--stray-high-gid-refs.md) | Stray GID-361/368 refs in TID-369 inflate the highest-ID scan | doc-gap | GID-153 research |
-| [BID-087](backlog/BID-087--unreferenced-functions.md) | 37 unreferenced functions + 8 unused IsoConst constants (removal needs go-ahead) | code-smell | GID-157 research |
 
 ## Resolved Backlog
 
 | ID | Summary | Category | Discovered During |
 |----|---------|----------|-------------------|
+| [BID-087](archive/backlog/BID-087--unreferenced-functions.md) | Unreferenced functions / constants | code-smell | Resolved: GID-159 TID-667 |
 | [BID-085](archive/backlog/BID-085--level-one-attrition.md) | Level-1 hero nearly died after one fight with no way to heal; locked slots never shown | design-gap | Resolved: fast low-level regen, starter bread, 1 enemy minion, locked Ally slots |
 | [BID-084](archive/backlog/BID-084--level-one-enemy-summons.md) | Level-1 hero (Strike only, no hand) faced summoning enemies | design-gap | Resolved: superseded by BID-085 (one enemy minion before `feat_minions`) |
 | [BID-083](archive/backlog/BID-083--no-stream-ambience-loop.md) | Stream ambience layer still synthesized (no CC0 loop yet) | content-gap | GID-152 / TID-644 |

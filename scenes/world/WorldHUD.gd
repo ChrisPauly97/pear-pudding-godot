@@ -321,19 +321,6 @@ func unregister_action(id: String) -> void:
 		btn.queue_free()
 	_actions.erase(id)
 
-## Re-evaluates one action's `visible_when` (or every registered action's, if `id`
-## is omitted). No-op for actions registered without a `visible_when` Callable.
-func refresh_visibility(id: String = "") -> void:
-	var ids: Array = [id] if id != "" else _actions.keys()
-	for aid in ids:
-		var entry: Dictionary = _actions.get(aid, {})
-		var vw_check: Callable = entry.get("visible_when", Callable())
-		if not vw_check.is_valid():
-			continue
-		var btn: Button = entry.get("button") as Button
-		if btn != null and is_instance_valid(btn):
-			btn.visible = bool(vw_check.call())
-
 ## Direct visibility setter for callers that already computed the boolean
 ## themselves (e.g. per-frame proximity checks).
 func set_action_visible(id: String, v: bool) -> void:
@@ -341,10 +328,6 @@ func set_action_visible(id: String, v: bool) -> void:
 	var btn: Button = entry.get("button") as Button
 	if btn != null and is_instance_valid(btn):
 		btn.visible = v
-
-func get_action_button(id: String) -> Button:
-	var entry: Dictionary = _actions.get(id, {})
-	return entry.get("button") as Button
 
 func get_zone_container(zone: String) -> Container:
 	return _zones.get(zone) as Container

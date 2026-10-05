@@ -128,10 +128,6 @@ func get_active_event_id() -> String:
 func set_event_position(id: String, pos: Vector3) -> void:
 	_event_positions[id] = pos
 
-## Retrieve the world-space spawn position for an event, or Vector3.ZERO if not set.
-func get_event_position(id: String) -> Vector3:
-	return _event_positions.get(id, Vector3.ZERO) as Vector3
-
 func _get_save_manager() -> Node:
 	if _scene_mgr == null:
 		return null

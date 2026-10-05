@@ -216,10 +216,6 @@ func set_height_fog(on: bool) -> void:
 		_apply_lighting()
 
 
-func height_fog_on() -> bool:
-	return _height_fog_on
-
-
 func weather_look() -> Dictionary:
 	return _look
 
@@ -316,11 +312,6 @@ func _tick_clouds(delta: float) -> void:
 	if not is_equal_approx(strength, _cached_cloud_strength):
 		_cached_cloud_strength = strength
 		RenderingServer.global_shader_parameter_set("cloud_shadow_strength", strength)
-
-
-## Current cloud shadow strength (0 = none), for tests.
-func cloud_strength() -> float:
-	return maxf(_cached_cloud_strength, 0.0)
 
 
 func _tick_wetness(delta: float) -> void:

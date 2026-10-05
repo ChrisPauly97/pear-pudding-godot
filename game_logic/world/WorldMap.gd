@@ -169,15 +169,6 @@ func _tile_is_crowded(tx: int, tz: int, occupied: Array[Dictionary], range_sq: f
 			return true
 	return false
 
-func find_nearby_shrine(px: float, pz: float, range_dist: float) -> Dictionary:
-	var range_sq: float = range_dist * range_dist
-	for sh in shrines:
-		var dx: float = sh["x"] - px
-		var dz: float = sh["z"] - pz
-		if dx * dx + dz * dz <= range_sq:
-			return sh
-	return {}
-
 func find_chest_by_id(chest_id: String) -> Dictionary:
 	for c in chests:
 		if c.get("id", "") == chest_id:

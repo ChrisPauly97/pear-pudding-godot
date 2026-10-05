@@ -243,7 +243,6 @@ func wire_signals() -> void:
 	GameBus.quest_progressed.connect(func(_id: String) -> void: refresh(true))
 	GameBus.quest_ready.connect(on_side_quest_ready)
 	GameBus.quest_turned_in.connect(func(_id: String) -> void: refresh(true))
-	GameBus.quest_abandoned.connect(func(_id: String) -> void: refresh(true))
 	# GID-141 / TID-590: level-up training notices and learn confirmations.
 	GameBus.training_available.connect(on_training_available)
 	GameBus.feature_learned.connect(on_feature_learned)

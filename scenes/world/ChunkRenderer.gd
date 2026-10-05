@@ -834,10 +834,6 @@ static func _apply_lit(mat: StandardMaterial3D) -> void:
 	mat.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
 
 
-static func is_lit_world() -> bool:
-	return _lit_world
-
-
 static func _get_landmark_mat(biome: int) -> StandardMaterial3D:
 	var cached: StandardMaterial3D = _landmark_mat_cache.get(biome)
 	if cached != null:

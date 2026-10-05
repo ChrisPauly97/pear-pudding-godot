@@ -277,21 +277,3 @@ static func make_close_button(vh: float, on_pressed: Callable) -> Button:
 # Rarity selector: 4 connected buttons [C][R][E][L].
 # on_select receives the chosen rarity string.
 # ---------------------------------------------------------------------------
-
-static func make_rarity_selector(current_rarity: String, ref: float, on_select: Callable) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 1)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	for rarity: String in IsoConst.RARITY_ORDER:
-		var btn := Button.new()
-		btn.text = rarity_badge(rarity)
-		btn.custom_minimum_size = Vector2(ref * 0.10, ref * 0.058)
-		btn.add_theme_font_size_override("font_size", int(ref * 0.022))
-		if rarity == current_rarity:
-			btn.modulate = rarity_color(rarity)
-		else:
-			btn.modulate = Color(0.50, 0.50, 0.50)
-		btn.pressed.connect(on_select.bind(rarity))
-		row.add_child(btn)
-		_UiFx.attach(btn)
-	return row

@@ -101,12 +101,3 @@ static func get_by_branch(branch: String) -> Array[String]:
 		if s != null and s.magic_branch == branch:
 			result.append(str(k))
 	return result
-
-static func get_by_type(skill_type: String) -> Array[String]:
-	_ensure_loaded()
-	var result: Array[String] = []
-	for k in _skills.keys():
-		var s: SkillData = _skills[k] as SkillData
-		if s != null and s.skill_type == skill_type:
-			result.append(str(k))
-	return result

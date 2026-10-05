@@ -52,16 +52,6 @@ func tick() -> void:
 		_glow = glow
 		_glass_mat.set_shader_parameter("glow", glow)
 
-func lamp_count() -> int:
-	var n: int = 0
-	if _root == null:
-		return n
-	for c: Node in _root.get_children():
-		var mmi := c as MultiMeshInstance3D
-		if mmi != null:
-			n += mmi.multimesh.instance_count
-	return n
-
 func _build() -> void:
 	_root = Node3D.new()
 	_root.name = "TownStreetLamps"

@@ -134,7 +134,6 @@ signal quest_accepted(quest_id: String)
 signal quest_progressed(quest_id: String)
 signal quest_ready(quest_id: String)
 signal quest_turned_in(quest_id: String)
-signal quest_abandoned(quest_id: String)
 
 # Mount signals
 signal mount_state_changed(mounted: bool, mount_id: String)

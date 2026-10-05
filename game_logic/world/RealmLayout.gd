@@ -150,9 +150,6 @@ static func road_distance(px: float, pz: float) -> float:
 			best = minf(best, p.distance_to(q))
 	return best
 
-static func is_road_tile(wtx: int, wtz: int) -> bool:
-	return road_distance(float(wtx), float(wtz)) <= ROAD_HALF_WIDTH
-
 ## Distance (tiles) from a tile to the nearest town rectangle or road; 0 inside.
 static func reserved_distance(wtx: int, wtz: int) -> float:
 	var best: float = maxf(0.0, road_distance(float(wtx), float(wtz)) - ROAD_HALF_WIDTH)

@@ -163,7 +163,7 @@ WoW-style NPC asks, separate from the story chain.
   `flag`, `explore`, `open` (chest id), `rift_tier`.
   A `target` of `""` matches any event of that type.
 - **Save:** `quests_active` (`{id: {"progress": [int]}}`) and `quests_completed` (`[id]`) in `PERSISTED_FIELDS`;
-  API module `autoloads/save_manager/SaveQuests.gd` (`SaveManager.quests`): `accept`, `abandon`,
+  API module `autoloads/save_manager/SaveQuests.gd` (`SaveManager.quests`): `accept`,
   `progress_event(type, target, amount)`, `is_ready`, `turn_in` (pays coins, cards, xp, sets `rewards.flag`),
   `offers_for(npc)`, `turn_ins_for(npc)`, `log_entries()`. A `flag` objective already met counts at accept.
 - **Progress hooks:** `kill` from `BattleVictory` next to each bounty `defeat_enemy_type` increment (main + joined
@@ -172,7 +172,7 @@ WoW-style NPC asks, separate from the story chain.
   `ChestLoot.open` (GID-141). `explore` and `rift_tier` are wired by the tasks that add their sources (GID-142).
 - **Starter chain** (GID-141 / TID-592): see `starter-zone-and-training.md`. Chapter 1 now opens with story step
   `help_townsfolk` (done_flag `town_quests_done`); Maiteln's Madrian NPC waits on it (`MapNpc.show_flag_key`).
-- **Signals:** `GameBus.quest_accepted / quest_progressed / quest_ready / quest_turned_in / quest_abandoned(id)`.
+- **Signals:** `GameBus.quest_accepted / quest_progressed / quest_ready / quest_turned_in(id)`.
 - **Givers (TID-534):** any NPC can give quests — no special `npc_type`. `NpcInteractions.interact()` first counts a
   `talk` event for the NPC id, then `show_quest_panel(npc)`: a ready hand-in (done_text, rewards, **Complete**) wins
   over an offer (summary, objectives, rewards, **Accept** / **Decline**). Accepting tracks the quest

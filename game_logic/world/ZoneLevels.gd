@@ -43,11 +43,6 @@ static func level_at_tile(tx: int, tz: int) -> int:
 static func level_at_world(pos: Vector3, tile_size: float) -> int:
 	return level_at_tile(int(floor(pos.x / tile_size)), int(floor(pos.z / tile_size)))
 
-## Level range shown for a zone: "Lv 3–5" style bounds around a tile.
-static func range_at_tile(tx: int, tz: int) -> Vector2i:
-	var lvl: int = level_at_tile(tx, tz)
-	return Vector2i(maxi(1, lvl - 1), lvl + 1)
-
 ## WoW "con" colour name for an enemy of `enemy_level` seen by `player_level`.
 static func con(enemy_level: int, player_level: int) -> String:
 	var gap: int = enemy_level - player_level

@@ -80,11 +80,6 @@ func accept(id: String) -> bool:
 		GameBus.quest_ready.emit(id)
 	return true
 
-func abandon(id: String) -> void:
-	if _save.quests_active.erase(id):
-		_save._dirty = true
-		GameBus.quest_abandoned.emit(id)
-
 ## Counts one (or `amount`) of an event toward every active quest objective it
 ## matches. Returns true when any progress changed.
 func progress_event(event_type: String, target: String = "", amount: int = 1) -> bool:
