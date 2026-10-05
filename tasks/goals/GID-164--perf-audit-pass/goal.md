@@ -26,7 +26,7 @@ Android is a target, so mobile render cost and per-frame GDScript work weigh mos
 | [TID-681](TID-681--backdrop-bake.md) | Bake static battle backdrop once | agent | done | — |
 | [TID-682](TID-682--town-building-batching.md) | Town buildings: shared materials, merged trim, off-main-thread build | agent | done | — |
 | [TID-683](TID-683--save-flush-cost.md) | Save flush: section-dirty copies, compact JSON, flat HMAC, .bak once per session | agent | done | — |
-| [TID-684](TID-684--deck-builder-incremental.md) | Deck builder: debounced search, persistent tiles, incremental add/remove | agent | pending | — |
+| [TID-684](TID-684--deck-builder-incremental.md) | Deck builder: debounced search, persistent tiles, incremental add/remove | agent | done | — |
 | [TID-685](TID-685--measure-and-docs.md) | Profile before/after, docs + CLAUDE.md | agent | pending | TID-672..TID-684 |
 
 ## Acceptance Criteria

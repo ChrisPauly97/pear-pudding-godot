@@ -7,6 +7,7 @@ const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const VeterancyUtil     = preload("res://game_logic/VeterancyUtil.gd")
 const BagOps            = preload("res://game_logic/inventory/BagOps.gd")
 const _CardTile         = preload("res://scenes/ui/inventory/CardTile.gd")
+const _TileCache        = preload("res://scenes/ui/inventory/TileCache.gd")
 const _CraftPanel       = preload("res://scenes/ui/inventory/CraftPanel.gd")
 const _ItemsPanel       = preload("res://scenes/ui/inventory/ItemsPanel.gd")
 
@@ -51,6 +52,9 @@ var _filter_cost: String = ""     # "" = all, "low" (0-2), "mid" (3-5), "high" (
 var _filter_rarity: String = ""   # "" = all, "common", "rare", "epic", "legendary"
 var _filter_btns: Array[Button] = []
 var _query: String = ""
+var _tiles: _TileCache = _TileCache.new()  # reused bag tiles (GID-164 / TID-684)
+var _search_timer: Timer = null  # search refresh waits for typing to pause
+var _loadout_sig: String = ""
 var _sort: String = "name"
 var _sort_btn: Button
 
@@ -250,9 +254,15 @@ func _build_toolbar(row: HBoxContainer) -> void:
 	search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	search.custom_minimum_size = Vector2(_ref * 0.16, h)
 	search.add_theme_font_size_override("font_size", int(_ref * 0.019))
+	if _search_timer == null:
+		_search_timer = Timer.new()
+		_search_timer.one_shot = true
+		_search_timer.wait_time = 0.15
+		_search_timer.timeout.connect(_refresh_cards)
+		add_child(_search_timer)
 	search.text_changed.connect(func(t: String) -> void:
 		_query = t
-		_refresh_cards())
+		_search_timer.start())
 	row.add_child(search)
 	_sort_btn = _UiUtil.make_button("", Vector2(_ref * 0.17, h), int(_ref * 0.018), _on_cycle_sort, row)
 	_sort_btn.tooltip_text = "Change the bag's sort order"
@@ -272,21 +282,26 @@ func _refresh() -> void:
 
 func _rebuild_loadout_bar() -> void:
 	var sm := SceneManager.save_manager
-	for child in _loadout_tab_row.get_children():
-		child.queue_free()
 
 	var names: Array[String] = sm.decks.get_loadout_names()
 	var active_idx: int = sm.active_loadout
 	var at_cap: bool = names.size() >= sm.MAX_LOADOUTS
+	var valid: Array[bool] = []
+	for i in range(names.size()):
+		valid.append(_working_deck.size() >= IsoConst.DECK_MIN and _working_deck.size() <= IsoConst.DECK_MAX
+				if i == active_idx else sm.decks.is_loadout_valid(i))
+	# Only rebuilt when the tabs would look different (GID-164 / TID-684).
+	var sig: String = "%s|%d|%s|%d" % [",".join(names), active_idx, str(valid), int(_ref)]
+	if sig == _loadout_sig and _loadout_tab_row.get_child_count() > 0:
+		return
+	_loadout_sig = sig
+	for child in _loadout_tab_row.get_children():
+		child.queue_free()
 
 	for i in range(names.size()):
 		var tab_btn := _UiUtil.make_button(names[i], Vector2(_ref * 0.12, _ref * 0.055), int(_ref * 0.020))
 		tab_btn.flat = true
-		var is_valid: bool
-		if i == active_idx:
-			is_valid = _working_deck.size() >= IsoConst.DECK_MIN and _working_deck.size() <= IsoConst.DECK_MAX
-		else:
-			is_valid = sm.decks.is_loadout_valid(i)
+		var is_valid: bool = valid[i]
 		if i == active_idx:
 			tab_btn.modulate = Color.WHITE if is_valid else Color(1.0, 0.35, 0.35)
 		else:
@@ -309,7 +324,8 @@ func _refresh_wallet() -> void:
 	_wallet_label.modulate = Color(1.0, 0.45, 0.45) if used >= cap else Color.WHITE
 
 func _template(tid: String) -> Dictionary:
-	return CardRegistry.get_template_for_face(tid, "dark" if CardRegistry.is_dark_aligned() else "light")
+	# Read-only cached view: sort, search and tiles only read it (GID-164 / TID-684).
+	return CardRegistry.get_template_view(tid, "dark" if CardRegistry.is_dark_aligned() else "light")
 
 ## uid -> deck name for every card sitting in a deck (saved loadouts + the
 ## working deck). Those cards are shown tagged and can't be bulk-selected.
@@ -326,6 +342,7 @@ func _refresh_cards() -> void:
 	_refresh_wallet()
 	var col_scroll: int = _collection_scroll.scroll_vertical if _collection_scroll else 0
 	var deck_scroll: int = _deck_scroll.scroll_vertical if _deck_scroll else 0
+	_tiles.detach_all()
 	for child in _collection_list.get_children():
 		child.queue_free()
 	for child in _deck_list.get_children():
@@ -364,12 +381,22 @@ func _refresh_cards() -> void:
 		grid.add_theme_constant_override("h_separation", int(_ref * 0.008))
 		grid.add_theme_constant_override("v_separation", int(_ref * 0.008))
 		_collection_list.add_child(grid)
+		var face: bool = CardRegistry.is_dark_aligned()
 		for inst: Dictionary in avail:
-			grid.add_child(_make_card_tile(inst, membership))
+			var uid: String = str(inst.get("uid", ""))
+			var sig: String = "%d|%s|%s|%s|%s|%d" % [inst.hash(), str(membership.get(uid, "")),
+					_selected.has(uid), _select_mode, face, int(_ref)]
+			var tile: Control = _tiles.take(uid, sig)
+			if tile == null:
+				tile = _make_card_tile(inst, membership)
+				_tiles.put(uid, sig, tile)
+			grid.add_child(tile)
 	else:
 		var msg: String = "Your bag is empty — cards not in a deck live here" if bag_total == 0 \
 				else "No cards match the search / filters"
 		_UiUtil.make_label(msg, int(_ref * 0.020), Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, _collection_list)
+
+	_tiles.sweep()
 
 	# ---- Deck list ----
 	if not deck_insts.is_empty():

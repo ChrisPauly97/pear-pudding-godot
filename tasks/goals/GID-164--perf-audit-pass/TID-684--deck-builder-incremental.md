@@ -2,7 +2,7 @@
 
 **Goal:** GID-164
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -26,12 +26,17 @@ Validation for every task: headless import parse check, `scripts/unsafe-hits.sh`
 
 ## Plan
 
-_Written during Plan phase._
+- Search: 0.15 s one-shot Timer restarted on each keystroke.
+- Bag tiles: new `scenes/ui/inventory/TileCache.gd` (kept out of the oversized InventoryScene) — detach before the grid is freed, reuse on equal signature (instance hash, deck tag, selected, select mode, face, size), sweep unshown. The deck list (small) still rebuilds.
+- Loadout bar: skipped when its signature is unchanged.
+- `_template()` → cached read-only `get_template_view` (sort comparator, search and tiles only read it).
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/ui/InventoryScene.gd`, `scenes/ui/inventory/TileCache.gd` (new), `.github/workflows/tests.yml` (smoke list).
+- Tests: `tests/unit/test_tile_cache.gd`; `tests/inventory_tiles_smoke.gd` (live scene: unchanged tiles reused, debounced search applies only after the pause; mutation-checked).
+- Validation: import, gdlint, unsafe-hits, 3029 passed / 0 failed, 0 SCRIPT ERROR, all smoke tests.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/inventory-and-deck.md` loadout bar + refresh cost.
