@@ -2,7 +2,7 @@
 
 **Goal:** GID-156
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-661
 
 ## Lock
@@ -42,12 +42,20 @@ data the interaction chain reads in step, and freezes a walker while the player 
 
 ## Plan
 
-_Written during Plan phase._
+Module `scenes/world/modules/TownLife.gd` drives every live NPC node that has a loop: position = `sample(t − lag)`,
+write x/z into `_active_npc_data`, flip by direction, WalkCycle child. Hold when the hero is within 2.6 u: lag grows,
+then drains at 1 s/s so the walker catches up along its route (deterministic, never through walls).
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/world/modules/TownLife.gd` (new, `WorldScene.town_life`, created in `_ensure_world_modules`).
+- `WorldScene._first_data_in_range` skips `"hidden"` entries; `Minimap._draw_group` skips invisible nodes.
+- WorldScene line-ceiling guardrail (1890): moved `_despawn_flag_hidden_npcs` into the module as
+  `despawn_flag_hidden()` (NPC presence), net WorldScene −12 lines; ChunkRenderer comment updated.
+- `tests/town_life_smoke.gd` (new, added to the CI smoke list): walkers move, data follows node, hero holds a walker,
+  finder hits it at its new spot, villagers hidden + non-interactable at night.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+CLAUDE.md modules table row; `docs/agent/enemies-and-npcs.md` (driver, talk hold); `story-implementation.md` now
+points at `town_life.despawn_flag_hidden()`.

@@ -60,6 +60,7 @@ const _Legend = preload("res://scenes/world/modules/Legend.gd")
 const _RiftPortals = preload("res://scenes/world/modules/RiftPortals.gd")
 const _WorldLook = preload("res://scenes/world/WorldLook.gd")
 const _Critters = preload("res://scenes/world/modules/Critters.gd")
+const _TownLife = preload("res://scenes/world/modules/TownLife.gd")
 const _WorldClock = preload("res://scenes/world/modules/WorldClock.gd")
 const _WorldShortcuts = preload("res://scenes/world/modules/WorldShortcuts.gd")
 const _HeroHealth = preload("res://scenes/world/modules/HeroHealth.gd")
@@ -190,6 +191,7 @@ var starter_camps: _StarterCamps = null   # modules/StarterCamps.gd (GID-141)
 var legend: _Legend = null   # modules/Legend.gd (GID-153)
 var rift_portals: _RiftPortals = null   # modules/RiftPortals.gd (GID-142)
 var critters: _Critters = null   # modules/Critters.gd (GID-147)
+var town_life: _TownLife = null   # modules/TownLife.gd (GID-156)
 var world_clock: _WorldClock = null   # modules/WorldClock.gd (BID-055)
 var shortcuts: _WorldShortcuts = null   # modules/WorldShortcuts.gd (BID-055)
 var hero_health: _HeroHealth = null   # modules/HeroHealth.gd (TID-543)
@@ -767,6 +769,7 @@ func _ensure_world_modules() -> void:
 	legend = _ensure_world_module(legend, _Legend, "Legend") as _Legend
 	rift_portals = _ensure_world_module(rift_portals, _RiftPortals, "RiftPortals") as _RiftPortals
 	critters = _ensure_world_module(critters, _Critters, "Critters") as _Critters
+	town_life = _ensure_world_module(town_life, _TownLife, "TownLife") as _TownLife
 	world_clock = _ensure_world_module(world_clock, _WorldClock, "WorldClock") as _WorldClock
 	shortcuts = _ensure_world_module(shortcuts, _WorldShortcuts, "WorldShortcuts") as _WorldShortcuts
 	hero_health = _ensure_world_module(hero_health, _HeroHealth, "HeroHealth") as _HeroHealth
@@ -1073,7 +1076,7 @@ func _first_node_in_range(nodes, px: float, pz: float, range_dist: float,
 func _first_data_in_range(table: Dictionary, px: float, pz: float, range_dist: float) -> Dictionary:
 	for key in table:
 		var d: Dictionary = table[key]
-		if _data_in_range(d, px, pz, range_dist):
+		if not d.get("hidden", false) and _data_in_range(d, px, pz, range_dist):  # indoor townsfolk (GID-156)
 			return d
 	return {}
 
@@ -1110,22 +1113,8 @@ func _find_nearby_maiteln(px: float, pz: float, range_dist: float) -> Node3D:
 func _on_story_flag_set_for_cast(_key: String) -> void:
 	story_cast.refresh_maiteln_presence()
 	story_cast.spawn_open_world_beats()
-	_despawn_flag_hidden_npcs()
+	town_life.despawn_flag_hidden()
 	quest_tracker.on_story_changed()
-
-## Removes already-spawned NPCs whose MapNpc.hide_flag_key is now set. The spawn
-## side of the same rule lives in ChunkRenderer, which skips them outright.
-func _despawn_flag_hidden_npcs() -> void:
-	for nid in _active_npc_data.keys():
-		var d: Dictionary = _active_npc_data[nid]
-		var hide_flag: String = str(d.get("hide_flag_key", ""))
-		if hide_flag == "" or not SceneManager.save_manager.get_story_flag(hide_flag):
-			continue
-		var node: Node3D = _valid_node3d(_npc_nodes.get(nid))
-		if node != null:
-			node.queue_free()
-		_npc_nodes.erase(nid)
-		_active_npc_data.erase(nid)
 
 func _find_nearby_shrine(px: float, pz: float, range_dist: float) -> Node3D:
 	return _first_node_in_range(_shrine_nodes, px, pz, range_dist)
