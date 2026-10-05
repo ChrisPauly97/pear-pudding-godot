@@ -87,6 +87,9 @@ const TIERS: Array[Dictionary] = [
 		"moon_rays": false,
 	},
 	{ # MEDIUM — the pre-GID-129 mobile look (sun shadows were already off on phones).
+		# One AA only (GID-164 / TID-672): FXAA also smooths the alpha-cut sprite
+		# edges MSAA misses, so MSAA is off here. Debanding stays — it rides the
+		# tonemap pass that already runs.
 		"sun_shadows": false,
 		"shadow_mode": DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS,
 		"shadow_atlas_size": 2048,
@@ -100,7 +103,7 @@ const TIERS: Array[Dictionary] = [
 		"ssao": false,
 		"volumetric_fog": false,
 		"glow": true,
-		"msaa_3d": Viewport.MSAA_4X,
+		"msaa_3d": Viewport.MSAA_DISABLED,
 		"particle_scale": 0.75,
 		"ambient_particles": true,
 		"sun_rays": SUN_RAYS_SCREEN,
@@ -115,7 +118,7 @@ const TIERS: Array[Dictionary] = [
 		"light_halos": true,
 		"depth_fog": false,
 		"ground_mist": true,
-		"ray_samples": 10,
+		"ray_samples": 6,
 		"moon_rays": false,
 	},
 	{ # HIGH — the pre-GID-129 desktop look plus the Forward+ extras.

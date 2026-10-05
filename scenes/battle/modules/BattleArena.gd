@@ -12,6 +12,7 @@ const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const BattleBackdrop = preload("res://scenes/battle/BattleBackdrop.gd")
+const GraphicsQuality = preload("res://game_logic/GraphicsQuality.gd")
 const BattleEffectsOverlay = preload("res://scenes/battle/BattleEffectsOverlay.gd")
 const WeatherBanner = preload("res://scenes/battle/WeatherBanner.gd")
 const Gambits = preload("res://game_logic/battle/Gambits.gd")
@@ -47,7 +48,12 @@ func _setup_backdrop() -> void:
 		return
 	var biome: int = _battle._state.battlefield_biome if _battle._state != null else BattleBackdrop.NEUTRAL
 	var night: bool = _battle._state.is_night if _battle._state != null else false
-	BattleBackdrop.apply(bg, biome, night)
+	# Below High the backdrop is drawn once, not every frame (GID-164 / TID-681).
+	var tier: int = GraphicsQuality.tier_from_setting(SceneManager.save_manager.get_setting(
+			GraphicsQuality.SETTING_KEY, null), GraphicsQuality.is_mobile_platform())
+	BattleBackdrop.apply(bg, biome, night, tier == GraphicsQuality.HIGH)
+	if tier != GraphicsQuality.HIGH:
+		BattleBackdrop.bake(bg)
 
 ## Adds a persistent compact label in SidePanel showing biome name and day/night indicator.
 func _add_battlefield_info_label() -> void:

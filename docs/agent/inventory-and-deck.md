@@ -405,7 +405,8 @@ SaveManager.decks.is_loadout_valid(index: int) -> bool
 A **loadout tab row** and **action row** sit above the `_deck_count_label` in the deck panel.
 
 **Tab row** (`_loadout_tab_row: HBoxContainer`):
-- One flat `Button` per loadout, rebuilt on every `_refresh_cards()` call via `_rebuild_loadout_bar()`.
+- One flat `Button` per loadout, built by `_rebuild_loadout_bar()` from `_refresh_cards()` — skipped when the tab signature (names, active index, validity, size) is unchanged (GID-164 / TID-684).
+- **Refresh cost (TID-684):** bag tiles are reused across refreshes through `scenes/ui/inventory/TileCache.gd` (detached before the old grid is freed; rebuilt only when the instance hash, deck tag, selection, select mode, face or size changes; swept when no longer shown); search refreshes 0.15 s after typing pauses (`_search_timer`); `_template()` reads the cached read-only `CardRegistry.get_template_view`. Covered by `tests/inventory_tiles_smoke.gd` (in CI).
 - Active tab: `modulate = Color.WHITE`; inactive: `Color(0.7, 0.7, 0.7)`.
 - Invalid loadout (< DECK_MIN or > DECK_MAX): red tint (`Color(1.0, 0.35, 0.35)` active, darker for inactive). The active tab uses `_working_deck.size()` so it reflects in-flight edits immediately.
 - "+" button appended after the tabs; `disabled = true` when at `MAX_LOADOUTS` (5).

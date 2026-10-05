@@ -33,6 +33,7 @@ void fragment() {
 
 
 const _MINIMAP_UPDATE_EVERY: int = 4   # render every 4th frame (~15 Hz at 60 fps)
+const _DOTS_UPDATE_EVERY: int = 2      # entity dots every 2nd frame (~30 Hz) — GID-164 / TID-677
 
 var _mini_cam: Camera3D
 var _mini_viewport: SubViewport
@@ -196,7 +197,7 @@ func update() -> void:
 		_minimap_frame_counter = 0
 		if _mini_viewport:
 			_mini_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
-	if _dot_layer:
+	if _dot_layer and _minimap_frame_counter % _DOTS_UPDATE_EVERY == 0:
 		_dot_layer.queue_redraw()
 
 

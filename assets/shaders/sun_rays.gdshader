@@ -26,7 +26,7 @@ uniform float intensity = 0.32;
 // Luminance around which a screen pixel counts as lit (not an occluder).
 // SunRaysFx lowers it for moon rays, where the whole screen is dark.
 uniform float lit_threshold = 0.35;
-// Occlusion taps (GID-130 / TID-496): GraphicsQuality `ray_samples`, 10 on
+// Occlusion taps (GID-130 / TID-496): GraphicsQuality `ray_samples`, 6 on
 // Medium, 16 on High. More taps = finer breaks behind canopies and cliffs.
 uniform int samples : hint_range(1, 24) = 10;
 

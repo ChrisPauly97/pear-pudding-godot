@@ -158,6 +158,8 @@ func test_edge_smoothing_applied_to_viewport() -> void:
 	GQ.apply(GQ.knobs_for(GQ.MEDIUM, "mobile"), null, null, vp)
 	assert_eq(vp.screen_space_aa, Viewport.SCREEN_SPACE_AA_FXAA, "phones get FXAA on Medium")
 	assert_true(vp.use_debanding, "phones get debanding on Medium")
+	assert_eq(int(GQ.knobs_for(GQ.MEDIUM, "mobile")["msaa_3d"]), Viewport.MSAA_DISABLED,
+			"Medium runs one AA (FXAA), not MSAA on top")
 	GQ.apply(GQ.knobs_for(GQ.HIGH, "mobile"), null, null, vp)
 	assert_false(vp.use_taa, "TAA is Forward+ only")
 	GQ.apply(GQ.knobs_for(GQ.HIGH, "forward_plus"), null, null, vp)

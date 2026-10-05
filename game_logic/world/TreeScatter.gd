@@ -46,7 +46,7 @@ static func chance_at(biome: int, wtx: int, wtz: int, world_seed: int) -> float:
 
 static func compute(chunk_data: _ChunkData, grid_tile_lookup: Callable, hfield: PackedFloat32Array,
 		chunk_origin: Vector3, nvx: int, world_seed: int,
-		dry_points: PackedVector2Array = PackedVector2Array()) -> Dictionary:
+		dry_points: _WaterMath.DryGrid = null) -> Dictionary:
 	var result: Dictionary = {}
 	var biome: int = chunk_data.biome_id
 	if biome < 0 or biome >= BiomeDef.TREE_SETS.size():

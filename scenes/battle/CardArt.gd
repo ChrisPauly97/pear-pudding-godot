@@ -9,7 +9,7 @@ const CardFace = preload("res://scenes/ui/CardFace.gd")
 const NODE_NAME := "IllustrationRect"
 
 static func texture_for(card: CardInstance) -> Texture2D:
-	var tmpl: Dictionary = CardRegistry.get_template_for_face(card.template_id, card.active_face)
+	var tmpl: Dictionary = CardRegistry.get_template_view(card.template_id, card.active_face)
 	return tmpl.get("illustration") as Texture2D
 
 ## Adds, swaps or hides the art on a (possibly reused) card vbox to match
@@ -19,7 +19,7 @@ static func apply(vbox: VBoxContainer, card: CardInstance, art_h: float, card_h:
 	set_texture(vbox, texture_for(card), art_h)
 	var art: TextureRect = vbox.get_node_or_null(NODE_NAME) as TextureRect
 	if art != null and card_h > 0.0:
-		var tmpl: Dictionary = CardRegistry.get_template_for_face(card.template_id, card.active_face)
+		var tmpl: Dictionary = CardRegistry.get_template_view(card.template_id, card.active_face)
 		CardFace.set_art_background(art, str(tmpl.get("magic_branch", card.magic_branch)), card_h)
 
 static func set_texture(vbox: VBoxContainer, illus: Texture2D, art_h: float) -> void:

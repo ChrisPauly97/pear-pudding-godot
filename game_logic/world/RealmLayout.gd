@@ -251,7 +251,11 @@ static func stamp_context(cx: int = 0, cz: int = 0, whole_chunk: bool = false) -
 	for k: Variant in TOWNS.keys():
 		var r: Rect2i = world_rect(str(k))
 		if not whole_chunk or area.intersects(r):
-			towns.append([str(k), r])
+			# Per-town lookups resolved once per context, not per tile (GID-164 / TID-675).
+			var town: String = str(k)
+			var bp: Dictionary = building_plan(town)
+			var sp: Dictionary = street_plan(town)
+			towns.append([town, r, town_map(town), offset_of(town), bp["heights"], sp["tiles"]])
 	var segs: Array = []
 	for road: Array in ROADS:
 		for i: int in range(road.size() - 1):
@@ -274,13 +278,13 @@ static func stamp_tile_in(ctx: Dictionary, wtx: int, wtz: int, noise_tile: int, 
 		var r: Rect2i = entry[1]
 		if not r.has_point(p):
 			continue
-		var town: String = entry[0]
-		var wm: _WorldMap = town_map(town)
-		var local: Vector2i = to_local_tile(town, p)
+		var wm: _WorldMap = entry[2]
+		var off: Vector2i = entry[3]
+		var local: Vector2i = p - off
 		var tile: int = wm.get_tile(local.x, local.y)
-		var raised: Dictionary = building_plan(town)["heights"]
+		var raised: Dictionary = entry[4]
 		var levels: int = int(raised.get(local, 0))
-		var streets: Dictionary = street_plan(town)["tiles"]
+		var streets: Dictionary = entry[5]
 		if tile == IsoConst.TILE_GRASS and streets.has(local):
 			tile = IsoConst.TILE_PATH
 		return Vector2i(tile, levels if levels > 0 else wm.get_height(local.x, local.y))

@@ -55,7 +55,7 @@ Every mutating method (`add_card`, `update_position`, `mark_enemy_defeated`, etc
 
 ### Background (Async) Flush
 
-The batched flush is **asynchronous** — a full save is a multi-hundred-KB pretty-printed JSON plus an HMAC-SHA256 signature, a payload-escaping outer stringify, a `.bak` copy, and an atomic tmp-rename. Doing that on the main thread caused visible gameplay hitches (worst around chest openings, where every loot pickup re-dirties the save). The split:
+The batched flush is **asynchronous** — a full save is a multi-hundred-KB JSON (compact since GID-164 / TID-683; it was tab-indented) plus an HMAC-SHA256 signature, a payload-escaping outer stringify, a `.bak` rotation (a rename since TID-683, was a file copy), and an atomic tmp-rename. Doing that on the main thread caused visible gameplay hitches (worst around chest openings, where every loot pickup re-dirties the save). The split:
 
 - `_flush_if_dirty()` (2 s timer) → `_save_async()`: deep-copies the state snapshot on the main thread (`_collect_save_data().duplicate(true)` — mutation-safe), then runs `_write_save_payload()` on a `WorkerThreadPool` task. `_async_save_task` holds the task id; only one background write runs at a time (if one is still in flight, the flag stays set and the next tick retries).
 - `save()` (public, synchronous): used by explicit save points — scene transitions, battle end, pause menu. Waits for any in-flight background write (`_await_async_save()`), then writes inline. Never two writers on the same slot's tmp file.
@@ -139,7 +139,7 @@ Adding a version: bump `CURRENT_VERSION`, append one row, and add the field to
 |---|---|
 | `autoloads/SaveManager.gd` | Persisted fields + `PERSISTED_FIELDS`, slot API, load/save/flush, core mutators (cards, equipment, story flags, XP, settings, progress) |
 | `game_logic/save/SaveMigrations.gd` | Migration table, `CURRENT_VERSION` |
-| `game_logic/save/SaveFile.gd` | Slot paths, HMAC envelope (`hmac`, `read_json`), atomic `write_slot` (tmp → `.bak` → rename). Static and thread-safe |
+| `game_logic/save/SaveFile.gd` | Slot paths, HMAC envelope (`hmac`, `read_json`), atomic `write_slot` (write tmp → rename save to `.bak` → rename tmp to save), `existing_path(slot)` (save else `.bak` — `has_save_slot` / `get_slot_metadata` fall back to it like `load_save`, covering a crash between the renames). Static and thread-safe |
 | `autoloads/save_manager/SaveGarden.gd` (`garden`) | Garden plots, seeds / plants / potions |
 | `autoloads/save_manager/SaveBounties.gd` (`bounties`) | Daily bounty refresh, accept, progress, claim |
 | `autoloads/save_manager/SaveLoadouts.gd` (`decks`) | Named deck loadouts |

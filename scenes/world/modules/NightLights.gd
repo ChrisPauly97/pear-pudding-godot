@@ -37,6 +37,9 @@ const DOT_TOWARD_CAMERA := Vector3(0.23, 0.23, 0.23)
 const HALO_SCALE: float = 0.9
 const HALO_ENERGY: float = 0.35
 
+const ENERGY_PARAM := &"energy"
+
+
 class Rig:
 	var root: Node3D
 	var pool: MeshInstance3D
@@ -48,6 +51,10 @@ class Rig:
 	var style: Dictionary = {}
 	var phase: float = 0.0
 	var follow: Variant = null  # a moving source (a guard's lantern) the rig tracks each frame
+	## Last values pushed by _apply_flicker (GID-164 / TID-677): steady lights
+	## (flicker 0) and a settled night factor then write nothing per frame.
+	var shown_f: float = -1.0
+	var shown_night: float = -1.0
 
 static var _pool_mesh: SphereMesh
 static var _dot_mesh: QuadMesh
@@ -239,18 +246,22 @@ func _place_rig(rig: Rig, ground: Vector3, with_pool: bool) -> void:
 	rig.omni.position = Vector3(0.0, height, 0.0)
 	rig.omni.light_color = col
 	rig.omni.omni_range = radius
-	_apply_flicker(rig)
+	_apply_flicker(rig, true)
 
 
-func _apply_flicker(rig: Rig) -> void:
+func _apply_flicker(rig: Rig, force: bool = false) -> void:
 	var st: Dictionary = rig.style
 	var f: float = _NightLightMath.flicker(_time, rig.phase, float(st["flicker"]), float(st["speed"]))
+	if not force and f == rig.shown_f and _night == rig.shown_night:
+		return
+	rig.shown_f = f
+	rig.shown_night = _night
 	var e: float = float(st["energy"]) * f * _night
 	if rig.pool.visible:
-		rig.pool_mat.set_shader_parameter("energy", e)
+		rig.pool_mat.set_shader_parameter(ENERGY_PARAM, e)
 	var col: Color = st["color"]
 	rig.dot_mat.albedo_color = Color(col.r, col.g, col.b, clampf(_night * f, 0.0, 1.0))
 	if rig.halo.visible:
-		rig.halo_mat.set_shader_parameter("energy", e * HALO_ENERGY)
+		rig.halo_mat.set_shader_parameter(ENERGY_PARAM, e * HALO_ENERGY)
 	if rig.omni.visible:
 		rig.omni.light_energy = e * 2.0

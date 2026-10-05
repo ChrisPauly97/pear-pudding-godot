@@ -57,6 +57,10 @@ func _run() -> Array[String]:
 		var n: Node3D = nodes[id]
 		if n.global_position.distance_to(start[id] as Vector3) > 0.5:
 			moved += 1
+			# TownLife steps the walk cycle itself (GID-164 / TID-676).
+			var wc: Node = n.get_node_or_null("TownWalk")
+			if wc != null and wc.is_processing():
+				fails.append("%s walk cycle still self-processing" % id)
 		var d: Dictionary = data[id]
 		if absf(float(d["x"]) - n.global_position.x) > 0.01 or absf(float(d["z"]) - n.global_position.z) > 0.01:
 			fails.append("%s interaction data lags its node" % id)
@@ -88,4 +92,34 @@ func _run() -> Array[String]:
 			fails.append("%s still out at night" % id)
 		if not bool((data[id] as Dictionary).get("hidden", false)):
 			fails.append("%s interactable while indoors" % id)
+	fails.append_array(await _check_roof_fade(ws))
 	return fails
+
+
+## GID-164 / TID-682: roofs built off-thread landed, fade out with the hero
+## inside and back in outside, ending on the shared opaque materials.
+func _check_roof_fade(ws: Node) -> Array[String]:
+	var out: Array[String] = []
+	var view: Object = (ws.get("realm_regions") as Object).get("buildings")
+	var roofs: Array = view.get("_roofs") if view != null else []
+	if roofs.is_empty():
+		return ["no town roofs built"]
+	var r: Dictionary = roofs[0]
+	var rect: Rect2i = r["rect"]
+	var player: Node3D = ws.get("_player")
+	var inside := Vector2(rect.get_center()) * 2.0 + Vector2(1.0, 1.0)
+	player.global_position = Vector3(inside.x, player.global_position.y, inside.y)
+	await _wait(700)
+	var roof: MeshInstance3D = r["roof"]
+	if roof.visible:
+		out.append("roof still drawn with the hero inside")
+	player.global_position = Vector3(inside.x + 60.0, player.global_position.y, inside.y + 60.0)
+	await _wait(700)
+	if not roof.visible:
+		out.append("roof not back with the hero outside")
+	var shared: Array = r["shared"]
+	if not is_same(roof.get_surface_override_material(0), shared[0]):
+		out.append("roof left on a private fade material")
+	if (shared[0] as BaseMaterial3D).transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
+		out.append("shared roof material turned transparent")
+	return out

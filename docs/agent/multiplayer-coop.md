@@ -1708,7 +1708,7 @@ loot" framing.
 - **Resume / late-join:** `_coop_apply_world_progress(defeated, opened)` removes already-
   resolved nodes. The host applies it from the session state in `_setup_session`; a joining
   client applies the `recv_world_snapshot` the host sends right after the identity handshake.
-- **Position stream:** `_broadcast_enemy_positions` (host, 5 Hz) + `_interp_synced_enemies`
+- **Position stream:** `_broadcast_enemy_positions` (host, 5 Hz; since GID-164 / TID-678 only enemies that moved ≥ `ENEMY_MOVE_EPS` 0.05 since their last send, plus a full resync every `ENEMY_RESYNC_SECONDS` 3 s) + `_interp_synced_enemies` (drops a target once within `ENEMY_ARRIVE_EPS`)
   (clients) — a genuine path, inert while all enemies are static (target == spawn position).
 - **Persistence target:** the GID-095 `SessionState.defeated_enemies` / `opened_chests`
   via `SessionStore` — **never** `save.json`. Single-player (no session) hits none of this:

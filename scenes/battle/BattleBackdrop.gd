@@ -239,6 +239,42 @@ static func apply(bg: ColorRect, biome: int, is_night: bool, animate: bool = tru
 	bg.material = mat
 
 
+## Low/Medium (GID-164 / TID-681): render the backdrop once into a SubViewport
+## and show that texture, instead of running the per-pixel shader every frame.
+## The clock is frozen (no sway); the bake is redone whenever `bg` resizes, so
+## SCREEN_PIXEL_SIZE inside the viewport still matches the screen.
+static func bake(bg: ColorRect) -> void:
+	var mat := bg.material as ShaderMaterial if bg != null else null
+	if mat == null:
+		return
+	mat.set_shader_parameter("anim", 0.0)
+	var vp := SubViewport.new()
+	vp.name = "BackdropBake"
+	vp.disable_3d = true
+	vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+	var rect := ColorRect.new()
+	rect.color = bg.color
+	rect.material = mat
+	vp.add_child(rect)
+	var shown := TextureRect.new()
+	shown.name = "BackdropBaked"
+	shown.set_anchors_preset(Control.PRESET_FULL_RECT)
+	shown.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shown.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	shown.stretch_mode = TextureRect.STRETCH_SCALE
+	shown.texture = vp.get_texture()
+	bg.add_child(vp)
+	bg.add_child(shown)
+	bg.material = null
+	var sync := func() -> void:
+		var sz := Vector2i(maxi(1, int(bg.size.x)), maxi(1, int(bg.size.y)))
+		vp.size = sz
+		rect.size = Vector2(sz)
+		vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+	sync.call()
+	bg.resized.connect(sync)
+
+
 ## Mean colour of a ground texture, desaturated the same way the shader
 ## desaturates its samples, as a Vector3. Detail fades to this rather than to
 ## the aliased texel soup a minified 16x16 tile would give — measuring it beats

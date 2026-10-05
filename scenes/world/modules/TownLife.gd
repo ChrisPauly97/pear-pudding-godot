@@ -31,12 +31,20 @@ const WALK_NODE: String = "TownWalk"
 ## have; they just step coarsely while nobody can see them.
 const FAR_RADIUS: float = 40.0
 const FAR_EVERY: int = 6
+## Seconds between siege-town re-reads and record pruning.
+const SLOW_INTERVAL: float = 1.0
 
 var _world: _WorldScene = null
 var _plans: Dictionary = {}  # town → {npc id → walker}
 var _lag: Dictionary = {}    # npc id → seconds behind the clock
 var _skipped: Dictionary = {}  # npc id → seconds not yet driven (far walkers)
 var _frame: int = 0
+## Per-NPC lookups resolved once per spawned node (GID-164 / TID-676):
+## npc id → {"node" (raw, may be freed), "w" walker ({} = stays put), "town",
+## "shift", "sprite", "walk"}. Rebuilt when the id's node changes.
+var _recs: Dictionary = {}
+var _besieged: String = ""
+var _slow_left: float = 0.0
 
 
 ## The walker loop for `npc_id` ({} when that NPC stays put).
@@ -84,30 +92,71 @@ func _process(delta: float) -> void:
 	var tod: float = _world._dnc.get_time_of_day()
 	var t: float = tod * _world.day_duration
 	var hero: Vector3 = _world._player.global_position
-	var besieged: String = _siege_town()
+	_slow_left -= delta
+	if _slow_left <= 0.0:
+		_slow_left = SLOW_INTERVAL
+		_besieged = _siege_town()
+		_prune_recs()
 	_frame += 1
 	var slot: int = 0
 	for nid: Variant in _world._npc_nodes:
-		var id: String = str(nid)
-		var w: Dictionary = walker(id)
+		var raw: Variant = _world._npc_nodes[nid]
+		var rec: Dictionary = _recs.get(nid, {})
+		if rec.is_empty() or not is_same(rec["node"], raw):
+			rec = _make_rec(str(nid), raw)
+			_recs[nid] = rec
+		var w: Dictionary = rec["w"]
 		if w.is_empty():
 			continue
-		var node: Node3D = _world._valid_node3d(_world._npc_nodes[nid])
+		var node: Node3D = _world._valid_node3d(raw)
 		if node == null or not node.is_inside_tree():
 			continue
 		slot += 1
+		var id: String = str(nid)
 		var dt: float = delta + float(_skipped.get(id, 0.0))
 		var p: Vector3 = node.global_position
 		if Vector2(hero.x - p.x, hero.z - p.z).length_squared() > FAR_RADIUS * FAR_RADIUS \
 				and (slot + _frame) % FAR_EVERY != 0:
 			_skipped[id] = dt
 			continue
-		_skipped.erase(id)
-		var out: bool = _TownLife.is_out(str(w["role"]), tod) and id.get_slice(":", 0) != besieged
-		_drive(id, node, w, t, out, hero, dt)
+		if dt != delta:
+			_skipped.erase(id)
+		var out: bool = _TownLife.is_out(str(w["role"]), tod) and str(rec["town"]) != _besieged
+		_drive(id, node, rec, t, out, hero, dt)
 
 
-func _drive(id: String, node: Node3D, w: Dictionary, t: float, out: bool, hero: Vector3, delta: float) -> void:
+## The cached lookups for one spawned NPC node.
+func _make_rec(id: String, raw: Variant) -> Dictionary:
+	var rec: Dictionary = {"node": raw, "w": walker(id), "sprite": null, "walk": null}
+	var w: Dictionary = rec["w"]
+	if w.is_empty():
+		return rec
+	var town: String = id.get_slice(":", 0)
+	rec["town"] = town
+	rec["shift"] = _RealmLayout.world_shift(town)
+	var node: Node3D = _world._valid_node3d(raw)
+	if node != null:
+		var sprite: Sprite3D = _sprite_of(node)
+		rec["sprite"] = sprite
+		if sprite != null:
+			var walk: Node = node.get_node_or_null(WALK_NODE)
+			if walk == null:
+				walk = _WalkCycle.for_sprite(sprite, WALK_NODE)
+				node.add_child(walk)
+			walk.set_process(false)  # stepped from _drive
+			var wc: _WalkCycle = walk as _WalkCycle
+			rec["walk"] = wc if wc != null and wc.has_tracks() else null
+	return rec
+
+
+func _prune_recs() -> void:
+	for nid: Variant in _recs.keys():
+		if not _world._npc_nodes.has(nid):
+			_recs.erase(nid)
+
+
+func _drive(id: String, node: Node3D, rec: Dictionary, t: float, out: bool, hero: Vector3, delta: float) -> void:
+	var w: Dictionary = rec["w"]
 	var data: Dictionary = _world._active_npc_data.get(id, {})
 	var to_hero := Vector2(hero.x - node.global_position.x, hero.z - node.global_position.z)
 	var held: bool = out and node.visible and to_hero.length() <= HOLD_RADIUS
@@ -115,17 +164,18 @@ func _drive(id: String, node: Node3D, w: Dictionary, t: float, out: bool, hero: 
 	lag = minf(lag + delta, MAX_LAG) if held else maxf(lag - delta, 0.0)
 	_lag[id] = lag
 	var s: Dictionary = _TownLife.sample(w, t - lag)
-	var shift: Vector2 = _RealmLayout.world_shift(id.get_slice(":", 0))
+	var shift: Vector2 = rec["shift"]
 	var pos: Vector2 = (s["pos"] as Vector2) + shift
 	node.global_position = Vector3(pos.x, _world.get_terrain_height(pos.x, pos.y), pos.y)
 	data["x"] = pos.x
 	data["z"] = pos.y
 	data["hidden"] = not out
-	var sprite: Sprite3D = _sprite_of(node)
-	if sprite == null:
+	if not is_instance_valid(rec["sprite"]):
 		return
-	if node.get_node_or_null(WALK_NODE) == null:
-		node.add_child(_WalkCycle.for_sprite(sprite, WALK_NODE))
+	var sprite: Sprite3D = rec["sprite"]
+	if is_instance_valid(rec["walk"]):
+		var walk: _WalkCycle = rec["walk"]
+		walk.tick(delta)
 	if held:
 		sprite.flip_h = _CritterDef.faces_left(Vector3(to_hero.x, 0.0, to_hero.y))
 	elif bool(s["moving"]):

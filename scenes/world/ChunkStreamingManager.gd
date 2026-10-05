@@ -18,6 +18,7 @@ const TerrainMath      = preload("res://game_logic/TerrainMath.gd")
 const _ChunkData       = preload("res://game_logic/world/ChunkData.gd")
 const _WorldMap        = preload("res://game_logic/world/WorldMap.gd")
 const _WorldScene      = preload("res://scenes/world/WorldScene.gd")
+const _WaterMath       = preload("res://game_logic/world/WaterMath.gd")
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 const LOAD_RADIUS:        int = 6
@@ -31,6 +32,9 @@ const MAX_KICKS_PER_FRAME: int = 2
 # ── Chunk lifecycle state ──────────────────────────────────────────────────────
 var _chunk_data_cache: Dictionary = {}        # Vector2i -> ChunkData (RefCounted)
 var _chunk_renderers: Dictionary = {}         # Vector2i -> ChunkRenderer
+# Water clearance per chunk for gameplay probes (GID-164 / TID-674): built on the
+# first `water_at_world` into the chunk, dropped with its data / on tile edits.
+var _dry_cache: Dictionary = {}               # Vector2i -> WaterMath.DryGrid
 var _chunk_data_pending: Dictionary = {}      # Vector2i -> true (job in flight)
 var _chunk_build_results: Array[Dictionary] = []
 var _chunk_build_mutex: Mutex = Mutex.new()
@@ -183,6 +187,16 @@ func get_height_global(wtx: int, wtz: int) -> int:
 		return _world_map.get_height(wtx, wtz)
 	return _chunk_for_tile(wtx, wtz).get_height(posmod(wtx, IsoConst.CHUNK_SIZE), posmod(wtz, IsoConst.CHUNK_SIZE))
 
+## The chunk's water clearance (same points the mesh was baked with), cached.
+func dry_grid_for(key: Vector2i, cd: _ChunkData) -> _WaterMath.DryGrid:
+	var g: _WaterMath.DryGrid = _dry_cache.get(key) as _WaterMath.DryGrid
+	if g == null:
+		var snap: Array = snapshot_tile_grid_for(key)
+		g = _WaterMath.chunk_context(ChunkRenderer.water_dry_points(
+				cd, snap[0], int(snap[2]), int(snap[3]), int(snap[4])), key.x, key.y)
+		_dry_cache[key] = g
+	return g
+
 ## Builds the packed tile-grid snapshot needed by ChunkRenderer.prepare_terrain().
 ## Returns [tile_grid, height_grid, grid_min_x, grid_min_z, grid_w].
 func snapshot_tile_grid_for(key: Vector2i) -> Array:
@@ -313,6 +327,7 @@ func rebuild_terrain_around_tile(tx: int, tz: int) -> void:
 	for dz in range(-1, 2):
 		for dx in range(-1, 2):
 			var key := Vector2i(cx + dx, cz + dz)
+			_dry_cache.erase(key)
 			var renderer: ChunkRenderer = _chunk_renderers.get(key) as ChunkRenderer
 			if renderer == null:
 				continue
@@ -424,6 +439,7 @@ func _update_chunks(player_pos: Vector3, camera_frustum: Array[Plane], look_dir:
 			cache_keys_to_remove.append(typed_key)
 	for key in cache_keys_to_remove:
 		_chunk_data_cache.erase(key)
+		_dry_cache.erase(key)
 
 	_last_player_chunk = player_chunk
 	if _is_infinite and _hq_center != player_chunk:
@@ -544,6 +560,7 @@ func _commit_chunk_results() -> void:
 	for gkey: Variant in generated:
 		if not _chunk_data_cache.has(gkey):
 			_chunk_data_cache[gkey] = generated[gkey]
+	_dry_cache.erase(key)  # entity points (doors, landmarks) may be new
 	var cur: _ChunkData = _chunk_data_cache.get(key) as _ChunkData
 	if cur != null and cur.has_entities:
 		result["chunk_data"] = cur
@@ -577,6 +594,7 @@ func _build_chunk_sync(key: Vector2i) -> void:
 		else:
 			_chunk_data_cache[key] = _world_map.get_chunk_data(key.x, key.y)
 	var chunk: _ChunkData = _chunk_data_cache[key]
+	_dry_cache.erase(key)
 	var terrain_res: Dictionary = ChunkRenderer.prepare_terrain(chunk, snap[0], snap[1], snap[2], snap[3], snap[4],
 			_world_seed)
 	var renderer: ChunkRenderer = ChunkRenderer.new()

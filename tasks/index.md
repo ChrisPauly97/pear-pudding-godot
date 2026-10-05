@@ -167,6 +167,7 @@
 | [GID-161](goals/GID-161--typed-calls/goal.md) | Codebase Cleanup — Typed Calls | done | 1 / 1 |
 | [GID-162](goals/GID-162--measured-perf-pass/goal.md) | Measured Perf Pass — Streaming Spikes, Leaks, Steady Costs | done | 1 / 1 |
 | [GID-163](goals/GID-163--chunk-gen-off-main-thread/goal.md) | Chunk Generation Off the Main Thread (BID-088) | done | 1 / 1 |
+| [GID-164](goals/GID-164--perf-audit-pass/goal.md) | Perf Audit Pass — Mobile Rendering, Chunk Water, Per-Frame Modules, Battle UI, Save | done | 14 / 14 |
 
 ## Backlog
 
@@ -180,6 +181,8 @@ files in `tasks/archive/backlog/`.
 | [BID-061](backlog/BID-061--spec-says-no-xp-system.md) | Spec says "No XP system planned" but XP/levels/skill points shipped (GID-030) | spec-gap | Tracked by TID-539 |
 | [BID-079](backlog/BID-079--spec-four-card-types.md) | Spec still lists four card types | spec-gap | GID-151 research |
 | [BID-081](backlog/BID-081--no-water-in-towns.md) | No water in named maps / towns; no bridges | content-gap | GID-152 research |
+| [BID-089](backlog/BID-089--no-battle-ui-profiler.md) | No profiler for battle / UI / save paths | doc-gap | GID-164 research |
+| [BID-090](backlog/BID-090--remaining-world-frame-costs.md) | Remaining per-frame world costs after GID-164 (enemy walk cycles, NPC marks) | code-smell | GID-164 / TID-685 |
 
 ## Resolved Backlog
 

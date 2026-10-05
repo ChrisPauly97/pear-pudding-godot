@@ -45,10 +45,65 @@ const LILY_CHANCE: float = 0.3
 ## Lily pads float at the lowered water surface, not the bank height.
 const LILY_SINK: float = 0.18
 
+## A chunk tile farther than this (tiles) from the chunk's centre tile can't
+## exist; used to prove a whole chunk sits beyond the realm dry fade (TID-673).
+const CHUNK_REACH_TILES: float = 13.0
+
 static var _stream: FastNoiseLite = null
 static var _pond: FastNoiseLite = null
 static var _seed: int = -1
 static var _mutex := Mutex.new()
+
+## Structure clearance for one chunk (GID-164 / TID-673): the dry points bucketed
+## into DRY_RADIUS + DRY_FADE cells, so a lookup scans the 3×3 cells around a
+## point instead of every point — exact, since anything farther fades to 1.
+## `realm_clear` is true when the whole chunk is provably beyond the stitched
+## towns' / roads' dry fade, so `intensity` can skip `reserved_distance`.
+class DryGrid:
+	var cells: Dictionary = {}  # Vector2i -> PackedVector2Array
+	var realm_clear: bool = false
+
+	func _init(points: PackedVector2Array = PackedVector2Array()) -> void:
+		var cell: float = DRY_RADIUS + DRY_FADE
+		for q: Vector2 in points:
+			var k := Vector2i(floori(q.x / cell), floori(q.y / cell))
+			var arr: PackedVector2Array = cells.get(k, PackedVector2Array())
+			arr.append(q)
+			cells[k] = arr
+
+	## Same value as `WaterMath.structure_fade` over the original points.
+	func fade(wx: float, wz: float) -> float:
+		if cells.is_empty():
+			return 1.0
+		var reach: float = DRY_RADIUS + DRY_FADE
+		var p := Vector2(wx, wz)
+		var cx: int = floori(wx / reach)
+		var cz: int = floori(wz / reach)
+		var best: float = INF
+		for dz: int in range(-1, 2):
+			for dx: int in range(-1, 2):
+				var k := Vector2i(cx + dx, cz + dz)
+				if not cells.has(k):
+					continue
+				var arr: PackedVector2Array = cells[k]
+				for q: Vector2 in arr:
+					best = minf(best, p.distance_squared_to(q))
+		if best >= reach * reach:
+			return 1.0
+		return smoothstep(DRY_RADIUS, reach, sqrt(best))
+
+
+## The water context for chunk (cx, cz): bucketed dry points plus the
+## realm-clear proof (reserved distance is 1-Lipschitz over tiles, and the
+## realm fade is flat 1 past REALM_DRY_TILES).
+static func chunk_context(points: PackedVector2Array, cx: int, cz: int) -> DryGrid:
+	var g := DryGrid.new(points)
+	var half: int = IsoConst.CHUNK_SIZE / 2
+	var d: float = RealmLayout.reserved_distance(cx * IsoConst.CHUNK_SIZE + half, cz * IsoConst.CHUNK_SIZE + half)
+	g.realm_clear = d > REALM_DRY_TILES + CHUNK_REACH_TILES
+	return g
+
+
 
 
 static func biome_has_water(biome_id: int) -> bool:
@@ -56,7 +111,7 @@ static func biome_has_water(biome_id: int) -> bool:
 
 
 ## 0 (dry) .. 1 (middle of a stream or pond) at world (wx, wz).
-static func intensity(wx: float, wz: float, world_seed: int) -> float:
+static func intensity(wx: float, wz: float, world_seed: int, realm_clear: bool = false) -> float:
 	_ensure(world_seed)
 	var s: float = absf(_stream.get_noise_2d(wx, wz))
 	var stream: float = clampf(1.0 - s / STREAM_WIDTH, 0.0, 1.0)
@@ -65,6 +120,8 @@ static func intensity(wx: float, wz: float, world_seed: int) -> float:
 	var w: float = maxf(stream, pond)
 	if w <= 0.0:
 		return 0.0
+	if realm_clear:
+		return w
 	# Stitched story towns and their roads stay dry (GID-138).
 	var ts: float = IsoConst.TILE_SIZE
 	var d: float = RealmLayout.reserved_distance(int(floor(wx / ts)), int(floor(wz / ts)))
@@ -88,12 +145,21 @@ static func is_wet(wx: float, wz: float, world_seed: int) -> bool:
 
 
 ## Water after keeping clear of structures (what the terrain actually draws).
-static func water_at(wx: float, wz: float, world_seed: int, dry_points: PackedVector2Array) -> float:
-	return intensity(wx, wz, world_seed) * structure_fade(wx, wz, dry_points)
+## `dry` null = no structures nearby. Dry ground skips the clearance scan (TID-673).
+static func water_at(wx: float, wz: float, world_seed: int, dry: DryGrid) -> float:
+	var clear: bool = dry != null and dry.realm_clear
+	var w: float = intensity(wx, wz, world_seed, clear)
+	if w <= 0.0 or dry == null:
+		return w
+	return w * dry.fade(wx, wz)
 
 
-static func wet_at(wx: float, wz: float, world_seed: int, dry_points: PackedVector2Array) -> bool:
-	return water_at(wx, wz, world_seed, dry_points) > WET_LEVEL
+static func wet_at(wx: float, wz: float, world_seed: int, dry: DryGrid) -> bool:
+	var clear: bool = dry != null and dry.realm_clear
+	var w: float = intensity(wx, wz, world_seed, clear)
+	if w <= WET_LEVEL:
+		return false  # the fade only lowers it
+	return dry == null or w * dry.fade(wx, wz) > WET_LEVEL
 
 
 ## Stream current at (wx, wz) (TID-642): unit direction along the stream
