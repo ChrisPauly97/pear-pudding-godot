@@ -17,6 +17,7 @@ const CardFace = preload("res://scenes/ui/CardFace.gd")
 const CardMotion = preload("res://scenes/battle/CardMotion.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
+const _HeroPanelStyle = preload("res://scenes/battle/HeroPanelStyle.gd")
 const COST_COLOR := Color.WHITE  # on the blue mana gem
 const HP_DAMAGED_COLOR := Color(1.0, 0.6, 0.55)
 ## Rim fill over the frame when a card is unaffordable / not a valid target.
@@ -661,11 +662,6 @@ func refresh_hero(hero_node: PanelContainer, hero: HeroState, is_enemy: bool, ha
 	if hero_status_row:
 		_fx.update_status_icons_hero(hero_status_row, hero)
 
-	var style := StyleBoxFlat.new()
-	style.corner_radius_top_left    = 6
-	style.corner_radius_top_right   = 6
-	style.corner_radius_bottom_left = 6
-	style.corner_radius_bottom_right = 6
 	var ward_blocks_hero: bool = is_enemy and not _dragged_card.is_empty() and _seat_player(1).hero_unreachable()
 	var is_attack_targetable: bool = is_enemy and not _dragged_card.is_empty() and not ward_blocks_hero
 	var is_spell_targetable: bool = (is_enemy and _targeting_active and not _targeting_friendly
@@ -673,26 +669,12 @@ func refresh_hero(hero_node: PanelContainer, hero: HeroState, is_enemy: bool, ha
 	if hero_node is Control:
 		_target_mark(hero_node as Control, _font(0.022)).visible = \
 			is_attack_targetable or is_spell_targetable
-	if is_enemy:
-		if is_spell_targetable:
-			style.bg_color = Color(0.1, 0.35, 0.45)
-			style.border_color = Color.CYAN
-			style.border_width_top    = 4
-			style.border_width_bottom = 4
-			style.border_width_left   = 4
-			style.border_width_right  = 4
-		elif is_attack_targetable:
-			style.bg_color = Color(0.55, 0.15, 0.1)
-			style.border_color = Color(1.0, 0.35, 0.2)
-			style.border_width_top    = 3
-			style.border_width_bottom = 3
-			style.border_width_left   = 3
-			style.border_width_right  = 3
-		else:
-			style.bg_color = Color(0.45, 0.1, 0.1)
-	else:
-		style.bg_color = Color(0.1, 0.2, 0.4)
-	hero_node.add_theme_stylebox_override("panel", style)
+	var key: String = _HeroPanelStyle.key_for(is_enemy, is_spell_targetable, is_attack_targetable)
+	# Called every frame in real time: re-apply only on a state change (GID-164 / TID-679).
+	if str(hero_node.get_meta(&"hero_style", "")) != key:
+		hero_node.set_meta(&"hero_style", key)
+		hero_node.add_theme_stylebox_override("panel", _HeroPanelStyle.get_style(key))
+
 
 # -------------------------------------------------------------------------
 # Ward targeting helper

@@ -9,6 +9,9 @@ const GameState = preload("res://game_logic/battle/GameState.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _BattleJuice = preload("res://scenes/battle/BattleJuice.gd")
 const _CardMotion = preload("res://scenes/battle/CardMotion.gd")
+const _STATUS_EFFECTS: Array[String] = ["poison", "armor", "freeze", "stun"]
+const _STATUS_COLORS: Array[Color] = [Color.GREEN, Color.CORNFLOWER_BLUE, Color.CYAN, Color.YELLOW]
+const _STATUS_ABBREVS: Array[String] = ["P", "A", "F", "S"]
 
 var _state: GameState
 var _vh: float
@@ -136,19 +139,28 @@ func update_status_icons_hero(hbox: HBoxContainer, hero: HeroState) -> void:
 	_update_status_icons_impl(hbox, hero)
 
 func _update_status_icons_impl(hbox: HBoxContainer, entity: Object) -> void:
+	# Rebuilt only when the shown statuses change (real-time refreshes; GID-164 / TID-679).
+	var texts: Array[String] = []
+	var sig: String = ""
+	for i in range(_STATUS_EFFECTS.size()):
+		var t: String = ""
+		if entity.call("has_status", _STATUS_EFFECTS[i]):
+			var status_value: int = entity.call("get_status_value", _STATUS_EFFECTS[i])
+			t = "%s%d" % [_STATUS_ABBREVS[i], status_value]
+		texts.append(t)
+		sig += t + "|"
+	if hbox.has_meta(&"status_sig") and str(hbox.get_meta(&"status_sig")) == sig:
+		return
+	hbox.set_meta(&"status_sig", sig)
 	for child in hbox.get_children():
 		child.queue_free()
-	var effects: Array[String] = ["poison", "armor", "freeze", "stun"]
-	var colors: Array[Color] = [Color.GREEN, Color.CORNFLOWER_BLUE, Color.CYAN, Color.YELLOW]
-	var abbrevs: Array[String] = ["P", "A", "F", "S"]
 	var icon_sz: int = _font(0.022)
-	for i in range(effects.size()):
-		if not entity.call("has_status", effects[i]):
+	for i in range(_STATUS_EFFECTS.size()):
+		if texts[i] == "":
 			continue
 		var lbl := Label.new()
-		var status_value: int = entity.call("get_status_value", effects[i])
-		lbl.text = "%s%d" % [abbrevs[i], status_value]
-		lbl.add_theme_color_override("font_color", colors[i])
+		lbl.text = texts[i]
+		lbl.add_theme_color_override("font_color", _STATUS_COLORS[i])
 		lbl.add_theme_font_size_override("font_size", icon_sz)
 		hbox.add_child(lbl)
 

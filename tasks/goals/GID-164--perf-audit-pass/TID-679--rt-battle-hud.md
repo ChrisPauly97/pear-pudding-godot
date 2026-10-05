@@ -2,7 +2,7 @@
 
 **Goal:** GID-164
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -27,12 +27,16 @@ Validation for every task: headless import parse check, `scripts/unsafe-hits.sh`
 
 ## Plan
 
-_Written during Plan phase._
+- Hero panel: shared per-state styleboxes in new `scenes/battle/HeroPanelStyle.gd` (kept out of the oversized CardViewBuilder, which shrank by 18 lines); override re-applied only when the state key changes.
+- Status rows (hero and cards): rebuilt only when the status text signature changes.
+- HP/mana label text and bar values: left as is — Label.text / Range.value setters are no-ops on equal values.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/battle/HeroPanelStyle.gd` (new), `scenes/battle/CardViewBuilder.gd`, `scenes/battle/BattleFx.gd` (stays under 500 lines).
+- `tests/unit/test_battle_hud_cache.gd`: status row reuses nodes until a status changes; styles shared per state.
+- Validation: import, gdlint, unsafe-hits, 3024 passed / 0 failed, 0 SCRIPT ERROR, all smoke tests (incl. realtime_battle_smoke, in_world_battle_smoke).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/battle-system.md` refresh_hero entry.
