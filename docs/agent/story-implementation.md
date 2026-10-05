@@ -190,7 +190,7 @@ WoW-style NPC asks, separate from the story chain.
 
 **World module `QuestTracker`** (`scenes/world/modules/QuestTracker.gd`, `WorldScene.quest_tracker`).
 `active_quests()` / `tracked_quest()` / `tracked_quest_pos()` / `quest_pos(q)` read a cache
-that `refresh(force)` rebuilds at most every `REFRESH_MS` (250 ms, from `WorldScene._process`)
+(`quest_pos` memoises per quest id + map since GID-164 / TID-677) that `refresh(force)` rebuilds at most every `REFRESH_MS` (250 ms, from `WorldScene._process`)
 and immediately on `story_flag_set` (`on_story_changed`) / `quest_tracking_changed` / map
 load (`on_map_ready`). Each rebuild also moves the beacon (`_place_beacon`), so a claimed
 bounty or a nearer board moves the marker with no flag change. It also owns the realm map

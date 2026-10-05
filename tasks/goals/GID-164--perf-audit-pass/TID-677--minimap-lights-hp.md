@@ -2,7 +2,7 @@
 
 **Goal:** GID-164
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -28,12 +28,16 @@ Validation for every task: headless import parse check, `scripts/unsafe-hits.sh`
 
 ## Plan
 
-_Written during Plan phase._
+- Minimap: dot layer redraws every 2nd frame (~30 Hz); terrain view already 15 Hz.
+- QuestTracker.quest_pos memoised per quest id + map, cleared on each 250 ms re-read (targets are static tiles; nearest-target choice refreshes with the read).
+- NightLights: StringName `ENERGY_PARAM`; `_apply_flicker` skips rigs whose flicker value and night factor are unchanged (`configure` forces). Moving flicker into the shader skipped: the OmniLight energy needs the CPU anyway.
+- HeroHealth: **no change** — profiled at 0.3 µs/frame; `set_hero_hp` / `set_action_visible` setters are no-ops on equal values, and `_can_use` short-circuits at full HP before the inventory scan.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/world/Minimap.gd`, `scenes/world/modules/QuestTracker.gd`, `scenes/world/modules/NightLights.gd`.
+- Validation: import, gdlint, unsafe-hits, 3022 passed / 0 failed, 0 SCRIPT ERROR, all smoke tests.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/ui-and-scene-management.md` (minimap), `docs/agent/story-implementation.md` (quest_pos cache), `docs/agent/visual-polish.md` (night light writes).

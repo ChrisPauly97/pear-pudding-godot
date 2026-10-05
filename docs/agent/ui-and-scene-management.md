@@ -573,6 +573,8 @@ HUD elements are constructed by `WorldHUD.gd` (owned and set up by WorldScene). 
 
 ### Minimap (`scenes/world/Minimap.gd`)
 
+Entity/quest dots redraw every 2nd frame (`_DOTS_UPDATE_EVERY`, ~30 Hz), the terrain view every 4th (GID-164 / TID-677).
+
 WoW-style circular minimap in the top-right HUD corner (diameter `vh * 0.20`), with an entity-dot overlay and a tap target that opens the full-map view.
 
 **Rendering:**

@@ -40,6 +40,9 @@ var _world: _WorldScene = null
 var _quests: Array[Dictionary] = []
 var _tracked: Dictionary = {}
 var _read_ms: int = -REFRESH_MS
+## quest id|map → world pos (or null), dropped at each re-read: the minimap pins,
+## compass and beacon ask every frame (GID-164 / TID-677).
+var _pos_cache: Dictionary = {}
 # One beacon at most, on the tracked quest's nearest target.
 var _beacon: _ObjectiveBeacon = null
 # Story step label last announced with a "New objective" tip.
@@ -64,7 +67,12 @@ func tracked_quest_pos() -> Variant:
 func quest_pos(quest: Dictionary) -> Variant:
 	if quest.is_empty() or _world._player == null:
 		return null
-	return _QuestLog.world_pos(quest, _world.map_name, _world._player.position)
+	var key: String = str(quest.get("id", "")) + "|" + _world.map_name
+	if _pos_cache.has(key):
+		return _pos_cache[key]
+	var pos: Variant = _QuestLog.world_pos(quest, _world.map_name, _world._player.position)
+	_pos_cache[key] = pos
+	return pos
 
 ## Re-reads the quest list when stale (or `force`d) and moves the beacon along
 ## with it — a claimed bounty or a nearer board moves the target without any
@@ -74,6 +82,7 @@ func refresh(force: bool) -> void:
 	if not force and now - _read_ms < REFRESH_MS:
 		return
 	_read_ms = now
+	_pos_cache.clear()
 	var sm := SceneManager.save_manager
 	_quests = sm.active_quests()
 	_tracked = _QuestLog.tracked(_quests, sm.tracked_quest)
