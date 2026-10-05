@@ -290,6 +290,36 @@ Town houses are authored as rings of 1-high wall tiles; the overworld raises the
   tile is inside its footprint grown by 1 (NPCs indoors stay visible). Scenery only — not saved or synced.
 - Interiors (door-entered named maps) and infinite-world ruins keep 1-high walls.
 
+### Town streets and street lamps (GID-155)
+
+Towns are authored as open grass; the overworld lays a street network over it and lines it with lamps.
+
+- `game_logic/world/TownStreets.gd` (pure) — `plan(wm, crop, hub, gates, buildings)` returns
+  `{tiles: {local Vector2i → true}, lamps: Array[Vector2i]}`. The hub is the town's player spawn (crop centre when
+  the spawn is missing or outside the crop); gates are the `ROADS` endpoints that land within 2 tiles of the crop.
+  Trunks run from each gate to the hub, `TRUNK_RADIUS` (1) tiles each side → 3 wide; lanes (1 wide) run from every
+  house doorway gap and every door entity not inside a house to the nearest street already laid (nearest anchors
+  first, so lanes share streets). Routing: BFS from the anchor over open tiles (grass / authored path, not inside a
+  building's interior, inside the crop) until it touches the network, then a walk back that keeps its heading while
+  that still descends, so streets come out straight. Routes over `MAX_ROUTE` (90) are dropped.
+  Lamps: every `LAMP_SPACING` (7) steps along each route, alternating sides, `radius + 1` tiles off the centreline,
+  on plain grass, ≥ `LAMP_MIN_GAP` (5) tiles from another lamp and never on or beside a door / NPC / chest / scroll /
+  shrine / waystone / enemy tile.
+- `RealmLayout.street_plan(town)` caches it; `stamp_tile` turns a planned **grass** tile into `TILE_PATH` (walls,
+  hills and authored paths are left alone), so the terrain shader, minimap, map view, footsteps and pathfinding all
+  treat streets like the realm roads. `street_lamps_world()` lists every lamp in overworld tiles.
+- `game_logic/world/StreetLampMesh.gd` (pure) — one shared `ArrayMesh`: surface 0 soot-stained stone plinth,
+  rust-flecked iron post, collars, lantern cage bars and pyramid cap (vertex-coloured grime); surface 1 the lantern
+  glass (amber below, sooty at the top). `LIGHT_HEIGHT` (3.0) is the glass centre. Faces wind clockwise (Godot front).
+- `scenes/world/TownStreetsView.gd` (RefCounted, `RealmRegions.streets`) — one `MultiMeshInstance3D` per town on the
+  first overworld tick; `lamp_transform(t)` gives each lamp a stable yaw and a lean up to `MAX_LEAN` so rows look
+  weathered. The glass uses `assets/shaders/street_lamp_glass.gdshader` (`EMISSION = COLOR * glow`, so the soot
+  shows against the light); `tick()` eases `glow` between `GLOW_DAY` and `GLOW_NIGHT` from
+  `night_lights.night_level()`. `lamp_positions()` feeds NightLights.
+- **Light:** `NightLights` adds every street lamp as a `street_lamp` source (overworld only) — sooty amber, r 6.5,
+  stronger flicker. Pooled rigs (Medium 4 / High 8 nearest) now always carry a real `OmniLight3D` (it lights walls,
+  roofs and the lamp itself); it casts shadows only with `night_light_shadows`. Scenery only — not saved or synced.
+
 ### Adding / moving a stitched town
 
 1. Add a `TOWNS` row (crop must include every entity you want stitched and the

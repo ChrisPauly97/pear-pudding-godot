@@ -14,6 +14,9 @@ const STYLES: Dictionary = {
 		"flicker": 0.32, "speed": 1.6, "height": 0.4},
 	"waystone": {"color": Color(0.45, 0.85, 1.0), "radius": 4.0, "energy": 0.45,
 		"flicker": 0.06, "speed": 0.3, "height": 1.2},
+	# Grimy town street lamps (GID-155): a sooty, sputtering amber gaslight.
+	"street_lamp": {"color": Color(1.0, 0.66, 0.3), "radius": 6.5, "energy": 0.6,
+		"flicker": 0.2, "speed": 1.3, "height": 3.0},
 	"mana_well": {"color": Color(0.5, 0.62, 1.0), "radius": 4.0, "energy": 0.45,
 		"flicker": 0.1, "speed": 0.4, "height": 0.8},
 }

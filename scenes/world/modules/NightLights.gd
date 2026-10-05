@@ -3,7 +3,7 @@
 ##
 ## One shared manager, no per-light scripts. Every GATHER_INTERVAL it collects
 ## the light sources WorldScene already tracks (doors = lanterns, waystones,
-## mana wells, the wilderness camp fire), keeps the nearest MAX_RIGS to the
+## mana wells, the wilderness camp fire, the towns' street lamps), keeps the nearest MAX_RIGS to the
 ## player and assigns them to pooled rigs; `_process` only writes each rig's
 ## flicker. A rig is
 ##   * a billboarded additive glow dot at the source — every tier;
@@ -11,7 +11,8 @@
 ##     rigs (GraphicsQuality: Low 0 / Medium 4 / High 8). It rebuilds world
 ##     positions from the depth texture, so it lights the unshaded grass,
 ##     props and sprites that a real OmniLight3D cannot reach (BID-060);
-##   * a shadow-casting OmniLight3D — only while `night_light_shadows` is on;
+##   * a real OmniLight3D on every pooled rig, so walls, roofs and lit props
+##     catch the light; it casts shadows only while `night_light_shadows` is on;
 ##   * a depth-faded halo (light_halo.gdshader) — while `light_halos` is on
 ##     (GID-130 / TID-495): the scattered glow volumetric fog would draw.
 ## Rigs hide in daylight and the gather is skipped then, so the day costs nothing.
@@ -22,6 +23,7 @@ const _DayNightCycle = preload("res://scenes/world/DayNightCycle.gd")
 const _NightLightMath = preload("res://game_logic/NightLightMath.gd")
 const _POOL_SHADER = preload("res://assets/shaders/night_light_pool.gdshader")
 const _HALO_SHADER = preload("res://assets/shaders/light_halo.gdshader")
+const _TownStreetsView = preload("res://scenes/world/TownStreetsView.gd")
 
 const GATHER_INTERVAL: float = 0.5
 const MAX_RIGS: int = 8
@@ -60,6 +62,8 @@ var _halos: bool = false
 var _night: float = 0.0
 var _gather_in: float = 0.0
 var _time: float = 0.0
+var _street_lamps: Array[Vector3] = []
+var _street_lamps_ready: bool = false
 
 
 static func _ensure_shared() -> void:
@@ -147,6 +151,12 @@ func _gather_sources() -> Array[Dictionary]:
 	var camp: Node3D = _world._valid_node3d(_world._wilderness_camp_node)
 	if camp != null and camp.is_inside_tree():
 		out.append({"pos": camp.global_position, "style": "campfire"})
+	if _world._is_infinite:
+		if not _street_lamps_ready:
+			_street_lamps = _TownStreetsView.lamp_positions()
+			_street_lamps_ready = true
+		for p: Vector3 in _street_lamps:
+			out.append({"pos": p, "style": "street_lamp"})
 	return out
 
 
@@ -208,7 +218,6 @@ func _make_rig() -> Rig:
 	rig.halo.visible = false
 	rig.root.add_child(rig.halo)
 	rig.omni = OmniLight3D.new()
-	rig.omni.shadow_enabled = true
 	rig.omni.light_volumetric_fog_energy = 0.0
 	rig.omni.visible = false
 	rig.root.add_child(rig.omni)
@@ -238,7 +247,8 @@ func _place_rig(rig: Rig, ground: Vector3, with_pool: bool) -> void:
 	var hs: float = radius * HALO_SCALE / DOT_SIZE
 	rig.halo.scale = Vector3(hs, hs, hs)
 	rig.halo_mat.set_shader_parameter("light_color", col)
-	rig.omni.visible = with_pool and _shadows
+	rig.omni.visible = with_pool
+	rig.omni.shadow_enabled = _shadows
 	rig.omni.position = Vector3(0.0, height, 0.0)
 	rig.omni.light_color = col
 	rig.omni.omni_range = radius

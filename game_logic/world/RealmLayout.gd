@@ -16,6 +16,7 @@ extends RefCounted
 const _WorldMap = preload("res://game_logic/world/WorldMap.gd")
 const _RiddleSpots = preload("res://game_logic/world/RiddleSpots.gd")
 const _TownBuildings = preload("res://game_logic/world/TownBuildings.gd")
+const _TownStreets = preload("res://game_logic/world/TownStreets.gd")
 
 const _MADRIAN := preload("res://assets/maps/madrian.tres")
 const _MAYKALENE := preload("res://assets/maps/maykalene.tres")
@@ -83,6 +84,7 @@ const STORY_SITES: Dictionary = {
 static var _maps: Dictionary = {}  # town → WorldMap (built on first use)
 static var _entity_cache: Dictionary = {}  # kind → Array[Dictionary]
 static var _plans: Dictionary = {}  # town → TownBuildings.detect() result
+static var _streets: Dictionary = {}  # town → TownStreets.plan() result
 
 static func town_names() -> Array[String]:
 	var out: Array[String] = []
@@ -220,6 +222,9 @@ static func stamp_tile(wtx: int, wtz: int, noise_tile: int, noise_height: int) -
 		var tile: int = wm.get_tile(local.x, local.y)
 		var raised: Dictionary = building_plan(town)["heights"]
 		var levels: int = int(raised.get(local, 0))
+		var streets: Dictionary = street_plan(town)["tiles"]
+		if tile == IsoConst.TILE_GRASS and streets.has(local):
+			tile = IsoConst.TILE_PATH
 		return Vector2i(tile, levels if levels > 0 else wm.get_height(local.x, local.y))
 	var d: float = reserved_distance(wtx, wtz)
 	if d <= 0.0:
@@ -242,6 +247,40 @@ static func building_plan(town: String) -> Dictionary:
 		plan = _TownBuildings.detect(wm, crop_of(town))
 	_plans[town] = plan
 	return plan
+
+## The town's street plan (TownStreets.plan), built once: trunks from each realm
+## road that meets the town to its spawn square, lanes to every door.
+static func street_plan(town: String) -> Dictionary:
+	if _streets.has(town):
+		var cached: Dictionary = _streets[town]
+		return cached
+	var wm: _WorldMap = town_map(town)
+	var plan: Dictionary = {"tiles": {}, "lamps": [] as Array[Vector2i]}
+	if wm != null:
+		var crop: Rect2i = crop_of(town)
+		var gates: Array[Vector2i] = []
+		for road: Array in ROADS:
+			for end: Vector2 in [road[0], road[road.size() - 1]]:
+				var local: Vector2i = to_local_tile(town, Vector2i(roundi(end.x), roundi(end.y)))
+				if crop.grow(2).has_point(local):
+					gates.append(local.clamp(crop.position, crop.end - Vector2i.ONE))
+		var hub: Vector2i = crop.get_center()
+		var spawn := Vector2i(wm.player_spawn_x, wm.player_spawn_z)
+		if wm.has_player_spawn() and crop.has_point(spawn):
+			hub = spawn
+		plan = _TownStreets.plan(wm, crop, hub, gates, building_plan(town)["buildings"])
+	_streets[town] = plan
+	return plan
+
+## Every street lamp in the stitched towns, as overworld tiles.
+static func street_lamps_world() -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for town: String in town_names():
+		var lamps: Array[Vector2i] = []
+		lamps.assign(street_plan(town)["lamps"])
+		for l: Vector2i in lamps:
+			out.append(l + offset_of(town))
+	return out
 
 ## Every stitched building in overworld tiles: the TownBuildings dicts with
 ## "rect" and "doors" moved into the overworld and a "town" key added.
