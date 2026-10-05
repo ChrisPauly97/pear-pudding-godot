@@ -157,6 +157,7 @@
 | [GID-151](goals/GID-151--card-visual-overhaul/goal.md) | Card Visual Overhaul | done | 11 / 11 |
 | [GID-152](goals/GID-152--art-motion-pass/goal.md) | Art Motion Pass | done | 11 / 11 |
 | [GID-153](goals/GID-153--pear-pudding-legend/goal.md) | The Pear Pudding — Secret Legendary Potion | done | 6 / 6 |
+| [GID-154](goals/GID-154--town-buildings/goal.md) | Proper Town Buildings | done | 1 / 1 |
 
 ## Backlog
 

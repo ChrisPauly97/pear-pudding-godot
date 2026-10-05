@@ -32,6 +32,8 @@ by `game_logic/world/RealmLayout.gd` (offsets, roads, story sites); only interio
 door-entered. Their `.tres` stay the authoring source. Use `WorldScene.story_place()`
 (not `map_name`) for "is the player in town X", and translate town-local tiles with
 `RealmLayout.to_world_tile()`. See `docs/agent/named-maps-and-dungeons.md`.
+Their houses are raised into real buildings (tall walls, roofs, windows) by `TownBuildings` /
+`BuildingMesh` (GID-154) — author a house as a wall ring with a 1-tile door gap; no map changes needed.
 
 ---
 
