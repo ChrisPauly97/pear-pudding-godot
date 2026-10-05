@@ -77,3 +77,15 @@ func test_flyers_are_drawn_larger() -> void:
 	assert_gt(c._sprite.pixel_size, m._sprite.pixel_size, "bees drawn at a larger texel size")
 	c.free()
 	m.free()
+
+
+func test_town_species_have_params_and_frames() -> void:
+	for key: String in _CritterDef.TOWN_CRITTERS:
+		assert_false(_CritterDef.params(key).is_empty(), "%s has movement params" % key)
+		assert_eq((_CritterDef.FRAMES.get(key, []) as Array).size(), 2, "%s has two frames" % key)
+	for roll in range(30):
+		var night: String = _CritterDef.species_for_town(false, roll)
+		assert_false(bool(_CritterDef.params(night)["day_only"]), "%s out at night in town" % night)
+	assert_true(_CritterDef.fits("pigeon", _BiomeDef.GRASSLANDS, true), "pigeons live in towns")
+	assert_false(_CritterDef.fits("pigeon", _BiomeDef.GRASSLANDS, false), "no pigeons in the wilds")
+	assert_false(_CritterDef.fits("fawn", _BiomeDef.GRASSLANDS, true), "no fawns in town")

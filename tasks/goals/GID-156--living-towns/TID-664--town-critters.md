@@ -2,7 +2,7 @@
 
 **Goal:** GID-156
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -34,12 +34,19 @@ critters: pigeons (flock, flutter away), cats (slow, nap), chickens (peck, hop).
 
 ## Plan
 
-_Written during Plan phase._
+Pigeon / chicken / cat templates in `gen_creature_sprites.py`; `CritterDef.TOWN_CRITTERS`, `species_for_town`,
+`fits`; `Critters` uses the town list while `current_town` is set, allows street tiles there and frees strays.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scripts/gen_creature_sprites.py`: PIGEON / CHICKEN / CAT palettes + 2-frame templates (pigeon/chicken peck).
+  Re-running left every existing PNG byte-identical.
+- `assets/textures/critters/{pigeon,chicken,cat}_{0,1}.png` (+ `.import`).
+- `CritterDef.gd`: preloads, FRAMES, SPECIES (pigeon/chicken day-only, cat all night), `TOWN_CRITTERS`,
+  `species_for_town`, `fits`; `species_for` now shares `_pick`.
+- `Critters.gd`: `_in_town()`, town species pick, `TILE_PATH` walkable in town, despawn critters that don't `fits`.
+- `tests/unit/test_critters.gd`: town species params/frames, night pool, `fits`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`docs/agent/enemies-and-npcs.md` → Ambient Critters (town critters paragraph); CLAUDE.md Critters row.

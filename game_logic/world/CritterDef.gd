@@ -22,6 +22,12 @@ const _SNOW_RABBIT_0 := preload("res://assets/textures/critters/snow_rabbit_0.pn
 const _SNOW_RABBIT_1 := preload("res://assets/textures/critters/snow_rabbit_1.png")
 const _BLACKENED_ADDER_0 := preload("res://assets/textures/critters/blackened_adder_0.png")
 const _BLACKENED_ADDER_1 := preload("res://assets/textures/critters/blackened_adder_1.png")
+const _PIGEON_0 := preload("res://assets/textures/critters/pigeon_0.png")
+const _PIGEON_1 := preload("res://assets/textures/critters/pigeon_1.png")
+const _CHICKEN_0 := preload("res://assets/textures/critters/chicken_0.png")
+const _CHICKEN_1 := preload("res://assets/textures/critters/chicken_1.png")
+const _CAT_0 := preload("res://assets/textures/critters/cat_0.png")
+const _CAT_1 := preload("res://assets/textures/critters/cat_1.png")
 
 const FRAMES: Dictionary = {
 	"mouse": [_MOUSE_0, _MOUSE_1],
@@ -32,6 +38,9 @@ const FRAMES: Dictionary = {
 	"fawn": [_FAWN_0, _FAWN_1],
 	"snow_rabbit": [_SNOW_RABBIT_0, _SNOW_RABBIT_1],
 	"blackened_adder": [_BLACKENED_ADDER_0, _BLACKENED_ADDER_1],
+	"pigeon": [_PIGEON_0, _PIGEON_1],
+	"chicken": [_CHICKEN_0, _CHICKEN_1],
+	"cat": [_CAT_0, _CAT_1],
 }
 
 ## speed (units/s), wander radius around home, pause range (s) between moves,
@@ -51,6 +60,10 @@ const SPECIES: Dictionary = {
 			"day_only": false},
 	"blackened_adder": {"speed": 0.9, "radius": 3.0, "pause": Vector2(1.5, 4.5), "fly": false, "hop": false,
 			"day_only": false},
+	"pigeon": {"speed": 1.8, "radius": 3.0, "pause": Vector2(0.4, 2.0), "fly": false, "hop": false, "day_only": true},
+	"chicken": {"speed": 1.2, "radius": 2.5, "pause": Vector2(0.8, 2.5), "fly": false, "hop": false,
+			"day_only": true},
+	"cat": {"speed": 1.0, "radius": 4.0, "pause": Vector2(2.0, 6.0), "fly": false, "hop": false, "day_only": false},
 }
 
 ## Species per biome (repeats weight a species).
@@ -61,6 +74,9 @@ const BIOME_CRITTERS: Array = [
 	["scorched_larva", "scorched_larva", "blackened_adder"],            # Scorched
 	["snow_rabbit", "snow_rabbit", "mouse"],                            # Mountains
 ]
+
+## Species in the stitched towns (GID-156), whatever the biome around them.
+const TOWN_CRITTERS: Array[String] = ["pigeon", "pigeon", "pigeon", "chicken", "chicken", "cat", "mouse"]
 
 ## Butterflies take one of these wing tints (the sprite's wings are white).
 const WING_TINTS: Array[Color] = [
@@ -74,8 +90,23 @@ const FLEE_DIST: float = 2.5
 static func species_for(biome: int, day: bool, roll: int) -> String:
 	if biome < 0 or biome >= BIOME_CRITTERS.size():
 		return ""
+	return _pick(BIOME_CRITTERS[biome] as Array, day, roll)
+
+
+static func species_for_town(day: bool, roll: int) -> String:
+	return _pick(TOWN_CRITTERS, day, roll)
+
+
+## Whether `key` belongs where the hero is: town species in towns, the biome's out of them.
+static func fits(key: String, biome: int, in_town: bool) -> bool:
+	if in_town:
+		return TOWN_CRITTERS.has(key)
+	return biome >= 0 and biome < BIOME_CRITTERS.size() and (BIOME_CRITTERS[biome] as Array).has(key)
+
+
+static func _pick(species: Array, day: bool, roll: int) -> String:
 	var pool: Array[String] = []
-	for k: Variant in BIOME_CRITTERS[biome] as Array:
+	for k: Variant in species:
 		var key: String = str(k)
 		if day or not bool((SPECIES[key] as Dictionary)["day_only"]):
 			pool.append(key)

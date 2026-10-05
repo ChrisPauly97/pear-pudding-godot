@@ -1,6 +1,7 @@
 ## Ambient critters (CritterDef): keeps a handful of wildlife around the hero
 ## in the overworld — mice, rats, butterflies, bees, fawns, snow rabbits,
-## scorched larvae, blackened adders by biome. Scenery only: no battles, no
+## scorched larvae, blackened adders by biome; pigeons, chickens and cats in
+## the stitched towns (GID-156). Scenery only: no battles, no
 ## save state, not synced in co-op (each peer sees its own).
 extends Node
 
@@ -49,14 +50,16 @@ func _process(delta: float) -> void:
 			continue
 		var far: bool = Vector2(c.position.x - hero.x, c.position.z - hero.z).length() > DESPAWN_DIST
 		var hides: bool = not day and bool(_CritterDef.params(c.species).get("day_only", false))
-		if far or hides:
+		var stray: bool = not _CritterDef.fits(c.species, _world._current_biome, _in_town())
+		if far or hides or stray:
 			c.queue_free()
 	if _root.get_child_count() < MAX_CRITTERS:
 		_try_spawn(hero, day)
 
 
 func _try_spawn(hero: Vector3, day: bool) -> void:
-	var key: String = _CritterDef.species_for(_world._current_biome, day, _rng.randi())
+	var key: String = (_CritterDef.species_for_town(day, _rng.randi()) if _in_town()
+			else _CritterDef.species_for(_world._current_biome, day, _rng.randi()))
 	if key.is_empty():
 		return
 	var a: float = _rng.randf() * TAU
@@ -74,9 +77,15 @@ func _hero_pos() -> Vector3:
 	return _world._player.global_position if _world != null and _world._player != null else Vector3.INF
 
 
-## Open ground (grass or hill) and dry.
+## The hero is in a stitched town (town critters, GID-156).
+func _in_town() -> bool:
+	return _world.current_town != ""
+
+
+## Open ground (grass or hill — or a street, in town) and dry.
 func _walkable(x: float, z: float) -> bool:
 	var t: int = _world.get_tile_global(floori(x / IsoConst.TILE_SIZE), floori(z / IsoConst.TILE_SIZE))
-	if t != IsoConst.TILE_GRASS and t != IsoConst.TILE_HILL:
+	var street: bool = t == IsoConst.TILE_PATH and _in_town()
+	if t != IsoConst.TILE_GRASS and t != IsoConst.TILE_HILL and not street:
 		return false
 	return _ChunkRenderer.water_at_world(_world._csm, x, z, _world.world_seed) <= 0.0
