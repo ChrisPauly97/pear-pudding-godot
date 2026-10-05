@@ -153,11 +153,13 @@ static func prepare_terrain(
 	ley_field.resize(nvx * nvz)
 	var water_field := PackedFloat32Array()
 	var flow_field := PackedVector2Array()  # stream current, CUSTOM0 (TID-642)
-	var dry_points := PackedVector2Array()
+	var dry_points: _WaterMath.DryGrid = null
 	if has_water:
 		water_field.resize(nvx * nvz)
 		flow_field.resize(nvx * nvz)
-		dry_points = _water_dry_points(chunk_data, tile_grid, grid_min_x, grid_min_z, grid_w)
+		dry_points = _WaterMath.chunk_context(
+				_water_dry_points(chunk_data, tile_grid, grid_min_x, grid_min_z, grid_w),
+				chunk_data.cx, chunk_data.cz)
 	for iz2 in range(nvz):
 		for ix2 in range(nvx):
 			var gx2: float = chunk_origin.x + float(ix2) * step
@@ -221,7 +223,7 @@ static func water_at_world(csm: _ChunkStreamingManager, wx: float, wz: float, wo
 		return 0.0
 	var snap: Array = csm.snapshot_tile_grid_for(key)
 	var pts: PackedVector2Array = _water_dry_points(cd, snap[0], int(snap[2]), int(snap[3]), int(snap[4]))
-	return _WaterMath.water_at(wx, wz, world_seed, pts)
+	return _WaterMath.water_at(wx, wz, world_seed, _WaterMath.DryGrid.new(pts))
 
 
 ## World points water keeps clear of (TID-524 follow-up): centres of the
@@ -275,7 +277,7 @@ static func _compute_prop_positions(
 		chunk_origin: Vector3,
 		nvx: int,
 		world_seed: int,
-		dry_points: PackedVector2Array = PackedVector2Array()) -> Dictionary:
+		dry_points: _WaterMath.DryGrid = null) -> Dictionary:
 	const MAX_PER_TYPE: int = 24
 	const SPAWN_CHANCE: float = 0.12
 	var prop_sets: Array = BiomeDef.PROP_SETS
@@ -339,7 +341,7 @@ static func _compute_water_edge_props(
 		chunk_origin: Vector3,
 		nvx: int,
 		world_seed: int,
-		dry_points: PackedVector2Array) -> Dictionary:
+		dry_points: _WaterMath.DryGrid) -> Dictionary:
 	const MAX_PER_TYPE: int = 40
 	var result: Dictionary = {"reed": [], "lily_pad": []}
 	var cx: int = chunk_data.cx

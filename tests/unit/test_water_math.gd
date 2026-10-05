@@ -71,3 +71,38 @@ func test_edge_props_follow_the_water() -> void:
 	assert_eq(W.edge_prop(0.8, Vector2(1.0, 0.0), 0.0), "", "no lily pads in a current")
 	assert_eq(W.edge_prop(0.45, Vector2.ZERO, 0.0), "", "open water between bank and pads")
 	assert_eq(W.edge_prop(0.05, Vector2.ZERO, 0.0), "", "dry ground")
+
+
+## GID-164 / TID-673: the bucketed DryGrid + realm-clear skip give exactly the
+## old linear-scan result, near towns and roads and out in the wilds.
+func test_chunk_context_matches_linear_scan() -> void:
+	const RL = preload("res://game_logic/world/RealmLayout.gd")
+	var chunks: Array[Vector2i] = [Vector2i(40, 40), Vector2i(-30, 12)]
+	for town: String in RL.town_names():
+		var r: Rect2i = RL.world_rect(town)
+		chunks.append(Vector2i(floori(r.position.x / 16.0) - 1, floori(r.position.y / 16.0)))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 99
+	var checked: int = 0
+	var clear_seen: bool = false
+	for c: Vector2i in chunks:
+		var o := Vector2(c) * 32.0
+		var pts := PackedVector2Array()
+		for i in 40:
+			pts.append(o + Vector2(rng.randf_range(-6.0, 38.0), rng.randf_range(-6.0, 38.0)))
+		var ctx: W.DryGrid = W.chunk_context(pts, c.x, c.y)
+		clear_seen = clear_seen or ctx.realm_clear
+		for seed_v: int in [42, 7]:
+			for iz in 33:
+				for ix in 33:
+					var wx: float = o.x + float(ix)
+					var wz: float = o.y + float(iz)
+					var old: float = W.intensity(wx, wz, seed_v) * W.structure_fade(wx, wz, pts)
+					var new_v: float = W.water_at(wx, wz, seed_v, ctx)
+					if absf(old - new_v) > 0.000001:
+						assert_almost_eq(new_v, old, 0.000001, "water differs at (%f, %f)" % [wx, wz])
+						return
+					assert_eq(W.wet_at(wx, wz, seed_v, ctx), old > W.WET_LEVEL)
+					checked += 1
+	assert_true(clear_seen, "a wild chunk proves realm-clear")
+	assert_gt(checked, 10000)

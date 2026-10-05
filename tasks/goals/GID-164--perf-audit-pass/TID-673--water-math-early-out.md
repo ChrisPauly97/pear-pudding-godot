@@ -2,7 +2,7 @@
 
 **Goal:** GID-164
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -27,12 +27,19 @@ Validation for every task: headless import parse check, `scripts/unsafe-hits.sh`
 
 ## Plan
 
-_Written during Plan phase._
+- Early-out: `water_at`/`wet_at` skip the clearance scan on dry ground (and `wet_at` when intensity alone can't clear WET_LEVEL).
+- `WaterMath.DryGrid`: dry points bucketed into 5-unit cells, lookup scans 3×3 (exact: farther points fade to 1).
+- Realm skip: per-chunk proof (`reserved_distance` at the centre tile > REALM_DRY_TILES + 13; it is 1-Lipschitz) sets `realm_clear`, so `intensity` skips the town/road scan. Chosen over threading the stamp context through: one check per chunk, no signature churn.
+- Equivalence test vs the old linear formula across town-adjacent and wild chunks, two seeds.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/world/WaterMath.gd`: `DryGrid` inner class, `chunk_context()`, `intensity(..., realm_clear)`, `water_at`/`wet_at` take a `DryGrid` (null = no structures).
+- `scenes/world/ChunkRenderer.gd`, `game_logic/world/TreeScatter.gd`: pass the `DryGrid`.
+- `tests/unit/test_water_math.gd`: `test_chunk_context_matches_linear_scan`.
+- Profile: town chunk prepare_terrain 27.6 → 16.6 ms, wild 17.3 → 12.7 ms.
+- Validation: import, gdlint (all files), unsafe-hits, 3019 passed / 0 failed, 0 SCRIPT ERROR, all 44 smoke tests.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/visual-polish.md` water clearance paragraph.
