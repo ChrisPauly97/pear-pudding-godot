@@ -16,7 +16,7 @@ Android is a target, so mobile render cost and per-frame GDScript work weigh mos
 |----|------|------|--------|------------|
 | [TID-672](TID-672--mobile-medium-tier.md) | Medium tier: one AA, deband off, cheaper sun rays | agent | done | — |
 | [TID-673](TID-673--water-math-early-out.md) | WaterMath: early-out dry vertices, bucket dry points, bounded reserved distance | agent | done | — |
-| [TID-674](TID-674--water-probe-cache.md) | Cache per-chunk dry points for water probes | agent | pending | TID-673 |
+| [TID-674](TID-674--water-probe-cache.md) | Cache per-chunk dry points for water probes | agent | done | TID-673 |
 | [TID-675](TID-675--packed-grid-lookups.md) | Direct packed-grid indexing in mesh/prop builders; per-town plan lookup | agent | pending | TID-673 |
 | [TID-676](TID-676--presence-townlife-cache.md) | CharacterPresence + TownLife cached records; WalkCycle manager; faces_left error | agent | pending | — |
 | [TID-677](TID-677--minimap-lights-hp.md) | Minimap redraw throttle; NightLights flicker in shader; HeroHealth on change | agent | pending | — |

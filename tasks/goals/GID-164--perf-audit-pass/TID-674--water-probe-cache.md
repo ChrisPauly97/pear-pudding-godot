@@ -2,7 +2,7 @@
 
 **Goal:** GID-164
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-673
 
 ## Lock
@@ -25,12 +25,16 @@ Validation for every task: headless import parse check, `scripts/unsafe-hits.sh`
 
 ## Plan
 
-_Written during Plan phase._
+- Lazy per-chunk cache on ChunkStreamingManager (`_dry_cache`, `dry_grid_for(key, cd)`) instead of returning points from prepare_terrain: probes also hit chunks that never got a renderer, and one lazy build per chunk is the whole cost.
+- Invalidate on data eviction, on commit/sync build of that key (entity points may change), and on `rebuild_terrain_around_tile` (3×3).
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/world/ChunkStreamingManager.gd`: `_dry_cache`, `dry_grid_for()`, invalidation points.
+- `scenes/world/ChunkRenderer.gd`: `water_at_world` uses the cache; `_water_dry_points` → public `water_dry_points`.
+- `tests/unit/test_water_probe_cache.gd`: cached probe == fresh snapshot scan on a wet chunk; reuse asserted.
+- Validation: import, gdlint, unsafe-hits, 3020 passed / 0 failed, 0 SCRIPT ERROR, all smoke tests.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/visual-polish.md` water clearance paragraph (probe cache).

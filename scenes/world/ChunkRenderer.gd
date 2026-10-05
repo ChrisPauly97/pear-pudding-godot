@@ -158,7 +158,7 @@ static func prepare_terrain(
 		water_field.resize(nvx * nvz)
 		flow_field.resize(nvx * nvz)
 		dry_points = _WaterMath.chunk_context(
-				_water_dry_points(chunk_data, tile_grid, grid_min_x, grid_min_z, grid_w),
+				water_dry_points(chunk_data, tile_grid, grid_min_x, grid_min_z, grid_w),
 				chunk_data.cx, chunk_data.cz)
 	for iz2 in range(nvz):
 		for ix2 in range(nvx):
@@ -214,16 +214,14 @@ static func prepare_terrain(
 	}
 
 ## Water at a world point for gameplay-side checks (footstep splashes), using
-## the same structure clearance the chunk mesh was baked with.
+## the same structure clearance the chunk mesh was baked with (cached per chunk).
 static func water_at_world(csm: _ChunkStreamingManager, wx: float, wz: float, world_seed: int) -> float:
 	var key := Vector2i(floori(wx / (IsoConst.CHUNK_SIZE * IsoConst.TILE_SIZE)),
 			floori(wz / (IsoConst.CHUNK_SIZE * IsoConst.TILE_SIZE)))
 	var cd: _ChunkData = csm.get_chunk_data(key)
 	if cd == null or not _WaterMath.biome_has_water(cd.biome_id):
 		return 0.0
-	var snap: Array = csm.snapshot_tile_grid_for(key)
-	var pts: PackedVector2Array = _water_dry_points(cd, snap[0], int(snap[2]), int(snap[3]), int(snap[4]))
-	return _WaterMath.water_at(wx, wz, world_seed, _WaterMath.DryGrid.new(pts))
+	return _WaterMath.water_at(wx, wz, world_seed, csm.dry_grid_for(key, cd))
 
 
 ## World points water keeps clear of (TID-524 follow-up): centres of the
@@ -233,7 +231,7 @@ static func water_at_world(csm: _ChunkStreamingManager, wx: float, wz: float, wo
 ## walls. Footprint and structure points are only used when they sit at least
 ## the full fade distance inside this chunk — the neighbour can't see them, and
 ## a border vertex must get the same water from both chunks.
-static func _water_dry_points(chunk_data: _ChunkData, tile_grid: PackedInt32Array,
+static func water_dry_points(chunk_data: _ChunkData, tile_grid: PackedInt32Array,
 		grid_min_x: int, grid_min_z: int, grid_w: int) -> PackedVector2Array:
 	var pts := PackedVector2Array()
 	var ts: float = IsoConst.TILE_SIZE
