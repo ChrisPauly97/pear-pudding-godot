@@ -505,6 +505,8 @@ func _build_walls_physics() -> void:
 
 	if wall_body.get_child_count() > 0:
 		add_child(wall_body)
+	else:
+		wall_body.free()  # never parented: would leak the node and its physics body (GID-162)
 
 # ── Grass ──────────────────────────────────────────────────────────────────
 

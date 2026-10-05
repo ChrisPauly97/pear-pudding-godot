@@ -25,10 +25,18 @@ const MAX_LAG: float = 45.0
 ## Seconds to fade a walker in or out at the edge of its hours.
 const FADE_TIME: float = 0.8
 const WALK_NODE: String = "TownWalk"
+## Walkers farther than this from the hero (beyond the iso view) are driven every
+## FAR_EVERY-th frame, round-robin, with the time they skipped (GID-162). Their
+## position is a pure function of the clock, so they land exactly where they would
+## have; they just step coarsely while nobody can see them.
+const FAR_RADIUS: float = 40.0
+const FAR_EVERY: int = 6
 
 var _world: _WorldScene = null
 var _plans: Dictionary = {}  # town → {npc id → walker}
 var _lag: Dictionary = {}    # npc id → seconds behind the clock
+var _skipped: Dictionary = {}  # npc id → seconds not yet driven (far walkers)
+var _frame: int = 0
 
 
 ## The walker loop for `npc_id` ({} when that NPC stays put).
@@ -77,6 +85,8 @@ func _process(delta: float) -> void:
 	var t: float = tod * _world.day_duration
 	var hero: Vector3 = _world._player.global_position
 	var besieged: String = _siege_town()
+	_frame += 1
+	var slot: int = 0
 	for nid: Variant in _world._npc_nodes:
 		var id: String = str(nid)
 		var w: Dictionary = walker(id)
@@ -85,8 +95,16 @@ func _process(delta: float) -> void:
 		var node: Node3D = _world._valid_node3d(_world._npc_nodes[nid])
 		if node == null or not node.is_inside_tree():
 			continue
+		slot += 1
+		var dt: float = delta + float(_skipped.get(id, 0.0))
+		var p: Vector3 = node.global_position
+		if Vector2(hero.x - p.x, hero.z - p.z).length_squared() > FAR_RADIUS * FAR_RADIUS \
+				and (slot + _frame) % FAR_EVERY != 0:
+			_skipped[id] = dt
+			continue
+		_skipped.erase(id)
 		var out: bool = _TownLife.is_out(str(w["role"]), tod) and id.get_slice(":", 0) != besieged
-		_drive(id, node, w, t, out, hero, delta)
+		_drive(id, node, w, t, out, hero, dt)
 
 
 func _drive(id: String, node: Node3D, w: Dictionary, t: float, out: bool, hero: Vector3, delta: float) -> void:

@@ -32,6 +32,12 @@ func _run() -> Array[String]:
 	while Time.get_ticks_msec() - t0 < 2500:
 		await process_frame
 	_check_wiring(ws, fails)
+	# GID-162: a node built but never parented (or freed) leaks — e.g. the empty
+	# WallCollision body every wall-less chunk used to leave behind with its physics RID.
+	var orphans: int = int(Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT))
+	if orphans > 0:
+		Node.print_orphan_nodes()
+		fails.append("%d orphan nodes after streaming the world in" % orphans)
 	var csm: Object = ws.get("_csm")
 	var tables: Array[String] = ["_enemy_nodes", "_chest_nodes", "_npc_nodes", "_waystone_nodes"]
 	# Find a loaded chunk that spawned something tracked.

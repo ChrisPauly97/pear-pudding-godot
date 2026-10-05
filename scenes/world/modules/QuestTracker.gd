@@ -156,6 +156,7 @@ func _refresh_npc_marks() -> void:
 	var turn_in: bool = _QuestLog.has_bounty_turn_in(sm.active_bounties)
 	var offers: bool = (sm.active_bounties.size() < _MAX_BOUNTIES
 			and not sm.bounties.get_offered_bounties().is_empty())
+	var side_states: Dictionary = sm.quests.npc_states()
 	for nid: Variant in _world._npc_nodes:
 		var node: Node3D = _world._valid_node3d(_world._npc_nodes[nid])
 		if node == null:
@@ -164,7 +165,7 @@ func _refresh_npc_marks() -> void:
 		var trainer: String = _UnlockLadder.trainer_at(str(nid))
 		var training: bool = trainer != "" and _NpcInteractions.trainer_has_pending(trainer)
 		_set_mark(node, _QuestLog.npc_mark(data, story_tile, turn_in, offers,
-				sm.quests.npc_state(str(nid)), training))
+				str(side_states.get(str(nid), "")), training))
 	var maiteln: Node3D = _world._valid_node3d(_world._maiteln_node)
 	if maiteln != null:
 		_set_mark(maiteln, {"text": "!", "kind": "training"} if _NpcInteractions.trainer_has_pending("maiteln")

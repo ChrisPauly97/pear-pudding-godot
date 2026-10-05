@@ -515,6 +515,10 @@ It also runs automatically as a `SessionStart` hook (`.claude/settings.json`).
 
 Run: `godot --headless --path . -s tests/runner.gd` (exit 0 = pass)
 
+Profile the overworld (frame-time percentiles, spikes tagged with chunk-streaming events, per-`_process`
+cost, chunk-landing stages, orphan nodes): `godot --headless --path . -s tools/profile_world.gd -- --frames 900`.
+Measure before and after a perf change; the flat ~6.9 ms median headless is the 144 fps cap, not work.
+
 ### You MUST import before the first test run
 
 `.godot/` is gitignored, so a fresh clone has never been imported — and Godot

@@ -202,3 +202,40 @@ func test_starter_quest_targets_match_camps_and_learns() -> void:
 				assert_true(UnlockLadder.has(str(o["target"])), "%s teaches a ladder entry" % str(q["id"]))
 				assert_gte(int(q.get("min_level", 1)), UnlockLadder.level_req(str(o["target"])),
 						"%s is offered no earlier than its training" % str(q["id"]))
+
+
+## GID-162: the one-pass npc_states() must agree with the per-NPC rule
+## (turn_ins_for, then offers_for, then SideQuests.upcoming_for) at every level
+## and as quests get accepted, finished and handed in.
+func test_npc_states_matches_per_npc_rule() -> void:
+	var sm := _fresh()
+	var npcs: Dictionary = {}
+	for q: Dictionary in SideQuests.all():
+		npcs[str(q["giver"])] = true
+		npcs[SideQuests.turn_in_npc(q)] = true
+	var checked: int = 0
+	for level: int in range(1, 12):
+		sm.level = level
+		for q: Dictionary in SideQuests.all():
+			var id: String = str(q["id"])
+			for step: int in 3:
+				var states: Dictionary = sm.quests.npc_states()
+				for npc: Variant in npcs:
+					var n: String = str(npc)
+					var want: String = ""
+					if not sm.quests.turn_ins_for(n).is_empty():
+						want = "turn_in"
+					elif not sm.quests.offers_for(n).is_empty():
+						want = "offer"
+					elif not SideQuests.upcoming_for(n, sm.level, sm.story_flags, sm.quests_active,
+							sm.quests_completed).is_empty():
+						want = "upcoming"
+					assert_eq(str(states.get(n, "")), want, "lvl %d %s step %d npc %s" % [level, id, step, n])
+					checked += 1
+				if step == 0:
+					sm.quests.accept(id)
+				elif step == 1 and sm.quests.is_active(id):
+					for o: Dictionary in SideQuests.objectives(q):
+						for _i: int in int(o.get("count", 1)):
+							sm.quests.progress_event(str(o.get("type", "")), str(o.get("target", "")))
+	assert_gt(checked, 100, "covered the quest table")

@@ -165,6 +165,7 @@
 | [GID-159](goals/GID-159--dead-code-sweep/goal.md) | Codebase Cleanup — Dead Code Sweep | done | 1 / 1 |
 | [GID-160](goals/GID-160--per-frame-perf/goal.md) | Codebase Cleanup — Per-Frame Perf Pass | done | 1 / 1 |
 | [GID-161](goals/GID-161--typed-calls/goal.md) | Codebase Cleanup — Typed Calls | done | 1 / 1 |
+| [GID-162](goals/GID-162--measured-perf-pass/goal.md) | Measured Perf Pass — Streaming Spikes, Leaks, Steady Costs | done | 1 / 1 |
 
 ## Backlog
 
@@ -178,6 +179,7 @@ files in `tasks/archive/backlog/`.
 | [BID-061](backlog/BID-061--spec-says-no-xp-system.md) | Spec says "No XP system planned" but XP/levels/skill points shipped (GID-030) | spec-gap | Tracked by TID-539 |
 | [BID-079](backlog/BID-079--spec-four-card-types.md) | Spec still lists four card types | spec-gap | GID-151 research |
 | [BID-081](backlog/BID-081--no-water-in-towns.md) | No water in named maps / towns; no bridges | content-gap | GID-152 research |
+| [BID-088](backlog/BID-088--chunk-gen-on-main-thread.md) | Chunk data generation still on the main thread (~5-8 ms per kick near towns) | perf | GID-162 profiling |
 
 ## Resolved Backlog
 

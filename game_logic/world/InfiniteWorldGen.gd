@@ -219,14 +219,14 @@ static func _gen_tile_data(p_cx: int, p_cz: int, world_seed: int) -> ChunkData:
 	_stamp_realm(chunk, p_cx, p_cz)
 	return chunk
 
-## Overlays the stitched story towns and their roads (GID-138): town tiles inside
-## a town, paved road, and hills faded flat across the blend margin.
+## Overlays the stitched towns and roads (GID-138): town tiles, paved road, hills faded across the margin.
 static func _stamp_realm(chunk: ChunkData, p_cx: int, p_cz: int) -> void:
 	if not RealmLayout.chunk_touches_realm(p_cx, p_cz):
 		return
+	var ctx: Dictionary = RealmLayout.stamp_context(p_cx, p_cz, true)
 	for lz in range(IsoConst.CHUNK_SIZE):
 		for lx in range(IsoConst.CHUNK_SIZE):
-			var st: Vector2i = RealmLayout.stamp_tile(p_cx * IsoConst.CHUNK_SIZE + lx,
+			var st: Vector2i = RealmLayout.stamp_tile_in(ctx, p_cx * IsoConst.CHUNK_SIZE + lx,
 					p_cz * IsoConst.CHUNK_SIZE + lz, chunk.get_tile(lx, lz), chunk.get_height(lx, lz))
 			chunk.set_tile(lx, lz, st.x)
 			chunk.set_height(lx, lz, st.y)
