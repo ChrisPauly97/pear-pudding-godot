@@ -792,8 +792,8 @@ func _generate_entities() -> void:
 		var tx := rng.randi_range(1, min(MAP_WIDTH - 2, depth))
 		var tz := depth - tx
 		if tz >= 1 and tz < MAP_HEIGHT - 1 and tiles[tz][tx] == TILE_GRASS:
-			var wx := float(tx) * TILE_SIZE + TILE_SIZE * 0.5
-			var wz := float(tz) * TILE_SIZE + TILE_SIZE * 0.5
+			var wx := IsoConst.tile_center(tx)
+			var wz := IsoConst.tile_center(tz)
 			var etype: String = EnemyRegistry.type_for_depth(depth, max_depth)
 			enemies.append({
 				"id": "enemy_%d" % enemy_count,
@@ -815,8 +815,8 @@ func _generate_entities() -> void:
 		var tx := rng.randi_range(1, min(MAP_WIDTH - 2, d))
 		var tz: int = d - tx
 		if tz >= 1 and tz < MAP_HEIGHT - 1 and tiles[tz][tx] == TILE_GRASS:
-			var wx := float(tx) * TILE_SIZE + TILE_SIZE * 0.5
-			var wz := float(tz) * TILE_SIZE + TILE_SIZE * 0.5
+			var wx := IsoConst.tile_center(tx)
+			var wz := IsoConst.tile_center(tz)
 			var cid: String = card_ids[chest_count % card_ids.size()]
 			chests.append({
 				"id": "chest_%d" % chest_count,
@@ -839,8 +839,8 @@ func _generate_entities() -> void:
 			var tx := rng.randi_range(3, MAP_WIDTH - 4)
 			var tz := rng.randi_range(3, MAP_HEIGHT - 4)
 			if tiles[tz][tx] == TILE_GRASS:
-				var wx := float(tx) * TILE_SIZE + TILE_SIZE * 0.5
-				var wz := float(tz) * TILE_SIZE + TILE_SIZE * 0.5
+				var wx := IsoConst.tile_center(tx)
+				var wz := IsoConst.tile_center(tz)
 				npcs.append({
 					"id": "npc_%d" % npc_count,
 					"x": wx, "z": wz,

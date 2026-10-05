@@ -326,6 +326,8 @@ never add a separate level check. See `docs/agent/starter-zone-and-training.md`.
 
 All tile/size constants (`TILE_GRASS`, `TILE_SIZE`, `CHUNK_SIZE`, etc.) live in `autoloads/IsoConst.gd`. Reference as `IsoConst.TILE_SIZE`. Never add copies elsewhere.
 A tile's world-space centre is `IsoConst.tile_center(t)` — never write out `t * TILE_SIZE + TILE_SIZE * 0.5`.
+World → tile is `IsoConst.world_to_tile(wx, wz)` (floors; correct for negative coords) or
+`IsoConst.entity_tile(dict)` for an `{x, z}` entity — never hand-roll `floor(x / TILE_SIZE)`.
 
 ---
 

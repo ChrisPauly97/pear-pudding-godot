@@ -160,6 +160,7 @@
 | [GID-154](goals/GID-154--town-buildings/goal.md) | Proper Town Buildings | done | 1 / 1 |
 | [GID-155](goals/GID-155--town-streets-lamps/goal.md) | Town Streets & Street Lamps | done | 1 / 1 |
 | [GID-156](goals/GID-156--living-towns/goal.md) | Living Towns — Walkers, Schedules, Town Critters | done | 4 / 4 |
+| [GID-157](goals/GID-157--coordinate-helpers/goal.md) | Codebase Cleanup — Coordinate Helpers | done | 1 / 1 |
 
 ## Backlog
 

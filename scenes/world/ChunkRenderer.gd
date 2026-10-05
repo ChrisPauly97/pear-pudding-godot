@@ -184,7 +184,7 @@ static func prepare_terrain(
 	# No tufts standing in streams and ponds; sparse tufts in dry biomes (GID-134).
 	var kept: Array[Vector2] = []
 	for c: Vector2 in grass_centres:
-		var tile := Vector2i(floori(c.x / IsoConst.TILE_SIZE), floori(c.y / IsoConst.TILE_SIZE))
+		var tile := IsoConst.world_to_tile(c.x, c.y)
 		if not BiomeDef.keeps_grass(chunk_data.biome_id, tile):
 			continue
 		if has_water and _WaterMath.wet_at(c.x, c.y, world_seed, dry_points):

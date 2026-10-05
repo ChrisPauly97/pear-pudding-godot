@@ -78,8 +78,14 @@ const VETERANCY_RANKS: Array = [
 static func tile_center(t: float) -> float:
 	return t * TILE_SIZE + TILE_SIZE * 0.5
 
-func tile_to_world(tx: int, tz: int) -> Vector3:
+static func tile_to_world(tx: int, tz: int) -> Vector3:
 	return Vector3(tx * TILE_SIZE, 0.0, tz * TILE_SIZE)
 
-func world_to_tile(wx: float, wz: float) -> Vector2i:
-	return Vector2i(int(wx / TILE_SIZE), int(wz / TILE_SIZE))
+## Tile containing world point (wx, wz). Floors, so negative coordinates map to
+## the tile they are in (int() truncation put -0.5 in tile 0, not -1).
+static func world_to_tile(wx: float, wz: float) -> Vector2i:
+	return Vector2i(floori(wx / TILE_SIZE), floori(wz / TILE_SIZE))
+
+## Tile an entity dictionary (`{"x", "z", …}` in world units) stands on.
+static func entity_tile(e: Dictionary) -> Vector2i:
+	return world_to_tile(float(e.get("x", 0.0)), float(e.get("z", 0.0)))

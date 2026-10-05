@@ -135,7 +135,8 @@ static func town_at_tile(wtx: int, wtz: int) -> String:
 	return ""
 
 static func town_at_world(wx: float, wz: float) -> String:
-	return town_at_tile(int(floor(wx / IsoConst.TILE_SIZE)), int(floor(wz / IsoConst.TILE_SIZE)))
+	var t := IsoConst.world_to_tile(wx, wz)
+	return town_at_tile(t.x, t.y)
 
 ## Distance (tiles) from a point to the nearest road centreline.
 static func road_distance(px: float, pz: float) -> float:
@@ -335,9 +336,7 @@ static func entities(kind: String) -> Array[Dictionary]:
 			if kind == "doors" and (OVERWORLD_TARGETS.has(str(e.get("target_map", "")))
 					or DROPPED_DOORS.has("%s:%s" % [town, str(e.get("id", ""))])):
 				continue
-			var tx: int = int(floor(float(e.get("x", 0.0)) / IsoConst.TILE_SIZE))
-			var tz: int = int(floor(float(e.get("z", 0.0)) / IsoConst.TILE_SIZE))
-			if not crop_of(town).has_point(Vector2i(tx, tz)):
+			if not crop_of(town).has_point(IsoConst.entity_tile(e)):
 				continue
 			var moved: Dictionary = _shift_entity(e, shift)
 			moved["town"] = town

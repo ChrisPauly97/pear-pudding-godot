@@ -33,8 +33,7 @@ func tick() -> void:
 	streets.tick()
 	if _world._player == null:
 		return
-	var tile := Vector2i(int(floor(_world._player.position.x / IsoConst.TILE_SIZE)),
-			int(floor(_world._player.position.z / IsoConst.TILE_SIZE)))
+	var tile := IsoConst.world_to_tile(_world._player.position.x, _world._player.position.z)
 	if tile == _last_tile:
 		return
 	_last_tile = tile
