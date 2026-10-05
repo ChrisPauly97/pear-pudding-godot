@@ -2,7 +2,7 @@
 
 **Goal:** GID-164
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -26,12 +26,18 @@ Validation for every task: headless import parse check, `scripts/unsafe-hits.sh`
 
 ## Plan
 
-_Written during Plan phase._
+- Measured first: the build was a 7.2 ms main-thread hitch (25 buildings).
+- Worker: `_build_meshes` (RealmLayout plans are warmed; BuildingMesh is pure) builds roofs and merges trim per town via SurfaceTool.append_from; `tick` commits nodes once the task completes; PREDELETE waits on a live task.
+- Shared materials per texture; fades duplicate them (transparent), tween, then restore the shared opaque ones (mid-fade toggles reuse the copies, old tween killed).
+- Trim: 25 nodes → one per town (5).
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/world/TownBuildingsView.gd`.
+- `tests/unit/test_town_buildings_view.gd`: merged trim vertex counts equal the per-building sum per surface; same-style roofs share a material.
+- `town_life_smoke`: roof fades out with the hero inside, back in outside, ends on the shared opaque material (mutation-checked).
+- Validation: import, gdlint, unsafe-hits, 3027 passed / 0 failed, 0 SCRIPT ERROR, all smoke tests.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/named-maps-and-dungeons.md` TownBuildingsView entry.
