@@ -24,10 +24,8 @@ const LOAD_RADIUS:        int = 6
 const UNLOAD_RADIUS:      int = 7
 const CACHE_EVICT_RADIUS: int = 10
 const MAX_CHUNK_JOBS:     int = 4
-# Kicking a job does main-thread prep (3×3 neighbour tile gen, 529-tile
-# snapshot, entity generation) — cap how many kicks land on one frame so a
-# chunk-boundary crossing doesn't stack up to 4 preps in a single frame.
-# Workers still saturate within 2 frames.
+# Infinite worlds generate on the worker (BID-088), so a kick is just cache
+# lookups; the cap still spreads named-map preps and keeps workers fed evenly.
 const MAX_KICKS_PER_FRAME: int = 2
 
 # ── Chunk lifecycle state ──────────────────────────────────────────────────────
@@ -84,7 +82,9 @@ func setup(world_seed: int, is_infinite: bool, world_map: _WorldMap,
 	_world_map = world_map
 	_terrain_mat = terrain_mat
 	_world_scene = world_scene
-	if not _is_infinite:
+	if _is_infinite:
+		InfiniteWorldGen.warm(world_seed)  # before any worker generates (BID-088)
+	else:
 		# Named maps never change size — snapshot the whole map (plus margin) once.
 		_refresh_height_query_grid()
 
@@ -217,31 +217,47 @@ func _snapshot_region(min_tx: int, min_tz: int, w: int, h: int) -> Array:
 				height_grid[row + gx] = _world_map.get_height(min_tx + gx, wtz)
 		return [tile_grid, height_grid]
 
+	var sources: Dictionary = {}
+	for ckey: Vector2i in _region_chunks(min_tx, min_tz, w, h):
+		if not _chunk_data_cache.has(ckey):
+			_chunk_data_cache[ckey] = InfiniteWorldGen.generate_chunk_data_only(ckey.x, ckey.y, _world_seed)
+		var chunk: _ChunkData = _chunk_data_cache[ckey]
+		sources[ckey] = [chunk.tiles, chunk.heights]
+	return _copy_region(sources, min_tx, min_tz, w, h)
+
+## Chunk keys covering the w×h tile region starting at global tile (min_tx, min_tz).
+static func _region_chunks(min_tx: int, min_tz: int, w: int, h: int) -> Array[Vector2i]:
 	var cs: int = IsoConst.CHUNK_SIZE
-	var cx0: int = int(floor(float(min_tx) / float(cs)))
-	var cz0: int = int(floor(float(min_tz) / float(cs)))
-	var cx1: int = int(floor(float(min_tx + w - 1) / float(cs)))
-	var cz1: int = int(floor(float(min_tz + h - 1) / float(cs)))
-	for ccz in range(cz0, cz1 + 1):
-		for ccx in range(cx0, cx1 + 1):
-			var ckey := Vector2i(ccx, ccz)
-			if not _chunk_data_cache.has(ckey):
-				_chunk_data_cache[ckey] = InfiniteWorldGen.generate_chunk_data_only(ccx, ccz, _world_seed)
-			var chunk: _ChunkData = _chunk_data_cache[ckey]
-			var src_tiles: PackedInt32Array = chunk.tiles
-			var src_heights: PackedInt32Array = chunk.heights
-			# Overlap of this chunk's tile range with the requested region,
-			# in chunk-local coordinates.
-			var lx0: int = maxi(min_tx - ccx * cs, 0)
-			var lz0: int = maxi(min_tz - ccz * cs, 0)
-			var lx1: int = mini(min_tx + w - ccx * cs, cs)
-			var lz1: int = mini(min_tz + h - ccz * cs, cs)
-			for lz in range(lz0, lz1):
-				var src_row: int = lz * cs
-				var dst_row: int = (ccz * cs + lz - min_tz) * w + (ccx * cs - min_tx)
-				for lx in range(lx0, lx1):
-					tile_grid[dst_row + lx] = src_tiles[src_row + lx]
-					height_grid[dst_row + lx] = src_heights[src_row + lx]
+	var out: Array[Vector2i] = []
+	for ccz in range(floori(float(min_tz) / cs), floori(float(min_tz + h - 1) / cs) + 1):
+		for ccx in range(floori(float(min_tx) / cs), floori(float(min_tx + w - 1) / cs) + 1):
+			out.append(Vector2i(ccx, ccz))
+	return out
+
+## Block-copies the region out of `sources` (chunk key → [tiles, heights] packed
+## arrays covering every `_region_chunks` key). Static and side-effect free, so the
+## chunk worker can run it (BID-088). Returns [tile_grid, height_grid].
+static func _copy_region(sources: Dictionary, min_tx: int, min_tz: int, w: int, h: int) -> Array:
+	var cs: int = IsoConst.CHUNK_SIZE
+	var tile_grid := PackedInt32Array()
+	var height_grid := PackedInt32Array()
+	tile_grid.resize(w * h)
+	height_grid.resize(w * h)
+	for ckey: Vector2i in _region_chunks(min_tx, min_tz, w, h):
+		var src: Array = sources[ckey]
+		var src_tiles: PackedInt32Array = src[0]
+		var src_heights: PackedInt32Array = src[1]
+		# Overlap of this chunk's tile range with the requested region, in chunk-local coordinates.
+		var lx0: int = maxi(min_tx - ckey.x * cs, 0)
+		var lz0: int = maxi(min_tz - ckey.y * cs, 0)
+		var lx1: int = mini(min_tx + w - ckey.x * cs, cs)
+		var lz1: int = mini(min_tz + h - ckey.y * cs, cs)
+		for lz in range(lz0, lz1):
+			var src_row: int = lz * cs
+			var dst_row: int = (ckey.y * cs + lz - min_tz) * w + (ckey.x * cs - min_tx)
+			for lx in range(lx0, lx1):
+				tile_grid[dst_row + lx] = src_tiles[src_row + lx]
+				height_grid[dst_row + lx] = src_heights[src_row + lx]
 	return [tile_grid, height_grid]
 
 ## Rebuilds the height-query grid cache. Infinite worlds: player chunk ±1.
@@ -422,6 +438,36 @@ func _chunk_prepare_task(key: Vector2i, chunk_data: RefCounted,
 	_chunk_build_results.append({ "key": key, "chunk_data": chunk_data, "terrain_res": terrain_res })
 	_chunk_build_mutex.unlock()
 
+## Worker (BID-088): generates whatever chunk data the kick could not hand over —
+## the chunk's full data and any neighbour tile data missing from the cache — then
+## snapshots and prepares the terrain. `sources` holds the cached neighbours' packed
+## arrays (copy-on-write, so later main-thread edits never reach this thread);
+## `full` is the cached entity-bearing ChunkData, or null to generate it here.
+## Generated data goes back with the result; the commit adds it to the cache.
+func _chunk_gen_task(key: Vector2i, sources: Dictionary, full: _ChunkData, p_world_seed: int) -> void:
+	const TILE_CHECK: int = ChunkRenderer.TILE_CHECK
+	var chunk: _ChunkData = full if full != null else InfiniteWorldGen.generate_chunk(key.x, key.y, p_world_seed)
+	var grid_min_x: int = key.x * IsoConst.CHUNK_SIZE - TILE_CHECK
+	var grid_min_z: int = key.y * IsoConst.CHUNK_SIZE - TILE_CHECK
+	var grid_w: int = IsoConst.CHUNK_SIZE + TILE_CHECK * 2 + 1
+	var generated: Dictionary = {}  # neighbour key → tile-only ChunkData
+	for ckey: Vector2i in _region_chunks(grid_min_x, grid_min_z, grid_w, grid_w):
+		if sources.has(ckey):
+			continue
+		if ckey == key:
+			sources[ckey] = [chunk.tiles, chunk.heights]
+			continue
+		var g: _ChunkData = InfiniteWorldGen.generate_chunk_data_only(ckey.x, ckey.y, p_world_seed)
+		generated[ckey] = g
+		sources[ckey] = [g.tiles, g.heights]
+	var snap: Array = _copy_region(sources, grid_min_x, grid_min_z, grid_w, grid_w)
+	var terrain_res: Dictionary = ChunkRenderer.prepare_terrain(
+			chunk, snap[0], snap[1], grid_min_x, grid_min_z, grid_w, p_world_seed)
+	_chunk_build_mutex.lock()
+	_chunk_build_results.append({"key": key, "chunk_data": chunk, "terrain_res": terrain_res,
+		"generated": generated})
+	_chunk_build_mutex.unlock()
+
 func _kick_chunk_jobs() -> void:
 	var pcx: int = _last_player_chunk.x
 	var pcz: int = _last_player_chunk.y
@@ -448,21 +494,30 @@ func _kick_chunk_jobs() -> void:
 			_chunk_queued.erase(key)
 			continue
 
-		_ensure_tile_data_around(key)
-		var snap := snapshot_tile_grid_for(key)
-
-		if not _chunk_data_cache.has(key) or not _chunk_data_cache[key].has_entities:
-			if _is_infinite:
-				_chunk_data_cache[key] = InfiniteWorldGen.generate_chunk(key.x, key.y, _world_seed)
-			else:
+		var task_id: int
+		if _is_infinite:
+			# BID-088: only hand over what is already cached; the worker generates the rest.
+			const TILE_CHECK: int = ChunkRenderer.TILE_CHECK
+			var cs: int = IsoConst.CHUNK_SIZE
+			var sources: Dictionary = {}
+			for ckey: Vector2i in _region_chunks(key.x * cs - TILE_CHECK, key.y * cs - TILE_CHECK,
+					cs + TILE_CHECK * 2 + 1, cs + TILE_CHECK * 2 + 1):
+				var cached: _ChunkData = _chunk_data_cache.get(ckey) as _ChunkData
+				if cached != null:
+					sources[ckey] = [cached.tiles, cached.heights]
+			var full: _ChunkData = _chunk_data_cache.get(key) as _ChunkData
+			if full != null and not full.has_entities:
+				full = null
+			task_id = WorkerThreadPool.add_task(_chunk_gen_task.bind(key, sources, full, _world_seed))
+		else:
+			var snap := snapshot_tile_grid_for(key)
+			if not _chunk_data_cache.has(key) or not _chunk_data_cache[key].has_entities:
 				_chunk_data_cache[key] = _world_map.get_chunk_data(key.x, key.y)
-		var chunk_data: RefCounted = _chunk_data_cache[key]
-
+			task_id = WorkerThreadPool.add_task(_chunk_prepare_task.bind(
+					key, _chunk_data_cache[key], snap[0], snap[1], snap[2], snap[3], snap[4], _world_seed))
 		_chunk_data_pending[key] = true
 		_chunk_build_queue.remove_at(i)
 		_chunk_queued.erase(key)
-		var task_id: int = WorkerThreadPool.add_task(_chunk_prepare_task.bind(
-				key, chunk_data, snap[0], snap[1], snap[2], snap[3], snap[4], _world_seed))
 		_chunk_task_ids.append(task_id)
 		_chunk_task_id_map[key] = task_id
 		kicked += 1
@@ -482,6 +537,18 @@ func _commit_chunk_results() -> void:
 		WorkerThreadPool.wait_for_task_completion(done_id)
 		_chunk_task_ids.erase(done_id)
 		_chunk_task_id_map.erase(key)
+
+	# Worker-generated data (BID-088). Anything the main thread cached meanwhile
+	# wins — generation is deterministic, and a cached copy may carry edits.
+	var generated: Dictionary = result.get("generated", {})
+	for gkey: Variant in generated:
+		if not _chunk_data_cache.has(gkey):
+			_chunk_data_cache[gkey] = generated[gkey]
+	var cur: _ChunkData = _chunk_data_cache.get(key) as _ChunkData
+	if cur != null and cur.has_entities:
+		result["chunk_data"] = cur
+	else:
+		_chunk_data_cache[key] = result["chunk_data"]
 
 	if _chunk_renderers.has(key):
 		return

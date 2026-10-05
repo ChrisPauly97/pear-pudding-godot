@@ -8,21 +8,15 @@ const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const StarterZone = preload("res://game_logic/world/StarterZone.gd")
 const RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
 
-# Base noise frequency — biome freq_scale multiplies the sampling coordinates
-const NOISE_FREQ: float = 0.08
+const NOISE_FREQ: float = 0.08  # base noise frequency; biome freq_scale multiplies the sampling coordinates
 
-# Low-frequency biome noise (large-scale regions)
-const BIOME_NOISE_FREQ: float = 0.015
-# Chunks within this Manhattan distance of origin are always Grasslands
-const SAFE_ZONE_DIST: int = 5
+const BIOME_NOISE_FREQ: float = 0.015  # low-frequency biome noise (large-scale regions)
+const SAFE_ZONE_DIST: int = 5  # chunks within this Manhattan distance of origin are always Grasslands
 
 # ── Landmark placement ─────────────────────────────────────────────────────
-# ~1 in LANDMARK_RARITY chunks hosts a mega-landmark (colossus, spire, etc.)
-const LANDMARK_RARITY: int = 50
-# Skip landmark placement within this Manhattan radius of origin (safe zone)
-const LANDMARK_SAFE_DIST: int = 3
-# Footprint half-size (tiles): landmark reserves a (2*FP+1) × (2*FP+1) area
-const LANDMARK_FP: int = 2
+const LANDMARK_RARITY: int = 50  # ~1 in this many chunks hosts a mega-landmark (colossus, spire, etc.)
+const LANDMARK_SAFE_DIST: int = 3  # no landmarks within this Manhattan radius of origin (safe zone)
+const LANDMARK_FP: int = 2  # footprint half-size (tiles): a landmark reserves a (2*FP+1)² area
 
 # Biome → variant name (one per biome; deterministic from biome id)
 const LANDMARK_VARIANTS: Array[String] = [
@@ -33,22 +27,28 @@ const LANDMARK_VARIANTS: Array[String] = [
 	"broken_arch",        # MOUNTAINS
 ]
 
-# Approximately 1 in SCROLL_CHUNK_RARITY chunks gets an infinite-world scroll.
-const SCROLL_CHUNK_RARITY: int = 200
+const SCROLL_CHUNK_RARITY: int = 200  # ~1 in this many chunks gets an infinite-world scroll
 ## Random spawns stay this many tiles clear of stitched towns and roads (GID-138).
 const REALM_CLEARANCE: float = 4.0
 
-# ── Terrain noise (cached per seed) ────────────────────────────────────────
+# ── Terrain and biome noise (each cached per seed) ─────────────────────────
 static var _cached_noise: FastNoiseLite
 static var _cached_noise_seed: int = -1
-
-# ── Biome noise (cached per seed, separate from terrain noise) ─────────────
 static var _biome_noise: FastNoiseLite
 static var _biome_noise_seed: int = -1
 
 # When >= 0, overrides the safe-zone biome so the player starts in the chosen biome.
 # Set by WorldScene._ready() from SaveManager.starting_biome before any chunks are generated.
 static var forced_start_biome: int = -1
+
+## Builds every lazily-created static the generators read (noise, ley noise, enemy
+## table, realm caches) so chunk generation can run on worker threads (BID-088).
+static func warm(world_seed: int) -> void:
+	_get_noise(world_seed)
+	_get_biome_noise(world_seed)
+	TerrainMath.ley_intersection_strength(0.0, 0.0, world_seed)
+	EnemyRegistry.get_deck("undead_basic")
+	RealmLayout.warm()
 
 static func _get_noise(world_seed: int) -> FastNoiseLite:
 	if _cached_noise != null and _cached_noise_seed == world_seed:

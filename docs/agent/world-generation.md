@@ -157,6 +157,37 @@ signal chunk_unloading(key: Vector2i, chunk_data: RefCounted)
 - Cache managed entirely by `ChunkStreamingManager`
 - Building runs on `WorkerThreadPool` (up to 4 concurrent tasks) to avoid frame stalls
 
+### Threading (BID-088)
+
+A kick (`_kick_chunk_jobs`, at most `MAX_KICKS_PER_FRAME` per frame) does **no generation** on the
+main thread for infinite worlds. It hands the worker:
+- `sources`: the packed tile/height arrays of every snapshot-region chunk already in
+  `_chunk_data_cache` (copy-on-write, so later main-thread edits never reach the worker), and
+- `full`: the cached entity-bearing `ChunkData`, or null.
+
+`_chunk_gen_task` (worker) generates the chunk's full data when `full` is null and tile-only data
+for each missing neighbour, builds the snapshot with the static `_copy_region`, then runs
+`ChunkRenderer.prepare_terrain`. `_commit_chunk_results` (main) inserts the generated data **only
+where the cache has none**, because generation is deterministic and a cached copy may carry edits.
+Between kick and commit the chunk's cache entry may be tile-only. That is safe: entity nodes only
+exist after commit, and the interaction finders match chunk data against nodes.
+
+Rules this imposes:
+- `InfiniteWorldGen`, `RealmLayout`, `TerrainMath` (ley noise), `EnemyRegistry` and what they call
+  must stay **pure** during generation: no autoload *instance* state, no scene tree, no writes to
+  shared statics.
+- Every lazily-built static they read is built on the main thread by `InfiniteWorldGen.warm(seed)`
+  (called from `ChunkStreamingManager.setup`). A new lazy cache on that path must be added there.
+- Named maps keep the old main-thread prep (`_chunk_prepare_task`); startup's inner 5×5 still builds
+  synchronously (`_build_chunk_sync`).
+
+`chunk_unload_smoke` compares every streamed chunk (tiles, heights, entity ids) with a fresh
+main-thread generation. A worker given the wrong seed fails it with 116 mismatches.
+
+Measured with `tools/profile_world.gd` (12 u/s, 4-core container): kick cost on the main thread
+went from 5–8 ms to 1–3 ms; p99 went from ~17 to ~11 ms. `MAX_CHUNK_JOBS` 2 vs 4 was tried: 2 lowers
+the worst frame on 4 cores but adds more >8 ms frames, so it stays at 4.
+
 ---
 
 ## Living World Events

@@ -289,6 +289,10 @@ Declare all resources as `const` preloads; iterate them in `_ensure_loaded()`.
 
 All terrain logic lives in `game_logic/TerrainMath.gd`. Both named-map and infinite-chunk paths delegate via `Callable` tile lookups. Never duplicate terrain algorithms.
 
+**Chunk generation runs on worker threads** (BID-088). `InfiniteWorldGen` / `RealmLayout` / `TerrainMath` / `EnemyRegistry`
+code reached from `generate_chunk*` must stay pure: no autoload instance state, scene tree or writes to shared statics.
+A new lazily-built static on that path goes into `InfiniteWorldGen.warm()`. See `docs/agent/world-generation.md` → Threading.
+
 ---
 
 ## Magic Types: MagicTypes Is the Source of Truth

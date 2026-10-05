@@ -88,6 +88,18 @@ static var _plans: Dictionary = {}  # town → TownBuildings.detect() result
 static var _streets: Dictionary = {}  # town → TownStreets.plan() result
 static var _full_stamp_ctx: Dictionary = {}  # stamp_context() over every town / road / spot
 
+## Fills every lazy cache (town maps, building / street plans, entity lists, stamp
+## context) on the calling thread; after this RealmLayout is read-only, so the
+## chunk workers can share it (BID-088).
+static func warm() -> void:
+	for town: String in town_names():
+		town_map(town)
+		building_plan(town)
+		street_plan(town)
+	for kind: String in ["enemies", "chests", "doors", "npcs", "waystones", "scrolls", "shrines"]:
+		_cached_entities(kind)
+	stamp_tile(0, 0, IsoConst.TILE_GRASS, 0)
+
 static func town_names() -> Array[String]:
 	var out: Array[String] = []
 	for k: Variant in TOWNS.keys():
