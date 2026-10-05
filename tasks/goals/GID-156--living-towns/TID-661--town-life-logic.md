@@ -2,7 +2,7 @@
 
 **Goal:** GID-156
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -45,12 +45,18 @@ point: co-op peers share the synced clock and world seed, so every peer computes
 
 ## Plan
 
-_Written during Plan phase._
+Pure static `TownLife.gd`: candidate filter, seeded walker pick (cap 6 / 70 %), per-walker loop home → 2–3 stops
+(hub + street tile beside each lamp) → home over BFS street paths, keyframed with pauses stretched so whole loops fit
+one day; `sample(walker, t)` interpolates. Share the hub with TownStreets via a new `RealmLayout.hub_of`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/world/TownLife.gd` (new): `is_candidate`, `is_out` + `ROLE_HOURS` (used by TID-663), `plan`, `sample`.
+- `game_logic/world/RealmLayout.gd`: `hub_of(town)` extracted from `street_plan` (behaviour unchanged).
+- `tests/unit/test_town_life.gd` (new): candidates, determinism + cap, streets-only / no teleport / seamless day wrap,
+  indoor folk stay, role hours, real towns have walkers.
+- Seed is `hash(town)` (not the world seed): towns are fixed, and every peer derives it without any sync.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`docs/agent/enemies-and-npcs.md` → *Walking Townsfolk & Daily Schedules*; `named-maps-and-dungeons.md` notes `hub_of`.

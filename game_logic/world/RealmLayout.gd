@@ -264,13 +264,19 @@ static func street_plan(town: String) -> Dictionary:
 				var local: Vector2i = to_local_tile(town, Vector2i(roundi(end.x), roundi(end.y)))
 				if crop.grow(2).has_point(local):
 					gates.append(local.clamp(crop.position, crop.end - Vector2i.ONE))
-		var hub: Vector2i = crop.get_center()
-		var spawn := Vector2i(wm.player_spawn_x, wm.player_spawn_z)
-		if wm.has_player_spawn() and crop.has_point(spawn):
-			hub = spawn
-		plan = _TownStreets.plan(wm, crop, hub, gates, building_plan(town)["buildings"])
+		plan = _TownStreets.plan(wm, crop, hub_of(town), gates, building_plan(town)["buildings"])
 	_streets[town] = plan
 	return plan
+
+## The town's square (local tile): its authored player spawn, else the crop centre.
+static func hub_of(town: String) -> Vector2i:
+	var crop: Rect2i = crop_of(town)
+	var wm: _WorldMap = town_map(town)
+	if wm != null:
+		var spawn := Vector2i(wm.player_spawn_x, wm.player_spawn_z)
+		if wm.has_player_spawn() and crop.has_point(spawn):
+			return spawn
+	return crop.get_center()
 
 ## Every street lamp in the stitched towns, as overworld tiles.
 static func street_lamps_world() -> Array[Vector2i]:
