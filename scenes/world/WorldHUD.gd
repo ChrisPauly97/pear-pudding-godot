@@ -49,6 +49,7 @@ var _actions: Dictionary = {}  # action id (String) -> {button, callback, visibl
 var _dialogue_label: Label
 var _tip_label: Label
 var _coord_label: Label
+var _coord_tile := Vector2i(2147483647, 0)  # last shown tile; sentinel forces the first write
 var _level_label: Label
 var _xp_bar: ProgressBar
 var _hp_bar: ProgressBar  # persistent hero HP (TID-543), above the XP bar
@@ -391,6 +392,7 @@ func _style_status_labels(vh: float) -> void:
 
 func _create_coord_label(vh: float, font_size: int) -> void:
 	_coord_label = Label.new()
+	_coord_tile = Vector2i(2147483647, 0)
 	_coord_label.add_theme_font_size_override("font_size", font_size)
 	_coord_label.add_theme_color_override("font_color", Color.WHITE)
 	_coord_label.add_theme_color_override("font_shadow_color", Color.BLACK)
@@ -524,8 +526,11 @@ func show_tip(text: String) -> void:
 				_tip_label.hide()
 	)
 
+## Called every frame; only re-formats the label when the tile changes.
 func update_coords(tx: int, tz: int) -> void:
-	if _coord_label:
+	var t := Vector2i(tx, tz)
+	if _coord_label and t != _coord_tile:
+		_coord_tile = t
 		_coord_label.text = "tile (%d, %d)" % [tx, tz]
 
 func refresh_xp_bar() -> void:

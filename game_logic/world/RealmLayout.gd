@@ -319,9 +319,15 @@ static func _shift_entity(e: Dictionary, shift: Vector2) -> Dictionary:
 ## are dropped.
 static func entities(kind: String) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
+	out.assign(_cached_entities(kind))
+	return out
+
+## The cached `entities(kind)` list itself — read-only, no copy. For hot paths
+## (per-frame quest pointers, chunk generation); callers must not mutate it.
+static func _cached_entities(kind: String) -> Array[Dictionary]:
 	if _entity_cache.has(kind):
-		out.assign(_entity_cache[kind])
-		return out
+		return _entity_cache[kind]
+	var out: Array[Dictionary] = []
 	for town: String in town_names():
 		var wm: _WorldMap = town_map(town)
 		if wm == null:
@@ -355,7 +361,7 @@ static func entities_in_chunk(kind: String, cx: int, cz: int) -> Array[Dictionar
 	var span: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
 	var x0: float = float(cx) * span
 	var z0: float = float(cz) * span
-	for e: Dictionary in entities(kind):
+	for e: Dictionary in _cached_entities(kind):
 		# Chunk data is mutated at runtime (e.g. chests get "opened"), so hand out copies.
 		var ex: float = float(e.get("x", 0.0))
 		var ez: float = float(e.get("z", 0.0))
@@ -377,7 +383,7 @@ static func site_pos(site: String) -> Vector3:
 
 ## The stitched door leading into `map_name` (an interior), or {}.
 static func door_into(map_name: String) -> Dictionary:
-	for d: Dictionary in entities("doors"):
+	for d: Dictionary in _cached_entities("doors"):
 		if str(d.get("target_map", "")) == map_name:
 			return d
 	return {}

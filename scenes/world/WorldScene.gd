@@ -1327,9 +1327,8 @@ func _process(delta: float) -> void:
 	if _minimap:
 		_minimap.update()
 	if _world_hud:
-		var tx: int = int(_player.position.x / IsoConst.TILE_SIZE)
-		var tz: int = int(_player.position.z / IsoConst.TILE_SIZE)
-		_world_hud.update_coords(tx, tz)
+		var pt := IsoConst.world_to_tile(_player.position.x, _player.position.z)
+		_world_hud.update_coords(pt.x, pt.y)
 	if _grass:
 		_grass.update_player(_player.position, delta, _player.is_on_floor())
 

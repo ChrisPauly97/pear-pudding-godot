@@ -163,6 +163,7 @@
 | [GID-157](goals/GID-157--coordinate-helpers/goal.md) | Codebase Cleanup — Coordinate Helpers | done | 1 / 1 |
 | [GID-158](goals/GID-158--ui-factory-adoption/goal.md) | Codebase Cleanup — UI Factory Adoption | done | 1 / 1 |
 | [GID-159](goals/GID-159--dead-code-sweep/goal.md) | Codebase Cleanup — Dead Code Sweep | done | 1 / 1 |
+| [GID-160](goals/GID-160--per-frame-perf/goal.md) | Codebase Cleanup — Per-Frame Perf Pass | done | 1 / 1 |
 
 ## Backlog
 

@@ -42,10 +42,23 @@ static func opacity_for(knobs: Dictionary) -> float:
 ## The MAX_CASTERS slot values for casters `(x, y, z, radius)`, nearest to
 ## `center` first, padded with EMPTY.
 static func pick_slots(casters: Array[Vector4], center: Vector3) -> Array[Vector4]:
-	var sorted: Array[Vector4] = casters.duplicate()
-	sorted.sort_custom(func(a: Vector4, b: Vector4) -> bool:
-		return Vector3(a.x, a.y, a.z).distance_squared_to(center) < Vector3(b.x, b.y, b.z).distance_squared_to(center))
-	var out: Array[Vector4] = []
-	for i: int in MAX_CASTERS:
-		out.append(sorted[i] if i < sorted.size() else EMPTY)
-	return out
+	# Runs every frame over every caster: keep only the nearest MAX_CASTERS by
+	# insertion instead of copying and fully sorting the whole list.
+	var best: Array[Vector4] = []
+	var best_d: PackedFloat32Array = PackedFloat32Array()
+	for c: Vector4 in casters:
+		var d: float = Vector3(c.x, c.y, c.z).distance_squared_to(center)
+		var n: int = best.size()
+		if n == MAX_CASTERS and d >= best_d[n - 1]:
+			continue
+		var i: int = n
+		while i > 0 and best_d[i - 1] > d:
+			i -= 1
+		best.insert(i, c)
+		best_d.insert(i, d)
+		if best.size() > MAX_CASTERS:
+			best.resize(MAX_CASTERS)
+			best_d.resize(MAX_CASTERS)
+	while best.size() < MAX_CASTERS:
+		best.append(EMPTY)
+	return best
