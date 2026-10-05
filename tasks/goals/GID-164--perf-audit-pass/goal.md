@@ -27,14 +27,31 @@ Android is a target, so mobile render cost and per-frame GDScript work weigh mos
 | [TID-682](TID-682--town-building-batching.md) | Town buildings: shared materials, merged trim, off-main-thread build | agent | done | — |
 | [TID-683](TID-683--save-flush-cost.md) | Save flush: section-dirty copies, compact JSON, flat HMAC, .bak once per session | agent | done | — |
 | [TID-684](TID-684--deck-builder-incremental.md) | Deck builder: debounced search, persistent tiles, incremental add/remove | agent | done | — |
-| [TID-685](TID-685--measure-and-docs.md) | Profile before/after, docs + CLAUDE.md | agent | pending | TID-672..TID-684 |
+| [TID-685](TID-685--measure-and-docs.md) | Profile before/after, docs + CLAUDE.md | agent | done | TID-672..TID-684 |
 
 ## Acceptance Criteria
 
 - [x] Medium tier drops redundant AA/deband; sun rays cheaper.
-- [ ] Town chunk `prepare_terrain` measurably faster; chunk output proven identical by equivalence tests.
-- [ ] Per-frame module costs (CharacterPresence, TownLife, WalkCycle, Minimap, NightLights, HeroHealth) reduced in profiler.
-- [ ] Realtime battle HUD/card refresh no longer allocates styleboxes/labels/template dicts per frame/swing.
-- [ ] Save flush cheaper; legacy save envelopes still load.
-- [ ] Deck builder no longer full-rebuilds per keystroke.
-- [ ] Tests, smoke tests, gdlint, `unsafe-hits.sh`, headless import clean; docs updated.
+- [x] Town chunk `prepare_terrain` measurably faster; chunk output proven identical by equivalence tests.
+- [x] Per-frame module costs (CharacterPresence, TownLife, WalkCycle, Minimap, NightLights, HeroHealth) reduced in profiler.
+- [x] Realtime battle HUD/card refresh no longer allocates styleboxes/labels/template dicts per frame/swing.
+- [x] Save flush cheaper (compact payload, rename-rotated .bak); legacy save envelopes still load. Dirty-section copies / flat HMAC envelope skipped by measurement (see TID-683).
+- [x] Deck builder no longer full-rebuilds per keystroke.
+- [x] Tests, smoke tests, gdlint, `unsafe-hits.sh`, headless import clean; docs updated.
+
+## Results (headless `tools/profile_world.gd`, 900 frames @ 12 u/s)
+
+| Metric | Before | After |
+|---|---|---|
+| Town chunk `prepare_terrain` (worker) | 27.6 ms | 10.0 ms |
+| Wild chunk `prepare_terrain` (worker) | 17.3 ms | 6.8 ms |
+| `process` monitor | 8.49 ms | 5.83 ms |
+| p99 frame / frames > 8 ms | 8.27 ms / 12 | 7.29 ms / 4 |
+| CharacterPresence `_process` | 267 µs | 15 µs |
+| AmbientTouches `_process` | 211 µs | < 7 µs |
+| TownLife `_process` | 126 µs | 81 µs |
+| `quest_tracker.refresh` / `_check_interactions` | 535 / 244 µs | 424 / 203 µs |
+
+Battle HUD, deck builder and save changes have no profiler (BID-089); they are covered by unit/smoke tests.
+Mobile rendering (TID-672, TID-681) is not measurable headless.
+Follow-ups logged as BID-090.

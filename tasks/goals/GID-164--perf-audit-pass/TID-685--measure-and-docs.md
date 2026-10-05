@@ -2,7 +2,7 @@
 
 **Goal:** GID-164
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-672..TID-684
 
 ## Lock
@@ -26,12 +26,14 @@ Validation for every task: headless import parse check, `scripts/unsafe-hits.sh`
 
 ## Plan
 
-_Written during Plan phase._
+- Baseline taken before TID-673 (TID-672 is rendering-only, invisible headless); re-profiled after TID-684 with the same 900-frame walk.
+- Results table in goal.md; follow-ups in BID-090.
 
 ## Changes Made
 
-_Filled after Build phase._
+- goal.md results table + acceptance criteria; BID-090 logged; CLAUDE.md learning (measure before fixing; exact skips + equivalence tests; idle nodes stop processing).
+- Agent docs were updated per task (visual-polish, terrain-rendering, enemies-and-npcs, ui-and-scene-management, story-implementation, multiplayer-coop, battle-system, named-maps-and-dungeons, save-system, inventory-and-deck).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- CLAUDE.md Bug Fix Learnings entry.

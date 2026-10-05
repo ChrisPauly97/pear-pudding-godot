@@ -639,6 +639,14 @@ stayed frozen. Now `SceneManager.accepts_engage()` gates every engage (WORLD, no
 `_enter_battle` refuses to start over an existing battle. Any "pending" UI step between an event and a state
 change needs its own busy flag — the state machine alone doesn't cover the gap.
 
+### Perf audit by reading guessed wrong half the time (GID-164)
+Read-only audit findings were often negligible once measured (HeroHealth 0.3 µs/frame; the flagged Callable tile
+lookups ~1.5 ms of chunk prep), while the real hog went unflagged (the hill height field, ~9 ms of 13). Lap a
+function's stages with `Time.get_ticks_usec()` (temporary, reverted) before choosing the fix. Exact skips are
+the safe kind: a summed-area table proving "no hill in the window", a 1-Lipschitz distance proving a whole chunk
+is clear — and an equivalence test against the old path, mutation-checked. Also: the 100 townsfolk WalkCycles
+had **no walk frames** at all; a node with nothing to do must `set_process(false)`.
+
 ### Nocturnal despawn — "modulate:a does not exist" (fixed with automation bridge)
 `Node3D` has no `modulate`. Always resolve to `Sprite3D`/`CanvasItem` child before tweening modulate.
 
