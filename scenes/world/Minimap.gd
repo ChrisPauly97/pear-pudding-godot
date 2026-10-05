@@ -292,7 +292,7 @@ func _draw_group(canvas: Control, nodes: Dictionary, origin: Vector3,
 		if str(id) == skip_id:
 			continue
 		var raw = nodes[id]
-		if not is_instance_valid(raw):
+		if not is_instance_valid(raw) or not (raw as Node3D).visible:  # indoor townsfolk (GID-156)
 			continue
 		var dot: Vector2 = _to_minimap((raw as Node3D).position, origin)
 		if _inside_minimap(dot, center):

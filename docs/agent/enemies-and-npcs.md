@@ -224,7 +224,7 @@ Pips are positioned at `Vector3(0, 1.4, 0)` above the sprite (above the Sprite3D
 
 ### TownspersonNPC Scene (`scenes/world/entities/TownspersonNPC.gd`)
 
-- Static `CharacterBody3D` (no movement)
+- `CharacterBody3D`; static unless it is a town walker (see **Walking Townsfolk & Daily Schedules** below)
 - Shows dialogue string above head for 4 seconds after the player presses E within `INTERACT_RANGE`
 - Dialogue is supplied by `BiomeDef.npc_dialogue[]` (randomly picked at spawn time)
 - Re-triggers on each new interaction; no branching or quest state
@@ -441,6 +441,45 @@ Ground critters wander within a radius of home on dry grass/hill and flee the he
 inside 2.5 units; butterflies/bees hover, rabbits hop. No health, battles, saves
 or co-op sync. Sprites: `scripts/gen_creature_sprites.py` (also draws the cactus
 worm and imbued stag enemy sprites).
+
+**Town critters (GID-156):** while `WorldScene.current_town` is set, `Critters` draws from
+`CritterDef.TOWN_CRITTERS` (pigeons, chickens — day only — cats and the odd mouse) via
+`species_for_town()`, may also place them on street tiles (`TILE_PATH`), and frees any critter that no longer
+`fits(species, biome, in_town)` when the hero crosses a town edge. `test_critters` checks the town table.
+
+## Walking Townsfolk & Daily Schedules (GID-156)
+
+Plain townsfolk in the five stitched towns stroll the streets; everyone else keeps their authored tile.
+
+- **Who walks** — `game_logic/world/TownLife.gd` `is_candidate(npc)`: a generic extra (`"<town>:npc_N"`) with no
+  `npc_type`, `flag_key`, `hide_flag_key`, `show_flag_key`, no side quest (`SideQuests.giver_name_for`), not a
+  trainer (`UnlockLadder.trainer_at`) and no bespoke sprite (`SpriteRegistry.named_npc_texture`). It also needs a
+  street tile within `MAX_HOME_DIST` (5) tiles — indoor folk stay put. Up to `MAX_WALKERS` (6) / `WALKER_SHARE`
+  (70 %) per town, picked by a seeded shuffle.
+- **Loops** — `TownLife.plan(street_plan, hub, npcs, seed, day_seconds)` builds each walker a loop over
+  `TownStreets` tiles: home street tile → 2–3 stops (the square = `RealmLayout.hub_of(town)`, the street tile beside
+  each lamp) → home, BFS paths, `WALK_SPEED` 2.4 u/s, 3–9 s pause per stop. Keyframes (time → town-local world
+  x/z); the pauses are stretched so a whole number of loops fills one day. `sample(walker, t)` → `{pos, dir,
+  moving}`. Position is a pure function of time of day (seed = `hash(town)`), so co-op peers agree with no RPCs
+  and the day wrap is seamless.
+- **Schedules** — `ROLE_HOURS` (time of day 0..1): villager 0.27–0.72, reveller 0.34–0.93, guard 0.72–0.30
+  (wraps). One guard per town once it has ≥ 3 walkers, every third walker a reveller. `is_out(role, tod)`.
+  During a town siege (solo `town_siege.get_active_siege()` or co-op `_coop_siege_active`) that town's walkers stay in.
+- **Driver** — `scenes/world/modules/TownLife.gd` (`WorldScene.town_life`) each frame, for every live NPC node
+  with a loop: places it at `sample(t − lag)` + `RealmLayout.world_shift`, on `get_terrain_height`, writes the
+  spot into its `_active_npc_data` x/z (so `_find_nearby_npc` / prompts follow it), flips the billboard by move
+  direction, adds a `WalkCycle` child (`TownWalk`) and fades the Sprite3D `modulate.a` in/out (`FADE_TIME`) with
+  the role's hours. Indoors: node hidden and `data["hidden"] = true`; `WorldScene._first_data_in_range` skips
+  hidden entries and the minimap skips invisible nodes.
+- **Talk hold** — the hero within `HOLD_RADIUS` (2.6) stops a walker and it faces the hero. Holding grows a
+  per-walker lag (≤ `MAX_LAG` 45 s); afterwards the lag shrinks at 1 s/s, so the walker catches up *along its
+  own route* at double pace and reconverges on the shared clock spot.
+- **Lanterns** — `town_life.lanterns()` lists visible guards; `NightLights` adds each as a `lantern` source with a
+  `follow` node, and the rig tracks the guard every frame.
+- **NPC presence** — the module also owns `despawn_flag_hidden()` (NPCs whose `hide_flag_key` gets set leave on the
+  spot; formerly `WorldScene._despawn_flag_hidden_npcs`).
+- Tests: `tests/unit/test_town_life.gd` (determinism, streets only, no teleports, day wrap, roles, real towns) and
+  `tests/town_life_smoke.gd` (live world: walkers move, data follows, hero holds, villagers in at night; in CI).
 
 ## New Enemy Roster (GID-149)
 

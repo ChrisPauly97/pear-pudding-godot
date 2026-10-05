@@ -270,7 +270,7 @@ sync it is named for.
 "this NPC leaves their post once the flag is set" gate, and Madrian's `npc_1` — the Maiteln who
 offers to take you away — carries `hide_flag_key = "story_intro_complete"`, the same flag that
 makes the follower appear. `ChunkRenderer` skips spawning any NPC whose hide flag is already
-set; `WorldScene._despawn_flag_hidden_npcs()` (same `_on_story_flag_set_for_cast()` handler)
+set; `WorldScene.town_life.despawn_flag_hidden()` (same `_on_story_flag_set_for_cast()` handler)
 frees one whose flag flips while the map is loaded — which is exactly the case here, since the
 player sets it by talking to him. Note Madrian's `npc_2` (the master) shares `story_intro_complete`
 as its *dialogue* flag, so talking to him first also completes the intro; Maiteln then joins as a

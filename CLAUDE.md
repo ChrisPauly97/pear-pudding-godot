@@ -35,6 +35,7 @@ door-entered. Their `.tres` stay the authoring source. Use `WorldScene.story_pla
 Their houses are raised into real buildings (tall walls, roofs, windows) by `TownBuildings` /
 `BuildingMesh` (GID-154) — author a house as a wall ring with a 1-tile door gap; no map changes needed.
 Streets (gate → spawn trunks, door lanes) and grimy lit street lamps are generated too (`TownStreets`, GID-155).
+Plain townsfolk walk those streets on a clock-derived daily schedule and towns get their own critters (`TownLife`, GID-156).
 
 ---
 
@@ -392,9 +393,10 @@ created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
 | `StarterCamps.gd` (`starter_camps`) | Madrian starter-zone camps (`StarterZone`): levelled camp enemies refilled 45 s after they fall, never saved as defeated (GID-141) |
 | `RiftPortals.gd` (`rift_portals`) | Rift door panel: rift, best tier, tier picker, enter/resume (GID-142); portals come from `InfiniteWorldGen` |
 | `HeroHealth.gd` (`hero_health`) | Persistent hero HP out of combat (`HeroVitality`): regen, food meals, Q / "Eat" quick use, town + bed full heal, HUD HP bar (TID-543) |
-| `Critters.gd` (`critters`) | Ambient wildlife around the hero by biome (`CritterDef`, `entities/Critter.gd`): wander, flee, hover/hop; scenery only, not synced (GID-147) |
+| `Critters.gd` (`critters`) | Ambient wildlife around the hero by biome (town species in stitched towns, GID-156) (`CritterDef`, `entities/Critter.gd`): wander, flee, hover/hop; scenery only, not synced (GID-147) |
 | `WorldClock.gd` (`world_clock`) | Builds `_dnc` (DayNightCycle) + `_sun_rays`, wires day / night / dawn / storm reactions, per-frame clock tick (BID-055) |
 | `WorldShortcuts.gd` (`shortcuts`) | Keyboard shortcuts forwarded from `_unhandled_input`: pause, map view, menu actions, G/D cantrips, chat focus, then tap-to-move (BID-055) |
+| `TownLife.gd` (`town_life`) | Walking townsfolk on `TownLife` street loops, role hours (indoors at night, lantern guard), talk hold, interaction x/z sync, hide-flag NPC despawn (GID-156) |
 | `Legend.gd` (`legend`) | Pear Pudding legend riddle spots (`RiddleSpots`): unmarked overworld props, look / Dig resolution, `try_dig` from Cantrips (GID-153) |
 
 BattleScene's single-player clusters live under `scenes/battle/modules/`, created by

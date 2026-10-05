@@ -60,8 +60,65 @@ FAWN = {"a": rgb(176, 118, 70), "w": rgb(244, 232, 210), "b": rgb(140, 92, 56), 
         "l": rgb(140, 94, 58), "t": rgb(236, 226, 210)}
 RABBIT = {"a": rgb(236, 240, 246), "b": rgb(226, 170, 176), "e": rgb(40, 30, 40), "l": rgb(210, 216, 226)}
 ADDER = {"a": rgb(44, 40, 46), "h": rgb(96, 84, 92), "e": rgb(230, 40, 30)}
+# GID-156 town critters
+PIGEON = {"a": rgb(150, 156, 172), "d": rgb(104, 108, 126), "n": rgb(92, 140, 124), "e": rgb(232, 128, 44),
+          "k": rgb(70, 60, 60), "l": rgb(220, 112, 112), "t": rgb(90, 94, 110)}
+CHICKEN = {"w": rgb(244, 238, 226), "r": rgb(214, 40, 36), "e": rgb(20, 16, 20), "y": rgb(240, 180, 40),
+           "o": rgb(232, 150, 40), "t": rgb(220, 212, 200)}
+CAT = {"a": rgb(206, 134, 62), "s": rgb(150, 88, 40), "e": rgb(120, 200, 90), "l": rgb(180, 112, 52),
+       "t": rgb(196, 126, 58)}
 
 CRITTERS = {
+    "pigeon": [
+        ["........nn..",
+         ".......nnek.",
+         "..ddaaaann..",
+         "tdddaaaaa...",
+         "..aaaaaa....",
+         "....l.l....."],
+        ["............",
+         "............",
+         "..ddaaaa....",
+         "tdddaaaaann.",
+         "..aaaaaa.nek",
+         "....l.l....."],
+    ],
+    "chicken": [
+        ["......rr..",
+         ".....wwwe.",
+         ".....wwwwy",
+         "tt..wwww..",
+         "twwwwwww..",
+         ".wwwwwww..",
+         "..wwwww...",
+         "...o.o...."],
+        ["..........",
+         "..........",
+         "tt........",
+         "twwwwww.rr",
+         ".wwwwwwwwe",
+         ".wwwwwwwwy",
+         "..wwwww...",
+         "...o.o...."],
+    ],
+    "cat": [
+        ["t..........a.a",
+         "t.........aaaa",
+         "t.........aeae",
+         ".t.......aaaaa",
+         "..aasaasaaaa..",
+         "..aaaaaaaaaa..",
+         "..l.l....l.l..",
+         "..l.l....l.l.."],
+        ["...........a.a",
+         "..........aaaa",
+         "..........aeae",
+         ".........aaaaa",
+         "..aasaasaaaa..",
+         "taaaaaaaaaaa..",
+         "t.l.l....l.l..",
+         "..l.l....l.l.."],
+    ],
     "mouse": [
         [".......bb..",
          "..aaaaaabb.",
@@ -415,7 +472,8 @@ def walk_frames(idle, legs_frac=0.3, floater=False):
 if __name__ == "__main__":
     for key, frames in CRITTERS.items():
         pal = {"mouse": MOUSE, "rat": RAT, "butterfly": FLY, "bee": BEE, "scorched_larva": LARVA,
-               "fawn": FAWN, "snow_rabbit": RABBIT, "blackened_adder": ADDER}[key]
+               "fawn": FAWN, "snow_rabbit": RABBIT, "blackened_adder": ADDER,
+               "pigeon": PIGEON, "chicken": CHICKEN, "cat": CAT}[key]
         for i, rows in enumerate(frames):
             build(rows, pal, shade=key not in ("butterfly", "bee")).save(
                 os.path.join(ROOT, "critters", "%s_%d.png" % (key, i)))

@@ -650,7 +650,7 @@ func _spawn_entities(world_scene: _WorldScene) -> void:
 
 	for n_data in _chunk_data.npcs:
 		# NPCs the story has moved on (MapNpc.hide_flag_key) are simply not spawned.
-		# WorldScene._despawn_flag_hidden_npcs() covers the flag flipping while the
+		# TownLife.despawn_flag_hidden() covers the flag flipping while the
 		# map is already loaded.
 		var hide_flag: String = str(n_data.get("hide_flag_key", ""))
 		if hide_flag != "" and SceneManager.save_manager.get_story_flag(hide_flag):

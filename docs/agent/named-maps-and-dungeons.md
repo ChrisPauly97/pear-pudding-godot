@@ -319,6 +319,9 @@ Towns are authored as open grass; the overworld lays a street network over it an
 - **Light:** `NightLights` adds every street lamp as a `street_lamp` source (overworld only) — sooty amber, r 6.5,
   stronger flicker. Pooled rigs (Medium 4 / High 8 nearest) now always carry a real `OmniLight3D` (it lights walls,
   roofs and the lamp itself); it casts shadows only with `night_light_shadows`. Scenery only — not saved or synced.
+- **Townsfolk (GID-156):** `RealmLayout.hub_of(town)` (the square: authored spawn, else crop centre) is shared by the
+  street planner and `TownLife`, which walks plain townsfolk along these streets — see
+  `docs/agent/enemies-and-npcs.md` → *Walking Townsfolk & Daily Schedules*.
 
 ### Adding / moving a stitched town
 

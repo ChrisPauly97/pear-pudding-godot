@@ -47,6 +47,7 @@ class Rig:
 	var halo_mat: ShaderMaterial
 	var style: Dictionary = {}
 	var phase: float = 0.0
+	var follow: Variant = null  # a moving source (a guard's lantern) the rig tracks each frame
 
 static var _pool_mesh: SphereMesh
 static var _dot_mesh: QuadMesh
@@ -124,7 +125,11 @@ func _process(delta: float) -> void:
 		_gather_in = GATHER_INTERVAL
 		refresh()
 	for i: int in _active:
-		_apply_flicker(_rigs[i])
+		var rig: Rig = _rigs[i]
+		var n: Node3D = _world._valid_node3d(rig.follow)
+		if n != null and n.is_inside_tree():
+			rig.root.global_position = n.global_position
+		_apply_flicker(rig)
 
 
 ## Re-reads the night factor and the tier knobs, then re-assigns rigs to the
@@ -157,6 +162,9 @@ func _gather_sources() -> Array[Dictionary]:
 			_street_lamps_ready = true
 		for p: Vector3 in _street_lamps:
 			out.append({"pos": p, "style": "street_lamp"})
+		var lanterns: Array[Node3D] = _world.town_life.lanterns() if _world.town_life != null else [] as Array[Node3D]
+		for guard: Node3D in lanterns:  # GID-156: patrol lanterns
+			out.append({"pos": guard.global_position, "style": "lantern", "follow": guard})
 	return out
 
 
@@ -177,6 +185,7 @@ func _assign(picked: Array[Dictionary]) -> void:
 		var pos: Vector3 = src["pos"]
 		rig.style = _NightLightMath.STYLES[String(src["style"])]
 		rig.phase = _NightLightMath.phase_for(pos)
+		rig.follow = src.get("follow", null)
 		_place_rig(rig, pos, i < _pool_cap)
 	for i: int in range(picked.size(), _rigs.size()):
 		_rigs[i].root.visible = false
