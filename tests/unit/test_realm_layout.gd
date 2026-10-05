@@ -54,6 +54,39 @@ func test_stamp_tile_road_is_path_and_far_is_noise() -> void:
 	var far: Vector2i = RealmLayout.stamp_tile(400, -400, IsoConst.TILE_HILL, 4)
 	assert_eq(far, Vector2i(IsoConst.TILE_HILL, 4), "outside the realm the noise is kept")
 
+## GID-162: the per-chunk stamp context only drops towns / roads / spots that
+## cannot reach the chunk, so it must stamp every tile exactly like the full one,
+## and the full one must agree with town_at_tile + reserved_distance.
+func test_chunk_stamp_context_matches_full_stamp() -> void:
+	var cs: int = IsoConst.CHUNK_SIZE
+	var bounds := Rect2i()
+	for town: String in RealmLayout.town_names():
+		bounds = RealmLayout.world_rect(town) if bounds.size == Vector2i.ZERO \
+				else bounds.merge(RealmLayout.world_rect(town))
+	var mismatches: int = 0
+	var checked: int = 0
+	for cz: int in range(floori(bounds.position.y / float(cs)) - 2, ceili(bounds.end.y / float(cs)) + 2):
+		for cx: int in range(floori(bounds.position.x / float(cs)) - 2, ceili(bounds.end.x / float(cs)) + 2):
+			if not RealmLayout.chunk_touches_realm(cx, cz):
+				continue
+			var ctx: Dictionary = RealmLayout.stamp_context(cx, cz, true)
+			for i: int in cs * cs:
+				var wtx: int = cx * cs + i % cs
+				var wtz: int = cz * cs + i / cs
+				var fast: Vector2i = RealmLayout.stamp_tile_in(ctx, wtx, wtz, IsoConst.TILE_HILL, 7)
+				var full: Vector2i = RealmLayout.stamp_tile(wtx, wtz, IsoConst.TILE_HILL, 7)
+				checked += 1
+				if fast != full:
+					mismatches += 1
+				elif RealmLayout.town_at_tile(wtx, wtz) == "":
+					var d: float = RealmLayout.reserved_distance(wtx, wtz)
+					var want: Vector2i = Vector2i(IsoConst.TILE_PATH, 0) if d <= 0.0 \
+							else (Vector2i(IsoConst.TILE_HILL, 7) if d >= RealmLayout.BLEND_MARGIN else full)
+					if full != want:
+						mismatches += 1
+	assert_gt(checked, 10000, "covered the realm")
+	assert_eq(mismatches, 0, "chunk-filtered stamp == full stamp == reserved_distance rule")
+
 func test_entities_keep_ids_and_drop_overworld_doors() -> void:
 	var npcs: Array[Dictionary] = RealmLayout.entities("npcs")
 	var ids: Array[String] = []

@@ -14,6 +14,7 @@
 ## Pure static logic over save data passed in — no autoloads.
 extends RefCounted
 
+const IsoConst = preload("res://autoloads/IsoConst.gd")  # usable before autoloads register (-s runs)
 const _StoryQuests = preload("res://game_logic/quests/StoryQuests.gd")
 const _ObjectiveTracker = preload("res://game_logic/ObjectiveTracker.gd")
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
@@ -145,12 +146,15 @@ static func side_quest(entry: Dictionary) -> Dictionary:
 	}
 
 ## Overworld tile target of the stitched-town NPC with entity id `npc_id`, or {}.
+## Waypoint target {map, tx, tz} for an overworld entity dict.
+static func _overworld_target(e: Dictionary) -> Dictionary:
+	var t := IsoConst.entity_tile(e)
+	return {"map": "main", "tx": t.x, "tz": t.y}
+
 static func npc_target(npc_id: String) -> Dictionary:
 	for npc: Dictionary in _RealmLayout.entities("npcs"):
 		if str(npc.get("id", "")) == npc_id:
-			return {"map": "main",
-				"tx": int(floor(float(npc.get("x", 0.0)) / IsoConst.TILE_SIZE)),
-				"tz": int(floor(float(npc.get("z", 0.0)) / IsoConst.TILE_SIZE))}
+			return _overworld_target(npc)
 	return {}
 
 ## The main-story entry. Past the last written step it becomes a standing
@@ -215,9 +219,7 @@ static func bounty_board_targets() -> Array[Dictionary]:
 		for npc: Dictionary in _RealmLayout.entities("npcs"):
 			if str(npc.get("npc_type", "")) != "bounty_board":
 				continue
-			_board_targets.append({"map": "main",
-				"tx": int(floor(float(npc.get("x", 0.0)) / IsoConst.TILE_SIZE)),
-				"tz": int(floor(float(npc.get("z", 0.0)) / IsoConst.TILE_SIZE))})
+			_board_targets.append(_overworld_target(npc))
 	var out: Array[Dictionary] = []
 	out.assign(_board_targets)
 	return out
@@ -242,9 +244,8 @@ static func npc_mark(npc: Dictionary, story_tile: Variant, bounty_turn_in: bool,
 		return {}
 	if story_tile is Vector2i:
 		var st: Vector2i = story_tile
-		var tx: int = int(floor(float(npc.get("x", 0.0)) / IsoConst.TILE_SIZE))
-		var tz: int = int(floor(float(npc.get("z", 0.0)) / IsoConst.TILE_SIZE))
-		if absi(tx - st.x) <= 1 and absi(tz - st.y) <= 1:
+		var t := IsoConst.entity_tile(npc)
+		if absi(t.x - st.x) <= 1 and absi(t.y - st.y) <= 1:
 			return {"text": "!", "kind": "story"}
 	if training:
 		return {"text": "!", "kind": "training"}

@@ -13,6 +13,7 @@
 ## "where is this story place" caller share one table.
 extends RefCounted
 
+const IsoConst = preload("res://autoloads/IsoConst.gd")  # usable before autoloads register (-s runs)
 const _WorldMap = preload("res://game_logic/world/WorldMap.gd")
 const _RiddleSpots = preload("res://game_logic/world/RiddleSpots.gd")
 const _TownBuildings = preload("res://game_logic/world/TownBuildings.gd")
@@ -85,6 +86,19 @@ static var _maps: Dictionary = {}  # town → WorldMap (built on first use)
 static var _entity_cache: Dictionary = {}  # kind → Array[Dictionary]
 static var _plans: Dictionary = {}  # town → TownBuildings.detect() result
 static var _streets: Dictionary = {}  # town → TownStreets.plan() result
+static var _full_stamp_ctx: Dictionary = {}  # stamp_context() over every town / road / spot
+
+## Fills every lazy cache (town maps, building / street plans, entity lists, stamp
+## context) on the calling thread; after this RealmLayout is read-only, so the
+## chunk workers can share it (BID-088).
+static func warm() -> void:
+	for town: String in town_names():
+		town_map(town)
+		building_plan(town)
+		street_plan(town)
+	for kind: String in ["enemies", "chests", "doors", "npcs", "waystones", "scrolls", "shrines"]:
+		_cached_entities(kind)
+	stamp_tile(0, 0, IsoConst.TILE_GRASS, 0)
 
 static func town_names() -> Array[String]:
 	var out: Array[String] = []
@@ -135,7 +149,8 @@ static func town_at_tile(wtx: int, wtz: int) -> String:
 	return ""
 
 static func town_at_world(wx: float, wz: float) -> String:
-	return town_at_tile(int(floor(wx / IsoConst.TILE_SIZE)), int(floor(wz / IsoConst.TILE_SIZE)))
+	var t := IsoConst.world_to_tile(wx, wz)
+	return town_at_tile(t.x, t.y)
 
 ## Distance (tiles) from a point to the nearest road centreline.
 static func road_distance(px: float, pz: float) -> float:
@@ -148,9 +163,6 @@ static func road_distance(px: float, pz: float) -> float:
 			var q: Vector2 = Geometry2D.get_closest_point_to_segment(p, a, b)
 			best = minf(best, p.distance_to(q))
 	return best
-
-static func is_road_tile(wtx: int, wtz: int) -> bool:
-	return road_distance(float(wtx), float(wtz)) <= ROAD_HALF_WIDTH
 
 ## Distance (tiles) from a tile to the nearest town rectangle or road; 0 inside.
 static func reserved_distance(wtx: int, wtz: int) -> float:
@@ -215,10 +227,56 @@ static func town_map(town: String) -> _WorldMap:
 ## tile inside a town, paved road on a road, and the generated (`noise_*`) terrain
 ## elsewhere — its height faded towards 0 across the blend margin.
 static func stamp_tile(wtx: int, wtz: int, noise_tile: int, noise_height: int) -> Vector2i:
-	var town: String = town_at_tile(wtx, wtz)
-	if town != "":
+	if _full_stamp_ctx.is_empty():
+		_full_stamp_ctx = stamp_context()
+	return stamp_tile_in(_full_stamp_ctx, wtx, wtz, noise_tile, noise_height)
+
+## The towns, road segments and legend spots `stamp_tile_in` checks. With no
+## chunk given it holds all of them; for chunk (cx, cz) only those that can reach
+## it — anything farther than BLEND_MARGIN from every tile of the chunk can only
+## yield a distance ≥ BLEND_MARGIN, which stamps the same as not checking it, so
+## the result is identical while each tile scans a handful of entries instead of
+## every town and road (chunk generation hitched on this — GID-162).
+static func stamp_context(cx: int = 0, cz: int = 0, whole_chunk: bool = false) -> Dictionary:
+	var area := Rect2i()
+	var reach: float = INF
+	var centre := Vector2.ZERO
+	if whole_chunk:
+		var cs: int = IsoConst.CHUNK_SIZE
+		area = Rect2i(cx * cs, cz * cs, cs, cs).grow(int(ceil(BLEND_MARGIN)) + 1)
+		var half: float = float(cs) * 0.5
+		centre = Vector2(float(cx * cs) + half, float(cz * cs) + half)
+		reach = half * 1.4143 + BLEND_MARGIN + ROAD_HALF_WIDTH + 1.0
+	var towns: Array = []
+	for k: Variant in TOWNS.keys():
+		var r: Rect2i = world_rect(str(k))
+		if not whole_chunk or area.intersects(r):
+			towns.append([str(k), r])
+	var segs: Array = []
+	for road: Array in ROADS:
+		for i: int in range(road.size() - 1):
+			var a: Vector2 = road[i]
+			var b: Vector2 = road[i + 1]
+			if not whole_chunk or centre.distance_to(Geometry2D.get_closest_point_to_segment(centre, a, b)) <= reach:
+				segs.append([a, b])
+	var spots: Array[Vector2i] = []
+	for spot: Dictionary in _RiddleSpots.SPOTS:
+		var t: Vector2i = spot["tile"]
+		if not whole_chunk or centre.distance_to(Vector2(t)) <= reach:
+			spots.append(t)
+	return {"towns": towns, "segs": segs, "spots": spots}
+
+## `stamp_tile` against a `stamp_context`.
+static func stamp_tile_in(ctx: Dictionary, wtx: int, wtz: int, noise_tile: int, noise_height: int) -> Vector2i:
+	var p := Vector2i(wtx, wtz)
+	var towns: Array = ctx["towns"]
+	for entry: Array in towns:
+		var r: Rect2i = entry[1]
+		if not r.has_point(p):
+			continue
+		var town: String = entry[0]
 		var wm: _WorldMap = town_map(town)
-		var local: Vector2i = to_local_tile(town, Vector2i(wtx, wtz))
+		var local: Vector2i = to_local_tile(town, p)
 		var tile: int = wm.get_tile(local.x, local.y)
 		var raised: Dictionary = building_plan(town)["heights"]
 		var levels: int = int(raised.get(local, 0))
@@ -226,7 +284,23 @@ static func stamp_tile(wtx: int, wtz: int, noise_tile: int, noise_height: int) -
 		if tile == IsoConst.TILE_GRASS and streets.has(local):
 			tile = IsoConst.TILE_PATH
 		return Vector2i(tile, levels if levels > 0 else wm.get_height(local.x, local.y))
-	var d: float = reserved_distance(wtx, wtz)
+	# Same as reserved_distance(), over the context's lists.
+	var pf := Vector2(float(wtx), float(wtz))
+	var road: float = INF
+	var segs: Array = ctx["segs"]
+	for seg: Array in segs:
+		road = minf(road, pf.distance_to(Geometry2D.get_closest_point_to_segment(pf, seg[0], seg[1])))
+	var d: float = maxf(0.0, road - ROAD_HALF_WIDTH)
+	var spots: Array[Vector2i] = ctx["spots"]
+	for t: Vector2i in spots:
+		d = minf(d, Vector2(wtx - t.x, wtz - t.y).length() + LEGEND_SITE_PAD)
+	for entry: Array in towns:
+		var r: Rect2i = entry[1]
+		var dx: int = maxi(0, maxi(r.position.x - wtx, wtx - (r.end.x - 1)))
+		var dz: int = maxi(0, maxi(r.position.y - wtz, wtz - (r.end.y - 1)))
+		d = minf(d, sqrt(float(dx * dx + dz * dz)))
+		if d <= 0.0:
+			break
 	if d <= 0.0:
 		return Vector2i(IsoConst.TILE_PATH, 0)
 	if d >= BLEND_MARGIN:
@@ -321,9 +395,15 @@ static func _shift_entity(e: Dictionary, shift: Vector2) -> Dictionary:
 ## are dropped.
 static func entities(kind: String) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
+	out.assign(_cached_entities(kind))
+	return out
+
+## The cached `entities(kind)` list itself — read-only, no copy. For hot paths
+## (per-frame quest pointers, chunk generation); callers must not mutate it.
+static func _cached_entities(kind: String) -> Array[Dictionary]:
 	if _entity_cache.has(kind):
-		out.assign(_entity_cache[kind])
-		return out
+		return _entity_cache[kind]
+	var out: Array[Dictionary] = []
 	for town: String in town_names():
 		var wm: _WorldMap = town_map(town)
 		if wm == null:
@@ -335,9 +415,7 @@ static func entities(kind: String) -> Array[Dictionary]:
 			if kind == "doors" and (OVERWORLD_TARGETS.has(str(e.get("target_map", "")))
 					or DROPPED_DOORS.has("%s:%s" % [town, str(e.get("id", ""))])):
 				continue
-			var tx: int = int(floor(float(e.get("x", 0.0)) / IsoConst.TILE_SIZE))
-			var tz: int = int(floor(float(e.get("z", 0.0)) / IsoConst.TILE_SIZE))
-			if not crop_of(town).has_point(Vector2i(tx, tz)):
+			if not crop_of(town).has_point(IsoConst.entity_tile(e)):
 				continue
 			var moved: Dictionary = _shift_entity(e, shift)
 			moved["town"] = town
@@ -359,7 +437,7 @@ static func entities_in_chunk(kind: String, cx: int, cz: int) -> Array[Dictionar
 	var span: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
 	var x0: float = float(cx) * span
 	var z0: float = float(cz) * span
-	for e: Dictionary in entities(kind):
+	for e: Dictionary in _cached_entities(kind):
 		# Chunk data is mutated at runtime (e.g. chests get "opened"), so hand out copies.
 		var ex: float = float(e.get("x", 0.0))
 		var ez: float = float(e.get("z", 0.0))
@@ -381,7 +459,7 @@ static func site_pos(site: String) -> Vector3:
 
 ## The stitched door leading into `map_name` (an interior), or {}.
 static func door_into(map_name: String) -> Dictionary:
-	for d: Dictionary in entities("doors"):
+	for d: Dictionary in _cached_entities("doors"):
 		if str(d.get("target_map", "")) == map_name:
 			return d
 	return {}

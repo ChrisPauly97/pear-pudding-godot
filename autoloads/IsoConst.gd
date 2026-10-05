@@ -6,14 +6,8 @@ const CHUNK_SIZE: int = 16
 # Tile size
 const TILE_SIZE: float = 2.0  # Godot world units per tile (was 32px in Java)
 
-# Isometric display constants (kept for reference / editor use)
-const ISO_TW: int = 64
-const ISO_TH: int = 32
-const ISO_HALF_W: int = 32
-const ISO_HALF_H: int = 16
 const WALL_FACE_H: float = 1.0    # world-unit height per wall level
 const HILL_FACE_H: float = 1.0    # world-unit height per hill level
-const WALL_FACE_TEX_H: int = 36
 
 # Tile type constants
 const TILE_GRASS: int = 0
@@ -21,11 +15,6 @@ const TILE_WALL: int = 1
 const TILE_HILL: int = 2
 const TILE_PATH: int = 3
 const TILE_CRACKED: int = 4  # breakable wall used for dungeon secret room entrances
-
-# Camera settings for isometric view
-const CAM_ELEVATION_DEG: float = -35.264  # arcsin(tan(30°))
-const CAM_AZIMUTH_DEG: float = -45.0
-const CAM_ORTHO_SIZE: float = 15.0  # viewport height in world units
 
 # Terrain rendering constants (shared by WorldScene named-map path and ChunkRenderer infinite-chunk path)
 const HILL_PEAK_H: float = 1.5        # peak height for hill tiles (world units)
@@ -78,8 +67,14 @@ const VETERANCY_RANKS: Array = [
 static func tile_center(t: float) -> float:
 	return t * TILE_SIZE + TILE_SIZE * 0.5
 
-func tile_to_world(tx: int, tz: int) -> Vector3:
+static func tile_to_world(tx: int, tz: int) -> Vector3:
 	return Vector3(tx * TILE_SIZE, 0.0, tz * TILE_SIZE)
 
-func world_to_tile(wx: float, wz: float) -> Vector2i:
-	return Vector2i(int(wx / TILE_SIZE), int(wz / TILE_SIZE))
+## Tile containing world point (wx, wz). Floors, so negative coordinates map to
+## the tile they are in (int() truncation put -0.5 in tile 0, not -1).
+static func world_to_tile(wx: float, wz: float) -> Vector2i:
+	return Vector2i(floori(wx / TILE_SIZE), floori(wz / TILE_SIZE))
+
+## Tile an entity dictionary (`{"x", "z", …}` in world units) stands on.
+static func entity_tile(e: Dictionary) -> Vector2i:
+	return world_to_tile(float(e.get("x", 0.0)), float(e.get("z", 0.0)))

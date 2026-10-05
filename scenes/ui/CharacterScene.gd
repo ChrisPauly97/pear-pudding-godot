@@ -120,26 +120,20 @@ func _build_ui() -> void:
 
 	var slot_grid := _UiUtil.make_grid(2, int(_ref * 0.010), int(_ref * 0.010), left_vbox)
 	for slot in _SLOTS:
-		var btn := Button.new()
-		btn.custom_minimum_size = Vector2(0, _ref * 0.065)
+		var btn := _UiUtil.make_button("", Vector2(0, _ref * 0.065), int(_ref * 0.020),
+				_on_slot_pressed.bind(slot), slot_grid)
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		btn.add_theme_font_size_override("font_size", int(_ref * 0.020))
 		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		btn.clip_text = true
 		btn.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		btn.pressed.connect(_on_slot_pressed.bind(slot))
-		slot_grid.add_child(btn)
 		_slot_btns[slot] = btn
 
 	var companion_hdr := _UiUtil.make_label("Mentor", int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER,
 			left_vbox)
 
-	_companion_btn = Button.new()
-	_companion_btn.custom_minimum_size = Vector2(0, _ref * 0.065)
-	_companion_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	_companion_btn = _UiUtil.make_button("", Vector2(0, _ref * 0.065), int(_ref * 0.022),
+			_on_slot_pressed.bind("companion"), left_vbox)
 	_companion_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	_companion_btn.pressed.connect(_on_slot_pressed.bind("companion"))
-	left_vbox.add_child(_companion_btn)
 	# GID-141: no companion slot until Maiteln has agreed to fight beside you.
 	var has_companion: bool = SceneManager.save_manager.has_learned(_UnlockLadder.FEAT_COMPANION)
 	companion_hdr.visible = has_companion

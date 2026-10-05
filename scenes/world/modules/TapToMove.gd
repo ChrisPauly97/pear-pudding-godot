@@ -9,6 +9,7 @@ extends Node
 
 const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const Pathfinder = preload("res://game_logic/Pathfinder.gd")
+const _VirtualJoystick = preload("res://scenes/ui/VirtualJoystick.gd")
 
 const DRAG_THRESHOLD: float = 30.0   # screen pixels; beyond this is a drag, not a tap
 const MAX_PATH_NODES: int = 64
@@ -19,7 +20,7 @@ const _DEST_TINT := Color(0.25, 1.0, 0.55)
 const _REJECT_TINT := Color(1.0, 0.25, 0.2)
 const _WALKABLE: Array[int] = [IsoConst.TILE_GRASS, IsoConst.TILE_HILL, IsoConst.TILE_PATH]
 
-var joystick: Node = null
+var joystick: _VirtualJoystick = null
 var _world: _WorldScene = null
 
 var _dest_marker: Node3D = null
@@ -96,12 +97,11 @@ func _steer_to(screen_pos: Vector2) -> bool:
 	return true
 
 func _on_joystick(pos: Vector2) -> bool:
-	return joystick != null and joystick.has_method("is_touch_in_control_area") \
-		and joystick.call("is_touch_in_control_area", pos)
+	return joystick != null and joystick.is_touch_in_control_area(pos)
 
 ## Paths the player to the tile under `screen_pos`, or flashes a reject marker.
 func handle_tap(screen_pos: Vector2) -> void:
-	var player: CharacterBody3D = _world._player
+	var player := _world._player
 	if player == null or _world._camera == null:
 		return
 	# GID-101 (TID-365): ping mode intercepts taps and creates a world-space ping.
@@ -122,8 +122,7 @@ func handle_tap(screen_pos: Vector2) -> void:
 	var centre: Vector3 = _tile_centre(tile)
 	_pending_interact = _world._interact_prompt_label(centre.x, centre.z) != ""
 	_place_dest_marker(centre)
-	if player.has_method("set_destination_path"):
-		player.call("set_destination_path", path)
+	player.set_destination_path(path)
 
 func _reject(tile: Vector2i, tip: String) -> void:
 	_world._show_tip(tip)
@@ -143,8 +142,8 @@ func on_path_arrived() -> void:
 func tick() -> void:
 	if _dest_marker == null or not _dest_marker.visible:
 		return
-	var player: CharacterBody3D = _world._player
-	if player != null and player.has_method("cancel_path") and not player.get("_has_active_path"):
+	var player := _world._player
+	if player != null and not player._has_active_path:
 		_stop_dest_pulse()
 		_dest_marker.hide()
 
@@ -153,9 +152,9 @@ func clear() -> void:
 	_stop_dest_pulse()
 	if is_instance_valid(_dest_marker):
 		_dest_marker.hide()
-	var player: CharacterBody3D = _world._player
-	if player != null and player.has_method("cancel_path"):
-		player.call("cancel_path")
+	var player := _world._player
+	if player != null:
+		player.cancel_path()
 	_pending_interact = false
 
 ## The tile under a screen position, by analytic ray–plane intersection with

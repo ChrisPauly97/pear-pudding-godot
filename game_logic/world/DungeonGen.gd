@@ -10,13 +10,13 @@ extends RefCounted
 # Usage:
 #   var map: WorldMap = DungeonGen.generate("dungeon_12345", 12345)
 
+const IsoConst = preload("res://autoloads/IsoConst.gd")  # usable before autoloads register (-s runs)
 const _WorldMap = preload("res://game_logic/world/WorldMap.gd")
 const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 
 const DW: int = 80          # dungeon width  (tiles)
 const DH: int = 60          # dungeon height (tiles)
 const WALL_H: int = 4       # wall height
-const TILE_SIZE: float = IsoConst.TILE_SIZE
 
 const ROOM_COUNT: int = 5   # always 5 rooms: start + 3 middle + end
 const MIN_ROOM_W: int = 10
@@ -103,8 +103,8 @@ static func generate(p_name: String, dungeon_seed: int) -> _WorldMap:
 					var ecz2: int = rcz + offsets[e].y
 					map.enemies.append({
 						"id": "de_%d" % enemy_uid,
-						"x": float(ecx2) * TILE_SIZE + TILE_SIZE * 0.5,
-						"z": float(ecz2) * TILE_SIZE + TILE_SIZE * 0.5,
+						"x": IsoConst.tile_center(ecx2),
+						"z": IsoConst.tile_center(ecz2),
 						"alive": true, "tracking": true,
 						"enemy_type": etype,
 						"enemy_deck": deck,
@@ -114,8 +114,8 @@ static func generate(p_name: String, dungeon_seed: int) -> _WorldMap:
 			"rest":
 				map.npcs.append({
 					"id": "dnpc_rest_%d" % npc_uid,
-					"x": float(rcx) * TILE_SIZE + TILE_SIZE * 0.5,
-					"z": float(rcz) * TILE_SIZE + TILE_SIZE * 0.5,
+					"x": IsoConst.tile_center(rcx),
+					"z": IsoConst.tile_center(rcz),
 					"dialogue": "A smouldering campfire fills this chamber with warmth. You could rest here.",
 					"npc_type": "rest_site",
 					"flag_key": "",
@@ -128,8 +128,8 @@ static func generate(p_name: String, dungeon_seed: int) -> _WorldMap:
 				var card2: String = card_pool[rng.randi_range(0, card_pool.size() - 1)]
 				var troom_chest: Dictionary = {
 					"id": "dtr_%d" % troom_uid,
-					"x": float(rcx) * TILE_SIZE + TILE_SIZE * 0.5,
-					"z": float(rcz) * TILE_SIZE + TILE_SIZE * 0.5,
+					"x": IsoConst.tile_center(rcx),
+					"z": IsoConst.tile_center(rcz),
 					"card_ids": [card1, card2],
 					"opened": false,
 				}
@@ -140,8 +140,8 @@ static func generate(p_name: String, dungeon_seed: int) -> _WorldMap:
 			"event":
 				map.npcs.append({
 					"id": "dnpc_event_%d" % npc_uid,
-					"x": float(rcx) * TILE_SIZE + TILE_SIZE * 0.5,
-					"z": float(rcz) * TILE_SIZE + TILE_SIZE * 0.5,
+					"x": IsoConst.tile_center(rcx),
+					"z": IsoConst.tile_center(rcz),
 					"dialogue": "Something stirs in this chamber. An unseen presence lingers.",
 					"npc_type": "event_room",
 					"flag_key": "",
@@ -156,8 +156,8 @@ static func generate(p_name: String, dungeon_seed: int) -> _WorldMap:
 
 	var end_chest: Dictionary = {
 		"id": "dc_0",
-		"x": float(ecx - 2) * TILE_SIZE + TILE_SIZE * 0.5,
-		"z": float(ecz) * TILE_SIZE + TILE_SIZE * 0.5,
+		"x": IsoConst.tile_center(ecx - 2),
+		"z": IsoConst.tile_center(ecz),
 		"card_ids": [card_pool[rng.randi_range(0, card_pool.size() - 1)]],
 		"opened": false,
 	}
@@ -168,8 +168,8 @@ static func generate(p_name: String, dungeon_seed: int) -> _WorldMap:
 	# Exit door — empty target_map triggers exit_map(), returning to overworld
 	map.doors.append({
 		"id": "exit",
-		"x": float(ecx + 2) * TILE_SIZE + TILE_SIZE * 0.5,
-		"z": float(ecz) * TILE_SIZE + TILE_SIZE * 0.5,
+		"x": IsoConst.tile_center(ecx + 2),
+		"z": IsoConst.tile_center(ecz),
 		"target_map": "",
 		"target_door_id": "",
 	})
@@ -303,8 +303,8 @@ static func _try_gen_secret_room(map: _WorldMap, rng: RandomNumberGenerator, car
 	var card2: String = card_pool[rng.randi() % card_pool.size()]
 	map.chests.append({
 		"id": "dsr_0",
-		"x": float(rc_x) * TILE_SIZE + TILE_SIZE * 0.5,
-		"z": float(rc_z) * TILE_SIZE + TILE_SIZE * 0.5,
+		"x": IsoConst.tile_center(rc_x),
+		"z": IsoConst.tile_center(rc_z),
 		"card_ids": [card1, card2],
 		"opened": false,
 	})

@@ -199,15 +199,6 @@ static func for_trainer(trainer: String) -> Array[String]:
 			out.append(str(row["id"]))
 	return out
 
-## Every entry at or below `level` — what an existing save is granted on
-## migration so a veteran player never loses a system they already had.
-static func ids_up_to(level: int) -> Array[String]:
-	var out: Array[String] = []
-	for row: Dictionary in LADDER:
-		if level_req(str(row["id"])) <= level:
-			out.append(str(row["id"]))
-	return out
-
 static func all_ids() -> Array[String]:
 	var out: Array[String] = []
 	for row: Dictionary in LADDER:

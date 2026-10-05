@@ -41,7 +41,7 @@ const _LINES_BY_OBJECTIVE: Dictionary = {
 }
 const _FALLBACK_LINE: String = "Keep your wits about ye — the road's long yet."
 
-var world_scene: Node3D = null  # set via setup(); mirrors RemotePlayer.world_scene
+var world_scene: _WorldScene = null  # set via setup(); mirrors RemotePlayer.world_scene
 
 var _player_ref: Node3D = null
 
@@ -59,7 +59,7 @@ var _is_moving: bool = false
 var _networked: bool = false
 var _net_target: Vector3 = Vector3.ZERO
 
-func setup(player_node: Node3D, world_scene_ref: Node3D) -> void:
+func setup(player_node: Node3D, world_scene_ref: _WorldScene) -> void:
 	_player_ref = player_node
 	world_scene = world_scene_ref
 	if is_instance_valid(_player_ref):
@@ -124,8 +124,8 @@ func _process(delta: float) -> void:
 			position.x = net_pos.x
 			position.z = net_pos.z
 			_set_moving(net_dist_sq > _MOVE_EPS_SQ, to_net)
-		if world_scene != null and world_scene.has_method("get_terrain_height"):
-			position.y = world_scene.call("get_terrain_height", position.x, position.z)
+		if world_scene != null:
+			position.y = world_scene.get_terrain_height(position.x, position.z)
 		return
 	if not is_instance_valid(_player_ref):
 		return
@@ -142,8 +142,8 @@ func _process(delta: float) -> void:
 		position.x = new_pos.x
 		position.z = new_pos.z
 		_set_moving(target_dist_sq > _MOVE_EPS_SQ, to_target)
-	if world_scene != null and world_scene.has_method("get_terrain_height"):
-		position.y = world_scene.call("get_terrain_height", position.x, position.z)
+	if world_scene != null:
+		position.y = world_scene.get_terrain_height(position.x, position.z)
 
 ## Switches the walk/idle animation and flip_h based on this frame's movement
 ## toward the target. No-op when running on the static-Sprite3D fallback path.

@@ -14,6 +14,7 @@
 ##
 ## Pure static logic (no scene tree); `scenes/world/modules/TownLife.gd` drives it.
 
+const IsoConst = preload("res://autoloads/IsoConst.gd")  # usable before autoloads register (-s runs)
 const _SideQuests = preload("res://game_logic/quests/SideQuests.gd")
 const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
@@ -84,8 +85,7 @@ static func plan(streets: Dictionary, hub: Vector2i, npcs: Array[Dictionary], wo
 	for n: Dictionary in npcs:
 		if not is_candidate(n):
 			continue
-		var tile := Vector2i(floori(float(n.get("x", 0.0)) / IsoConst.TILE_SIZE),
-				floori(float(n.get("z", 0.0)) / IsoConst.TILE_SIZE))
+		var tile := IsoConst.entity_tile(n)
 		var home: Vector2i = _nearest_street(tiles, tile)
 		if home.x == -9999:
 			continue

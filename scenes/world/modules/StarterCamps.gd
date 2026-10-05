@@ -129,10 +129,6 @@ func _build_scenery() -> void:
 		holder.add_child(sprite)
 		_scenery.add_child(holder)
 
-## Props placed (tests / debugging).
-func scenery_count() -> int:
-	return _scenery.get_child_count() if _scenery != null else 0
-
 ## Camp members alive right now (tests / debugging).
 func alive_count() -> int:
 	var n: int = 0

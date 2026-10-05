@@ -6,6 +6,7 @@
 extends Node3D
 
 const _AvatarSync = preload("res://game_logic/net/AvatarSync.gd")
+const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const _AvatarSprite = preload("res://scenes/world/entities/AvatarSprite.gd")
 const _ContactShadow = preload("res://game_logic/ContactShadow.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
@@ -21,7 +22,7 @@ var peer_id: int = 0
 
 ## Reference to WorldScene, set by WorldScene after spawning so we can query
 ## get_terrain_height(x, z) each frame. May be null before set.
-var world_scene: Node3D = null
+var world_scene: _WorldScene = null
 
 var _sprite: AnimatedSprite3D
 var _label: Label3D
@@ -173,8 +174,8 @@ func _process(delta: float) -> void:
 	var new_pos: Vector3 = _AvatarSync.interp(position, target_pos, delta, _INTERP_RATE)
 
 	# Recompute Y locally from terrain — y is never transmitted over the network.
-	if world_scene != null and world_scene.has_method("get_terrain_height"):
-		new_pos.y = world_scene.call("get_terrain_height", new_pos.x, new_pos.z)
+	if world_scene != null:
+		new_pos.y = world_scene.get_terrain_height(new_pos.x, new_pos.z)
 
 	position = new_pos
 

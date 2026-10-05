@@ -3,6 +3,7 @@
 class_name WorldMap
 extends RefCounted
 
+const IsoConst = preload("res://autoloads/IsoConst.gd")  # usable before autoloads register (-s runs)
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const ChunkData = preload("res://game_logic/world/ChunkData.gd")
 const _MapData   = preload("res://game_logic/world/resources/MapData.gd")
@@ -168,15 +169,6 @@ func _tile_is_crowded(tx: int, tz: int, occupied: Array[Dictionary], range_sq: f
 		if ddx * ddx + ddz * ddz <= range_sq:
 			return true
 	return false
-
-func find_nearby_shrine(px: float, pz: float, range_dist: float) -> Dictionary:
-	var range_sq: float = range_dist * range_dist
-	for sh in shrines:
-		var dx: float = sh["x"] - px
-		var dz: float = sh["z"] - pz
-		if dx * dx + dz * dz <= range_sq:
-			return sh
-	return {}
 
 func find_chest_by_id(chest_id: String) -> Dictionary:
 	for c in chests:
@@ -792,8 +784,8 @@ func _generate_entities() -> void:
 		var tx := rng.randi_range(1, min(MAP_WIDTH - 2, depth))
 		var tz := depth - tx
 		if tz >= 1 and tz < MAP_HEIGHT - 1 and tiles[tz][tx] == TILE_GRASS:
-			var wx := float(tx) * TILE_SIZE + TILE_SIZE * 0.5
-			var wz := float(tz) * TILE_SIZE + TILE_SIZE * 0.5
+			var wx := IsoConst.tile_center(tx)
+			var wz := IsoConst.tile_center(tz)
 			var etype: String = EnemyRegistry.type_for_depth(depth, max_depth)
 			enemies.append({
 				"id": "enemy_%d" % enemy_count,
@@ -815,8 +807,8 @@ func _generate_entities() -> void:
 		var tx := rng.randi_range(1, min(MAP_WIDTH - 2, d))
 		var tz: int = d - tx
 		if tz >= 1 and tz < MAP_HEIGHT - 1 and tiles[tz][tx] == TILE_GRASS:
-			var wx := float(tx) * TILE_SIZE + TILE_SIZE * 0.5
-			var wz := float(tz) * TILE_SIZE + TILE_SIZE * 0.5
+			var wx := IsoConst.tile_center(tx)
+			var wz := IsoConst.tile_center(tz)
 			var cid: String = card_ids[chest_count % card_ids.size()]
 			chests.append({
 				"id": "chest_%d" % chest_count,
@@ -839,8 +831,8 @@ func _generate_entities() -> void:
 			var tx := rng.randi_range(3, MAP_WIDTH - 4)
 			var tz := rng.randi_range(3, MAP_HEIGHT - 4)
 			if tiles[tz][tx] == TILE_GRASS:
-				var wx := float(tx) * TILE_SIZE + TILE_SIZE * 0.5
-				var wz := float(tz) * TILE_SIZE + TILE_SIZE * 0.5
+				var wx := IsoConst.tile_center(tx)
+				var wz := IsoConst.tile_center(tz)
 				npcs.append({
 					"id": "npc_%d" % npc_count,
 					"x": wx, "z": wz,

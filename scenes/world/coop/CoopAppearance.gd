@@ -71,8 +71,3 @@ func forget_peer(pid: int) -> void:
 	_remote_gear.erase(pid)
 	_remote_look.erase(pid)
 
-
-## Last gear received from `pid` ({} if none yet).
-func gear_for_peer(pid: int) -> Dictionary:
-	var gear: Dictionary = _remote_gear.get(pid, {})
-	return gear

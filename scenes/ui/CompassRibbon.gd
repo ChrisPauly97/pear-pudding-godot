@@ -113,10 +113,6 @@ func add_marker(id: String, color: Color, get_pos: Callable,
 		"primary": primary,
 	}
 
-func remove_marker(id: String) -> void:
-	_markers.erase(id)
-	_marker_positions.erase(id)
-
 func set_current_map(map_name: String) -> void:
 	_current_map = map_name
 

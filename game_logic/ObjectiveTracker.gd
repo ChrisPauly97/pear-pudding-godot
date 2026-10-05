@@ -58,8 +58,9 @@ static func place_on_map(target: Dictionary, map_name: String) -> Dictionary:
 			return {}
 		var out: Dictionary = obj.duplicate()
 		out["map"] = map_name
-		out["tx"] = int(floor(float(door["x"]) / IsoConst.TILE_SIZE))
-		out["tz"] = int(floor(float(door["z"]) / IsoConst.TILE_SIZE))
+		var t := IsoConst.entity_tile(door)
+		out["tx"] = t.x
+		out["tz"] = t.y
 		return out
 	if obj_map != map_name:
 		return {}

@@ -397,18 +397,15 @@ func _build_fast_travel_panel(_vp: Vector2, vh: float) -> void:
 			var t_name: String = str(target.get("name", "Player"))
 			var t_map: String = str(target.get("map", ""))
 			var t_col: Color = target.get("color", Color.WHITE)
-			var btn := Button.new()
-			btn.text = "Rally to %s (%s)" % [t_name, t_map.capitalize().replace("_", " ")]
+			var btn := _UiUtil.make_button(
+					"Rally to %s (%s)" % [t_name, t_map.capitalize().replace("_", " ")],
+					Vector2(btn_w, btn_h), font_size, Callable(), vbox)
 			btn.add_theme_color_override("font_color", t_col)
-			btn.custom_minimum_size = Vector2(btn_w, btn_h)
-			btn.add_theme_font_size_override("font_size", font_size)
 			if is_rally_blocked:
 				btn.disabled = true
 				btn.modulate = Color(0.5, 0.5, 0.5)
 			else:
-				var captured_pid: int = peer_id
-				btn.pressed.connect(func() -> void: _request_rally(captured_pid))
-			vbox.add_child(btn)
+				btn.pressed.connect(_request_rally.bind(peer_id))
 
 
 func _friendly_label(waystone_id: String) -> String:

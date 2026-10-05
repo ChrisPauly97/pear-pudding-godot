@@ -133,3 +133,13 @@ func test_tile_to_world_and_world_to_tile_roundtrip() -> void:
 			var tile_back: Vector2i = _iso.world_to_tile(world_pos.x, world_pos.z)
 			assert_eq(tile_back.x, tx, "roundtrip failed for tx=%d" % tx)
 			assert_eq(tile_back.y, tz, "roundtrip failed for tz=%d" % tz)
+
+
+func test_world_to_tile_floors_negative_coordinates() -> void:
+	# -0.5 world units is inside tile -1, not tile 0 (int() truncation bug).
+	assert_eq(IsoConstScript.world_to_tile(-0.5, -2.5), Vector2i(-1, -2))
+
+
+func test_entity_tile_reads_x_z() -> void:
+	assert_eq(IsoConstScript.entity_tile({"x": 5.0, "z": -1.0}), Vector2i(2, -1))
+	assert_eq(IsoConstScript.entity_tile({}), Vector2i(0, 0))

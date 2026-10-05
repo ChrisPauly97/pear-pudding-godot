@@ -184,7 +184,7 @@ static func prepare_terrain(
 	# No tufts standing in streams and ponds; sparse tufts in dry biomes (GID-134).
 	var kept: Array[Vector2] = []
 	for c: Vector2 in grass_centres:
-		var tile := Vector2i(floori(c.x / IsoConst.TILE_SIZE), floori(c.y / IsoConst.TILE_SIZE))
+		var tile := IsoConst.world_to_tile(c.x, c.y)
 		if not BiomeDef.keeps_grass(chunk_data.biome_id, tile):
 			continue
 		if has_water and _WaterMath.wet_at(c.x, c.y, world_seed, dry_points):
@@ -391,12 +391,9 @@ func build_visual(chunk_data: _ChunkData, chunk_key: Vector2i, world_scene: _Wor
 	_build_props(biome, terrain_res.get("props", {}) as Dictionary)
 	_spawn_entities(world_scene)
 	# Apply initial blight tint for this chunk based on current world state.
-	if world_scene.get("world_seed") != null:
-		var ws: int = int(world_scene.get("world_seed"))
-		var sm := SceneManager.save_manager
-		var intensity: float = BlightField.blight_intensity(
-			_chunk_key.x, _chunk_key.y, ws, sm.days_elapsed, sm.blight_cleansed_hearts)
-		set_blight_amount(intensity)
+	var sm := SceneManager.save_manager
+	set_blight_amount(BlightField.blight_intensity(
+		_chunk_key.x, _chunk_key.y, world_scene.world_seed, sm.days_elapsed, sm.blight_cleansed_hearts))
 
 # Phase 2: physics bodies only — deferred one frame after build_visual.
 func build_physics() -> void:
@@ -508,6 +505,8 @@ func _build_walls_physics() -> void:
 
 	if wall_body.get_child_count() > 0:
 		add_child(wall_body)
+	else:
+		wall_body.free()  # never parented: would leak the node and its physics body (GID-162)
 
 # ── Grass ──────────────────────────────────────────────────────────────────
 
@@ -630,8 +629,7 @@ func _spawn_entities(world_scene: _WorldScene) -> void:
 			continue
 		var node: Node3D = TerrainMath.spawn_entity(_EnemyScene, e_data, 0.5, entity_root, world_scene)
 		_set_visibility_range(node)
-		if world_scene.has_method("register_enemy"):
-			world_scene.register_enemy(e_data["id"], node)
+		world_scene.register_enemy(e_data["id"], node)
 
 	for c_data in _chunk_data.chests:
 		var cid: String = str(c_data.get("id", ""))
@@ -639,14 +637,12 @@ func _spawn_entities(world_scene: _WorldScene) -> void:
 			c_data["opened"] = true
 		var node: Node3D = TerrainMath.spawn_entity(_ChestScene, c_data, 0.25, entity_root, world_scene)
 		_set_visibility_range(node)
-		if world_scene.has_method("register_chest"):
-			world_scene.register_chest(c_data["id"], node, c_data)
+		world_scene.register_chest(c_data["id"], node, c_data)
 
 	for d_data in _chunk_data.doors:
 		var node: Node3D = TerrainMath.spawn_entity(_DoorScene, d_data, 0.75, entity_root, world_scene)
 		_set_visibility_range(node)
-		if world_scene.has_method("register_door"):
-			world_scene.register_door(d_data["id"], node, d_data)
+		world_scene.register_door(d_data["id"], node, d_data)
 
 	for n_data in _chunk_data.npcs:
 		# NPCs the story has moved on (MapNpc.hide_flag_key) are simply not spawned.
@@ -668,8 +664,7 @@ func _spawn_entities(world_scene: _WorldScene) -> void:
 			scene_to_use = _TownspersonScene
 		var node: Node3D = TerrainMath.spawn_entity(scene_to_use, n_data, 0.5, entity_root, world_scene)
 		_set_visibility_range(node)
-		if world_scene.has_method("register_npc"):
-			world_scene.register_npc(n_data["id"], node, n_data)
+		world_scene.register_npc(n_data["id"], node, n_data)
 
 	# ── Waystones ─────────────────────────────────────────────────────────────
 	for w_data in _chunk_data.waystones:
@@ -679,8 +674,7 @@ func _spawn_entities(world_scene: _WorldScene) -> void:
 		w_dict["active"] = is_active
 		var node: Node3D = TerrainMath.spawn_entity(_WaystoneScene, w_dict, 0.75, entity_root, world_scene)
 		_set_visibility_range(node)
-		if world_scene.has_method("register_waystone"):
-			world_scene.register_waystone(wid, node, w_dict)
+		world_scene.register_waystone(wid, node, w_dict)
 
 	# ── Burial mounds (skeleton dig cantrip) ──────────────────────────────────
 	for m_data in _chunk_data.burial_mounds:
@@ -689,8 +683,7 @@ func _spawn_entities(world_scene: _WorldScene) -> void:
 			continue  # already dug — don't spawn a visible node
 		var node: Node3D = TerrainMath.spawn_entity(_BurialMoundScene, m_data, 0.0, entity_root, world_scene)
 		_set_visibility_range(node)
-		if world_scene.has_method("register_burial_mound"):
-			world_scene.register_burial_mound(mid, node)
+		world_scene.register_burial_mound(mid, node)
 
 	# ── Mana Wells (ley line intersections) ───────────────────────────────────
 	for w_data in _chunk_data.mana_wells:
@@ -699,8 +692,7 @@ func _spawn_entities(world_scene: _WorldScene) -> void:
 			continue
 		var wnode: Node3D = TerrainMath.spawn_entity(_ManaWellScene, w_data, 0.0, entity_root, world_scene)
 		_set_visibility_range(wnode)
-		if world_scene.has_method("register_mana_well"):
-			world_scene.register_mana_well(wid, wnode)
+		world_scene.register_mana_well(wid, wnode)
 
 	# ── Active treasure dig site ───────────────────────────────────────────────
 	var sm := SceneManager.save_manager
@@ -712,23 +704,17 @@ func _spawn_entities(world_scene: _WorldScene) -> void:
 		if _chunk_key.x == dig_cx and _chunk_key.y == dig_cz:
 			var dig_node: _DigSpot = _DigSpotScene.instantiate() as _DigSpot
 			entity_root.add_child(dig_node)
-			if dig_node.has_method("init_from_data"):
-				dig_node.init_from_data(sm.active_treasure)
+			dig_node.init_from_data(sm.active_treasure)
 			var wx: float = IsoConst.tile_center(site_tx)
 			var wz: float = IsoConst.tile_center(site_tz)
-			var wy: float = 0.0
-			if world_scene.has_method("get_terrain_height"):
-				wy = world_scene.get_terrain_height(wx, wz)
+			var wy: float = world_scene.get_terrain_height(wx, wz)
 			dig_node.position = Vector3(wx, wy, wz)
-			if world_scene.has_method("register_digspot"):
-				world_scene.register_digspot(dig_node)
+			world_scene.register_digspot(dig_node)
 
 	# ── Infinite-world scroll (seed-deterministic, 1 per ~200 chunks) ─────────
 	var cx: int = _chunk_key.x
 	var cz: int = _chunk_key.y
-	var world_seed: int = 42
-	if world_scene.get("world_seed") != null:
-		world_seed = int(world_scene.get("world_seed"))
+	var world_seed: int = world_scene.world_seed
 	var scroll_id: String = InfiniteWorldGen.get_chunk_scroll_id(cx, cz, world_seed)
 	if scroll_id != "" and not SceneManager.save_manager.is_scroll_collected(scroll_id):
 		var h: int = (cx * 73856093) ^ (cz * 19349663) ^ world_seed
@@ -743,12 +729,9 @@ func _spawn_entities(world_scene: _WorldScene) -> void:
 			var scroll_node: _StoryScroll = _StoryScrollScene.instantiate() as _StoryScroll
 			entity_root.add_child(scroll_node)
 			scroll_node.position = Vector3(wx, wy, wz)
-			var player: Node3D = null
-			if world_scene.has_method("get_player"):
-				player = world_scene.get_player() as Node3D
-			if scroll_node.has_method("setup"):
-				scroll_node.setup(scroll_id, player)
-			if is_instance_valid(scroll_node) and world_scene.has_method("register_scroll"):
+			var player: Node3D = world_scene.get_player()
+			scroll_node.setup(scroll_id, player)
+			if is_instance_valid(scroll_node):
 				world_scene.register_scroll(scroll_node)
 
 	# ── Blight Heart (GID-066) ────────────────────────────────────────────────
@@ -758,11 +741,9 @@ func _spawn_entities(world_scene: _WorldScene) -> void:
 		if not SceneManager.save_manager.is_heart_cleansed(hid):
 			var heart_node: _BlightHeart = _BlightHeartScene.instantiate() as _BlightHeart
 			entity_root.add_child(heart_node)
-			if heart_node.has_method("init_from_data"):
-				heart_node.init_from_data(heart_data)
+			heart_node.init_from_data(heart_data)
 			_set_visibility_range(heart_node)
-			if world_scene.has_method("register_blight_heart"):
-				world_scene.register_blight_heart(hid, heart_node)
+			world_scene.register_blight_heart(hid, heart_node)
 
 	# ── Landmarks (GID-067) ───────────────────────────────────────────────────
 	for l_data: Dictionary in _chunk_data.landmarks:
@@ -771,9 +752,7 @@ func _spawn_entities(world_scene: _WorldScene) -> void:
 		var biome: int = int(l_data.get("biome", 0))
 		var wx: float = float(l_data.get("x", 0.0))
 		var wz: float = float(l_data.get("z", 0.0))
-		var wy: float = 0.0
-		if world_scene.has_method("get_terrain_height"):
-			wy = world_scene.get_terrain_height(wx, wz)
+		var wy: float = world_scene.get_terrain_height(wx, wz)
 		var landmark_root := Node3D.new()
 		landmark_root.name = "Landmark_" + lid
 		# Mesh — deterministic per (variant, biome), so cache instead of
@@ -799,8 +778,7 @@ func _spawn_entities(world_scene: _WorldScene) -> void:
 		# High visibility end so landmark is visible from far away
 		mi.visibility_range_end = 200.0
 		mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
-		if world_scene.has_method("register_landmark"):
-			world_scene.register_landmark(lid, l_data)
+		world_scene.register_landmark(lid, l_data)
 
 static func _get_landmark_mesh(variant: String, biome: int) -> ArrayMesh:
 	var key: String = variant + "|" + str(biome)
@@ -832,10 +810,6 @@ static func _apply_lit(mat: StandardMaterial3D) -> void:
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL if _lit_world else BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.disable_receive_shadows = not _lit_world
 	mat.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
-
-
-static func is_lit_world() -> bool:
-	return _lit_world
 
 
 static func _get_landmark_mat(biome: int) -> StandardMaterial3D:

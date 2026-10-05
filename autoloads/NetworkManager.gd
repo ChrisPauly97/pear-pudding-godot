@@ -434,10 +434,6 @@ func _in_world() -> bool:
 	return sm != null and bool(sm.call("is_in_world"))
 
 
-func is_reconnecting() -> bool:
-	return _reconnecting
-
-
 func _stop_reconnect() -> void:
 	_reconnecting = false
 	_reconnect_attempt = 0

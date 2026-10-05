@@ -177,13 +177,6 @@ func play_narration(scroll_id: String) -> void:
 	_narration_player.play()
 	_update_duck()
 
-func stop_narration() -> void:
-	_narration_player.stop()
-	_update_duck()
-
-func is_narration_playing() -> bool:
-	return _narration_player.playing
-
 func set_narration_suppressed(suppressed: bool) -> void:
 	_narration_suppressed = suppressed
 	if suppressed:
@@ -211,10 +204,6 @@ func play_music(path: String) -> void:
 	_music_player.stream = stream
 	_music_player.play()
 
-func stop_music() -> void:
-	_current_music_path = ""
-	_music_player.stop()
-
 func _on_music_finished() -> void:
 	if not _current_music_path.is_empty() and _music_player.stream != null:
 		_music_player.play()
@@ -222,10 +211,6 @@ func _on_music_finished() -> void:
 func set_music_volume(linear: float) -> void:
 	_music_linear = maxf(linear, 0.0)
 	_apply_music_volume()
-
-## The user's music setting, never the ducked playing volume.
-func get_music_volume() -> float:
-	return _music_linear
 
 ## Pulls the music down under NPC dialogue and scroll narration, and back up
 ## once both are gone. Only the playing volume moves; the setting is untouched.
@@ -247,10 +232,6 @@ func _update_duck() -> void:
 func _set_duck(v: float) -> void:
 	_duck = v
 	_apply_music_volume()
-
-## Target duck multiplier (1.0 = not ducked).
-func get_music_duck() -> float:
-	return _duck_target
 
 func _apply_music_volume() -> void:
 	if _music_player != null:
@@ -374,10 +355,6 @@ func set_time_of_day(time_of_day: float) -> void:
 	_have_time = true
 	_is_day = day
 	_layers_dirty = true
-
-## Current layer keys ("" = silent), for tests and debugging.
-func get_ambience_keys() -> Dictionary:
-	return {"biome": _biome_layer.key, "weather": _weather_layer.key, "time": _time_layer.key}
 
 func _all_layers() -> Array[AmbLayer]:
 	return [_biome_layer, _weather_layer, _time_layer, _water_layer]

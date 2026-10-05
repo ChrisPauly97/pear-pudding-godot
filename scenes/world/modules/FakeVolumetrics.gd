@@ -44,22 +44,9 @@ var _fog_mat: ShaderMaterial = null
 var _fog_density: float = 0.0
 
 
-## Shafts currently drawn and the strength they draw with (tests, debugging).
-func visible_shafts() -> int:
-	return _visible_shafts
-
-
-func shaft_strength() -> float:
-	return _shaft_strength
-
-
 ## Depth-fog alpha in use (0 = pass hidden).
 func fog_density() -> float:
 	return _fog_density
-
-
-func is_fog_visible() -> bool:
-	return _fog != null and _fog.visible
 
 
 func _process(delta: float) -> void:

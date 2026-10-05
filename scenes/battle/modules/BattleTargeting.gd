@@ -7,6 +7,7 @@
 extends Node
 
 const _BattleScene = preload("res://scenes/battle/BattleScene.gd")
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const Keywords = preload("res://game_logic/battle/Keywords.gd")
 const SpellEffectResolver = preload("res://scenes/battle/SpellEffectResolver.gd")
@@ -131,15 +132,11 @@ func _show_cancel_btn(label: String = "✕ Cancel", callback: Callable = Callabl
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var vh: float = vp.y
 	var vw: float = vp.x
-	_battle._cancel_btn = Button.new()
-	_battle._cancel_btn.text = label
-	# Big thumb target — it is the only way out of targeting mode on touch.
-	_battle._cancel_btn.custom_minimum_size = Vector2(vh * 0.20, vh * 0.07)
-	_battle._cancel_btn.add_theme_font_size_override("font_size", _battle._font(0.030))
-	_battle._cancel_btn.position = Vector2((vw - vh * 0.20) * 0.5, vh * 0.02)
 	var cb: Callable = callback if callback.is_valid() else _hide_cancel_btn
-	_battle._cancel_btn.pressed.connect(cb)
-	_battle.add_child(_battle._cancel_btn)
+	# Big thumb target — it is the only way out of targeting mode on touch.
+	_battle._cancel_btn = _UiUtil.make_button(label, Vector2(vh * 0.20, vh * 0.07), _battle._font(0.030), cb,
+			_battle)
+	_battle._cancel_btn.position = Vector2((vw - vh * 0.20) * 0.5, vh * 0.02)
 
 func _hide_cancel_btn() -> void:
 	if _battle._cancel_btn != null:

@@ -289,6 +289,10 @@ Declare all resources as `const` preloads; iterate them in `_ensure_loaded()`.
 
 All terrain logic lives in `game_logic/TerrainMath.gd`. Both named-map and infinite-chunk paths delegate via `Callable` tile lookups. Never duplicate terrain algorithms.
 
+**Chunk generation runs on worker threads** (BID-088). `InfiniteWorldGen` / `RealmLayout` / `TerrainMath` / `EnemyRegistry`
+code reached from `generate_chunk*` must stay pure: no autoload instance state, scene tree or writes to shared statics.
+A new lazily-built static on that path goes into `InfiniteWorldGen.warm()`. See `docs/agent/world-generation.md` → Threading.
+
 ---
 
 ## Magic Types: MagicTypes Is the Source of Truth
@@ -326,6 +330,10 @@ never add a separate level check. See `docs/agent/starter-zone-and-training.md`.
 
 All tile/size constants (`TILE_GRASS`, `TILE_SIZE`, `CHUNK_SIZE`, etc.) live in `autoloads/IsoConst.gd`. Reference as `IsoConst.TILE_SIZE`. Never add copies elsewhere.
 A tile's world-space centre is `IsoConst.tile_center(t)` — never write out `t * TILE_SIZE + TILE_SIZE * 0.5`.
+World → tile is `IsoConst.world_to_tile(wx, wz)` (floors; correct for negative coords) or
+`IsoConst.entity_tile(dict)` for an `{x, z}` entity — never hand-roll `floor(x / TILE_SIZE)`.
+Calling an IsoConst *function* from a script that `-s` smoke tests load (`game_logic/`, map gen) needs a
+file-local `const IsoConst = preload("res://autoloads/IsoConst.gd")`; constants resolve without it, functions don't.
 
 ---
 
@@ -510,6 +518,10 @@ bash scripts/setup-dev-env.sh
 It also runs automatically as a `SessionStart` hook (`.claude/settings.json`).
 
 Run: `godot --headless --path . -s tests/runner.gd` (exit 0 = pass)
+
+Profile the overworld (frame-time percentiles, spikes tagged with chunk-streaming events, per-`_process`
+cost, chunk-landing stages, orphan nodes): `godot --headless --path . -s tools/profile_world.gd -- --frames 900`.
+Measure before and after a perf change; the flat ~6.9 ms median headless is the 144 fps cap, not work.
 
 ### You MUST import before the first test run
 

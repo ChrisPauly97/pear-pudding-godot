@@ -33,16 +33,6 @@ static func get_all_recipes() -> Array:
 	_ensure_loaded()
 	return _recipes
 
-## Returns all recipes for a specific template_id.
-static func get_recipes_for_template(template_id: String) -> Array:
-	_ensure_loaded()
-	return _template_index.get(template_id, [])
-
-## Returns the recipe for a (template_id, rarity) pair, or null if not found.
-static func get_recipe(template_id: String, rarity: String) -> CraftingRecipe:
-	_ensure_loaded()
-	return _recipe_index.get(template_id + "|" + rarity, null) as CraftingRecipe
-
 ## Returns potion recipe dicts keyed by potion_id. Each dict has display_name, essence_cost, ingredients.
 static func get_potion_recipes() -> Dictionary:
 	return GardenDefs.POTION_RECIPES

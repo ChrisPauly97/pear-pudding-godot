@@ -23,6 +23,14 @@ func test_pick_slots_nearest_first_and_padded() -> void:
 		many.append(Vector4(float(i), 0, 0, 0.5))
 	assert_eq(CS.pick_slots(many, Vector3.ZERO).size(), CS.MAX_CASTERS)
 
+func test_pick_slots_keeps_nearest_of_many_unsorted() -> void:
+	var many: Array[Vector4] = []
+	for i: int in 20:
+		many.append(Vector4(float((i * 7) % 20), 0, 0, 0.5))  # 0..19, shuffled
+	var slots: Array[Vector4] = CS.pick_slots(many, Vector3.ZERO)
+	for i: int in CS.MAX_CASTERS:
+		assert_almost_eq(slots[i].x, float(i))
+
 func test_opacity_and_radius_rules() -> void:
 	assert_lt(CS.opacity_for({"sun_shadows": true}), CS.opacity_for({"sun_shadows": false}))
 	assert_almost_eq(CS.radius_for_height(0.1), CS.MIN_RADIUS)

@@ -312,13 +312,11 @@ func _on_emote_received(sender: int, payload: Array) -> void:
 	var sender_map: String = str(d.get("map", ""))
 	if sender_map != "" and sender_map != _world.map_name:
 		return
-	var rp: Node = _world._valid_node(_world._remote_player_nodes.get(sender))
-	if not is_instance_valid(rp):
+	var rp := _world.coop_session.remote_avatar(sender)
+	if rp == null:
 		return
 	var emote_id: String = str(d.get("emote_id", ""))
-	var label_text: String = str(_SocialSync.EMOTE_LABELS.get(emote_id, emote_id))
-	if rp.has_method("show_emote"):
-		rp.call("show_emote", label_text)
+	rp.show_emote(str(_SocialSync.EMOTE_LABELS.get(emote_id, emote_id)))
 
 
 # ── TID-365: World-space pings ─────────────────────────────────────────────────

@@ -11,6 +11,7 @@
 ## lived in WorldScene itself. Everything world-side is reached via `_world`.
 extends Node
 
+const _MaitelnFollower = preload("res://scenes/world/entities/MaitelnFollower.gd")
 const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const WorldHUD          = preload("res://scenes/world/WorldHUD.gd")
 const _AvatarSync        = preload("res://game_logic/net/AvatarSync.gd")
@@ -174,6 +175,10 @@ func _teardown_coop() -> void:
 	# inactive so re-entry (_enter_tree) re-runs setup and reconnects signals.
 	_world._coop_active = false
 
+## The live RemotePlayer avatar for peer `pid`, or null (freed or never spawned).
+func remote_avatar(pid: int) -> _RemotePlayerScript:
+	return _world._valid_node(_world._remote_player_nodes.get(pid)) as _RemotePlayerScript
+
 func _spawn_remote_player(pid: int) -> void:
 	if _world._remote_player_nodes.has(pid):
 		return
@@ -185,7 +190,7 @@ func _spawn_remote_player(pid: int) -> void:
 	var spawn_x: float = base_x + off.x
 	var spawn_z: float = base_z + off.y
 	var rp: _RemotePlayerScript = _RemotePlayerScene.instantiate() as _RemotePlayerScript
-	rp.set("world_scene", _world)
+	rp.world_scene = _world
 	rp.init_from_data({"peer_id": pid, "x": spawn_x, "z": spawn_z})
 	# Map-scoped sync (TID-352): hidden until the first packet confirms the peer is on
 	# our map, so a peer on a different map never flashes a cross-map ghost on load.
@@ -366,13 +371,13 @@ func _on_identity_received(sender: int, payload: Array, is_reply: bool) -> void:
 ## Push a stored identity onto the matching RemotePlayer avatar, if spawned.
 
 func _apply_identity_to_avatar(pid: int) -> void:
-	var rp: Node = _world._valid_node(_world._remote_player_nodes.get(pid))
-	if not is_instance_valid(rp) or not rp.has_method("set_player_identity"):
+	var rp := remote_avatar(pid)
+	if rp == null:
 		return
 	var d: Dictionary = _world._remote_identities.get(pid, {})
 	var nm: String = str(d.get("name", "Player"))
 	var col: Color = d.get("color", Color.WHITE)
-	rp.call("set_player_identity", nm, col)
+	rp.set_player_identity(nm, col)
 
 # ── Persistent session character (GID-095 / TID-346) ──────────────────────────
 # The authority (host) owns SessionStore and the per-player character roster, keyed
@@ -761,11 +766,11 @@ func _open_party_panel() -> void:
 # Called by NetSync when a remote avatar packet arrives.
 
 func _on_avatar_received(sender: int, payload: Variant) -> void:
-	var rp: Node = _world._valid_node(_world._remote_player_nodes.get(sender))
-	if not is_instance_valid(rp):
+	var rp := remote_avatar(sender)
+	if rp == null:
 		# Packet arrived before the connect signal was processed — spawn now.
 		_spawn_remote_player(sender)
-		rp = _world._valid_node(_world._remote_player_nodes.get(sender))
+		rp = remote_avatar(sender)
 	var d: Dictionary = _AvatarSync.decode(payload)
 	_last_avatar_msec[sender] = Time.get_ticks_msec()
 	# Map-scoped avatar sync (TID-352): only render a peer that is on our map. An
@@ -780,15 +785,14 @@ func _on_avatar_received(sender: int, payload: Variant) -> void:
 	# of map (cheap bookkeeping) but only apply the visual tint when they're rendered.
 	var sender_downed: bool = bool(d.get("downed", false))
 	_coop_downed_peers[sender] = sender_downed
-	if not is_instance_valid(rp):
+	if rp == null:
 		return
-	(rp as Node3D).visible = same_map
-	if rp.has_method("set_downed"):
-		rp.call("set_downed", sender_downed)
+	rp.visible = same_map
+	rp.set_downed(sender_downed)
 	# Only feed position while on the same map; otherwise the avatar holds its last
 	# same-map position so re-convergence resumes cleanly (no cross-map coordinates).
-	if same_map and rp.has_method("set_net_state"):
-		rp.call("set_net_state", d["x"], d["z"], d["flip_h"], d["moving"])
+	if same_map:
+		rp.set_net_state(d["x"], d["z"], d["flip_h"], d["moving"])
 
 # Broadcast the local avatar's state at 15 Hz. Called from _process.
 
@@ -847,9 +851,10 @@ func _on_maiteln_state_received(payload: Array) -> void:
 		return
 	var sender_map: String = str(payload[2])
 	var same_map: bool = sender_map == "" or sender_map == _world.map_name
-	_world._maiteln_node.visible = same_map
-	if same_map and _world._maiteln_node.has_method("set_net_state"):
-		_world._maiteln_node.call("set_net_state", float(payload[0]), float(payload[1]))
+	var maiteln := _world._maiteln_node as _MaitelnFollower
+	maiteln.visible = same_map
+	if same_map:
+		maiteln.set_net_state(float(payload[0]), float(payload[1]))
 
 # ── Co-op world-object sync (GID-096) ─────────────────────────────────────────
 # The authority (host) owns the canonical lifecycle of shared world objects
@@ -1598,9 +1603,9 @@ func _authority_apply_revive(peer_id: int) -> void:
 	if peer_id == NetworkManager.local_id():
 		_exit_downed_state()
 	else:
-		var rp: Node3D = _world._valid_node3d(_world._remote_player_nodes.get(peer_id))
-		if rp != null and is_instance_valid(rp) and rp.has_method("set_downed"):
-			rp.call("set_downed", false)
+		var rp := remote_avatar(peer_id)
+		if rp != null:
+			rp.set_downed(false)
 	GameBus.hud_message_requested.emit("Revived!")
 	if _world._net_sync != null:
 		_world._net_sync.rpc("recv_revive", peer_id)
@@ -1620,9 +1625,9 @@ func _on_revive_received(peer_id: int) -> void:
 		_exit_downed_state()
 		GameBus.hud_message_requested.emit("Revived!")
 	else:
-		var rp: Node3D = _world._valid_node3d(_world._remote_player_nodes.get(peer_id))
-		if rp != null and is_instance_valid(rp) and rp.has_method("set_downed"):
-			rp.call("set_downed", false)
+		var rp := remote_avatar(peer_id)
+		if rp != null:
+			rp.set_downed(false)
 
 # ── Shared dungeon crawl (GID-102 / TID-380) ──────────────────────────────────
 #

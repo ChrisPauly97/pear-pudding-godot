@@ -317,9 +317,7 @@ func _make_skill_node(sk: SkillData, w: float, h: float, is_cross: bool = false)
 		var check_lbl := _UiUtil.make_label("Unlocked", int(_ref * 0.018), Color(0.3, 0.95, 0.4),
 				HORIZONTAL_ALIGNMENT_LEFT, vbox)
 	else:
-		var unlock_btn := Button.new()
-		unlock_btn.custom_minimum_size = Vector2(0, _ref * 0.045)
-		unlock_btn.add_theme_font_size_override("font_size", int(_ref * 0.018))
+		var unlock_btn := _UiUtil.make_button("", Vector2(0, _ref * 0.045), int(_ref * 0.018), Callable(), vbox)
 		if is_cross:
 			var abbr: String = "CP" if currency == "corruption" else "RP"
 			unlock_btn.text = "Unlock (%d %s)" % [sk.alt_cost, abbr]
@@ -329,7 +327,6 @@ func _make_skill_node(sk: SkillData, w: float, h: float, is_cross: bool = false)
 			unlock_btn.text = "Unlock"
 			unlock_btn.disabled = not prereqs_met or sm.skill_points <= 0
 			unlock_btn.pressed.connect(_on_unlock_pressed.bind(sk.id))
-		vbox.add_child(unlock_btn)
 
 	return panel
 

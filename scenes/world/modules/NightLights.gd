@@ -94,28 +94,6 @@ func night_level() -> float:
 	return _night
 
 
-## Rigs currently showing a light pool.
-func pool_count() -> int:
-	var n: int = 0
-	for i: int in _active:
-		if _rigs[i].pool.visible:
-			n += 1
-	return n
-
-
-## Rigs currently showing a halo.
-func halo_count() -> int:
-	var n: int = 0
-	for i: int in _active:
-		if _rigs[i].halo.visible:
-			n += 1
-	return n
-
-
-func active_count() -> int:
-	return _active
-
-
 func _process(delta: float) -> void:
 	if _world == null or _world._dnc == null:
 		return

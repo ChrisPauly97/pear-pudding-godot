@@ -115,8 +115,5 @@ static func completed_steps(flags: Dictionary) -> Array[Dictionary]:
 		out.append(STEPS[i])
 	return out
 
-static func is_story_done(flags: Dictionary) -> bool:
-	return current_index(flags) >= STEPS.size()
-
 static func chapter_title(chapter: int) -> String:
 	return "Chapter %d: %s" % [chapter, str(CHAPTERS.get(chapter, ""))]

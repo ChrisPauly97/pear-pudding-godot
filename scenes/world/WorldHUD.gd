@@ -49,6 +49,7 @@ var _actions: Dictionary = {}  # action id (String) -> {button, callback, visibl
 var _dialogue_label: Label
 var _tip_label: Label
 var _coord_label: Label
+var _coord_tile := Vector2i(2147483647, 0)  # last shown tile; sentinel forces the first write
 var _level_label: Label
 var _xp_bar: ProgressBar
 var _hp_bar: ProgressBar  # persistent hero HP (TID-543), above the XP bar
@@ -108,7 +109,7 @@ func setup(hud: CanvasLayer, is_infinite: bool, map_name: String,
 		# GID-107 / TID-396: registered into ZONE_CONTEXT — the shared contextual bar —
 		# so it can never pixel-overlap Challenge/Trade/Spectate, which share the zone.
 		_interact_btn = register_action("interact", "USE", ZONE_CONTEXT,
-			func() -> void: _world_scene.call("_handle_interact"),
+			func() -> void: _world_scene._handle_interact(),
 			Callable(), Vector2(vh * 0.18, vh * 0.08))
 		_interact_btn.add_theme_font_size_override("font_size", int(vh * 0.032 * _ts))
 		_interact_btn.hide()
@@ -124,7 +125,7 @@ func _create_nav_buttons(_vh: float, _vw_unused: float, font_size: int,
 		btn_w: float, btn_h: float) -> void:
 	# Single system/pause control replaces the Menu + II pair.
 	var pause_btn := register_action("pause", "II", ZONE_SYSTEM,
-		func() -> void: _world_scene.call("_open_pause"),
+		func() -> void: _world_scene._open_pause(),
 		Callable(), Vector2(btn_h, btn_h))
 	pause_btn.add_theme_font_size_override("font_size", font_size)
 
@@ -321,19 +322,6 @@ func unregister_action(id: String) -> void:
 		btn.queue_free()
 	_actions.erase(id)
 
-## Re-evaluates one action's `visible_when` (or every registered action's, if `id`
-## is omitted). No-op for actions registered without a `visible_when` Callable.
-func refresh_visibility(id: String = "") -> void:
-	var ids: Array = [id] if id != "" else _actions.keys()
-	for aid in ids:
-		var entry: Dictionary = _actions.get(aid, {})
-		var vw_check: Callable = entry.get("visible_when", Callable())
-		if not vw_check.is_valid():
-			continue
-		var btn: Button = entry.get("button") as Button
-		if btn != null and is_instance_valid(btn):
-			btn.visible = bool(vw_check.call())
-
 ## Direct visibility setter for callers that already computed the boolean
 ## themselves (e.g. per-frame proximity checks).
 func set_action_visible(id: String, v: bool) -> void:
@@ -341,10 +329,6 @@ func set_action_visible(id: String, v: bool) -> void:
 	var btn: Button = entry.get("button") as Button
 	if btn != null and is_instance_valid(btn):
 		btn.visible = v
-
-func get_action_button(id: String) -> Button:
-	var entry: Dictionary = _actions.get(id, {})
-	return entry.get("button") as Button
 
 func get_zone_container(zone: String) -> Container:
 	return _zones.get(zone) as Container
@@ -408,6 +392,7 @@ func _style_status_labels(vh: float) -> void:
 
 func _create_coord_label(vh: float, font_size: int) -> void:
 	_coord_label = Label.new()
+	_coord_tile = Vector2i(2147483647, 0)
 	_coord_label.add_theme_font_size_override("font_size", font_size)
 	_coord_label.add_theme_color_override("font_color", Color.WHITE)
 	_coord_label.add_theme_color_override("font_shadow_color", Color.BLACK)
@@ -541,8 +526,11 @@ func show_tip(text: String) -> void:
 				_tip_label.hide()
 	)
 
+## Called every frame; only re-formats the label when the tile changes.
 func update_coords(tx: int, tz: int) -> void:
-	if _coord_label:
+	var t := Vector2i(tx, tz)
+	if _coord_label and t != _coord_tile:
+		_coord_tile = t
 		_coord_label.text = "tile (%d, %d)" % [tx, tz]
 
 func refresh_xp_bar() -> void:

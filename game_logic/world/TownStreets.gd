@@ -15,6 +15,7 @@
 ## asks it for tiles while generating chunks, tests check the plan directly.
 extends RefCounted
 
+const IsoConst = preload("res://autoloads/IsoConst.gd")  # usable before autoloads register (-s runs)
 const _WorldMap = preload("res://game_logic/world/WorldMap.gd")
 
 const TRUNK_RADIUS: int = 1
@@ -71,8 +72,7 @@ static func _is_ground(tile: int) -> bool:
 	return tile == IsoConst.TILE_GRASS or tile == IsoConst.TILE_PATH
 
 static func _entity_tile(e: Dictionary) -> Vector2i:
-	return Vector2i(floori(float(e.get("x", 0.0)) / IsoConst.TILE_SIZE),
-			floori(float(e.get("z", 0.0)) / IsoConst.TILE_SIZE))
+	return IsoConst.entity_tile(e)
 
 ## Tiles townsfolk, doors and props stand on — no lamp goes on or beside them.
 static func _entity_tiles(wm: _WorldMap) -> Dictionary:

@@ -41,14 +41,29 @@ func offers_for(npc_id: String) -> Array[Dictionary]:
 
 ## Overhead-mark state for `npc_id` (QuestLog.npc_mark's `side`).
 func npc_state(npc_id: String) -> String:
-	if not turn_ins_for(npc_id).is_empty():
-		return "turn_in"
-	if not offers_for(npc_id).is_empty():
-		return "offer"
-	if not _SideQuests.upcoming_for(npc_id, _save.level, _save.story_flags, _save.quests_active,
-			_save.quests_completed).is_empty():
-		return "upcoming"
-	return ""
+	return str(npc_states().get(npc_id, ""))
+
+## npc_id → "turn_in" | "offer" | "upcoming" for every NPC with side-quest
+## business, in one pass over the quests (GID-162: the mark refresh used to run
+## three full quest scans per loaded NPC). Same precedence as turn_ins_for /
+## offers_for / SideQuests.upcoming_for: a hand-in beats an offer beats upcoming.
+func npc_states() -> Dictionary:
+	var out: Dictionary = {}
+	for id: Variant in _save.quests_active.keys():
+		var q: Dictionary = _SideQuests.def(str(id))
+		if not q.is_empty() and is_ready(str(id)):
+			out[_SideQuests.turn_in_npc(q)] = "turn_in"
+	for q: Dictionary in _SideQuests.all():
+		var giver: String = str(q.get("giver", ""))
+		if out.get(giver, "") == "turn_in":
+			continue
+		var min_level: int = int(q.get("min_level", 1))
+		if _SideQuests.can_offer(q, _save.level, _save.story_flags, _save.quests_active, _save.quests_completed):
+			out[giver] = "offer"
+		elif (_save.level < min_level and not out.has(giver)
+				and _SideQuests.can_offer(q, min_level, _save.story_flags, _save.quests_active, _save.quests_completed)):
+			out[giver] = "upcoming"
+	return out
 
 ## Active quests `npc_id` takes back that are ready to hand in.
 func turn_ins_for(npc_id: String) -> Array[Dictionary]:
@@ -79,11 +94,6 @@ func accept(id: String) -> bool:
 	if _SideQuests.is_complete(q, progress):
 		GameBus.quest_ready.emit(id)
 	return true
-
-func abandon(id: String) -> void:
-	if _save.quests_active.erase(id):
-		_save._dirty = true
-		GameBus.quest_abandoned.emit(id)
 
 ## Counts one (or `amount`) of an event toward every active quest objective it
 ## matches. Returns true when any progress changed.

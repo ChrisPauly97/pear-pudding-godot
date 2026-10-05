@@ -39,11 +39,6 @@ func slots() -> Array[Vector4]:
 	return _written
 
 
-## Sprites posed on the last frame (tests, debugging).
-func animated_count() -> int:
-	return _animated
-
-
 func apply_knobs(knobs: Dictionary) -> void:
 	RenderingServer.global_shader_parameter_set(_ContactShadow.OPACITY_PARAM, _ContactShadow.opacity_for(knobs))
 
