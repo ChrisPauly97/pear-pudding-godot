@@ -81,10 +81,7 @@ func _drift_keyart() -> void:
 	tw.parallel().tween_property(_keyart, "position", Vector2(vp.x * 0.01, 0.0), _KEYART_DRIFT_S * 0.5)
 
 func _add_btn(label: String, cb: Callable) -> Button:
-	var btn := Button.new()
-	btn.text = label
-	btn.pressed.connect(cb)
-	add_child(btn)
+	var btn := _UiUtil.make_button(label, Vector2.ZERO, 0, cb, self)
 	_buttons.append(btn)
 	UiFx.attach(btn)
 	return btn

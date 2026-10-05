@@ -44,11 +44,7 @@ func _ready() -> void:
 	var btn_row := _UiUtil.make_hbox(0, vbox)
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
 
-	_next_btn = Button.new()
-	_next_btn.custom_minimum_size = Vector2(_ref * 0.2, _ref * 0.065)
-	_next_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	_next_btn.pressed.connect(_advance)
-	btn_row.add_child(_next_btn)
+	_next_btn = _UiUtil.make_button("", Vector2(_ref * 0.2, _ref * 0.065), int(_ref * 0.022), _advance, btn_row)
 
 	_refresh_page()
 

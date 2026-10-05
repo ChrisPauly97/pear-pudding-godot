@@ -146,9 +146,8 @@ func _make_weapon_row(wid: String, weapon: WeaponData, level: int, sm: _SaveMana
 	var btn_row := _UiUtil.make_hbox(int(_vw * 0.010), outer)
 
 	# Upgrade button
-	var upgrade_btn := Button.new()
-	upgrade_btn.custom_minimum_size = Vector2(_ref * 0.18, _ref * 0.065)
-	upgrade_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	var upgrade_btn := _UiUtil.make_button("", Vector2(_ref * 0.18, _ref * 0.065), int(_ref * 0.022),
+			_on_upgrade_weapon.bind(wid), btn_row)
 	var can_upgrade: bool = level < UpgradeDefs.MAX_LEVEL \
 		and UpgradeDefs.can_afford_upgrade(level, sm.coins, sm.essence)
 	if level >= UpgradeDefs.MAX_LEVEL:
@@ -161,22 +160,16 @@ func _make_weapon_row(wid: String, weapon: WeaponData, level: int, sm: _SaveMana
 	else:
 		upgrade_btn.text = "Upgrade"
 		upgrade_btn.disabled = false
-	upgrade_btn.pressed.connect(_on_upgrade_weapon.bind(wid))
-	btn_row.add_child(upgrade_btn)
 
 	# Salvage button
 	var is_equipped: bool = sm.equipped_weapon == wid or sm.equipped_armor == wid \
 		or sm.equipped_ring == wid or sm.equipped_trinket == wid
-	var salvage_btn := Button.new()
-	salvage_btn.text = "Salvage (+%d coins, +%d essence)" % [
-		UpgradeDefs.SALVAGE_COINS, UpgradeDefs.SALVAGE_ESSENCE]
-	salvage_btn.custom_minimum_size = Vector2(_ref * 0.35, _ref * 0.065)
-	salvage_btn.add_theme_font_size_override("font_size", int(_ref * 0.019))
+	var salvage_btn := _UiUtil.make_button(
+			"Salvage (+%d coins, +%d essence)" % [UpgradeDefs.SALVAGE_COINS, UpgradeDefs.SALVAGE_ESSENCE],
+			Vector2(_ref * 0.35, _ref * 0.065), int(_ref * 0.019), _on_salvage_weapon.bind(wid), btn_row)
 	salvage_btn.disabled = is_equipped
 	if is_equipped:
 		salvage_btn.modulate = Color(0.5, 0.5, 0.5)
-	salvage_btn.pressed.connect(_on_salvage_weapon.bind(wid))
-	btn_row.add_child(salvage_btn)
 
 	return outer
 
