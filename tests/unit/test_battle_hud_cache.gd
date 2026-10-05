@@ -35,3 +35,15 @@ func test_hero_panel_style_is_shared_per_state() -> void:
 	assert_eq(HeroPanelStyle.get_style("enemy"), HeroPanelStyle.get_style("enemy"))
 	assert_ne(HeroPanelStyle.get_style("enemy"), HeroPanelStyle.get_style("player"))
 	assert_eq(HeroPanelStyle.get_style("spell").border_color, Color.CYAN)
+
+
+## TID-680: the render-path template view is cached and equals the fresh one.
+func test_template_view_is_cached_and_equal() -> void:
+	const CardRegistry = preload("res://autoloads/CardRegistry.gd")
+	var ids: Array[String] = CardRegistry.get_all_ids()
+	assert_gt(ids.size(), 10)
+	for id: String in ids:
+		for face: String in ["light", "dark"]:
+			var v: Dictionary = CardRegistry.get_template_view(id, face)
+			assert_eq(v, CardRegistry.get_template_for_face(id, face))
+			assert_true(is_same(v, CardRegistry.get_template_view(id, face)), "one shared dict per id|face")

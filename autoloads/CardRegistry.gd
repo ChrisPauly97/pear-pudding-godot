@@ -136,6 +136,7 @@ const _C_COOP_SECOND_WIND  := preload("res://data/cards/coop_second_wind.tres")
 
 static var _cards: Dictionary = {}  # id -> CardData
 static var _loaded: bool = false
+static var _view_cache: Dictionary = {}  # "id|face" -> template dict (get_template_view)
 
 static func _ensure_loaded() -> void:
 	if _loaded:
@@ -247,6 +248,18 @@ static func get_template_for_face(id: String, face: String) -> Dictionary:
 		if res != null and res.has_method("to_template_dict"):
 			return res.call("to_template_dict", face)
 	return {}
+
+## Cached, **read-only** `get_template_for_face` for per-frame / per-swing render
+## paths (GID-164 / TID-680): one shared dict per id and face, so never mutate it
+## — callers that edit or keep a template use `get_template_for_face`.
+static func get_template_view(id: String, face: String) -> Dictionary:
+	var key: String = id + "|" + face
+	var hit: Variant = _view_cache.get(key)
+	if hit != null:
+		return hit as Dictionary
+	var tmpl: Dictionary = get_template_for_face(id, face)
+	_view_cache[key] = tmpl
+	return tmpl
 
 ## Returns all known card IDs, in no guaranteed order.
 static func get_all_ids() -> Array[String]:

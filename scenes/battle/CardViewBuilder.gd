@@ -489,7 +489,7 @@ func apply_card_style(panel: PanelContainer, card: CardInstance, zone_id: String
 	style.border_width_bottom = 0
 	style.border_width_left = 0
 	style.border_width_right = 0
-	var tmpl: Dictionary = CardRegistry.get_template_for_face(card.template_id, card.active_face)
+	var tmpl: Dictionary = CardRegistry.get_template_view(card.template_id, card.active_face)
 	var magic_type: String = str(tmpl.get("magic_type", card.magic_type))
 	panel.set_meta("card_branch", str(tmpl.get("magic_branch", card.magic_branch)))
 	panel.set_meta("card_rarity", card.rarity)
@@ -566,6 +566,11 @@ func _target_mark(panel: Control, font_sz: int) -> Label:
 	return mark
 
 func update_keyword_badges(hbox: HBoxContainer, card: CardInstance) -> void:
+	# Real-time swings refresh every card: rebuild only on a change (GID-164 / TID-680).
+	var sig: String = "%s|%s|%d" % [",".join(card.keywords), card.shroud_active, _font(0.016)]
+	if str(hbox.get_meta(&"badge_sig", "")) == sig:
+		return
+	hbox.set_meta(&"badge_sig", sig)
 	for child in hbox.get_children():
 		child.queue_free()
 	var kw_keys: Array[String]  = [Keywords.WARD, Keywords.SURGE, Keywords.SHROUD]

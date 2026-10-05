@@ -2,7 +2,7 @@
 
 **Goal:** GID-164
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-679
 
 ## Lock
@@ -26,12 +26,15 @@ Validation for every task: headless import parse check, `scripts/unsafe-hits.sh`
 
 ## Plan
 
-_Written during Plan phase._
+- `CardRegistry.get_template_view(id, face)`: cached read-only template, used only by the render paths (CardViewBuilder.apply_card_style, CardArt) — the other ~30 callers keep fresh dicts since several store or edit them.
+- Keyword badges rebuilt only when keywords / shroud / font size change (`badge_sig` meta); card status rows got the same treatment in TID-679.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/CardRegistry.gd`, `scenes/battle/CardViewBuilder.gd`, `scenes/battle/CardArt.gd`.
+- `tests/unit/test_battle_hud_cache.gd::test_template_view_is_cached_and_equal` (every card, both faces).
+- Validation: import, gdlint, unsafe-hits, 3025 passed / 0 failed, 0 SCRIPT ERROR, all smoke tests.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/battle-system.md` refresh entry.
