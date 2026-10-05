@@ -268,6 +268,7 @@ var _coop_map_transitioning: bool = false
 var _coop_downed: bool = false                # true while the LOCAL player is downed
 var _dungeon_spawn_pos: Vector3 = Vector3.ZERO  # cached on entry to a "dungeon_*" map
 var _downed_banner: Label = null
+var _downed_banner_secs: int = -1  # last countdown second shown
 var _downed_started_at: float = 0.0
 # Co-op story mode (GID-098): guard against re-entering the network broadcast
 # while processing our own GameBus.story_flag_set echo.
@@ -1406,7 +1407,10 @@ func _tick_coop(delta: float) -> void:
 	if _coop_downed and _downed_banner != null and is_instance_valid(_downed_banner):
 		var elapsed: float = (Time.get_ticks_msec() / 1000.0) - _downed_started_at
 		var remaining: float = _DownedSync.remaining_time(elapsed)
-		_downed_banner.text = "Downed — waiting for rescue… (%ds)" % int(ceil(remaining))
+		var secs: int = int(ceil(remaining))
+		if secs != _downed_banner_secs:  # reformat only when the number changes (GID-164 / TID-678)
+			_downed_banner_secs = secs
+			_downed_banner.text = "Downed — waiting for rescue… (%ds)" % secs
 	# Shared world life (GID-103): synced clock/weather, party night hunts, and
 	# the co-op siege wave watcher. Map-scoped and host/authority gated
 	# internally; single-player never reaches these.

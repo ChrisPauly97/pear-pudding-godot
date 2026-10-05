@@ -32,6 +32,7 @@ var _alert_timer: float = 0.0
 var _giveup_timer: float = 0.0
 var _player_ref: CharacterBody3D = null
 var _sprite: Sprite3D = null
+var _fast_shown: bool = false
 
 func _ready() -> void:
 	add_to_group(GROUP)
@@ -101,8 +102,10 @@ func _refresh_level_tag() -> void:
 func _process(delta: float) -> void:
 	if not _alive or not _tracking:
 		return
-	if _sprite != null:
-		_sprite.set_meta(_IdleLife.META_FAST, _alert_state == _EnemyAlertState.State.CHASING)
+	var fast: bool = _alert_state == _EnemyAlertState.State.CHASING
+	if _sprite != null and fast != _fast_shown:
+		_fast_shown = fast  # meta write only on change (GID-164 / TID-678)
+		_sprite.set_meta(_IdleLife.META_FAST, fast)
 	if NetworkManager.is_active():
 		return
 	if not SceneManager.can_proximity_engage():

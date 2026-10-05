@@ -53,6 +53,7 @@ var _lit: bool = false
 var _tuft_mesh: ArrayMesh  # unit quad, billboarded per instance in the shader
 
 var _prev_pos:      Vector3 = Vector3(-9999, 0, -9999)
+var _pushed_pos:    Vector3 = Vector3.INF  # last player_pos global written
 var _last_move_dir: Vector2 = Vector2.ZERO
 
 var _trample_img:      Image
@@ -272,9 +273,12 @@ func update_player(pos: Vector3, delta: float, is_grounded: bool) -> void:
 	if not _mat:
 		return
 
-	# Immediate blade push — single global call reaches all chunks at once
-	RenderingServer.global_shader_parameter_set("player_pos",
-		pos if is_grounded else Vector3(-9999.0, 0.0, -9999.0))
+	# Immediate blade push — single global call reaches all chunks at once;
+	# skipped while the hero stands still (GID-164 / TID-678).
+	var push: Vector3 = pos if is_grounded else Vector3(-9999.0, 0.0, -9999.0)
+	if push != _pushed_pos:
+		_pushed_pos = push
+		RenderingServer.global_shader_parameter_set("player_pos", push)
 
 	# Movement direction — only upload when it changes
 	var move_dir := Vector2.ZERO
@@ -346,6 +350,7 @@ func _update_trample_map(pos: Vector3, delta: float) -> void:
 	var z1: int = min(TRAMPLE_RES - 1, pz + decay_r)
 
 	var decay_amount: float = TRAMPLE_DECAY * delta
+	var changed: bool = false  # upload only when a texel moved (GID-164 / TID-678)
 
 	# Decay + stamp on the float buffer — no Color allocations
 	for z in range(z0, z1 + 1):
@@ -355,7 +360,10 @@ func _update_trample_map(pos: Vector3, delta: float) -> void:
 			if v > 0.0:
 				var nv: float = maxf(TRAMPLE_FLOOR, v - decay_amount)
 				_trample_buf[row + x] = nv
-				_trample_bytes[row + x] = int(clampf(nv, 0.0, 1.0) * 255.0)
+				var b: int = int(clampf(nv, 0.0, 1.0) * 255.0)
+				if b != _trample_bytes[row + x]:
+					_trample_bytes[row + x] = b
+					changed = true
 
 	var ramp: float = TRAMPLE_RAMP * delta
 	for z in range(max(0, pz - TRAMPLE_RADIUS), min(TRAMPLE_RES, pz + TRAMPLE_RADIUS + 1)):
@@ -370,9 +378,13 @@ func _update_trample_map(pos: Vector3, delta: float) -> void:
 				var cur: float = _trample_buf[row + x]
 				var nv: float = minf(target, cur + ramp)
 				_trample_buf[row + x] = nv
-				_trample_bytes[row + x] = int(clampf(nv, 0.0, 1.0) * 255.0)
+				var b2: int = int(clampf(nv, 0.0, 1.0) * 255.0)
+				if b2 != _trample_bytes[row + x]:
+					_trample_bytes[row + x] = b2
+					changed = true
 
-	_flush_trample_to_gpu()
+	if changed:
+		_flush_trample_to_gpu()
 
 # Upload only the dirty region of the trample map to the GPU.
 # _trample_bytes is kept in sync during _update_trample_map so no

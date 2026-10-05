@@ -2,7 +2,7 @@
 
 **Goal:** GID-164
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -27,12 +27,16 @@ Validation for every task: headless import parse check, `scripts/unsafe-hits.sh`
 
 ## Plan
 
-_Written during Plan phase._
+- EnemyNPC: META_FAST written only when the chase state flips.
+- GrassBlades: `player_pos` global only when the push value changes; trample texture uploaded only when a byte actually changed (decay floors and stamps saturate, so a still hero uploads nothing).
+- Co-op: host sends only enemies moved ≥ 0.05 since their last send + full resync every 3 s (unreliable channel, so the resync covers drops); client drops a converged interp target.
+- Downed banner text reformatted only when the second changes.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/world/entities/EnemyNPC.gd`, `scenes/world/GrassBlades.gd`, `scenes/world/coop/CoopSession.gd`, `scenes/world/WorldScene.gd`.
+- Validation: import, gdlint, unsafe-hits, 3022 passed / 0 failed, 0 SCRIPT ERROR, all 44 smoke tests (incl. net_world_sync_smoke).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/multiplayer-coop.md` position stream.

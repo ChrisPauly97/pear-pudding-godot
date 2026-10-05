@@ -20,7 +20,7 @@ Android is a target, so mobile render cost and per-frame GDScript work weigh mos
 | [TID-675](TID-675--packed-grid-lookups.md) | Direct packed-grid indexing in mesh/prop builders; per-town plan lookup | agent | done | TID-673 |
 | [TID-676](TID-676--presence-townlife-cache.md) | CharacterPresence + TownLife cached records; WalkCycle manager; faces_left error | agent | done | — |
 | [TID-677](TID-677--minimap-lights-hp.md) | Minimap redraw throttle; NightLights flicker in shader; HeroHealth on change | agent | done | — |
-| [TID-678](TID-678--per-frame-minor.md) | Minor per-frame fixes: EnemyNPC meta, GrassBlades uploads, co-op enemy sync, downed banner | agent | pending | — |
+| [TID-678](TID-678--per-frame-minor.md) | Minor per-frame fixes: EnemyNPC meta, GrassBlades uploads, co-op enemy sync, downed banner | agent | done | — |
 | [TID-679](TID-679--rt-battle-hud.md) | Realtime battle HUD: value-only updates, cached styleboxes, reused status labels | agent | pending | — |
 | [TID-680](TID-680--card-refresh-cache.md) | Card refresh: cached face templates, badge signature diff | agent | pending | TID-679 |
 | [TID-681](TID-681--backdrop-bake.md) | Bake static battle backdrop once | agent | pending | — |

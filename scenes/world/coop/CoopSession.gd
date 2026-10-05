@@ -52,6 +52,12 @@ const _GUILDHALL_TROPHY_TILES: Array[Vector2i] = [Vector2i(44, 50), Vector2i(50,
 const _GUILDHALL_PLOT_TILES: Array[Vector2i] = [Vector2i(46, 54), Vector2i(50, 54), Vector2i(54, 54)]
 const _GUILDHALL_STASH_TILE := Vector2i(50, 48)
 
+## Co-op enemy position sync (GID-164 / TID-678).
+const ENEMY_MOVE_EPS: float = 0.05
+const ENEMY_RESYNC_SECONDS: float = 3.0
+## Client: an interp target within this distance is reached and dropped.
+const ENEMY_ARRIVE_EPS: float = 0.01
+
 ## The WorldScene that owns this module. Everything the module needs from
 ## the world itself — the player node, the HUD, the entity tables — is
 ## reached through it. Sibling modules are reached as _world.<accessor>.
@@ -68,6 +74,10 @@ var _coop_story_flag_syncing: bool = false
 var _coop_weather_rng: RandomNumberGenerator = null
 var _coop_weather_timer: float = 0.0
 var _enemy_pos_accum: float = 0.0
+## Host: last position sent per enemy id, and time to the next full resync
+## (GID-164 / TID-678) — only enemies that moved go out between resyncs.
+var _enemy_pos_sent: Dictionary = {}  # enemy id -> Vector2
+var _enemy_resync_left: float = 0.0
 ## Last-known guildhall garden snapshot {"plots", "plants"}. The host fills it
 ## from SessionStore; a client can't read SessionStore, so it requests one.
 var _guildhall_garden_cache: Dictionary = {"plots": [{}, {}, {}], "plants": {}}
@@ -270,6 +280,7 @@ func _on_coop_session_ended() -> void:
 	_coop_opened_objects.clear()
 	_world._coop_collected_scrolls.clear()
 	_coop_enemy_targets.clear()
+	_enemy_pos_sent.clear()
 	_coop_last_engaged_enemy_id = ""
 	# Party loot rolls (GID-102 / TID-381) are session-scoped too.
 	_world._loot_rolls_active.clear()
@@ -1372,14 +1383,24 @@ func _broadcast_enemy_positions(delta: float) -> void:
 	_enemy_pos_accum += delta
 	if _enemy_pos_accum < _world._ENEMY_POS_INTERVAL:
 		return
+	var step: float = _enemy_pos_accum
 	_enemy_pos_accum = 0.0
+	_enemy_resync_left -= step
+	var full: bool = _enemy_resync_left <= 0.0
+	if full:
+		_enemy_resync_left = ENEMY_RESYNC_SECONDS
 	var states: Array = []
 	for eid in _world._enemy_nodes.keys():
 		var raw = _world._enemy_nodes.get(eid)
 		if is_instance_valid(raw):
 			var node: Node3D = raw
-			states.append(_EnemySync.encode_state(
-				str(eid), node.position.x, node.position.z, true))
+			var id: String = str(eid)
+			var at := Vector2(node.position.x, node.position.z)
+			var last: Variant = _enemy_pos_sent.get(id)
+			if not full and last != null and (last as Vector2).distance_to(at) < ENEMY_MOVE_EPS:
+				continue
+			_enemy_pos_sent[id] = at
+			states.append(_EnemySync.encode_state(id, at.x, at.y, true))
 	if not states.is_empty():
 		_world._net_sync.rpc("recv_enemy_positions", _EnemySync.encode_batch(states))
 
@@ -1408,6 +1429,9 @@ func _interp_synced_enemies(delta: float) -> void:
 		var tgt2: Vector2 = _coop_enemy_targets[eid]
 		var target: Vector3 = Vector3(tgt2.x, _world.get_terrain_height(tgt2.x, tgt2.y), tgt2.y)
 		node.position = _EnemySync.interp(node.position, target, delta, 12.0)
+		if node.position.distance_to(target) < ENEMY_ARRIVE_EPS:
+			node.position = target
+			_coop_enemy_targets.erase(eid)  # arrived: no per-frame work until the next update
 
 # ── Co-op story mode — map transitions (GID-098 / TID-355) ───────────────────
 
@@ -1552,6 +1576,7 @@ func _show_downed_banner() -> void:
 		return
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	_world._downed_banner = Label.new()
+	_world._downed_banner_secs = -1
 	_world._downed_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_world._downed_banner.add_theme_font_size_override("font_size", int(vp.y * 0.030))
 	_world._downed_banner.add_theme_color_override("font_color", Color(0.75, 0.80, 1.0))
