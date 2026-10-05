@@ -14,9 +14,12 @@ const _PlaceNames = preload("res://game_logic/PlaceNames.gd")
 const _WorldMap = preload("res://game_logic/world/WorldMap.gd")
 const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
 const _TownBuildingsView = preload("res://scenes/world/TownBuildingsView.gd")
+const _TownStreetsView = preload("res://scenes/world/TownStreetsView.gd")
 
 ## Roofs, windows and roof fading on the towns' buildings.
 var buildings: _TownBuildingsView = null
+## Grimy street lamps along the towns' streets (GID-155).
+var streets: _TownStreetsView = null
 var _world: _WorldScene = null
 var _last_tile := Vector2i(1 << 30, 1 << 30)
 
@@ -25,6 +28,9 @@ func tick() -> void:
 	if buildings == null:
 		buildings = _TownBuildingsView.new(_world)
 	buildings.tick()
+	if streets == null:
+		streets = _TownStreetsView.new(_world)
+	streets.tick()
 	if _world._player == null:
 		return
 	var tile := Vector2i(int(floor(_world._player.position.x / IsoConst.TILE_SIZE)),

@@ -158,6 +158,7 @@
 | [GID-152](goals/GID-152--art-motion-pass/goal.md) | Art Motion Pass | done | 11 / 11 |
 | [GID-153](goals/GID-153--pear-pudding-legend/goal.md) | The Pear Pudding — Secret Legendary Potion | done | 6 / 6 |
 | [GID-154](goals/GID-154--town-buildings/goal.md) | Proper Town Buildings | done | 1 / 1 |
+| [GID-155](goals/GID-155--town-streets-lamps/goal.md) | Town Streets & Street Lamps | done | 1 / 1 |
 
 ## Backlog
 
