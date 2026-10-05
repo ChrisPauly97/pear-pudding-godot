@@ -403,10 +403,12 @@ func set_active_slot(slot: int) -> void:
 	active_slot = clamp(slot, 1, NUM_SAVE_SLOTS)
 
 func has_save_slot(slot: int) -> bool:
-	return FileAccess.file_exists(_SaveFile.slot_path(slot))
+	return _SaveFile.existing_path(slot) != ""
 
 func get_slot_metadata(slot: int) -> Dictionary:
 	var parsed = _SaveFile.read_json(_SaveFile.slot_path(slot))
+	if not parsed is Dictionary:
+		parsed = _SaveFile.read_json(_SaveFile.slot_bak_path(slot))
 	if not parsed is Dictionary:
 		return {}
 	var data: Dictionary = parsed

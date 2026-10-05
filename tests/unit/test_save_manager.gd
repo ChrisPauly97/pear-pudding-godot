@@ -315,3 +315,32 @@ func test_dictionary_default_is_writable_after_restore() -> void:
 	sm._restore_field({}, "garden_plots", SaveManagerScript.PERSISTED_FIELDS["garden_plots"])
 	(sm.garden_plots[0] as Dictionary)["seed"] = "pear"
 	assert_eq(str((sm.garden_plots[0] as Dictionary).get("seed", "")), "pear")
+
+## GID-164 / TID-683: compact payload, legacy tab-indented envelopes still verify,
+## and the previous save is rotated to .bak by rename.
+func test_write_slot_rotates_bak_and_reads_legacy_indent() -> void:
+	const SLOT: int = 97
+	for p: String in [_SaveFile.slot_path(SLOT), _SaveFile.slot_bak_path(SLOT)]:
+		if FileAccess.file_exists(p):
+			DirAccess.remove_absolute(p)
+	assert_true(_SaveFile.write_slot({"version": 1, "coins": 1}, SLOT))
+	assert_false(FileAccess.file_exists(_SaveFile.slot_bak_path(SLOT)), "first write: nothing to back up")
+	assert_true(_SaveFile.write_slot({"version": 1, "coins": 2}, SLOT))
+	var cur: Dictionary = _SaveFile.read_json(_SaveFile.slot_path(SLOT))
+	var bak: Dictionary = _SaveFile.read_json(_SaveFile.slot_bak_path(SLOT))
+	assert_eq(int(cur["coins"]), 2)
+	assert_eq(int(bak["coins"]), 1, "previous save kept as .bak")
+	var raw: String = FileAccess.get_file_as_string(_SaveFile.slot_path(SLOT))
+	assert_false(raw.contains("\\t"), "payload written compact")
+	# Crash between the renames: only the .bak is left, and it still counts.
+	DirAccess.remove_absolute(_SaveFile.slot_path(SLOT))
+	assert_eq(_SaveFile.existing_path(SLOT), _SaveFile.slot_bak_path(SLOT))
+	# Legacy envelope with a tab-indented payload still verifies.
+	var inner: String = JSON.stringify({"version": 1, "coins": 7}, "\t")
+	var f := FileAccess.open(_SaveFile.slot_path(SLOT), FileAccess.WRITE)
+	f.store_string(JSON.stringify({"hmac": _SaveFile.hmac(inner), "payload": inner}))
+	f = null
+	var legacy: Variant = _SaveFile.read_json(_SaveFile.slot_path(SLOT))
+	assert_eq(int((legacy as Dictionary).get("coins", -1)), 7)
+	DirAccess.remove_absolute(_SaveFile.slot_path(SLOT))
+	DirAccess.remove_absolute(_SaveFile.slot_bak_path(SLOT))

@@ -3,7 +3,8 @@
 ## its arguments and the filesystem), so SaveManager's background flush calls
 ## `write_slot` from a WorkerThreadPool task.
 ##
-## Envelope: `{"hmac": <sha256 hex>, "payload": <tab-indented JSON string>}`.
+## Envelope: `{"hmac": <sha256 hex>, "payload": <JSON string>}`. The payload is
+## compact since GID-164 / TID-683 (older tab-indented ones read the same).
 ## Pre-envelope saves are a bare JSON dict and still load unsigned.
 extends RefCounted
 
@@ -60,10 +61,22 @@ static func write_slot(data: Dictionary, slot: int) -> bool:
 	var tmp := FileAccess.open(tmp_path, FileAccess.WRITE)
 	if not tmp:
 		return false
-	var inner_json: String = JSON.stringify(data, "\t")
+	var inner_json: String = JSON.stringify(data)
 	tmp.store_string(JSON.stringify({"hmac": hmac(inner_json), "payload": inner_json}))
 	tmp = null  # flush + close before rename
+	# Rotate by rename, not copy (GID-164 / TID-683): the previous save becomes the
+	# .bak with no file I/O. A crash between the two renames leaves only the .bak,
+	# which load and the slot list both fall back to.
 	if FileAccess.file_exists(save_path):
-		DirAccess.copy_absolute(save_path, slot_bak_path(slot))
+		DirAccess.rename_absolute(save_path, slot_bak_path(slot))
 	DirAccess.rename_absolute(tmp_path, save_path)
 	return true
+
+
+## The newest readable file for a slot: the save, else its .bak.
+static func existing_path(slot: int) -> String:
+	if FileAccess.file_exists(slot_path(slot)):
+		return slot_path(slot)
+	if FileAccess.file_exists(slot_bak_path(slot)):
+		return slot_bak_path(slot)
+	return ""
