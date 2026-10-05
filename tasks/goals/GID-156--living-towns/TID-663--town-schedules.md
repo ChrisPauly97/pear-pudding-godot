@@ -2,7 +2,7 @@
 
 **Goal:** GID-156
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-662
 
 ## Lock
@@ -35,12 +35,19 @@ guard on patrol. Builds on the TownLife walkers.
 
 ## Plan
 
-_Written during Plan phase._
+Roles in `TownLife.ROLE_HOURS` (villager by day, reveller into the night, one guard at night); fade walkers with
+`modulate.a` on the Sprite3D and mark them hidden; siege keeps a town's walkers in; guards' lanterns via NightLights
+sources that follow a node.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `TownLife.gd`: roles assigned in `plan` (guard first when ≥ 3 walkers, every third a reveller), `is_out`.
+- Module: fade in/out over `FADE_TIME`, `data["hidden"]`, siege town (solo `town_siege.get_active_siege()` / co-op
+  `_coop_siege_active`) stays in.
+- `NightLights.gd`: `Rig.follow` (untyped, freed-safe via `_valid_node3d`), rigs track a moving source per frame;
+  `town_life.lanterns()` guards added as `lantern` sources. Uses the existing tier caps — no extra lights.
+- Schedules are a pure function of time of day, so routes never change mid-loop (only visibility does): no jumps.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`docs/agent/enemies-and-npcs.md` → Schedules + Lanterns bullets.
