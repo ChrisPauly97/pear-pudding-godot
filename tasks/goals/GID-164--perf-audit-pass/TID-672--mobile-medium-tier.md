@@ -2,7 +2,7 @@
 
 **Goal:** GID-164
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -26,12 +26,18 @@ Validation for every task: headless import parse check, `scripts/unsafe-hits.sh`
 
 ## Plan
 
-_Written during Plan phase._
+- Medium: drop MSAA (keep FXAA — it also covers the alpha-cut sprite edges MSAA misses, per TID-501), so one AA pass.
+- Keep debanding: it is a dither inside the tonemap pass that already runs, ~free; removing it re-adds visible banding on 8-bit phone panels.
+- Sun rays occlusion taps 10 → 6 on Medium. Half-res pass not done: would need a SubViewport restructure of SunRaysFx; the pass is already hidden whenever strength ~0 (midday/night/storm).
+- Glow kept (core look; single bloom pass on Mobile renderer).
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/GraphicsQuality.gd`: Medium `msaa_3d` 4x → disabled, `ray_samples` 10 → 6; comment explaining the one-AA choice.
+- `assets/shaders/sun_rays.gdshader`: comment updated (6 taps on Medium).
+- `tests/unit/test_graphics_quality.gd`: asserts Medium runs no MSAA on top of FXAA.
+- Validation: headless import clean, gdlint clean, unsafe-hits clean, runner 3018 passed / 0 failed, 0 SCRIPT ERROR.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/visual-polish.md`: knob table rows for `msaa_3d` and `ray_samples`, sun-rays tap note.

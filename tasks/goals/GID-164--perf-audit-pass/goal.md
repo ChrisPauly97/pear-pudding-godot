@@ -14,7 +14,7 @@ Android is a target, so mobile render cost and per-frame GDScript work weigh mos
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| [TID-672](TID-672--mobile-medium-tier.md) | Medium tier: one AA, deband off, cheaper sun rays | agent | pending | — |
+| [TID-672](TID-672--mobile-medium-tier.md) | Medium tier: one AA, deband off, cheaper sun rays | agent | done | — |
 | [TID-673](TID-673--water-math-early-out.md) | WaterMath: early-out dry vertices, bucket dry points, bounded reserved distance | agent | pending | — |
 | [TID-674](TID-674--water-probe-cache.md) | Cache per-chunk dry points for water probes | agent | pending | TID-673 |
 | [TID-675](TID-675--packed-grid-lookups.md) | Direct packed-grid indexing in mesh/prop builders; per-town plan lookup | agent | pending | TID-673 |
@@ -31,7 +31,7 @@ Android is a target, so mobile render cost and per-frame GDScript work weigh mos
 
 ## Acceptance Criteria
 
-- [ ] Medium tier drops redundant AA/deband; sun rays cheaper.
+- [x] Medium tier drops redundant AA/deband; sun rays cheaper.
 - [ ] Town chunk `prepare_terrain` measurably faster; chunk output proven identical by equivalence tests.
 - [ ] Per-frame module costs (CharacterPresence, TownLife, WalkCycle, Minimap, NightLights, HeroHealth) reduced in profiler.
 - [ ] Realtime battle HUD/card refresh no longer allocates styleboxes/labels/template dicts per frame/swing.

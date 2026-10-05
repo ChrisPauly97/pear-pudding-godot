@@ -45,13 +45,13 @@ The single source of truth for which atmosphere effects run. All-static module (
 | `ssao` *(Forward+ only)* | off | off | on (intensity 1.0, radius 1.0) | `apply()` |
 | `volumetric_fog` *(Forward+ only)* | off | off | on | `apply()` enables it; `SunRaysFx` (TID-488) then drives density and switches it off whenever the rays are off |
 | `glow` | off | on | on | `apply()` |
-| `msaa_3d` | disabled | 4x | 4x | `apply()` → viewport (4x = project.godot default) |
+| `msaa_3d` | disabled | disabled | 4x | `apply()` → viewport (4x = project.godot default). Medium relies on FXAA alone (GID-164 / TID-672) |
 | `particle_scale` | 0.5 | 0.75 | 1.0 | `scaled_amount()` — weather particles, fireflies, leaves, player dust (TID-493) |
 | `ambient_particles` | off | on | on | `AmbientTouches` fireflies/leaves; player foot trail + move-start puff (TID-493) |
 | `sun_rays` | OFF | SCREEN | VOLUMETRIC | `SunRaysFx.set_mode` (TID-488, `SUN_RAYS_*`) |
 | `max_night_lights` | 0 | 4 | 8 | `NightLights` module: rigs that draw a light pool (TID-489) |
 | `night_light_shadows` | off | off | off | `NightLights`: adds a shadowed `OmniLight3D` per pool rig (reserved, off everywhere) |
-| `ray_samples` | 0 | 10 | 16 | `SunRaysFx.set_quality` → `sun_rays.gdshader` `samples` (TID-496) |
+| `ray_samples` | 0 | 6 | 16 | `SunRaysFx.set_quality` → `sun_rays.gdshader` `samples` (TID-496) |
 | `moon_rays` | off | off | on | `SunRaysFx.set_quality` — faint cool screen rays at night (TID-496) |
 | `ground_mist` | off | on | on | `AmbientTouches` ground mist emitter (TID-497) |
 | `fake_shafts` | 0 | 6 | 10 | `FakeVolumetrics` beam count (TID-495); zeroed by `FAKE_VOLUMETRIC` wherever real `volumetric_fog` runs |
@@ -130,7 +130,7 @@ The single source of truth for which atmosphere effects run. All-static module (
 - **Volumetric (High, Forward+ only):** `set_mode(VOLUMETRIC)` configures the Environment once — albedo warm white, anisotropy 0.7 (forward scattering), length 96 (past the iso view's ~45-unit far ground), emission black and ambient/GI/sky injection 0, so **only the sun lights the fog** and shafts form where sun shadows (on at High) cut it. Sun `light_volumetric_fog_energy` 1.5, moon 0, the WorldScene fill light 0 (unshadowed, it would only haze). Density = `0.018 × strength`; below `MIN_STRENGTH` 0.01 the fog is switched off entirely.
 - **Cost:** `SunRaysFx` updates at 10 Hz. When the screen strength is below `MIN_STRENGTH` the `CanvasLayer` is hidden, so midday, night and storms cost neither the screen copy nor the taps. Low (`SUN_RAYS_OFF`) never builds the layer.
 - **Wiring:** WorldScene creates `SunRaysFx` (node `SunRays`) right after the DayNightCycle, `setup(camera, sun, moon, env, dnc)` + `set_mode(knobs.sun_rays)`; `apply_graphics_quality()` re-calls `set_mode`, so Settings changes apply live. `GraphicsQuality.apply()` writes `volumetric_fog_enabled = knob` first; `set_mode` → `refresh()` corrects it in the same call. Co-op: purely local (time and weather id are already synced).
-- **HQ taps + moon rays (GID-130 / TID-496):** the march length is the `samples` uniform (loop to `MAX_SAMPLES` 24 with an early break), set from the `ray_samples` knob via `set_quality(samples, moon_rays)` — so Mobile High (VOLUMETRIC demoted to SCREEN) gets 16 taps instead of Medium's 10. With `moon_rays` on, when the sun strength is below `MIN_STRENGTH` the pass uses `SunRayMath.moon_strength(-sun_h, weather)` (rise over 0.06, fade 0.5→1.0, × `MOON_RAY_SCALE` 0.45) from the opposite direction, `MOON_RAY_COLOR` (0.62, 0.72, 1.0) and `lit_threshold` 0.08 instead of 0.35 (the night screen is dark everywhere). Moon rays never drive volumetric fog and run at full screen weight. `is_moon_source()` reports it.
+- **HQ taps + moon rays (GID-130 / TID-496):** the march length is the `samples` uniform (loop to `MAX_SAMPLES` 24 with an early break), set from the `ray_samples` knob via `set_quality(samples, moon_rays)` — so Mobile High (VOLUMETRIC demoted to SCREEN) gets 16 taps instead of Medium's 6 (10 before GID-164). With `moon_rays` on, when the sun strength is below `MIN_STRENGTH` the pass uses `SunRayMath.moon_strength(-sun_h, weather)` (rise over 0.06, fade 0.5→1.0, × `MOON_RAY_SCALE` 0.45) from the opposite direction, `MOON_RAY_COLOR` (0.62, 0.72, 1.0) and `lit_threshold` 0.08 instead of 0.35 (the night screen is dark everywhere). Moon rays never drive volumetric fog and run at full screen weight. `is_moon_source()` reports it.
 - **Tests:** `tests/unit/test_sun_rays.gd` (strength curve, moon strength + moon-ray toggle, weather dampening, screen direction vs the real camera basis, off-screen source, fog density, SunRaysFx screen/volumetric modes).
 
 ### Rain Wetness (`DayNightCycle`, `terrain.gdshader`) — TID-487 (puddles reworked by TID-515, below)
