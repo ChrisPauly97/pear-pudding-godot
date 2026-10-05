@@ -202,12 +202,37 @@ static func compute_height_field_grid(
 		nvx: int, nvz: int, step: float,
 		curve_r: float, peak_h: float) -> PackedFloat32Array:
 	var hfield := PackedFloat32Array()
-	hfield.resize(nvx * nvz)
+	hfield.resize(nvx * nvz)  # zero-filled: flat ground
+	# GID-164 / TID-675: a vertex with no hill tile in its scan window is flat
+	# (min_dist_sq_hill never drops below curve_r², so _hill_blend returns 0).
+	# A summed-area table of hill tiles answers "any hill in the window?" in O(1),
+	# so only vertices near hills pay the 7×7 scan. Out-of-grid reads are walls,
+	# never hills, so clipping the window to the grid is exact.
+	var tile_check: int = int(ceil(curve_r / IsoConst.TILE_SIZE)) + 1
+	var grid_h: int = tile_grid.size() / grid_w if grid_w > 0 else 0
+	var sw: int = grid_w + 1
+	var sat := PackedInt32Array()
+	sat.resize(sw * (grid_h + 1))
+	for gz in range(grid_h):
+		var run: int = 0
+		for gx in range(grid_w):
+			if tile_grid[gz * grid_w + gx] == IsoConst.TILE_HILL:
+				run += 1
+			sat[(gz + 1) * sw + gx + 1] = sat[gz * sw + gx + 1] + run
 	for iz in range(nvz):
+		var wz: float = origin_z + iz * step
+		var vtz: int = floori(wz / IsoConst.TILE_SIZE)
+		var z0: int = clampi(vtz - tile_check - grid_min_z, 0, grid_h)
+		var z1: int = clampi(vtz + tile_check + 1 - grid_min_z, 0, grid_h)
 		for ix in range(nvx):
+			var wx: float = origin_x + ix * step
+			var vtx: int = floori(wx / IsoConst.TILE_SIZE)
+			var x0: int = clampi(vtx - tile_check - grid_min_x, 0, grid_w)
+			var x1: int = clampi(vtx + tile_check + 1 - grid_min_x, 0, grid_w)
+			if sat[z1 * sw + x1] - sat[z0 * sw + x1] - sat[z1 * sw + x0] + sat[z0 * sw + x0] == 0:
+				continue
 			hfield[iz * nvx + ix] = get_height_at_grid(
-				origin_x + ix * step, origin_z + iz * step,
-				tile_grid, height_grid, grid_min_x, grid_min_z, grid_w,
+				wx, wz, tile_grid, height_grid, grid_min_x, grid_min_z, grid_w,
 				curve_r, peak_h)
 	return hfield
 

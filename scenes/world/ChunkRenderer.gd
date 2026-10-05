@@ -138,7 +138,8 @@ static func prepare_terrain(
 
 	# Height field via the packed-grid fast path — direct array indexing instead
 	# of ~53k Callable invocations per chunk (GID-121 / TID-458). The lambdas above
-	# stay for the mesh builders and prop scatter (~2-3k calls, not worth the churn).
+	# stay for the mesh builders and prop scatter (~2-3k calls, not worth the churn —
+	# re-measured in GID-164 / TID-675: ~1.5 ms of a ~11 ms worker-thread build).
 	var hfield: PackedFloat32Array = TerrainMath.compute_height_field_grid(
 			tile_grid, height_grid, grid_min_x, grid_min_z, grid_w,
 			chunk_origin.x, chunk_origin.z,

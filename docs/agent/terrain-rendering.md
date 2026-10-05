@@ -39,7 +39,7 @@ that index `PackedInt32Array` tile/height grids directly:
 
 | Function | Used by | Replaces |
 |---|---|---|
-| `compute_height_field_grid(tile_grid, height_grid, grid_min_x, grid_min_z, grid_w, origin_x, origin_z, nvx, nvz, step, curve_r, peak_h)` | `ChunkRenderer.prepare_terrain` (worker thread + sync startup builds) | `compute_height_field` on the chunk-prep path |
+| `compute_height_field_grid(tile_grid, height_grid, grid_min_x, grid_min_z, grid_w, origin_x, origin_z, nvx, nvz, step, curve_r, peak_h)` | `ChunkRenderer.prepare_terrain` (worker thread + sync startup builds) | `compute_height_field` on the chunk-prep path Skips vertices with no hill tile in their 7×7 scan window via a summed-area table of hill tiles (exact; GID-164 / TID-675 — town chunk prep 16.6 → 11.7 ms). |
 | `get_height_at_grid(wx, wz, tile_grid, height_grid, grid_min_x, grid_min_z, grid_w, curve_r, peak_h)` | `ChunkStreamingManager.get_height_world` (steady-state per-frame queries) | `get_height_at` when the query neighbourhood fits the cached grid |
 
 Out-of-range grid reads fall back to `TILE_WALL` / height `1` — the same values
