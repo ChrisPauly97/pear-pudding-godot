@@ -14,6 +14,7 @@
 ## Pure static logic over save data passed in — no autoloads.
 extends RefCounted
 
+const IsoConst = preload("res://autoloads/IsoConst.gd")  # usable before autoloads register (-s runs)
 const _StoryQuests = preload("res://game_logic/quests/StoryQuests.gd")
 const _ObjectiveTracker = preload("res://game_logic/ObjectiveTracker.gd")
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")

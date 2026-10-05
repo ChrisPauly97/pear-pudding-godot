@@ -8,6 +8,7 @@
 ## Maiteln sync read them there.
 extends Node
 
+const _MaitelnFollower = preload("res://scenes/world/entities/MaitelnFollower.gd")
 const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
@@ -55,18 +56,16 @@ func refresh_maiteln_presence() -> void:
 	_world._maiteln_node = null
 	if not should_be_present or _world._player == null:
 		return
-	var node := _MaitelnFollowerScene.instantiate() as Node3D
+	var node := _MaitelnFollowerScene.instantiate() as _MaitelnFollower
 	_world._entity_root.add_child(node)
-	if node.has_method("setup"):
-		node.call("setup", _world._player, _world)
+	node.setup(_world._player, _world)
 	# Co-op (GID-108 / TID-408, design rule 4): exactly one Maiteln, position
 	# owned by the authority. A non-authority client's copy is a networked
 	# puppet — hidden until the first same-map packet arrives (mirrors the
 	# RemotePlayer cross-map-ghost fix, TID-352) instead of independently
 	# following its own local player.
-	if _world._coop_active and not _world.coop_session._coop_world_authority() \
-			and node.has_method("set_networked"):
-		node.call("set_networked", true)
+	if _world._coop_active and not _world.coop_session._coop_world_authority():
+		node.set_networked(true)
 		node.visible = false
 	_world._maiteln_node = node
 

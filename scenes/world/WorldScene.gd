@@ -2,6 +2,10 @@
 # BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 extends Node3D
 
+const _Door = preload("res://scenes/world/entities/Door.gd")
+const _Waystone = preload("res://scenes/world/entities/Waystone.gd")
+const _BlightHeart = preload("res://scenes/world/entities/BlightHeart.gd")
+const _ScoutAmbush = preload("res://scenes/world/entities/ScoutAmbush.gd")
 const WorldEvents     = preload("res://game_logic/WorldEvents.gd")
 const WorldMap        = preload("res://game_logic/world/WorldMap.gd")
 const DungeonGen      = preload("res://game_logic/world/DungeonGen.gd")
@@ -1011,9 +1015,9 @@ func _tick_card_shower() -> void:
 		if is_instance_valid(item):
 			return
 	# All items gone — end the event
-	var wem: Node = get_node_or_null("/root/WorldEventManager")
+	var wem: _WorldEventManager = get_node_or_null("/root/WorldEventManager") as _WorldEventManager
 	if wem != null:
-		wem.call("end_event", "card_shower")
+		wem.end_event("card_shower")
 	_card_shower_items.clear()
 
 # Called by ChunkRenderer after spawning a chest
@@ -1572,9 +1576,9 @@ func _handle_interact() -> void:
 			return
 		var target_map: String = door.get("target_map", "")
 		var tdoor: String = door.get("target_door_id", "")
-		var door_node: Node3D = _valid_node3d(_door_nodes.get(door_id))
-		if door_node != null and door_node.has_method("play_open"):
-			door_node.call("play_open")  # TID-652: swings open under the transition wipe
+		var door_node := _valid_node3d(_door_nodes.get(door_id)) as _Door
+		if door_node != null:
+			door_node.play_open()  # TID-652: swings open under the transition wipe
 		AudioManager.play_sfx("door_enter")
 		# Auto-dismount when leaving the overworld for any named map
 		if SceneManager.save_manager.is_mounted and target_map != "main" and not target_map.is_empty():
@@ -1635,9 +1639,9 @@ func _handle_interact() -> void:
 		if bool(waystone.get("active", false)):
 			named_props.open_fast_travel_panel()
 		else:
-			var wnode := _valid_node3d(_waystone_nodes.get(wid))
-			if wnode != null and wnode.has_method("mark_activated"):
-				wnode.call("mark_activated")
+			var wnode := _valid_node3d(_waystone_nodes.get(wid)) as _Waystone
+			if wnode != null:
+				wnode.mark_activated()
 		return
 
 	var mailbox := _find_nearby_mailbox(px, pz, IsoConst.INTERACT_RANGE)
@@ -1652,14 +1656,14 @@ func _handle_interact() -> void:
 	# Hostile entities are probed last, so anything peaceful in reach wins: you can
 	# take a door, open a chest or read a scroll with an enemy standing next to you
 	# instead of being forced into the fight. See INTERACT_PRIORITY.
-	var blight_heart_node := _find_nearby_blight_heart(px, pz, IsoConst.INTERACT_RANGE)
-	if blight_heart_node != null and blight_heart_node.has_method("engage"):
-		blight_heart_node.call("engage")
+	var blight_heart_node := _find_nearby_blight_heart(px, pz, IsoConst.INTERACT_RANGE) as _BlightHeart
+	if blight_heart_node != null:
+		blight_heart_node.engage()
 		return
 
-	var scout_ambush_node := _find_nearby_scout_ambush(px, pz, IsoConst.INTERACT_RANGE)
-	if scout_ambush_node != null and scout_ambush_node.has_method("interact"):
-		scout_ambush_node.call("interact")
+	var scout_ambush_node := _find_nearby_scout_ambush(px, pz, IsoConst.INTERACT_RANGE) as _ScoutAmbush
+	if scout_ambush_node != null:
+		scout_ambush_node.interact()
 		return
 
 	var enemy := _find_nearby_enemy(px, pz, IsoConst.INTERACT_RANGE)

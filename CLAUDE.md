@@ -328,6 +328,8 @@ All tile/size constants (`TILE_GRASS`, `TILE_SIZE`, `CHUNK_SIZE`, etc.) live in 
 A tile's world-space centre is `IsoConst.tile_center(t)` — never write out `t * TILE_SIZE + TILE_SIZE * 0.5`.
 World → tile is `IsoConst.world_to_tile(wx, wz)` (floors; correct for negative coords) or
 `IsoConst.entity_tile(dict)` for an `{x, z}` entity — never hand-roll `floor(x / TILE_SIZE)`.
+Calling an IsoConst *function* from a script that `-s` smoke tests load (`game_logic/`, map gen) needs a
+file-local `const IsoConst = preload("res://autoloads/IsoConst.gd")`; constants resolve without it, functions don't.
 
 ---
 

@@ -10,6 +10,7 @@ extends RefCounted
 # Usage:
 #   var map: WorldMap = DungeonGen.generate("dungeon_12345", 12345)
 
+const IsoConst = preload("res://autoloads/IsoConst.gd")  # usable before autoloads register (-s runs)
 const _WorldMap = preload("res://game_logic/world/WorldMap.gd")
 const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 

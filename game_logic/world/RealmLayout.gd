@@ -13,6 +13,7 @@
 ## "where is this story place" caller share one table.
 extends RefCounted
 
+const IsoConst = preload("res://autoloads/IsoConst.gd")  # usable before autoloads register (-s runs)
 const _WorldMap = preload("res://game_logic/world/WorldMap.gd")
 const _RiddleSpots = preload("res://game_logic/world/RiddleSpots.gd")
 const _TownBuildings = preload("res://game_logic/world/TownBuildings.gd")

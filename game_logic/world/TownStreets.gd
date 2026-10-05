@@ -15,6 +15,7 @@
 ## asks it for tiles while generating chunks, tests check the plan directly.
 extends RefCounted
 
+const IsoConst = preload("res://autoloads/IsoConst.gd")  # usable before autoloads register (-s runs)
 const _WorldMap = preload("res://game_logic/world/WorldMap.gd")
 
 const TRUNK_RADIUS: int = 1

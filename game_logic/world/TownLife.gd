@@ -14,6 +14,7 @@
 ##
 ## Pure static logic (no scene tree); `scenes/world/modules/TownLife.gd` drives it.
 
+const IsoConst = preload("res://autoloads/IsoConst.gd")  # usable before autoloads register (-s runs)
 const _SideQuests = preload("res://game_logic/quests/SideQuests.gd")
 const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")

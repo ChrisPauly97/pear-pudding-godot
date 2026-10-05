@@ -25,10 +25,10 @@ existing Bounty Board and the joint-battle enemies (GID-099).
 - **Party variant (shared progress):** a co-op bounty's progress is **shared state**,
   owned by the authority in `SessionState` (a `party_bounties` field) and persisted via
   `SessionStore` — not the per-device SaveManager. Progress increments from synced events
-  (GID-096 `enemy_defeated`, GID-099 boss defeat, GID-368 duel wins). Use the same
+  (GID-096 `enemy_defeated`, GID-099 boss defeat, TID-368 duel wins). Use the same
   authority-records-then-broadcasts pattern as world events.
 - **Reward distribution:** on completion, **every contributing party member** gets the
-  reward into their own GID-095 character (coins/cards), like the GID-361 soulbound
+  reward into their own GID-095 character (coins/cards), like the TID-361 soulbound
   fan-out. Decide "contributor" definition (present at completion vs. participated) —
   recommend "in the session + on the map at completion".
 - **Generation:** seed party bounties per session (or daily, keyed by session id +

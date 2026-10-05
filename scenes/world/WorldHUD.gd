@@ -109,7 +109,7 @@ func setup(hud: CanvasLayer, is_infinite: bool, map_name: String,
 		# GID-107 / TID-396: registered into ZONE_CONTEXT — the shared contextual bar —
 		# so it can never pixel-overlap Challenge/Trade/Spectate, which share the zone.
 		_interact_btn = register_action("interact", "USE", ZONE_CONTEXT,
-			func() -> void: _world_scene.call("_handle_interact"),
+			func() -> void: _world_scene._handle_interact(),
 			Callable(), Vector2(vh * 0.18, vh * 0.08))
 		_interact_btn.add_theme_font_size_override("font_size", int(vh * 0.032 * _ts))
 		_interact_btn.hide()
@@ -125,7 +125,7 @@ func _create_nav_buttons(_vh: float, _vw_unused: float, font_size: int,
 		btn_w: float, btn_h: float) -> void:
 	# Single system/pause control replaces the Menu + II pair.
 	var pause_btn := register_action("pause", "II", ZONE_SYSTEM,
-		func() -> void: _world_scene.call("_open_pause"),
+		func() -> void: _world_scene._open_pause(),
 		Callable(), Vector2(btn_h, btn_h))
 	pause_btn.add_theme_font_size_override("font_size", font_size)
 

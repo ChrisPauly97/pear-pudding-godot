@@ -4,10 +4,18 @@
 ## infinite world. Closures capture world_scene so spawn/cleanup have access to
 ## player position, entity root, and NPC registry.
 ##
-## WorldEventManager and GameBus are accessed via get_node_or_null() to avoid
-## compile-time identifier resolution failures during GDScript's reload phase.
+## Autoloads are looked up through the tree (never named) so this script stays
+## loadable before autoloads register; each lookup is cast to its preloaded
+## script so every member access is still compile-checked.
 
 const _WorldEventManager = preload("res://autoloads/WorldEventManager.gd")
+const _GameBus = preload("res://autoloads/GameBus.gd")
+const _SceneManager = preload("res://autoloads/SceneManager.gd")
+const _AudioManager = preload("res://autoloads/AudioManager.gd")
+const _WorldScene = preload("res://scenes/world/WorldScene.gd")
+const _EnemyNPC = preload("res://scenes/world/entities/EnemyNPC.gd")
+const _MerchantNPC = preload("res://scenes/world/entities/MerchantNPC.gd")
+const _WorldItem = preload("res://scenes/world/entities/WorldItem.gd")
 const _EnemyScene    = preload("res://scenes/world/entities/EnemyNPC.tscn")
 const _MerchantScene = preload("res://scenes/world/entities/MerchantNPC.tscn")
 const _WorldItemScene = preload("res://scenes/world/entities/WorldItem.tscn")
@@ -55,37 +63,44 @@ const _MERCHANT_CARD_POOL: Array[String] = [
 ## The active save's world seed, resolved through the tree so this stays usable
 ## from static context. Falls back to the default seed before a save is loaded.
 static func _active_world_seed() -> int:
-	var sm_node: Node = (Engine.get_main_loop() as SceneTree).get_root().get_node_or_null("SceneManager")
-	if sm_node != null:
-		var save_mgr: Variant = sm_node.get("save_manager")
-		if save_mgr is Node:
-			return int((save_mgr as Node).get("world_seed"))
+	var sm := _autoload("SceneManager") as _SceneManager
+	if sm != null and sm.save_manager != null:
+		return sm.save_manager.world_seed
 	return 42
 
-static func register_all(world_scene: Node) -> void:
-	var wem: Node = (Engine.get_main_loop() as SceneTree).get_root().get_node_or_null("WorldEventManager")
+## Autoload `name` from the scene tree root, or null before autoloads exist.
+static func _autoload(name: String) -> Node:
+	return (Engine.get_main_loop() as SceneTree).get_root().get_node_or_null(name)
+
+static func _hud_message(text: String) -> void:
+	var game_bus := _autoload("GameBus") as _GameBus
+	if game_bus != null:
+		game_bus.hud_message_requested.emit(text)
+
+static func register_all(world_scene: _WorldScene) -> void:
+	var wem := _autoload("WorldEventManager") as _WorldEventManager
 	if wem == null:
 		return
-	wem.call("register_event", _BOSS_ID, _BOSS_MIN_INTERVAL, _BOSS_MAX_INTERVAL,
+	wem.register_event(_BOSS_ID, _BOSS_MIN_INTERVAL, _BOSS_MAX_INTERVAL,
 		func() -> void: _spawn_roaming_boss(world_scene, wem),
 		func() -> void: _cleanup_roaming_boss(world_scene, wem))
-	wem.call("register_event", _MERCHANT_ID, _MERCHANT_MIN_INTERVAL, _MERCHANT_MAX_INTERVAL,
+	wem.register_event(_MERCHANT_ID, _MERCHANT_MIN_INTERVAL, _MERCHANT_MAX_INTERVAL,
 		func() -> void: _spawn_traveling_merchant(world_scene, wem),
 		func() -> void: _cleanup_traveling_merchant(world_scene))
-	wem.call("register_event", _SHOWER_ID, _SHOWER_MIN_INTERVAL, _SHOWER_MAX_INTERVAL,
+	wem.register_event(_SHOWER_ID, _SHOWER_MIN_INTERVAL, _SHOWER_MAX_INTERVAL,
 		func() -> void: _spawn_card_shower(world_scene, wem),
 		func() -> void: _cleanup_card_shower(world_scene, wem))
 
 
 # ── Roaming boss ──────────────────────────────────────────────────────────────
 
-static func _spawn_roaming_boss(world_scene: Node, wem: Node) -> void:
+static func _spawn_roaming_boss(world_scene: _WorldScene, wem: _WorldEventManager) -> void:
 	if not is_instance_valid(world_scene):
-		wem.call("end_event", _BOSS_ID)
+		wem.end_event(_BOSS_ID)
 		return
-	var player: Node3D = world_scene.call("get_player") as Node3D
+	var player: Node3D = world_scene.get_player()
 	if player == null:
-		wem.call("end_event", _BOSS_ID)
+		wem.end_event(_BOSS_ID)
 		return
 
 	var world_seed: int = _active_world_seed()
@@ -93,8 +108,8 @@ static func _spawn_roaming_boss(world_scene: Node, wem: Node) -> void:
 	var spawn_pos: Vector3 = _WorldEventManager.find_spawn_tile(
 		player.position, 20.0, 40.0, world_seed)
 
-	var boss: Node3D = _EnemyScene.instantiate() as Node3D
-	boss.call("init_from_data", {
+	var boss := _EnemyScene.instantiate() as _EnemyNPC
+	boss.init_from_data({
 		"id": _BOSS_ID,
 		"enemy_type": _BOSS_ENEMY_TYPE,
 		"is_roaming_boss": true,
@@ -106,42 +121,38 @@ static func _spawn_roaming_boss(world_scene: Node, wem: Node) -> void:
 	var entity_root: Node = world_scene.get_node_or_null("Entities")
 	if entity_root == null:
 		boss.queue_free()
-		wem.call("end_event", _BOSS_ID)
+		wem.end_event(_BOSS_ID)
 		return
 
 	entity_root.add_child(boss)
-	world_scene.call("register_enemy", _BOSS_ID, boss)
-	wem.call("set_event_position", _BOSS_ID, spawn_pos)
-	world_scene.set("_roaming_boss_timer", 0.0)
+	world_scene.register_enemy(_BOSS_ID, boss)
+	wem.set_event_position(_BOSS_ID, spawn_pos)
+	world_scene._roaming_boss_timer = 0.0
 
-	var game_bus: Node = (Engine.get_main_loop() as SceneTree).get_root().get_node_or_null("GameBus")
-	if game_bus != null:
-		game_bus.emit_signal("hud_message_requested", "A powerful presence approaches...")
+	_hud_message("A powerful presence approaches...")
 
 
-static func _cleanup_roaming_boss(world_scene: Node, _wem: Node) -> void:
+static func _cleanup_roaming_boss(world_scene: _WorldScene, _wem: _WorldEventManager) -> void:
 	if not is_instance_valid(world_scene):
 		return
-	var enemy_nodes: Variant = world_scene.get("_enemy_nodes")
-	if enemy_nodes is Dictionary:
-		var nodes: Dictionary = enemy_nodes as Dictionary
-		if nodes.has(_BOSS_ID):
+	var nodes: Dictionary = world_scene._enemy_nodes
+	if nodes.has(_BOSS_ID):
 			var node: Variant = nodes[_BOSS_ID]
 			if node is Node3D and is_instance_valid(node as Node3D):
 				(node as Node3D).queue_free()
 			nodes.erase(_BOSS_ID)
-	world_scene.set("_roaming_boss_timer", 0.0)
+	world_scene._roaming_boss_timer = 0.0
 
 
 # ── Traveling merchant ────────────────────────────────────────────────────────
 
-static func _spawn_traveling_merchant(world_scene: Node, wem: Node) -> void:
+static func _spawn_traveling_merchant(world_scene: _WorldScene, wem: _WorldEventManager) -> void:
 	if not is_instance_valid(world_scene):
-		wem.call("end_event", _MERCHANT_ID)
+		wem.end_event(_MERCHANT_ID)
 		return
-	var player: Node3D = world_scene.call("get_player") as Node3D
+	var player: Node3D = world_scene.get_player()
 	if player == null:
-		wem.call("end_event", _MERCHANT_ID)
+		wem.end_event(_MERCHANT_ID)
 		return
 
 	var world_seed: int = _active_world_seed()
@@ -168,56 +179,50 @@ static func _spawn_traveling_merchant(world_scene: Node, wem: Node) -> void:
 		"z": spawn_pos.z,
 	}
 
-	var merchant: Node3D = _MerchantScene.instantiate() as Node3D
-	merchant.call("init_from_data", npc_data)
+	var merchant := _MerchantScene.instantiate() as _MerchantNPC
+	merchant.init_from_data(npc_data)
 	merchant.position = spawn_pos
 
 	var entity_root: Node = world_scene.get_node_or_null("Entities")
 	if entity_root == null:
 		merchant.queue_free()
-		wem.call("end_event", _MERCHANT_ID)
+		wem.end_event(_MERCHANT_ID)
 		return
 
 	entity_root.add_child(merchant)
-	world_scene.call("register_npc", _MERCHANT_ID, merchant, npc_data)
-	world_scene.set("_traveling_merchant_timer", 0.0)
+	world_scene.register_npc(_MERCHANT_ID, merchant, npc_data)
+	world_scene._traveling_merchant_timer = 0.0
 
-	var game_bus: Node = (Engine.get_main_loop() as SceneTree).get_root().get_node_or_null("GameBus")
-	if game_bus != null:
-		game_bus.emit_signal("hud_message_requested", "You hear distant wagon wheels...")
+	_hud_message("You hear distant wagon wheels...")
 
 
-static func _cleanup_traveling_merchant(world_scene: Node) -> void:
+static func _cleanup_traveling_merchant(world_scene: _WorldScene) -> void:
 	if not is_instance_valid(world_scene):
 		return
-	var npc_nodes: Variant = world_scene.get("_npc_nodes")
-	if npc_nodes is Dictionary:
-		var nodes: Dictionary = npc_nodes as Dictionary
-		if nodes.has(_MERCHANT_ID):
+	var nodes: Dictionary = world_scene._npc_nodes
+	if nodes.has(_MERCHANT_ID):
 			var node: Variant = nodes[_MERCHANT_ID]
 			if node is Node3D and is_instance_valid(node as Node3D):
 				(node as Node3D).queue_free()
 			nodes.erase(_MERCHANT_ID)
-	var npc_data_map: Variant = world_scene.get("_active_npc_data")
-	if npc_data_map is Dictionary:
-		(npc_data_map as Dictionary).erase(_MERCHANT_ID)
-	world_scene.set("_traveling_merchant_timer", 0.0)
+	world_scene._active_npc_data.erase(_MERCHANT_ID)
+	world_scene._traveling_merchant_timer = 0.0
 
 
 # ── Card shower ────────────────────────────────────────────────────────────────
 
-static func _spawn_card_shower(world_scene: Node, wem: Node) -> void:
+static func _spawn_card_shower(world_scene: _WorldScene, wem: _WorldEventManager) -> void:
 	if not is_instance_valid(world_scene):
-		wem.call("end_event", _SHOWER_ID)
+		wem.end_event(_SHOWER_ID)
 		return
-	var player: Node3D = world_scene.call("get_player") as Node3D
+	var player: Node3D = world_scene.get_player()
 	if player == null:
-		wem.call("end_event", _SHOWER_ID)
+		wem.end_event(_SHOWER_ID)
 		return
 
 	var entity_root: Node = world_scene.get_node_or_null("Entities")
 	if entity_root == null:
-		wem.call("end_event", _SHOWER_ID)
+		wem.end_event(_SHOWER_ID)
 		return
 
 	var world_seed: int = _active_world_seed()
@@ -235,9 +240,9 @@ static func _spawn_card_shower(world_scene: Node, wem: Node) -> void:
 		# Pick a random card from the pool (with replacement — repetition is fine for scatter)
 		var card_id: String = pool[rng.randi_range(0, pool.size() - 1)]
 		var stats: Dictionary = _CardDropUtil.roll_stats(card_id, "common")
-		var item: Node3D = _WorldItemScene.instantiate() as Node3D
+		var item := _WorldItemScene.instantiate() as _WorldItem
 		entity_root.add_child(item)
-		item.call("setup", card_id, player.position + Vector3(0, 1.5, 0), spawn_pos,
+		item.setup(card_id, player.position + Vector3(0, 1.5, 0), spawn_pos,
 			"common",
 			int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
 		# Auto-despawn after _SHOWER_ITEM_LIFETIME seconds if not yet collected
@@ -250,28 +255,24 @@ static func _spawn_card_shower(world_scene: Node, wem: Node) -> void:
 			)
 		spawned_items.append(item)
 
-	world_scene.set("_card_shower_items", spawned_items)
+	world_scene._card_shower_items = spawned_items
 
 	_spawn_sparkle_burst(player.position, entity_root)
 
-	var audio_mgr: Node = (Engine.get_main_loop() as SceneTree).get_root().get_node_or_null("AudioManager")
+	var audio_mgr := _autoload("AudioManager") as _AudioManager
 	if audio_mgr != null:
-		audio_mgr.call("play_sfx", "chest_open")
+		audio_mgr.play_sfx("chest_open")
 
-	var game_bus: Node = (Engine.get_main_loop() as SceneTree).get_root().get_node_or_null("GameBus")
-	if game_bus != null:
-		game_bus.emit_signal("hud_message_requested", "Cards are falling from the sky!")
+	_hud_message("Cards are falling from the sky!")
 
 
-static func _cleanup_card_shower(world_scene: Node, _wem: Node) -> void:
+static func _cleanup_card_shower(world_scene: _WorldScene, _wem: _WorldEventManager) -> void:
 	if not is_instance_valid(world_scene):
 		return
-	var items: Variant = world_scene.get("_card_shower_items")
-	if items is Array:
-		for item: Variant in (items as Array):
-			if item is Node3D and is_instance_valid(item as Node3D):
-				(item as Node3D).queue_free()
-	world_scene.set("_card_shower_items", [] as Array[Node3D])
+	for item: Variant in world_scene._card_shower_items:
+		if is_instance_valid(item):
+			(item as Node3D).queue_free()
+	world_scene._card_shower_items.clear()
 
 
 static func _spawn_sparkle_burst(origin: Vector3, entity_root: Node) -> void:
@@ -300,12 +301,10 @@ static func _spawn_sparkle_burst(origin: Vector3, entity_root: Node) -> void:
 	spark_mat.emission_enabled = true
 	spark_mat.emission = Color(1.0, 0.9, 0.2)
 	spark_mat.emission_energy_multiplier = 3.0
-	spark_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	spark_mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	var spark_mesh := QuadMesh.new()
 	spark_mesh.size = Vector2(0.15, 0.15)
-	var mi := MeshInstance3D.new()
-	mi.mesh = spark_mesh
-	mi.material_override = spark_mat
+	spark_mesh.material = spark_mat
 	particles.draw_pass_1 = spark_mesh
 
 	entity_root.add_child(particles)

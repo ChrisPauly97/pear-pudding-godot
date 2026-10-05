@@ -3,6 +3,7 @@
 class_name WorldMap
 extends RefCounted
 
+const IsoConst = preload("res://autoloads/IsoConst.gd")  # usable before autoloads register (-s runs)
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const ChunkData = preload("res://game_logic/world/ChunkData.gd")
 const _MapData   = preload("res://game_logic/world/resources/MapData.gd")
