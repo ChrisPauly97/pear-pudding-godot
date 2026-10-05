@@ -167,7 +167,7 @@
 | [GID-161](goals/GID-161--typed-calls/goal.md) | Codebase Cleanup — Typed Calls | done | 1 / 1 |
 | [GID-162](goals/GID-162--measured-perf-pass/goal.md) | Measured Perf Pass — Streaming Spikes, Leaks, Steady Costs | done | 1 / 1 |
 | [GID-163](goals/GID-163--chunk-gen-off-main-thread/goal.md) | Chunk Generation Off the Main Thread (BID-088) | done | 1 / 1 |
-| [GID-164](goals/GID-164--perf-audit-pass/goal.md) | Perf Audit Pass — Mobile Rendering, Chunk Water, Per-Frame Modules, Battle UI, Save | in-progress | 9 / 14 |
+| [GID-164](goals/GID-164--perf-audit-pass/goal.md) | Perf Audit Pass — Mobile Rendering, Chunk Water, Per-Frame Modules, Battle UI, Save | in-progress | 10 / 14 |
 
 ## Backlog
 

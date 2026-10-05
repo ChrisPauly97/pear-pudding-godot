@@ -23,7 +23,7 @@ Android is a target, so mobile render cost and per-frame GDScript work weigh mos
 | [TID-678](TID-678--per-frame-minor.md) | Minor per-frame fixes: EnemyNPC meta, GrassBlades uploads, co-op enemy sync, downed banner | agent | done | — |
 | [TID-679](TID-679--rt-battle-hud.md) | Realtime battle HUD: value-only updates, cached styleboxes, reused status labels | agent | done | — |
 | [TID-680](TID-680--card-refresh-cache.md) | Card refresh: cached face templates, badge signature diff | agent | done | TID-679 |
-| [TID-681](TID-681--backdrop-bake.md) | Bake static battle backdrop once | agent | pending | — |
+| [TID-681](TID-681--backdrop-bake.md) | Bake static battle backdrop once | agent | done | — |
 | [TID-682](TID-682--town-building-batching.md) | Town buildings: shared materials, merged trim, off-main-thread build | agent | pending | — |
 | [TID-683](TID-683--save-flush-cost.md) | Save flush: section-dirty copies, compact JSON, flat HMAC, .bak once per session | agent | pending | — |
 | [TID-684](TID-684--deck-builder-incremental.md) | Deck builder: debounced search, persistent tiles, incremental add/remove | agent | pending | — |

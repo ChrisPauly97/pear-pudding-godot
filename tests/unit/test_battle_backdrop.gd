@@ -247,3 +247,22 @@ func test_ground_average_is_measured_from_the_texture() -> void:
 		"grass ground_avg fell back to the unmeasured default")
 	assert_true(stone.length() < grass.length(),
 		"the dungeon's stone floor should average darker than grassland")
+
+
+## GID-164 / TID-681: the baked backdrop shows a one-shot viewport texture and
+## leaves no per-frame shader on the Background rect.
+func test_bake_swaps_shader_for_a_one_shot_texture() -> void:
+	var bg := ColorRect.new()
+	bg.size = Vector2(320, 180)
+	BattleBackdrop.apply(bg, BattleBackdrop.NEUTRAL, false)
+	BattleBackdrop.bake(bg)
+	assert_null(bg.material, "Background no longer runs the shader")
+	var vp := bg.get_node("BackdropBake") as SubViewport
+	var shown := bg.get_node("BackdropBaked") as TextureRect
+	assert_not_null(vp)
+	assert_eq(vp.size, Vector2i(320, 180))
+	assert_eq(vp.render_target_update_mode, SubViewport.UPDATE_ONCE)
+	var mat := (vp.get_child(0) as ColorRect).material as ShaderMaterial
+	assert_almost_eq(float(mat.get_shader_parameter("anim")), 0.0)
+	assert_eq(shown.texture, vp.get_texture())
+	bg.free()

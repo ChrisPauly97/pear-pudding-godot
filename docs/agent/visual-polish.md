@@ -247,6 +247,8 @@ All 6 interactable entities call `add_to_group("interactable")` in `_ready()` an
 
 ### Battle Backdrop (`BattleBackdrop`, `battle_backdrop.gdshader`) — GID-126
 
+**Low/Medium bake (GID-164 / TID-681):** below High, `BattleArena._setup_backdrop` calls `BattleBackdrop.bake(bg)` after `apply(..., animate=false)`: the shader renders once into a `BackdropBake` SubViewport (`UPDATE_ONCE`, re-rendered on every `bg.resized`) shown by a `BackdropBaked` TextureRect, and `bg.material` is cleared — no per-pixel shader per frame, no prop sway. High keeps the live animated shader.
+
 `BattleScene.arena._setup_backdrop()` runs in `_ready()` and hands `$Background` (the
 `ColorRect` that used to *be* the background) to
 `BattleBackdrop.apply(rect, biome, is_night)`, which installs a `ShaderMaterial`
