@@ -466,7 +466,7 @@ Plain townsfolk in the five stitched towns stroll the streets; everyone else kee
   (wraps). One guard per town once it has ≥ 3 walkers, every third walker a reveller. `is_out(role, tod)`.
   During a town siege (solo `town_siege.get_active_siege()` or co-op `_coop_siege_active`) that town's walkers stay in.
 - **Driver** — `scenes/world/modules/TownLife.gd` (`WorldScene.town_life`) each frame, for every live NPC node
-  with a loop: places it at `sample(t − lag)` + `RealmLayout.world_shift`, on `get_terrain_height`, writes the
+  with a loop: places it at `sample(t − lag)` (t from `DayNightCycle.get_smooth_time_of_day()` — the stepped 2 Hz `get_time_of_day()` made walkers stutter) + `RealmLayout.world_shift`, on `get_terrain_height`, writes the
   spot into its `_active_npc_data` x/z (so `_find_nearby_npc` / prompts follow it), flips the billboard by move
   direction, adds a `WalkCycle` child (`TownWalk`, processing off — TownLife calls `tick(dt)` from `_drive`, and only when the art has walk frames; per-NPC walker/shift/sprite/walk are cached per spawned node, siege town re-read at 1 Hz — GID-164 / TID-676) and fades the Sprite3D `modulate.a` in/out (`FADE_TIME`) with
   the role's hours. Indoors: node hidden and `data["hidden"] = true`; `WorldScene._first_data_in_range` skips

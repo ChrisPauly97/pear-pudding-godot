@@ -89,7 +89,9 @@ func lanterns() -> Array[Node3D]:
 func _process(delta: float) -> void:
 	if _world == null or not _world._is_infinite or _world._dnc == null or _world._player == null:
 		return
-	var tod: float = _world._dnc.get_time_of_day()
+	# The clock only steps at 2 Hz (lighting); walkers sampled from it jumped
+	# every 0.5 s and stood still between — the smooth reading moves them per frame.
+	var tod: float = _world._dnc.get_smooth_time_of_day()
 	var t: float = tod * _world.day_duration
 	var hero: Vector3 = _world._player.global_position
 	_slow_left -= delta

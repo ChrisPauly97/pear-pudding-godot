@@ -182,6 +182,11 @@ func setup(sun: DirectionalLight3D, moon: DirectionalLight3D,
 func get_time_of_day() -> float:
 	return _time_of_day
 
+## Time of day including the not-yet-applied part of the 2 Hz lighting step:
+## continuous frame to frame, for anything that moves with the clock (walkers).
+func get_smooth_time_of_day() -> float:
+	return fmod(_time_of_day + _timer / maxf(_day_duration, 0.001), 1.0)
+
 func set_time_of_day(v: float) -> void:
 	_time_of_day = v
 

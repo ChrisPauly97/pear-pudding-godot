@@ -203,9 +203,6 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if k.keycode == KEY_T:
 		open_tuning()
 		get_viewport().set_input_as_handled()
-	elif k.keycode == KEY_F:
-		momentum.toggle_auto()
-		get_viewport().set_input_as_handled()
 	elif k.keycode >= KEY_1 and k.keycode < KEY_1 + skills.bar.ids.size():
 		skills.press(k.keycode - KEY_1)
 		get_viewport().set_input_as_handled()

@@ -318,10 +318,11 @@ played itself. The fix keeps real time but makes the loop **build → spend**:
 - **Essence siphon (lore: striking knocks essence loose and you draw it in — see magic-system.md
   Cosmology):** `RealtimeCombat.on_player_hit(dmg, builder)` grants `siphon_per_damage` mana per damage
   from your hero's swings and damaging skills.
-- **Auto-attack toggle** (`RealtimeCombat.auto_attack`, ⚔ Auto button / F, `MomentumHud`): on = swings
-  siphon but vein regen × `fighting_regen_mult` (0.4); off ("Focus") = no swings, regen ×
-  `focus_regen_mult` (2.0) — bank mana for a burst. Re-enabling restarts the swing timer.
-- **Combo charges:** each builder hit adds one (cap `combo_max` 3, pips ◆◇ under the toggle). The next
+- **Auto-attack is always on** (`RealtimeCombat.auto_attack`; the old ⚔ Auto / F "Focus" toggle and
+  `focus_regen_mult` were removed): melee swings are automatic, siphon mana, and vein regen runs ×
+  `fighting_regen_mult` (0.4). The one starter ability, **Strike** (5 dmg, free), runs on a 6 s cooldown
+  instead of being a GCD-spammed filler.
+- **Combo charges:** each builder hit adds one (cap `combo_max` 3, pips ◆◇ on the action strip). The next
   hand card spends them all for `combo_refund` mana each; a **full** combo makes that card instant.
   Hook: `BattleRealtime.run_cast` → `MomentumHud.wrap_card` (skill pseudo-cards, marked by the
   `cost_points` meta, are skipped); the combo is spent only once the card actually left the hand.

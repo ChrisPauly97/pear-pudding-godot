@@ -86,9 +86,9 @@ var enemy_pushbacks: int:
 	set(v):
 		pushbacks[ENEMY] = v
 
-## Momentum (GID-139) — player only. Auto-attack is a toggle: on, every blow
-## siphons essence (mana) out of what it hits but the veins' trickle slows; off,
-## the hero stands still and draws on the veins at a faster rate instead.
+## Momentum (GID-139) — player only. The hero's melee swing is always automatic:
+## every blow siphons essence (mana) out of what it hits while the veins' trickle
+## slows. No player-facing toggle; tests turn it off to isolate other timers.
 var auto_attack: bool = true
 ## Combo charges built by skill-bar hits; the next card spends them all.
 var combo: int = 0
@@ -307,7 +307,7 @@ func _tick_resources(side: int, delta: float, events: Array[Dictionary]) -> void
 func _regen_mult(side: int) -> float:
 	if side != PLAYER:
 		return 1.0
-	return tune.get_f("fighting_regen_mult") if auto_attack else tune.get_f("focus_regen_mult")
+	return tune.get_f("fighting_regen_mult") if auto_attack else 1.0
 
 ## Per-side "combat round" pulse (TID-547): runs the turn-based upkeep real time
 ## doesn't already own via a continuous clock (status-effect decay, first-card
@@ -487,14 +487,6 @@ func _hero_hit(side: int, dmg: int, hand: String, events: Array[Dictionary]) -> 
 # ---------------------------------------------------------------------------
 # Momentum (GID-139): siphon, combo charges, free-cast procs
 # ---------------------------------------------------------------------------
-
-## Flips the player's auto-attack. A re-enabled swing starts from a full timer
-## so toggling can't be used to reset it early.
-func toggle_auto_attack() -> bool:
-	auto_attack = not auto_attack
-	_hero_swing[PLAYER] = swing_speed(PLAYER)
-	_offhand_swing[PLAYER] = tune.get_f("offhand_swing")
-	return auto_attack
 
 ## The player's hero or skill dealt `dmg`: siphon essence back as mana, and —
 ## for a skill-bar hit (`builder`) — add a combo charge. Rolls the free-cast
