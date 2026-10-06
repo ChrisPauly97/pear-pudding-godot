@@ -81,6 +81,7 @@ func test_draw_on_clock_respects_hand_cap() -> void:
 	var rt := _rt()
 	var p := rt.state.players[0]
 	rt.state.players[1].hero.health = 100000  # outlast the auto-attack
+	rt.state.players[0].hero.health = 100000
 	for i in range(10):
 		p.draw_deck.append(_card())
 	_run(rt, _tune.get_f("draw_interval"))
@@ -448,3 +449,15 @@ func test_guard_armor_soaks_the_heavy_blow() -> void:
 	hero.add_armor(rt.heavy_damage())
 	_run(rt, rt.tune.get_f("heavy_every") + rt.tune.get_f("heavy_windup"))
 	assert_eq(hero.health, hp, "armor absorbs it all")
+
+func test_trim_hand_returns_extras_to_deck() -> void:
+	var rt := _rt()
+	var p := rt.state.players[0]
+	for _i: int in 4:
+		p.hand.append(_card())
+	var deck: int = p.draw_deck.size()
+	rt.trim_hand(0, 2)
+	assert_eq(p.hand.size(), 2)
+	assert_eq(p.draw_deck.size(), deck + 2)
+	rt.set_ally_cap(1)
+	assert_eq(p.max_units, 1)

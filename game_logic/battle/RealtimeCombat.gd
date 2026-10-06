@@ -178,6 +178,18 @@ func add_enemy(ps: PlayerState, level: int = 1) -> int:
 	_hero_swing[idx] = swing_speed(idx) * 0.5
 	start_gcd(idx)
 	return idx
+## Caps the player's Allies (early-game onboarding fields fewer — CombatOnboarding).
+func set_ally_cap(cap: int) -> void:
+	state.players[PLAYER].max_units = cap
+
+## Shuffles `side`'s hand back down to `n` cards (real-time fights open smaller
+## than the turn-based 4-card hand). The extras go back into the deck.
+func trim_hand(side: int, n: int) -> void:
+	var p: PlayerState = state.players[side]
+	while p.hand.size() > n:
+		p.draw_deck.append(p.hand.pop_back())
+	p.draw_deck.shuffle()
+
 ## Caps every enemy side's minions (current sides now, adds as they join).
 func set_enemy_minion_cap(cap: int) -> void:
 	enemy_minion_cap = cap

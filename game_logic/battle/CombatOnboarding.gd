@@ -20,6 +20,15 @@ const RealtimeCombat = preload("res://game_logic/battle/RealtimeCombat.gd")
 ## The ladder entries that change what a fight contains, in unlock order.
 const COMBAT_UNLOCKS: Array[String] = ["mend", "kick", UnlockLadder.FEAT_MINIONS, UnlockLadder.FEAT_SPELLS]
 
+## Below this character level fights stay small: a short opening hand, one
+## enemy minion and fewer Ally slots, so the first card fights aren't crowded.
+const EARLY_LEVEL: int = 10
+## Opening hand for a real-time fight (early / later).
+const EARLY_OPENING_HAND: int = 2
+const OPENING_HAND: int = 3
+## Allies you can field below EARLY_LEVEL.
+const EARLY_ALLY_CAP: int = 2
+
 ## Onboarding stage: how many COMBAT_UNLOCKS are learned, or -1 once all are.
 static func stage_for(learned: Array) -> int:
 	var n: int = 0
@@ -34,8 +43,19 @@ static func shows_hand(learned: Array) -> bool:
 
 ## Most minions each enemy fields. Before the player can field Allies, one: they
 ## still see a summon (and their own locked slots) without facing a full board.
-static func enemy_minion_cap(learned: Array) -> int:
-	return RealtimeCombat.MAX_ENEMY_MINIONS if shows_hand(learned) else 1
+## Still one while the hero is below EARLY_LEVEL.
+static func enemy_minion_cap(learned: Array, level: int = EARLY_LEVEL) -> int:
+	if not shows_hand(learned) or level < EARLY_LEVEL:
+		return 1
+	return RealtimeCombat.MAX_ENEMY_MINIONS
+
+## Most Allies the player fields at `level`.
+static func ally_cap(level: int) -> int:
+	return EARLY_ALLY_CAP if level < EARLY_LEVEL else RealtimeCombat.MAX_ALLIES
+
+## Cards in hand when a real-time fight starts at `level`.
+static func opening_hand(level: int) -> int:
+	return EARLY_OPENING_HAND if level < EARLY_LEVEL else OPENING_HAND
 
 ## Spell cards stay out of the battle deck until spells are learned.
 static func allows_spells(learned: Array) -> bool:

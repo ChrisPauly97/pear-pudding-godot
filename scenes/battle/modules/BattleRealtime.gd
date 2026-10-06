@@ -100,7 +100,11 @@ func maybe_start(is_fresh: bool) -> void:
 	# TID-579: telegraphed heavy blows only once the player has Kick to answer them.
 	rt.heavy_enabled = SceneManager.save_manager.learned_abilities.has("kick") and not _battle._state.puzzle_mode
 	# Before the player can field Allies, enemies summon just one minion.
-	rt.set_enemy_minion_cap(_CombatOnboarding.enemy_minion_cap(SceneManager.save_manager.learned_abilities))
+	rt.set_enemy_minion_cap(_CombatOnboarding.enemy_minion_cap(SceneManager.save_manager.learned_abilities,
+			player_level))
+	# Early fights stay small: fewer Allies, a short opening hand.
+	rt.set_ally_cap(_CombatOnboarding.ally_cap(player_level))
+	rt.trim_hand(RealtimeCombat.PLAYER, _CombatOnboarding.opening_hand(player_level))
 	rt.weapon_speed[RealtimeCombat.PLAYER] = equipped_weapon_speed()
 	rt.offhand_damage[RealtimeCombat.PLAYER] = offhand_damage_for_item(str(SceneManager.save_manager.equipped_offhand),
 			SceneManager.save_manager.gear.mult(str(SceneManager.save_manager.equipped_offhand)))

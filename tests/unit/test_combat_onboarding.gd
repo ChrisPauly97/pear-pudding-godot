@@ -48,3 +48,11 @@ func test_every_tip_has_text() -> void:
 		var e: Dictionary = TutorialRegistry.get_entry(id)
 		assert_false(str(e.get("title", "")).is_empty(), id)
 		assert_false(str(e.get("body", "")).is_empty(), id)
+
+func test_early_levels_keep_fights_small() -> void:
+	var early: int = CombatOnboarding.EARLY_LEVEL - 1
+	assert_eq(CombatOnboarding.enemy_minion_cap(ALL, early), 1, "one enemy minion early")
+	assert_eq(CombatOnboarding.enemy_minion_cap(ALL, CombatOnboarding.EARLY_LEVEL), RealtimeCombat.MAX_ENEMY_MINIONS)
+	assert_lt(CombatOnboarding.ally_cap(early), RealtimeCombat.MAX_ALLIES)
+	assert_eq(CombatOnboarding.ally_cap(CombatOnboarding.EARLY_LEVEL), RealtimeCombat.MAX_ALLIES)
+	assert_lt(CombatOnboarding.opening_hand(early), CombatOnboarding.opening_hand(CombatOnboarding.EARLY_LEVEL))

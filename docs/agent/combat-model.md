@@ -416,6 +416,9 @@ cards (`RealtimeVisuals.update_hand_sweep`, pooled overlays on the root; full sh
 - The bar needs no filter: `SkillBar` only holds learned ids.
 - Spells: `BattleModifiers._apply_combat_unlocks()` strips `card_class == "spell"` cards from the draw deck
   (not in puzzle / scripted battles).
+- Early fights stay small (below `CombatOnboarding.EARLY_LEVEL` 10): 1 enemy minion, `EARLY_ALLY_CAP` 2 Allies
+  (`RealtimeCombat.set_ally_cap`), opening hand trimmed to 2 (3 later) via `RealtimeCombat.trim_hand`. Draws are
+  every `draw_interval` 9 s up to `hand_cap` 5.
 - Enemy minions (BID-084 / BID-085): `CombatOnboarding.enemy_minion_cap()` is 1 until `feat_minions` (then
   `MAX_ENEMY_MINIONS`); `BattleRealtime` passes it to `RealtimeCombat.set_enemy_minion_cap()`, which sets
   `max_units` on every enemy side and on adds that join later, so `can_play` rejects extra minion cards. The new
