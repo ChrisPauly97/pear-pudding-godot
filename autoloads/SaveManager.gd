@@ -33,6 +33,10 @@ const NUM_SAVE_SLOTS: int = 3
 # Named deck loadouts (up to MAX_LOADOUTS). Each entry: {name: String, cards: Array[String]}.
 const MAX_LOADOUTS: int = 5
 
+## Battle Mode setting when the player never picked one. Slow real time for now:
+## turn-based is kept behind the Settings toggle but isn't the intended mode.
+const DEFAULT_BATTLE_MODE: String = "realtime_slow"
+
 ## Non-weapon slot → its owned-ids field (weapons are instance dicts, handled apart).
 const _OWNED_BY_SLOT: Dictionary = {
 	"armor": "owned_armor", "ring": "owned_rings", "trinket": "owned_trinkets",
@@ -1353,7 +1357,7 @@ func learn_ability(id: String, cost: int) -> bool:
 ## The Battle Mode to fight in: the setting, except that a player who hasn't
 ## learned minions yet (no hand) always fights in real time (GID-141 / TID-588).
 func battle_mode() -> String:
-	return _CombatOnboarding.battle_mode(str(get_setting("battle_mode", "turn")), learned_abilities)
+	return _CombatOnboarding.battle_mode(str(get_setting("battle_mode", DEFAULT_BATTLE_MODE)), learned_abilities)
 
 ## True when ladder entry `id` (UnlockLadder) is usable — learned, or not a
 ## ladder entry at all.

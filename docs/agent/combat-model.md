@@ -425,7 +425,7 @@ cards (`RealtimeVisuals.update_hand_sweep`, pooled overlays on the root; full sh
   frame; the plates swallow taps). N is `UnlockLadder.level_req(FEAT_MINIONS)`.
 - Slow clock (60 %): only the very first fight (`realtime_fights == 0`, nothing learned).
 - **Battle mode:** a hand-less player always fights in real time — `SaveManager.battle_mode()` (use it instead of
-  reading the `battle_mode` setting) returns `"realtime"` until `feat_minions`; after that the setting decides.
+  reading the `battle_mode` setting) returns `"realtime"` until `feat_minions`; after that the setting decides (unset = `SaveManager.DEFAULT_BATTLE_MODE`, `"realtime_slow"`).
 - Companion: `BattleModifiers._active_companion()` is `""` until `feat_companion` is learned.
 - Migrated saves (v44) have all four unlocks → the full fight.
 
