@@ -116,7 +116,7 @@ team duels and resumed mid-battle saves stay turn-based.
 | Mana | **×100 points** (`MANA_SCALE`, `HeroState.mana_scale`): a 3-cost card costs 300. **Fixed max for the fight** = `400 + 35 × (level − 1) + 100 × hero.bonus_mana`, cap 1000 (`max_mana_for`); start full; regen **20 points/s** (one cost unit per 5 s). Enemy level-equivalent = `1 + (tier − 1) × 3`. Turn-based fights keep `mana_scale = 1`. |
 | Draw | 1 card every 6 s while hand < 7 (no fatigue from the clock) |
 | Board caps | **3 Allies**, **2 enemy minions** (`PlayerState.max_units`); empty slots past the cap are hidden |
-| Allies (player units) | **commanded**: ready every 3 s (fresh Ally waits one interval; Surge at once). Tap a ready Ally, then a target — normal attack path (lunge, retaliation), **off the GCD**. Per-card bar: blue charging, green + pulse when ready |
+| Allies (player units) | **auto-attack** every `ally_ready` 3 s (fresh Ally waits one interval; Surge at once) at the hero's target — Ward first, else the focused minion, else the targeted enemy hero (`RealtimeCombat._tick_ally`, no retaliation, no command). Tapping an enemy just moves the shared focus |
 | Enemy minions | auto-attack every 4.5 s, **alternating** the player's weakest Ally and the hero (Ward Allies first); per-card orange bar; **wind-up** (grow + redden) over the last 30 %; lunge on the hit |
 | Hero auto-attack | both heroes, main hand every `swing_speed(side)` s (weapon's `WeaponData.swing_speed`, else `tune.hero_swing`) for `unarmed[side] + hero.attack`, scaled by speed ÷ unarmed speed; off hand every `tune.offhand_swing` s for `offhand_damage[side]` — set from the equipped **off-hand slot** item (GID-135 / TID-545, `inventory-and-deck.md` Equipment System) via `BattleRealtime.offhand_damage_for_item()`. Enemy heroes swing only with `hero.attack > 0`. Frozen/stunned heroes don't swing. Turn-based mode has no off-hand swing timer, so an off-hand attack item instead adds a smaller always-on `hero.attack` bonus there (`UpgradeDefs.offhand_turnbased_bonus`) |
 | Arena layout | **Diagonal, full width, centred**: your token bottom-left, the enemy's top-right; each side's slots step top-left → bottom-right and **hug their own hero** — your line just right of your token (bottom-aligned), theirs just left of theirs (top-aligned) — leaving open ground between the lines (`RealtimeVisuals.arena_layout`, `ROW_GAP` = token↔line gap; unit-tested at 16:9 and 20:9: no cross-group overlap, lines attached, ≥ 1 card width apart). `DiagonalBoard.gd` places the slots. The side panel (pause, Effects, battlefield info) moves to the top-left corner and your Cooldown / Auto-attack / Target box to the bottom-right (`_place_corner_panels`); the side mana label is hidden (mana is on your token). Re-laid out on viewport resize |
@@ -318,10 +318,11 @@ played itself. The fix keeps real time but makes the loop **build → spend**:
 - **Essence siphon (lore: striking knocks essence loose and you draw it in — see magic-system.md
   Cosmology):** `RealtimeCombat.on_player_hit(dmg, builder)` grants `siphon_per_damage` mana per damage
   from your hero's swings and damaging skills.
-- **Auto-attack toggle** (`RealtimeCombat.auto_attack`, ⚔ Auto button / F, `MomentumHud`): on = swings
-  siphon but vein regen × `fighting_regen_mult` (0.4); off ("Focus") = no swings, regen ×
-  `focus_regen_mult` (2.0) — bank mana for a burst. Re-enabling restarts the swing timer.
-- **Combo charges:** each builder hit adds one (cap `combo_max` 3, pips ◆◇ under the toggle). The next
+- **Auto-attack is always on** (`RealtimeCombat.auto_attack`; the old ⚔ Auto / F "Focus" toggle and
+  `focus_regen_mult` were removed): melee swings are automatic, siphon mana, and vein regen runs ×
+  `fighting_regen_mult` (0.4). The one starter ability, **Strike** (5 dmg, free), runs on a 6 s cooldown
+  instead of being a GCD-spammed filler.
+- **Combo charges:** each builder hit adds one (cap `combo_max` 3, pips ◆◇ on the action strip). The next
   hand card spends them all for `combo_refund` mana each; a **full** combo makes that card instant.
   Hook: `BattleRealtime.run_cast` → `MomentumHud.wrap_card` (skill pseudo-cards, marked by the
   `cost_points` meta, are skipped); the combo is spent only once the card actually left the hand.
@@ -415,6 +416,9 @@ cards (`RealtimeVisuals.update_hand_sweep`, pooled overlays on the root; full sh
 - The bar needs no filter: `SkillBar` only holds learned ids.
 - Spells: `BattleModifiers._apply_combat_unlocks()` strips `card_class == "spell"` cards from the draw deck
   (not in puzzle / scripted battles).
+- Early fights stay small (below `CombatOnboarding.EARLY_LEVEL` 10): 1 enemy minion, `EARLY_ALLY_CAP` 2 Allies
+  (`RealtimeCombat.set_ally_cap`), opening hand trimmed to 2 (3 later) via `RealtimeCombat.trim_hand`. Draws are
+  every `draw_interval` 9 s up to `hand_cap` 5.
 - Enemy minions (BID-084 / BID-085): `CombatOnboarding.enemy_minion_cap()` is 1 until `feat_minions` (then
   `MAX_ENEMY_MINIONS`); `BattleRealtime` passes it to `RealtimeCombat.set_enemy_minion_cap()`, which sets
   `max_units` on every enemy side and on adds that join later, so `can_play` rejects extra minion cards. The new
@@ -424,7 +428,7 @@ cards (`RealtimeVisuals.update_hand_sweep`, pooled overlays on the root; full sh
   frame; the plates swallow taps). N is `UnlockLadder.level_req(FEAT_MINIONS)`.
 - Slow clock (60 %): only the very first fight (`realtime_fights == 0`, nothing learned).
 - **Battle mode:** a hand-less player always fights in real time — `SaveManager.battle_mode()` (use it instead of
-  reading the `battle_mode` setting) returns `"realtime"` until `feat_minions`; after that the setting decides.
+  reading the `battle_mode` setting) returns `"realtime"` until `feat_minions`; after that the setting decides (unset = `SaveManager.DEFAULT_BATTLE_MODE`, `"realtime_slow"`).
 - Companion: `BattleModifiers._active_companion()` is `""` until `feat_companion` is learned.
 - Migrated saves (v44) have all four unlocks → the full fight.
 

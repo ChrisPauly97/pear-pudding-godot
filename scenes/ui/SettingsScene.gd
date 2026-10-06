@@ -139,7 +139,8 @@ func _build_ui() -> void:
 
 	# GID-135 / TID-546 prototype: real-time combat (solo PvE only).
 	var modes: Array[String] = ["turn", "realtime", "realtime_slow"]
-	var mode_idx: int = maxi(0, modes.find(str(SceneManager.save_manager.get_setting("battle_mode", "turn"))))
+	var mode_idx: int = maxi(0, modes.find(str(SceneManager.save_manager.get_setting("battle_mode",
+			SceneManager.save_manager.DEFAULT_BATTLE_MODE))))
 	_add_option_row(vbox, "Battle Mode", ["Turn-based", "Real-time", "Real-time (slow)"], mode_idx,
 		func(idx: int) -> void:
 			SceneManager.save_manager.set_setting("battle_mode", modes[idx])

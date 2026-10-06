@@ -30,8 +30,8 @@ const LEARNABLE_ORDER: Array[String] = ["mend", "kick", "guard", "ember_lance", 
 ## always-known Strike (never offered by a trainer — see `learnable_ids()`).
 ## Levels follow the GID-141 unlock ladder: one new thing per level.
 const ABILITIES: Dictionary = {
-	"strike": {"name": "Strike", "cost": 0, "cooldown": 0.0, "cast": 0.0, "effect": "damage", "value": 2,
-		"off_gcd": false, "desc": "Hit your target for 2. Free, no cooldown: builds combo and siphons mana.",
+	"strike": {"name": "Strike", "cost": 0, "cooldown": 6.0, "cast": 0.0, "effect": "damage", "value": 5,
+		"off_gcd": false, "desc": "Hit your target for 5. Free, 6 s cooldown: builds combo and siphons mana.",
 		"level_req": 0, "learn_cost": 0},
 	"mend": {"name": "Mend", "cost": 120, "cooldown": 20.0, "cast": 1.5, "effect": "heal", "value": 6,
 		"off_gcd": false, "desc": "Heal yourself for 6 (1.5 s cast).", "level_req": 2, "learn_cost": 15},

@@ -33,25 +33,10 @@ func _player_swings(events: Array[Dictionary]) -> int:
 			n += 1
 	return n
 
-func test_auto_attack_off_stops_swings() -> void:
+func test_auto_attack_is_always_on() -> void:
 	var rt := _rt()
-	assert_gt(_player_swings(_run(rt, rt.swing_speed(0) * 2.0)), 0, "on by default")
-	assert_false(rt.toggle_auto_attack())
-	assert_eq(_player_swings(_run(rt, rt.swing_speed(0) * 3.0)), 0)
-	assert_true(rt.toggle_auto_attack())
-	assert_gt(_player_swings(_run(rt, rt.swing_speed(0) + 0.2)), 0)
-
-func test_focus_stance_regens_faster_than_fighting() -> void:
-	var fight := _rt()
-	var focus := _rt()
-	for rt: RealtimeCombat in [fight, focus]:
-		rt.tune.set_value("siphon_per_damage", 0.0)
-		rt.tune.set_value("mana_regen_delay", 0.0)
-		rt.state.players[0].hero.mana = 0
-	focus.toggle_auto_attack()
-	_run(fight, 2.0)
-	_run(focus, 2.0)
-	assert_gt(focus.state.players[0].hero.mana, fight.state.players[0].hero.mana)
+	assert_true(rt.auto_attack, "melee swings are automatic")
+	assert_gt(_player_swings(_run(rt, rt.swing_speed(0) * 2.0)), 0)
 
 func test_hits_siphon_mana() -> void:
 	var rt := _rt()

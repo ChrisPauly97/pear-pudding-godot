@@ -1,6 +1,6 @@
 ## Real-time momentum widgets (GID-139), owned by `BattleRealtime` (`momentum`):
-## the auto-attack toggle (button + F), the combo pips, and the free-cast glow on
-## the hand. Reads everything from `RealtimeCombat` (auto_attack, combo,
+## the combo pips and the free-cast glow on the hand (melee auto-attack is always
+## on — no toggle). Reads everything from `RealtimeCombat` (combo,
 ## next_card_free); parents its widgets under the action strip, never a module node.
 extends RefCounted
 
@@ -14,7 +14,6 @@ const GOLD := Color(1.0, 0.82, 0.3)
 
 var _battle: _BattleScene
 var _realtime: _BattleRealtime
-var _auto_btn: Button = null
 var _pips: Label = null
 var _was_free: bool = false
 
@@ -25,30 +24,15 @@ func _init(battle: _BattleScene, realtime: _BattleRealtime) -> void:
 func build(parent: Control) -> void:
 	var vh: float = _battle._vh
 	var col := _UiUtil.make_vbox(int(vh * 0.004), parent)
-	_auto_btn = _UiUtil.make_button("", Vector2(vh * 0.1, vh * 0.055), int(_battle._font(0.017)),
-			toggle_auto, col)
-	_auto_btn.tooltip_text = ("Auto-attack (F). On: every blow siphons mana from your foe. "
-			+ "Off: stand still and draw on the veins — faster regen, no swings.")
 	_pips = _UiUtil.make_label("", int(_battle._font(0.02)), GOLD, HORIZONTAL_ALIGNMENT_CENTER, col)
 	_pips.tooltip_text = "Combo: skill hits build charges; your next card spends them for mana. Full = instant cast."
 	_pips.mouse_filter = Control.MOUSE_FILTER_PASS
 
-## Button / F key: flips auto-attack.
-func toggle_auto() -> void:
-	var rt: RealtimeCombat = _realtime.rt
-	if rt == null or _battle._state.is_game_over() or _realtime.is_blocked():
-		return
-	rt.toggle_auto_attack()
-	AudioManager.play_sfx("ui_click")
-	update()
-
-## Per-frame: toggle label, pips, free-cast pulse on the hand.
+## Per-frame: pips, free-cast pulse on the hand.
 func update() -> void:
 	var rt: RealtimeCombat = _realtime.rt
-	if rt == null or _auto_btn == null:
+	if rt == null or _pips == null:
 		return
-	_auto_btn.text = "⚔ Auto: ON" if rt.auto_attack else "✋ Focus"
-	_auto_btn.modulate = Color.WHITE if rt.auto_attack else Color(0.6, 0.8, 1.0)
 	var cap: int = rt.tune.get_i("combo_max")
 	var full: bool = rt.combo_full()
 	_pips.text = "◆".repeat(rt.combo) + "◇".repeat(maxi(0, cap - rt.combo))

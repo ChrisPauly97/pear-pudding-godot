@@ -29,7 +29,7 @@ func test_bar_uses_saved_ids_or_default() -> void:
 	var many: Array = SkillBar.ABILITIES.keys() + SkillBar.ABILITIES.keys()
 	assert_true(SkillBar.new(many).ids.size() <= SkillBar.SLOTS)
 
-func test_strike_is_a_free_filler_that_hits_enemy_hero() -> void:
+func test_strike_is_a_free_cooldown_hit_on_enemy_hero() -> void:
 	var rt := _rt()
 	var bar := SkillBar.new([], MK)
 	var i: int = _slot(bar, "strike")
@@ -40,7 +40,9 @@ func test_strike_is_a_free_filler_that_hits_enemy_hero() -> void:
 	bar.start_cooldown(i)
 	assert_eq(enemy.hero.health, hp - int(SkillBar.def("strike")["value"]))
 	assert_eq(int(SkillBar.def("strike")["cost"]), 0, "GID-139: Strike is the free filler")
-	assert_true(bar.ready(i), "no cooldown of its own — only the GCD gates it")
+	assert_false(bar.ready(i), "Strike comes back off its own cooldown")
+	bar.advance(float(SkillBar.def("strike")["cooldown"]))
+	assert_true(bar.ready(i))
 	rt.state.players[0].hero.mana = 0
 	assert_eq(bar.blocker(i, rt), "", "usable at zero mana")
 

@@ -86,9 +86,9 @@ var enemy_pushbacks: int:
 	set(v):
 		pushbacks[ENEMY] = v
 
-## Momentum (GID-139) — player only. Auto-attack is a toggle: on, every blow
-## siphons essence (mana) out of what it hits but the veins' trickle slows; off,
-## the hero stands still and draws on the veins at a faster rate instead.
+## Momentum (GID-139) — player only. The hero's melee swing is always automatic:
+## every blow siphons essence (mana) out of what it hits while the veins' trickle
+## slows. No player-facing toggle; tests turn it off to isolate other timers.
 var auto_attack: bool = true
 ## Combo charges built by skill-bar hits; the next card spends them all.
 var combo: int = 0
@@ -178,6 +178,18 @@ func add_enemy(ps: PlayerState, level: int = 1) -> int:
 	_hero_swing[idx] = swing_speed(idx) * 0.5
 	start_gcd(idx)
 	return idx
+## Caps the player's Allies (early-game onboarding fields fewer — CombatOnboarding).
+func set_ally_cap(cap: int) -> void:
+	state.players[PLAYER].max_units = cap
+
+## Shuffles `side`'s hand back down to `n` cards (real-time fights open smaller
+## than the turn-based 4-card hand). The extras go back into the deck.
+func trim_hand(side: int, n: int) -> void:
+	var p: PlayerState = state.players[side]
+	while p.hand.size() > n:
+		p.draw_deck.append(p.hand.pop_back())
+	p.draw_deck.shuffle()
+
 ## Caps every enemy side's minions (current sides now, adds as they join).
 func set_enemy_minion_cap(cap: int) -> void:
 	enemy_minion_cap = cap
@@ -307,7 +319,7 @@ func _tick_resources(side: int, delta: float, events: Array[Dictionary]) -> void
 func _regen_mult(side: int) -> float:
 	if side != PLAYER:
 		return 1.0
-	return tune.get_f("fighting_regen_mult") if auto_attack else tune.get_f("focus_regen_mult")
+	return tune.get_f("fighting_regen_mult") if auto_attack else 1.0
 
 ## Per-side "combat round" pulse (TID-547): runs the turn-based upkeep real time
 ## doesn't already own via a continuous clock (status-effect decay, first-card
@@ -423,20 +435,22 @@ func _tick_swings(delta: float, events: Array[Dictionary]) -> void:
 			events.append({"type": "swing", "side": side, "attacker": c, "target": target, "target_side": PLAYER})
 		_tick_hero(side, delta, events)
 
-## Ally readiness: a ready Ally (can_attack) waits for the player's command;
-## otherwise its timer runs and, on expiry, the Ally becomes ready.
+## Allies auto-attack: every `ally_ready` seconds an Ally swings at whatever
+## your hero is hitting (Ward first, else your focus, else the targeted enemy
+## hero). No command needed — tapping an enemy just moves the shared focus.
 func _tick_ally(c: CardInstance, delta: float, events: Array[Dictionary]) -> void:
-	if c.can_attack():
-		_swing[c.instance_id] = tune.get_f("ally_ready")
-		return
 	var left: float = float(_swing[c.instance_id]) - delta
 	if left > 0.0:
 		_swing[c.instance_id] = left
 		return
-	_swing[c.instance_id] = tune.get_f("ally_ready")
+	_swing[c.instance_id] = tune.get_f("ally_ready") + left
 	c.summoning_sick = false
-	c.attack_count = maxi(1, c.attack_count)
-	events.append({"type": "ally_ready", "card": c})
+	if c.attack <= 0:
+		return
+	var target: CardInstance = pick_target(PLAYER)
+	var target_side: int = owner_of(target) if target != null else target_enemy()
+	_resolve_swing(c, c.attack, target, target_side)
+	events.append({"type": "swing", "side": PLAYER, "attacker": c, "target": target, "target_side": target_side})
 
 ## Main-hand swing interval for `side` (s): the weapon's speed, else unarmed.
 func swing_speed(side: int) -> float:
@@ -487,14 +501,6 @@ func _hero_hit(side: int, dmg: int, hand: String, events: Array[Dictionary]) -> 
 # ---------------------------------------------------------------------------
 # Momentum (GID-139): siphon, combo charges, free-cast procs
 # ---------------------------------------------------------------------------
-
-## Flips the player's auto-attack. A re-enabled swing starts from a full timer
-## so toggling can't be used to reset it early.
-func toggle_auto_attack() -> bool:
-	auto_attack = not auto_attack
-	_hero_swing[PLAYER] = swing_speed(PLAYER)
-	_offhand_swing[PLAYER] = tune.get_f("offhand_swing")
-	return auto_attack
 
 ## The player's hero or skill dealt `dmg`: siphon essence back as mana, and —
 ## for a skill-bar hit (`builder`) — add a combo charge. Rolls the free-cast

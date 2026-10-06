@@ -81,6 +81,7 @@ func test_draw_on_clock_respects_hand_cap() -> void:
 	var rt := _rt()
 	var p := rt.state.players[0]
 	rt.state.players[1].hero.health = 100000  # outlast the auto-attack
+	rt.state.players[0].hero.health = 100000
 	for i in range(10):
 		p.draw_deck.append(_card())
 	_run(rt, _tune.get_f("draw_interval"))
@@ -96,34 +97,33 @@ func test_gcd_blocks_then_clears() -> void:
 	_run(rt, _tune.get_f("player_gcd"))
 	assert_true(rt.gcd_ready(0))
 
-func test_ally_readies_but_waits_for_command() -> void:
+func test_ally_auto_attacks_the_enemy_hero_each_interval() -> void:
 	var rt := _rt()
+	rt.auto_attack = false  # isolate the Ally from the hero's own swings
 	var ally := _card(2, 3)
 	rt.state.players[0].board.add_card(ally)
-	rt.state.players[1].board.add_card(_card(0, 50))  # absorb nothing; keeps enemy hero out of it
-	assert_false(ally.can_attack(), "fresh Ally is not ready")
-	var types: Array[String] = []
-	for e: Dictionary in _run(rt, _tune.get_f("ally_ready")):
-		types.append(str(e.get("type", "")))
-	assert_true(types.has("ally_ready"))
-	assert_true(ally.can_attack(), "ready after one interval")
-	var foe_hp: int = rt.state.players[1].board.get_cards()[0].health
-	_run(rt, _tune.get_f("ally_ready") * 3.0)
-	assert_eq(rt.state.players[1].board.get_cards()[0].health, foe_hp - 0,
-		"Ally never auto-attacks (hero swings go to the hero, not the minion)")
-	assert_true(ally.can_attack(), "stays ready until commanded")
-
-func test_ally_timer_restarts_after_attack() -> void:
-	var rt := _rt()
-	var ally := _card(2, 3)
-	rt.state.players[0].board.add_card(ally)
+	var hp: int = rt.state.players[1].hero.health
+	_run(rt, _tune.get_f("ally_ready") - 0.2)
+	assert_eq(rt.state.players[1].hero.health, hp, "fresh Ally waits one interval")
+	var swings: int = 0
+	for e: Dictionary in _run(rt, 0.3):
+		if str(e.get("type", "")) == "swing" and e.get("attacker") == ally:
+			swings += 1
+	assert_eq(swings, 1, "swings with no command")
+	assert_eq(rt.state.players[1].hero.health, hp - 2)
 	_run(rt, _tune.get_f("ally_ready"))
-	assert_true(ally.can_attack())
-	ally.attack_count -= 1  # what the attack path does
-	_run(rt, _tune.get_f("ally_ready") * 0.5)
-	assert_false(ally.can_attack(), "cooling down")
-	_run(rt, _tune.get_f("ally_ready") * 0.5)
-	assert_true(ally.can_attack(), "ready again")
+	assert_eq(rt.state.players[1].hero.health, hp - 4, "and again next interval")
+
+func test_ally_auto_attack_follows_focus() -> void:
+	var rt := _rt()
+	rt.auto_attack = false
+	var ally := _card(2, 3)
+	rt.state.players[0].board.add_card(ally)
+	var foe := _card(0, 10)
+	rt.state.players[1].board.add_card(foe)
+	rt.focus_target = foe
+	_run(rt, _tune.get_f("ally_ready") + 0.1)
+	assert_eq(foe.health, 8, "Ally hits the focused minion")
 
 func test_enemy_minion_auto_swings_on_slower_timer() -> void:
 	var rt := _rt()
@@ -449,3 +449,15 @@ func test_guard_armor_soaks_the_heavy_blow() -> void:
 	hero.add_armor(rt.heavy_damage())
 	_run(rt, rt.tune.get_f("heavy_every") + rt.tune.get_f("heavy_windup"))
 	assert_eq(hero.health, hp, "armor absorbs it all")
+
+func test_trim_hand_returns_extras_to_deck() -> void:
+	var rt := _rt()
+	var p := rt.state.players[0]
+	for _i: int in 4:
+		p.hand.append(_card())
+	var deck: int = p.draw_deck.size()
+	rt.trim_hand(0, 2)
+	assert_eq(p.hand.size(), 2)
+	assert_eq(p.draw_deck.size(), deck + 2)
+	rt.set_ally_cap(1)
+	assert_eq(p.max_units, 1)
