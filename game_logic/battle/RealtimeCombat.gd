@@ -423,20 +423,22 @@ func _tick_swings(delta: float, events: Array[Dictionary]) -> void:
 			events.append({"type": "swing", "side": side, "attacker": c, "target": target, "target_side": PLAYER})
 		_tick_hero(side, delta, events)
 
-## Ally readiness: a ready Ally (can_attack) waits for the player's command;
-## otherwise its timer runs and, on expiry, the Ally becomes ready.
+## Allies auto-attack: every `ally_ready` seconds an Ally swings at whatever
+## your hero is hitting (Ward first, else your focus, else the targeted enemy
+## hero). No command needed — tapping an enemy just moves the shared focus.
 func _tick_ally(c: CardInstance, delta: float, events: Array[Dictionary]) -> void:
-	if c.can_attack():
-		_swing[c.instance_id] = tune.get_f("ally_ready")
-		return
 	var left: float = float(_swing[c.instance_id]) - delta
 	if left > 0.0:
 		_swing[c.instance_id] = left
 		return
-	_swing[c.instance_id] = tune.get_f("ally_ready")
+	_swing[c.instance_id] = tune.get_f("ally_ready") + left
 	c.summoning_sick = false
-	c.attack_count = maxi(1, c.attack_count)
-	events.append({"type": "ally_ready", "card": c})
+	if c.attack <= 0:
+		return
+	var target: CardInstance = pick_target(PLAYER)
+	var target_side: int = owner_of(target) if target != null else target_enemy()
+	_resolve_swing(c, c.attack, target, target_side)
+	events.append({"type": "swing", "side": PLAYER, "attacker": c, "target": target, "target_side": target_side})
 
 ## Main-hand swing interval for `side` (s): the weapon's speed, else unarmed.
 func swing_speed(side: int) -> float:
