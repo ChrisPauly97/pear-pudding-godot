@@ -216,12 +216,9 @@ static func edge_prop(water: float, flow: Vector2, roll: float) -> String:
 	return ""
 
 
-## Sea shores (GID-171) keep reeds only on the wild coast, never along Maykalene's
-## quay, and never float lily pads on salt water.
-static func edge_prop_ok(key: String, wx: float, wz: float) -> bool:
-	if sea_at(wx, wz) <= 0.0 and _Coast.depth(wx / IsoConst.TILE_SIZE, wz / IsoConst.TILE_SIZE) < -1.0:
-		return true
-	return key == "reed" and wx / IsoConst.TILE_SIZE > _Coast.QUAY_END_X
+## Reeds and lily pads are freshwater: none along the sea's sand and quay (GID-171).
+static func edge_prop_ok(_key: String, wx: float, wz: float) -> bool:
+	return sea_at(wx, wz) <= 0.0 and _Coast.depth(wx / IsoConst.TILE_SIZE, wz / IsoConst.TILE_SIZE) < -1.0
 
 
 static func _ensure(world_seed: int) -> void:

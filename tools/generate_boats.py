@@ -1,9 +1,11 @@
-"""Pixel-art boats moored off Maykalene's quay (GID-171).
+"""Pixel-art boats moored off Maykalene's quay, and beach clutter (GID-171).
 
 Writes assets/textures/props/boat_rowboat.png and boat_cog.png: a small wooden
 rowboat and a single-masted cog with a furled-and-reefed striped sail, drawn side-on
 to sit in the water as billboards. Same style as the town pieces: flat shapes,
 two-tone shading, 1px dark outline.
+Also beach_shell.png, beach_starfish.png, beach_driftwood.png and boat_beached.png
+(a rowboat pulled up on the sand, tilted).
 Usage: python3 tools/generate_boats.py   (needs Pillow)
 """
 import os
@@ -23,7 +25,7 @@ ROPE = (196, 164, 108, 255)
 WATERLINE = (60, 120, 170, 255)
 
 
-def rowboat():
+def rowboat(waterline=True):
     w, h = 44, 18
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
@@ -35,7 +37,8 @@ def rowboat():
     img = _outline(img)
     d = ImageDraw.Draw(img)
     d.line([(10, 4), (2, 13)], fill=WOOD_L, width=2)  # shipped oar
-    d.line([(6, 16), (37, 16)], fill=WATERLINE)
+    if waterline:
+        d.line([(6, 16), (37, 16)], fill=WATERLINE)
     return img
 
 
@@ -69,11 +72,57 @@ def cog():
     return img
 
 
+SHELL = (240, 214, 196, 255)
+SHELL_D = (206, 160, 140, 255)
+STAR = (224, 112, 72, 255)
+STAR_D = (176, 76, 52, 255)
+DRIFT = (176, 160, 136, 255)
+DRIFT_D = (128, 112, 96, 255)
+
+
+def shell():
+    img = Image.new("RGBA", (12, 10), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.pieslice([1, 1, 10, 14], 180, 360, fill=SHELL)
+    for x in (3, 5, 7):
+        d.line([(5, 8), (x + (x - 5), 2)], fill=SHELL_D)
+    d.rectangle([4, 7, 7, 8], fill=SHELL_D)
+    return _outline(img)
+
+
+def starfish():
+    img = Image.new("RGBA", (14, 12), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    pts = [(7, 0), (9, 4), (13, 4), (10, 7), (11, 11), (7, 9), (3, 11), (4, 7), (1, 4), (5, 4)]
+    d.polygon(pts, fill=STAR)
+    d.point([(7, 5), (6, 6), (8, 6)], fill=STAR_D)
+    return _outline(img)
+
+
+def driftwood():
+    img = Image.new("RGBA", (30, 10), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.polygon([(1, 5), (6, 3), (27, 4), (28, 7), (5, 8)], fill=DRIFT)
+    d.line([(6, 6), (26, 6)], fill=DRIFT_D)
+    d.line([(9, 4), (13, 1)], fill=DRIFT, width=2)  # a snag of branch
+    return _outline(img)
+
+
+def beached():
+    img = rowboat(waterline=False).rotate(-12, expand=True, resample=Image.NEAREST)
+    bbox = img.getbbox()
+    return img.crop(bbox) if bbox else img
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     rowboat().save(os.path.join(OUT, "boat_rowboat.png"))
     cog().save(os.path.join(OUT, "boat_cog.png"))
-    print("wrote boat_rowboat.png / boat_cog.png to %s" % os.path.normpath(OUT))
+    beached().save(os.path.join(OUT, "boat_beached.png"))
+    shell().save(os.path.join(OUT, "beach_shell.png"))
+    starfish().save(os.path.join(OUT, "beach_starfish.png"))
+    driftwood().save(os.path.join(OUT, "beach_driftwood.png"))
+    print("wrote boats and beach props to %s" % os.path.normpath(OUT))
 
 
 if __name__ == "__main__":

@@ -198,17 +198,18 @@ A bay of open water east of Maykalene, from the town's quay (world x 43) out to 
 
 | Hook | Effect |
 |---|---|
-| `RealmLayout.reserved_distance` / `stamp_tile_in` | `Coast.reserved_distance` = `SEA_PAD` (0.5) inside, shore distance outside: the sea floor is level grass (never paved), hills fade over the 8-tile blend margin, and the usual realm rules keep trees, ruins, landmarks, scrolls and random spawns off it |
+| `RealmLayout.reserved_distance` / `stamp_tile_in` | `Coast.reserved_distance` = `SEA_PAD` (0.5) at sea, 0 on the beach (a `BEACH_WIDTH` + wobble band of sand, stamped as path tiles), distance to the back of the beach beyond: the sea floor is level grass (never paved), hills fade over the 8-tile blend margin, and the usual realm rules keep trees, ruins, landmarks, scrolls and random spawns off it |
 | `RealmLayout.chunk_touches_realm` | Chunks in the sea's bounding box are realm chunks |
 | `InfiniteWorldGen.biome_for_chunk` | Chunks by the sea are grasslands (only water biomes draw water) |
-| `WaterMath.intensity` / `water_at` / `wet_at` | max(inland water, `sea_water`) — the sea is added after the realm and structure fades, so it reaches the quay; 0.24 at the shoreline rising 0.12 per tile (three shader bands). No stream flow at sea; `edge_prop_ok` drops lily pads at sea and reeds along the quay |
-| `Coastline` world module | Slides the hero back out of deep water (`is_deep`: ≥ `WADE_DEPTH` 1.5 tiles, not a pier) every physics frame, wading ashore after a teleport/load; draws the piers, quay kerb, moored boats and cargo |
+| `WaterMath.intensity` / `water_at` / `wet_at` | max(inland water, `sea_water`) — the sea is added after the realm and structure fades, so it reaches the quay; 0.3 at the shoreline (so the water meets the sand) rising 0.12 per tile (three shader bands). No stream flow at sea; `edge_prop_ok` keeps reeds and lily pads off the sea coast |
+| `Coastline` world module | Slides the hero back out of deep water (`is_deep`: ≥ `WADE_DEPTH` 1.5 tiles, not a pier) every physics frame, wading ashore after a teleport/load; draws the piers (railings on every water-facing edge), quay kerb, moored boats, quay cargo, beach clutter (shells, starfish, driftwood near town) and a beached rowboat. `PIER_LAMPS` ride `RealmLayout.street_lamps_world()`, so they are street lamps that glow at night |
 | `TapToMove.tile_at` | Deep sea is a wall for A* |
 | `NocturnalSpawner`, `TreasureGen` | No spectres at sea; dig sites walk round their ring to land |
 | `RealmMapOverlay` | Draws the sea polygon (clipped) |
 
 `Coast.BOUNDS` is a hand-written const (no lazily built shared state on worker threads);
-`test_coast` checks it matches `SHORE`. A depth lookup costs ~5 µs near the sea and ~0.6 µs elsewhere.
+`test_coast` checks it matches `SHORE`. Past `FAR` (16) tiles from it, `depth()` returns the box distance.
+Piers: Maykalene's T-pier off the quay and a fishing jetty off the north-east beach (world 80,49). A depth lookup costs ~5 µs near the sea and ~0.6 µs elsewhere.
 
 ## Living World Events
 

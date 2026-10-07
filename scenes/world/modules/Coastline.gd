@@ -18,6 +18,15 @@ const _BOAT_TEX: Dictionary = {
 }
 const _CRATE_TEX := preload("res://assets/textures/props/camp_crate.png")
 const _BARREL_TEX := preload("res://assets/textures/props/camp_barrel.png")
+const _BEACHED_TEX := preload("res://assets/textures/props/boat_beached.png")
+## Shells, starfish and driftwood washed up on the beach: texture, world height.
+const _BEACH_CLUTTER: Array = [
+	[preload("res://assets/textures/props/beach_shell.png"), 0.35],
+	[preload("res://assets/textures/props/beach_starfish.png"), 0.35],
+	[preload("res://assets/textures/props/beach_driftwood.png"), 0.45],
+]
+## Share of beach tiles near town that get a piece of clutter.
+const CLUTTER_CHANCE: int = 7  # percent
 
 ## World-unit sprite heights per boat kind.
 const BOAT_HEIGHT: Dictionary = {"cog": 7.0, "rowboat": 1.3}
@@ -116,6 +125,7 @@ func _build() -> void:
 	_root.add_child(mi)
 	for b: Dictionary in _Coast.BOATS:
 		_add_boat(b)
+	_build_beach()
 	for c: Dictionary in CARGO:
 		var tex: Texture2D = _CRATE_TEX if str(c["tex"]) == "crate" else _BARREL_TEX
 		var t: Vector2 = c["tile"]
@@ -145,6 +155,7 @@ func _build_piers(st: SurfaceTool) -> void:
 				_box(st, Vector3(a + 0.03, DECK_Y - 0.12, z0), Vector3(a + 0.47, DECK_Y, z1), col)
 			else:
 				_box(st, Vector3(x0, DECK_Y - 0.12, a + 0.03), Vector3(x1, DECK_Y, a + 0.47), col)
+		_build_railings(st, r)
 		# Stringers under the seams, and posts every two tiles along both sides.
 		_box(st, Vector3(x0, DECK_Y - 0.2, z0), Vector3(x1, DECK_Y - 0.12, z1), WOOD_DARK)
 		var step: float = 2.0 * ts
@@ -157,6 +168,50 @@ func _build_piers(st: SurfaceTool) -> void:
 				else:
 					_box(st, Vector3(side, -0.9, p), Vector3(side + 0.25, DECK_Y + 0.25, p + 0.25), WOOD_DARK)
 			p += step
+
+
+## A rail along every deck edge that faces open water (not land or more pier).
+func _build_railings(st: SurfaceTool, r: Rect2i) -> void:
+	var ts: float = IsoConst.TILE_SIZE
+	for tz: int in range(r.position.y, r.end.y):
+		for tx: int in range(r.position.x, r.end.x):
+			for dir: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+				var n: Vector2i = Vector2i(tx, tz) + dir
+				if r.has_point(n) or _Coast.on_pier(n.x, n.y) or not _Coast.is_sea(n.x, n.y):
+					continue
+				# The edge's two ends, pulled 0.12 u in from the deck edge.
+				var c := Vector2((float(tx) + 0.5) * ts, (float(tz) + 0.5) * ts) + Vector2(dir) * (ts * 0.5 - 0.12)
+				var along := Vector2(absf(float(dir.y)), absf(float(dir.x))) * (ts * 0.5)
+				var a: Vector2 = c - along
+				var b: Vector2 = c + along
+				for y: float in [0.42, 0.82]:
+					_box(st, Vector3(minf(a.x, b.x) - 0.05, y, minf(a.y, b.y) - 0.05),
+						Vector3(maxf(a.x, b.x) + 0.05, y + 0.08, maxf(a.y, b.y) + 0.05), WOOD)
+				for k: float in [0.0, 0.5]:
+					var p: Vector2 = a.lerp(b, k)
+					_box(st, Vector3(p.x - 0.06, DECK_Y, p.y - 0.06), Vector3(p.x + 0.06, 0.9, p.y + 0.06), WOOD_DARK)
+
+
+## Clutter washed up on the sand near town, and the beached rowboat (deterministic).
+func _build_beach() -> void:
+	var bb: Rect2 = _Coast.BOUNDS.grow(_Coast.WOBBLE + _Coast.BEACH_WIDTH + _Coast.BEACH_WOBBLE + 1.0)
+	for tz: int in range(int(bb.position.y), int(bb.end.y)):
+		for tx: int in range(int(bb.position.x), mini(int(bb.end.x), _Coast.BEACH_CLUTTER_MAX_X)):
+			var h: int = absi(tx * 73856093 ^ tz * 19349663)
+			if h % 100 >= CLUTTER_CHANCE or not _Coast.is_beach(tx, tz):
+				continue
+			var pick: Array = _BEACH_CLUTTER[(h / 100) % _BEACH_CLUTTER.size()]
+			var spr := _billboard(pick[0] as Texture2D, float(pick[1]))
+			var x: float = (float(tx) + 0.2 + 0.6 * float((h / 1000) % 100) / 100.0) * IsoConst.TILE_SIZE
+			var z: float = (float(tz) + 0.2 + 0.6 * float((h / 100000) % 100) / 100.0) * IsoConst.TILE_SIZE
+			spr.flip_h = (h / 7) % 2 == 0
+			spr.position = Vector3(x, _world.get_terrain_height(x, z) + float(pick[1]) * 0.5, z)
+			_root.add_child(spr)
+	var boat := _billboard(_BEACHED_TEX, 1.4)
+	var bx: float = _Coast.BEACHED_BOAT.x * IsoConst.TILE_SIZE
+	var bz: float = _Coast.BEACHED_BOAT.y * IsoConst.TILE_SIZE
+	boat.position = Vector3(bx, _world.get_terrain_height(bx, bz) + 0.6, bz)
+	_root.add_child(boat)
 
 
 ## A low dressed-stone kerb where Maykalene's quay meets the water (gaps for the piers).

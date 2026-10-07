@@ -362,14 +362,13 @@ static func hub_of(town: String) -> Vector2i:
 			return spawn
 	return crop.get_center()
 
-## Every street lamp in the stitched towns, as overworld tiles.
+## Every street lamp in the stitched towns (and on the piers), as overworld tiles.
 static func street_lamps_world() -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
 	for town: String in town_names():
-		var lamps: Array[Vector2i] = []
-		lamps.assign(street_plan(town)["lamps"])
-		for l: Vector2i in lamps:
+		for l: Vector2i in street_plan(town)["lamps"] as Array:
 			out.append(l + offset_of(town))
+	out.append_array(_Coast.PIER_LAMPS)  # Maykalene's piers (GID-171)
 	return out
 
 ## Every stitched building in overworld tiles: the TownBuildings dicts with

@@ -408,7 +408,7 @@ created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
 | `TownLife.gd` (`town_life`) | Walking townsfolk on `TownLife` street loops, role hours (indoors at night, lantern guard), talk hold, interaction x/z sync, hide-flag NPC despawn (GID-156) |
 | `BuildingSigns.gd` (`building_signs`) | Signpost beside every building door in the stitched towns (`TownSigns`: authored `NAMES`, else NPC role, else "House"); the name pops up (Label3D fade) within 6 units (GID-168) |
 | `Legend.gd` (`legend`) | Pear Pudding legend riddle spots (`RiddleSpots`): unmarked overworld props, look / Dig resolution, `try_dig` from Cantrips (GID-153) |
-| `Coastline.gd` (`coastline`) | Maykalene's waterfront on the eastern sea (`game_logic/world/Coast.gd`: coastline, depth, piers, boats): deep-water blocking (slide back each physics frame, works through Ghost Phase), pier, quay kerb, bobbing boats, cargo; runs its own `_process` (GID-171) |
+| `Coastline.gd` (`coastline`) | Maykalene's waterfront on the eastern sea (`game_logic/world/Coast.gd`: coastline, depth, piers, boats): deep-water blocking (slide back each physics frame, works through Ghost Phase), railed piers (lamps via `street_lamps_world`), quay kerb, bobbing boats, cargo, beach clutter; the sandy beach is stamped path; runs its own `_process` (GID-171) |
 
 BattleScene's single-player clusters live under `scenes/battle/modules/`, created by
 `BattleScene._ensure_battle_modules()`. Each has a `_battle` back-reference typed as

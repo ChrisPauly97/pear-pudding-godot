@@ -29,24 +29,37 @@ const WADE_DEPTH: float = 1.5
 ## sea floor is never paved, small enough that hills flatten to level ground.
 const SEA_PAD: float = 0.5
 ## Water intensity at the shoreline and its rise per tile of depth (the terrain
-## shader draws water above 0.24: shallow, then mid, then deep bands).
-const SHORE_WATER: float = 0.24
+## shader draws water above 0.24, so it starts right at the sand: shallow, mid, deep bands).
+const SHORE_WATER: float = 0.3
 const WATER_PER_TILE: float = 0.12
 ## The coastline wobbles by up to this many tiles, except along the quay.
 const WOBBLE: float = 1.6
 
-## West of this (tiles) the shore is Maykalene's straight dressed quay.
-const QUAY_END_X: float = 50.0
+## Sand between the sea and the grass on the wild coast: this many tiles plus up to
+## BEACH_WOBBLE more (stamped as path tiles, so the terrain draws them sandy).
+const BEACH_WIDTH: float = 2.0
+const BEACH_WOBBLE: float = 1.4
+## Past this many tiles from BOUNDS, depth() skips the exact shore distance (nothing reads
+## closer than the beach + BLEND_MARGIN from the water).
+const FAR: float = 16.0
 
-## Piers: walkable plank decks over the water (overworld tile rects).
-const PIERS: Array[Rect2i] = [Rect2i(43, 92, 7, 2), Rect2i(50, 88, 2, 10)]
+## Piers: walkable plank decks over the water (overworld tile rects). The first is
+## Maykalene's T-pier off the quay; the last is the fishing jetty off the north-east beach.
+const PIERS: Array[Rect2i] = [Rect2i(43, 92, 7, 2), Rect2i(50, 88, 2, 10), Rect2i(80, 49, 2, 10)]
+## Iron lamps on the piers (overworld tiles; lit at night like the town street lamps).
+const PIER_LAMPS: Array[Vector2i] = [Vector2i(46, 92), Vector2i(51, 88), Vector2i(51, 97), Vector2i(81, 57)]
 ## Moored boats: kind, overworld tile, facing (+1 / -1 flips the sprite).
 const BOATS: Array[Dictionary] = [
 	{"kind": "cog", "tile": Vector2(55.5, 86.0), "flip": 1},
 	{"kind": "rowboat", "tile": Vector2(47.5, 95.2), "flip": -1},
 	{"kind": "rowboat", "tile": Vector2(46.0, 89.8), "flip": 1},
 	{"kind": "cog", "tile": Vector2(64.0, 101.0), "flip": -1},
+	{"kind": "rowboat", "tile": Vector2(83.2, 56.5), "flip": 1},
 ]
+## A rowboat pulled up on the north-east beach (overworld tile).
+const BEACHED_BOAT := Vector2(68.5, 51.5)
+## Beach clutter is scattered over tiles west of this (tiles) — near Maykalene.
+const BEACH_CLUTTER_MAX_X: int = 130
 
 ## SHORE as a packed array, built once when the script loads (read-only after).
 static var _shore_packed := PackedVector2Array(SHORE)
@@ -56,9 +69,9 @@ static var _shore_packed := PackedVector2Array(SHORE)
 static func depth(px: float, pz: float) -> float:
 	var p := Vector2(px, pz)
 	var bb: Rect2 = BOUNDS
-	if not bb.grow(WOBBLE + 1.0).has_point(p):
-		return -(maxf(0.0, maxf(bb.position.x - px, px - bb.end.x))
-				+ maxf(0.0, maxf(bb.position.y - pz, pz - bb.end.y)) + WOBBLE + 1.0)
+	if not bb.grow(FAR).has_point(p):
+		# Beyond every consumer's reach (beach, blend margin): the box distance is close enough.
+		return -maxf(maxf(bb.position.x - px, px - bb.end.x), maxf(bb.position.y - pz, pz - bb.end.y))
 	var best: float = INF
 	for i: int in range(SHORE.size()):
 		var a: Vector2 = SHORE[i]
@@ -92,9 +105,23 @@ static func is_sea(wtx: int, wtz: int) -> bool:
 	return tile_depth(wtx, wtz) > 0.0
 
 
-## RealmLayout reserved distance: distance to the shore outside, SEA_PAD inside.
+## RealmLayout reserved distance: SEA_PAD at sea (level, never paved), 0 on the beach
+## (stamped as sandy path), else the distance to the back of the beach.
 static func reserved_distance(wtx: int, wtz: int) -> float:
-	return maxf(SEA_PAD, -tile_depth(wtx, wtz))
+	var d: float = tile_depth(wtx, wtz)
+	if d > 0.0:
+		return SEA_PAD
+	return maxf(0.0, -d - beach_width(wtx, wtz))
+
+
+## How far (tiles) the sand runs up from the waterline at this tile.
+static func beach_width(wtx: int, wtz: int) -> float:
+	return BEACH_WIDTH + BEACH_WOBBLE * (0.5 + 0.5 * sin(float(wtx) * 0.17 - float(wtz) * 0.23))
+
+
+static func is_beach(wtx: int, wtz: int) -> bool:
+	var d: float = tile_depth(wtx, wtz)
+	return d <= 0.0 and -d <= beach_width(wtx, wtz)
 
 
 ## Water intensity (WaterMath / terrain UV2.y) at world position (wx, wz).
@@ -105,10 +132,10 @@ static func sea_water(wx: float, wz: float, tile_size: float) -> float:
 	return clampf(SHORE_WATER + d * WATER_PER_TILE, 0.0, 1.0)
 
 
-## True when any tile of the `area` rect (tiles) can be within `margin` tiles of the sea.
+## True when any tile of the `area` rect (tiles) can be within `margin` tiles of the sea or its beach.
 static func touches(area: Rect2i, margin: float) -> bool:
 	var a := Rect2(Vector2(area.position), Vector2(area.size))
-	return BOUNDS.grow(WOBBLE + margin + 1.0).intersects(a)
+	return BOUNDS.grow(WOBBLE + BEACH_WIDTH + BEACH_WOBBLE + margin + 1.0).intersects(a)
 
 
 ## True when chunk (cx, cz) can lie within the blend margin of the sea.

@@ -80,3 +80,27 @@ func test_treasure_never_under_the_sea() -> void:
 	for counter: int in range(60):
 		var site: Vector2i = TreasureGen.get_dig_site(42, counter)
 		assert_false(Coast.is_sea(site.x, site.y), "dig site %d %s is on land" % [counter, str(site)])
+
+
+func test_beach_is_sand_between_sea_and_grass() -> void:
+	var found: int = 0
+	for x: int in range(60, 120, 7):
+		for z: int in range(36, 60):
+			if not Coast.is_beach(x, z):
+				continue
+			found += 1
+			assert_eq(RealmLayout.stamp_tile(x, z, IsoConst.TILE_HILL, 4).x, IsoConst.TILE_PATH,
+				"beach (%d, %d) is sand" % [x, z])
+			assert_false(Coast.is_sea(x, z), "beach is dry")
+	assert_gt(found, 10, "a beach runs along the north shore")
+	assert_true(Coast.is_beach(int(Coast.BEACHED_BOAT.x), int(Coast.BEACHED_BOAT.y)), "the beached boat is on the sand")
+	var jetty: Rect2i = Coast.PIERS[Coast.PIERS.size() - 1]
+	assert_false(Coast.is_sea(jetty.position.x, jetty.position.y), "the jetty starts on the beach")
+	assert_true(Coast.is_deep(jetty.position.x, jetty.end.y), "and runs out to deep water")
+
+
+func test_pier_lamps_stand_on_piers_and_light_with_the_streets() -> void:
+	var lamps: Array[Vector2i] = RealmLayout.street_lamps_world()
+	for t: Vector2i in Coast.PIER_LAMPS:
+		assert_true(Coast.on_pier(t.x, t.y), "lamp %s on a pier" % str(t))
+		assert_true(lamps.has(t), "lamp %s is a street lamp (glows at night)" % str(t))
