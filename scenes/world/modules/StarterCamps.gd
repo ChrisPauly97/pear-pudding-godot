@@ -14,12 +14,25 @@ const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const _CampDressing = preload("res://game_logic/world/CampDressing.gd")
 const _TownDecor = preload("res://game_logic/world/TownDecor.gd")
-## TownDecor set-piece animations (GID-167, tools/generate_fountain.py).
+## TownDecor set-piece animations (GID-167 / GID-170, tools/generate_fountain.py + generate_town_pieces.py).
 const _DECOR_FRAMES: Dictionary = {
 	"fountain": [preload("res://assets/textures/props/fountain_0.png"),
 		preload("res://assets/textures/props/fountain_1.png"),
 		preload("res://assets/textures/props/fountain_2.png"),
 		preload("res://assets/textures/props/fountain_3.png")],
+	# GID-170, tools/generate_town_pieces.py
+	"well": [preload("res://assets/textures/props/well_0.png"),
+		preload("res://assets/textures/props/well_1.png"),
+		preload("res://assets/textures/props/well_2.png"),
+		preload("res://assets/textures/props/well_3.png")],
+	"brazier": [preload("res://assets/textures/props/brazier_0.png"),
+		preload("res://assets/textures/props/brazier_1.png"),
+		preload("res://assets/textures/props/brazier_2.png"),
+		preload("res://assets/textures/props/brazier_3.png")],
+	"statue": [preload("res://assets/textures/props/statue_0.png"),
+		preload("res://assets/textures/props/statue_1.png"),
+		preload("res://assets/textures/props/statue_2.png"),
+		preload("res://assets/textures/props/statue_3.png")],
 }
 const _DECOR_FPS: float = 6.0
 ## Wall collision layer (ChunkRenderer wall bodies), so Ghost Phase passes through it too.

@@ -30,6 +30,40 @@ const NAMES: Dictionary = {
 		Vector2i(23, 37): "Cottage",
 		Vector2i(36, 38): "Madrian Stables",
 	},
+	"maykalene": {
+		Vector2i(59, 15): "Harbour Goods",
+		Vector2i(40, 17): "The White Gull Inn",
+		Vector2i(40, 23): "Cottage",
+		Vector2i(63, 23): "Harbourmaster's House",
+		Vector2i(41, 31): "Maykalene Archive",
+		Vector2i(63, 31): "Cottage",
+		Vector2i(41, 38): "Fisher's Cottage",
+		Vector2i(61, 38): "Weaver's Cottage",
+		Vector2i(51, 46): "Farsyth Mansion",
+	},
+	"blancogov": {
+		Vector2i(37, 13): "Guard House",
+		Vector2i(63, 13): "Townhouse",
+		Vector2i(39, 25): "Duellists' Hall",
+		Vector2i(61, 25): "Royal Library",
+		Vector2i(63, 35): "Townhouse",
+		Vector2i(37, 36): "The Golden Lyre",
+		Vector2i(50, 45): "Temple of Blancogov",
+	},
+	"larik": {
+		Vector2i(47, 42): "Cottage",
+		Vector2i(39, 43): "Odd's Farmhouse",
+		Vector2i(58, 43): "Old Neighbour's House",
+		Vector2i(58, 55): "Saimtar's House",
+		Vector2i(42, 54): "Larik Stables",
+		Vector2i(48, 56): "Cottage",
+	},
+	"marsax_hold": {
+		Vector2i(50, 46): "The Keep",
+		Vector2i(41, 55): "Barracks",
+		Vector2i(59, 55): "Armoury",
+		Vector2i(59, 64): "Storehouse",
+	},
 }
 
 ## NPC role (MapNpc.npc_type) → the building it gives its name to.

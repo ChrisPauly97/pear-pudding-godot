@@ -94,4 +94,5 @@ func test_meshes_build_for_every_town_building() -> void:
 		var aabb: AABB = roof.get_aabb()
 		assert_gt(aabb.end.y, BuildingMesh.wall_top(b), "roof rises above the walls")
 		var trim: ArrayMesh = BuildingMesh.build_trim(b)
-		assert_true(trim.get_surface_count() >= 1, "trim for %s" % str(b["rect"]))
+		if b["kind"] == TownBuildings.KIND_HOUSE:  # towers (Blancogov's gate) carry no door or windows
+			assert_true(trim.get_surface_count() >= 1, "trim for %s" % str(b["rect"]))

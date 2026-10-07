@@ -56,7 +56,7 @@ const STEPS: Array[Dictionary] = [
 	{"id": "reach_blancogov", "chapter": 1, "label": "Reach Blancogov", "giver": "Scargroth",
 		"summary": "Isfig carried Scargroth's summons: the council meets at the temple in three days. "
 			+ "Ride hard for Blancogov's gates.",
-		"done_flag": "chapter1_reached_blancogov", "map": "blancogov", "tx": 49, "tz": 9},
+		"done_flag": "chapter1_reached_blancogov", "map": "blancogov", "tx": 48, "tz": 9},
 	{"id": "enter_temple", "chapter": 1, "label": "Enter the Temple", "giver": "Scargroth",
 		"summary": "The letter proves your right of entry. King Eldar and the council wait in the great temple.",
 		"done_flag": "chapter1_temple_council", "map": "blancogov_temple", "tx": 42, "tz": 15},
@@ -73,7 +73,7 @@ const STEPS: Array[Dictionary] = [
 		"done_flag": "chapter2_reached_larik", "map": "larik", "tx": 64, "tz": 50},
 	{"id": "search_larik", "chapter": 2, "label": "Search Larik for answers", "giver": "Maiteln",
 		"summary": "Your old house stands empty. If your parents left anything behind, it will be in there.",
-		"done_flag": "chapter2_found_letter", "map": "larik", "tx": 59, "tz": 58},
+		"done_flag": "chapter2_found_letter", "map": "larik", "tx": 57, "tz": 58},
 	{"id": "west_to_marsax", "chapter": 2, "label": "Continue west toward Marsax Hold", "giver": "Maiteln",
 		"summary": "Your parents were taken, not lost — under the tribe's mark and a councilman's seal. "
 			+ "Carry the warning north to Marsax Hold.",
@@ -83,11 +83,11 @@ const STEPS: Array[Dictionary] = [
 		"done_flag": "chapter2_siege_won", "map": "marsax_hold", "tx": 50, "tz": 77},
 	{"id": "search_hold", "chapter": 2, "label": "Search the hold for clues", "giver": "Lord Marsax",
 		"summary": "The siege is broken. The raiders left their effects behind — search them.",
-		"done_flag": "chapter2_traitor_seal", "map": "marsax_hold", "tx": 52, "tz": 62},
+		"done_flag": "chapter2_traitor_seal", "map": "marsax_hold", "tx": 33, "tz": 50},
 	{"id": "war_camp", "chapter": 2, "label": "Infiltrate the war-camp", "giver": "Lord Marsax",
 		"summary": "The muster orders bear a seal from the King's own council. Steal the tribe's plans from "
 			+ "their war-camp in the hills west of the hold.",
-		"done_flag": "chapter2_warcamp_cleared", "map": "marsax_hold", "tx": 20, "tz": 50},
+		"done_flag": "chapter2_warcamp_cleared", "map": "marsax_hold", "tx": 27, "tz": 47},
 ]
 
 

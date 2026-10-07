@@ -246,12 +246,27 @@ north and west walls (the back walls from the iso camera): a billboard beside th
 into the wall and is clipped. No free-standing fence lines — keep walls to
 building rings so NPCs never line up along a stray wall.
 
-**Town set pieces (GID-167):** `game_logic/world/TownDecor.gd` `PIECES` (town → key,
+**The other towns follow the same rules (GID-170):** compact crops, small buildings round a
+paved square with one TownDecor centrepiece, role NPCs indoors, every door signed.
+- **Maykalene** crop (30,0)–(75,57): square 44..58 × 21..32, fountain (51,27); inn, Harbour Goods,
+  archive, harbourmaster, cottages; cobbled street (x 50..52) south to the Farsyth Mansion, whose
+  interior door sits in its north wall gap (51,46). East road leaves at local (75,40).
+- **Blancogov** crop (28,2)–(73,57): golden gate tower pair at the north gate (road at 50,2) and two more
+  pairs up the avenue (solid 3×3 towers, roof only); square 42..58 × 23..33 with the gilded statue
+  (50,28); Duellists' Hall, Royal Library, The Golden Lyre; temple door in the avenue-end gap (50,45).
+  West road leaves at local (28,50).
+- **Larik** crop unchanged (33,35)–(65,63): six houses round a green with a well (48,48); Saimtar's
+  empty house holds the letter (57,58).
+- **Marsax Hold** crop (26,30)–(72,78): curtain-wall rampart with a south gatehouse gap on the road and
+  a 3-tile west-wall breach (siege gate); keep, barracks, armoury, storehouse; courtyard brazier (50,60);
+  war-camp door outside the breach (27,47).
+
+**Town set pieces (GID-167, one per town since GID-170):** `game_logic/world/TownDecor.gd` `PIECES` (town → key,
 local centre tile, blocked radius, world height). Each piece blocks a square of local
 tiles: `TownStreets.plan(..., blocked)` never paves or routes through it (so TownLife
 walkers go round), `TapToMove.tile_at()` reports it as a wall for A*, and
 `StarterCamps._build_town_decor()` draws an `AnimatedSprite3D` (frames in
-`_DECOR_FRAMES`, art from `tools/generate_fountain.py`) on a `StaticBody3D` cylinder on
+`_DECOR_FRAMES`, art from `tools/generate_fountain.py` / `tools/generate_town_pieces.py`) on a `StaticBody3D` cylinder on
 the wall layer (4). Keep entities and the spawn off blocked tiles (`test_town_decor`).
 
 **Building signs (GID-168):** `game_logic/world/TownSigns.gd` `signs(town)` puts one sign

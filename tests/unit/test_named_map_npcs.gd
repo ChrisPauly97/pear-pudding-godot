@@ -224,8 +224,8 @@ func test_larik_loads_from_file_not_fallback() -> void:
 func test_larik_has_player_spawn() -> void:
 	var wm := WorldMapScript.new("larik")
 	assert_true(wm.has_player_spawn())
-	assert_eq(wm.player_spawn_x, 50)
-	assert_eq(wm.player_spawn_z, 90)
+	assert_eq(wm.player_spawn_x, 48)  # the village green (GID-170)
+	assert_eq(wm.player_spawn_z, 51)
 
 
 ## Two story NPCs plus Odd the Farmer, the Pear Pudding legend's teller (GID-153).
@@ -258,8 +258,8 @@ func test_marsax_hold_loads_from_file_not_fallback() -> void:
 func test_marsax_hold_has_player_spawn() -> void:
 	var wm := WorldMapScript.new("marsax_hold")
 	assert_true(wm.has_player_spawn())
-	assert_eq(wm.player_spawn_x, 50)
-	assert_eq(wm.player_spawn_z, 90)
+	assert_eq(wm.player_spawn_x, 50)  # the courtyard (GID-170)
+	assert_eq(wm.player_spawn_z, 64)
 
 
 func test_marsax_hold_has_two_npcs_one_scroll_two_doors() -> void:

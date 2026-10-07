@@ -33,20 +33,20 @@ const _MARSAX_HOLD := preload("res://assets/maps/marsax_hold.tres")
 ## west to Larik → north to Marsax Hold.
 const TOWNS: Dictionary = {
 	"madrian": {"crop": Rect2i(6, 6, 49, 52), "offset": Vector2i(-37, -33), "data": _MADRIAN},
-	"maykalene": {"crop": Rect2i(3, 0, 80, 100), "offset": Vector2i(-37, 66), "data": _MAYKALENE},
-	"blancogov": {"crop": Rect2i(0, 2, 100, 98), "offset": Vector2i(43, 222), "data": _BLANCOGOV},
+	"maykalene": {"crop": Rect2i(30, 0, 46, 58), "offset": Vector2i(-37, 66), "data": _MAYKALENE},
+	"blancogov": {"crop": Rect2i(28, 2, 46, 56), "offset": Vector2i(43, 222), "data": _BLANCOGOV},
 	"larik": {"crop": Rect2i(33, 35, 33, 29), "offset": Vector2i(-167, 232), "data": _LARIK},
-	"marsax_hold": {"crop": Rect2i(18, 22, 61, 57), "offset": Vector2i(-167, 100), "data": _MARSAX_HOLD},
+	"marsax_hold": {"crop": Rect2i(26, 30, 47, 49), "offset": Vector2i(-167, 100), "data": _MARSAX_HOLD},
 }
 
 ## Road polylines in overworld tiles. Each starts/ends at a town gate.
 const ROADS: Array = [
 	# Madrian's south edge (local 50,57) → Maykalene's north road (local 50,0).
 	[Vector2(13, 24), Vector2(13, 66)],
-	# Maykalene's east side (local 82,48) → Blancogov's north gate (local 50,2).
-	[Vector2(45, 114), Vector2(70, 160), Vector2(93, 200), Vector2(93, 224)],
-	# Blancogov's west side (local 0,50) → Larik's east side (local 65,50).
-	[Vector2(43, 272), Vector2(-20, 282), Vector2(-102, 282)],
+	# Maykalene's east side (local 75,40) → Blancogov's north gate (local 50,2).
+	[Vector2(38, 106), Vector2(70, 160), Vector2(93, 200), Vector2(93, 224)],
+	# Blancogov's west side (local 28,50) → Larik's east side (local 65,50).
+	[Vector2(71, 272), Vector2(-20, 282), Vector2(-102, 282)],
 	# Larik's north side (local 50,35) → Marsax Hold's south gate (local 50,78).
 	[Vector2(-117, 267), Vector2(-117, 178)],
 ]
