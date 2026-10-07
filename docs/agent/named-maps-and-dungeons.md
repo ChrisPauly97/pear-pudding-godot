@@ -248,7 +248,8 @@ building rings so NPCs never line up along a stray wall.
 
 **The other towns follow the same rules (GID-170):** compact crops, small buildings round a
 paved square with one TownDecor centrepiece, role NPCs indoors, every door signed.
-- **Maykalene** crop (30,0)–(75,57): square 44..58 × 21..32, fountain (51,27); inn, Harbour Goods,
+- **Maykalene** crop (30,0)–(75,57): square 44..58 × 21..32, a big fountain (51,27, radius 2) sitting in a
+  `pool` (flat stone basin of water drawn under the sprite by `StarterCamps._add_pool`); inn, Harbour Goods,
   archive, harbourmaster, cottages; cobbled street (x 50..52) south to the Farsyth Mansion, whose
   interior door sits in its north wall gap (51,46). East road leaves at local (75,40).
 - **Blancogov** crop (28,2)–(73,57): golden gate tower pair at the north gate (road at 50,2) and two more

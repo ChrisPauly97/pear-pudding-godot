@@ -6,10 +6,11 @@
 ## as a wall, and the StarterCamps module draws it with a collision cylinder.
 extends RefCounted
 
-## town → [{key, tile (town-local centre), radius (tiles blocked each side), height (world units)}]
+## town → [{key, tile (town-local centre), radius (tiles blocked each side), height (world units),
+## pool (optional: a flat stone basin of water on the ground filling the blocked square)}]
 const PIECES: Dictionary = {
 	"madrian": [{"key": "fountain", "tile": Vector2i(30, 28), "radius": 1, "height": 4.2}],
-	"maykalene": [{"key": "fountain", "tile": Vector2i(51, 27), "radius": 1, "height": 4.2}],
+	"maykalene": [{"key": "fountain", "tile": Vector2i(51, 27), "radius": 2, "height": 6.5, "pool": true}],
 	"blancogov": [{"key": "statue", "tile": Vector2i(50, 28), "radius": 1, "height": 5.6}],
 	"larik": [{"key": "well", "tile": Vector2i(48, 48), "radius": 1, "height": 3.6}],
 	"marsax_hold": [{"key": "brazier", "tile": Vector2i(50, 60), "radius": 1, "height": 3.6}],

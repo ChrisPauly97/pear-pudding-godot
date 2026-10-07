@@ -12,6 +12,7 @@ const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _LooseEnemySpawner = preload("res://scenes/world/LooseEnemySpawner.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
+const _WorldEntityBase = preload("res://scenes/world/entities/WorldEntityBase.gd")
 const _CampDressing = preload("res://game_logic/world/CampDressing.gd")
 const _TownDecor = preload("res://game_logic/world/TownDecor.gd")
 ## TownDecor set-piece animations (GID-167 / GID-170, tools/generate_fountain.py + generate_town_pieces.py).
@@ -35,6 +36,8 @@ const _DECOR_FRAMES: Dictionary = {
 		preload("res://assets/textures/props/statue_3.png")],
 }
 const _DECOR_FPS: float = 6.0
+const _POOL_STONE := Color(0.48, 0.54, 0.58)
+const _POOL_WATER := Color(0.28, 0.55, 0.81)
 ## Wall collision layer (ChunkRenderer wall bodies), so Ghost Phase passes through it too.
 const _WALL_LAYER: int = 4
 
@@ -207,9 +210,26 @@ func _build_town_decor() -> void:
 			shape.position.y = 1.0
 			body.add_child(shape)
 			body.add_child(sprite)
+			if bool(piece.get("pool", false)):
+				_add_pool(body, half)
 			body.position = Vector3(x, _world.get_terrain_height(x, z), z)
 			_scenery.add_child(body)
 			sprite.play(&"default")
+
+## A wide, low stone basin of water on the ground under a set piece (GID-170), so a
+## big fountain sits in the square instead of standing on it.
+func _add_pool(body: StaticBody3D, half: float) -> void:
+	for layer: Array in [[half * 0.95, 0.3, _POOL_STONE], [half * 0.8, 0.34, _POOL_WATER]]:
+		var cyl := CylinderMesh.new()
+		cyl.top_radius = float(layer[0])
+		cyl.bottom_radius = float(layer[0])
+		cyl.height = float(layer[1])
+		cyl.radial_segments = 32
+		var mi := MeshInstance3D.new()
+		mi.mesh = cyl
+		mi.material_override = _WorldEntityBase.unshaded_material(layer[2] as Color)
+		mi.position.y = float(layer[1]) * 0.5
+		body.add_child(mi)
 
 ## Camp members alive right now (tests / debugging).
 func alive_count() -> int:
