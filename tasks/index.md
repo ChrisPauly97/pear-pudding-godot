@@ -174,6 +174,7 @@
 | [GID-168](goals/GID-168--building-signs/goal.md) | Building Signs | done | 1 / 1 |
 | [GID-169](goals/GID-169--npcs-indoors/goal.md) | Madrian Shopkeepers Indoors | done | 1 / 1 |
 | [GID-170](goals/GID-170--towns-like-madrian/goal.md) | Every Town Laid Out Like Madrian | done | 1 / 1 |
+| [GID-171](goals/GID-171--maykalene-coast/goal.md) | Maykalene on the Eastern Sea | done | 1 / 1 |
 
 ## Backlog
 

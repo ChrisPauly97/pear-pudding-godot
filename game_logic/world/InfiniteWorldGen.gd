@@ -7,6 +7,7 @@ const TerrainMath = preload("res://game_logic/TerrainMath.gd")
 const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const StarterZone = preload("res://game_logic/world/StarterZone.gd")
 const RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
+const _Coast = preload("res://game_logic/world/Coast.gd")
 
 const NOISE_FREQ: float = 0.08  # base noise frequency; biome freq_scale multiplies the sampling coordinates
 
@@ -73,8 +74,8 @@ static func _get_biome_noise(world_seed: int) -> FastNoiseLite:
 # Returns the biome ID for a given chunk coordinate.
 static func biome_for_chunk(p_cx: int, p_cz: int, world_seed: int) -> int:
 	var dist: int = abs(p_cx) + abs(p_cz)
-	# Stitched story towns sit in grasslands whatever the biome noise says (GID-138).
-	if dist > SAFE_ZONE_DIST and RealmLayout.chunk_in_town(p_cx, p_cz):
+	# Story towns (GID-138) and the sea's shore (GID-171: only water biomes draw water) are grasslands.
+	if (dist > SAFE_ZONE_DIST and RealmLayout.chunk_in_town(p_cx, p_cz)) or _Coast.touches_chunk(p_cx, p_cz):
 		return BiomeDef.GRASSLANDS
 	if dist <= SAFE_ZONE_DIST:
 		# Respect biome selection: use forced_start_biome if set, else default to Grasslands.
@@ -151,8 +152,7 @@ static func get_chunk_scroll_id(p_cx: int, p_cz: int, world_seed: int) -> String
 		return ""
 	if RealmLayout.chunk_touches_realm(p_cx, p_cz):
 		return ""
-	var eligible: Array[String] = ["scroll_martarquas_survivors"]
-	return eligible[h % eligible.size()]
+	return "scroll_martarquas_survivors"  # the one infinite-world scroll so far
 
 ## Stitched-town entities whose position falls in this chunk (GID-138).
 static func _append_realm_entities(chunk: ChunkData, p_cx: int, p_cz: int) -> void:

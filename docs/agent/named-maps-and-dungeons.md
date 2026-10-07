@@ -248,10 +248,13 @@ building rings so NPCs never line up along a stray wall.
 
 **The other towns follow the same rules (GID-170):** compact crops, small buildings round a
 paved square with one TownDecor centrepiece, role NPCs indoors, every door signed.
-- **Maykalene** crop (30,0)–(75,57): square 44..58 × 21..32, a grand three-tier marble fountain (51,27, radius 2, `grand_fountain`) sitting in a
+- **Maykalene** crop (30,0)–(79,57), a port on the eastern sea (GID-171): square 44..58 × 21..32, a grand three-tier marble fountain (51,27, radius 2, `grand_fountain`) sitting in a
   `pool` (octagonal marble basin of water drawn under the sprite by `StarterCamps._add_pool`); inn, Harbour Goods,
   archive, harbourmaster, cottages; cobbled street (x 50..52) south to the Farsyth Mansion, whose
-  interior door sits in its north wall gap (51,46). East road leaves at local (75,40).
+  interior door sits in its north wall gap (51,46). The east side (local x 75..79) is a paved quay
+  meeting the sea (`Coast`) at the crop edge; a lane (z 26..28) runs from the square to the pier;
+  Harbourmaster's House and the Fishmonger's face the water. The road to Blancogov leaves the
+  south-east corner (local 66,57).
 - **Blancogov** crop (28,2)–(73,57): golden gate tower pair at the north gate (road at 50,2) and two more
   pairs up the avenue (solid 3×3 towers, roof only); square 42..58 × 23..33 with the gilded statue
   (50,28); Duellists' Hall, Royal Library, The Golden Lyre; temple door in the avenue-end gap (50,45).

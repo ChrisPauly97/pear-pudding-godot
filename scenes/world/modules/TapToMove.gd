@@ -11,6 +11,7 @@ const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const Pathfinder = preload("res://game_logic/Pathfinder.gd")
 const _VirtualJoystick = preload("res://scenes/ui/VirtualJoystick.gd")
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
+const _Coast = preload("res://game_logic/world/Coast.gd")
 const _TownDecor = preload("res://game_logic/world/TownDecor.gd")
 
 const DRAG_THRESHOLD: float = 30.0   # screen pixels; beyond this is a drag, not a tap
@@ -245,4 +246,6 @@ func tile_at(tx: int, tz: int) -> int:
 					_decor_blocked[_RealmLayout.to_world_tile(town, t as Vector2i)] = true
 	if _decor_blocked.has(Vector2i(tx, tz)):
 		return IsoConst.TILE_WALL
+	if _world._is_infinite and _Coast.is_deep(tx, tz):
+		return IsoConst.TILE_WALL  # too deep to wade (GID-171)
 	return _world.get_tile_global(tx, tz)

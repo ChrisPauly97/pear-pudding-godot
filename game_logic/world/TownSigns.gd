@@ -34,11 +34,12 @@ const NAMES: Dictionary = {
 		Vector2i(59, 15): "Harbour Goods",
 		Vector2i(40, 17): "The White Gull Inn",
 		Vector2i(40, 23): "Cottage",
-		Vector2i(63, 23): "Harbourmaster's House",
+		Vector2i(69, 23): "Harbourmaster's House",
 		Vector2i(41, 31): "Maykalene Archive",
 		Vector2i(63, 31): "Cottage",
 		Vector2i(41, 38): "Fisher's Cottage",
 		Vector2i(61, 38): "Weaver's Cottage",
+		Vector2i(71, 39): "Fishmonger's",
 		Vector2i(51, 46): "Farsyth Mansion",
 	},
 	"blancogov": {

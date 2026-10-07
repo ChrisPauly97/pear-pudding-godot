@@ -18,6 +18,7 @@ const _WorldMap = preload("res://game_logic/world/WorldMap.gd")
 const _RiddleSpots = preload("res://game_logic/world/RiddleSpots.gd")
 const _StarterZone = preload("res://game_logic/world/StarterZone.gd")
 const _TownDecor = preload("res://game_logic/world/TownDecor.gd")
+const _Coast = preload("res://game_logic/world/Coast.gd")
 const _TownBuildings = preload("res://game_logic/world/TownBuildings.gd")
 const _TownStreets = preload("res://game_logic/world/TownStreets.gd")
 
@@ -33,7 +34,7 @@ const _MARSAX_HOLD := preload("res://assets/maps/marsax_hold.tres")
 ## west to Larik → north to Marsax Hold.
 const TOWNS: Dictionary = {
 	"madrian": {"crop": Rect2i(6, 6, 49, 52), "offset": Vector2i(-37, -33), "data": _MADRIAN},
-	"maykalene": {"crop": Rect2i(30, 0, 46, 58), "offset": Vector2i(-37, 66), "data": _MAYKALENE},
+	"maykalene": {"crop": Rect2i(30, 0, 50, 58), "offset": Vector2i(-37, 66), "data": _MAYKALENE},
 	"blancogov": {"crop": Rect2i(28, 2, 46, 56), "offset": Vector2i(43, 222), "data": _BLANCOGOV},
 	"larik": {"crop": Rect2i(33, 35, 33, 29), "offset": Vector2i(-167, 232), "data": _LARIK},
 	"marsax_hold": {"crop": Rect2i(26, 30, 47, 49), "offset": Vector2i(-167, 100), "data": _MARSAX_HOLD},
@@ -43,8 +44,8 @@ const TOWNS: Dictionary = {
 const ROADS: Array = [
 	# Madrian's south edge (local 50,57) → Maykalene's north road (local 50,0).
 	[Vector2(13, 24), Vector2(13, 66)],
-	# Maykalene's east side (local 75,40) → Blancogov's north gate (local 50,2).
-	[Vector2(38, 106), Vector2(70, 160), Vector2(93, 200), Vector2(93, 224)],
+	# Maykalene's south-east corner (local 66,57) → Blancogov's north gate (local 50,2).
+	[Vector2(29, 123), Vector2(70, 160), Vector2(93, 200), Vector2(93, 224)],
 	# Blancogov's west side (local 28,50) → Larik's east side (local 65,50).
 	[Vector2(71, 272), Vector2(-20, 282), Vector2(-102, 282)],
 	# Larik's north side (local 50,35) → Marsax Hold's south gate (local 50,78).
@@ -166,10 +167,11 @@ static func road_distance(px: float, pz: float) -> float:
 			best = minf(best, p.distance_to(q))
 	return best
 
-## Distance (tiles) from a tile to the nearest town rectangle or road; 0 inside.
+## Distance (tiles) to the nearest town, road, glade, camp or sea (Coast); 0 inside a town or road.
 static func reserved_distance(wtx: int, wtz: int) -> float:
 	var best: float = maxf(0.0, road_distance(float(wtx), float(wtz)) - ROAD_HALF_WIDTH)
 	best = minf(best, minf(legend_site_distance(wtx, wtz), _StarterZone.camp_site_distance(wtx, wtz)))
+	best = minf(best, _Coast.reserved_distance(wtx, wtz))  # the eastern sea (GID-171)
 	for k: Variant in TOWNS.keys():
 		var r: Rect2i = world_rect(str(k))
 		var dx: int = maxi(0, maxi(r.position.x - wtx, wtx - (r.end.x - 1)))
@@ -197,7 +199,7 @@ static func chunk_touches_realm(cx: int, cz: int) -> bool:
 	for spot: Dictionary in _RiddleSpots.SPOTS:
 		if area.has_point(spot["tile"] as Vector2i):
 			return true
-	if _StarterZone.camp_in_rect(area):
+	if _StarterZone.camp_in_rect(area) or _Coast.touches(area, 0.0):
 		return true
 	var half: float = float(cs) * 0.5
 	var centre := Vector2(float(cx * cs) + half, float(cz * cs) + half)
@@ -216,8 +218,7 @@ static func chunk_in_town(cx: int, cz: int) -> bool:
 ## The town's authored map as runtime dicts (local coordinates), loaded once.
 static func town_map(town: String) -> _WorldMap:
 	if _maps.has(town):
-		var cached: _WorldMap = _maps[town]
-		return cached
+		return _maps[town] as _WorldMap
 	var t: Dictionary = TOWNS.get(town, {})
 	var data: Resource = t.get("data", null)
 	if data == null:
@@ -303,6 +304,7 @@ static func stamp_tile_in(ctx: Dictionary, wtx: int, wtz: int, noise_tile: int, 
 	for t: Vector2i in spots:
 		d = minf(d, Vector2(wtx - t.x, wtz - t.y).length() + LEGEND_SITE_PAD)
 	d = minf(d, _StarterZone.camp_distance_in(ctx["camps"] as Array[Vector2i], wtx, wtz))
+	d = minf(d, _Coast.reserved_distance(wtx, wtz))
 	for entry: Array in towns:
 		var r: Rect2i = entry[1]
 		var dx: int = maxi(0, maxi(r.position.x - wtx, wtx - (r.end.x - 1)))
@@ -322,8 +324,7 @@ static func stamp_tile_in(ctx: Dictionary, wtx: int, wtz: int, noise_tile: int, 
 ## The town's building plan (TownBuildings.detect over its crop), built once.
 static func building_plan(town: String) -> Dictionary:
 	if _plans.has(town):
-		var cached: Dictionary = _plans[town]
-		return cached
+		return _plans[town] as Dictionary
 	var wm: _WorldMap = town_map(town)
 	var plan: Dictionary = {"heights": {}, "buildings": []}
 	if wm != null:
@@ -335,8 +336,7 @@ static func building_plan(town: String) -> Dictionary:
 ## road that meets the town to its spawn square, lanes to every door.
 static func street_plan(town: String) -> Dictionary:
 	if _streets.has(town):
-		var cached: Dictionary = _streets[town]
-		return cached
+		return _streets[town] as Dictionary
 	var wm: _WorldMap = town_map(town)
 	var plan: Dictionary = {"tiles": {}, "lamps": [] as Array[Vector2i]}
 	if wm != null:

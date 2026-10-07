@@ -190,6 +190,26 @@ the worst frame on 4 cores but adds more >8 ms frames, so it stays at 4.
 
 ---
 
+### The eastern sea (`game_logic/world/Coast.gd`, GID-171)
+
+A bay of open water east of Maykalene, from the town's quay (world x 43) out to x ≈ 262, z 43..146.
+`Coast.SHORE` is the coastline polygon in world tiles; `depth(px, pz)` is signed tiles from it
+(> 0 at sea), with a sine wobble for a ragged natural coast everywhere but the straight quay.
+
+| Hook | Effect |
+|---|---|
+| `RealmLayout.reserved_distance` / `stamp_tile_in` | `Coast.reserved_distance` = `SEA_PAD` (0.5) inside, shore distance outside: the sea floor is level grass (never paved), hills fade over the 8-tile blend margin, and the usual realm rules keep trees, ruins, landmarks, scrolls and random spawns off it |
+| `RealmLayout.chunk_touches_realm` | Chunks in the sea's bounding box are realm chunks |
+| `InfiniteWorldGen.biome_for_chunk` | Chunks by the sea are grasslands (only water biomes draw water) |
+| `WaterMath.intensity` / `water_at` / `wet_at` | max(inland water, `sea_water`) — the sea is added after the realm and structure fades, so it reaches the quay; 0.24 at the shoreline rising 0.12 per tile (three shader bands). No stream flow at sea; `edge_prop_ok` drops lily pads at sea and reeds along the quay |
+| `Coastline` world module | Slides the hero back out of deep water (`is_deep`: ≥ `WADE_DEPTH` 1.5 tiles, not a pier) every physics frame, wading ashore after a teleport/load; draws the piers, quay kerb, moored boats and cargo |
+| `TapToMove.tile_at` | Deep sea is a wall for A* |
+| `NocturnalSpawner`, `TreasureGen` | No spectres at sea; dig sites walk round their ring to land |
+| `RealmMapOverlay` | Draws the sea polygon (clipped) |
+
+`Coast.BOUNDS` is a hand-written const (no lazily built shared state on worker threads);
+`test_coast` checks it matches `SHORE`. A depth lookup costs ~5 µs near the sea and ~0.6 µs elsewhere.
+
 ## Living World Events
 
 ### WorldEventManager (`autoloads/WorldEventManager.gd`)

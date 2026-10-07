@@ -13,6 +13,7 @@ const _LooseEnemySpawner = preload("res://scenes/world/LooseEnemySpawner.gd")
 const _ChunkData = preload("res://game_logic/world/ChunkData.gd")
 const _InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
 const _BiomeDef = preload("res://game_logic/world/BiomeDef.gd")
+const _Coast = preload("res://game_logic/world/Coast.gd")
 
 const MAX_ALIVE: int = 12
 const SPAWN_INTERVAL_MIN: float = 30.0
@@ -130,6 +131,9 @@ func _find_spawn_pos(origin: Vector3) -> Vector3:
 		var li: int = tile_z * IsoConst.CHUNK_SIZE + tile_x
 		if li >= chunk.tiles.size() or chunk.tiles[li] != IsoConst.TILE_GRASS:
 			continue
+		var wt: Vector2i = IsoConst.world_to_tile(tx, tz)
+		if _Coast.is_sea(wt.x, wt.y):
+			continue  # no spectres out on the water (GID-171)
 		return Vector3(tx, _world.get_terrain_height(tx, tz) + 0.5, tz)
 	return Vector3.ZERO
 
