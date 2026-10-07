@@ -12,6 +12,7 @@ const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _LooseEnemySpawner = preload("res://scenes/world/LooseEnemySpawner.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
+const _CampDressing = preload("res://game_logic/world/CampDressing.gd")
 
 ## How often camps are checked (s).
 const CHECK_INTERVAL: float = 1.5
@@ -22,7 +23,7 @@ var _timer: float = 0.0
 var _members: Dictionary = {}
 ## member id → seconds until it may refill (only while fallen)
 var _cooldowns: Dictionary = {}
-## Graveyard dressing root (GID-143 / TID-605), built once per overworld load.
+## Graveyard + camp dressing root (GID-143 / TID-605, GID-166), built once per overworld load.
 var _scenery: Node3D = null
 
 
@@ -103,7 +104,7 @@ func _despawn(id: String, node: Node3D) -> void:
 	_world._loose_enemy_nodes.erase(id)
 	node.queue_free()
 
-## Headstones, the iron fence and the crypt door as static billboards.
+## Headstones, the iron fence and the crypt door as static billboards, then the camp dressing.
 func _build_scenery() -> void:
 	_scenery = Node3D.new()
 	_scenery.name = "StarterScenery"
@@ -128,6 +129,24 @@ func _build_scenery() -> void:
 		holder.position = Vector3(x, _world.get_terrain_height(x, z), z)
 		holder.add_child(sprite)
 		_scenery.add_child(holder)
+	_build_camp_dressing()
+
+## Each camp's themed props (CampDressing): orchard trees, granary, barrow, cart...
+func _build_camp_dressing() -> void:
+	for entry: Array in _CampDressing.all_props():
+		var tex: Texture2D = _CampDressing.texture(str(entry[0]))
+		if tex == null:
+			continue
+		var p: Vector2 = entry[1]
+		var x: float = p.x * IsoConst.TILE_SIZE
+		var z: float = p.y * IsoConst.TILE_SIZE
+		var sprite := Sprite3D.new()
+		_SpriteRegistry.apply_billboard_flags(sprite)
+		_SpriteRegistry.setup_sprite_height(sprite, tex, float(entry[2]))
+		sprite.position.x = x
+		sprite.position.z = z
+		sprite.position.y += _world.get_terrain_height(x, z)
+		_scenery.add_child(sprite)
 
 ## Camp members alive right now (tests / debugging).
 func alive_count() -> int:

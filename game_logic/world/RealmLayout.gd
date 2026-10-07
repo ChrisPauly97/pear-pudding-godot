@@ -16,6 +16,7 @@ extends RefCounted
 const IsoConst = preload("res://autoloads/IsoConst.gd")  # usable before autoloads register (-s runs)
 const _WorldMap = preload("res://game_logic/world/WorldMap.gd")
 const _RiddleSpots = preload("res://game_logic/world/RiddleSpots.gd")
+const _StarterZone = preload("res://game_logic/world/StarterZone.gd")
 const _TownBuildings = preload("res://game_logic/world/TownBuildings.gd")
 const _TownStreets = preload("res://game_logic/world/TownStreets.gd")
 
@@ -167,7 +168,7 @@ static func road_distance(px: float, pz: float) -> float:
 ## Distance (tiles) from a tile to the nearest town rectangle or road; 0 inside.
 static func reserved_distance(wtx: int, wtz: int) -> float:
 	var best: float = maxf(0.0, road_distance(float(wtx), float(wtz)) - ROAD_HALF_WIDTH)
-	best = minf(best, legend_site_distance(wtx, wtz))
+	best = minf(best, minf(legend_site_distance(wtx, wtz), _StarterZone.camp_site_distance(wtx, wtz)))
 	for k: Variant in TOWNS.keys():
 		var r: Rect2i = world_rect(str(k))
 		var dx: int = maxi(0, maxi(r.position.x - wtx, wtx - (r.end.x - 1)))
@@ -184,7 +185,7 @@ static func legend_site_distance(wtx: int, wtz: int) -> float:
 		best = minf(best, Vector2(wtx - t.x, wtz - t.y).length() + LEGEND_SITE_PAD)
 	return best
 
-## True when any tile of chunk (cx, cz), grown by BLEND_MARGIN, touches a town, road or legend glade.
+## True when any tile of chunk (cx, cz), grown by BLEND_MARGIN, touches a town, road, legend glade or camp.
 static func chunk_touches_realm(cx: int, cz: int) -> bool:
 	var cs: int = IsoConst.CHUNK_SIZE
 	var m: int = int(ceil(BLEND_MARGIN))
@@ -195,6 +196,8 @@ static func chunk_touches_realm(cx: int, cz: int) -> bool:
 	for spot: Dictionary in _RiddleSpots.SPOTS:
 		if area.has_point(spot["tile"] as Vector2i):
 			return true
+	if _StarterZone.camp_in_rect(area):
+		return true
 	var half: float = float(cs) * 0.5
 	var centre := Vector2(float(cx * cs) + half, float(cz * cs) + half)
 	# A chunk's farthest tile is half·√2 from its centre.
@@ -231,7 +234,7 @@ static func stamp_tile(wtx: int, wtz: int, noise_tile: int, noise_height: int) -
 		_full_stamp_ctx = stamp_context()
 	return stamp_tile_in(_full_stamp_ctx, wtx, wtz, noise_tile, noise_height)
 
-## The towns, road segments and legend spots `stamp_tile_in` checks. With no
+## The towns, road segments, legend spots and camp clearings `stamp_tile_in` checks. With no
 ## chunk given it holds all of them; for chunk (cx, cz) only those that can reach
 ## it — anything farther than BLEND_MARGIN from every tile of the chunk can only
 ## yield a distance ≥ BLEND_MARGIN, which stamps the same as not checking it, so
@@ -268,7 +271,7 @@ static func stamp_context(cx: int = 0, cz: int = 0, whole_chunk: bool = false) -
 		var t: Vector2i = spot["tile"]
 		if not whole_chunk or centre.distance_to(Vector2(t)) <= reach:
 			spots.append(t)
-	return {"towns": towns, "segs": segs, "spots": spots}
+	return {"towns": towns, "segs": segs, "spots": spots, "camps": _StarterZone.camps_near(centre, reach, whole_chunk)}
 
 ## `stamp_tile` against a `stamp_context`.
 static func stamp_tile_in(ctx: Dictionary, wtx: int, wtz: int, noise_tile: int, noise_height: int) -> Vector2i:
@@ -298,6 +301,7 @@ static func stamp_tile_in(ctx: Dictionary, wtx: int, wtz: int, noise_tile: int, 
 	var spots: Array[Vector2i] = ctx["spots"]
 	for t: Vector2i in spots:
 		d = minf(d, Vector2(wtx - t.x, wtz - t.y).length() + LEGEND_SITE_PAD)
+	d = minf(d, _StarterZone.camp_distance_in(ctx["camps"] as Array[Vector2i], wtx, wtz))
 	for entry: Array in towns:
 		var r: Rect2i = entry[1]
 		var dx: int = maxi(0, maxi(r.position.x - wtx, wtx - (r.end.x - 1)))

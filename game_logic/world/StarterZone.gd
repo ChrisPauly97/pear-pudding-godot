@@ -42,6 +42,13 @@ const CAMPS: Array[Dictionary] = [
 		"count": 5, "level": 9, "tracking": true},
 ]
 
+## GID-166: each camp sits in a clearing this many tiles in radius for its set
+## dressing (CampDressing) — RealmLayout treats it as reserved ground: flat, no
+## random trees, water or spawns. Inside it the distance stays at CAMP_SITE_PAD
+## (never 0, which would pave it). Must stay 1-Lipschitz (hill SAT skip).
+const CAMP_CLEAR_RADIUS: float = 6.0
+const CAMP_SITE_PAD: float = 0.5
+
 ## The old graveyard west of the south field: the Gravedigger stands here and
 ## its mounds are the first Skeleton Dig targets.
 const GRAVEYARD_TILE := Vector2i(-25, 19)
@@ -129,4 +136,36 @@ static func mounds_in_chunk(cx: int, cz: int, chunk_size: int, tile_size: float)
 			continue
 		out.append({"id": "mound_graveyard_%d" % i,
 			"x": float(t.x) * tile_size + tile_size * 0.5, "z": float(t.y) * tile_size + tile_size * 0.5})
+	return out
+
+## Reserved-distance contribution of the nearest camp clearing to a tile.
+static func camp_site_distance(wtx: int, wtz: int) -> float:
+	var best: float = INF
+	for camp: Dictionary in CAMPS:
+		var t: Vector2i = camp["tile"]
+		best = minf(best, maxf(CAMP_SITE_PAD, Vector2(wtx - t.x, wtz - t.y).length() - CAMP_CLEAR_RADIUS))
+	return best
+
+## `camp_site_distance` over a pre-filtered list of camp tiles (RealmLayout stamp context).
+static func camp_distance_in(tiles: Array[Vector2i], wtx: int, wtz: int) -> float:
+	var best: float = INF
+	for t: Vector2i in tiles:
+		best = minf(best, maxf(CAMP_SITE_PAD, Vector2(wtx - t.x, wtz - t.y).length() - CAMP_CLEAR_RADIUS))
+	return best
+
+## True when a camp's clearing can reach `area` (tiles).
+static func camp_in_rect(area: Rect2i) -> bool:
+	var grown: Rect2i = area.grow(int(ceil(CAMP_CLEAR_RADIUS)))
+	for camp: Dictionary in CAMPS:
+		if grown.has_point(camp["tile"] as Vector2i):
+			return true
+	return false
+
+## Camp tiles whose clearing can reach within `reach` of `centre` (all of them when not `filtered`).
+static func camps_near(centre: Vector2, reach: float, filtered: bool) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for camp: Dictionary in CAMPS:
+		var t: Vector2i = camp["tile"]
+		if not filtered or centre.distance_to(Vector2(t)) <= reach + CAMP_CLEAR_RADIUS:
+			out.append(t)
 	return out

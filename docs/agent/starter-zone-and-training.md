@@ -134,6 +134,17 @@ own ladder decides what it sees.
 - **Refill:** every 1.5 s the module tops up camps within `ACTIVE_RANGE` (90 units) of the player; a fallen member
   refills after `CAMP_RESPAWN_S` (45 s); camps out of range despawn. `SaveManager.mark_enemy_defeated` ignores
   `camp_` ids, so they never enter the permanent defeated list. Solo only (inert in a network session).
+- **Camp set dressing (GID-166 / TID-687):** every camp looks like its name — `CampDressing.LAYOUTS` (camp id →
+  `[prop key, tile offset, world height]`; the Old Orchard is a generated 4×4 grid of apple trees + baskets).
+  Grain-Store Field: granary, hay, sacks, scarecrow; South Field: scarecrow, wheat sheaves, hay; North Barrow:
+  barrow mound ringed by standing stones; Hedge Ruins: broken pillars, rubble, hedges; East Copse: oaks + ferns;
+  West Crossing: signpost, fences, barrel/crate; North Tor: stacked tor rock + boulders; South Road Wreck:
+  overturned cart, crates, barrels. Offsets stay off the member ring (`test_camp_dressing`). Sprites are
+  `camp_*.png` from `tools/generate_camp_props.py` (looked up by `CampDressing.texture()`, which also maps
+  stock props as `"tree_oak_1"`, `"boulder_0"`…); billboards without collision, spawned by
+  `StarterCamps._build_camp_dressing()`. Each camp is a **clearing**: `StarterZone.CAMP_CLEAR_RADIUS` (6 tiles)
+  feeds `RealmLayout.reserved_distance` / `stamp_context` / `chunk_touches_realm` like a legend glade (flat, no
+  random trees, water or spawns; the distance floors at `CAMP_SITE_PAD` so it is never paved).
 - **Graveyard** (Madrian local (8..18, 47..56), fenced, gate on the north side): the Gravedigger
   (`gravedigger_madrian`, local (14,50)) and three fixed burial mounds (`GRAVEYARD_MOUNDS`, ids
   `mound_graveyard_N`, appended by `InfiniteWorldGen._gen_entities` via `mounds_in_chunk`) — the first Skeleton Dig
