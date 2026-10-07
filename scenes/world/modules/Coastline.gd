@@ -170,7 +170,8 @@ func _build_piers(st: SurfaceTool) -> void:
 			p += step
 
 
-## A rail along every deck edge that faces open water (not land or more pier).
+## A rail along every deck edge that faces open water (not land or more pier), except
+## the open ends and gangways (`Coast.rail_open`).
 func _build_railings(st: SurfaceTool, r: Rect2i) -> void:
 	var ts: float = IsoConst.TILE_SIZE
 	for tz: int in range(r.position.y, r.end.y):
@@ -179,6 +180,8 @@ func _build_railings(st: SurfaceTool, r: Rect2i) -> void:
 				var n: Vector2i = Vector2i(tx, tz) + dir
 				if r.has_point(n) or _Coast.on_pier(n.x, n.y) or not _Coast.is_sea(n.x, n.y):
 					continue
+				if _Coast.rail_open(r, Vector2i(tx, tz), dir):
+					continue  # open pier ends and gangways, where boats come alongside
 				# The edge's two ends, pulled 0.12 u in from the deck edge.
 				var c := Vector2((float(tx) + 0.5) * ts, (float(tz) + 0.5) * ts) + Vector2(dir) * (ts * 0.5 - 0.12)
 				var along := Vector2(absf(float(dir.y)), absf(float(dir.x))) * (ts * 0.5)

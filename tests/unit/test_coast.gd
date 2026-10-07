@@ -104,3 +104,27 @@ func test_pier_lamps_stand_on_piers_and_light_with_the_streets() -> void:
 	for t: Vector2i in Coast.PIER_LAMPS:
 		assert_true(Coast.on_pier(t.x, t.y), "lamp %s on a pier" % str(t))
 		assert_true(lamps.has(t), "lamp %s is a street lamp (glows at night)" % str(t))
+
+
+func test_boats_dock_at_open_rails() -> void:
+	for b: Dictionary in Coast.BOATS:
+		if float(b["berth"]) <= 0.0:
+			continue
+		var t: Vector2 = b["tile"]
+		var opened: bool = false
+		for r: Rect2i in Coast.PIERS:
+			for tz: int in range(r.position.y, r.end.y):
+				for tx: int in range(r.position.x, r.end.x):
+					for dir: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+						var n: Vector2i = Vector2i(tx, tz) + dir
+						if r.has_point(n) or Coast.on_pier(n.x, n.y) or not Coast.is_sea(n.x, n.y):
+							continue
+						var mid := Vector2(tx, tz) + Vector2(0.5, 0.5) + Vector2(dir) * 0.5
+						if Coast.rail_open(r, Vector2i(tx, tz), dir) and mid.distance_to(t) <= 2.5:
+							opened = true
+		assert_true(opened, "%s at %s has an open rail to tie up at" % [str(b["kind"]), str(t)])
+	var head: Rect2i = Coast.PIERS[1]
+	assert_true(Coast.rail_open(head, head.position, Vector2i(0, -1)), "the T-head's north end is open")
+	assert_false(Coast.rail_open(head, Vector2i(head.end.x - 1, head.position.y + 1), Vector2i(1, 0)) and
+		Coast.rail_open(head, Vector2i(head.end.x - 1, head.end.y - 2), Vector2i(1, 0)),
+		"the long sides stay railed away from the gangways")

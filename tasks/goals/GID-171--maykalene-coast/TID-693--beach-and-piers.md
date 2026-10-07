@@ -25,5 +25,10 @@ lamps through the street-lamp list (NightLights glow), a second jetty off the be
 - `test_coast`: beach is sand between sea and grass, beached boat on sand, jetty runs beach → deep
   water; pier lamps stand on piers and are street lamps.
 
+- Follow-up ("open the ends of the fences, so the boats can actually dock"): `Coast.rail_open` leaves
+  every pier's far ends (short sides) open plus a gangway beside each boat with a `berth` reach; boats
+  re-moored against the openings (cog alongside the T-head, rowboats at both T-head ends, two
+  gangways on the main pier, one at the jetty end). `test_boats_dock_at_open_rails`.
+
 ## Documentation Updates
 - `docs/agent/world-generation.md` (beach, railings, lamps, jetty).

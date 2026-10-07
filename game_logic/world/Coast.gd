@@ -48,13 +48,16 @@ const FAR: float = 16.0
 const PIERS: Array[Rect2i] = [Rect2i(43, 92, 7, 2), Rect2i(50, 88, 2, 10), Rect2i(80, 49, 2, 10)]
 ## Iron lamps on the piers (overworld tiles; lit at night like the town street lamps).
 const PIER_LAMPS: Array[Vector2i] = [Vector2i(46, 92), Vector2i(51, 88), Vector2i(51, 97), Vector2i(81, 57)]
-## Moored boats: kind, overworld tile, facing (+1 / -1 flips the sprite).
+## Moored boats: kind, overworld tile, facing (+1 / -1 flips the sprite), and `berth`
+## (tiles): a boat tied up beside a pier opens the railing within that reach of it.
 const BOATS: Array[Dictionary] = [
-	{"kind": "cog", "tile": Vector2(55.5, 86.0), "flip": 1},
-	{"kind": "rowboat", "tile": Vector2(47.5, 95.2), "flip": -1},
-	{"kind": "rowboat", "tile": Vector2(46.0, 89.8), "flip": 1},
-	{"kind": "cog", "tile": Vector2(64.0, 101.0), "flip": -1},
-	{"kind": "rowboat", "tile": Vector2(83.2, 56.5), "flip": 1},
+	{"kind": "cog", "tile": Vector2(53.9, 92.6), "flip": 1, "berth": 2.2},
+	{"kind": "rowboat", "tile": Vector2(51.0, 87.3), "flip": 1, "berth": 1.6},
+	{"kind": "rowboat", "tile": Vector2(50.6, 98.6), "flip": -1, "berth": 1.6},
+	{"kind": "rowboat", "tile": Vector2(45.5, 91.2), "flip": 1, "berth": 1.6},
+	{"kind": "rowboat", "tile": Vector2(46.5, 94.8), "flip": -1, "berth": 1.6},
+	{"kind": "cog", "tile": Vector2(64.0, 101.0), "flip": -1, "berth": 0.0},
+	{"kind": "rowboat", "tile": Vector2(81.0, 59.6), "flip": 1, "berth": 1.6},
 ]
 ## A rowboat pulled up on the north-east beach (overworld tile).
 const BEACHED_BOAT := Vector2(68.5, 51.5)
@@ -91,6 +94,19 @@ static func tile_depth(wtx: int, wtz: int) -> float:
 static func on_pier(wtx: int, wtz: int) -> bool:
 	for r: Rect2i in PIERS:
 		if r.has_point(Vector2i(wtx, wtz)):
+			return true
+	return false
+
+
+## True when the railing along `tile`'s `dir` edge of pier `r` is left open: the
+## pier's far ends (its short sides) and a gangway beside every berthed boat.
+static func rail_open(r: Rect2i, tile: Vector2i, dir: Vector2i) -> bool:
+	var along_x: bool = r.size.x >= r.size.y
+	if (along_x and dir.y == 0) or (not along_x and dir.x == 0):
+		return true
+	var mid := Vector2(tile) + Vector2(0.5, 0.5) + Vector2(dir) * 0.5
+	for b: Dictionary in BOATS:
+		if mid.distance_to(b["tile"] as Vector2) <= float(b["berth"]):
 			return true
 	return false
 
