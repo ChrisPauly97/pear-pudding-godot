@@ -17,6 +17,7 @@ const IsoConst = preload("res://autoloads/IsoConst.gd")  # usable before autoloa
 const _WorldMap = preload("res://game_logic/world/WorldMap.gd")
 const _RiddleSpots = preload("res://game_logic/world/RiddleSpots.gd")
 const _StarterZone = preload("res://game_logic/world/StarterZone.gd")
+const _TownDecor = preload("res://game_logic/world/TownDecor.gd")
 const _TownBuildings = preload("res://game_logic/world/TownBuildings.gd")
 const _TownStreets = preload("res://game_logic/world/TownStreets.gd")
 
@@ -346,7 +347,8 @@ static func street_plan(town: String) -> Dictionary:
 				var local: Vector2i = to_local_tile(town, Vector2i(roundi(end.x), roundi(end.y)))
 				if crop.grow(2).has_point(local):
 					gates.append(local.clamp(crop.position, crop.end - Vector2i.ONE))
-		plan = _TownStreets.plan(wm, crop, hub_of(town), gates, building_plan(town)["buildings"])
+		plan = _TownStreets.plan(wm, crop, hub_of(town), gates, building_plan(town)["buildings"],
+			_TownDecor.blocked_local(town))
 	_streets[town] = plan
 	return plan
 

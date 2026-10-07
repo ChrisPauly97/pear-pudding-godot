@@ -209,8 +209,8 @@ flag_key = ""
 [sub_resource type="Resource" id="MapPuzzleShrine_1"]
 script = ExtResource("5_mapshrine")
 entity_id = "shrine_madrian_1"
-tile_x = 30
-tile_z = 27
+tile_x = 27
+tile_z = 31
 puzzle_id = "puzzle_surge_lethal"
 
 

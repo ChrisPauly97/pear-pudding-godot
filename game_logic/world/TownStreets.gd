@@ -29,10 +29,11 @@ const _DIRS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1),
 
 ## Plans the streets of `wm` inside `crop` (local tiles). `gates` are local tiles
 ## where roads enter, `hub` the tile every gate leads to, `buildings` the
-## TownBuildings plan's list. Returns {"tiles": {Vector2i local → true},
+## TownBuildings plan's list; `blocked` local tiles (TownDecor set pieces) are
+## never paved or routed through. Returns {"tiles": {Vector2i local → true},
 ## "lamps": Array[Vector2i] local}.
 static func plan(wm: _WorldMap, crop: Rect2i, hub: Vector2i, gates: Array[Vector2i],
-		buildings: Array) -> Dictionary:
+		buildings: Array, blocked: Dictionary = {}) -> Dictionary:
 	var interior: Dictionary = {}
 	var anchors: Array[Vector2i] = []
 	for b: Dictionary in buildings:
@@ -50,7 +51,8 @@ static func plan(wm: _WorldMap, crop: Rect2i, hub: Vector2i, gates: Array[Vector
 		if not interior.has(t):
 			anchors.append(t)
 	var open := func(t: Vector2i) -> bool:
-		return crop.has_point(t) and not interior.has(t) and _is_ground(wm.get_tile(t.x, t.y))
+		return (crop.has_point(t) and not interior.has(t) and not blocked.has(t)
+			and _is_ground(wm.get_tile(t.x, t.y)))
 	var tiles: Dictionary = {}
 	var routes: Array[Dictionary] = []
 	var start: Vector2i = _nearest_open(hub, open)

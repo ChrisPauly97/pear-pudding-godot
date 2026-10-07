@@ -236,12 +236,20 @@ Current layout (world = local + offset): madrian (−37,−33) — its spawn (lo
 the town square) lands on world tile (−7,−3); maykalene (−37,66) south of it;
 blancogov (43,222) south-east; larik (−167,232) west; marsax_hold (−167,100) north of Larik.
 **Madrian layout (GID-165):** a compact village in crop (6,6)–(54,57): small houses
-(5×5–9×7) around a paved square (local 25..35 × 24..32) with the shrine, bounty board
-and Maiteln; every NPC stands at their own building (inn, smithy, merchant, chandler,
+(5×5–9×7) around a paved square (local 25..35 × 24..32) with an animated stone
+**fountain** at its centre (local 30,28), the shrine, bounty board and Maiteln; every NPC stands at their own building (inn, smithy, merchant, chandler,
 bakery, herbalist, chapel, stable) or yard (trainer, rift warden + Spire door, Old Tam
 by the south road). Graveyard + sealed crypt in the south-west are unchanged. The
 south road leaves at local (50,57). No free-standing fence lines — keep walls to
 building rings so NPCs never line up along a stray wall.
+
+**Town set pieces (GID-167):** `game_logic/world/TownDecor.gd` `PIECES` (town → key,
+local centre tile, blocked radius, world height). Each piece blocks a square of local
+tiles: `TownStreets.plan(..., blocked)` never paves or routes through it (so TownLife
+walkers go round), `TapToMove.tile_at()` reports it as a wall for A*, and
+`StarterCamps._build_town_decor()` draws an `AnimatedSprite3D` (frames in
+`_DECOR_FRAMES`, art from `tools/generate_fountain.py`) on a `StaticBody3D` cylinder on
+the wall layer (4). Keep entities and the spawn off blocked tiles (`test_town_decor`).
 
 `test_realm_layout` checks towns don't overlap (incl. blend margin), roads end at towns,
 sites sit on roads between towns, and doors/ids are stitched correctly.

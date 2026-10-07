@@ -10,6 +10,8 @@ extends Node
 const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const Pathfinder = preload("res://game_logic/Pathfinder.gd")
 const _VirtualJoystick = preload("res://scenes/ui/VirtualJoystick.gd")
+const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
+const _TownDecor = preload("res://game_logic/world/TownDecor.gd")
 
 const DRAG_THRESHOLD: float = 30.0   # screen pixels; beyond this is a drag, not a tap
 const MAX_PATH_NODES: int = 64
@@ -30,6 +32,9 @@ var _pending_interact: bool = false
 var _tap_start_screen: Vector2 = Vector2.ZERO
 var _tap_touch_index: int = _NO_TOUCH
 var _drag_last_tile: Vector2i = _NO_TILE    # throttles drag-steer re-pathing
+## Overworld tiles under town set pieces (TownDecor fountain…), built on first tap.
+var _decor_blocked: Dictionary = {}
+var _decor_built: bool = false
 
 ## Handles a pointer event. Returns true when it consumed the event.
 func handle_input(event: InputEvent) -> bool:
@@ -109,12 +114,12 @@ func handle_tap(screen_pos: Vector2) -> void:
 		_world.coop_social._handle_ping_tap(screen_pos)
 		return
 	var tile: Vector2i = screen_to_tile(screen_pos)
-	if not _WALKABLE.has(_world.get_tile_global(tile.x, tile.y)):
+	if not _WALKABLE.has(tile_at(tile.x, tile.y)):
 		_reject(tile, "Can't go there")
 		return
 	var player_tile: Vector2i = IsoConst.world_to_tile(player.position.x, player.position.z)
 	var path: Array[Vector2i] = Pathfinder.find_path(
-		Callable(_world, "get_tile_global"), player_tile, tile, MAX_PATH_NODES)
+		tile_at, player_tile, tile, MAX_PATH_NODES)
 	if path.is_empty():
 		_reject(tile, "Can't reach that tile")
 		return
@@ -228,3 +233,16 @@ static func _make_marker(node_name: String, tint: Color) -> Node3D:
 	mesh_inst.material_override = mat
 	root.add_child(mesh_inst)
 	return root
+
+
+## The world tile for pathing: a wall under a town set piece (GID-167), else the terrain's.
+func tile_at(tx: int, tz: int) -> int:
+	if not _decor_built:
+		_decor_built = true
+		if _world._is_infinite:
+			for town: String in _RealmLayout.town_names():
+				for t: Variant in _TownDecor.blocked_local(town):
+					_decor_blocked[_RealmLayout.to_world_tile(town, t as Vector2i)] = true
+	if _decor_blocked.has(Vector2i(tx, tz)):
+		return IsoConst.TILE_WALL
+	return _world.get_tile_global(tx, tz)

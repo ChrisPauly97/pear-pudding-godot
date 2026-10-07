@@ -13,6 +13,17 @@ const _LooseEnemySpawner = preload("res://scenes/world/LooseEnemySpawner.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const _CampDressing = preload("res://game_logic/world/CampDressing.gd")
+const _TownDecor = preload("res://game_logic/world/TownDecor.gd")
+## TownDecor set-piece animations (GID-167, tools/generate_fountain.py).
+const _DECOR_FRAMES: Dictionary = {
+	"fountain": [preload("res://assets/textures/props/fountain_0.png"),
+		preload("res://assets/textures/props/fountain_1.png"),
+		preload("res://assets/textures/props/fountain_2.png"),
+		preload("res://assets/textures/props/fountain_3.png")],
+}
+const _DECOR_FPS: float = 6.0
+## Wall collision layer (ChunkRenderer wall bodies), so Ghost Phase passes through it too.
+const _WALL_LAYER: int = 4
 
 ## How often camps are checked (s).
 const CHECK_INTERVAL: float = 1.5
@@ -130,6 +141,7 @@ func _build_scenery() -> void:
 		holder.add_child(sprite)
 		_scenery.add_child(holder)
 	_build_camp_dressing()
+	_build_town_decor()
 
 ## Each camp's themed props (CampDressing): orchard trees, granary, barrow, cart...
 func _build_camp_dressing() -> void:
@@ -147,6 +159,44 @@ func _build_camp_dressing() -> void:
 		sprite.position.z = z
 		sprite.position.y += _world.get_terrain_height(x, z)
 		_scenery.add_child(sprite)
+
+## Town set pieces (TownDecor): an animated billboard on a solid cylinder.
+func _build_town_decor() -> void:
+	for town: String in _RealmLayout.town_names():
+		for piece: Dictionary in _TownDecor.pieces(town):
+			var frames_list: Array = _DECOR_FRAMES.get(str(piece["key"]), [])
+			if frames_list.is_empty():
+				continue
+			var t: Vector2i = _RealmLayout.to_world_tile(town, piece["tile"] as Vector2i)
+			var x: float = IsoConst.tile_center(t.x)
+			var z: float = IsoConst.tile_center(t.y)
+			var frames := SpriteFrames.new()
+			frames.set_animation_speed(&"default", _DECOR_FPS)
+			for tex: Texture2D in frames_list:
+				frames.add_frame(&"default", tex)
+			var sprite := AnimatedSprite3D.new()
+			_SpriteRegistry.apply_billboard_flags(sprite)
+			sprite.sprite_frames = frames
+			var first: Texture2D = frames_list[0]
+			var h: float = float(piece["height"])
+			sprite.pixel_size = h / float(first.get_height())
+			sprite.position.y = h * 0.5 + 0.02
+			var half: float = (float(piece["radius"]) + 0.5) * IsoConst.TILE_SIZE
+			var body := StaticBody3D.new()
+			body.name = "Decor_%s_%s" % [town, str(piece["key"])]
+			body.collision_layer = _WALL_LAYER
+			body.collision_mask = 0
+			var shape := CollisionShape3D.new()
+			var cyl := CylinderShape3D.new()
+			cyl.radius = half * 0.9
+			cyl.height = 2.0
+			shape.shape = cyl
+			shape.position.y = 1.0
+			body.add_child(shape)
+			body.add_child(sprite)
+			body.position = Vector3(x, _world.get_terrain_height(x, z), z)
+			_scenery.add_child(body)
+			sprite.play(&"default")
 
 ## Camp members alive right now (tests / debugging).
 func alive_count() -> int:
