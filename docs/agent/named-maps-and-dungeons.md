@@ -232,9 +232,37 @@ are still door-entered named maps.
 | `door_into(map)`, `return_pos_for(map)` | The stitched door into an interior; where you stand after leaving it |
 | `pos_token(x, z)` / `parse_pos_token()` | `pos:x:z` tokens stored in `SceneManager.door_stack` |
 
-Current layout (world = local + offset): madrian (−37,−33) — its spawn lands on
-world tile (3,3), the old overworld default; maykalene (−37,66) south of it;
+Current layout (world = local + offset): madrian (−37,−33) — its spawn (local 30,30,
+the town square) lands on world tile (−7,−3); maykalene (−37,66) south of it;
 blancogov (43,222) south-east; larik (−167,232) west; marsax_hold (−167,100) north of Larik.
+**Madrian layout (GID-165):** a compact village in crop (6,6)–(54,57): small houses
+(5×5–9×7) around a paved square (local 25..35 × 24..32) with an animated stone
+**fountain** at its centre (local 30,28), the shrine, bounty board and Maiteln; shopkeepers stand
+**inside** their own building (inn, smithy, merchant, chandler, bakery, herbalist, chapel,
+stable — GID-169) or yard (trainer, rift warden + Spire door, Old Tam
+by the south road). Graveyard + sealed crypt in the south-west are unchanged. The
+south road leaves at local (50,57). Indoor NPCs keep at least one tile off a building's
+north and west walls (the back walls from the iso camera): a billboard beside them leans
+into the wall and is clipped. No free-standing fence lines — keep walls to
+building rings so NPCs never line up along a stray wall.
+
+**Town set pieces (GID-167):** `game_logic/world/TownDecor.gd` `PIECES` (town → key,
+local centre tile, blocked radius, world height). Each piece blocks a square of local
+tiles: `TownStreets.plan(..., blocked)` never paves or routes through it (so TownLife
+walkers go round), `TapToMove.tile_at()` reports it as a wall for A*, and
+`StarterCamps._build_town_decor()` draws an `AnimatedSprite3D` (frames in
+`_DECOR_FRAMES`, art from `tools/generate_fountain.py`) on a `StaticBody3D` cylinder on
+the wall layer (4). Keep entities and the spawn off blocked tiles (`test_town_decor`).
+
+**Building signs (GID-168):** `game_logic/world/TownSigns.gd` `signs(town)` puts one sign
+per TownBuildings house with a door: one tile out from its first doorway and one to the
+side (then two out), on grass/path clear of streets, set pieces, walls and entities. Name =
+`NAMES[town][door gap tile]` (Madrian fully authored: inn, smithy, bakery…), else
+`ROLE_NAMES` from an NPC with that `npc_type` in or by the building, else "House". The
+`BuildingSigns` world module draws `town_sign.png` (`tools/generate_town_sign.py`) and
+fades a Label3D name in while the player is within `POPUP_RANGE` (6 units) — no input, so
+touch and desktop behave alike. A new house needs a `NAMES` row or it reads "House".
+
 `test_realm_layout` checks towns don't overlap (incl. blend margin), roads end at towns,
 sites sit on roads between towns, and doors/ids are stitched correctly.
 

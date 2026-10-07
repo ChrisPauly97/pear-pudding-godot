@@ -398,13 +398,14 @@ created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
 | `FakeVolumetrics.gd` (`fake_volumetrics`) | Mobile-safe volumetric stand-ins: dawn/dusk fake light shafts, depth-fog post pass (GID-130) |
 | `RealmRegions.gd` (`realm_regions`) | Which stitched story town the player walks through (`current_town`): HUD name, music, entry flags, rivals, siege on town entry; `siege_gate(town)` (GID-138) |
 | `QuestTracker.gd` (`quest_tracker`) | Cached quest list + tracked quest (QuestLog) for compass/minimap/realm map, objective beacon, NPC "!" / "?" marks, "New objective" tip, overworld realm map on M (GID-140) |
-| `StarterCamps.gd` (`starter_camps`) | Madrian starter-zone camps (`StarterZone`): levelled camp enemies refilled 45 s after they fall, never saved as defeated (GID-141) |
+| `StarterCamps.gd` (`starter_camps`) | Madrian starter-zone camps (`StarterZone`): levelled camp enemies refilled 45 s after they fall, never saved as defeated (GID-141); themed camp set dressing (orchard apple trees, barrow, wreck…) from `CampDressing`, camps are cleared glades (GID-166); town set pieces like Madrian's fountain (`TownDecor`, GID-167) |
 | `RiftPortals.gd` (`rift_portals`) | Rift door panel: rift, best tier, tier picker, enter/resume (GID-142); portals come from `InfiniteWorldGen` |
 | `HeroHealth.gd` (`hero_health`) | Persistent hero HP out of combat (`HeroVitality`): regen, food meals, Q / "Eat" quick use, town + bed full heal, HUD HP bar (TID-543) |
 | `Critters.gd` (`critters`) | Ambient wildlife around the hero by biome (town species in stitched towns, GID-156) (`CritterDef`, `entities/Critter.gd`): wander, flee, hover/hop; scenery only, not synced (GID-147) |
 | `WorldClock.gd` (`world_clock`) | Builds `_dnc` (DayNightCycle) + `_sun_rays`, wires day / night / dawn / storm reactions, per-frame clock tick (BID-055) |
 | `WorldShortcuts.gd` (`shortcuts`) | Keyboard shortcuts forwarded from `_unhandled_input`: pause, map view, menu actions, G/D cantrips, chat focus, then tap-to-move (BID-055) |
 | `TownLife.gd` (`town_life`) | Walking townsfolk on `TownLife` street loops, role hours (indoors at night, lantern guard), talk hold, interaction x/z sync, hide-flag NPC despawn (GID-156) |
+| `BuildingSigns.gd` (`building_signs`) | Signpost beside every building door in the stitched towns (`TownSigns`: authored `NAMES`, else NPC role, else "House"); the name pops up (Label3D fade) within 6 units (GID-168) |
 | `Legend.gd` (`legend`) | Pear Pudding legend riddle spots (`RiddleSpots`): unmarked overworld props, look / Dig resolution, `try_dig` from Cantrips (GID-153) |
 
 BattleScene's single-player clusters live under `scenes/battle/modules/`, created by

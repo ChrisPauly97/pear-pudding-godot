@@ -47,7 +47,7 @@ const QUESTS: Array[Dictionary] = [
 	{"id": "rats_in_grain", "title": "Rats in the Grain Store", "giver": "hilda_baker",
 		"giver_name": "Hilda the Baker",
 		"summary": ("Something's been at my grain store — and it's no rat, dearie, it's the restless dead, "
-			+ "shambling about the field past the south fence. Put three of them down for me. Just walk up and "
+			+ "shambling about the field just east of the village. Put three of them down for me. Just walk up and "
 			+ "tap them; your weapon swings on its own and Strike hits harder."),
 		"done_text": ("That's the lot of them! Here's your coin. You're quick on your feet — the Combat Trainer "
 			+ "by the stables could teach you to patch yourself up. Mend, he calls it."),

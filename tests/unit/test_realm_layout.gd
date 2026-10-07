@@ -43,7 +43,7 @@ func test_roads_start_and_end_at_towns() -> void:
 
 func test_stamp_tile_inside_town_uses_town_tile() -> void:
 	var wm = RealmLayout.town_map("madrian")
-	var local := Vector2i(5, 5)  # Master's house wall corner in madrian
+	var local := Vector2i(9, 9)  # Master's house wall corner in madrian
 	var w: Vector2i = RealmLayout.to_world_tile("madrian", local)
 	var st: Vector2i = RealmLayout.stamp_tile(w.x, w.y, IsoConst.TILE_HILL, 5)
 	assert_eq(st.x, wm.get_tile(local.x, local.y), "town tile wins over noise")
@@ -112,7 +112,7 @@ func test_entities_keep_ids_and_drop_overworld_doors() -> void:
 func test_maiteln_world_position() -> void:
 	for n: Dictionary in RealmLayout.entities("npcs"):
 		if str(n.get("id", "")) == "madrian:npc_1":
-			var expect: Vector2i = RealmLayout.to_world_tile("madrian", Vector2i(45, 36))
+			var expect: Vector2i = RealmLayout.to_world_tile("madrian", Vector2i(32, 29))
 			assert_eq(int(float(n["x"]) / IsoConst.TILE_SIZE), expect.x, "x shifted")
 			assert_eq(int(float(n["z"]) / IsoConst.TILE_SIZE), expect.y, "z shifted")
 			return
@@ -131,7 +131,7 @@ func _chunk_of_tile(t: Vector2i) -> Vector2i:
 	return Vector2i(int(floor(float(t.x) / IsoConst.CHUNK_SIZE)), int(floor(float(t.y) / IsoConst.CHUNK_SIZE)))
 
 func test_generated_chunk_carries_town_tiles_and_maiteln() -> void:
-	var wt: Vector2i = RealmLayout.to_world_tile("madrian", Vector2i(45, 36))
+	var wt: Vector2i = RealmLayout.to_world_tile("madrian", Vector2i(32, 29))
 	var ck: Vector2i = _chunk_of_tile(wt)
 	var chunk = InfiniteWorldGen.generate_chunk(ck.x, ck.y, 1234)
 	var found: bool = false
@@ -140,7 +140,7 @@ func test_generated_chunk_carries_town_tiles_and_maiteln() -> void:
 			found = true
 	assert_true(found, "Maiteln spawns in the overworld chunk over Madrian")
 	var wm = RealmLayout.town_map("madrian")
-	var wall := Vector2i(33, 22)  # madrian inn wall
+	var wall := Vector2i(21, 9)  # madrian inn wall
 	var ww: Vector2i = RealmLayout.to_world_tile("madrian", wall)
 	var wk: Vector2i = _chunk_of_tile(ww)
 	var c2 = InfiniteWorldGen.generate_chunk(wk.x, wk.y, 1234)

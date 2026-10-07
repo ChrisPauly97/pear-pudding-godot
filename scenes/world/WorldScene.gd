@@ -60,6 +60,7 @@ const _NamedMapProps = preload("res://scenes/world/modules/NamedMapProps.gd")
 const _RealmRegions = preload("res://scenes/world/modules/RealmRegions.gd")
 const _QuestTracker = preload("res://scenes/world/modules/QuestTracker.gd")
 const _StarterCamps = preload("res://scenes/world/modules/StarterCamps.gd")
+const _BuildingSigns = preload("res://scenes/world/modules/BuildingSigns.gd")
 const _Legend = preload("res://scenes/world/modules/Legend.gd")
 const _RiftPortals = preload("res://scenes/world/modules/RiftPortals.gd")
 const _WorldLook = preload("res://scenes/world/WorldLook.gd")
@@ -192,6 +193,7 @@ var named_props: _NamedMapProps = null   # modules/NamedMapProps.gd
 var realm_regions: _RealmRegions = null   # modules/RealmRegions.gd (GID-138)
 var quest_tracker: _QuestTracker = null   # modules/QuestTracker.gd (GID-140)
 var starter_camps: _StarterCamps = null   # modules/StarterCamps.gd (GID-141)
+var building_signs: _BuildingSigns = null   # modules/BuildingSigns.gd (GID-168)
 var legend: _Legend = null   # modules/Legend.gd (GID-153)
 var rift_portals: _RiftPortals = null   # modules/RiftPortals.gd (GID-142)
 var critters: _Critters = null   # modules/Critters.gd (GID-147)
@@ -771,6 +773,7 @@ func _ensure_world_modules() -> void:
 	realm_regions = _ensure_world_module(realm_regions, _RealmRegions, "RealmRegions") as _RealmRegions
 	quest_tracker = _ensure_world_module(quest_tracker, _QuestTracker, "QuestTracker") as _QuestTracker
 	starter_camps = _ensure_world_module(starter_camps, _StarterCamps, "StarterCamps") as _StarterCamps
+	building_signs = _ensure_world_module(building_signs, _BuildingSigns, "BuildingSigns") as _BuildingSigns
 	legend = _ensure_world_module(legend, _Legend, "Legend") as _Legend
 	rift_portals = _ensure_world_module(rift_portals, _RiftPortals, "RiftPortals") as _RiftPortals
 	critters = _ensure_world_module(critters, _Critters, "Critters") as _Critters
@@ -1346,6 +1349,7 @@ func _process(delta: float) -> void:
 		_tick_card_shower()
 		nocturnal.tick(delta)
 		starter_camps.tick(delta)
+		building_signs.tick(delta)
 		legend.tick(delta)
 		realm_regions.tick()
 		_csm.process_streaming(_player.position, _player.velocity, _camera.get_frustum())

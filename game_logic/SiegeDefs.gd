@@ -6,7 +6,7 @@ const SIEGE_SPAWN_CHANCE: int = 8   # ~8% daily probability once gating conditio
 # World-space gate positions per named town (tile coords × TILE_SIZE = 2.0).
 # Raiders spawn clustered around these positions.
 const TOWN_GATES: Dictionary = {
-	"madrian":     Vector3(10.0, 0.0, 16.0),   # tile (5, 8)
+	"madrian":     Vector3(100.0, 0.0, 112.0), # tile (50, 56): the south road
 	"maykalene":   Vector3(24.0, 0.0, 12.0),   # tile (12, 6)
 	"blancogov":   Vector3(16.0, 0.0, 8.0),    # tile (8, 4)
 	# GID-108 / TID-407 — Chapter 2 story siege: the west-wall breach the hold
