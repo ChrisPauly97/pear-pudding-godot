@@ -237,10 +237,13 @@ the town square) lands on world tile (−7,−3); maykalene (−37,66) south of 
 blancogov (43,222) south-east; larik (−167,232) west; marsax_hold (−167,100) north of Larik.
 **Madrian layout (GID-165):** a compact village in crop (6,6)–(54,57): small houses
 (5×5–9×7) around a paved square (local 25..35 × 24..32) with an animated stone
-**fountain** at its centre (local 30,28), the shrine, bounty board and Maiteln; every NPC stands at their own building (inn, smithy, merchant, chandler,
-bakery, herbalist, chapel, stable) or yard (trainer, rift warden + Spire door, Old Tam
+**fountain** at its centre (local 30,28), the shrine, bounty board and Maiteln; shopkeepers stand
+**inside** their own building (inn, smithy, merchant, chandler, bakery, herbalist, chapel,
+stable — GID-169) or yard (trainer, rift warden + Spire door, Old Tam
 by the south road). Graveyard + sealed crypt in the south-west are unchanged. The
-south road leaves at local (50,57). No free-standing fence lines — keep walls to
+south road leaves at local (50,57). Indoor NPCs keep at least one tile off a building's
+north and west walls (the back walls from the iso camera): a billboard beside them leans
+into the wall and is clipped. No free-standing fence lines — keep walls to
 building rings so NPCs never line up along a stray wall.
 
 **Town set pieces (GID-167):** `game_logic/world/TownDecor.gd` `PIECES` (town → key,

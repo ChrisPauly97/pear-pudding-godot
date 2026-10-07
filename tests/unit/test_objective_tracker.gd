@@ -20,7 +20,7 @@ func test_no_flags_returns_help_the_townsfolk() -> void:
 	# GID-141: a new game opens with the townsfolk quests, starting at Hilda.
 	var first: Dictionary = ObjectiveTracker.current_objective({})
 	assert_eq(first.get("label", ""), "Help the townsfolk of Madrian")
-	assert_eq(int(first.get("tx", -99)), 43, "Hilda tx")
+	assert_eq(int(first.get("tx", -99)), 46, "Hilda tx")
 	assert_eq(int(first.get("tz", -99)), 30, "Hilda tz")
 
 

@@ -31,7 +31,7 @@ const STEPS: Array[Dictionary] = [
 	{"id": "help_townsfolk", "chapter": 1, "label": "Help the townsfolk of Madrian", "giver": "Hilda the Baker",
 		"summary": ("Madrian's folk have troubles of their own — the dead walk the fields past the village. Start "
 			+ "with Hilda the Baker; she always knows who needs a hand."),
-		"done_flag": "town_quests_done", "map": "madrian", "tx": 43, "tz": 30},
+		"done_flag": "town_quests_done", "map": "madrian", "tx": 46, "tz": 30},
 	{"id": "speak_maiteln", "chapter": 1, "label": "Speak to Maiteln", "giver": "Maiteln",
 		"summary": "The old wizard Maiteln has come looking for you in Madrian. He has news that cannot wait.",
 		"done_flag": "story_intro_complete", "map": "madrian", "tx": 32, "tz": 29},

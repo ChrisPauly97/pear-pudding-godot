@@ -106,7 +106,7 @@ dialogue_group = "All of you! Get back to your chores this instant or you will a
 [sub_resource type="Resource" id="MapNpc_3"]
 script = ExtResource("3_mapnpc")
 entity_id = "npc_3"
-tile_x = 10
+tile_x = 11
 tile_z = 11
 dialogue = "You dare enter my house? Get out before I call the guards!"
 npc_type = ""
@@ -157,8 +157,8 @@ after_dialogue = ""
 [sub_resource type="Resource" id="MapNpc_8"]
 script = ExtResource("3_mapnpc")
 entity_id = "merchant_8"
-tile_x = 36
-tile_z = 15
+tile_x = 37
+tile_z = 12
 dialogue = "Welcome, traveller! Browse my wares."
 npc_type = "merchant"
 flag_key = ""
@@ -181,7 +181,7 @@ dialogue_group = "I have bested many a traveller in a duel. Which of you dares f
 [sub_resource type="Resource" id="MapNpc_10"]
 script = ExtResource("3_mapnpc")
 entity_id = "stable_master"
-tile_x = 35
+tile_x = 39
 tile_z = 39
 dialogue = "Welcome to Madrian Stables! I have a fine horse for sale. Costs 750 coins and requires some experience — level 10 minimum."
 npc_type = "stable"
@@ -201,7 +201,7 @@ after_dialogue = ""
 [sub_resource type="Resource" id="MapScroll_1"]
 script = ExtResource("4_mapscroll")
 entity_id = "scroll_15"
-tile_x = 10
+tile_x = 11
 tile_z = 13
 scroll_id = "scroll_larik_origins"
 flag_key = ""
@@ -218,7 +218,7 @@ puzzle_id = "puzzle_surge_lethal"
 script = ExtResource("3_mapnpc")
 entity_id = "blacksmith_madrian"
 tile_x = 46
-tile_z = 15
+tile_z = 12
 dialogue = "I can upgrade your weapons and salvage those you no longer need. Bring me coins and essence."
 npc_type = "blacksmith"
 flag_key = ""
@@ -247,7 +247,7 @@ after_dialogue = ""
 [sub_resource type="Resource" id="MapNpc_15"]
 script = ExtResource("3_mapnpc")
 entity_id = "hilda_baker"
-tile_x = 43
+tile_x = 46
 tile_z = 30
 dialogue = "Fresh bread, still warm! Mind the flour on the step, dearie."
 npc_type = ""
@@ -284,7 +284,7 @@ card_ids = PackedStringArray("shrouded_wraith", "dusk_seer")
 [sub_resource type="Resource" id="MapNpc_18"]
 script = ExtResource("3_mapnpc")
 entity_id = "wenna_herbalist"
-tile_x = 17
+tile_x = 14
 tile_z = 23
 dialogue = "Nettle, yarrow, a pinch of feverfew… oh! Mind the drying racks, love."
 npc_type = ""
@@ -294,7 +294,7 @@ after_dialogue = ""
 [sub_resource type="Resource" id="MapNpc_19"]
 script = ExtResource("3_mapnpc")
 entity_id = "brother_aldo"
-tile_x = 18
+tile_x = 13
 tile_z = 31
 dialogue = "Peace be on this house. Though of late the dead keep poor manners."
 npc_type = ""
@@ -314,7 +314,7 @@ after_dialogue = ""
 [sub_resource type="Resource" id="MapNpc_21"]
 script = ExtResource("3_mapnpc")
 entity_id = "ivy_chandler"
-tile_x = 43
+tile_x = 46
 tile_z = 22
 dialogue = "Candles, wicks and tallow! Light's dear these nights, with what walks the dark."
 npc_type = ""
@@ -334,9 +334,9 @@ after_dialogue = ""
 [sub_resource type="Resource" id="MapNpc_23"]
 script = ExtResource("3_mapnpc")
 entity_id = "old_garrick"
-tile_x = 24
-tile_z = 16
-dialogue = "Forty years I stood a post for the old lords. Now I stand at the inn door. Better ale."
+tile_x = 27
+tile_z = 14
+dialogue = "Forty years I stood a post for the old lords. Now I keep a stool by the inn fire. Better ale."
 npc_type = ""
 flag_key = ""
 after_dialogue = ""

@@ -172,6 +172,7 @@
 | [GID-166](goals/GID-166--quest-site-dressing/goal.md) | Quest Site Dressing — Camps Look Like Their Names | done | 1 / 1 |
 | [GID-167](goals/GID-167--madrian-fountain/goal.md) | Madrian Fountain | done | 1 / 1 |
 | [GID-168](goals/GID-168--building-signs/goal.md) | Building Signs | done | 1 / 1 |
+| [GID-169](goals/GID-169--npcs-indoors/goal.md) | Madrian Shopkeepers Indoors | done | 1 / 1 |
 
 ## Backlog
 
