@@ -12,16 +12,38 @@ const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _LooseEnemySpawner = preload("res://scenes/world/LooseEnemySpawner.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
+const _WorldEntityBase = preload("res://scenes/world/entities/WorldEntityBase.gd")
 const _CampDressing = preload("res://game_logic/world/CampDressing.gd")
 const _TownDecor = preload("res://game_logic/world/TownDecor.gd")
-## TownDecor set-piece animations (GID-167, tools/generate_fountain.py).
+## TownDecor set-piece animations (GID-167 / GID-170, tools/generate_fountain.py + generate_town_pieces.py).
 const _DECOR_FRAMES: Dictionary = {
 	"fountain": [preload("res://assets/textures/props/fountain_0.png"),
 		preload("res://assets/textures/props/fountain_1.png"),
 		preload("res://assets/textures/props/fountain_2.png"),
 		preload("res://assets/textures/props/fountain_3.png")],
+	# GID-170, tools/generate_town_pieces.py
+	"well": [preload("res://assets/textures/props/well_0.png"),
+		preload("res://assets/textures/props/well_1.png"),
+		preload("res://assets/textures/props/well_2.png"),
+		preload("res://assets/textures/props/well_3.png")],
+	"brazier": [preload("res://assets/textures/props/brazier_0.png"),
+		preload("res://assets/textures/props/brazier_1.png"),
+		preload("res://assets/textures/props/brazier_2.png"),
+		preload("res://assets/textures/props/brazier_3.png")],
+	"grand_fountain": [preload("res://assets/textures/props/grand_fountain_0.png"),
+		preload("res://assets/textures/props/grand_fountain_1.png"),
+		preload("res://assets/textures/props/grand_fountain_2.png"),
+		preload("res://assets/textures/props/grand_fountain_3.png")],
+	"statue": [preload("res://assets/textures/props/statue_0.png"),
+		preload("res://assets/textures/props/statue_1.png"),
+		preload("res://assets/textures/props/statue_2.png"),
+		preload("res://assets/textures/props/statue_3.png")],
 }
 const _DECOR_FPS: float = 6.0
+const _POOL_STEP := Color(0.67, 0.65, 0.63)
+const _POOL_MARBLE := Color(0.89, 0.87, 0.82)
+const _POOL_GOLD := Color(0.94, 0.77, 0.28)
+const _POOL_WATER := Color(0.28, 0.55, 0.81)
 ## Wall collision layer (ChunkRenderer wall bodies), so Ghost Phase passes through it too.
 const _WALL_LAYER: int = 4
 
@@ -194,9 +216,30 @@ func _build_town_decor() -> void:
 			shape.position.y = 1.0
 			body.add_child(shape)
 			body.add_child(sprite)
+			if bool(piece.get("pool", false)):
+				_add_pool(body, half)
 			body.position = Vector3(x, _world.get_terrain_height(x, z), z)
 			_scenery.add_child(body)
 			sprite.play(&"default")
+
+## A wide, low octagonal marble basin of water on the ground under a set piece
+## (GID-170): a step, the marble wall with a gold band, then the water, so a big
+## fountain sits in the square instead of standing on it.
+func _add_pool(body: StaticBody3D, half: float) -> void:
+	var layers: Array = [  # [radius share, height, colour]
+		[1.0, 0.14, _POOL_STEP], [0.9, 0.44, _POOL_GOLD], [0.88, 0.5, _POOL_MARBLE], [0.76, 0.52, _POOL_WATER]]
+	for layer: Array in layers:
+		var cyl := CylinderMesh.new()
+		cyl.top_radius = half * float(layer[0])
+		cyl.bottom_radius = cyl.top_radius
+		cyl.height = float(layer[1])
+		cyl.radial_segments = 8
+		cyl.rings = 1
+		var mi := MeshInstance3D.new()
+		mi.mesh = cyl
+		mi.material_override = _WorldEntityBase.unshaded_material(layer[2] as Color)
+		mi.position.y = float(layer[1]) * 0.5
+		body.add_child(mi)
 
 ## Camp members alive right now (tests / debugging).
 func alive_count() -> int:

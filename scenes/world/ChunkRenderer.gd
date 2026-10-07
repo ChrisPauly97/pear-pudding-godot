@@ -363,7 +363,7 @@ static func _compute_water_edge_props(
 					continue
 				var roll: float = float((hash_s >> 16) & 0x7FFF) / 32767.0
 				var key: String = _WaterMath.edge_prop(w, _WaterMath.flow_at(wx, wz, world_seed), roll)
-				if key == "":
+				if key == "" or not _WaterMath.edge_prop_ok(key, wx, wz):
 					continue
 				var arr: Array = result[key] as Array
 				if arr.size() >= MAX_PER_TYPE:

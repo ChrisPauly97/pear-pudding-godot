@@ -190,6 +190,36 @@ the worst frame on 4 cores but adds more >8 ms frames, so it stays at 4.
 
 ---
 
+### The eastern sea (`game_logic/world/Coast.gd`, GID-171)
+
+A bay of open water east of Maykalene, from the town's quay (world x 43) out to x ≈ 262, z 43..146.
+`Coast.SHORE` is the coastline polygon in world tiles; `depth(px, pz)` is signed tiles from it
+(> 0 at sea), with a sine wobble for a ragged natural coast everywhere but the straight quay.
+
+| Hook | Effect |
+|---|---|
+| `RealmLayout.reserved_distance` / `stamp_tile_in` | `Coast.reserved_distance` = `SEA_PAD` (0.5) at sea, 0 on the beach (a `BEACH_WIDTH` + wobble band of sand, stamped as path tiles), distance to the back of the beach beyond: the sea floor is level grass (never paved), hills fade over the 8-tile blend margin, and the usual realm rules keep trees, ruins, landmarks, scrolls and random spawns off it |
+| `RealmLayout.chunk_touches_realm` | Chunks in the sea's bounding box are realm chunks |
+| `InfiniteWorldGen.biome_for_chunk` | Chunks by the sea are grasslands (only water biomes draw water) |
+| `WaterMath.intensity` / `water_at` / `wet_at` | max(inland water, `sea_water`) — the sea is added after the realm and structure fades, so it reaches the quay; 0.3 at the shoreline (so the water meets the sand) rising 0.12 per tile (three shader bands). No stream flow at sea; `edge_prop_ok` keeps reeds and lily pads off the sea coast |
+| `Coastline` world module | Slides the hero back out of deep water (`is_deep`: ≥ `WADE_DEPTH` 1.5 tiles, not a pier) every physics frame, wading ashore after a teleport/load; draws the piers (railings on every water-facing edge except `Coast.rail_open`: open pier ends and a gangway beside each berthed boat), quay kerb, moored boats, quay cargo, beach clutter (shells, starfish, driftwood near town) and a beached rowboat. `PIER_LAMPS` ride `RealmLayout.street_lamps_world()`, so they are street lamps that glow at night |
+| `TapToMove.tile_at` | Deep sea is a wall for A* |
+| `NocturnalSpawner`, `TreasureGen` | No spectres at sea; dig sites walk round their ring to land |
+| `RealmMapOverlay` | Draws the sea polygon (clipped) |
+
+`Coast.BOUNDS` is a hand-written const (no lazily built shared state on worker threads);
+`test_coast` checks it matches `SHORE`. Past `FAR` (16) tiles from it, `depth()` returns the box distance.
+Piers: Maykalene's T-pier off the quay and a fishing jetty off the north-east beach (world 80,49).
+Boats come and go (`Coast.boat_at(b, t, day_seconds)`): each boat with a `route` makes `trips` whole
+trips a day (offset by `phase`): tied up for `DOCKED_SHARE` of the trip, sails the route out at
+`SAIL_SPEED` (1.6 tiles/s) to beyond the view, stays away (hidden), sails back. A pure function of the
+smooth synced clock (like TownLife), so co-op peers agree without RPCs and a day wrap never jumps;
+`Coastline` samples it per frame and flips the sprite to its screen heading. The harbour cog at anchor
+has no route. Every boat carries crew (`Coastline.CREW`): a townsperson sprite as a child of the hull — a rower
+amidships, a captain on the cog's aft castle — cropped (`region_rect`) to the part above the rail,
+because one billboard never hides another (an offset along the view axis did not occlude it). Rowers bob
+with each stroke while under way. A depth lookup costs ~5 µs near the sea and ~0.6 µs elsewhere.
+
 ## Living World Events
 
 ### WorldEventManager (`autoloads/WorldEventManager.gd`)

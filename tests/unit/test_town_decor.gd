@@ -10,11 +10,21 @@ func test_madrian_fountain_sits_in_the_square() -> void:
 	var list: Array = TownDecor.pieces("madrian")
 	assert_eq(list.size(), 1, "one fountain")
 	var p: Dictionary = list[0]
-	var wm: _WorldMap = RealmLayout.town_map("madrian")
-	for t: Variant in TownDecor.blocked_local("madrian"):
-		var lt: Vector2i = t
-		assert_eq(wm.get_tile(lt.x, lt.y), IsoConst.TILE_PATH, "fountain tile %s is paved square" % str(lt))
 	assert_eq(str(p["key"]), "fountain")
+
+
+## GID-170: every stitched town has a centrepiece on its paved square, near the hub.
+func test_every_town_square_has_a_set_piece() -> void:
+	for town: String in RealmLayout.town_names():
+		var list: Array = TownDecor.pieces(town)
+		assert_eq(list.size(), 1, "%s has one square centrepiece" % town)
+		var wm: _WorldMap = RealmLayout.town_map(town)
+		for t: Variant in TownDecor.blocked_local(town):
+			var lt: Vector2i = t
+			assert_eq(wm.get_tile(lt.x, lt.y), IsoConst.TILE_PATH, "%s piece tile %s is paved square" % [town, str(lt)])
+		var hub: Vector2i = RealmLayout.hub_of(town)
+		var c: Vector2i = (list[0] as Dictionary)["tile"]
+		assert_true(absi(hub.x - c.x) + absi(hub.y - c.y) <= 5, "%s piece sits by the hub" % town)
 
 
 func test_streets_and_entities_avoid_set_pieces() -> void:

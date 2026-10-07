@@ -94,7 +94,7 @@ func test_received_letter_returns_reach_blancogov() -> void:
 			"chapter1_learned_fire", "chapter1_warned_farsyth", "chapter1_received_letter"]))
 	assert_eq(obj.get("label", ""), "Reach Blancogov")
 	assert_eq(obj.get("map", ""), "blancogov")
-	assert_eq(int(obj.get("tx", -99)), 49)
+	assert_eq(int(obj.get("tx", -99)), 48)
 	assert_eq(int(obj.get("tz", -99)), 9)
 
 

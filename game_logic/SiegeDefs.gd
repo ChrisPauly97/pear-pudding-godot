@@ -7,11 +7,11 @@ const SIEGE_SPAWN_CHANCE: int = 8   # ~8% daily probability once gating conditio
 # Raiders spawn clustered around these positions.
 const TOWN_GATES: Dictionary = {
 	"madrian":     Vector3(100.0, 0.0, 112.0), # tile (50, 56): the south road
-	"maykalene":   Vector3(24.0, 0.0, 12.0),   # tile (12, 6)
-	"blancogov":   Vector3(16.0, 0.0, 8.0),    # tile (8, 4)
+	"maykalene":   Vector3(100.0, 0.0, 2.0),   # tile (50, 1): the north road
+	"blancogov":   Vector3(100.0, 0.0, 6.0),   # tile (50, 3): the golden gate
 	# GID-108 / TID-407 — Chapter 2 story siege: the west-wall breach the hold
 	# was already overrun through (see assets/maps/marsax_hold.tres).
-	"marsax_hold": Vector3(50.0, 0.0, 100.0),  # tile (25, 50)
+	"marsax_hold": Vector3(60.0, 0.0, 94.0),   # tile (30, 47)
 }
 
 # Gate positions that qualify as "named towns" for siege purposes.

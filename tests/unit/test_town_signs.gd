@@ -7,14 +7,16 @@ const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const _WorldMap = preload("res://game_logic/world/WorldMap.gd")
 
 
-func test_every_madrian_building_with_a_door_is_signed_by_name() -> void:
-	var names: Array[String] = []
-	for s: Dictionary in TownSigns.signs("madrian"):
-		names.append(str(s["name"]))
-	var authored: Dictionary = TownSigns.NAMES["madrian"]
-	for door: Variant in authored:
-		assert_true(names.has(str(authored[door])), "sign for %s" % str(authored[door]))
-	assert_false(names.has(TownSigns.DEFAULT_NAME), "no Madrian building falls back to the default name")
+func test_every_town_building_with_a_door_is_signed_by_name() -> void:
+	for town: String in RealmLayout.town_names():
+		var names: Array[String] = []
+		for s: Dictionary in TownSigns.signs(town):
+			names.append(str(s["name"]))
+		var authored: Dictionary = TownSigns.NAMES.get(town, {})
+		assert_false(authored.is_empty(), "%s has authored building names (GID-170)" % town)
+		for door: Variant in authored:
+			assert_true(names.has(str(authored[door])), "%s sign for %s" % [town, str(authored[door])])
+		assert_false(names.has(TownSigns.DEFAULT_NAME), "no %s building falls back to the default name" % town)
 
 
 func test_every_door_building_in_every_town_has_a_sign() -> void:

@@ -3,6 +3,7 @@ extends RefCounted
 const InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
 const IsoConst = preload("res://autoloads/IsoConst.gd")
 const ChunkData = preload("res://game_logic/world/ChunkData.gd")
+const _Coast = preload("res://game_logic/world/Coast.gd")
 
 # Ring distances in tiles from world origin where dig sites are placed.
 const DIG_SITE_MIN_RADIUS: int = 100
@@ -16,6 +17,13 @@ static func get_dig_site(world_seed: int, treasure_counter: int) -> Vector2i:
 	var radius: int = DIG_SITE_MIN_RADIUS + (h % (DIG_SITE_MAX_RADIUS - DIG_SITE_MIN_RADIUS + 1))
 	var raw_x: int = int(float(radius) * cos(angle))
 	var raw_z: int = int(float(radius) * sin(angle))
+	# Never bury treasure under the eastern sea (GID-171): walk round the ring to land.
+	for _i: int in range(36):
+		if not _Coast.is_sea(raw_x, raw_z) and _Coast.tile_depth(raw_x, raw_z) < -2.0:
+			break
+		angle += PI / 18.0
+		raw_x = int(float(radius) * cos(angle))
+		raw_z = int(float(radius) * sin(angle))
 	return _nudge_to_grass(raw_x, raw_z, world_seed)
 
 static func _hash_site(world_seed: int, treasure_counter: int) -> int:

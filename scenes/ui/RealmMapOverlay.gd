@@ -15,8 +15,10 @@ const _LongPressTracker = preload("res://scenes/ui/LongPressTracker.gd")
 const _MapMarkers = preload("res://scenes/ui/MapMarkers.gd")
 const _RealmMapOverlay = preload("res://scenes/ui/RealmMapOverlay.gd")
 
+const _Coast = preload("res://game_logic/world/Coast.gd")
 const _COL_BG := Color(0.13, 0.19, 0.12)
 const _COL_ROAD := Color(0.70, 0.58, 0.38)
+const _COL_SEA := Color(0.16, 0.33, 0.48)
 const _COL_TOWN := Color(0.46, 0.40, 0.30)
 const _COL_TOWN_EDGE := Color(0.85, 0.75, 0.52)
 const _COL_WAYSTONE := Color(0.40, 0.90, 1.00)
@@ -142,6 +144,17 @@ func _tile_to_panel(t: Vector2) -> Vector2:
 	return _panel.position + (t - _bounds.position) * _scale
 
 
+## The eastern sea (Coast, GID-171), clipped to the map panel.
+func _draw_sea(c: Control) -> void:
+	var pts := PackedVector2Array()
+	for t: Vector2 in _Coast.SHORE:
+		pts.append(_tile_to_panel(t))
+	var frame := PackedVector2Array([_panel.position, Vector2(_panel.end.x, _panel.position.y), _panel.end,
+		Vector2(_panel.position.x, _panel.end.y)])
+	for poly: PackedVector2Array in Geometry2D.intersect_polygons(pts, frame):
+		c.draw_colored_polygon(poly, _COL_SEA)
+
+
 func _panel_to_tile(p: Vector2) -> Vector2:
 	return (p - _panel.position) / _scale + _bounds.position
 
@@ -149,6 +162,7 @@ func _panel_to_tile(p: Vector2) -> Vector2:
 func _on_draw(c: Control) -> void:
 	c.draw_rect(_panel, _COL_BG)
 	var font: Font = ThemeDB.fallback_font
+	_draw_sea(c)
 	for road: Array in _RealmLayout.ROADS:
 		var pts := PackedVector2Array()
 		for p: Vector2 in road:

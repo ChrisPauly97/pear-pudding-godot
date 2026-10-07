@@ -36,6 +36,7 @@ Their houses are raised into real buildings (tall walls, roofs, windows) by `Tow
 `BuildingMesh` (GID-154) — author a house as a wall ring with a 1-tile door gap; no map changes needed.
 Streets (gate → spawn trunks, door lanes) and grimy lit street lamps are generated too (`TownStreets`, GID-155).
 Plain townsfolk walk those streets on a clock-derived daily schedule and towns get their own critters (`TownLife`, GID-156).
+Maykalene is a port: the eastern sea (`Coast`, GID-171) is reserved realm ground drawn as terrain water; deep water blocks the hero.
 
 ---
 
@@ -398,7 +399,7 @@ created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
 | `FakeVolumetrics.gd` (`fake_volumetrics`) | Mobile-safe volumetric stand-ins: dawn/dusk fake light shafts, depth-fog post pass (GID-130) |
 | `RealmRegions.gd` (`realm_regions`) | Which stitched story town the player walks through (`current_town`): HUD name, music, entry flags, rivals, siege on town entry; `siege_gate(town)` (GID-138) |
 | `QuestTracker.gd` (`quest_tracker`) | Cached quest list + tracked quest (QuestLog) for compass/minimap/realm map, objective beacon, NPC "!" / "?" marks, "New objective" tip, overworld realm map on M (GID-140) |
-| `StarterCamps.gd` (`starter_camps`) | Madrian starter-zone camps (`StarterZone`): levelled camp enemies refilled 45 s after they fall, never saved as defeated (GID-141); themed camp set dressing (orchard apple trees, barrow, wreck…) from `CampDressing`, camps are cleared glades (GID-166); town set pieces like Madrian's fountain (`TownDecor`, GID-167) |
+| `StarterCamps.gd` (`starter_camps`) | Madrian starter-zone camps (`StarterZone`): levelled camp enemies refilled 45 s after they fall, never saved as defeated (GID-141); themed camp set dressing (orchard apple trees, barrow, wreck…) from `CampDressing`, camps are cleared glades (GID-166); town set pieces — a fountain, well, statue or brazier in every town square (`TownDecor`, GID-167 / GID-170) |
 | `RiftPortals.gd` (`rift_portals`) | Rift door panel: rift, best tier, tier picker, enter/resume (GID-142); portals come from `InfiniteWorldGen` |
 | `HeroHealth.gd` (`hero_health`) | Persistent hero HP out of combat (`HeroVitality`): regen, food meals, Q / "Eat" quick use, town + bed full heal, HUD HP bar (TID-543) |
 | `Critters.gd` (`critters`) | Ambient wildlife around the hero by biome (town species in stitched towns, GID-156) (`CritterDef`, `entities/Critter.gd`): wander, flee, hover/hop; scenery only, not synced (GID-147) |
@@ -407,6 +408,7 @@ created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
 | `TownLife.gd` (`town_life`) | Walking townsfolk on `TownLife` street loops, role hours (indoors at night, lantern guard), talk hold, interaction x/z sync, hide-flag NPC despawn (GID-156) |
 | `BuildingSigns.gd` (`building_signs`) | Signpost beside every building door in the stitched towns (`TownSigns`: authored `NAMES`, else NPC role, else "House"); the name pops up (Label3D fade) within 6 units (GID-168) |
 | `Legend.gd` (`legend`) | Pear Pudding legend riddle spots (`RiddleSpots`): unmarked overworld props, look / Dig resolution, `try_dig` from Cantrips (GID-153) |
+| `Coastline.gd` (`coastline`) | Maykalene's waterfront on the eastern sea (`game_logic/world/Coast.gd`: coastline, depth, piers, boats): deep-water blocking (slide back each physics frame, works through Ghost Phase), railed piers (lamps via `street_lamps_world`), quay kerb, bobbing boats, cargo, beach clutter; the sandy beach is stamped path; runs its own `_process` (GID-171) |
 
 BattleScene's single-player clusters live under `scenes/battle/modules/`, created by
 `BattleScene._ensure_battle_modules()`. Each has a `_battle` back-reference typed as

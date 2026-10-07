@@ -9,6 +9,7 @@
 extends RefCounted
 
 const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
+const _Coast = preload("res://game_logic/world/Coast.gd")
 
 const STREAM_FREQUENCY: float = 0.011
 const STREAM_WIDTH: float = 0.045     # |noise| below this is in the stream
@@ -110,8 +111,18 @@ static func biome_has_water(biome_id: int) -> bool:
 	return WATER_BIOMES.has(biome_id)
 
 
-## 0 (dry) .. 1 (middle of a stream or pond) at world (wx, wz).
+## 0 (dry) .. 1 (middle of a stream or pond, or out at sea) at world (wx, wz).
 static func intensity(wx: float, wz: float, world_seed: int, realm_clear: bool = false) -> float:
+	return maxf(_inland(wx, wz, world_seed, realm_clear), _Coast.sea_water(wx, wz, IsoConst.TILE_SIZE))
+
+
+## The eastern sea (GID-171): never faded by towns, roads or structures — the quay meets it.
+static func sea_at(wx: float, wz: float) -> float:
+	return _Coast.sea_water(wx, wz, IsoConst.TILE_SIZE)
+
+
+## Streams and ponds only.
+static func _inland(wx: float, wz: float, world_seed: int, realm_clear: bool) -> float:
 	_ensure(world_seed)
 	var s: float = absf(_stream.get_noise_2d(wx, wz))
 	var stream: float = clampf(1.0 - s / STREAM_WIDTH, 0.0, 1.0)
@@ -148,15 +159,18 @@ static func is_wet(wx: float, wz: float, world_seed: int) -> bool:
 ## `dry` null = no structures nearby. Dry ground skips the clearance scan (TID-673).
 static func water_at(wx: float, wz: float, world_seed: int, dry: DryGrid) -> float:
 	var clear: bool = dry != null and dry.realm_clear
-	var w: float = intensity(wx, wz, world_seed, clear)
+	var sea: float = sea_at(wx, wz)
+	var w: float = _inland(wx, wz, world_seed, clear)
 	if w <= 0.0 or dry == null:
-		return w
-	return w * dry.fade(wx, wz)
+		return maxf(w, sea)
+	return maxf(w * dry.fade(wx, wz), sea)
 
 
 static func wet_at(wx: float, wz: float, world_seed: int, dry: DryGrid) -> bool:
+	if sea_at(wx, wz) > _Coast.SHORE_WATER - 0.04:
+		return true  # grass and props stop right at the sea's drawn shoreline
 	var clear: bool = dry != null and dry.realm_clear
-	var w: float = intensity(wx, wz, world_seed, clear)
+	var w: float = _inland(wx, wz, world_seed, clear)
 	if w <= WET_LEVEL:
 		return false  # the fade only lowers it
 	return dry == null or w * dry.fade(wx, wz) > WET_LEVEL
@@ -169,6 +183,8 @@ static func wet_at(wx: float, wz: float, world_seed: int, dry: DryGrid) -> bool:
 ## keeps one orientation along the whole stream and across chunk borders.
 ## A steep gradient means a narrow stream, which runs faster.
 static func flow_at(wx: float, wz: float, world_seed: int) -> Vector2:
+	if sea_at(wx, wz) > 0.0:
+		return Vector2.ZERO  # the sea is still water; no stream current across it
 	_ensure(world_seed)
 	var n: float = _stream.get_noise_2d(wx, wz)
 	var stream: float = clampf(1.0 - absf(n) / STREAM_WIDTH, 0.0, 1.0)
@@ -198,6 +214,11 @@ static func edge_prop(water: float, flow: Vector2, roll: float) -> String:
 	if water > LILY_MIN and flow == Vector2.ZERO:
 		return "lily_pad" if roll < LILY_CHANCE else ""
 	return ""
+
+
+## Reeds and lily pads are freshwater: none along the sea's sand and quay (GID-171).
+static func edge_prop_ok(_key: String, wx: float, wz: float) -> bool:
+	return sea_at(wx, wz) <= 0.0 and _Coast.depth(wx / IsoConst.TILE_SIZE, wz / IsoConst.TILE_SIZE) < -1.0
 
 
 static func _ensure(world_seed: int) -> void:
