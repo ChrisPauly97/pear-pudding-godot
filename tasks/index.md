@@ -171,6 +171,7 @@
 | [GID-165](goals/GID-165--compact-madrian/goal.md) | Compact Madrian — Smaller Village, Purposeful Layout | done | 1 / 1 |
 | [GID-166](goals/GID-166--quest-site-dressing/goal.md) | Quest Site Dressing — Camps Look Like Their Names | done | 1 / 1 |
 | [GID-167](goals/GID-167--madrian-fountain/goal.md) | Madrian Fountain | done | 1 / 1 |
+| [GID-168](goals/GID-168--building-signs/goal.md) | Building Signs | done | 1 / 1 |
 
 ## Backlog
 

@@ -251,6 +251,15 @@ walkers go round), `TapToMove.tile_at()` reports it as a wall for A*, and
 `_DECOR_FRAMES`, art from `tools/generate_fountain.py`) on a `StaticBody3D` cylinder on
 the wall layer (4). Keep entities and the spawn off blocked tiles (`test_town_decor`).
 
+**Building signs (GID-168):** `game_logic/world/TownSigns.gd` `signs(town)` puts one sign
+per TownBuildings house with a door: one tile out from its first doorway and one to the
+side (then two out), on grass/path clear of streets, set pieces, walls and entities. Name =
+`NAMES[town][door gap tile]` (Madrian fully authored: inn, smithy, bakery…), else
+`ROLE_NAMES` from an NPC with that `npc_type` in or by the building, else "House". The
+`BuildingSigns` world module draws `town_sign.png` (`tools/generate_town_sign.py`) and
+fades a Label3D name in while the player is within `POPUP_RANGE` (6 units) — no input, so
+touch and desktop behave alike. A new house needs a `NAMES` row or it reads "House".
+
 `test_realm_layout` checks towns don't overlap (incl. blend margin), roads end at towns,
 sites sit on roads between towns, and doors/ids are stitched correctly.
 
