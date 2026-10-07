@@ -30,5 +30,8 @@ lamps through the street-lamp list (NightLights glow), a second jetty off the be
   re-moored against the openings (cog alongside the T-head, rowboats at both T-head ends, two
   gangways on the main pier, one at the jetty end). `test_boats_dock_at_open_rails`.
 
+- Follow-up ("and the boats come and go?"): `Coast.boat_at` clock schedule + per-boat `route` / `trips` /
+  `phase`; `Coastline` moves, hides and flips boats from the smooth clock. `test_boats_come_and_go_on_the_clock`.
+
 ## Documentation Updates
 - `docs/agent/world-generation.md` (beach, railings, lamps, jetty).

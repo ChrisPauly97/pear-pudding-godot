@@ -209,7 +209,13 @@ A bay of open water east of Maykalene, from the town's quay (world x 43) out to 
 
 `Coast.BOUNDS` is a hand-written const (no lazily built shared state on worker threads);
 `test_coast` checks it matches `SHORE`. Past `FAR` (16) tiles from it, `depth()` returns the box distance.
-Piers: Maykalene's T-pier off the quay and a fishing jetty off the north-east beach (world 80,49). A depth lookup costs ~5 µs near the sea and ~0.6 µs elsewhere.
+Piers: Maykalene's T-pier off the quay and a fishing jetty off the north-east beach (world 80,49).
+Boats come and go (`Coast.boat_at(b, t, day_seconds)`): each boat with a `route` makes `trips` whole
+trips a day (offset by `phase`): tied up for `DOCKED_SHARE` of the trip, sails the route out at
+`SAIL_SPEED` (1.6 tiles/s) to beyond the view, stays away (hidden), sails back. A pure function of the
+smooth synced clock (like TownLife), so co-op peers agree without RPCs and a day wrap never jumps;
+`Coastline` samples it per frame and flips the sprite to its screen heading. The harbour cog at anchor
+has no route. A depth lookup costs ~5 µs near the sea and ~0.6 µs elsewhere.
 
 ## Living World Events
 

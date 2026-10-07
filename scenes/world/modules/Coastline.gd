@@ -68,8 +68,23 @@ func _process(delta: float) -> void:
 			_build()
 		return
 	_time += delta
+	# Boats keep the shared clock (TownLife's smooth reading): tied up, out to sea, back.
+	var clock: float = -1.0
+	if _world._dnc != null:
+		clock = _world._dnc.get_smooth_time_of_day() * _world.day_duration
 	for i: int in _boats.size():
-		_boats[i].position.y = _boat_base_y[i] + sin(_time * BOB_SPEED + float(i) * 1.7) * BOB_AMPLITUDE
+		var spr: Sprite3D = _boats[i]
+		var b: Dictionary = _Coast.BOATS[i]
+		var st: Dictionary = _Coast.boat_at(b, clock, _world.day_duration) if clock >= 0.0 else {}
+		if not st.is_empty():
+			spr.visible = not bool(st["away"])
+			var p: Vector2 = st["pos"]
+			spr.position.x = p.x * IsoConst.TILE_SIZE
+			spr.position.z = p.y * IsoConst.TILE_SIZE
+			var dir: Vector2 = st["dir"]
+			# Face the way it is going on screen (screen-right is world (+1, 0, -1)); else its berth facing.
+			spr.flip_h = (dir.x - dir.y < 0.0) if dir != Vector2.ZERO else int(b["flip"]) < 0
+		spr.position.y = _boat_base_y[i] + sin(_time * BOB_SPEED + float(i) * 1.7) * BOB_AMPLITUDE
 
 
 ## Deep water stops the hero: keep the axis that stays in the shallows (slide along

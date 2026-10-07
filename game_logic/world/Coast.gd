@@ -48,17 +48,31 @@ const FAR: float = 16.0
 const PIERS: Array[Rect2i] = [Rect2i(43, 92, 7, 2), Rect2i(50, 88, 2, 10), Rect2i(80, 49, 2, 10)]
 ## Iron lamps on the piers (overworld tiles; lit at night like the town street lamps).
 const PIER_LAMPS: Array[Vector2i] = [Vector2i(46, 92), Vector2i(51, 88), Vector2i(51, 97), Vector2i(81, 57)]
-## Moored boats: kind, overworld tile, facing (+1 / -1 flips the sprite), and `berth`
-## (tiles): a boat tied up beside a pier opens the railing within that reach of it.
+## Moored boats: kind, overworld tile (its berth), facing (+1 / -1 flips the sprite),
+## `berth` (tiles: a boat tied up beside a pier opens the railing within that reach),
+## and its voyages: `route` (waypoints from the berth out to open sea, past the edge
+## of the view), `trips` per day and `phase` (share of a trip, so they don't all sail
+## at once). A boat with no route stays at anchor.
 const BOATS: Array[Dictionary] = [
-	{"kind": "cog", "tile": Vector2(53.9, 92.6), "flip": 1, "berth": 2.2},
-	{"kind": "rowboat", "tile": Vector2(51.0, 87.3), "flip": 1, "berth": 1.6},
-	{"kind": "rowboat", "tile": Vector2(50.6, 98.6), "flip": -1, "berth": 1.6},
-	{"kind": "rowboat", "tile": Vector2(45.5, 91.2), "flip": 1, "berth": 1.6},
-	{"kind": "rowboat", "tile": Vector2(46.5, 94.8), "flip": -1, "berth": 1.6},
+	{"kind": "cog", "tile": Vector2(53.9, 92.6), "flip": 1, "berth": 2.2, "trips": 1, "phase": 0.15,
+		"route": [Vector2(58.0, 92.6), Vector2(75.0, 94.0), Vector2(112.0, 96.0)]},
+	{"kind": "rowboat", "tile": Vector2(51.0, 87.3), "flip": 1, "berth": 1.6, "trips": 2, "phase": 0.55,
+		"route": [Vector2(51.0, 84.5), Vector2(56.0, 83.5), Vector2(78.0, 86.0), Vector2(104.0, 84.0)]},
+	{"kind": "rowboat", "tile": Vector2(50.6, 98.6), "flip": -1, "berth": 1.6, "trips": 2, "phase": 0.3,
+		"route": [Vector2(50.6, 101.0), Vector2(56.0, 103.0), Vector2(80.0, 106.0), Vector2(106.0, 108.0)]},
+	{"kind": "rowboat", "tile": Vector2(45.5, 91.2), "flip": 1, "berth": 1.6, "trips": 2, "phase": 0.8,
+		"route": [Vector2(45.5, 89.5), Vector2(48.0, 86.5), Vector2(53.0, 85.5), Vector2(78.0, 88.0),
+			Vector2(105.0, 88.0)]},
+	{"kind": "rowboat", "tile": Vector2(46.5, 94.8), "flip": -1, "berth": 1.6, "trips": 2, "phase": 0.05,
+		"route": [Vector2(46.5, 96.5), Vector2(49.0, 99.0), Vector2(54.0, 100.5), Vector2(80.0, 104.0),
+			Vector2(105.0, 106.0)]},
 	{"kind": "cog", "tile": Vector2(64.0, 101.0), "flip": -1, "berth": 0.0},
-	{"kind": "rowboat", "tile": Vector2(81.0, 59.6), "flip": 1, "berth": 1.6},
+	{"kind": "rowboat", "tile": Vector2(81.0, 59.6), "flip": 1, "berth": 1.6, "trips": 2, "phase": 0.65,
+		"route": [Vector2(81.0, 62.0), Vector2(85.0, 66.0), Vector2(100.0, 72.0), Vector2(122.0, 75.0)]},
 ]
+## Tiles per second under sail or oar, and the share of each trip spent tied up.
+const SAIL_SPEED: float = 1.6
+const DOCKED_SHARE: float = 0.5
 ## A rowboat pulled up on the north-east beach (overworld tile).
 const BEACHED_BOAT := Vector2(68.5, 51.5)
 ## Beach clutter is scattered over tiles west of this (tiles) — near Maykalene.
@@ -96,6 +110,48 @@ static func on_pier(wtx: int, wtz: int) -> bool:
 		if r.has_point(Vector2i(wtx, wtz)):
 			return true
 	return false
+
+
+## Where boat `b` is at clock time `t` (seconds into the day; a day is `day_seconds`):
+## {"pos": Vector2 tiles, "dir": Vector2 heading (zero when still), "away": bool (out of
+## sight at sea)}. A pure function of the clock, whole trips per day, so co-op peers see
+## the same boats and a day wrap never jumps: tied up, sail out along the route, away,
+## sail back in.
+static func boat_at(b: Dictionary, t: float, day_seconds: float) -> Dictionary:
+	var home: Vector2 = b["tile"]
+	var route: Array = b.get("route", [])
+	var still: Dictionary = {"pos": home, "dir": Vector2.ZERO, "away": false}
+	if route.is_empty() or day_seconds <= 0.0:
+		return still
+	var pts: Array[Vector2] = [home]
+	pts.assign([home] + route)
+	var length: float = 0.0
+	for i: int in range(pts.size() - 1):
+		length += pts[i].distance_to(pts[i + 1])
+	var period: float = day_seconds / float(maxi(1, int(b.get("trips", 1))))
+	var local: float = fposmod(t + period * float(b.get("phase", 0.0)), period)
+	var sail: float = minf(length / SAIL_SPEED, period * (1.0 - DOCKED_SHARE) * 0.5)
+	var docked: float = period * DOCKED_SHARE
+	if local < docked:
+		return still
+	if local < docked + sail:
+		return _along(pts, length * (local - docked) / sail, 1.0)
+	if local < period - sail:
+		return {"pos": pts[pts.size() - 1], "dir": Vector2.ZERO, "away": true}
+	return _along(pts, length * (period - local) / sail, -1.0)
+
+
+## The point `dist` tiles along polyline `pts`, heading forward (sign 1) or back (-1).
+static func _along(pts: Array[Vector2], dist: float, sign: float) -> Dictionary:
+	var left: float = dist
+	for i: int in range(pts.size() - 1):
+		var seg: float = pts[i].distance_to(pts[i + 1])
+		if left <= seg or i == pts.size() - 2:
+			var dir: Vector2 = (pts[i + 1] - pts[i]).normalized()
+			return {"pos": pts[i].lerp(pts[i + 1], clampf(left / maxf(seg, 0.001), 0.0, 1.0)),
+				"dir": dir * sign, "away": false}
+		left -= seg
+	return {"pos": pts[0], "dir": Vector2.ZERO, "away": false}
 
 
 ## True when the railing along `tile`'s `dir` edge of pier `r` is left open: the

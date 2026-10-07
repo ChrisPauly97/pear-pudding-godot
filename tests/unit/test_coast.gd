@@ -128,3 +128,27 @@ func test_boats_dock_at_open_rails() -> void:
 	assert_false(Coast.rail_open(head, Vector2i(head.end.x - 1, head.position.y + 1), Vector2i(1, 0)) and
 		Coast.rail_open(head, Vector2i(head.end.x - 1, head.end.y - 2), Vector2i(1, 0)),
 		"the long sides stay railed away from the gangways")
+
+
+func test_boats_come_and_go_on_the_clock() -> void:
+	var day: float = 600.0
+	for b: Dictionary in Coast.BOATS:
+		var route: Array = b.get("route", [])
+		if route.is_empty():
+			assert_eq(Coast.boat_at(b, 123.0, day)["pos"], b["tile"], "an anchored boat stays put")
+			continue
+		var docked: int = 0
+		var away: int = 0
+		var last: Vector2 = Coast.boat_at(b, 0.0, day)["pos"]
+		for k: int in range(0, 1201):
+			var st: Dictionary = Coast.boat_at(b, day * float(k) / 1200.0, day)
+			var p: Vector2 = st["pos"]
+			docked += 1 if p == b["tile"] else 0
+			away += 1 if bool(st["away"]) else 0
+			if not bool(st["away"]):
+				assert_true(Coast.depth(p.x, p.y) > 0.5 and not Coast.on_pier(floori(p.x), floori(p.y)),
+					"%s sails on open water at %s" % [str(b["kind"]), str(p)])
+			assert_lt(p.distance_to(last), 4.0, "%s never jumps (k %d)" % [str(b["kind"]), k])
+			last = p
+		assert_gt(docked, 300, "%s spends a good while tied up" % str(b["kind"]))
+		assert_gt(away, 10, "%s goes out of sight at sea" % str(b["kind"]))
