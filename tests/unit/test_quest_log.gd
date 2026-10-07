@@ -54,7 +54,7 @@ func test_story_quest_carries_chapter_and_summary() -> void:
 func test_bounty_boards_found_in_towns() -> void:
 	var boards: Array[Dictionary] = QuestLog.bounty_board_targets()
 	assert_true(boards.size() >= 3, "a board in each board town")
-	var madrian: Vector2i = RealmLayout.to_world_tile("madrian", Vector2i(46, 30))
+	var madrian: Vector2i = RealmLayout.to_world_tile("madrian", Vector2i(34, 25))
 	var found: bool = false
 	for b: Dictionary in boards:
 		if Vector2i(int(b["tx"]), int(b["tz"])) == madrian:

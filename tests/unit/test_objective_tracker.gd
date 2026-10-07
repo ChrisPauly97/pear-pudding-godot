@@ -20,16 +20,16 @@ func test_no_flags_returns_help_the_townsfolk() -> void:
 	# GID-141: a new game opens with the townsfolk quests, starting at Hilda.
 	var first: Dictionary = ObjectiveTracker.current_objective({})
 	assert_eq(first.get("label", ""), "Help the townsfolk of Madrian")
-	assert_eq(int(first.get("tx", -99)), 50, "Hilda tx")
-	assert_eq(int(first.get("tz", -99)), 38, "Hilda tz")
+	assert_eq(int(first.get("tx", -99)), 43, "Hilda tx")
+	assert_eq(int(first.get("tz", -99)), 30, "Hilda tz")
 
 
 func test_town_quests_done_returns_speak_to_maiteln() -> void:
 	var obj: Dictionary = ObjectiveTracker.current_objective(_TOWN)
 	assert_eq(obj.get("label", ""), "Speak to Maiteln", "Then the objective points to Maiteln")
 	assert_eq(obj.get("map", ""), "madrian", "Objective should be in madrian")
-	assert_eq(int(obj.get("tx", -99)), 45, "Maiteln tx should be 45")
-	assert_eq(int(obj.get("tz", -99)), 36, "Maiteln tz should be 36")
+	assert_eq(int(obj.get("tx", -99)), 32, "Maiteln tx should be 32")
+	assert_eq(int(obj.get("tz", -99)), 29, "Maiteln tz should be 29")
 
 
 # ── story_intro_complete ──────────────────────────────────────────────────────
@@ -249,7 +249,7 @@ func test_every_objective_is_pointable_from_the_overworld() -> void:
 
 func test_stitched_town_objective_in_world_tiles() -> void:
 	var obj: Dictionary = ObjectiveTracker.objective_for_map(_TOWN, "main")
-	var w: Vector2i = RealmLayout.to_world_tile("madrian", Vector2i(45, 36))
+	var w: Vector2i = RealmLayout.to_world_tile("madrian", Vector2i(32, 29))
 	assert_eq(Vector2i(int(obj["tx"]), int(obj["tz"])), w, "Maiteln's tile moved into the overworld")
 
 
@@ -257,9 +257,9 @@ func test_objective_world_pos_is_tile_centre() -> void:
 	var raw: Variant = ObjectiveTracker.objective_world_pos(_TOWN, "madrian")
 	assert_true(raw != null, "Maiteln's tile resolves to a world position")
 	var pos: Vector3 = raw as Vector3
-	# Tile (45, 36), entities sit on tile centres → (45.5, 36.5) × TILE_SIZE.
-	assert_almost_eq(pos.x, 45.5 * IsoConst.TILE_SIZE, 0.001, "X is the tile centre")
-	assert_almost_eq(pos.z, 36.5 * IsoConst.TILE_SIZE, 0.001, "Z is the tile centre")
+	# Tile (32, 29), entities sit on tile centres → (32.5, 29.5) × TILE_SIZE.
+	assert_almost_eq(pos.x, 32.5 * IsoConst.TILE_SIZE, 0.001, "X is the tile centre")
+	assert_almost_eq(pos.z, 29.5 * IsoConst.TILE_SIZE, 0.001, "Z is the tile centre")
 
 
 func test_objective_world_pos_null_when_nothing_to_mark() -> void:

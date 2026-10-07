@@ -232,9 +232,17 @@ are still door-entered named maps.
 | `door_into(map)`, `return_pos_for(map)` | The stitched door into an interior; where you stand after leaving it |
 | `pos_token(x, z)` / `parse_pos_token()` | `pos:x:z` tokens stored in `SceneManager.door_stack` |
 
-Current layout (world = local + offset): madrian (−37,−33) — its spawn lands on
-world tile (3,3), the old overworld default; maykalene (−37,66) south of it;
+Current layout (world = local + offset): madrian (−37,−33) — its spawn (local 30,30,
+the town square) lands on world tile (−7,−3); maykalene (−37,66) south of it;
 blancogov (43,222) south-east; larik (−167,232) west; marsax_hold (−167,100) north of Larik.
+**Madrian layout (GID-165):** a compact village in crop (6,6)–(54,57): small houses
+(5×5–9×7) around a paved square (local 25..35 × 24..32) with the shrine, bounty board
+and Maiteln; every NPC stands at their own building (inn, smithy, merchant, chandler,
+bakery, herbalist, chapel, stable) or yard (trainer, rift warden + Spire door, Old Tam
+by the south road). Graveyard + sealed crypt in the south-west are unchanged. The
+south road leaves at local (50,57). No free-standing fence lines — keep walls to
+building rings so NPCs never line up along a stray wall.
+
 `test_realm_layout` checks towns don't overlap (incl. blend margin), roads end at towns,
 sites sit on roads between towns, and doors/ids are stitched correctly.
 

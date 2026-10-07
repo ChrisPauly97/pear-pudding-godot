@@ -168,6 +168,7 @@
 | [GID-162](goals/GID-162--measured-perf-pass/goal.md) | Measured Perf Pass — Streaming Spikes, Leaks, Steady Costs | done | 1 / 1 |
 | [GID-163](goals/GID-163--chunk-gen-off-main-thread/goal.md) | Chunk Generation Off the Main Thread (BID-088) | done | 1 / 1 |
 | [GID-164](goals/GID-164--perf-audit-pass/goal.md) | Perf Audit Pass — Mobile Rendering, Chunk Water, Per-Frame Modules, Battle UI, Save | done | 14 / 14 |
+| [GID-165](goals/GID-165--compact-madrian/goal.md) | Compact Madrian — Smaller Village, Purposeful Layout | done | 1 / 1 |
 
 ## Backlog
 

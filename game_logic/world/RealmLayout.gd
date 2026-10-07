@@ -30,7 +30,7 @@ const _MARSAX_HOLD := preload("res://assets/maps/marsax_hold.tres")
 ## Story order runs Madrian → south to Maykalene → south-east to Blancogov →
 ## west to Larik → north to Marsax Hold.
 const TOWNS: Dictionary = {
-	"madrian": {"crop": Rect2i(4, 4, 91, 56), "offset": Vector2i(-37, -33), "data": _MADRIAN},
+	"madrian": {"crop": Rect2i(6, 6, 49, 52), "offset": Vector2i(-37, -33), "data": _MADRIAN},
 	"maykalene": {"crop": Rect2i(3, 0, 80, 100), "offset": Vector2i(-37, 66), "data": _MAYKALENE},
 	"blancogov": {"crop": Rect2i(0, 2, 100, 98), "offset": Vector2i(43, 222), "data": _BLANCOGOV},
 	"larik": {"crop": Rect2i(33, 35, 33, 29), "offset": Vector2i(-167, 232), "data": _LARIK},
@@ -39,8 +39,8 @@ const TOWNS: Dictionary = {
 
 ## Road polylines in overworld tiles. Each starts/ends at a town gate.
 const ROADS: Array = [
-	# Madrian's south fence gap (local 50,45) → Maykalene's north road (local 50,0).
-	[Vector2(13, 12), Vector2(13, 66)],
+	# Madrian's south edge (local 50,57) → Maykalene's north road (local 50,0).
+	[Vector2(13, 24), Vector2(13, 66)],
 	# Maykalene's east side (local 82,48) → Blancogov's north gate (local 50,2).
 	[Vector2(45, 114), Vector2(70, 160), Vector2(93, 200), Vector2(93, 224)],
 	# Blancogov's west side (local 0,50) → Larik's east side (local 65,50).
