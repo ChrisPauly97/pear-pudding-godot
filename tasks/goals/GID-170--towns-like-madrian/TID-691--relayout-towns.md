@@ -16,7 +16,7 @@ SiegeDefs gates and StoryQuests objective tiles.
 
 ## Changes Made
 - `assets/maps/maykalene.tres`: inn (innkeeper inside), Harbour Goods (merchant inside), archive (Martarquas
-  scroll), harbourmaster (port-city NPC), 4 cottages round a square with a big fountain (51,27, 5×5 tiles in a ground-level stone pool); cobbled street
+  scroll), harbourmaster (port-city NPC), 4 cottages round a square with a grand marble fountain (51,27, 5×5 tiles in a ground-level octagonal marble pool); cobbled street
   south to the Farsyth Mansion (door in its north gap, guard beside it). Crop (3,0,80,100) → (30,0,46,58).
 - `assets/maps/blancogov.tres`: golden gate tower pair + two more pairs up the avenue (three tower pairs),
   Duellists' Hall (both duelists inside), Royal Library (both scrolls), The Golden Lyre (Lisette), guard house,

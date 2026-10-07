@@ -30,13 +30,19 @@ const _DECOR_FRAMES: Dictionary = {
 		preload("res://assets/textures/props/brazier_1.png"),
 		preload("res://assets/textures/props/brazier_2.png"),
 		preload("res://assets/textures/props/brazier_3.png")],
+	"grand_fountain": [preload("res://assets/textures/props/grand_fountain_0.png"),
+		preload("res://assets/textures/props/grand_fountain_1.png"),
+		preload("res://assets/textures/props/grand_fountain_2.png"),
+		preload("res://assets/textures/props/grand_fountain_3.png")],
 	"statue": [preload("res://assets/textures/props/statue_0.png"),
 		preload("res://assets/textures/props/statue_1.png"),
 		preload("res://assets/textures/props/statue_2.png"),
 		preload("res://assets/textures/props/statue_3.png")],
 }
 const _DECOR_FPS: float = 6.0
-const _POOL_STONE := Color(0.48, 0.54, 0.58)
+const _POOL_STEP := Color(0.67, 0.65, 0.63)
+const _POOL_MARBLE := Color(0.89, 0.87, 0.82)
+const _POOL_GOLD := Color(0.94, 0.77, 0.28)
 const _POOL_WATER := Color(0.28, 0.55, 0.81)
 ## Wall collision layer (ChunkRenderer wall bodies), so Ghost Phase passes through it too.
 const _WALL_LAYER: int = 4
@@ -216,15 +222,19 @@ func _build_town_decor() -> void:
 			_scenery.add_child(body)
 			sprite.play(&"default")
 
-## A wide, low stone basin of water on the ground under a set piece (GID-170), so a
-## big fountain sits in the square instead of standing on it.
+## A wide, low octagonal marble basin of water on the ground under a set piece
+## (GID-170): a step, the marble wall with a gold band, then the water, so a big
+## fountain sits in the square instead of standing on it.
 func _add_pool(body: StaticBody3D, half: float) -> void:
-	for layer: Array in [[half * 0.95, 0.3, _POOL_STONE], [half * 0.8, 0.34, _POOL_WATER]]:
+	var layers: Array = [  # [radius share, height, colour]
+		[1.0, 0.14, _POOL_STEP], [0.9, 0.44, _POOL_GOLD], [0.88, 0.5, _POOL_MARBLE], [0.76, 0.52, _POOL_WATER]]
+	for layer: Array in layers:
 		var cyl := CylinderMesh.new()
-		cyl.top_radius = float(layer[0])
-		cyl.bottom_radius = float(layer[0])
+		cyl.top_radius = half * float(layer[0])
+		cyl.bottom_radius = cyl.top_radius
 		cyl.height = float(layer[1])
-		cyl.radial_segments = 32
+		cyl.radial_segments = 8
+		cyl.rings = 1
 		var mi := MeshInstance3D.new()
 		mi.mesh = cyl
 		mi.material_override = _WorldEntityBase.unshaded_material(layer[2] as Color)

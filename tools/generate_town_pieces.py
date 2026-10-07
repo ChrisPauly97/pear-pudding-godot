@@ -4,6 +4,7 @@ Writes assets/textures/props/:
   well_0..3.png     Larik's village well (the bucket rope sways, water glints)
   brazier_0..3.png  Marsax Hold's courtyard war brazier (the fire flickers)
   statue_0..3.png   Blancogov's gilded statue of the first king (a glint runs over it)
+  grand_fountain_0..3.png  Maykalene's white-marble three-tier fountain (water falls and sprays)
 Same style as the fountain / legend props: flat shapes, two-tone shading, 1px outline.
 Usage: python3 tools/generate_town_pieces.py   (needs Pillow)
 """
@@ -114,9 +115,100 @@ def statue(i):
     return img
 
 
+MARBLE_HI = (250, 248, 240, 255)
+MARBLE = (226, 222, 210, 255)
+MARBLE_D = (170, 166, 160, 255)
+MARBLE_DD = (128, 126, 128, 255)
+WATER_M = (72, 140, 206, 255)
+FOAM = (226, 244, 252, 255)
+
+
+def _bowl(d, cx, top, rx, ry, depth):
+    """A scalloped marble bowl seen from the front: water surface, gold band, carved lip."""
+    d.ellipse([cx - rx, top, cx + rx, top + ry * 2], fill=MARBLE)
+    d.ellipse([cx - rx + 3, top + 2, cx + rx - 3, top + ry * 2 - 2], fill=WATER_M)
+    d.ellipse([cx - rx + 6, top + 4, cx + rx - 6, top + ry * 2 - 3], fill=WATER)
+    mid = top + ry
+    d.polygon([(cx - rx, mid), (cx + rx, mid), (cx + rx // 3, mid + depth), (cx - rx // 3, mid + depth)],
+              fill=MARBLE)
+    d.polygon([(cx + rx // 4, mid), (cx + rx, mid), (cx + rx // 3, mid + depth), (cx + rx // 6, mid + depth)],
+              fill=MARBLE_D)
+    d.line([(cx - rx + 1, mid + 1), (cx + rx - 1, mid + 1)], fill=GOLD)
+    for k in range(-rx + 4, rx - 2, 6):  # scallops under the lip
+        d.arc([cx + k - 3, mid + 1, cx + k + 3, mid + 6], 0, 180, fill=MARBLE_DD)
+
+
+def _column(d, cx, top, bottom, half):
+    d.rectangle([cx - half, top, cx + half, bottom], fill=MARBLE)
+    d.rectangle([cx + 1, top, cx + half, bottom], fill=MARBLE_D)
+    for x in range(cx - half + 2, cx + half, 3):  # fluting
+        d.line([(x, top + 2), (x, bottom - 2)], fill=MARBLE_DD if x > cx else MARBLE_D)
+    d.rectangle([cx - half - 2, top - 2, cx + half + 2, top], fill=GOLD)
+    d.rectangle([cx - half - 2, bottom, cx + half + 2, bottom + 2], fill=GOLD_D)
+
+
+def grand_fountain(i):
+    w, h = 96, 96
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    cx = 48
+    # Ground basin: octagonal marble wall with gold band and carved panels.
+    d.ellipse([2, 58, 93, 82], fill=MARBLE)
+    d.ellipse([7, 61, 88, 79], fill=WATER_M)
+    d.ellipse([12, 64, 83, 77], fill=WATER)
+    d.rectangle([2, 70, 93, 86], fill=MARBLE)
+    d.ellipse([2, 78, 93, 94], fill=MARBLE)
+    d.rectangle([62, 70, 93, 87], fill=MARBLE_D)
+    d.ellipse([62, 79, 93, 94], fill=MARBLE_D)
+    d.rectangle([62, 70, 93, 75], fill=MARBLE)
+    d.line([(4, 71), (91, 71)], fill=MARBLE_HI)
+    d.line([(3, 75), (92, 75)], fill=GOLD)
+    for x in (10, 24, 38, 52, 66, 80):  # carved panels with gold rosettes
+        d.rectangle([x, 78, x + 9, 85], outline=MARBLE_DD)
+        d.point([(x + 4, 81), (x + 5, 81), (x + 4, 82), (x + 5, 82)], fill=GOLD_L)
+    # Lower column, middle bowl, upper column, top bowl, gilded finial.
+    _column(d, cx, 46, 70, 5)
+    _bowl(d, cx, 38, 30, 6, 10)
+    _column(d, cx, 22, 44, 3)
+    _bowl(d, cx, 17, 17, 4, 7)
+    d.rectangle([cx - 2, 8, cx + 2, 20], fill=MARBLE)
+    d.ellipse([cx - 4, 2, cx + 4, 11], fill=GOLD)
+    d.ellipse([cx, 2, cx + 4, 11], fill=GOLD_D)
+    d.point([(cx - 2, 4)], fill=GOLD_L)
+    # Two gilded fish spouts at the foot of the column.
+    for side in (-1, 1):
+        fx = cx + side * 9
+        d.ellipse([fx - 4, 62, fx + 4, 68], fill=GOLD)
+        d.polygon([(fx - side * 4, 65), (fx - side * 8, 61), (fx - side * 8, 69)], fill=GOLD_D)
+    img = _outline(img)
+    d = ImageDraw.Draw(img)
+    # Water after the outline so it stays bright: top spray, curtains off both bowls, fish arcs, ripples.
+    for side in (-1, 1):
+        for t in range(8):
+            x = cx + side * (1 + t * 2)
+            y = 1 + (t * t) // 3 + (t // 2)
+            if y < 19:
+                d.point([(x, y), (x, y + 1)], fill=FOAM if (t + i) % 3 == 0 else WATER_L)
+    for side in (-1, 1):
+        for rx, y0, y1 in ((17, 26, 41), (30, 48, 68)):
+            for y in range(y0, y1):
+                if (y + i * 2) % 4 != 0:
+                    d.point([(cx + side * (rx - 1) + side * ((y - y0) // 6), y)], fill=WATER_L)
+        fx = cx + side * 13
+        for t in range(6):
+            d.point([(fx + side * t * 2, 65 + (t * t) // 3 - 2 + (i % 2))], fill=WATER_L)
+    for k in range(3):
+        r = 8 + ((i * 4 + k * 10) % 30)
+        d.arc([cx - r, 70 - r // 4, cx + r, 70 + r // 4], 15, 165, fill=WATER_L)
+    for x in (30, 48, 66):
+        d.point([(x + (i % 2), 66 + (i % 3)), (x - 1, 67)], fill=FOAM)
+    return img
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
-    for name, fn in (("well", well), ("brazier", brazier), ("statue", statue)):
+    for name, fn in (("well", well), ("brazier", brazier), ("statue", statue),
+                     ("grand_fountain", grand_fountain)):
         for i in range(FRAMES):
             fn(i).save(os.path.join(OUT, "%s_%d.png" % (name, i)))
     print("wrote well / brazier / statue frames to %s" % os.path.normpath(OUT))
