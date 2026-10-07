@@ -41,6 +41,18 @@ const CARGO: Array[Dictionary] = [
 	{"tex": "barrel", "tile": Vector2(40.7, 97.1)}, {"tex": "crate", "tile": Vector2(41.2, 106.3)},
 ]
 const CARGO_HEIGHT: float = 1.1
+## Who's aboard: a rower amidships in each rowboat, a captain on each cog's aft castle.
+## `dx` world units along screen-right (mirrored with the boat), `rail` the height of the
+## gunwale / castle rail above the hull sprite's centre, `h` the figure's full height and
+## `show` the share of it (head and shoulders down) that shows above the rail. The rest
+## is cropped off the sprite: billboards don't hide one another, so the hull can't.
+const CREW: Dictionary = {
+	"rowboat": {"dx": 0.0, "rail": 0.29, "h": 1.2, "show": 0.55},
+	"cog": {"dx": 2.25, "rail": -1.0, "h": 1.4, "show": 0.62},
+}
+## A rower's stroke while under way: bob height and strokes per second.
+const ROW_BOB: float = 0.05
+const ROW_RATE: float = 4.0
 ## A move longer than this (world units) in one physics frame is a teleport, not a step.
 const TELEPORT_DIST: float = 4.0
 const DECK_Y: float = 0.03
@@ -53,6 +65,7 @@ var _root: Node3D = null
 var _last_safe: Vector3 = Vector3.INF
 var _boats: Array[Sprite3D] = []
 var _boat_base_y: Array[float] = []
+var _crew: Array[Sprite3D] = []
 var _time: float = 0.0
 
 
@@ -83,7 +96,13 @@ func _process(delta: float) -> void:
 			spr.position.z = p.y * IsoConst.TILE_SIZE
 			var dir: Vector2 = st["dir"]
 			# Face the way it is going on screen (screen-right is world (+1, 0, -1)); else its berth facing.
-			spr.flip_h = (dir.x - dir.y < 0.0) if dir != Vector2.ZERO else int(b["flip"]) < 0
+			var flip: bool = (dir.x - dir.y < 0.0) if dir != Vector2.ZERO else int(b["flip"]) < 0
+			if flip != spr.flip_h:
+				spr.flip_h = flip
+				_place_crew(_crew[i], str(b["kind"]), flip)
+			# Pulling at the oars while under way.
+			var stroke: float = absf(sin(_time * ROW_RATE * PI)) * ROW_BOB if dir != Vector2.ZERO else 0.0
+			_crew[i].position.y = _crew_y(str(b["kind"])) + stroke
 		spr.position.y = _boat_base_y[i] + sin(_time * BOB_SPEED + float(i) * 1.7) * BOB_AMPLITUDE
 
 
@@ -256,6 +275,30 @@ func _add_boat(b: Dictionary) -> void:
 	_root.add_child(spr)
 	_boats.append(spr)
 	_boat_base_y.append(base_y)
+	var c: Dictionary = CREW.get(kind, {})
+	var tex: Texture2D = _SpriteRegistry.townsperson_texture(_boats.size())
+	var crew := _billboard(tex, float(c.get("h", 1.2)))
+	crew.region_enabled = true
+	crew.region_rect = Rect2(0.0, 0.0, float(tex.get_width()),
+			roundf(float(tex.get_height()) * float(c.get("show", 0.6))))
+	spr.add_child(crew)
+	_crew.append(crew)
+	_place_crew(crew, kind, spr.flip_h)
+
+
+## Seat (or stand) a boat's crew with the crop's bottom edge on the rail. Children of a
+## billboard aren't billboarded, so this is world space: screen-right is (1, 0, -1).
+static func _place_crew(crew: Sprite3D, kind: String, flipped: bool) -> void:
+	var c: Dictionary = CREW.get(kind, {})
+	var dx: float = float(c.get("dx", 0.0)) * (-1.0 if flipped else 1.0)
+	crew.position = Vector3(1.0, 0.0, -1.0).normalized() * dx + Vector3(0.0, _crew_y(kind), 0.0)
+	crew.flip_h = flipped
+
+
+## Centre height of the cropped crew sprite: its bottom edge on the rail.
+static func _crew_y(kind: String) -> float:
+	var c: Dictionary = CREW.get(kind, {})
+	return float(c.get("rail", 0.0)) + float(c.get("h", 1.2)) * float(c.get("show", 0.6)) * 0.5
 
 
 func _billboard(tex: Texture2D, height: float) -> Sprite3D:

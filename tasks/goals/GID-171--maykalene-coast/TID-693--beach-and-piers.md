@@ -32,6 +32,8 @@ lamps through the street-lamp list (NightLights glow), a second jetty off the be
 
 - Follow-up ("and the boats come and go?"): `Coast.boat_at` clock schedule + per-boat `route` / `trips` /
   `phase`; `Coastline` moves, hides and flips boats from the smooth clock. `test_boats_come_and_go_on_the_clock`.
+- Follow-up ("with npc drivers in them?"): `Coastline.CREW` — a townsperson rower in each rowboat and a
+  captain on each cog, cropped to show only above the rail; rowers bob while rowing.
 
 ## Documentation Updates
 - `docs/agent/world-generation.md` (beach, railings, lamps, jetty).

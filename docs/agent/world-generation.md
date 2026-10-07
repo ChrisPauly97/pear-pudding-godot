@@ -215,7 +215,10 @@ trips a day (offset by `phase`): tied up for `DOCKED_SHARE` of the trip, sails t
 `SAIL_SPEED` (1.6 tiles/s) to beyond the view, stays away (hidden), sails back. A pure function of the
 smooth synced clock (like TownLife), so co-op peers agree without RPCs and a day wrap never jumps;
 `Coastline` samples it per frame and flips the sprite to its screen heading. The harbour cog at anchor
-has no route. A depth lookup costs ~5 µs near the sea and ~0.6 µs elsewhere.
+has no route. Every boat carries crew (`Coastline.CREW`): a townsperson sprite as a child of the hull — a rower
+amidships, a captain on the cog's aft castle — cropped (`region_rect`) to the part above the rail,
+because one billboard never hides another (an offset along the view axis did not occlude it). Rowers bob
+with each stroke while under way. A depth lookup costs ~5 µs near the sea and ~0.6 µs elsewhere.
 
 ## Living World Events
 
