@@ -17,6 +17,7 @@ User targets (2026-10-08): with full HP, full mana and average play, the player 
 
 ## Research Notes
 
+- From TID-716, first matrix (30 fights each, `undead_basic`, ladder-learned, no gear): L1 0 % (Strike only, dead in about 24 s, at full mana the whole fight: nothing to spend it on), L2 100 %, **L3 47 %** (learning Kick sets `heavy_enabled`, and heavy blows hurt even with Kick: 41 / 71 casts kicked), L4–5 93 %, L10 100 %. Run `godot --headless --path . -s tools/balance_sim.gd -- --fights 200 --sweep level=1,2,3,4,5,10 --csv none`.
 - **First, define "an enemy of level L" for the sim.** The relevant pieces:
   - zone level: `enemy_data.enemy_level`, `ZoneLevels.scaled_tier` / `scaled_hero_hp`;
   - type tier: `EnemyRegistry.get_difficulty_tier`, `type_for_chunk_dist`, `type_for_biome`;

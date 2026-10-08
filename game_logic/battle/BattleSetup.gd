@@ -199,7 +199,7 @@ static func apply_live_tuning(rt: RealtimeCombat, base_tier: int) -> void:
 ## A ready real-time solo PvE fight from a plain config, mirroring the game's
 ## setup order. Keys (all optional):
 ##   player_level (1), learned (Array of ladder ids), deck (Array of card ids;
-##   default = the starter deck + Strike), gear ([{id, level, mult}]), weapon /
+##   default = `level_deck(learned)`), gear ([{id, level, mult}]), weapon /
 ##   offhand (item ids), skills (passive skill ids), enemy_type ("undead_basic"),
 ##   enemy_level (1 = no zone scaling), is_boss (false), tuning ({knob: value}),
 ##   seed (0 = leave the RNGs as they are).
@@ -211,7 +211,7 @@ static func build(cfg: Dictionary) -> Dictionary:
 	var player_level: int = int(cfg.get("player_level", 1))
 	var learned: Array = cfg.get("learned", [])
 	var deck: Array[String] = []
-	deck.assign(cfg.get("deck", starter_deck()))
+	deck.assign(cfg.get("deck", level_deck(learned)))
 	var enemy_type: String = str(cfg.get("enemy_type", "undead_basic"))
 	var enemy_level: int = int(cfg.get("enemy_level", 1))
 	var is_boss: bool = bool(cfg.get("is_boss", false))
@@ -247,3 +247,14 @@ static func build(cfg: Dictionary) -> Dictionary:
 static func starter_deck() -> Array[String]:
 	return ["ghost", "skeleton", "zombie", "ghoul", "ghost", "skeleton", "zombie", "ghoul",
 		"ghost", "skeleton", "zombie", "ghoul", "tech_strike"]
+
+## What a player who knows `learned` fights with by default: the starter deck
+## plus each known technique card in learn order, up to TechniqueDefs.DECK_MAX
+## (as `SaveManager.learn_ability` deals them in).
+static func level_deck(learned: Array) -> Array[String]:
+	var deck: Array[String] = starter_deck()
+	deck.erase("tech_strike")
+	var known: Array[String] = TechniqueDefs.known_cards(learned)
+	for i: int in mini(known.size(), TechniqueDefs.DECK_MAX):
+		deck.append(known[i])
+	return deck

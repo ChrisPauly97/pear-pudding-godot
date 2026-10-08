@@ -2,7 +2,7 @@
 
 **Goal:** GID-176
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-715
 
 ## Lock
@@ -32,12 +32,19 @@ The tool the user runs: many seeded fights at a fixed timestep, with a summary t
 
 ## Plan
 
-_Written during Plan phase._
+Medium complexity, so I proceeded without an approval stop.
+1. Pure `BalanceStats` (Wilson, percentiles, summary / table / CSV rows) so the maths is unit-tested.
+2. `tools/balance_sim.gd` CLI over `BalanceFight.run`: args, seeds, sweeps, output.
+3. Docs.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `game_logic/battle/BalanceStats.gd` and `tools/balance_sim.gd`, with the options documented in the header and in balance-sim.md. Sweeps cover `level`, `enemy_level`, any CombatTuning knob or a policy knob. An unknown enemy type aborts with the list of known types. The CSV defaults to `user://balance/<time>.csv`.
+- `game_logic/battle/BattleSetup.gd`: new `level_deck(learned)` (starter deck + up to 3 known technique cards, as `learn_ability` deals them), now `build()`'s default deck. Without it a level-3 sim player had no Kick or Mend card.
+- Tests: new `tests/unit/test_balance_stats.gd` (4). Full suite PASS with 0 SCRIPT ERROR; realtime_battle_smoke clean; gdlint and unsafe-hits clean.
+- Speed: 28–48 fights/s headless (the 100/s target was optimistic). 200 fights per case take about 5 s.
+- First matrix (recorded in balance-sim.md): L1 0 %, L2 100 %, L3 47 % (learning Kick enables heavy blows), L4–5 93 %, L10 100 % vs `undead_basic`. This is input for TID-718.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+New docs/agent/balance-sim.md; CLAUDE.md docs-table row + a Running Tests line.

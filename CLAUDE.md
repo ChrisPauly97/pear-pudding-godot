@@ -530,6 +530,9 @@ Profile the overworld (frame-time percentiles, spikes tagged with chunk-streamin
 cost, chunk-landing stages, orphan nodes): `godot --headless --path . -s tools/profile_world.gd -- --frames 900`.
 Measure before and after a perf change; the flat ~6.9 ms median headless is the 144 fps cap, not work.
 
+Balance-test real-time fights headless (seeded, a fixed bot through the game's own rules, ~40 fights/s):
+`godot --headless --path . -s tools/balance_sim.gd -- --fights 200 --sweep level=1,3,5`. See `docs/agent/balance-sim.md`.
+
 ### You MUST import before the first test run
 
 `.godot/` is gitignored, so a fresh clone has never been imported — and Godot
@@ -734,5 +737,6 @@ Agent-owned feature docs. Each covers Key Features, How It Works, Integrations, 
 | [docs/agent/card-visuals.md](docs/agent/card-visuals.md) | Card frames per magic type, card back, badges, CardFace builder, card animations (GID-151) |
 | [docs/agent/rifts.md](docs/agent/rifts.md) | Spire reworked as per-biome rifts: tier ladders, guardian floors, boons, rift quests, entrances (GID-142) |
 | [docs/agent/starter-zone-and-training.md](docs/agent/starter-zone-and-training.md) | Unlock ladder (one system per level), trainer-taught unlocks for gold, starter zone + quest chain (GID-141) |
+| [docs/agent/balance-sim.md](docs/agent/balance-sim.md) | Headless seeded balance simulator: BattleSetup / PlayerCaster / BalanceBot / BalanceFight, `tools/balance_sim.gd` CLI, sweeps, balance targets (GID-176) |
 | [docs/agent/legends-pear-pudding.md](docs/agent/legends-pear-pudding.md) | Secret Pear Pudding legend: townsfolk tales, Old Tales journal, riddle spots, Bottomless Pudding (GID-153) |
 | [docs/human/story.md](docs/human/story.md) | Story bible: characters, chapters, NPC dialogue, map specs (human-owned) |
