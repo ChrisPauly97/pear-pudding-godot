@@ -484,17 +484,12 @@ func _on_round(side: int) -> void:
 		_battle.modifiers.apply_enemy_traits(_enemy_rounds)
 
 func _after_enemy_play(card: CardInstance, ai_idx: int = RealtimeCombat.ENEMY) -> void:
-	_battle._resolver.flush_auto_spells(ai_idx)
+	var snap := _battle._fx.snapshot()
+	_battle._resolver.resolve_enemy_play(card, ai_idx, RealtimeCombat.PLAYER)  # shared with the balance sim
 	if card.card_class != "spell":
-		_battle._resolver.resolve_emergence(card, ai_idx)
 		_battle.modifiers._apply_weather_to_summoned(card, ai_idx)
 		GameBus.card_played.emit(card.template_id, "board", _battle._state.players[ai_idx].board.slots.find(card))
 	else:
-		# BID-078: resolve the enemy's spell at the player. Real time pins
-		# current_player_idx to the player, so the resolver's default opponent would
-		# be the caster itself — name the target explicitly.
-		var snap := _battle._fx.snapshot()
-		_battle._resolver.resolve_spell(card, ai_idx, {"type": "hero", "pidx": RealtimeCombat.PLAYER})
 		_battle._fx.trigger_fx(snap)
 		_battle._refresh_all()
 		_battle._check_game_over()

@@ -369,6 +369,37 @@ Guard: `realtime_battle_smoke` `_check_setup_matches_sim` builds the sim fight n
 enemy max HP, ally / enemy-minion caps, heavy blows, base damage and both max manas (mutation-checked). Unit tests:
 `tests/unit/test_battle_setup.gd`.
 
+## Balance bot and single fight (GID-176 / TID-715)
+
+- **`game_logic/battle/BalanceBot.gd`**: a simple, deterministic stand-in player. Its `decide(caster)` picks one
+  card (in this order):
+  1. Kick, else Daze, on an enemy cast (Daze first on a heavy blow).
+  2. A heal below `policy.heal_below` (0.4).
+  3. The best Ally by (atk + hp) / cost.
+  4. The best spell by power per mana unit.
+
+  Targets go to enemy Ward minions, else the weakest enemy minion, else the hero (plain damage only); friendly
+  spells go to your weakest Ally. A card with no sensible target falls through to the next. Ties break by hand
+  order. Slot- and ally-targeted spells are skipped. `act()` plays through `PlayerCaster.play`. The policy knobs
+  (`heal_below`, `summon`, `interrupt`) are sweepable.
+- **`game_logic/battle/BalanceFight.gd`**: `run(cfg, policy)` runs one seeded fight at a fixed 0.05 s tick, making
+  the scene's calls minus presentation:
+  1. `BattleSetup.build`.
+  2. Each tick: the bot acts → `caster.tick` → `rt.advance`.
+  3. `enemy_cast` → `SpellEffectResolver.resolve_enemy_play` (now shared with `BattleRealtime._after_enemy_play`).
+  4. Enemy `round` → `BattleSetup.enemy_round`.
+
+  It returns `{result, seconds, hero_hp, hero_hp_frac, plays, dealt_cards, dealt_auto, interrupts, enemy_casts,
+  procs, full_mana_s}`. It runs about 30 fights/s headless.
+- **Not simulated:** boss phase 2, weather, companions, gambits, potions / hero power, commanded Ally attacks, focus
+  changes.
+- **Tests:** `tests/unit/test_balance_bot.gd`:
+  - Kick on a cast.
+  - Mend only when low.
+  - Strike at the hero on an empty board.
+  - Every decision legal over three whole fights.
+  - Same seed → identical fight result.
+
 ## Momentum — always a button to press (GID-139)
 
 Problem (2026-09-27 playtest): with 400 mana at 20/s and a 2 s spend pause, a 3-cost card came

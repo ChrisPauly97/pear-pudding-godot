@@ -38,6 +38,17 @@ func _sfx(id: String) -> void:
 	if not silent:
 		AudioManager.play_sfx(id)
 
+## Real time: an AI side's card has just been played by `RealtimeCombat` —
+## flush its auto-spells, then a minion's emergence or the spell itself, aimed
+## at the player (BID-078: real time pins current_player_idx to the player, so
+## the default opponent would be the caster). Shared with the balance sim.
+func resolve_enemy_play(card: CardInstance, ai_idx: int, player_idx: int = 0) -> void:
+	flush_auto_spells(ai_idx)
+	if card.card_class != "spell":
+		resolve_emergence(card, ai_idx)
+	else:
+		resolve_spell(card, ai_idx, {"type": "hero", "pidx": player_idx})
+
 func setup(state: GameState) -> void:
 	_state = state
 

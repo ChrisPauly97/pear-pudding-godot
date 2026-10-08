@@ -2,7 +2,7 @@
 
 **Goal:** GID-176
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-713, TID-714
 
 ## Lock
@@ -32,12 +32,22 @@ The simulator needs a predictable stand-in for the player that drives PlayerCast
 
 ## Plan
 
-_Written during Plan phase._
+Medium complexity, so I proceeded without an approval stop.
+1. Pure `BalanceBot` with the noted policy, deterministic tie-breaks and fall-through when the top pick has no target.
+2. Pure `BalanceFight.run` single-fight loop (the scene's per-tick calls) so the bot can be tested end to end. The CLI (TID-716) batches it.
+3. Share the enemy-play resolution (`resolve_enemy_play`) the loop needs.
+4. Tests.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `game_logic/battle/BalanceBot.gd`: `decide(caster)` / `act(caster, resolver)` plus policy knobs `heal_below`, `summon`, `interrupt`.
+- New `game_logic/battle/BalanceFight.gd`: `run(cfg, policy)` runs one seeded fight (0.05 s tick, 300 s cap) and returns result, duration, HP and play / damage / interrupt / proc / full-mana stats.
+- `scenes/battle/SpellEffectResolver.gd`: new `resolve_enemy_play(card, ai_idx, player_idx)` (flush auto-spells, then emergence or the spell aimed at the player). `BattleRealtime._after_enemy_play` now calls it, keeping weather / GameBus / FX in the scene. Behaviour is unchanged.
+- Tests: new `tests/unit/test_balance_bot.gd` (5).
+- Validation: full suite PASS with 0 SCRIPT ERROR; all 12 CI smoke tests clean; gdlint and unsafe-hits clean.
+- Speed: about 30 fights/s headless (40 fights in 1.3 s).
+- First observation, for the user: a level-1 new player (Strike only) lost 20/20 to `undead_basic`, while level 5 with Allies won 20/20. TID-716 / TID-717 will measure properly.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+combat-model.md → new "Balance bot and single fight" section.
