@@ -1,5 +1,6 @@
 ## Ruins in the infinite overworld (moved out of InfiniteWorldGen, GID-173): about a third of
-## the chunks away from the stitched realm get a small walled ruin. Pure static logic (runs on
+## the chunks away from the stitched realm get a small walled ruin — scenery to explore; old saves'
+## `dungeon_<n>` ruin dungeons still load (DungeonGen), but no new door leads to them. Pure static logic (runs on
 ## the chunk worker threads).
 extends RefCounted
 
@@ -18,8 +19,8 @@ static func has_ruin(p_cx: int, p_cz: int, chunk_seed: int) -> bool:
 
 
 ## Stamps chunk (cx, cz)'s ruin, if it has one: wall ring with crumbled segments, a flat floor
-## and 1–2 door openings that lead down into a procedural dungeon. `chunk_seed` is the
-## chunk's InfiniteWorldGen seed.
+## and 1–2 gaps in the wall. Ruins are scenery: since GID-173 / TID-702 caves (CaveSites) are the
+## way underground, so the gaps carry no door. `chunk_seed` is the chunk's InfiniteWorldGen seed.
 static func stamp(chunk: _ChunkData, p_cx: int, p_cz: int, chunk_seed: int) -> void:
 	if not has_ruin(p_cx, p_cz, chunk_seed):
 		return
@@ -45,35 +46,24 @@ static func stamp(chunk: _ChunkData, p_cx: int, p_cz: int, chunk_seed: int) -> v
 	var base_h: int = rng.randi_range(4, 6)
 	var corner_bonus: int = rng.randi_range(1, 3)
 
-	# Pick 1–2 door openings on the perimeter (not at corners)
-	var doors: Array[Vector2i] = []
-	var possible_doors: Array[Vector2i] = []
+	# Pick 1–2 gaps in the wall ring (not at corners)
+	var gaps: Array[Vector2i] = []
+	var possible_gaps: Array[Vector2i] = []
 	for i in range(1, outer_w - 1):
-		possible_doors.append(Vector2i(sx + i, sz))
-		possible_doors.append(Vector2i(sx + i, sz + outer_h - 1))
+		possible_gaps.append(Vector2i(sx + i, sz))
+		possible_gaps.append(Vector2i(sx + i, sz + outer_h - 1))
 	for i in range(1, outer_h - 1):
-		possible_doors.append(Vector2i(sx, sz + i))
-		possible_doors.append(Vector2i(sx + outer_w - 1, sz + i))
-	var door_count: int = rng.randi_range(1, 2)
-	for _d in range(door_count):
-		if possible_doors.is_empty():
+		possible_gaps.append(Vector2i(sx, sz + i))
+		possible_gaps.append(Vector2i(sx + outer_w - 1, sz + i))
+	var gap_count: int = rng.randi_range(1, 2)
+	for _d in range(gap_count):
+		if possible_gaps.is_empty():
 			break
-		var door_idx: int = rng.randi_range(0, possible_doors.size() - 1)
-		doors.append(possible_doors[door_idx])
-		possible_doors.remove_at(door_idx)
+		var gap_idx: int = rng.randi_range(0, possible_gaps.size() - 1)
+		gaps.append(possible_gaps[gap_idx])
+		possible_gaps.remove_at(gap_idx)
 
-	# Register each wall opening as a door entity pointing to a procedural dungeon
-	for door_pos in doors:
-		var wx: float = IsoConst.tile_center(p_cx * IsoConst.CHUNK_SIZE + door_pos.x)
-		var wz: float = IsoConst.tile_center(p_cz * IsoConst.CHUNK_SIZE + door_pos.y)
-		var dungeon_seed: int = abs(chunk_seed ^ (door_pos.x * 1000003 + door_pos.y * 999983))
-		chunk.doors.append({
-			"id": "door_%d_%d_%d_%d" % [p_cx, p_cz, door_pos.x, door_pos.y],
-			"x": wx,
-			"z": wz,
-			"target_map": "dungeon_%d" % dungeon_seed,
-			"target_door_id": "entrance",
-		})
+	chunk.has_ruin = true
 
 	# Stamp the ruin — perimeter walls, flat interior floor
 	for lx in range(outer_w):
@@ -89,8 +79,8 @@ static func stamp(chunk: _ChunkData, p_cx: int, p_cz: int, chunk_seed: int) -> v
 				continue
 
 			var pos: Vector2i = Vector2i(tx, tz)
-			if pos in doors:
-				# Door opening — leave as grass
+			if pos in gaps:
+				# Gap — leave as grass
 				chunk.set_tile(tx, tz, IsoConst.TILE_GRASS)
 				chunk.set_height(tx, tz, 0)
 				continue

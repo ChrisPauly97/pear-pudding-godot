@@ -7,7 +7,8 @@
 - Three rivers (GID-172) from mountain sources down to the eastern sea: narrow and wadeable at the source, deep downstream, forded by the road
 - Simplex noise-based tile assignment (GRASS / HILL / WALL) with per-biome frequency and threshold tuning
 - Height variation from 1 to 7 levels depending on biome steepness
-- Procedural ruins generation (~33% of chunks) with variable size, walls, crumbled segments, and door openings
+- Procedural ruins generation (~33% of chunks) with variable size, walls, crumbled segments and wall gaps (scenery)
+- Cave entrances (GID-173) at the foot of hills in rocky chunks, leading into cellular-automaton caverns
 - Entity spawning per chunk: 0–2 enemies, 0–1 chest, 0–1 NPC
 - Deterministic output: fixed world seed + biome seed ensures the same world each load
 - Chunk data cached in memory; evicted when player moves far away
@@ -77,8 +78,11 @@ With ~33% probability per chunk (seeded by chunk coordinates):
 2. Place the ruin centred in the chunk
 3. Write TILE_WALL border around the interior
 4. Randomly crumble 20–40% of border wall tiles back to TILE_GRASS for visual variety
-5. Punch 1–2 door openings in random border positions (each opening is 1 tile wide)
-6. Insert a DOOR entity at each opening pointing to `dungeon_<chunk_seed>`
+5. Punch 1–2 gaps in random border positions (each 1 tile wide)
+6. Mark `chunk.has_ruin` (ChunkRenderer keeps the courtyard dry)
+
+Ruins are scenery since GID-173 / TID-702: no door leads underground from them — cave mouths (`CaveSites`) do.
+Old saves' `dungeon_<n>` maps still load (DungeonGen; the overworld return uses a position token, not the door).
 
 #### Caves (`game_logic/world/CaveSites.gd`, GID-173 / TID-699)
 

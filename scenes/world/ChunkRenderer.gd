@@ -254,7 +254,7 @@ static func water_dry_points(chunk_data: _ChunkData, tile_grid: PackedInt32Array
 	var reach: float = _WaterMath.DRY_RADIUS + _WaterMath.DRY_FADE
 	var inner := Rect2(Vector2(c0) * ts + Vector2(reach, reach),
 			Vector2.ONE * (float(IsoConst.CHUNK_SIZE) * ts - reach * 2.0))
-	if not chunk_data.doors.is_empty() and hi.x >= lo.x:
+	if (chunk_data.has_ruin or not chunk_data.doors.is_empty()) and hi.x >= lo.x:
 		for tz: int in range(lo.y, hi.y + 1):
 			for tx: int in range(lo.x, hi.x + 1):
 				var p: Vector2 = (Vector2(tx, tz) + Vector2(0.5, 0.5)) * ts

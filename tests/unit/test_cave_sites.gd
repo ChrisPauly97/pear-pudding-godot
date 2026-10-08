@@ -7,6 +7,8 @@ const InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
 const ChunkData = preload("res://game_logic/world/ChunkData.gd")
 const BiomeDef = preload("res://game_logic/world/BiomeDef.gd")
 const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
+const DungeonGen = preload("res://game_logic/world/DungeonGen.gd")
+const WorldMap = preload("res://game_logic/world/WorldMap.gd")
 
 const SEED: int = 42
 
@@ -112,3 +114,21 @@ func test_cave_doors_and_names() -> void:
 		cave_noun = cave_noun or title.ends_with(" " + n)
 	assert_true(cave_noun, "cave maps get a cave name (%s)" % title)
 	assert_false(PlaceNames.title("dungeon_123").ends_with(" Cave"), "plain dungeons keep dungeon names")
+
+
+func test_ruins_are_scenery_now() -> void:
+	var ruins: int = 0
+	for cz: int in range(-12, 12):
+		for cx: int in range(-12, 12):
+			var c: ChunkData = InfiniteWorldGen.generate_chunk(cx, cz, SEED)
+			for d: Dictionary in c.doors:
+				if d.has("town"):
+					continue  # a stitched town's own door (e.g. Marsax Hold's war-camp dungeon)
+				assert_false(str(d.get("target_map", "")).begins_with("dungeon_") and str(d.get("kind", "")) != "cave",
+					"no ruin door into a dungeon in chunk (%d, %d)" % [cx, cz])
+			if c.has_ruin:
+				ruins += 1
+	assert_gt(ruins, 30, "ruins still stand (%d)" % ruins)
+	var old: WorldMap = DungeonGen.generate("dungeon_123456", 123456)
+	assert_true(old.doors.any(func(x: Dictionary) -> bool: return str(x["id"]) == "exit"),
+		"an old save's ruin dungeon still generates")

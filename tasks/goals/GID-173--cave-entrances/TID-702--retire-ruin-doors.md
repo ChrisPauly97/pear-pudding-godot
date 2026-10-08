@@ -2,7 +2,7 @@
 
 **Goal:** GID-173
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-700, TID-701
 
 ## Lock
@@ -25,12 +25,17 @@ Shared constraints: chunk-gen code (`InfiniteWorldGen`/`RealmLayout`/`TerrainMat
 
 ## Plan
 
-_Written during Plan phase._
+RuinGen stops appending ruin DOOR entities (keeps the gaps and the RNG stream); a `ChunkData.has_ruin` flag replaces
+"has doors" as ChunkRenderer's cue to keep the courtyard dry. Old `dungeon_<n>` saves keep working (DungeonGen + the
+overworld position-token return). Test, docs.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `RuinGen.stamp`: no door entities; gaps renamed; sets `chunk.has_ruin`.
+- `ChunkData.has_ruin`; `ChunkRenderer.water_dry_points` keys the courtyard footprint on it (or doors, as before).
+- `test_cave_sites.test_ruins_are_scenery_now` (stitched town doors such as Marsax Hold's war camp are exempt).
+- Suite 3080 pass / 0 SCRIPT ERROR; world, chunk, swim smokes clean; gdlint + unsafe-hits clean.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`docs/agent/world-generation.md` (Key Features, Ruins steps); CLAUDE.md map note.
