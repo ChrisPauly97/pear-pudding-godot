@@ -1,15 +1,15 @@
-# TID-719: Zone level ranges, enemy sub-ranges, camps from zones
+# TID-719: Story-route zones with level ranges, enemy sub-ranges, camps from zones
 
 **Goal:** GID-176
 **Type:** agent
-**Status:** in-progress
+**Status:** pending
 **Depends On:** TID-716
 
 ## Lock
 
-**Session:** ccr-74960c86-ruw5if
-**Acquired:** 2026-10-08T15:23:15Z
-**Expires:** 2026-10-08T15:53:15Z
+**Session:** none
+**Acquired:** —
+**Expires:** —
 
 ## Context
 
@@ -33,16 +33,26 @@ Defines what "an enemy of level L" is, which the balance targets (TID-718) depen
 
 ## Plan
 
-**Waiting for user approval (2026-10-08).** High complexity: existing camp and town levels move.
+**Approved by the user (2026-10-08): zones follow the story route, and Chapter 1 = levels 1–10.** This replaces the distance-band plan. Distance bands would put Blancogov (end of Chapter 1) at about 21 and Marsax (Chapter 2) at about 16, against the story order.
 
-- **Zones:** `ZoneLevels.ZONES` distance bands with level ranges. Ranges overlap at the borders; the level ramps through the band.
-  - Madrian outskirts: d 0–75 (flat 1 to 24), levels 1–9.
-  - Maykalene march: d 75–150, levels 8–12 (Maykalene ≈ 9).
-  - Marsax reach: d 150–225, levels 13–17 (Marsax ≈ 16).
-  - Heartland: d 225–300, levels 18–24 (Blancogov / Larik ≈ 21).
-  - Wilds: every 75 tiles further, +6 per band, cap 60.
-- **Enemy sub-ranges:** `EnemyRegistry` `level_range`. Hand-authored: `undead_basic` 1–3, `undead_horde` 3–6, `ghoul_pack` 5–9. Default from tier: 1 → 1–12, 2 → 5–24, 3 → 12–40, 4 → 20–60. Enemy level = the tile level clamped to zone ∩ type (the zone wins if they don't overlap).
-- **Camps:** the authored `level` is dropped and derived instead. New levels: grain 1, south 2, barrow 3, orchard 5, hedge 5, west 6, tor 7, road 7, copse 8. `camp_for_level` becomes nearest; `test_starter_zone` and the `test_side_quests` pacing test are updated. The Barrow King keeps level 14 (unique boss).
+| Zone | Levels | Story |
+|---|---|---|
+| Madrian outskirts (starter camps) | 1–5 | help_townsfolk, speak_maiteln |
+| South road and wilds | 4–7 | leave_madrian, make_camp, learn_fire |
+| Farsyth lands and Isfig road | 6–9 | find_farsyth, meet_isfig |
+| Blancogov approach | 8–10 | reach_blancogov, enter_temple, council (`chapter1_complete`) |
+| Larik | 10–14 | Chapter 2: eldar_charge → search_larik |
+| Marsax Hold and war-camp | 13–17 | Chapter 2: west_to_marsax → war_camp |
+| Wild land off the route | nearest route zone's max + distance ramp | — |
+
+1. **Zone table:** `ZoneLevels.ZONES` holds the story regions, each with an anchor (a town via `RealmLayout` offsets, or a story site from `RealmLayout` / StoryQuests `site`), a radius and a level range. `zone_at_tile` / `range_at_tile` / `level_at_tile`: inside a zone, the level ramps from its min (nearest the previous zone on the route) to its max. Off the route, the nearest zone's max plus a distance ramp (about 1 level per 12 tiles), capped at 60. Towns themselves stay safe ground (no spawns), as today.
+2. **Enemy sub-ranges:** `EnemyRegistry` gets a `level_range`. Hand-authored for starter types (undead_basic 1–2, undead_horde 2–4, ghoul_pack 3–5); tier defaults otherwise (1 → 1–12, 2 → 5–24, 3 → 12–40, 4 → 20–60). Enemy level = the tile level clamped to zone ∩ type (the zone wins if they don't overlap).
+3. **Starter camps:** the authored `level` is dropped and derived from the camp tile and type within the outskirts' 1–5. `camp_for_level` becomes nearest; `test_starter_zone` checks every level 1–5 has a camp within one level. The Barrow King keeps a fixed level (unique boss); re-check it against Chapter 1 (14 is above the cap; consider 10).
+4. **Consumers:** EnemyNPC `enemy_level()`, ChestLoot, StarterCamps, XP / con colour: no API change beyond the new level source. Keep `level_at_tile` pure and thread-safe (chunk gen).
+5. **Tests:** every Chapter 1 story step's location is within 1–10; zones along the route are non-decreasing in story order; every camp level is inside its zone; level_at_tile is continuous enough (no jump over 2 between neighbouring tiles off town edges).
+6. **Docs:** world-generation, starter-zone-and-training, enemies-and-npcs, balance-sim (enemy-of-level-L definition).
+
+Out of scope here, now in GID-177 / TID-722: camps and repeatable quests in the road zones.
 
 ## Changes Made
 

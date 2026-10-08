@@ -13,14 +13,14 @@ User (2026-10-08): "level up should be much slower, we're not in a rush to level
 - Level 1 takes about **10 minutes** of play, and each level after takes longer ("graduating up"). Working model: +5 min per level, so L1 10, L2 15, L3 20 … L9 50 min, about 4.5 h to level 10. Confirm the step when the first numbers are in.
 - From level 3 on, a level takes **a few quests** (about 3–4) plus the kills along the way.
 
-Unchanged unless the user says otherwise: the UnlockLadder (one system per level, 2–10; slower levels spread unlocks out in time); Madrian's outskirts stay levels 1–9 (GID-176 / TID-719).
+Unchanged unless the user says otherwise: the UnlockLadder (one system per level, 2–10; slower levels spread unlocks out in time); Chapter 1 = levels 1–10 over story-route zones (GID-176 / TID-719): Madrian outskirts 1–5, South road 4–7, Farsyth / Isfig 6–9, Blancogov approach 8–10.
 
 ## Tasks
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | [TID-721](TID-721--xp-curve.md) | XP curve to the pacing targets + save migration | agent | pending | — |
-| [TID-722](TID-722--more-quests.md) | Enough quests for 3–4 per level from L3: repeatable camp quests | agent | pending | TID-721 |
+| [TID-722](TID-722--more-quests.md) | Camps and repeatable quests across Chapter 1's zones | agent | pending | TID-721, GID-176/TID-719 |
 | [TID-723](TID-723--pacing-retune.md) | Re-tune quest / kill XP and gold to the new curve; pacing test | agent | pending | TID-721, TID-722 |
 
 ## Acceptance Criteria
