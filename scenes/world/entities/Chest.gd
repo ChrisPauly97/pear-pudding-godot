@@ -6,6 +6,8 @@ const _SpriteLoop = preload("res://scenes/world/entities/SpriteLoop.gd")
 const _LandmarkFrames = preload("res://game_logic/LandmarkFrames.gd")
 const _OPEN_FRAME_TIME: float = 0.08
 const _LID_OPEN_ANGLE: float = -70.0
+## Crystal caches in caves (CaveGen) glint pale blue.
+const CRYSTAL_TINT := Color(0.7, 0.9, 1.25)
 
 # Shared across all fallback chest instances — created once
 static var _opened_mat: StandardMaterial3D
@@ -46,6 +48,8 @@ func _ready() -> void:
 		_SpriteRegistry.setup_sprite(_sprite,
 				_SpriteRegistry.chest_open_texture() if _opened else _SpriteRegistry.chest_closed_texture())
 		_SpriteRegistry.apply_billboard_flags(_sprite)
+		if bool(chest_data.get("crystal", false)):
+			_sprite.modulate = CRYSTAL_TINT  # a cave's crystal cache (GID-173)
 		add_child(_sprite)
 		return
 

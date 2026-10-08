@@ -2,7 +2,7 @@
 
 **Goal:** GID-173
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -24,12 +24,19 @@ Shared constraints: chunk-gen code (`InfiniteWorldGen`/`RealmLayout`/`TerrainMat
 
 ## Plan
 
-_Written during Plan phase._
+New `CaveGen.gd` (cellular-automaton cavern, largest region, BFS-placed entrance / exit / dwellers / caches / rest,
+stalagmites, secret room); `DungeonGen.generate` dispatches `dungeon_cave_*` to it, the old body becomes
+`generate_rooms` (also the fallback). Chests flagged `crystal` get a pale-blue tint.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `game_logic/world/CaveGen.gd`.
+- `DungeonGen.generate` → dispatch; old layout is `generate_rooms`.
+- `Chest.gd`: `CRYSTAL_TINT` for `crystal` chests.
+- `tests/unit/test_cave_gen.gd` (3). Ad-hoc real-scene check: WorldScene on `dungeon_cave_31337` spawns 5 enemies,
+  3 chests, player at the entrance, 0 SCRIPT ERROR. Suite 3079 pass / 0 SCRIPT ERROR; gdlint + unsafe-hits clean.
+- Uses the existing enemy roster (no bespoke cave art); visual "dim mood" is the dungeon look as is.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`docs/agent/named-maps-and-dungeons.md` (new Cave interiors section).

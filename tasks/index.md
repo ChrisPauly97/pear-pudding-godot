@@ -176,7 +176,7 @@
 | [GID-170](goals/GID-170--towns-like-madrian/goal.md) | Every Town Laid Out Like Madrian | done | 1 / 1 |
 | [GID-171](goals/GID-171--maykalene-coast/goal.md) | Maykalene on the Eastern Sea | done | 1 / 1 |
 | [GID-172](goals/GID-172--rivers-and-swimming/goal.md) | Rivers & Swimming | done | 5 / 5 |
-| [GID-173](goals/GID-173--cave-entrances/goal.md) | Cave Entrances | in-progress | 2 / 4 |
+| [GID-173](goals/GID-173--cave-entrances/goal.md) | Cave Entrances | in-progress | 3 / 4 |
 | [GID-174](goals/GID-174--bogs/goal.md) | Bogs | pending | 0 / 3 |
 
 ## Backlog

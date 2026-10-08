@@ -115,6 +115,26 @@ Calls `to_map_data(map_name)` then `ResourceSaver.save(data, "user://maps/<name>
 4. Calls `map.save_to_file(p_name)` → writes `user://maps/dungeon_<seed>.tres`.
 5. Returns the WorldMap.
 
+### Cave interiors (`game_logic/world/CaveGen.gd`, GID-173 / TID-701)
+
+`DungeonGen.generate` hands any `dungeon_cave_<seed>` map (entered by an overworld cave mouth, `CaveSites`) to
+`CaveGen.generate`; everything else goes to `DungeonGen.generate_rooms` (the classic layout below, also CaveGen's
+fallback). The `dungeon_` prefix keeps every dungeon path (seed parse, MapRegistry/save, downed-rescue spawn, map view,
+NamedMapProps) working unchanged.
+
+| Step | |
+|---|---|
+| Cavern | 64×48 box inside the 100×100 map (all else solid rock): seeded fill `FILL` 0.45 rock, `SMOOTH_PASSES` 5 of a cellular automaton (rock at ≥ 5 rock neighbours, open at ≤ 3), keep the largest 4-connected region; < `MIN_OPEN` 700 tiles → re-roll (`TRIES` 6), then fall back to rooms |
+| Entrance / exit | spawn on the west-most open tile; walking distances (BFS); the exit door (`target_map` "") on the farthest tile, the reward chest `dc_0` three steps before it |
+| Dwellers | at 25/40/55/70/85 % of the walk, from `CAVE_POOL` (ghoul_pack → stone_golem → mountain_troll → frost_wendigo), the start tier from the seed, deeper ones one step harder every two |
+| Crystal caches | `CACHE_COUNT` 2 treasure chests (`dtr_` — better drops) in side pockets (≥ 5 of 8 neighbours rock), `crystal: true` → Chest tints them pale blue |
+| Rest | 50 %: a campfire rest site mid-cave (`dnpc_rest_0`, same DungeonSessionUI flow) |
+| Stalagmites | `PILLAR_CHANCE` 4 % lone low pillars (height 2) where all 8 neighbours are open floor, never beside an entity — can't cut the cavern |
+| Secret room | 30 %, DungeonGen's `_try_gen_secret_room` |
+
+Saved via `save_to_file` like a dungeon (50–80 ms to generate). `test_cave_gen` checks one connected cavern with
+every entity reachable, exit at the far end, cave dwellers, crystal caches, determinism, and plain dungeons unchanged.
+
 ### Room Types
 
 Each of the 5 dungeon rooms has a deterministic type derived from the seed:

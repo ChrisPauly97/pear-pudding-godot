@@ -13,6 +13,8 @@ extends RefCounted
 const IsoConst = preload("res://autoloads/IsoConst.gd")  # usable before autoloads register (-s runs)
 const _WorldMap = preload("res://game_logic/world/WorldMap.gd")
 const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
+const _CaveGen = preload("res://game_logic/world/CaveGen.gd")  # cyclic, fine
+const _CaveSites = preload("res://game_logic/world/CaveSites.gd")
 
 const DW: int = 80          # dungeon width  (tiles)
 const DH: int = 60          # dungeon height (tiles)
@@ -27,6 +29,13 @@ const CORRIDOR_HALF: int = 1  # corridor is (CORRIDOR_HALF*2+1) tiles wide = 3
 
 
 static func generate(p_name: String, dungeon_seed: int) -> _WorldMap:
+	if p_name.begins_with(_CaveSites.MAP_PREFIX):
+		return _CaveGen.generate(p_name, dungeon_seed)  # a cave entered from the overworld (GID-173)
+	return generate_rooms(p_name, dungeon_seed)
+
+
+## The classic room-and-corridor dungeon (also CaveGen's fallback).
+static func generate_rooms(p_name: String, dungeon_seed: int) -> _WorldMap:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = dungeon_seed
 
