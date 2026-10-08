@@ -7,6 +7,7 @@ const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const CaptureTracker = preload("res://game_logic/battle/CaptureTracker.gd")
 const Keywords = preload("res://game_logic/battle/Keywords.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
+const TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
 
 # Co-located with resolver so match arms and targeting UI stay in sync.
 const ENEMY_TARGETED_EFFECTS: Array[String] = [
@@ -25,10 +26,33 @@ const ALLY_TARGETED_EFFECTS: Array[String] = [
 	"ally_grant_mana", "ally_revive",
 ]
 
+## Headless balance runs (GID-176) set this to skip sound effects.
+static var silent: bool = false
+
 var extra_turn_granted: bool = false
 var capture_tracker: CaptureTracker
 
 var _state: GameState
+
+func _sfx(id: String) -> void:
+	if not silent:
+		AudioManager.play_sfx(id)
+
+## Real time: an AI side's card has just been played by `RealtimeCombat` —
+## flush its auto-spells, then a minion's emergence or the spell itself, aimed
+## at the player (BID-078: real time pins current_player_idx to the player, so
+## the default opponent would be the caster). Shared with the balance sim.
+## `power_scale` (0..1) softens a low-level enemy's spell (GID-176 / TID-720).
+func resolve_enemy_play(card: CardInstance, ai_idx: int, player_idx: int = 0, power_scale: float = 1.0) -> void:
+	flush_auto_spells(ai_idx)
+	if card.card_class != "spell":
+		resolve_emergence(card, ai_idx)
+		return
+	var printed: int = card.spell_power
+	if power_scale < 1.0 and printed > 0:
+		card.spell_power = maxi(1, roundi(float(printed) * power_scale))
+	resolve_spell(card, ai_idx, {"type": "hero", "pidx": player_idx})
+	card.spell_power = printed
 
 func setup(state: GameState) -> void:
 	_state = state
@@ -96,7 +120,7 @@ static func _grant(card: CardInstance, kw: String) -> void:
 func resolve_emergence(card: CardInstance, caster_pid: int) -> void:
 	if card.emergence_effect == "":
 		return
-	AudioManager.play_sfx("spell_resolve")
+	_sfx("spell_resolve")
 	# Mirrors resolve_spell's generalization: caster_pid is always current_player_idx
 	# at the time a just-played minion's emergence fires, so opponent() is correct.
 	var opponent: PlayerState = _state.opponent()
@@ -138,7 +162,7 @@ func _explicit_opponent(explicit_target: Dictionary, caster_pid: int, fallback: 
 	return fallback
 
 func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Dictionary = {}) -> void:
-	AudioManager.play_sfx("spell_resolve")
+	_sfx("spell_resolve")
 	var _ct_board_before: int = _state.players[1 - caster_pid].board.get_cards().size() if caster_pid == 0 else 0
 	# resolve_spell is only ever called for the currently-acting player (turn-gated by every
 	# caller), so _state.opponent() always reflects caster_pid's opponent — generalizes the
@@ -149,7 +173,8 @@ func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Diction
 	# "add", GID-135) the targeted minion's owner or the named hero's player.
 	opponent = _explicit_opponent(explicit_target, caster_pid, opponent)
 	var caster: PlayerState = _state.players[caster_pid]
-	var power: int = card.spell_power
+	# Techniques (GID-175) resolve with their real-time value when mana is scaled.
+	var power: int = TechniqueDefs.power(card.template_id, card.spell_power, caster.hero.mana_scale > 1)
 	var _spell_dmg: int = BattlefieldRules.modify_damage(power, _state.battlefield_biome)
 	# Single-target arms resolve their subject once here; `null` means the
 	# relevant board was empty, which every arm below treats as a no-op.
@@ -263,6 +288,9 @@ func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Diction
 				t.attack += power
 		"heal_hero":
 			caster.hero.heal(power)
+		"mana_tap":
+			opponent.hero.take_damage(_spell_dmg)
+			caster.hero.gain_mana(TechniqueDefs.mana_value(card.template_id))
 		"armor_hero":
 			caster.hero.apply_status("armor", power)
 		"grant_ward":

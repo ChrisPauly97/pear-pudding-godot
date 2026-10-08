@@ -6,7 +6,7 @@ extends Node
 const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
-const SkillBar = preload("res://game_logic/battle/SkillBar.gd")
+const _TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
 const _SideQuests = preload("res://game_logic/quests/SideQuests.gd")
 const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
 const _Tales = preload("res://game_logic/quests/Tales.gd")
@@ -360,11 +360,11 @@ func show_trainer_panel(trainer: String = "combat", service_npc: Dictionary = {}
 
 	var close_row := _UiUtil.make_hbox(int(vh * 0.02), vbox)
 	close_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	if trainer == "combat" and SkillBar.known_ids(sm.learned_abilities).size() > 1:
-		# TID-556: also reachable from the Menu Hub's "Skill Bar" tab at any time.
-		_UiUtil.make_button("Skill Bar", Vector2(vh * 0.18, vh * 0.06), font, func() -> void:
+	if trainer == "combat" and _TechniqueDefs.known_cards(sm.learned_abilities).size() > 1:
+		# GID-175: techniques are deck cards — put them in your deck from the Deck tab.
+		_UiUtil.make_button("Deck", Vector2(vh * 0.18, vh * 0.06), font, func() -> void:
 			layer.queue_free()
-			SceneManager.open_menu_hub("loadout"), close_row)
+			SceneManager.open_menu_hub("deck"), close_row)
 	if str(service_npc.get("npc_type", "")) != "":
 		_UiUtil.make_button("Other business", Vector2(vh * 0.2, vh * 0.06), font, func() -> void:
 			layer.queue_free()
@@ -404,6 +404,8 @@ func _trainer_row(id: String, trainer: String, service_npc: Dictionary, sm: Save
 	var learn_btn := _UiUtil.make_button("Learn — %d gold" % cost, Vector2(vh * 0.24, vh * 0.055), font,
 			func() -> void:
 				if sm.learn_ability(id, cost):
+					if _TechniqueDefs.card_for(id) != "":
+						_world._show_tip("%s card added to your collection." % str(row_def.get("title", id)))
 					layer.queue_free()
 					show_trainer_panel(trainer, service_npc), btn_row)
 	learn_btn.disabled = not can

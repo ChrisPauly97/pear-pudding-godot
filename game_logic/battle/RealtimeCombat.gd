@@ -65,6 +65,8 @@ var weapon_speed: Array[float] = []
 ## interrupts it and Guard / armor soaks it. Off until the player can answer it
 ## (BattleRealtime enables it once Kick is learned).
 var heavy_enabled: bool = false
+## Each side's level (index = side; the player's character level, an enemy's level-equivalent).
+var side_levels: Array[int] = []
 ## Most minions each enemy side may field. 1 until the player can field Allies
 ## (BattleRealtime sets it from CombatOnboarding); adds that join later inherit it.
 var enemy_minion_cap: int = MAX_ENEMY_MINIONS
@@ -93,6 +95,9 @@ var auto_attack: bool = true
 ## Combo charges built by skill-bar hits; the next card spends them all.
 var combo: int = 0
 ## Rolls free-cast procs; tests seed it or pin the chance knobs to 0 / 1.
+## This fight's own rolls (procs). Randomized on construction; the balance sim
+## (GID-176) sets `rng.seed` for a repeatable fight. Deck shuffles and resolver
+## picks use the global RNG, so it also calls `seed(n)`.
 var rng := RandomNumberGenerator.new()
 
 ## Per-side resource and hero-swing timers.
@@ -126,6 +131,7 @@ func _init(s: GameState, levels: Array[int] = [1, 1], tuning: CombatTuning = nul
 
 ## Sets up per-side timers and mana for players[i] (you or an enemy).
 func _init_side(i: int, level: int) -> void:
+	side_levels.append(level)
 	gcd.append(0.0)
 	casting.append(null)
 	cast_remaining.append(0.0)
@@ -671,7 +677,8 @@ func _tick_enemy(side: int, delta: float, events: Array[Dictionary]) -> void:
 		return
 	if not gcd_ready(side):
 		return
-	if heavy_enabled and _heavy_timer[side] <= 0.0 and not state.players[side].hero.leaderless:
+	if heavy_enabled and _heavy_timer[side] <= 0.0 and not state.players[side].hero.leaderless \
+			and _level_of(side) >= tune.get_i("heavy_min_level"):
 		_heavy_timer[side] = tune.get_f("heavy_every")
 		casting[side] = make_heavy_card()
 		pushbacks[side] = 0
@@ -695,13 +702,19 @@ static func is_heavy(card: CardInstance) -> bool:
 	return card != null and card.card_class == HEAVY_CLASS
 
 ## Damage a landed heavy blow deals (a share of your max HP; armor soaks it).
-func heavy_damage() -> int:
-	return maxi(1, roundi(float(state.players[PLAYER].hero.max_health) * tune.get_f("heavy_frac")))
+## Heavy blows from a low-level enemy land softer (CombatTuning.level_scale, TID-720).
+func heavy_damage(side: int = ENEMY) -> int:
+	return maxi(1, roundi(float(state.players[PLAYER].hero.max_health) * tune.get_f("heavy_frac")
+			* tune.level_scale(_level_of(side))))
+
+## A side's level (1 if unknown).
+func _level_of(side: int) -> int:
+	return side_levels[side] if side >= 0 and side < side_levels.size() else 1
 
 func _land_heavy(side: int, events: Array[Dictionary]) -> void:
 	var hero := state.players[PLAYER].hero
 	var before: int = hero.health
-	hero.take_damage(heavy_damage())
+	hero.take_damage(heavy_damage(side))
 	events.append({"type": "enemy_heavy_hit", "side": side, "damage": before - hero.health})
 
 ## An enemy picks the most expensive card it can afford — units or spells (spells

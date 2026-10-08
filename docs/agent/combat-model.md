@@ -307,6 +307,116 @@ minions flee and its token greys out.
 - **Victory:** `BattleVictory._reward_joined_enemies` marks each joined enemy defeated and pays its coins/XP,
   bestiary and bounty progress. Turn-based fights still refuse a second engage.
 
+## Determinism (GID-176 / TID-712)
+
+A real-time fight replays exactly when its randomness is seeded. There are two sources:
+
+- `RealtimeCombat.rng` (procs): randomized in `_init`; set `rt.rng.seed = n` after construction.
+- The global RNG (deck `shuffle()` in `PlayerState` / `RealtimeCombat.trim_hand`, `randi()` picks in
+  `SpellEffectResolver`): call `seed(n)` **before** building decks.
+
+`SpellEffectResolver.silent = true` skips its `AudioManager` sound calls for headless batch runs. Nothing else on the
+real-time fight path touches an autoload. `CardInstance` instance ids still count up across fights, so compare
+template ids, not instance ids. Test: `tests/unit/test_battle_determinism.gd` (same seed → identical 60 s trace;
+mutation-checked by dropping either seed).
+
+## PlayerCaster — the player's casting rules, shared (GID-176 / TID-713)
+
+`game_logic/battle/PlayerCaster.gd` is the single, pure home of the local player's real-time rules:
+
+- **GCD gate:** `on_cooldown()` (outside the spell-queue window, or mid-cast).
+- **Cast state machine:** `begin(card, finish, target, cast_time)` → `tick(dt)`. Queue delay, the GCD start, a
+  technique's own cast time, pushback from hits since the last tick, fizzle when the unit target left the board,
+  then `finish`.
+- **Off-GCD:** `run_off_gcd()`.
+- **Combo / free-cast payoff:** a non-technique card is wrapped by `_with_combo`, and a full combo makes it instant.
+- **Techniques:** `is_off_gcd`, `technique_blocker`, `resolve_reactive` (Kick / Daze), `casting_enemy`, and builder
+  hits after a technique resolves.
+
+`BattleRealtime` owns one (`caster`) and only presents. `run_cast` / `run_off_gcd` / `is_casting` / `on_cooldown`
+/ `note_player_play` forward to it, and its `notify` events (`combo`, `proc`, `interrupt`, `dazed`, `fizzled`,
+`resolved`, `technique`) become toasts, hit feel, FightStats and quest progress in `_on_caster_event`.
+`MomentumHud` lost `wrap_card`; `RealtimeTechniques` keeps only presentation (`control_for`, `pulse_reactive`).
+
+The balance simulator plays through `play(card, resolver, target)` / `play_blocker(card)`. These apply the same
+gates as a hand tap, the same cast path, then `PlayerState.play_card*` + `SpellEffectResolver` (Allies go to the
+first free slot), without FX. Not mirrored: snow first-card discount, weather on summons, scripted-battle tutorial
+steps. Tests: `tests/unit/test_player_caster.gd` (mutation-checked on pushback and the combo spend).
+
+## BattleSetup — shared fight setup (GID-176 / TID-714)
+
+`game_logic/battle/BattleSetup.gd` (pure statics) holds what an ordinary solo PvE fight starts with. The scene
+calls each piece with values read from the save, and the balance simulator calls `build(cfg)`:
+
+| Piece | Called by the game from |
+|---|---|
+| `unlock_filter(deck, learned)` (minions / spells until learned, techniques always) | `BattleModifiers._apply_combat_unlocks` |
+| `apply_gear(player, [{id, level, mult}], realtime)` | `BattleModifiers._apply_equipment_effects` (builds the item list from the save) |
+| `apply_passives(player, skill_ids)` | `BattleModifiers._apply_passive_skills` |
+| `enemy_tier(type, is_boss, enemy_level)` | `BattleScene._setup_solo_battle` |
+| `setup_enemy(enemy, player, type, deck, tier, level, boss_hp)` (mirror trait deck, tier-scaled build + opening hand, pack, boss HP, zone HP; an empty deck keeps GameState's default) | `BattleScene._setup_solo_battle` (then `modifiers.set_trait_source`) |
+| `enemy_round(state, type, tier, round_n)` (fight traits) | `BattleModifiers.apply_enemy_traits` |
+| `configure_realtime(rt, level, type, weapon_speed, offhand, puzzle)` (heavy blows on, enemy-minion cap by **enemy** level, ally cap, opening-hand trim, gear timers, passive) | `BattleRealtime.maybe_start` |
+| `enemy_spell_scale(rt, side)` (0..1 power of an enemy side's spells by its level) | `BattleRealtime._after_enemy_play`, `BalanceFight` |
+| `apply_live_tuning(rt, base_tier)`, `enemy_level_for_tier`, `offhand_damage_for_item`, `weapon_speed_for_item` | `BattleRealtime` (its statics forward here) |
+
+`build(cfg)` keys: `player_level`, `learned`, `deck` (default `starter_deck()` = new-game deck + Strike), `gear`,
+`weapon`, `offhand`, `skills`, `enemy_type` (`undead_basic`), `enemy_level`, `is_boss`, `tuning`, `seed`. It
+returns `{state, rt, tier}` in the scene's order: player deck → unlock filter → gear → passives → opening hand →
+enemy → `start_turn(1)` → RealtimeCombat + `configure_realtime` + live tuning. Not covered (scene-only, BID-094):
+spire / siege HP, gambits, ambush, blight, weather, battlefield biome, companions, persistent HP.
+
+Guard: `realtime_battle_smoke` `_check_setup_matches_sim` builds the sim fight next to the real scene and compares
+enemy max HP, ally / enemy-minion caps, heavy blows, base damage and both max manas (mutation-checked). Unit tests:
+`tests/unit/test_battle_setup.gd`.
+
+## Enemy strength by enemy level (GID-176 / TID-720)
+
+Enemies act the same whatever the player has learned; only the **enemy's** level (`RealtimeCombat.side_levels`)
+changes them. Knobs (CombatTuning, Enemy group):
+
+| Knob | Default | Effect |
+|---|---|---|
+| `heavy_min_level` | 3 | Enemies below this never wind up heavy blows |
+| `enemy_full_level` | 10 | Level at which heavies / spells hit at full strength |
+| `enemy_low_scale` | 0.5 | Strength at level 1; `CombatTuning.level_scale(L)` lerps to 1 at `enemy_full_level` |
+| `enemy_two_minions_level` | 4 | Below this an enemy fields one minion |
+
+`heavy_damage(side)` = player max HP × `heavy_frac` × `level_scale`. Enemy spells keep their cast bars at every
+level (so Kick is familiar when learned) but `SpellEffectResolver.resolve_enemy_play(..., power_scale)` scales
+`spell_power` for that resolve. `CombatOnboarding` only shapes the **player's** side (hand, spells, Ally slots).
+
+## Balance bot and single fight (GID-176 / TID-715)
+
+- **`game_logic/battle/BalanceBot.gd`**: a simple, deterministic stand-in player. Its `decide(caster)` picks one
+  card (in this order):
+  1. Kick, else Daze, on an enemy cast (Daze first on a heavy blow).
+  2. A heal below `policy.heal_below` (0.4).
+  3. The best Ally by (atk + hp) / cost.
+  4. The best spell by power per mana unit.
+
+  Targets go to enemy Ward minions, else the weakest enemy minion, else the hero (plain damage only); friendly
+  spells go to your weakest Ally. A card with no sensible target falls through to the next. Ties break by hand
+  order. Slot- and ally-targeted spells are skipped. `act()` plays through `PlayerCaster.play`. The policy knobs
+  (`heal_below`, `summon`, `interrupt`) are sweepable.
+- **`game_logic/battle/BalanceFight.gd`**: `run(cfg, policy)` runs one seeded fight at a fixed 0.05 s tick, making
+  the scene's calls minus presentation:
+  1. `BattleSetup.build`.
+  2. Each tick: the bot acts → `caster.tick` → `rt.advance`.
+  3. `enemy_cast` → `SpellEffectResolver.resolve_enemy_play` (now shared with `BattleRealtime._after_enemy_play`).
+  4. Enemy `round` → `BattleSetup.enemy_round`.
+
+  It returns `{result, seconds, hero_hp, hero_hp_frac, plays, dealt_cards, dealt_auto, interrupts, enemy_casts,
+  procs, full_mana_s}`. It runs about 30 fights/s headless.
+- **Not simulated:** boss phase 2, weather, companions, gambits, potions / hero power, commanded Ally attacks, focus
+  changes.
+- **Tests:** `tests/unit/test_balance_bot.gd`:
+  - Kick on a cast.
+  - Mend only when low.
+  - Strike at the hero on an empty board.
+  - Every decision legal over three whole fights.
+  - Same seed → identical fight result.
+
 ## Momentum — always a button to press (GID-139)
 
 Problem (2026-09-27 playtest): with 400 mana at 20/s and a 2 s spend pause, a 3-cost card came
@@ -314,90 +424,143 @@ every ~15 s and Strike (6 s cooldown) was the only filler, so most GCDs were idl
 played itself. The fix keeps real time but makes the loop **build → spend**:
 
 - **Strike is the filler:** 0 mana, no cooldown, 2 damage — the GCD (`player_gcd`, now 1.2 s) is its
-  only gate. Every damaging skill-bar ability is a *builder*.
+  only gate. Every damaging technique card is a *builder* (GID-175).
 - **Essence siphon (lore: striking knocks essence loose and you draw it in — see magic-system.md
   Cosmology):** `RealtimeCombat.on_player_hit(dmg, builder)` grants `siphon_per_damage` mana per damage
-  from your hero's swings and damaging skills.
+  from your hero's swings and damaging techniques.
 - **Auto-attack is always on** (`RealtimeCombat.auto_attack`; the old ⚔ Auto / F "Focus" toggle and
   `focus_regen_mult` were removed): melee swings are automatic, siphon mana, and vein regen runs ×
   `fighting_regen_mult` (0.4). The one starter ability, **Strike** (5 dmg, free), runs on a 6 s cooldown
   instead of being a GCD-spammed filler.
 - **Combo charges:** each builder hit adds one (cap `combo_max` 3, pips ◆◇ on the action strip). The next
   hand card spends them all for `combo_refund` mana each; a **full** combo makes that card instant.
-  Hook: `BattleRealtime.run_cast` → `MomentumHud.wrap_card` (skill pseudo-cards, marked by the
-  `cost_points` meta, are skipped); the combo is spent only once the card actually left the hand.
+  Hook: `PlayerCaster.begin` → `_with_combo` (technique cards are skipped, GID-175); the combo is spent only once the card actually left the hand.
 - **Essence surge procs:** builder hits roll `proc_chance` (0.15), auto hits `auto_proc_chance` (0.05);
   a proc banks `PlayerState.next_card_free` (effective_cost → 0, cleared by `play_card*`) so the next
-  card is free and instant. Auto-hit procs arrive as a `{"type": "proc"}` advance event, skill procs
-  as `out.proc` from `SkillBar.apply`. The hand pulses gold (free) or blue (full combo) via
+  card is free and instant. Auto-hit procs arrive as a `{"type": "proc"}` advance event, technique procs
+  from `PlayerCaster._after_technique`. The hand pulses gold (free) or blue (full combo) via
   `self_modulate`.
 - All numbers are **Momentum** rows in `CombatTuning` (⚙ Tune). Tests: `test_combat_momentum.gd`.
 - Next (GID-139 todo): telegraphed heavy enemy attacks (TID-579), real-time hit-stop/shake (TID-580).
 
-## Skill bar — fixed abilities (TID-550)
+## Technique cards (GID-175 / TID-706) — supersedes the fixed skill bar
 
-Decided 2026-09-26: a **small** fixed bar, not a full WoW action bar, so the deck stays the main
-engine (draw, hand management, deckbuilding). Bar skills are weaker but always there on their own
-cooldowns; deck spells are stronger and single-use. Think Hearthstone's hero power stretched to three
-buttons.
+Decided 2026-10-08. The spec's `## Identity` rule is that **the card is the atomic unit of the game**. The fixed
+3-slot bar (TID-550) broke it, so every bar ability becomes a **technique card**: deckbuilt, drawn and played from
+the hand. The sections "Skill bar — fixed abilities" and "Learning abilities & the loadout" below describe the old
+model and stay only until TID-710 removes the code.
 
-- **Logic:** `game_logic/battle/SkillBar.gd` — `ABILITIES` table (cost in mana points, cooldown,
-  cast time, effect, `off_gcd`), `SLOTS = 3`, per-slot cooldowns, `blocker()` (reason it can't be
-  used), `apply()` (spends mana, applies the effect). Defaults: **Strike** (2 dmg to the focused
-  minion / targeted enemy hero, instant, free, no cooldown — the GID-139 filler), **Mend** (heal 6, 1.5 s cast, 20 s), **Kick**
-  (interrupt an enemy cast, off the GCD, 12 s).
-- **UI:** `scenes/battle/modules/BattleSkillBar.gd` (`BattleRealtime.skills`) — buttons in the bottom
-  action strip just left of the hand, with a draining shade (own cooldown or the GCD, whichever is
-  longer); Kick pulses while an enemy is casting; keys 1–3. Cast-time abilities go through
-  `BattleRealtime.run_cast(card, finish, null, cast_time)` so they share the GCD, spell queue, cast bar
-  and pushback. Instants start the GCD unless `off_gcd`; nothing fires mid-cast. Mana is spent and the
-  cooldown starts when the ability resolves.
-- **Slots:** `SaveManager.skill_bar` (ability ids; empty = `DEFAULT_BAR`). Trainers (TID-537) fill it.
-- **Tuning:** `skill_cooldown` multiplier knob (Skill bar group).
-- Real time only; turn-based keeps the once-per-battle hero power.
+### Rules
 
-### Learning abilities & the loadout (TID-537, TID-556)
+| Rule | Decision |
+|---|---|
+| Card type | `card_class = "spell"` (so every spell path — targeting, cast bar, resolver — works unchanged) with a `tech_*` id; `TechniqueDefs.is_technique(id)` is the marker. Typeless (`magic_type = ""`), `can_craft = false`, `is_unique = true` (can't be traded, auctioned or stashed), never dropped, never captured |
+| Cooldown → recycle | Once a technique **resolves** it goes to the **bottom of `draw_deck`**, not the discard. Deck cycling is its cooldown. A fizzled cast keeps the card in hand (as with spells) |
+| Copies | **1 copy** of each technique per deck |
+| Deck cost | Techniques **take deck slots**, max **3 per deck** (`TECHNIQUE_DECK_MAX`, same weight as the old 3 slots). The cap also stops a tiny all-technique deck from cycling forever |
+| Cost | Card cost units, ×100 in real time like any card: **0** for Strike, Kick, Mana Tap and Daze; **1** for Mend, Guard, Ember Lance and Sweep |
+| Real-time extras | `game_logic/battle/TechniqueDefs.gd`, keyed by card id: `cast` (s, overrides the spell cast formula), `off_gcd`, `rt_value`, `mana_value`, `level_req`, `learn_cost`. It replaces `SkillBar.ABILITIES` and `UnlockLadder` reads it. The `.tres` holds only the face (name, cost, `spell_effect`, `spell_power` = turn-based value) |
+| GCD | Same as spells. Off-GCD techniques (Kick, Daze) skip the GCD gate but not "nothing fires mid-cast" |
+| Momentum | Damaging techniques are **builders** (`on_player_hit(dmg, true)`, can proc). Techniques **don't spend** combo or `next_card_free` (same as the old skill pseudo-cards) |
+| Reactive cards | Kick and Daze are held, not always ready: keeping one in a 5-card hand is the choice. A held Kick **pulses** while an enemy casts |
+| Both modes | Techniques work turn-based too (values below). The once-per-battle hero power stays |
+| Enemies | Enemies get no techniques; enemy casts stay as they are |
+| Auto-attack | **Kept** (user, 2026-10-08): weapon-driven, passive, feeds the deck through the siphon. No manual swing and no weapon abilities. If auto-attack decides fights, lower its damage rather than weakening cards |
+| Filler | Strike is a normal deck card (not guaranteed). Auto-attack covers the gaps. If playtests show dead hands, lower `draw_interval` (9 → 7 s) before anything else |
+| Learning | A trainer "Learn" grants **one** technique card into the collection (shows its face). Strike is in the starter deck. On load, a learned technique missing from the collection is re-granted |
+| Visual | Typeless → neutral frame; the description opens "↻ Technique —" and ends "Returns to the bottom of your deck." A dedicated badge is optional polish |
+| Pools | `CardRegistry.get_all_ids()` **excludes** techniques (every drop / shop / pack / draft / craft pool is built from it); `get_technique_ids()` lists them |
 
-`ABILITIES` also holds **5 trainer-taught abilities** beyond the always-known
-Strike/Mend/Kick (`SkillBar.ALWAYS_KNOWN`), each weaker than a typical deck
-spell (value ≤ 9, enforced by `test_skill_bar.gd`):
+### The eight techniques
 
-| Ability | Effect | Level / coins |
-|---|---|---|
-| Guard | Shield: absorbs the next 6 damage (`hero.apply_status("armor", …)`) | 3 / 40 |
-| Ember Lance | A slower, heavier strike (9 dmg, 1 s cast) | 5 / 60 |
-| Mana Tap | Light hit (2 dmg) that restores 1 mana unit | 4 / 50 |
-| Sweep | Hits every enemy minion for 3 | 6 / 70 |
-| Daze | A weak stun — cancels an in-flight enemy cast and applies `"stun"` | 7 / 80 |
+| Card | Cost | Real time (`TechniqueDefs`) | Turn-based (`spell_effect` / power) | Level / coins |
+|---|---|---|---|---|
+| Strike | 0 | 5 dmg to target, instant | `deal_damage_single` 2 | starter |
+| Mend | 1 | heal 6, 1.5 s cast | `heal_hero` 4 | 2 / 15 |
+| Kick | 0 | interrupt enemy cast, off GCD | `stun_single` (a minion, 1 turn) | 3 / 25 |
+| Guard | 1 | armor 6 | `armor_hero` 4 | 11 / 60 |
+| Ember Lance | 1 | 9 dmg, 1 s cast | `deal_damage_single` 4 | 13 / 90 |
+| Mana Tap | 0 | 2 dmg + 1 mana unit | new `mana_tap`: 1 dmg + 1 mana | 14 / 90 |
+| Sweep | 1 | 3 to every enemy minion | `deal_damage_all` 1 | 16 / 120 |
+| Daze | 0 | cancel enemy cast + `stun`, off GCD | `freeze_single` (a minion, 1 turn) | 18 / 150 |
 
-- **Learning:** `SkillBar.can_learn(id, level, coins, learned)` gates on level,
-  coins and "not already learned"; `SaveManager.learn_ability(id, cost)`
-  performs the purchase into `SaveManager.learned_abilities: Array[String]`
-  (the always-known trio never appear in this list). `SkillBar.new(bar,
-  learned)` filters a saved bar id through both `ABILITIES` and `learned` (or
-  `ALWAYS_KNOWN`) — an id that was never learned can't surface in a fight even
-  if it ends up in `skill_bar` (a stale/tampered save).
-- **Trainer NPC:** `npc_type = "trainer"` (`NpcInteractions.show_trainer_panel`)
-  — no per-NPC data needed, since every trainer offers the same learnable set.
-  Lists each ability with level/cost/description and a Learn button (disabled
-  until eligible; replaced with "Known" once learned). Placed in Madrian next
-  to the stable. See `docs/agent/enemies-and-npcs.md`.
-- **Loadout picker (TID-556):** a dedicated screen for choosing which 3
-  learned abilities occupy the bar, reachable from the trainer panel and from
-  the deck/inventory screen; writes via `SaveManager.set_skill_bar(bar)`. See
-  `docs/agent/ui-and-scene-management.md` ("SkillBarScene — loadout picker").
-- **Training dummy (TID-557):** a practice fight against an `EnemyRegistry`
-  enemy with `passive: true` (never casts or swings —
-  `RealtimeCombat.set_passive()`), huge HP, no rewards and no defeat record.
-  Exercises the bar risk-free. See `docs/agent/enemies-and-npcs.md`.
+Turn-based numbers start low because a 0-cost card that keeps coming back is strong at 30 HP. TID-707 tunes them,
+and a test still keeps every value ≤ 9.
+
+### Implementation (TID-707)
+
+- `game_logic/battle/TechniqueDefs.gd`: `DEFS` (rt_value, cast, off_gcd, mana_value, level_req, learn_cost), `ORDER`,
+  `DECK_MAX` 3 / `MAX_COPIES` 1, `power(id, printed, realtime)`, `cast_time`, `off_gcd`, `deck_violation(ids)`.
+- `data/cards/tech_*.tres` (8, with `.uid`), preloaded in `CardRegistry`.
+- `PlayerState._retire_spell()`: a played technique is `push_front`ed onto `draw_deck` (`draw_card` pops the back).
+- `SpellEffectResolver.resolve_spell`: `power = TechniqueDefs.power(...)` with real time = `hero.mana_scale > 1`; new
+  `mana_tap` arm (enemy hero damage + `gain_mana(mana_value)`), label in `SpellEffectLabels`.
+- Real-time-only behaviour (cast override, off-GCD, Kick/Daze interrupting an enemy cast) is wired in TID-709;
+  until then Kick/Daze resolve their turn-based stun/freeze in real time too.
+- Tests: `tests/unit/test_technique_cards.gd`.
+
+### Real-time integration (TID-709)
+
+- **No bar:** `BattleSkillBar` is no longer built (`BattleRealtime.skills` is gone). The technique logic lives in
+  `scenes/battle/modules/RealtimeTechniques.gd` (`BattleRealtime.techniques`, a RefCounted helper; real-time only). Number keys 1–9 play hand cards
+  (`BattleShortcuts.first_hand_key()` = `KEY_1`).
+- **Tap routing** (`BattleInput._realtime_technique_tap`): an untargeted technique (and Kick / Daze) casts on tap,
+  with no confirm; targeted ones (Strike, Ember Lance) use the normal targeting flow.
+  `PlayerCaster.technique_blocker()` refuses Kick with nothing casting ("Nothing to interrupt").
+- **Cast time:** `run_cast` takes `TechniqueDefs.cast_time(id)` when the caller passes none (Mend 1.5 s, Ember Lance
+  1 s, others instant).
+- **Off-GCD:** `_can_local_act(ignore_gcd)` is passed `caster.is_off_gcd(card)`, and `BattleRealtime.run_off_gcd()`
+  resolves at once without starting or waiting on the GCD.
+- **Kick / Daze:** in real time `PlayerCaster.resolve_reactive()` replaces the resolver. Kick interrupts the
+  casting enemy (target first); Daze stuns that hero and cancels its cast.
+- **Momentum:** `PlayerCaster._after_technique()` runs after a cast or off-GCD resolve. Damage dealt → `rt.on_player_hit(dmg,
+  true)` (siphon, combo, proc); also `note_skill_used`, plus quest `use_skill` progress with the ability id.
+  `PlayerCaster.begin` only combo-wraps non-technique cards (techniques never spend combo). `PlayerState.effective_cost` / `play_card`
+  never spend `next_card_free` on a technique.
+- **Kick pulse:** `RealtimeTechniques.pulse_reactive()` pulses a held Kick / Daze card (`modulate`) while an enemy casts.
+  `control_for(ability_id)` finds a technique's hand panel (onboarding tips use it too).
+- **Onboarding:** the hand is always shown. `BattleModifiers._apply_combat_unlocks` strips minions until
+  `feat_minions` and spells until `feat_spells` but always keeps techniques, so a level-1 hand is technique-only.
+  Ally slots stay locked. Tips anchor to technique cards; `rt_*` tutorial texts describe cards.
+- **Mentor bark** `cooldown_ready` fires when a technique comes back into the hand.
+- Tests: `realtime_battle_smoke` (Strike from the hand hits + recycles to the bottom, Mend casts; the first fight's
+  hand is technique-only); `test_technique_cards` (free-cast exemption).
+
+### Learning & migration (TID-708)
+
+- **Ids:** `learned_abilities` keeps the plain ability ids (`"mend"`) next to the `feat_*` ids, so UnlockLadder
+  gates and onboarding are unchanged. `TechniqueDefs.card_for("mend")` → `"tech_mend"`, `ability_for` reverses
+  it, and `known_cards(learned)` = Strike + each learned technique.
+- **Ladder:** UnlockLadder skill rows read `level_req` / `learn_cost` from `TechniqueDefs.DEFS`. The how-to texts
+  describe cards.
+- **Learning:** `SaveManager.learn_ability(id)` → `_own_technique("tech_" + id)` (one bound instance, skips the
+  bag cap) → `_add_technique_to_deck(uid)` (only if the deck is under `IsoConst.DECK_MAX` and
+  `deck_violation` stays clean). The trainer panel toasts "<Name> card added to your collection."
+- **Starter:** `new_game` and the cold co-op `ensure_coop_deck` deal Strike into the deck.
+- **Deck builder:** `InventoryScene._on_add_by_uid` refuses a technique that breaks the rules (HUD message).
+  Auto-fill never picks techniques.
+- **Migration v46** (`SaveMigrations._m46_technique_cards`): the old `skill_bar` (or the default
+  Strike/Mend/Kick, filtered to what the save knew) becomes `technique_deck_pending` card ids, and `skill_bar` is
+  erased. On load, `SaveManager._restore_technique_cards` owns every known technique (an idempotent repair on every
+  load) and deals the pending ones into the active deck.
+- `skill_bar` left `PERSISTED_FIELDS` in TID-710; v46 erases it from old saves.
+- Tests: `tests/unit/test_technique_learning.gd`, `test_unlock_ladder.gd`.
+
+## Skill bar — retired (GID-175 / TID-710)
+
+The fixed 3-slot bar (TID-550), its loadout picker (`SkillBarScene`, TID-556), `SkillBar.gd`, `BattleSkillBar.gd`,
+the `skill_bar` save field and the `skill_cooldown` tuning knob are gone. The same eight abilities are technique
+cards — see "Technique cards (GID-175)" above. The trainer panel (`NpcInteractions.show_trainer_panel`) teaches
+them through UnlockLadder skill rows; the training dummy (TID-557, `EnemyRegistry` `passive: true`) still gives a
+risk-free practice fight.
 
 ### One-glance layout (2026-09-26)
 
-Everything you act on is in one bottom band: skill strip + hand, with your cast bar above the hand.
-There is no bottom-right readout box any more: the GCD is a sweep on the skill buttons and on the hand
+Everything you act on is in one bottom band: the action strip (combo pips) + hand, with your cast bar above the hand.
+There is no bottom-right readout box any more: the GCD is a sweep on the hand
 cards (`RealtimeVisuals.update_hand_sweep`, pooled overlays on the root; full shade while casting), the auto-attack bar lives on your token, and your target gets a gold ring
 (`RealtimeVisuals._update_focus_ring`: focused minion, else the targeted enemy token). Enemy cast bars
-(inside their tokens) are larger, and a ready Kick pulses so you can react without looking up.
+(inside their tokens) are larger, and a held Kick card pulses so you can react without looking up.
 
 ## New-player onboarding (TID-552 / TID-553, ladder-based since GID-141 / TID-588)
 
@@ -405,17 +568,17 @@ cards (`RealtimeVisuals.update_hand_sweep`, pooled overlays on the root; full sh
 `docs/agent/starter-zone-and-training.md`). `game_logic/battle/CombatOnboarding.gd` reads
 `SaveManager.learned_abilities`:
 
-| Learned | Bar | Hand / Allies | Enemy minions | Spell cards |
+| Learned | Technique cards | Allies (minion cards) | Enemy minions | Spell cards |
 |---|---|---|---|---|
-| nothing (level 1) | Strike | locked | 1 | — |
+| nothing (level 1) | Strike | locked (stripped from the battle deck) | 1 | — |
 | + `mend` (L2) | Strike, Mend | locked | 1 | — |
 | + `kick` (L3) | Strike, Mend, Kick | locked | 1 | — |
-| + `feat_minions` (L4) | as learned | shown | up to 2 | removed from the battle deck |
-| + `feat_spells` (L5) | as learned | shown | up to 2 | in the deck (full fight, `stage` −1) |
+| + `feat_minions` (L4) | as learned | in the deck | up to 2 | removed from the battle deck |
+| + `feat_spells` (L5) | as learned | in the deck | up to 2 | in the deck (full fight, `stage` −1) |
 
-- The bar needs no filter: `SkillBar` only holds learned ids.
-- Spells: `BattleModifiers._apply_combat_unlocks()` strips `card_class == "spell"` cards from the draw deck
-  (not in puzzle / scripted battles).
+- The hand is always shown (GID-175). `BattleModifiers._apply_combat_unlocks()` strips minion cards until
+  `feat_minions` and spell cards until `feat_spells`, but always keeps technique cards (not in puzzle / scripted
+  battles). Only learned technique cards are owned, so they need no filter.
 - Early fights stay small (below `CombatOnboarding.EARLY_LEVEL` 10): 1 enemy minion, `EARLY_ALLY_CAP` 2 Allies
   (`RealtimeCombat.set_ally_cap`), opening hand trimmed to 2 (3 later) via `RealtimeCombat.trim_hand`. Draws are
   every `draw_interval` 9 s up to `hand_cap` 5.
@@ -469,13 +632,12 @@ and distinct from the one-shot `TutorialRegistry` popups above:
   |---|---|
   | Enemy starts a cast | `RealtimeCombat` "enemy_cast_start" event |
   | An ally is ready | `RealtimeCombat` "ally_ready" event |
-  | A skill comes off cooldown | `BattleSkillBar`'s `SkillBar.ready(slot)` false → true transition |
-  | You land an interrupt | `BattleSkillBar._resolve` reports a successful `Kick` (`SkillBar.ABILITIES.kick`,
-    effect `"interrupt"`) via `BattleRealtime.note_skill_used("interrupt")` — a real, mechanical interrupt
+  | A technique comes back round | technique cards in hand rise since last frame (`MentorBarks._cooldown_candidates`) |
+  | You land an interrupt | `PlayerCaster.resolve_reactive` reports a successful Kick card via `BattleRealtime.note_skill_used("interrupt")` — a real, mechanical interrupt
     (`RealtimeCombat.interrupt_enemy_cast`), not flavor text |
   | Low HP / empty mana | Hero state read directly each frame |
 - **Post-fight tip** (`fight_stats`, `game_logic/battle/FightStats.gd`): per-fight accumulators (duration,
-  skill uses — deck cards **and** skill-bar presses, enemy casts completed, interrupts landed, mana-full/-empty
+  skill uses — deck cards, technique cards included, enemy casts completed, interrupts landed, mana-full/-empty
   time, potions used while low, best-effort auto-attack damage) fed from `FightStats.record_frame` (called from
   `BattleRealtime._process` with `rt` and the frame's events) plus `note_skill_used` and `GameBus.potion_used`.
   `BattleRealtime.fight_tip()` reads the pure `FightStats.pick_tip(data)` rule; it does **not** touch

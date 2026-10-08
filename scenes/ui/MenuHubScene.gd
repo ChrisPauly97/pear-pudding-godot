@@ -4,16 +4,13 @@ const _InventoryScenePacked  := preload("res://scenes/ui/InventoryScene.tscn")
 const _CharacterScenePacked  := preload("res://scenes/ui/CharacterScene.tscn")
 const _SkillTreeScenePacked  := preload("res://scenes/ui/SkillTreeScene.tscn")
 const _JournalScenePacked    := preload("res://scenes/ui/JournalScene.tscn")
-const _SkillBarScenePacked   := preload("res://scenes/ui/SkillBarScene.tscn")
 const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
-const _SkillBar = preload("res://game_logic/battle/SkillBar.gd")
 
-const _TABS: Array[String] = ["deck", "character", "skills", "loadout", "journal"]
+const _TABS: Array[String] = ["deck", "character", "skills", "journal"]
 const _TAB_LABELS: Dictionary = {
 	"deck":      "Deck / Bag",
 	"character": "Character",
 	"skills":    "Skills",
-	"loadout":   "Skill Bar",
 	"journal":   "Journal",
 }
 
@@ -65,15 +62,13 @@ func _build_ui() -> void:
 	_content_area = content_wrapper
 
 ## GID-141: tabs for systems the player hasn't learned yet stay hidden — Skills
-## until Maiteln teaches the skill tree (feat_skills), Skill Bar until there is
-## more than Strike to arrange (Mend, level 2).
+## until Maiteln teaches the skill tree (feat_skills). (The Skill Bar tab is gone:
+## techniques are deck cards since GID-175.)
 func visible_tabs() -> Array[String]:
 	var sm := SceneManager.save_manager
 	var out: Array[String] = []
 	for tab_id: String in _TABS:
 		if tab_id == "skills" and not sm.has_learned(_UnlockLadder.FEAT_SKILLS):
-			continue
-		if tab_id == "loadout" and _SkillBar.known_ids(sm.learned_abilities).size() <= 1:
 			continue
 		out.append(tab_id)
 	return out
@@ -112,11 +107,6 @@ func _load_tab_content(tab_id: String) -> void:
 			sk.set("hub_mode", true)
 			_content_area.add_child(sk)
 			_active_page = sk
-		"loadout":
-			var lo: Node = _SkillBarScenePacked.instantiate()
-			lo.set("hub_mode", true)
-			_content_area.add_child(lo)
-			_active_page = lo
 		"journal":
 			var jn: Node = _JournalScenePacked.instantiate()
 			jn.set("hub_mode", true)
@@ -145,9 +135,6 @@ func _input(event: InputEvent) -> void:
 					get_viewport().set_input_as_handled()
 				KEY_K:
 					show_tab("skills")
-					get_viewport().set_input_as_handled()
-				KEY_L:
-					show_tab("loadout")
 					get_viewport().set_input_as_handled()
 				KEY_J:
 					show_tab("journal")

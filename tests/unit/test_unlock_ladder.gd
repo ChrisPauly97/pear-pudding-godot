@@ -2,7 +2,7 @@
 extends "res://tests/framework/test_case.gd"
 
 const UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
-const SkillBar = preload("res://game_logic/battle/SkillBar.gd")
+const TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
 const SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
@@ -21,7 +21,7 @@ func test_rows_well_formed() -> void:
 		assert_gt(UnlockLadder.level_req(id), 1, "%s is not free at level 1" % id)
 		assert_gt(UnlockLadder.cost(id), 0, "%s costs gold" % id)
 		if str(row["kind"]) == "skill":
-			assert_true(SkillBar.ABILITIES.has(id), "%s is a SkillBar ability" % id)
+			assert_ne(TechniqueDefs.card_for(id), "", "%s is a technique card" % id)
 
 
 func test_levels_ascend_one_new_thing_early() -> void:
@@ -39,12 +39,13 @@ func test_design_anchors() -> void:
 	assert_eq(UnlockLadder.level_req(UnlockLadder.FEAT_PHASE), 12)
 	assert_eq(UnlockLadder.level_req(UnlockLadder.FEAT_SPIRE), 15)
 	assert_eq(UnlockLadder.level_req(UnlockLadder.FEAT_MOUNT), 40)
-	assert_eq(SkillBar.ALWAYS_KNOWN, ["strike"] as Array[String])
+	assert_eq(TechniqueDefs.known_cards([]), ["tech_strike"] as Array[String])
 
 
-func test_every_skill_bar_learnable_is_on_the_ladder() -> void:
-	for id: String in SkillBar.learnable_ids():
-		assert_true(UnlockLadder.has(id), "%s taught by a trainer" % id)
+func test_every_learnable_technique_is_on_the_ladder() -> void:
+	for card_id: String in TechniqueDefs.ids():
+		if card_id != "tech_strike":
+			assert_true(UnlockLadder.has(TechniqueDefs.ability_for(card_id)), "%s taught by a trainer" % card_id)
 
 
 func test_can_learn_gates() -> void:
@@ -67,7 +68,7 @@ func test_new_game_knows_only_strike() -> void:
 	sm.learned_abilities.assign(["mend"])
 	sm.new_game(false)
 	assert_true(sm.learned_abilities.is_empty())
-	assert_eq(SkillBar.new(sm.skill_bar, sm.learned_abilities).ids, ["strike"] as Array[String])
+	assert_eq(TechniqueDefs.known_cards(sm.learned_abilities), ["tech_strike"] as Array[String])
 	sm.new_game(true)
 	for id: String in UnlockLadder.all_ids():
 		assert_true(sm.learned_abilities.has(id), "head start learns %s" % id)
@@ -77,10 +78,9 @@ func test_learn_slots_skill_and_charges() -> void:
 	var sm: SaveManagerScript = SaveManagerScript.new()
 	sm.new_game(false)
 	sm.coins = 100
-	sm.skill_bar.assign(["strike"])
 	assert_true(sm.learn_ability("mend", UnlockLadder.cost("mend")))
 	assert_eq(sm.coins, 100 - UnlockLadder.cost("mend"))
-	assert_true(sm.skill_bar.has("mend"), "learned skill goes on the bar")
+	assert_true(sm.get_deck_template_ids().has("tech_mend"), "learned technique card joins the deck (GID-175)")
 	assert_false(sm.learn_ability("mend", 0), "cannot learn twice")
 
 

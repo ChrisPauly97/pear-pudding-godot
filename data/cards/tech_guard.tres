@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://0updg2d8yrh8"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_tech_guard"]
+
+[resource]
+script = ExtResource("1_tech_guard")
+id = "tech_guard"
+card_name = "Guard"
+cost = 1
+attack = 0
+health = 0
+card_class = "spell"
+description = "↻ Technique — Give your hero 4 armor (6 in real time). Returns to the bottom of your deck."
+color = Color(0.62, 0.66, 0.72, 1)
+magic_type = ""
+magic_branch = ""
+spell_effect = "armor_hero"
+spell_power = 4
+can_craft = false
+is_unique = true

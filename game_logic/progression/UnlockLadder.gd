@@ -7,15 +7,16 @@
 ## until it is learned.
 ##
 ## Two kinds of row:
-##   skill   — a skill-bar ability; `level_req` / `learn_cost` live in
-##             SkillBar.ABILITIES (never duplicated here)
+##   skill   — a technique card (GID-175); learning it grants the `tech_<id>`
+##             card. `level_req` / `learn_cost` live in TechniqueDefs.DEFS
+##             (never duplicated here)
 ##   feature — a game system (`feat_*`) with its own level/cost here
 ##
 ## Row keys: id, kind, trainer, title, how_to, and for features level_req, cost.
 ## Pure static data, no autoloads.
 extends RefCounted
 
-const SkillBar = preload("res://game_logic/battle/SkillBar.gd")
+const TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
 
 ## Trainer ids → display names. Each is a Madrian NPC (TID-590).
 const TRAINERS: Dictionary = {
@@ -49,17 +50,16 @@ const FEAT_SPIRE: String = "feat_spire"
 const FEAT_PACKS: String = "feat_packs"
 const FEAT_MOUNT: String = "feat_mount"
 
-## Level order. Strike and auto-attack are known from the start (SkillBar.ALWAYS_KNOWN).
+## Level order. Strike (a starter-deck technique card) and auto-attack are known from the start.
 const LADDER: Array[Dictionary] = [
 	{"id": "mend", "kind": "skill", "trainer": "combat", "title": "Mend",
-		"how_to": ("A healing spell for your skill bar. Tap Mend in a fight (or press its number key) to "
-			+ "start a 1.5 second cast that heals you for 6. It shares the global cooldown and costs mana, "
-			+ "and a hit can't stop it — but you stand still while you cast, so heal between the "
-			+ "enemy's big swings, not during them.")},
+		"how_to": ("A technique card for your deck. Play Mend from your hand to start a 1.5 second cast "
+			+ "that heals you for 6. Like every technique it goes back to the bottom of your deck once "
+			+ "played, so it comes round again. Heal between the enemy's big swings, not during them.")},
 	{"id": "kick", "kind": "skill", "trainer": "combat", "title": "Kick",
 		"how_to": ("Some enemies cast spells: watch for the bar that fills over their head. Kick "
-			+ "interrupts the cast outright. It is off the global cooldown, so you can Kick in the middle "
-			+ "of anything else — but it has its own 12 second cooldown, so save it for the casts that hurt.")},
+			+ "interrupts the cast outright, off the global cooldown. It's a card: hold it in your hand "
+			+ "for the casts that hurt, and once played it goes back to the bottom of your deck.")},
 	{"id": FEAT_MINIONS, "kind": "feature", "trainer": "combat", "level_req": 4, "cost": 40,
 		"title": "Summoning Allies",
 		"how_to": ("Your deck now joins the fight. Each battle you draw a hand of cards; drag an ally card "
@@ -102,7 +102,7 @@ const LADDER: Array[Dictionary] = [
 		"how_to": ("Carry four or more Ghost-family cards and a Phase button appears (G on a keyboard): for a few "
 			+ "seconds you can walk straight through walls. Old ruins hide rooms nobody else can reach.")},
 	{"id": "ember_lance", "kind": "skill", "trainer": "combat", "title": "Ember Lance",
-		"how_to": "A heavier strike for 9 with a 1 second cast. Weave it between free Strikes."},
+		"how_to": "A technique card: a heavier strike for 9 with a 1 second cast."},
 	{"id": "mana_tap", "kind": "skill", "trainer": "combat", "title": "Mana Tap",
 		"how_to": "A light hit that siphons mana back. Use it when you're one short of a card."},
 	{"id": FEAT_SPIRE, "kind": "feature", "trainer": "combat", "level_req": 15, "cost": 300,
@@ -140,13 +140,13 @@ static func has(id: String) -> bool:
 static func level_req(id: String) -> int:
 	var row: Dictionary = def(id)
 	if str(row.get("kind", "")) == "skill":
-		return int(SkillBar.def(id).get("level_req", 0))
+		return int(TechniqueDefs.def(TechniqueDefs.card_for(id)).get("level_req", 0))
 	return int(row.get("level_req", 0))
 
 static func cost(id: String) -> int:
 	var row: Dictionary = def(id)
 	if str(row.get("kind", "")) == "skill":
-		return int(SkillBar.def(id).get("learn_cost", 0))
+		return int(TechniqueDefs.def(TechniqueDefs.card_for(id)).get("learn_cost", 0))
 	return int(row.get("cost", 0))
 
 static func trainer_for(id: String) -> String:

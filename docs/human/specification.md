@@ -21,6 +21,22 @@ Pear Pudding TCG is a 3D isometric open-world RPG built in Godot 4 where the pla
 
 ---
 
+## Identity
+
+*(Added 2026-10-08 with explicit user permission, GID-175 / TID-711.)*
+
+**The card is the atomic unit of the game.** Pear Pudding borrows WoW's world, pacing and real-time feel, but everything the player owns, learns or grows is a card in the deck — not a fixed ability, not a stat bar.
+
+- **Abilities are cards.** Combat techniques live in the deck and are drawn into the hand; there is no fixed action bar.
+- **Progression grants cards.** Trainers, loot, quests and level-ups give cards or upgrade cards; unlocks expand what a deck can do (size, draw, mulligan), never bypass it.
+- **Captures are the hook.** Every enemy is designed partly as the card it becomes when soulbound.
+- **The deck shapes exploration.** Deck composition unlocks world abilities (Dig, Phase, …) — the role gear plays in WoW.
+- **Cards are always visible.** Rewards, loot and combat show card faces, not ability icons.
+
+**Feature filter:** before adding a system, ask *"Does this make the deck matter more, or less?"* If less, reframe it as a card mechanic or cut it.
+
+---
+
 ## Goals
 
 - A complete, shippable game on Android (primary platform) and desktop

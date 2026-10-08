@@ -34,6 +34,22 @@
 ##   rift_tier — clear tier N of a rift, `target` = "<rift_id>:<tier>"
 extends RefCounted
 
+const _StarterZone = preload("res://game_logic/world/StarterZone.gd")
+const _XpCurve = preload("res://game_logic/progression/XpCurve.gd")
+
+## GID-177 / TID-722: every camp (Madrian's and the Chapter 1 road camps) runs a
+## repeatable **bonus objective** — no giver: walking into the camp starts it
+## (`SaveQuests.auto_start`), finishing it pays out at once, and it can start
+## again CAMP_QUEST_COOLDOWN_S later. Generated, not authored (`camp_quests`).
+const CAMP_QUEST_PREFIX: String = "cull_"
+const CAMP_QUEST_KILLS: int = 5
+const CAMP_QUEST_COOLDOWN_S: float = 600.0
+## Madrian's first camps are the tutorial quests' ground: bonus objectives start at level 3.
+const CAMP_QUEST_MIN_LEVEL: int = 3
+## One camp quest pays this share of the level's XP (plus its kills): 3–4 per level.
+const CAMP_QUEST_XP_SHARE: float = 0.09
+
+
 const OBJECTIVE_TYPES: Array[String] = ["kill", "use_skill", "learn", "talk", "flag", "explore", "open",
 	"rift_tier"]
 
@@ -53,7 +69,7 @@ const QUESTS: Array[Dictionary] = [
 			+ "by the stables could teach you to patch yourself up. Mend, he calls it."),
 		"objectives": [{"type": "kill", "target": "undead_basic", "count": 3, "label": "Restless dead put down",
 			"map": "main", "tx": 21, "tz": 17}],
-		"min_level": 1, "rewards": {"xp": 150, "coins": 20}},
+		"min_level": 1, "rewards": {"xp": 200, "coins": 20}},
 	{"id": "bruised_and_battered", "title": "Bruised and Battered", "giver": "wenna_herbalist",
 		"giver_name": "Wenna the Herbalist", "prereqs": ["rats_in_grain"],
 		"summary": ("You look like you went three rounds with a haystack. Learn Mend from the Combat Trainer, "
@@ -65,7 +81,7 @@ const QUESTS: Array[Dictionary] = [
 			{"type": "use_skill", "target": "mend", "count": 1, "label": "Mend in a fight"},
 			{"type": "kill", "target": "undead_basic", "count": 4, "label": "South Field dead put down",
 				"map": "main", "tx": -7, "tz": 21}],
-		"min_level": 2, "rewards": {"xp": 180, "coins": 30,
+		"min_level": 2, "rewards": {"xp": 260, "coins": 30,
 			"gear_choice": ["leather_cap", "travel_boots", "leather_pauldrons"]}},
 	{"id": "hedge_witch_chant", "title": "The Chanting in the Orchard", "giver": "brother_aldo",
 		"giver_name": "Brother Aldo", "prereqs": ["bruised_and_battered"],
@@ -78,7 +94,7 @@ const QUESTS: Array[Dictionary] = [
 			{"type": "use_skill", "target": "kick", "count": 2, "label": "Casts interrupted"},
 			{"type": "kill", "target": "undead_horde", "count": 3, "label": "Orchard dead put down",
 				"map": "main", "tx": 47, "tz": 19}],
-		"min_level": 3, "rewards": {"xp": 240, "coins": 45}},
+		"min_level": 3, "rewards": {"xp": 230, "coins": 45}},
 	{"id": "raise_the_fallen", "title": "Raise the Fallen", "giver": "old_tam", "giver_name": "Old Tam",
 		"prereqs": ["hedge_witch_chant"],
 		"summary": ("One sword alone won't hold the North Barrow. Those cards you carry — the Trainer can teach "
@@ -89,7 +105,7 @@ const QUESTS: Array[Dictionary] = [
 			{"type": "learn", "target": "feat_minions", "count": 1, "label": "Learn to summon allies"},
 			{"type": "kill", "target": "undead_horde", "count": 4, "label": "Barrow dead put down",
 				"map": "main", "tx": 33, "tz": -21}],
-		"min_level": 4, "rewards": {"xp": 270, "coins": 60}},
+		"min_level": 4, "rewards": {"xp": 170, "coins": 60}},
 	{"id": "first_spark", "title": "First Spark", "giver": "ivy_chandler", "giver_name": "Ivy the Chandler",
 		"prereqs": ["raise_the_fallen"],
 		"summary": ("Spell cards, love — you've been carrying them about like dead weight. The Trainer will show "
@@ -100,33 +116,37 @@ const QUESTS: Array[Dictionary] = [
 			{"type": "learn", "target": "feat_spells", "count": 1, "label": "Learn to cast spells"},
 			{"type": "kill", "target": "ghoul_pack", "count": 3, "label": "Hedge Ruins ghouls put down",
 				"map": "main", "tx": 53, "tz": -27}],
-		"min_level": 5, "rewards": {"xp": 350, "coins": 80, "flag": "town_quests_done",
+		"min_level": 5, "rewards": {"xp": 180, "coins": 80, "flag": "town_quests_done",
 			"gear_choice": ["iron_helm", "iron_greaves", "buckler"]}},
 	# ── Optional: levels 6–12 ─────────────────────────────────────────────────
-	{"id": "east_copse", "title": "Trouble in the East Copse", "giver": "old_tam", "giver_name": "Old Tam",
+	# GID-177 / TID-722: the level 6–9 quests send you down the south road to the
+	# road camps of their level (Madrian's own camps top out at 5). Ids kept (saves).
+	{"id": "east_copse", "title": "Shades on the South Road", "giver": "old_tam", "giver_name": "Old Tam",
 		"prereqs": ["raise_the_fallen"],
-		"summary": "Ghouls have made a nest of the East Copse. Four fewer would help the woodcutters sleep.",
-		"done_text": "Good work. Keep that blade oiled.",
-		"objectives": [{"type": "kill", "target": "ghoul_pack", "count": 4, "label": "Copse ghouls put down",
-			"map": "main", "tx": 76, "tz": -2}],
-		"min_level": 6, "rewards": {"xp": 400, "coins": 80}},
-	{"id": "west_crossing", "title": "Hold the West Crossing", "giver": "brother_aldo",
+		"summary": ("Woodcutters coming up from Maykalene won't use the south road any more — shades in the "
+			+ "Shade Thicket, they say. Four fewer would help them sleep."),
+		"done_text": "Good work. Keep that blade oiled — the road only gets worse past the thicket.",
+		"objectives": [{"type": "kill", "target": "forest_shade", "count": 4, "label": "Thicket shades put down",
+			"map": "main", "tx": -15, "tz": 83}],
+		"min_level": 6, "rewards": {"xp": 280, "coins": 80}},
+	{"id": "west_crossing", "title": "The Mire Edge Hags", "giver": "brother_aldo",
 		"giver_name": "Brother Aldo", "prereqs": ["hedge_witch_chant"],
-		"summary": "Pilgrims can't reach the chapel while the dead hold the West Crossing. Clear five of them.",
-		"done_text": "The road is open again. Bless you.",
-		"objectives": [{"type": "kill", "target": "undead_horde", "count": 5, "label": "Crossing dead put down",
-			"map": "main", "tx": -55, "tz": 4}],
-		"min_level": 7, "rewards": {"xp": 450, "coins": 100}},
+		"summary": ("Pilgrims bound for Maykalene's shrine are vanishing at the Mire Edge, past the town. "
+			+ "Bog hags. Clear five of them."),
+		"done_text": "The pilgrim road is open again. Bless you.",
+		"objectives": [{"type": "kill", "target": "bog_hag", "count": 5, "label": "Mire hags put down",
+			"map": "main", "tx": 56, "tz": 128}],
+		"min_level": 7, "rewards": {"xp": 350, "coins": 100}},
 	{"id": "board_by_the_well", "title": "The Board by the Well", "giver": "bounty_master_madrian",
 		"giver_name": "The Bounty Master",
 		"summary": ("Contracts pay better than thanks. Learn how the board works from me, then show me you can "
-			+ "handle the ghouls up on the North Tor."),
+			+ "handle the shades haunting the Old Watchtower on the Isfig road."),
 		"done_text": "You'll do. Check the board every morning — the contracts change daily.",
 		"objectives": [
 			{"type": "learn", "target": "feat_bounties", "count": 1, "label": "Learn Bounty Contracts"},
-			{"type": "kill", "target": "ghoul_pack", "count": 4, "label": "Tor ghouls put down",
-				"map": "main", "tx": 10, "tz": -62}],
-		"min_level": 8, "rewards": {"xp": 520, "coins": 120}},
+			{"type": "kill", "target": "forest_shade", "count": 4, "label": "Watchtower shades put down",
+				"map": "main", "tx": 92, "tz": 168}],
+		"min_level": 8, "rewards": {"xp": 400, "coins": 120}},
 	{"id": "after_dark", "title": "After Dark", "giver": "bounty_master_madrian", "giver_name": "The Bounty Master",
 		"prereqs": ["board_by_the_well"],
 		"summary": ("After sundown the spectres come out. Learn Night Hunts from me and bring down two wisps — "
@@ -135,15 +155,15 @@ const QUESTS: Array[Dictionary] = [
 		"objectives": [
 			{"type": "learn", "target": "feat_night_hunts", "count": 1, "label": "Learn Night Hunts"},
 			{"type": "kill", "target": "spectre_wisp", "count": 2, "label": "Wisps hunted after dark"}],
-		"min_level": 9, "rewards": {"xp": 560, "coins": 140}},
-	{"id": "south_road_wreck", "title": "The South Road Wreck", "giver": "hilda_baker",
+		"min_level": 9, "rewards": {"xp": 420, "coins": 140}},
+	{"id": "south_road_wreck", "title": "The Stolen Flour Cart", "giver": "hilda_baker",
 		"giver_name": "Hilda the Baker", "prereqs": ["first_spark"],
-		"summary": ("My flour cart never came up the south road. Ghouls, they say, all over the wreck. "
-			+ "Five of them, and I'll bake you something special."),
+		"summary": ("My flour cart never made it back from Blancogov. Martarquas raiders took it to their "
+			+ "outpost on the north road, they say. Five of them, and I'll bake you something special."),
 		"done_text": "My flour! Well — what's left of it. Here, you've earned this.",
-		"objectives": [{"type": "kill", "target": "ghoul_pack", "count": 5, "label": "Wreck ghouls put down",
-			"map": "main", "tx": 40, "tz": 45}],
-		"min_level": 9, "rewards": {"xp": 600, "coins": 150,
+		"objectives": [{"type": "kill", "target": "martarquas_scout", "count": 5, "label": "Outpost scouts put down",
+			"map": "main", "tx": 78, "tz": 206}],
+		"min_level": 9, "rewards": {"xp": 450, "coins": 150,
 			"gear_choice": ["hooded_cowl", "spurred_boots", "chainmail"]}},
 	{"id": "old_bones", "title": "Old Bones", "giver": "gravedigger_madrian", "giver_name": "The Gravedigger",
 		"summary": ("Carry enough skeleton cards and the old bones listen to you. I'll teach you to dig — "
@@ -222,12 +242,40 @@ const QUESTS: Array[Dictionary] = [
 ]
 
 
+static var _all: Array[Dictionary] = []
+
+## Authored quests + the generated camp bonus objectives.
 static func all() -> Array[Dictionary]:
-	return QUESTS
+	if _all.is_empty():
+		_all.assign(QUESTS + camp_quests())
+	return _all
+
+## One repeatable "Cull" bonus objective per camp, at the camp's level.
+static func camp_quests() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for camp: Dictionary in _StarterZone.CAMPS:
+		var lvl: int = _StarterZone.camp_level(camp)
+		var tile: Vector2i = camp["tile"]
+		out.append({"id": camp_quest_id(str(camp["id"])), "title": "Cull: %s" % str(camp["name"]),
+			"giver": "", "giver_name": "", "auto": true, "repeatable": true, "cooldown_s": CAMP_QUEST_COOLDOWN_S,
+			"summary": "Thin out the creatures at %s." % str(camp["name"]),
+			"done_text": "Bonus objective complete.",
+			"objectives": [{"type": "kill", "target": str(camp["enemy_type"]), "count": CAMP_QUEST_KILLS,
+				"label": "Defeated at %s" % str(camp["name"]), "map": "main", "tx": tile.x, "tz": tile.y}],
+			"min_level": maxi(CAMP_QUEST_MIN_LEVEL, lvl - 2),
+			"rewards": {"xp": roundi(float(_XpCurve.step(lvl)) * CAMP_QUEST_XP_SHARE / 10.0) * 10,
+				"coins": 10 + 4 * lvl}})
+	return out
+
+static func camp_quest_id(camp_id: String) -> String:
+	return CAMP_QUEST_PREFIX + camp_id
+
+static func is_repeatable(q: Dictionary) -> bool:
+	return bool(q.get("repeatable", false))
 
 ## The quest with `id`, or {} when there is none.
 static func def(id: String) -> Dictionary:
-	for q: Dictionary in QUESTS:
+	for q: Dictionary in all():
 		if str(q.get("id", "")) == id:
 			return q
 	return {}
@@ -238,7 +286,7 @@ static func turn_in_npc(q: Dictionary) -> String:
 
 ## Display name for a quest giver's NPC id, or "" (for the townsperson name tag).
 static func giver_name_for(npc_id: String) -> String:
-	for q: Dictionary in QUESTS:
+	for q: Dictionary in all():
 		if str(q.get("giver", "")) == npc_id and str(q.get("giver_name", "")) != "":
 			return str(q["giver_name"])
 	return ""
@@ -269,7 +317,7 @@ static func objective_matches(o: Dictionary, event_type: String, event_target: S
 static func can_offer(q: Dictionary, level: int, flags: Dictionary, active: Dictionary,
 		completed: Array) -> bool:
 	var id: String = str(q.get("id", ""))
-	if active.has(id) or completed.has(id):
+	if active.has(id) or (completed.has(id) and not is_repeatable(q)):
 		return false
 	if level < int(q.get("min_level", 1)):
 		return false
@@ -286,7 +334,9 @@ static func can_offer(q: Dictionary, level: int, flags: Dictionary, active: Dict
 static func offers_for(npc_id: String, level: int, flags: Dictionary, active: Dictionary,
 		completed: Array) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
-	for q: Dictionary in QUESTS:
+	if npc_id == "":
+		return out  # giver-less camp bonus objectives start on their own
+	for q: Dictionary in all():
 		if str(q.get("giver", "")) == npc_id and can_offer(q, level, flags, active, completed):
 			out.append(q)
 	return out
@@ -295,7 +345,9 @@ static func offers_for(npc_id: String, level: int, flags: Dictionary, active: Di
 static func upcoming_for(npc_id: String, level: int, flags: Dictionary, active: Dictionary,
 		completed: Array) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
-	for q: Dictionary in QUESTS:
+	if npc_id == "":
+		return out
+	for q: Dictionary in all():
 		if str(q.get("giver", "")) != npc_id or level >= int(q.get("min_level", 1)):
 			continue
 		if can_offer(q, int(q.get("min_level", 1)), flags, active, completed):

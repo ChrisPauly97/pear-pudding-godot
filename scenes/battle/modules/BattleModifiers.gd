@@ -7,9 +7,7 @@
 extends Node
 
 const _RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
-const _CombatOnboarding = preload("res://game_logic/battle/CombatOnboarding.gd")
 const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
-const _ZoneLevels = preload("res://game_logic/world/ZoneLevels.gd")
 const _HeroVitality = preload("res://game_logic/HeroVitality.gd")
 const _BattleScene = preload("res://scenes/battle/BattleScene.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
@@ -17,16 +15,12 @@ const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
-const SkillRegistry = preload("res://autoloads/SkillRegistry.gd")
-const SkillData = preload("res://data/SkillData.gd")
 const CompanionRegistry = preload("res://autoloads/CompanionRegistry.gd")
 const CompanionData = preload("res://data/CompanionData.gd")
-const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 const Gambits = preload("res://game_logic/battle/Gambits.gd")
 const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
-const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
-const _EnemyTraits = preload("res://game_logic/battle/EnemyTraits.gd")
+const _BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
 
 var _battle: _BattleScene
 ## Enemy type + tier the fight traits apply for (set with the pack).
@@ -40,75 +34,20 @@ func _init(battle: _BattleScene) -> void:
 
 func _apply_equipment_effects(player: PlayerState) -> void:
 	var sm := SceneManager.save_manager
-	var slot_ids: Array[String] = [
-		sm.equipped_weapon,
-		sm.equipped_armor,
-		sm.equipped_ring,
-		sm.equipped_trinket,
-		sm.equipped_offhand,
-		sm.equipped_shoulders,
-		sm.equipped_helmet,
-		sm.equipped_boots,
-	]
-	# Off-hand attack gear swings on its own timer in real time (TID-545,
-	# RealtimeCombat.offhand_damage — set from the same equipped item by
-	# BattleRealtime.maybe_start()). Turn-based has no off-hand swing, so it
-	# gets a smaller always-on attack bonus instead (documented in
-	# docs/agent/combat-model.md).
-	var realtime_mode: bool = sm.battle_mode().begins_with("realtime")
-	var injected_any: bool = false
-	for item_id in slot_ids:
+	var items: Array[Dictionary] = []
+	for item_id: String in [sm.equipped_weapon, sm.equipped_armor, sm.equipped_ring, sm.equipped_trinket,
+			sm.equipped_offhand, sm.equipped_shoulders, sm.equipped_helmet, sm.equipped_boots]:
 		if item_id == "":
 			continue
 		var weapon: WeaponData = WeaponRegistry.get_weapon(item_id)
-		if weapon == null:
-			continue
 		var level: int = 0
-		var gm: float = sm.gear.mult(item_id)  # rarity / item level roll (TID-538)
-		if weapon.slot == "weapon":
-			var inst: Dictionary = sm.get_owned_weapon_by_id(item_id)
-			level = int(inst.get("upgrade_level", 0))
-		match weapon.battle_effect_type:
-			"deck_inject":
-				var count: int = UpgradeDefs.effective_inject_count(weapon, level)
-				for i in count:
-					var tmpl: Dictionary = CardRegistry.get_template(weapon.injected_card_id)
-					if tmpl.is_empty():
-						continue
-					player.draw_deck.append(CardInstance.new(tmpl))
-				injected_any = true
-			"starting_mana":
-				player.hero.bonus_mana += UpgradeDefs.effective_stat(weapon, level, gm)
-			"starting_hp":
-				var hp_bonus: int = UpgradeDefs.effective_stat(weapon, level, gm)
-				player.hero.health += hp_bonus
-				player.hero.max_health += hp_bonus
-			"passive_atk":
-				player.hero.attack += UpgradeDefs.effective_stat(weapon, level, gm)
-			"starting_armor":
-				player.hero.add_armor(UpgradeDefs.effective_stat(weapon, level, gm))
-			"offhand_atk":
-				if not realtime_mode:
-					var offhand_val: int = UpgradeDefs.effective_stat(weapon, level, gm)
-					player.hero.attack += UpgradeDefs.offhand_turnbased_bonus(offhand_val)
-	if injected_any:
-		player.draw_deck.shuffle()
+		if weapon != null and weapon.slot == "weapon":
+			level = int(sm.get_owned_weapon_by_id(item_id).get("upgrade_level", 0))
+		items.append({"id": item_id, "level": level, "mult": sm.gear.mult(item_id)})  # rarity roll (TID-538)
+	_BattleSetup.apply_gear(player, items, sm.battle_mode().begins_with("realtime"))
 
 func _apply_passive_skills(player: PlayerState) -> void:
-	for skill_id: String in SceneManager.save_manager.unlocked_skills:
-		var skill: SkillData = SkillRegistry.get_skill(skill_id)
-		if skill == null or skill.skill_type != "passive":
-			continue
-		match skill.effect_type:
-			"passive_hp":
-				player.hero.health += skill.effect_value
-				player.hero.max_health += skill.effect_value
-			"passive_mana":
-				player.hero.bonus_mana += skill.effect_value
-			"passive_atk":
-				player.hero.attack += skill.effect_value
-			"passive_draw":
-				player.bonus_draw += skill.effect_value
+	_BattleSetup.apply_passives(player, SceneManager.save_manager.unlocked_skills)
 
 ## Apply once-per-battle companion passives (extra_mana, hero_armor).
 ## Call after start_turn(1) so the base mana is already established.
@@ -232,33 +171,18 @@ func _build_rift_deck(player: PlayerState) -> Array[String]:
 		player.hero.add_armor(armor)
 	return []
 
-## GID-141 / TID-588: spell cards stay out of the battle deck until the player
-## has learned spells from the Combat Trainer.
+## GID-141 / TID-588: Allies / spells stay out of the battle deck until learned;
+## technique cards always stay (`BattleSetup.unlock_filter`).
 func _apply_combat_unlocks(player: PlayerState) -> void:
 	if _battle._state.puzzle_mode or _battle._state.scripted_battle:
 		return
-	if _CombatOnboarding.allows_spells(SceneManager.save_manager.learned_abilities):
-		return
-	var kept: Array[CardInstance] = []
-	for c: CardInstance in player.draw_deck:
-		if c.card_class != "spell":
-			kept.append(c)
-	player.draw_deck = kept
+	player.draw_deck = _BattleSetup.unlock_filter(player.draw_deck, SceneManager.save_manager.learned_abilities)
 
 ## The active companion, or "" until the player has learned to fight beside one
 ## (UnlockLadder feat_companion).
 func _active_companion() -> String:
 	var sm := SceneManager.save_manager
 	return sm.active_companion if sm.has_learned(_UnlockLadder.FEAT_COMPANION) else ""
-
-## Zone level (TID-536): the enemy hero gains +6% HP per level above 1 (its card
-## tier is raised in BattleScene before the deck is built).
-func _apply_zone_level(level: int) -> void:
-	if level <= 1:
-		return
-	var hero_hp: int = _ZoneLevels.scaled_hero_hp(_battle._state.players[1].hero.max_health, level)
-	_battle._state.players[1].hero.health = hero_hp
-	_battle._state.players[1].hero.max_health = hero_hp
 
 func _apply_ambush_modifiers(edata: Dictionary) -> void:
 	if bool(edata.get("player_ambush", false)):
@@ -348,37 +272,14 @@ func record_persistent_hp(won: bool) -> void:
 
 # ── Pack encounters (GID-135 / TID-541) ─────────────────────────────────────
 
-## Puts `enemy_type`'s pack (EnemyRegistry.get_pack) on the enemy board, scaled to
-## `tier` like its deck and ready to act — what you saw beside it in the world.
-## A leaderless pack (BID-077) has no hero to hit: the fight is won by clearing its board.
-func _place_enemy_pack(enemy_type: String, tier: int) -> void:
-	var enemy: PlayerState = _battle._state.players[1]
+## The enemy whose fight traits run each round (set after `BattleSetup.setup_enemy`).
+func set_trait_source(enemy_type: String, tier: int) -> void:
 	_trait_type = enemy_type
 	_trait_tier = tier
-	for cid: String in EnemyRegistry.get_pack(enemy_type):
-		if not _EnemyTraits.place(enemy, _EnemyTraits.make_unit(cid, tier, enemy.minion_attack_bonus)):
-			break
-	enemy.hero.leaderless = EnemyRegistry.is_leaderless(enemy_type) and not enemy.board.get_cards().is_empty()
-
-# ── Fight traits (GID-149 / TID-621) ────────────────────────────────────────
-
-## Enemy deck for `enemy_type` after deck-shaping traits (mirror: the player's own spells).
-func trait_deck(enemy_type: String, deck: Array[String]) -> Array[String]:
-	if not EnemyRegistry.get_traits(enemy_type).has("mirror"):
-		return deck
-	var spells: Array[String] = []
-	var p: PlayerState = _battle._state.players[0]
-	for c: CardInstance in p.draw_deck + p.hand:
-		if c.card_class == "spell" and not spells.has(c.template_id):
-			spells.append(c.template_id)
-	return _EnemyTraits.mirror_deck(deck, spells)
 
 ## Start of enemy round `round_n`: howl / brood / frenzy (see EnemyTraits).
 func apply_enemy_traits(round_n: int) -> void:
-	var traits: Array[String] = EnemyRegistry.get_traits(_trait_type)
-	if traits.is_empty() or _battle._state.players.size() < 2:
-		return
-	for line: String in _EnemyTraits.on_enemy_round(_battle._state, 1, traits, round_n, _trait_tier):
+	for line: String in _BattleSetup.enemy_round(_battle._state, _trait_type, _trait_tier, round_n):
 		if _battle.realtime != null and _battle.realtime.is_active():
 			_battle.realtime.toast(line)
 		else:

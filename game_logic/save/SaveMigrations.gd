@@ -12,8 +12,10 @@ const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
+const TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
+const XpCurve = preload("res://game_logic/progression/XpCurve.gd")
 
-const CURRENT_VERSION: int = 45
+const CURRENT_VERSION: int = 47
 
 
 ## Upgrades `data` in place. `up_to` stops after that version's row. The game
@@ -76,6 +78,33 @@ static func _m45_rifts(d: Dictionary) -> void:
 		run["tier"] = 1
 		d["spire_run"] = run
 	d["version"] = 45
+
+
+## GID-175: the fixed skill bar became technique cards. The bar's abilities
+## (or the default Strike/Mend/Kick bar, filtered to what the save knew) are
+## queued as `technique_deck_pending` card ids; SaveManager owns the cards and
+## deals them into the active deck on load (`_restore_technique_cards`).
+static func _m46_technique_cards(d: Dictionary) -> void:
+	var learned: Array = d.get("learned_abilities", [])
+	var bar: Array = d.get("skill_bar", [])
+	if bar.is_empty():
+		bar = ["strike", "mend", "kick"]
+	var pending: Array = []
+	for v: Variant in bar:
+		var id: String = str(v)
+		var card: String = TechniqueDefs.card_for(id)
+		if card != "" and (id == "strike" or learned.has(id)) and not pending.has(card):
+			pending.append(card)
+	d["technique_deck_pending"] = pending
+	d.erase("skill_bar")
+	d["version"] = 46
+
+
+## GID-177: levelling became much slower (XpCurve). A save keeps its level and
+## its progress toward the next one; only the XP number is rescaled.
+static func _m47_slow_xp_curve(d: Dictionary) -> void:
+	d["xp"] = XpCurve.migrate_xp(int(d.get("xp", 0)))
+	d["version"] = 47
 
 
 ## `[target_version, payload]` rows in ascending version order.
@@ -233,5 +262,7 @@ static func table() -> Array:
 		[43, _m43_stitched_towns],
 		[44, _m44_unlock_ladder],
 		[45, _m45_rifts],
+		[46, _m46_technique_cards],
+		[47, _m47_slow_xp_curve],
 	]
 	return rows

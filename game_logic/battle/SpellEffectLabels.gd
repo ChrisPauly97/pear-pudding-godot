@@ -33,6 +33,7 @@ const SPELL: Dictionary = {
 	"double_attack":       "An ally attacks twice this turn",
 	"buff_attack_all":     "Give all your allies +[power] attack",
 	"heal_hero":           "Restore [power] HP to your hero",
+	"mana_tap":            "Deal [power] damage to the enemy hero and gain 1 mana",
 	"armor_hero":          "Give your hero [power] armor",
 	"grant_ward":          "Give an ally Ward",
 	"grant_shroud":        "Give an ally Shroud",

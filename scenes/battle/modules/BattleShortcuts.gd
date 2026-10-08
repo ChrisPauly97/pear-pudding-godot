@@ -28,10 +28,8 @@ func _init(battle: _BattleScene) -> void:
 	_battle = battle
 
 
-## Key that plays the first hand card.
+## Key that plays the first hand card (no skill bar keys before it since GID-175).
 func first_hand_key() -> Key:
-	if _battle.realtime != null and _battle.realtime.is_active() and _battle.realtime.skills != null:
-		return (KEY_1 + _battle.realtime.skills.bar.ids.size()) as Key
 	return KEY_1
 
 

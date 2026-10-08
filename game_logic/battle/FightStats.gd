@@ -2,8 +2,8 @@
 ## (GID-135 / TID-559).
 ##
 ## `BattleRealtime.gd` creates one per fight and feeds it from
-## `RealtimeCombat.advance()` events (via `record_frame`), `BattleSkillBar`
-## skill presses (real `Kick` interrupts included) and a couple of GameBus
+## `RealtimeCombat.advance()` events (via `record_frame`), technique
+## card plays (`RealtimeTechniques`, real `Kick` interrupts included) and a couple of GameBus
 ## signals (`card_played`, `potion_used`). Nothing here touches a Node, a
 ## scene or an autoload; `record_frame` reads a live `RealtimeCombat` (not
 ## unit-tested directly) but every `record_*` and `pick_tip` are pure and
@@ -14,11 +14,11 @@ const RealtimeCombat = preload("res://game_logic/battle/RealtimeCombat.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 
 var duration: float = 0.0
-## Player skill uses this fight: deck cards (spells + Allies) + skill-bar presses.
+## Player skill uses this fight: deck cards (spells + Allies + technique cards).
 var skill_uses: int = 0
 ## Enemy telegraphs ("cast bar") that finished uninterrupted.
 var enemy_casts_completed: int = 0
-## Successful `Kick`-style interrupts landed (SkillBar "interrupt" effect).
+## Successful `Kick`-style interrupts landed (the Kick technique card).
 var interrupts_landed: int = 0
 ## Seconds spent at max mana (nothing left to spend it on) / at zero mana.
 var time_at_full_mana: float = 0.0
@@ -127,12 +127,12 @@ static func pick_tip(data: Dictionary) -> String:
 		return "You sat at full mana for %ds — spend it, it stops helping once it caps." % int(full_mana_s)
 	var lowest_hp: float = float(data.get("lowest_hp_fraction", 1.0))
 	if lowest_hp <= 0.25 and int(data.get("potions_used_low_hp", 0)) == 0:
-		return "You dropped to %d%% health without healing — Mend or a potion buys room to fight." % (
+		return "You dropped to %d%% health without healing — a Mend card or a potion buys room to fight." % (
 				int(lowest_hp * 100.0))
 	var duration: float = float(data.get("duration", 0.0))
 	var skill_uses: int = int(data.get("skill_uses", 0))
 	if duration >= 20.0 and skill_uses <= 2:
-		return "You mostly auto-attacked — Strike and your hand have more damage between swings."
+		return "You mostly auto-attacked — play Strike and your other cards between swings."
 	var auto_dmg: int = int(data.get("autoattack_damage", 0))
 	var card_dmg: int = int(data.get("card_damage", 0))
 	if auto_dmg > 0 and card_dmg > auto_dmg * 3:

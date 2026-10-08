@@ -15,6 +15,7 @@ const _GameState = preload("res://game_logic/battle/GameState.gd")
 const _CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const _PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
+const _BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
 const _ENEMY_DECK: Array[String] = ["ghost", "ghost", "ghost", "skeleton", "skeleton", "skeleton",
 	"ghost", "ghost", "ghost", "skeleton", "skeleton", "skeleton"]
 const _MAX_WAIT_MS: int = 20000
@@ -61,6 +62,7 @@ func _run() -> bool:
 		print("  [FAIL] real-time module did not start")
 		return false
 	var fails: Array[String] = []
+	_check_setup_matches_sim(battle, save_manager, fails)
 	_check_diagonal_layout(battle, fails)
 	# Any tutorial popup must freeze the clock; then dismiss them like the player would.
 	var modal_up: bool = battle.get("_tutorial_overlay") != null or not get_nodes_in_group("modal_popup").is_empty()
@@ -96,7 +98,7 @@ func _run() -> bool:
 	if not state.is_game_over():
 		await _check_spell_queue(battle, fails)
 	if not state.is_game_over():
-		await _check_skill_bar(battle, state, fails)
+		await _check_techniques(battle, state, fails)
 	if not state.is_game_over():
 		await _check_tuning_panel(battle, fails)
 	if not state.is_game_over():
@@ -128,12 +130,15 @@ func _run_onboarding() -> bool:
 	await process_frame
 	var fails: Array[String] = []
 	var rt_mod: Node = battle.get("realtime")
-	var skills: Object = rt_mod.get("skills")
-	var ids: Array = (skills.get("bar") as Object).get("ids")
-	if ids != ["strike"]:
-		fails.append("first fight bar should be Strike only, got %s" % str(ids))
-	if (battle.get("_player_hand_view") as Control).visible:
-		fails.append("first fight should hide the hand")
+	if rt_mod.get("skills") != null:
+		fails.append("the fixed skill bar is gone (GID-175)")
+	# GID-175: no Allies / spells learned → the hand is shown but holds only technique cards.
+	if not (battle.get("_player_hand_view") as Control).visible:
+		fails.append("first fight should show the (technique-only) hand")
+	var first_state: _GameState = battle.get("_state")
+	for c: _CardInstance in first_state.players[0].hand + first_state.players[0].draw_deck:
+		if not c.template_id.begins_with("tech_"):
+			fails.append("first fight dealt a non-technique card: %s" % c.template_id)
 	if int(save_manager.get("realtime_fights")) != 1:
 		fails.append("fight was not counted towards the ramp")
 	if not bool(save_manager.call("get_story_flag", "seen_tutorial_rt_intro")):
@@ -284,9 +289,8 @@ func _check_cast_time(battle: Node, fails: Array[String]) -> void:
 
 ## Spell queue (TID-555): an instant (0-cast-time) play attempted inside the
 ## queue-window tail of the GCD must wait for the GCD to actually end, not
-## resolve early. `run_cast` is the shared path for a deck spell's instant play
-## and the skill bar's instant on-GCD abilities (BattleSkillBar.press routes
-## every non-off_gcd press through it), so this covers both.
+## resolve early. `run_cast` is the shared path for every on-GCD instant play,
+## deck spells and technique cards alike (GID-175).
 func _check_spell_queue(battle: Node, fails: Array[String]) -> void:
 	var rt_mod: Node = battle.get("realtime") as Node
 	var rt: Object = rt_mod.get("rt")
@@ -313,53 +317,82 @@ func _check_spell_queue(battle: Node, fails: Array[String]) -> void:
 	if not resolved[0]:
 		fails.append("spell queue: queued instant play never resolved")
 
-## Skill bar (TID-550): Strike damages the enemy hero and goes on cooldown;
-## Mend runs a cast bar and heals when it completes.
-func _check_skill_bar(battle: Node, state: _GameState, fails: Array[String]) -> void:
+## Technique cards (GID-175): Strike from the hand damages the enemy hero and
+## starts the GCD, then recycles to the bottom of the deck; Mend runs its own
+## 1.5 s cast bar and heals when it completes.
+func _check_techniques(battle: Node, state: _GameState, fails: Array[String]) -> void:
 	var rt_mod: Node = battle.get("realtime") as Node
-	var skills: Object = rt_mod.get("skills")
-	if skills == null:
-		fails.append("no skill bar in real time")
-		return
-	var bar: Object = skills.get("bar")
-	var ids: Array = bar.get("ids")
+	var input: Object = battle.get("card_input")
+	var me: _PlayerState = state.players[0]
 	for _i in range(200):
 		if not bool(rt_mod.call("on_cooldown")):
 			break
 		await process_frame
-	var hero: Object = state.players[0].hero
+	var hero: Object = me.hero
 	hero.set("mana", int(hero.get("max_mana")))
 	var enemy_hp: int = state.players[1].hero.health
-	var strike: int = ids.find("strike")
-	skills.call("press", strike)
-	# Strike is instant (0 cast time) but still goes through run_cast (TID-555),
-	# so it resolves on the next tick rather than inside this call — wait for it.
+	var strike := _CardInstance.new(CardRegistry.get_template("tech_strike"))
+	me.hand.append(strike)
+	battle.call("_refresh_all")
+	var targeting: Object = battle.get("targeting")
+	input.call("_on_hand_card_tap", strike)
+	if me.hand.has(strike) and not bool(rt_mod.call("is_casting")):
+		targeting.call("_on_target_chosen_hero", 1)
 	var t_strike: int = Time.get_ticks_msec()
-	while not bool(rt_mod.call("is_casting")) and state.players[1].hero.health >= enemy_hp \
-			and Time.get_ticks_msec() - t_strike < 2000:
+	while me.hand.has(strike) and Time.get_ticks_msec() - t_strike < 4000:
 		await process_frame
 	while bool(rt_mod.call("is_casting")) and Time.get_ticks_msec() - t_strike < 8000:
 		await process_frame
 	if state.players[1].hero.health >= enemy_hp and not state.is_game_over():
 		fails.append("Strike did not damage the enemy hero")
-	# GID-139: Strike is the free filler — no cooldown of its own, only the GCD.
-	if bool((rt_mod.get("rt") as Object).call("gcd_ready", 0)):
-		fails.append("Strike did not start the global cooldown")
+	if not me.draw_deck.has(strike):
+		fails.append("Strike did not recycle into the draw pile")
+	elif me.draw_deck[0] != strike:
+		fails.append("Strike should sit at the bottom of the draw pile")
 	for _i in range(200):
 		if not bool(rt_mod.call("on_cooldown")):
 			break
 		await process_frame
 	hero.set("mana", int(hero.get("max_mana")))
 	hero.set("health", 5)
-	var mend: int = ids.find("mend")
-	skills.call("press", mend)
-	if not bool(rt_mod.call("is_casting")):
-		fails.append("Mend did not start a cast")
-	var t0: int = Time.get_ticks_msec()
-	while bool(rt_mod.call("is_casting")) and Time.get_ticks_msec() - t0 < 8000:
+	var mend := _CardInstance.new(CardRegistry.get_template("tech_mend"))
+	me.hand.append(mend)
+	battle.call("_refresh_all")
+	input.call("_on_hand_card_tap", mend)
+	var t_mend: int = Time.get_ticks_msec()
+	while not bool(rt_mod.call("is_casting")) and me.hand.has(mend) and Time.get_ticks_msec() - t_mend < 4000:
 		await process_frame
-	if bool(bar.call("ready", mend)):
-		fails.append("Mend never completed")
+	if me.hand.has(mend) and not bool(rt_mod.call("is_casting")):
+		fails.append("Mend did not start a cast")
+	while bool(rt_mod.call("is_casting")) and Time.get_ticks_msec() - t_mend < 8000:
+		await process_frame
+	if me.hand.has(mend):
+		fails.append("Mend never completed / healed")
+
+## GID-176 / TID-714: the balance sim's `BattleSetup.build` gives the same
+## fight config the scene just built (enemy HP, caps, mana, base damage).
+func _check_setup_matches_sim(battle: Node, save_manager: Object, fails: Array[String]) -> void:
+	var rt: Object = (battle.get("realtime") as Node).get("rt")
+	var state: _GameState = battle.get("_state")
+	var learned: Array = save_manager.get("learned_abilities")
+	var sim: Dictionary = _BattleSetup.build({"player_level": int(save_manager.get("level")), "learned": learned,
+		"enemy_type": "undead_basic", "weapon": str(save_manager.get("equipped_weapon")),
+		"offhand": str(save_manager.get("equipped_offhand"))})
+	var srt: Object = sim["rt"]
+	var sst: _GameState = sim["state"]
+	var pairs: Dictionary = {
+		"enemy max HP": [state.players[1].hero.max_health, sst.players[1].hero.max_health],
+		"ally cap": [state.players[0].max_units, sst.players[0].max_units],
+		"enemy minion cap": [rt.get("enemy_minion_cap"), srt.get("enemy_minion_cap")],
+		"heavy blows": [rt.get("heavy_enabled"), srt.get("heavy_enabled")],
+		"base damage": [str(rt.get("unarmed")), str(srt.get("unarmed"))],
+		"max mana": [state.players[0].hero.max_mana, sst.players[0].hero.max_mana],
+		"enemy max mana": [state.players[1].hero.max_mana, sst.players[1].hero.max_mana],
+	}
+	for k: String in pairs:
+		var v: Array = pairs[k]
+		if str(v[0]) != str(v[1]):
+			fails.append("sim setup differs from the scene: %s %s vs %s" % [k, str(v[0]), str(v[1])])
 
 ## Hero strips live inside the tokens; each board row steps down-right.
 func _check_diagonal_layout(battle: Node, fails: Array[String]) -> void:

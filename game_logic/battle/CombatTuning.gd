@@ -26,7 +26,6 @@ const DEFS: Array = [
 	["offhand_swing", "Off-hand swing speed (s)", 2.0, 1.0, 5.0, 0.1, "Auto-attack"],
 	["unarmed", "Your unarmed damage", 3.0, 0.0, 10.0, 1.0, "Auto-attack"],
 	["enemy_unarmed", "Enemy hero base damage", 2.0, 0.0, 10.0, 1.0, "Auto-attack"],
-	["skill_cooldown", "Skill bar cooldown multiplier", 1.0, 0.25, 3.0, 0.05, "Skill bar"],
 	["ally_ready", "Ally ready every (s)", 3.0, 0.5, 8.0, 0.25, "Units"],
 	["enemy_swing", "Enemy minion swing (s)", 4.5, 1.0, 10.0, 0.25, "Units"],
 	["enemy_gcd", "Enemy global cooldown (s)", 3.5, 0.5, 8.0, 0.25, "Enemy"],
@@ -34,6 +33,11 @@ const DEFS: Array = [
 	["heavy_every", "Heavy blow every (s)", 12.0, 4.0, 40.0, 0.5, "Enemy"],
 	["heavy_windup", "Heavy blow wind-up (s)", 2.2, 0.5, 5.0, 0.1, "Enemy"],
 	["heavy_frac", "Heavy blow damage (x your max HP)", 0.25, 0.05, 0.6, 0.01, "Enemy"],
+	# GID-176 / TID-720: enemy behaviour scales with the enemy's level, never with what the player learned.
+	["heavy_min_level", "Heavy blows from enemy level", 3.0, 1.0, 20.0, 1.0, "Enemy"],
+	["enemy_full_level", "Enemy level at full heavy / spell strength", 10.0, 2.0, 30.0, 1.0, "Enemy"],
+	["enemy_low_scale", "Heavy / spell strength at the lowest level", 0.5, 0.1, 1.0, 0.05, "Enemy"],
+	["enemy_two_minions_level", "Enemy level fielding 2 minions", 4.0, 1.0, 20.0, 1.0, "Enemy"],
 	["siphon_per_damage", "Mana siphoned per damage you deal", 15.0, 0.0, 60.0, 1.0, "Momentum"],
 	["fighting_regen_mult", "Regen multiplier while fighting", 0.4, 0.0, 2.0, 0.05, "Momentum"],
 	["combo_max", "Combo charges to fill", 3.0, 1.0, 5.0, 1.0, "Momentum"],
@@ -91,6 +95,13 @@ func overrides() -> Dictionary:
 		if not is_equal_approx(get_f(k), float(row[2])):
 			out[k] = get_f(k)
 	return out
+
+## 0..1 strength of an enemy's heavy blows / spells at `level`: `enemy_low_scale`
+## at level 1 rising to 1 at `enemy_full_level` (GID-176 / TID-720).
+func level_scale(level: int) -> float:
+	var full: float = maxf(2.0, get_f("enemy_full_level"))
+	var k: float = clampf((float(level) - 1.0) / (full - 1.0), 0.0, 1.0)
+	return lerpf(get_f("enemy_low_scale"), 1.0, k)
 
 static func row_for(key: String) -> Array:
 	for row: Array in DEFS:

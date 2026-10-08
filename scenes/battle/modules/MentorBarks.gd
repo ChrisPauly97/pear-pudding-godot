@@ -14,6 +14,8 @@ const _BattleRealtime = preload("res://scenes/battle/modules/BattleRealtime.gd")
 const _BarkRules = preload("res://game_logic/battle/BarkRules.gd")
 const RealtimeCombat = preload("res://game_logic/battle/RealtimeCombat.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
+const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
+const _TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
 
 const _PORTRAIT := preload("res://assets/textures/characters/npc_maiteln.png")
 const _BUBBLE_DURATION: float = 3.0
@@ -23,12 +25,11 @@ var _realtime: _BattleRealtime
 var _elapsed: float = 0.0
 var _last_bark_at: float = -1.0
 var _seen_counts: Dictionary = {}
-## One-shot moments a caller (BattleSkillBar's Kick) reports out of band —
+## One-shot moments a caller (the Kick technique card) reports out of band —
 ## consumed (and cleared) the next `on_frame`.
 var _queued: Array[String] = []
-## Skill-bar slot index -> was it ready last frame (used to catch the
-## false -> true transition, i.e. "just came off cooldown").
-var _prev_ready: Dictionary = {}
+## Technique cards in hand last frame (a rise = one came back round, GID-175).
+var _prev_techniques: int = 0
 var _bubble: CanvasLayer = null
 
 
@@ -36,7 +37,7 @@ func _init(battle: _BattleScene, realtime: _BattleRealtime) -> void:
 	_battle = battle
 	_realtime = realtime
 
-## Reported by `BattleSkillBar._resolve` right after a successful `Kick`.
+## Reported by `BattleRealtime.note_skill_used` right after a successful `Kick`.
 func queue(id: String) -> void:
 	if not _queued.has(id):
 		_queued.append(id)
@@ -75,16 +76,17 @@ func _candidates(events: Array[Dictionary]) -> Array[String]:
 		out.append("mana_empty")
 	return out
 
-## A slot that was on cooldown last frame and is ready now — the actual
-## `SkillBar.ready()` transition, not a guess.
+## A technique card came back into the hand since last frame (GID-175: deck
+## cycling is the cooldown now).
 func _cooldown_candidates() -> Array[String]:
 	var out: Array[String] = []
-	var bar := _realtime.skills.bar
-	for i: int in bar.ids.size():
-		var ready: bool = bar.ready(i)
-		if ready and not bool(_prev_ready.get(i, true)):
-			out.append("cooldown_ready")
-		_prev_ready[i] = ready
+	var n: int = 0
+	for c: CardInstance in _realtime.rt.state.players[RealtimeCombat.PLAYER].hand:
+		if _TechniqueDefs.is_technique(c.template_id):
+			n += 1
+	if n > _prev_techniques:
+		out.append("cooldown_ready")
+	_prev_techniques = n
 	return out
 
 func _show_bubble(text: String) -> void:

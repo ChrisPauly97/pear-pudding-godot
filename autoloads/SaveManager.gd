@@ -15,7 +15,8 @@ const _SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
 const _SaveFile = preload("res://game_logic/save/SaveFile.gd")
 const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
 const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
-const _SkillBar = preload("res://game_logic/battle/SkillBar.gd")
+const _TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
+const _XpCurve = preload("res://game_logic/progression/XpCurve.gd")
 const _CombatOnboarding = preload("res://game_logic/battle/CombatOnboarding.gd")
 const _HeroVitality = preload("res://game_logic/HeroVitality.gd")
 const _SaveGarden = preload("res://autoloads/save_manager/SaveGarden.gd")
@@ -72,7 +73,7 @@ const PERSISTED_FIELDS: Dictionary = {
 	"collected_scrolls": [], "settings": {},
 	"achievement_progress": {}, "unlocked_achievements": [],
 	"visited_biomes": [], "visited_dungeon_rooms": [],
-	"xp": 0, "skill_points": 0, "unlocked_skills": [], "skill_bar": [], "realtime_fights": 0,
+	"xp": 0, "skill_points": 0, "unlocked_skills": [], "realtime_fights": 0,
 	"learned_abilities": [],
 	"magic_type": "", "corruption_points": 0, "redemption_points": 0,
 	"spire_run": {"active": false}, "spire_best_floor": 0, "solved_puzzles": [],
@@ -84,7 +85,7 @@ const PERSISTED_FIELDS: Dictionary = {
 	"owned_mounts": [], "active_mount": "", "is_mounted": false,
 	"packs_since_legendary": 0, "active_companion": "", "waypoint": {}, "tracked_quest": "",
 	"bounty_day": 0, "offered_bounties": [], "active_bounties": [],
-	"quests_active": {}, "quests_completed": [],
+	"quests_active": {}, "quests_completed": [], "quest_repeat_at": {},
 	# 0 means "absent" — _restore_derived_fields substitutes IsoConst's default,
 	# which can't be referenced from a const expression (IsoConst is an autoload).
 	"bag_size": 0,
@@ -226,14 +227,11 @@ var xp: int = 0
 var level: int = 1
 var skill_points: int = 0
 var unlocked_skills: Array[String] = []
-## Real-time skill bar ability ids (SkillBar.ABILITIES); empty = the default bar (TID-550).
-var skill_bar: Array[String] = []
 ## Real-time fights started — drives the new-player control ramp (CombatOnboarding, TID-552).
 var realtime_fights: int = 0
-## Skill-bar abilities learned from town trainers (GID-136 / TID-537), beyond
-## the always-known strike/mend/kick (SkillBar.ALWAYS_KNOWN never appears
-## here). `skill_bar` is the player's chosen loadout (TID-556) — see
-## SkillBar.new(bar, learned_abilities).
+## UnlockLadder ids learned from town trainers (GID-141): `feat_*` systems and
+## technique ability ids ("mend" → the `tech_mend` card, GID-175). Strike is
+## always known and never listed here.
 var learned_abilities: Array[String] = []
 
 # Magic progression
@@ -309,6 +307,8 @@ var active_bounties: Array[Dictionary] = []
 ## Side quests (GID-136 / TID-533): {quest_id: {"progress": [int]}} and turned-in ids.
 var quests_active: Dictionary = {}
 var quests_completed: Array[String] = []
+## GID-177: repeatable quest id → unix time it may start again (camp bonus objectives).
+var quest_repeat_at: Dictionary = {}
 
 # Siege system
 # Active siege: {town: String, stage: int, hero_hp: int, day_started: int} or {} when none.
@@ -419,7 +419,7 @@ func get_slot_metadata(slot: int) -> Dictionary:
 	return {
 		"current_map": str(data.get("current_map", "?")),
 		"coins": int(data.get("coins", 0)),
-		"level": max(1, _compute_level(int(data.get("xp", 0)))),
+		"level": _slot_level(data),
 		"last_saved": str(data.get("last_saved", "")),
 	}
 
@@ -520,6 +520,8 @@ func new_game(head_start: bool = false) -> void:
 		player_deck.append(uid)
 	for tid: String in extra_ids:
 		add_card_instance(tid, "common")
+	# GID-175: Strike is a technique card in every starter deck.
+	player_deck.append(_own_technique("tech_strike"))
 	essence = 0
 	coins = 5000 if head_start else 50
 	current_map = "main"
@@ -561,15 +563,14 @@ func new_game(head_start: bool = false) -> void:
 	unlocked_achievements = []
 	visited_biomes = []
 	visited_dungeon_rooms = []
-	# Head start: xp/level/skill_points kept mutually consistent — _compute_level(11250) == 15.
-	xp = 11250 if head_start else 0
+	# Head start: xp/level/skill_points kept mutually consistent (XpCurve).
+	xp = _XpCurve.xp_to_reach(15) if head_start else 0
 	level = 15 if head_start else 1
 	skill_points = 14 if head_start else 0
 	unlocked_skills = []
 	# GID-141: a new game knows only Strike; everything else is taught by trainers.
 	# Head start (debug) learns the whole unlock ladder.
 	learned_abilities.assign(_UnlockLadder.all_ids() if head_start else [])
-	skill_bar = []
 	magic_type = ""
 	corruption_points = 0
 	redemption_points = 0
@@ -657,6 +658,7 @@ func ensure_coop_deck() -> void:
 		var uid: String = add_card_instance(tid, "common")
 		if uid != "":
 			player_deck.append(uid)
+	player_deck.append(_own_technique("tech_strike"))
 
 ## Load a multiplayer **session character** (GID-095 / TID-346) into the in-memory
 ## state that co-op and PvP already read (deck, collection, coins, level, skills,
@@ -691,8 +693,9 @@ func adopt_session_character(record: Dictionary) -> void:
 	active_loadout = 0
 	coins = int(record.get("coins", 0))
 	essence = int(record.get("essence", 0))
-	xp = int(record.get("xp", 0))
 	level = max(1, int(record.get("level", 1)))
+	# GID-177: a session character saved on the old, faster curve keeps its level.
+	xp = maxi(int(record.get("xp", 0)), _XpCurve.xp_to_reach(level))
 	skill_points = int(record.get("skill_points", 0))
 	unlocked_skills.assign(record.get("unlocked_skills", []))
 	magic_type = str(record.get("magic_type", ""))
@@ -808,6 +811,7 @@ func _restore_derived_fields(data: Dictionary) -> void:
 		loadouts = [{"name": "Deck 1", "cards": fallback}]
 	active_loadout = clampi(active_loadout, 0, loadouts.size() - 1)
 	player_deck.assign(loadouts[active_loadout].get("cards", []))
+	_restore_technique_cards(data)
 
 	level = maxi(1, _compute_level(xp))
 	skill_points = mini(skill_points, maxi(0, level - 1))
@@ -1307,14 +1311,18 @@ func get_equipped_by_slot(slot: String) -> String:
 		return str(get("equipped_" + slot))
 	return ""
 
+## The level shown for a save slot: migrated first, so an old save shows its real level.
+static func _slot_level(data: Dictionary) -> int:
+	var d: Dictionary = data.duplicate(true)
+	_SaveMigrations.apply(d)
+	return _compute_level(int(d.get("xp", 0)))
+
+## Total XP to *reach* level `lvl` (GID-177: `XpCurve`, the slow pacing curve).
 static func xp_for_level(lvl: int) -> int:
-	return lvl * lvl * 50  # total XP to *reach* level lvl (≥ 2): L2 200, L3 450, L4 800, L5 1250
+	return _XpCurve.xp_to_reach(lvl)
 
 static func _compute_level(current_xp: int) -> int:
-	var lvl: int = 1
-	while current_xp >= xp_for_level(lvl):
-		lvl += 1
-	return lvl - 1
+	return _XpCurve.level_for(current_xp)
 
 func set_magic_type(t: String) -> void:
 	magic_type = t
@@ -1332,22 +1340,59 @@ func unlock_skill(id: String) -> void:
 	skill_points -= 1
 	_dirty = true
 
-## GID-136 / TID-537: learns a skill-bar ability from a trainer NPC, spending
-## coins. Gating (level, coins, already known) is `SkillBar.can_learn`'s job —
+## GID-175: the uid of the owned `card_id` technique, creating it if missing.
+## Techniques are bound (one each, untradeable), so they skip the bag cap.
+func _own_technique(card_id: String) -> String:
+	for inst: Dictionary in owned_cards:
+		if str(inst.get("template_id", "")) == card_id:
+			return str(inst.get("uid", ""))
+	var tmpl: Dictionary = CardRegistry.get_template(card_id)
+	var uid: String = _gen_uid(card_id)
+	var inst_dict: Dictionary = _CardInstanceUtil.make(uid, card_id, "common", int(tmpl.get("attack", 0)),
+			int(tmpl.get("health", 0)), int(tmpl.get("cost", 0)))
+	owned_cards.append(inst_dict)
+	_uid_index[uid] = inst_dict
+	_dirty = true
+	return uid
+
+## Adds technique `uid` to the active deck if there is room and the deck's
+## technique mix stays legal. Returns true when it was added.
+func _add_technique_to_deck(uid: String) -> bool:
+	if uid == "" or player_deck.has(uid) or player_deck.size() >= IsoConst.DECK_MAX:
+		return false
+	var ids: Array = get_deck_template_ids()
+	ids.append(str(get_instance_by_uid(uid).get("template_id", "")))
+	if _TechniqueDefs.deck_violation(ids) != "":
+		return false
+	var deck: Array[String] = player_deck.duplicate()
+	deck.append(uid)
+	set_active_deck(deck)
+	return true
+
+## Load repair + migration (GID-175): every known technique (Strike + learned
+## abilities) has its card, and a pre-GID-175 save's skill bar (SaveMigrations
+## v46 `technique_deck_pending`) is dealt into the active deck once.
+func _restore_technique_cards(data: Dictionary) -> void:
+	for card_id: String in _TechniqueDefs.known_cards(learned_abilities):
+		_own_technique(card_id)
+	var pending: Variant = data.get("technique_deck_pending", [])
+	if pending is Array:
+		for v: Variant in pending as Array:
+			_add_technique_to_deck(_own_technique(str(v)))
+
+## GID-136 / TID-537: learns a ladder entry from a trainer NPC, spending
+## coins. Gating (level, coins, already known) is `UnlockLadder.can_learn`'s job —
 ## call it before offering the Learn button; this just performs the purchase.
 func learn_ability(id: String, cost: int) -> bool:
 	if learned_abilities.has(id) or coins < cost:
 		return false
 	learned_abilities.append(id)
 	coins -= cost
-	# A newly learned skill takes a free slot on a customised bar (an empty bar
-	# already means "the default bar, filtered to what's known").
-	if _SkillBar.ABILITIES.has(id) and not skill_bar.is_empty() and not skill_bar.has(id):
-		var free: int = skill_bar.find("")
-		if free >= 0:
-			skill_bar[free] = id
-		elif skill_bar.size() < _SkillBar.SLOTS:
-			skill_bar.append(id)
+	# GID-175: a technique ability is its card — owned, and dealt into the active
+	# deck while that stays legal (TechniqueDefs.deck_violation).
+	var tech: String = _TechniqueDefs.card_for(id)
+	if tech != "":
+		_add_technique_to_deck(_own_technique(tech))
 	_dirty = true
 	coins_changed.emit(coins)
 	quests.progress_event("learn", id)
@@ -1363,14 +1408,6 @@ func battle_mode() -> String:
 ## ladder entry at all.
 func has_learned(id: String) -> bool:
 	return _UnlockLadder.is_learned(id, learned_abilities)
-
-## TID-556: writes the player's chosen 3-slot loadout. Callers should already
-## have validated each id via SkillBar (known + not a duplicate); this stores
-## it verbatim — SkillBar.new(bar, learned_abilities) re-validates defensively
-## at read time, so a stale/invalid saved id can never surface in a fight.
-func set_skill_bar(bar: Array) -> void:
-	skill_bar.assign(bar)
-	_dirty = true
 
 func unlock_cross_skill(id: String, cost: int, currency: String) -> void:
 	if unlocked_skills.has(id):

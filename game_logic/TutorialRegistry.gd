@@ -77,34 +77,36 @@ const _DATA: Dictionary = {
 	# Real-time combat onboarding (GID-135 / TID-553): one-shot, shown the first time each moment happens.
 	"rt_intro": {
 		"title": "Real-Time Combat",
-		"body": ("Fights happen live. Your weapon attacks on its own (Auto, or F, turns it off to focus).\n\n"
-				+ "Press Strike (1) every time the shade clears: it's free, siphons mana from your foe and "
-				+ "builds combo (◆). Your next card spends the combo for mana back — a full combo casts it "
-				+ "instantly. A gold glow on your hand means your next card is free."),
+		"body": ("Fights happen live. Your weapon attacks on its own.\n\n"
+				+ "Strike is a technique card in your hand: play it (tap, or its number key) when the shade "
+				+ "clears. It's free, siphons mana from your foe and builds combo (◆), then goes back to the "
+				+ "bottom of your deck. Your next real card spends the combo for mana back — a full combo casts "
+				+ "it instantly. A gold glow on your hand means your next card is free."),
 	},
 	"rt_skill_mend": {
-		"title": "New Skill: Mend",
-		"body": ("Mend (2) heals you. It takes a moment to cast: watch the cast bar, and don't get hit too "
+		"title": "New Technique: Mend",
+		"body": ("The Mend card heals you. It takes a moment to cast: watch the cast bar, and don't get hit too "
 				+ "often or it slows down.\n\nYour health carries over between fights, so heal when you're low."),
 	},
 	"rt_skill_kick": {
-		"title": "New Skill: Kick",
-		"body": ("Enemies cast too: a bar fills on their portrait before they summon or cast.\n\nPress Kick (3) "
-				+ "while it's filling to interrupt it. Kick doesn't wait for your other skills to recharge."),
+		"title": "New Technique: Kick",
+		"body": ("Enemies cast too: a bar fills on their portrait before they summon or cast.\n\nPlay the Kick "
+				+ "card while it's filling to interrupt it. Kick ignores the global cooldown — hold it for the "
+				+ "casts that hurt; it pulses when one starts."),
 	},
 	"rt_cards": {
 		"title": "Your Cards",
 		"body": ("Your deck joins the fight. You draw a card every few seconds.\n\nTap a card to play it: spells "
-				+ "hit hard, units fight beside you. After any card or skill, a shade sweeps down your hand "
-				+ "and skills — when it's gone you can act again."),
+				+ "hit hard, units fight beside you. After any card, a shade sweeps down your hand — when it's "
+				+ "gone you can act again."),
 	},
 	"rt_low_hp": {
 		"title": "Low Health!",
-		"body": "You're badly hurt. Press Mend (2) to heal before you fall.",
+		"body": "You're badly hurt. Play your Mend card to heal before you fall.",
 	},
 	"rt_enemy_cast": {
 		"title": "The Enemy Is Casting!",
-		"body": ("See the bar filling on the enemy's portrait? Press Kick (3) now to interrupt it — the spell "
+		"body": ("See the bar filling on the enemy's portrait? Play Kick now to interrupt it — the spell "
 				+ "fails and it has to start over."),
 	},
 	"rt_out_of_mana": {

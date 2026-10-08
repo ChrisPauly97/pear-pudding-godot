@@ -65,14 +65,16 @@ func _ready() -> void:
 	GameBus.level_up.connect(func(_lvl: int) -> void: _refresh_level_tag())
 
 ## TID-536: the enemy's level — preset by whoever spawned it (Spire, events),
-## else the overworld zone level where it stands, else (dungeons, named
-## interiors) the player's own level.
+## else (overworld) its tile's zone level clamped to its type's sub-range
+## (GID-176 / TID-719), else (dungeons, named interiors) the player's own level.
 func enemy_level() -> int:
 	if enemy_data.has("enemy_level"):
 		return int(enemy_data["enemy_level"])
 	var sm := SceneManager.save_manager
 	if sm.current_map == "main" and is_inside_tree():
-		return _ZoneLevels.level_at_world(global_position, IsoConst.TILE_SIZE)
+		var t: Vector2i = IsoConst.world_to_tile(global_position.x, global_position.z)
+		return _ZoneLevels.enemy_level_at(t.x, t.y,
+				EnemyRegistry.level_range(str(enemy_data.get("enemy_type", ""))))
 	return sm.level
 
 func _add_level_tag() -> void:

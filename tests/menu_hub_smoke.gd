@@ -74,7 +74,7 @@ func _run() -> bool:
 	if content == null:
 		return false
 
-	for tab: String in ["deck", "character", "skills", "loadout", "journal"]:
+	for tab: String in ["deck", "character", "skills", "journal"]:
 		hub.call("show_tab", tab)
 		await process_frame
 		await process_frame

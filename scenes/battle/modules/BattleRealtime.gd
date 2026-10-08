@@ -24,26 +24,28 @@ const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _TutorialPopup = preload("res://scenes/ui/TutorialPopup.gd")
 const _RealtimeVisuals = preload("res://scenes/battle/modules/RealtimeVisuals.gd")
 const CombatTuning = preload("res://game_logic/battle/CombatTuning.gd")
-const _WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
-const _UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 const _CombatTuningPanel = preload("res://scenes/battle/modules/CombatTuningPanel.gd")
-const _BattleSkillBar = preload("res://scenes/battle/modules/BattleSkillBar.gd")
 const _BattleOnboarding = preload("res://scenes/battle/modules/BattleOnboarding.gd")
-const SkillBar = preload("res://game_logic/battle/SkillBar.gd")
-const _CombatOnboarding = preload("res://game_logic/battle/CombatOnboarding.gd")
+const TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
+const _RealtimeTechniques = preload("res://scenes/battle/modules/RealtimeTechniques.gd")
 const _MentorBarks = preload("res://scenes/battle/modules/MentorBarks.gd")
 const _BarkRules = preload("res://game_logic/battle/BarkRules.gd")
 const FightStats = preload("res://game_logic/battle/FightStats.gd")
 const _MomentumHud = preload("res://scenes/battle/modules/MomentumHud.gd")
+const PlayerCaster = preload("res://game_logic/battle/PlayerCaster.gd")
+const _BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
 ## Settings key holding the tuning panel's overrides (per device).
 const TUNING_SETTING: String = "combat_tuning"
 ## Hit feel per strength: [hit-stop seconds, shake pixels] (TID-580).
 const _HIT_FEEL: Array = [[0.0, 0.0], [0.045, 2.5], [0.08, 5.0], [0.12, 8.0]]
 
 var rt: RealtimeCombat = null
-## The fixed ability bar (TID-550); null outside real time.
-var skills: _BattleSkillBar = null
-## Auto-attack toggle, combo pips, free-cast glow (GID-139); null outside real time.
+## The player's casting rules (GCD, cast bar, combo, techniques — GID-176 /
+## TID-713), shared with the balance simulator; null outside real time.
+var caster: PlayerCaster = null
+## Technique-card presentation (Kick pulse, hand panels — GID-175).
+var techniques: _RealtimeTechniques = null
+## Combo pips, free-cast glow (GID-139); null outside real time.
 var momentum: _MomentumHud = null
 ## New-player ramp + first-time tips (TID-552 / TID-553); null outside real time.
 var onboarding: _BattleOnboarding = null
@@ -56,19 +58,6 @@ var fight_stats: FightStats = null
 var _battle: _BattleScene
 var _strip: HBoxContainer = null
 var _visuals: _RealtimeVisuals = null
-## Player cast in progress: the card, seconds left / total, the deferred
-## resolution, and an optional unit target that must still be alive.
-var _cast_card: CardInstance = null
-var _cast_left: float = 0.0
-var _cast_total: float = 0.0
-var _cast_finish: Callable = Callable()
-var _cast_target: CardInstance = null
-var _resolving_cast: bool = false
-## Spell queue: seconds of GCD left before a queued cast actually starts.
-var _cast_delay: float = 0.0
-## Player cast pushback hits taken this cast, and the hero HP last frame.
-var _cast_pushbacks: int = 0
-var _last_player_hp: int = 0
 var _enemy_tier: int = 1
 ## Enemy rounds elapsed, for the fight traits (GID-149).
 var _enemy_rounds: int = 0
@@ -97,20 +86,13 @@ func maybe_start(is_fresh: bool) -> void:
 	var tuning := CombatTuning.new(saved as Dictionary if saved is Dictionary else {})
 	var enemy_level: int = int(_battle.enemy_data.get("enemy_level", enemy_level_for_tier(tier)))
 	rt = RealtimeCombat.new(_battle._state, [player_level, enemy_level], tuning)
-	# TID-579: telegraphed heavy blows only once the player has Kick to answer them.
-	rt.heavy_enabled = SceneManager.save_manager.learned_abilities.has("kick") and not _battle._state.puzzle_mode
-	# Before the player can field Allies, enemies summon just one minion.
-	rt.set_enemy_minion_cap(_CombatOnboarding.enemy_minion_cap(SceneManager.save_manager.learned_abilities,
-			player_level))
-	# Early fights stay small: fewer Allies, a short opening hand.
-	rt.set_ally_cap(_CombatOnboarding.ally_cap(player_level))
-	rt.trim_hand(RealtimeCombat.PLAYER, _CombatOnboarding.opening_hand(player_level))
-	rt.weapon_speed[RealtimeCombat.PLAYER] = equipped_weapon_speed()
-	rt.offhand_damage[RealtimeCombat.PLAYER] = offhand_damage_for_item(str(SceneManager.save_manager.equipped_offhand),
-			SceneManager.save_manager.gear.mult(str(SceneManager.save_manager.equipped_offhand)))
-	if _EnemyRegistry.is_passive(enemy_type):
-		rt.set_passive(RealtimeCombat.ENEMY)
-	_last_player_hp = _battle._state.players[RealtimeCombat.PLAYER].hero.health
+	# Gates, caps, opening hand and gear timers — shared with the balance sim (TID-714).
+	var sm := SceneManager.save_manager
+	_BattleSetup.configure_realtime(rt, player_level, enemy_type, equipped_weapon_speed(),
+			offhand_damage_for_item(str(sm.equipped_offhand), sm.gear.mult(str(sm.equipped_offhand))),
+			_battle._state.puzzle_mode)
+	caster = PlayerCaster.new(rt)
+	caster.notify = _on_caster_event
 	_enemy_tier = tier
 	_apply_live_tuning()
 	_build_ui()
@@ -119,10 +101,7 @@ func maybe_start(is_fresh: bool) -> void:
 	_visuals.set_action_strip(_strip)
 	onboarding = _BattleOnboarding.new(_battle, self)
 	onboarding.begin(not _EnemyRegistry.is_passive(enemy_type))
-	var sm := SceneManager.save_manager
-	var bar_ids: Array[String] = SkillBar.new(sm.skill_bar, sm.learned_abilities).ids
-	skills = _BattleSkillBar.new(_battle, self, bar_ids)
-	skills.build(_strip)
+	techniques = _RealtimeTechniques.new(_battle, self)
 	momentum = _MomentumHud.new(_battle, self)
 	momentum.build(_strip)
 	fight_stats = FightStats.new()
@@ -153,7 +132,7 @@ func _build_ui() -> void:
 
 ## Enemy level-equivalent for mana until zone levels land (TID-536): tier 1 → 1, each tier +3.
 static func enemy_level_for_tier(tier: int) -> int:
-	return 1 + maxi(0, tier - 1) * 3
+	return _BattleSetup.enemy_level_for_tier(tier)
 
 ## The clock stops while the player is reading something: pause menu, card
 ## inspect (long-press), the first-battle tip, or any tutorial popup.
@@ -167,12 +146,11 @@ func is_blocked() -> bool:
 ## True while the local player is on global cooldown or mid-cast (blocks plays).
 func on_cooldown() -> bool:
 	# Inside the spell queue window the next play is accepted (see run_cast).
-	return rt != null and (not rt.in_queue_window(RealtimeCombat.PLAYER) or _cast_card != null)
+	return rt != null and caster.on_cooldown()
 
 ## The equipped main-hand weapon's swing speed (0 = unarmed).
 static func equipped_weapon_speed() -> float:
-	var w := _WeaponRegistry.get_weapon(SceneManager.save_manager.equipped_weapon)
-	return w.swing_speed if w != null else 0.0
+	return _BattleSetup.weapon_speed_for_item(SceneManager.save_manager.equipped_weapon)
 
 ## Off-hand swing damage for the given equipped offhand item id (TID-545), or
 ## 0 for no item / an offhand item that isn't an attack type (armor/mana
@@ -180,12 +158,7 @@ static func equipped_weapon_speed() -> float:
 ## autoload. The turn-based equivalent bonus (BattleModifiers) is skipped once
 ## real time is active, so the two never double up.
 static func offhand_damage_for_item(item_id: String, mult: float = 1.0) -> int:
-	if item_id == "":
-		return 0
-	var weapon := _WeaponRegistry.get_weapon(item_id)
-	if weapon == null or weapon.battle_effect_type != "offhand_atk":
-		return 0
-	return _UpgradeDefs.effective_stat(weapon, 0, mult)
+	return _BattleSetup.offhand_damage_for_item(item_id, mult)
 
 ## Opens the combat tuning panel over the battle (the clock pauses while it's open).
 func open_tuning() -> void:
@@ -207,9 +180,6 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if k.keycode == KEY_T:
 		open_tuning()
 		get_viewport().set_input_as_handled()
-	elif k.keycode >= KEY_1 and k.keycode < KEY_1 + skills.bar.ids.size():
-		skills.press(k.keycode - KEY_1)
-		get_viewport().set_input_as_handled()
 
 ## Saves the tuning panel's overrides and applies them from the next tick.
 func save_tuning() -> void:
@@ -219,8 +189,7 @@ func save_tuning() -> void:
 
 ## Knobs RealtimeCombat caches rather than reads each tick (base damage).
 func _apply_live_tuning() -> void:
-	rt.unarmed[RealtimeCombat.PLAYER] = rt.tune.get_i("unarmed")
-	rt.unarmed[RealtimeCombat.ENEMY] = rt.tune.get_i("enemy_unarmed") + maxi(0, _enemy_tier - 1)
+	_BattleSetup.apply_live_tuning(rt, _enemy_tier)
 
 ## A commanded Ally attack on the enemy hero interrupts its cast (WoW pet kick).
 func on_ally_hit_enemy_hero(side: int = RealtimeCombat.ENEMY) -> void:
@@ -235,13 +204,11 @@ func on_ally_hit_enemy_hero(side: int = RealtimeCombat.ENEMY) -> void:
 func note_player_play(player_idx: int) -> void:
 	if rt == null or player_idx != RealtimeCombat.PLAYER:
 		return
-	if not _resolving_cast:
-		rt.start_gcd(RealtimeCombat.PLAYER)
+	caster.note_play()
 	if fight_stats != null: fight_stats.record_skill_use()
 
-## Reported by `BattleSkillBar._resolve` right after a successful ability use
-## (GID-135 / TID-559 stats; TID-558 barks). `effect` is the ability's
-## `SkillBar.ABILITIES` effect id — "interrupt" is a real, successful `Kick`.
+## Reported right after a technique card resolves (GID-175; TID-559 stats,
+## TID-558 barks). `effect` "interrupt" is a real, successful Kick.
 func note_skill_used(effect: String) -> void:
 	if fight_stats != null:
 		fight_stats.record_skill_use()
@@ -251,93 +218,65 @@ func note_skill_used(effect: String) -> void:
 		if mentor_barks != null:
 			mentor_barks.queue("interrupt")
 
-## Real time: starts a visible cast for `card` and runs `finish` when it
-## completes (the GCD starts now — it is only the minimum between actions).
-## Returns false only in turn-based mode (rt == null) or while already casting,
-## when the caller should resolve immediately. An instant (0-cast-time) play
-## still goes through here (TID-555): queued inside the spell-queue window, it
-## waits for the GCD to actually end instead of firing early, exactly like a
-## cast-time spell's queued cast does. A unit `target` that dies mid-cast
-## fizzles the spell (card stays in hand, no mana spent). `cast_time` >= 0
-## overrides the cost-based time (skill bar abilities).
+## Real time: starts a visible cast for `card` (`PlayerCaster.begin`) and runs
+## `finish` when it completes. Returns false in turn-based mode (rt == null) or
+## while already casting, when the caller should resolve immediately. Instant
+## plays still queue behind the GCD (TID-555); a unit `target` that dies
+## mid-cast fizzles the spell. `cast_time` >= 0 overrides the card's own time.
 func run_cast(card: CardInstance, finish: Callable, target: CardInstance = null, cast_time: float = -1.0) -> bool:
-	if rt == null or _cast_card != null:
+	if rt == null or not caster.begin(card, finish, target, cast_time):
 		return false
-	var t: float = maxf(0.0, cast_time if cast_time >= 0.0 else rt.cast_time_for(card.cost))
-	var hooked: Array = momentum.wrap_card(card, finish, t)  # GID-139: combo spend, empowered = instant
-	finish = hooked[0]
-	t = hooked[1]
-	_cast_card = card
-	_cast_total = t
-	_cast_left = t
-	_cast_finish = finish
-	_cast_target = target
-	_cast_pushbacks = 0
-	# Queued inside the spell queue window: the cast (and its GCD) starts when
-	# the current GCD runs out. For an instant play (t == 0) this is the whole
-	# job — it resolves on the very next tick once the delay clears.
-	_cast_delay = rt.gcd[RealtimeCombat.PLAYER]
-	if _cast_delay <= 0.0:
-		rt.start_gcd(RealtimeCombat.PLAYER)
 	_battle._refresh_all()
 	return true
 
-func _tick_cast(dt: float) -> void:
-	if _cast_card == null:
-		return
-	if _cast_delay > 0.0:
-		_cast_delay -= dt
-		if _cast_delay <= 0.0:
-			rt.start_gcd(RealtimeCombat.PLAYER)
-		return
-	# Pushback: each hit on your hero while casting delays the cast (capped).
-	var hp: int = _battle._state.players[RealtimeCombat.PLAYER].hero.health
-	if hp < _last_player_hp:
-		var add: float = rt.pushback_for_hit(_cast_pushbacks)
-		if add > 0.0:
-			_cast_left += add
-			_cast_total += add
-			_cast_pushbacks += 1
-	_cast_left -= dt
-	if _cast_left > 0.0:
-		return
-	var finish: Callable = _cast_finish
-	var target: CardInstance = _cast_target
-	_cast_card = null
-	_cast_finish = Callable()
-	_cast_target = null
-	if target != null and not (target.is_alive() and _target_on_board(target)):
-		_visuals.toast("Target lost — spell fizzled")
-		_battle._refresh_all()
-		return
-	_resolving_cast = true
-	var foe_hp: int = FightStats.enemy_health(rt)
-	finish.call()
-	_resolving_cast = false
-	if fight_stats != null: fight_stats.record_card_damage(foe_hp - FightStats.enemy_health(rt))  # TID-559 tip
-
-func _target_on_board(c: CardInstance) -> bool:
-	for p: PlayerState in _battle._state.players:
-		if p.board.get_cards().has(c):
-			return true
-	return false
+## Off-GCD play (Kick, Daze — GID-175): resolves now.
+func run_off_gcd(card: CardInstance, finish: Callable) -> void:
+	if rt != null:
+		caster.run_off_gcd(card, finish)
 
 func is_casting() -> bool:
-	return _cast_card != null
+	return caster != null and caster.is_casting()
+
+## Feedback from `PlayerCaster` (pure rules) → toasts, hit feel, stats, quests.
+func _on_caster_event(kind: String, data: Dictionary) -> void:
+	match kind:
+		"combo":
+			var n: int = int(data.get("n", 0))
+			var free: bool = bool(data.get("free", false))
+			if free:
+				toast("Essence surge — cast for free!")
+			else:
+				toast("Combo ×%d — +%d mana" % [n, n * rt.tune.get_i("combo_refund")])
+			# TID-580: the payoff lands heavier the more it was built up.
+			hit_feel(3 if free or n >= rt.tune.get_i("combo_max") else 2)
+		"proc":
+			momentum.on_proc()
+		"interrupt":
+			toast("Interrupted %s!" % str(data.get("name", "")))
+			note_skill_used("interrupt")
+		"dazed":
+			toast("Dazed!")
+		"fizzled":
+			toast("Target lost — spell fizzled")
+			_battle._refresh_all()
+		"resolved":
+			if fight_stats != null: fight_stats.record_card_damage(int(data.get("dealt", 0)))  # TID-559 tip
+		"technique":
+			var card := data.get("card") as CardInstance
+			if card.template_id != "tech_kick":
+				note_skill_used(str(data.get("effect", "")))
+			SceneManager.save_manager.quests.progress_event("use_skill", TechniqueDefs.ability_for(card.template_id))
 
 func _cast_info() -> Dictionary:
-	if _cast_card == null:
+	var cs: Dictionary = caster.cast_state()
+	if cs.is_empty():
 		return {}
-	var cost: int = _battle._state.players[RealtimeCombat.PLAYER].effective_cost(_cast_card)
-	if _cast_card.has_meta("cost_points"):
-		cost = int(_cast_card.get_meta("cost_points"))
-	if _cast_delay > 0.0:
-		return {"name": _cast_card.name + " (queued)", "fraction": 0.0, "cost": cost}
-	# An instant play (_cast_total == 0) is still shown as "queued" for the single
-	# tick between its GCD delay clearing and _tick_cast resolving it.
-	if _cast_total <= 0.0:
-		return {"name": _cast_card.name + " (queued)", "fraction": 0.0, "cost": cost}
-	return {"name": _cast_card.name, "fraction": 1.0 - _cast_left / _cast_total, "cost": cost}
+	var card := cs["card"] as CardInstance
+	var cost: int = _battle._state.players[RealtimeCombat.PLAYER].effective_cost(card)
+	# An instant play is shown as "queued" until it resolves on the next tick.
+	if bool(cs["queued"]):
+		return {"name": card.name + " (queued)", "fraction": 0.0, "cost": cost}
+	return {"name": card.name, "fraction": float(cs["fraction"]), "cost": cost}
 
 ## The battle companion (Maiteln…), "" until learned (UnlockLadder feat_companion).
 func modifiers_companion() -> String:
@@ -466,12 +405,11 @@ func _process(delta: float) -> void:
 		_hitstop_left -= delta
 		return
 	var dt: float = delta * _speed_factor()
-	skills.update(dt)
+	techniques.pulse_reactive()
 	_battle.consumables.tick_quick(dt)
 	momentum.update()
 	onboarding.update(dt)
-	_tick_cast(dt)
-	_last_player_hp = _battle._state.players[RealtimeCombat.PLAYER].hero.health
+	caster.tick(dt)
 	if _battle._state.is_game_over():
 		return
 	var snap: Array[Dictionary] = _battle._fx.snapshot()
@@ -481,7 +419,7 @@ func _process(delta: float) -> void:
 	if mentor_barks != null:
 		mentor_barks.on_frame(dt, events)
 	# Global cooldown: a sweep drains down the hand cards (full shade while casting).
-	var gcd_frac: float = 0.0 if _cast_card != null else rt.gcd_fraction(RealtimeCombat.PLAYER)
+	var gcd_frac: float = 0.0 if caster.is_casting() else rt.gcd_fraction(RealtimeCombat.PLAYER)
 	_visuals.update_hand_sweep(gcd_frac)
 	# Mana ticks every frame in points; the labels are cheap to update, the full
 	# board refresh only runs on events (a whole cost unit, swings, casts).
@@ -546,17 +484,13 @@ func _on_round(side: int) -> void:
 		_battle.modifiers.apply_enemy_traits(_enemy_rounds)
 
 func _after_enemy_play(card: CardInstance, ai_idx: int = RealtimeCombat.ENEMY) -> void:
-	_battle._resolver.flush_auto_spells(ai_idx)
+	var snap := _battle._fx.snapshot()
+	# Shared with the balance sim; a low-level enemy's spells hit softer (TID-720).
+	_battle._resolver.resolve_enemy_play(card, ai_idx, RealtimeCombat.PLAYER, _BattleSetup.enemy_spell_scale(rt, ai_idx))
 	if card.card_class != "spell":
-		_battle._resolver.resolve_emergence(card, ai_idx)
 		_battle.modifiers._apply_weather_to_summoned(card, ai_idx)
 		GameBus.card_played.emit(card.template_id, "board", _battle._state.players[ai_idx].board.slots.find(card))
 	else:
-		# BID-078: resolve the enemy's spell at the player. Real time pins
-		# current_player_idx to the player, so the resolver's default opponent would
-		# be the caster itself — name the target explicitly.
-		var snap := _battle._fx.snapshot()
-		_battle._resolver.resolve_spell(card, ai_idx, {"type": "hero", "pidx": RealtimeCombat.PLAYER})
 		_battle._fx.trigger_fx(snap)
 		_battle._refresh_all()
 		_battle._check_game_over()

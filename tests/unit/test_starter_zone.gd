@@ -7,6 +7,7 @@ const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const WorldMapScript = preload("res://game_logic/world/WorldMap.gd")
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 const SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
+const ZoneLevels = preload("res://game_logic/world/ZoneLevels.gd")
 
 
 func _madrian_tile(world_tile: Vector2i) -> int:
@@ -16,17 +17,24 @@ func _madrian_tile(world_tile: Vector2i) -> int:
 	return wm.get_tile(local.x, local.y)
 
 
-func test_camps_ramp_one_level_at_a_time() -> void:
+## GID-176 / TID-719: camp levels come from the zone (Madrian outskirts, 1–5) and
+## the enemy type; together the camps cover the outskirts' early levels.
+func test_camp_levels_follow_the_zone() -> void:
 	var ids: Dictionary = {}
-	var prev: int = 0
+	var levels: Dictionary = {}
 	for c: Dictionary in StarterZone.CAMPS:
 		assert_false(ids.has(c["id"]), "camp id unique")
 		ids[c["id"]] = true
-		assert_eq(int(c["level"]), prev + 1, "%s is the next level" % str(c["id"]))
-		prev = int(c["level"])
+		var lvl: int = StarterZone.camp_level(c)
+		var t: Vector2i = c["tile"]
+		var zr: Vector2i = ZoneLevels.range_at_tile(t.x, t.y)
+		assert_true(lvl >= zr.x and lvl <= zr.y, "%s level %d inside its zone %s" % [str(c["id"]), lvl, str(zr)])
+		levels[lvl] = true
 		assert_false(EnemyRegistry.get_deck(str(c["enemy_type"])).is_empty(), "%s enemy has a deck" % str(c["id"]))
 		assert_gt(int(c["count"]), 2, "%s has enough members for a slay quest" % str(c["id"]))
-	assert_eq(prev, 9, "the starter zone covers levels 1–9")
+	for lvl: int in range(1, 5):
+		assert_true(levels.has(lvl), "a camp at level %d" % lvl)
+	assert_eq(StarterZone.camp_for_level(1)["id"], StarterZone.camp_for_level(1)["id"], "deterministic")
 
 
 func test_camp_slots_inside_madrian_are_open_ground() -> void:
@@ -98,7 +106,7 @@ func test_every_trainer_and_quest_giver_has_its_own_sprite() -> void:
 	const UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 	var ids: Array[String] = []
 	for q: Dictionary in SideQuests.all():
-		if not ids.has(str(q["giver"])):
+		if str(q["giver"]) != "" and not ids.has(str(q["giver"])):
 			ids.append(str(q["giver"]))
 	for t: Variant in UnlockLadder.TRAINER_NPCS:
 		var nid: String = str(UnlockLadder.TRAINER_NPCS[t])

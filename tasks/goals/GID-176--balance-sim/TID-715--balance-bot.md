@@ -1,0 +1,53 @@
+# TID-715: Simulated player (fixed policy)
+
+**Goal:** GID-176
+**Type:** agent
+**Status:** done
+**Depends On:** TID-713, TID-714
+
+## Lock
+
+**Session:** none
+**Acquired:** —
+**Expires:** —
+
+## Context
+
+The simulator needs a predictable stand-in for the player that drives PlayerCaster each tick.
+
+## Research Notes
+
+- From TID-713: drive the player with `PlayerCaster` (`game_logic/battle/PlayerCaster.gd`). Per tick: `caster.tick(DT)` then `rt.advance(DT)`; act with `caster.play(card, resolver, target)`, where target is `{}`, `{"type":"minion","card":c}` or `{"type":"hero"}`; check legality with `caster.play_blocker(card)`; `caster.notify` gives combo / proc / interrupt / fizzled / resolved{dealt} / technique events for stats. A resolver is `SpellEffectResolver.new()` + `setup(state)`.
+- New `game_logic/battle/BalanceBot.gd` (pure): `decide(state, rt, caster) -> {card, target}` or nothing, called each tick when `caster` can act.
+- Policy, in order:
+  1. Kick if an enemy is casting and Kick is in hand.
+  2. Daze on a heavy-blow telegraph (`RealtimeCombat.is_heavy`).
+  3. Mend / heal cards below 40 % HP.
+  4. Summon an Ally if a slot is free and affordable.
+  5. Highest-value affordable damage card: target enemy minions with Ward first, else the lowest-HP minion, else the hero.
+  6. Strike.
+- Value = spell_power (`TechniqueDefs.power` in real time) per mana unit. Keep it simple and documented, not clever.
+- Policy knobs (aggression, heal threshold) as a dict so sweeps can compare playstyles.
+- Test: the bot never attempts an illegal play (`PlayerCaster.try_play` reason always ""), and it Kicks a scripted enemy cast.
+
+## Plan
+
+Medium complexity, so I proceeded without an approval stop.
+1. Pure `BalanceBot` with the noted policy, deterministic tie-breaks and fall-through when the top pick has no target.
+2. Pure `BalanceFight.run` single-fight loop (the scene's per-tick calls) so the bot can be tested end to end. The CLI (TID-716) batches it.
+3. Share the enemy-play resolution (`resolve_enemy_play`) the loop needs.
+4. Tests.
+
+## Changes Made
+
+- New `game_logic/battle/BalanceBot.gd`: `decide(caster)` / `act(caster, resolver)` plus policy knobs `heal_below`, `summon`, `interrupt`.
+- New `game_logic/battle/BalanceFight.gd`: `run(cfg, policy)` runs one seeded fight (0.05 s tick, 300 s cap) and returns result, duration, HP and play / damage / interrupt / proc / full-mana stats.
+- `scenes/battle/SpellEffectResolver.gd`: new `resolve_enemy_play(card, ai_idx, player_idx)` (flush auto-spells, then emergence or the spell aimed at the player). `BattleRealtime._after_enemy_play` now calls it, keeping weather / GameBus / FX in the scene. Behaviour is unchanged.
+- Tests: new `tests/unit/test_balance_bot.gd` (5).
+- Validation: full suite PASS with 0 SCRIPT ERROR; all 12 CI smoke tests clean; gdlint and unsafe-hits clean.
+- Speed: about 30 fights/s headless (40 fights in 1.3 s).
+- First observation, for the user: a level-1 new player (Strike only) lost 20/20 to `undead_basic`, while level 5 with Allies won 20/20. TID-716 / TID-717 will measure properly.
+
+## Documentation Updates
+
+combat-model.md → new "Balance bot and single fight" section.

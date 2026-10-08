@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://rtsnscxv4hf7"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_tech_strike"]
+
+[resource]
+script = ExtResource("1_tech_strike")
+id = "tech_strike"
+card_name = "Strike"
+cost = 0
+attack = 0
+health = 0
+card_class = "spell"
+description = "↻ Technique — Hit a target for 2 (5 in real time). Returns to the bottom of your deck."
+color = Color(0.62, 0.66, 0.72, 1)
+magic_type = ""
+magic_branch = ""
+spell_effect = "deal_damage_single"
+spell_power = 2
+can_craft = false
+is_unique = true
