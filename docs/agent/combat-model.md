@@ -390,11 +390,25 @@ and a test still keeps every value ≤ 9.
   until then Kick/Daze resolve their turn-based stun/freeze in real time too.
 - Tests: `tests/unit/test_technique_cards.gd`.
 
-### Migration (TID-708)
+### Learning & migration (TID-708)
 
-`learned_abilities` keeps its feat ids (`feat_*`). Ability ids in it become one technique card each in the
-collection. `skill_bar` ids go into the active deck/loadout up to the cap (if there is room), and the field is then
-dropped from `PERSISTED_FIELDS`. The always-known Strike is granted to every save.
+- **Ids:** `learned_abilities` keeps the plain ability ids (`"mend"`) next to the `feat_*` ids, so UnlockLadder
+  gates and onboarding are unchanged. `TechniqueDefs.card_for("mend")` → `"tech_mend"`, `ability_for` reverses
+  it, and `known_cards(learned)` = Strike + each learned technique.
+- **Ladder:** UnlockLadder skill rows read `level_req` / `learn_cost` from `TechniqueDefs.DEFS`. The how-to texts
+  describe cards.
+- **Learning:** `SaveManager.learn_ability(id)` → `_own_technique("tech_" + id)` (one bound instance, skips the
+  bag cap) → `_add_technique_to_deck(uid)` (only if the deck is under `IsoConst.DECK_MAX` and
+  `deck_violation` stays clean). The trainer panel toasts "<Name> card added to your collection."
+- **Starter:** `new_game` and the cold co-op `ensure_coop_deck` deal Strike into the deck.
+- **Deck builder:** `InventoryScene._on_add_by_uid` refuses a technique that breaks the rules (HUD message).
+  Auto-fill never picks techniques.
+- **Migration v46** (`SaveMigrations._m46_technique_cards`): the old `skill_bar` (or the default
+  Strike/Mend/Kick, filtered to what the save knew) becomes `technique_deck_pending` card ids, and `skill_bar` is
+  erased. On load, `SaveManager._restore_technique_cards` owns every known technique (an idempotent repair on every
+  load) and deals the pending ones into the active deck.
+- `skill_bar` stays in `PERSISTED_FIELDS` until TID-710 removes the bar code.
+- Tests: `tests/unit/test_technique_learning.gd`, `test_unlock_ladder.gd`.
 
 ## Skill bar — fixed abilities (TID-550) — superseded by Technique cards
 

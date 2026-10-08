@@ -34,6 +34,25 @@ const ORDER: Array[String] = [
 	"tech_ember_lance", "tech_mana_tap", "tech_sweep", "tech_daze",
 ]
 
+## Ability id as stored in `SaveManager.learned_abilities` / the UnlockLadder
+## ("mend") → its technique card id ("tech_mend"); "" when it isn't one.
+static func card_for(ability_id: String) -> String:
+	var id: String = "tech_" + ability_id
+	return id if DEFS.has(id) else ""
+
+## The reverse of `card_for`.
+static func ability_for(card_id: String) -> String:
+	return card_id.trim_prefix("tech_") if DEFS.has(card_id) else ""
+
+## Technique card ids a save knows: Strike always, plus each learned ability.
+static func known_cards(learned: Array) -> Array[String]:
+	var out: Array[String] = ["tech_strike"]
+	for v: Variant in learned:
+		var id: String = card_for(str(v))
+		if id != "" and not out.has(id):
+			out.append(id)
+	return out
+
 static func is_technique(card_id: String) -> bool:
 	return DEFS.has(card_id)
 

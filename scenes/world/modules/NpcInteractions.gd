@@ -7,6 +7,7 @@ const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const SkillBar = preload("res://game_logic/battle/SkillBar.gd")
+const _TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
 const _SideQuests = preload("res://game_logic/quests/SideQuests.gd")
 const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
 const _Tales = preload("res://game_logic/quests/Tales.gd")
@@ -404,6 +405,8 @@ func _trainer_row(id: String, trainer: String, service_npc: Dictionary, sm: Save
 	var learn_btn := _UiUtil.make_button("Learn — %d gold" % cost, Vector2(vh * 0.24, vh * 0.055), font,
 			func() -> void:
 				if sm.learn_ability(id, cost):
+					if _TechniqueDefs.card_for(id) != "":
+						_world._show_tip("%s card added to your collection." % str(row_def.get("title", id)))
 					layer.queue_free()
 					show_trainer_panel(trainer, service_npc), btn_row)
 	learn_btn.disabled = not can

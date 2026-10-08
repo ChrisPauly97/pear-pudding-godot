@@ -12,6 +12,7 @@ const _CraftPanel       = preload("res://scenes/ui/inventory/CraftPanel.gd")
 const _ItemsPanel       = preload("res://scenes/ui/inventory/ItemsPanel.gd")
 
 const DeckAutoFill = preload("res://game_logic/DeckAutoFill.gd")
+const _TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
 
 # -------------------------------------------------------------------------
 # Drag and drop between the collection and the deck
@@ -520,7 +521,9 @@ func _on_auto_fill() -> void:
 	var available: Array[Dictionary] = []
 	for inst: Dictionary in all_instances:
 		var uid: String = str(inst.get("uid", ""))
-		if uid != "" and not _working_deck.has(uid):
+		# Techniques (GID-175) are picked by hand, never auto-filled.
+		if uid != "" and not _working_deck.has(uid) \
+				and not _TechniqueDefs.is_technique(str(inst.get("template_id", ""))):
 			available.append(inst)
 	var target: int = maxi(IsoConst.DECK_MIN, _working_deck.size())
 	target = mini(target, IsoConst.DECK_MAX)
@@ -931,9 +934,21 @@ func _make_deck_row_instance(uid: String, inst: Dictionary) -> VBoxContainer:
 func _on_add_by_uid(uid: String) -> void:
 	if _working_deck.size() >= IsoConst.DECK_MAX or _working_deck.has(uid):
 		return
+	var why: String = _technique_violation_with(uid)
+	if why != "":
+		GameBus.hud_message_requested.emit(why)
+		return
 	_working_deck.append(uid)
 	_hide_instance_detail()
 	_refresh_cards()
+
+# Why adding `uid` would break the deck's technique rules (GID-175), or "".
+func _technique_violation_with(uid: String) -> String:
+	var sm := SceneManager.save_manager
+	var ids: Array = []
+	for u: String in _working_deck + [uid]:
+		ids.append(str(sm.get_instance_by_uid(u).get("template_id", "")))
+	return _TechniqueDefs.deck_violation(ids)
 
 # Remove a specific instance by UID.
 func _on_remove_by_uid(uid: String) -> void:

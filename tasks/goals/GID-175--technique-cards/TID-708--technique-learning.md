@@ -2,7 +2,7 @@
 
 **Goal:** GID-175
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-707
 
 ## Lock
@@ -28,12 +28,28 @@ Trainer-taught abilities become technique cards added to the collection; existin
 
 ## Plan
 
-_Written during Plan phase._
+Medium complexity, but the design was already settled, so I proceeded without an approval stop.
+1. Keep ability ids in `learned_abilities`, so no gating code changes.
+2. Map them to cards via `TechniqueDefs.card_for`.
+3. UnlockLadder prices come from TechniqueDefs.
+4. `learn_ability` grants the card and deals it into the deck.
+5. Strike goes in the starter decks.
+6. Migration v46 queues the old bar, and the SaveManager load pass owns and deals the cards (idempotent repair).
+7. The deck builder enforces the technique rules; auto-fill skips techniques.
+8. Trainer toast.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/battle/TechniqueDefs.gd`: `card_for`, `ability_for`, `known_cards`.
+- `game_logic/progression/UnlockLadder.gd`: skill rows priced from TechniqueDefs (no SkillBar preload); Mend/Kick/Ember Lance how-to texts describe cards.
+- `autoloads/SaveManager.gd`: `_own_technique`, `_add_technique_to_deck`, `_restore_technique_cards` (called from `_restore_derived_fields`); `learn_ability` grants the card instead of filling the bar; Strike in `new_game` / `ensure_coop_deck`.
+- `game_logic/save/SaveMigrations.gd`: v46 `_m46_technique_cards`.
+- `scenes/ui/InventoryScene.gd`: `_technique_violation_with` blocks illegal adds; auto-fill skips techniques. This adds about 12 lines to a file flagged as lint debt (BID-053).
+- `scenes/world/modules/NpcInteractions.gd`: "card added" toast on learning a technique.
+- Tests: new `tests/unit/test_technique_learning.gd` (6 tests); `test_unlock_ladder` learn test now checks the deck.
+- Full suite PASS with 0 SCRIPT ERROR; world_scene_smoke and realtime_battle_smoke clean; gdlint and unsafe-hits clean.
+- Not done here: the SessionState (multiplayer session character) starter deck has no Strike. Logged as BID-093.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+combat-model.md → "Learning & migration (TID-708)" replaces the migration stub.

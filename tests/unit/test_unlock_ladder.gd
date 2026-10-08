@@ -77,10 +77,9 @@ func test_learn_slots_skill_and_charges() -> void:
 	var sm: SaveManagerScript = SaveManagerScript.new()
 	sm.new_game(false)
 	sm.coins = 100
-	sm.skill_bar.assign(["strike"])
 	assert_true(sm.learn_ability("mend", UnlockLadder.cost("mend")))
 	assert_eq(sm.coins, 100 - UnlockLadder.cost("mend"))
-	assert_true(sm.skill_bar.has("mend"), "learned skill goes on the bar")
+	assert_true(sm.get_deck_template_ids().has("tech_mend"), "learned technique card joins the deck (GID-175)")
 	assert_false(sm.learn_ability("mend", 0), "cannot learn twice")
 
 

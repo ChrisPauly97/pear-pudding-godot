@@ -16,6 +16,7 @@ const _SaveFile = preload("res://game_logic/save/SaveFile.gd")
 const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
 const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const _SkillBar = preload("res://game_logic/battle/SkillBar.gd")
+const _TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
 const _CombatOnboarding = preload("res://game_logic/battle/CombatOnboarding.gd")
 const _HeroVitality = preload("res://game_logic/HeroVitality.gd")
 const _SaveGarden = preload("res://autoloads/save_manager/SaveGarden.gd")
@@ -520,6 +521,8 @@ func new_game(head_start: bool = false) -> void:
 		player_deck.append(uid)
 	for tid: String in extra_ids:
 		add_card_instance(tid, "common")
+	# GID-175: Strike is a technique card in every starter deck.
+	player_deck.append(_own_technique("tech_strike"))
 	essence = 0
 	coins = 5000 if head_start else 50
 	current_map = "main"
@@ -657,6 +660,7 @@ func ensure_coop_deck() -> void:
 		var uid: String = add_card_instance(tid, "common")
 		if uid != "":
 			player_deck.append(uid)
+	player_deck.append(_own_technique("tech_strike"))
 
 ## Load a multiplayer **session character** (GID-095 / TID-346) into the in-memory
 ## state that co-op and PvP already read (deck, collection, coins, level, skills,
@@ -808,6 +812,7 @@ func _restore_derived_fields(data: Dictionary) -> void:
 		loadouts = [{"name": "Deck 1", "cards": fallback}]
 	active_loadout = clampi(active_loadout, 0, loadouts.size() - 1)
 	player_deck.assign(loadouts[active_loadout].get("cards", []))
+	_restore_technique_cards(data)
 
 	level = maxi(1, _compute_level(xp))
 	skill_points = mini(skill_points, maxi(0, level - 1))
@@ -1332,6 +1337,46 @@ func unlock_skill(id: String) -> void:
 	skill_points -= 1
 	_dirty = true
 
+## GID-175: the uid of the owned `card_id` technique, creating it if missing.
+## Techniques are bound (one each, untradeable), so they skip the bag cap.
+func _own_technique(card_id: String) -> String:
+	for inst: Dictionary in owned_cards:
+		if str(inst.get("template_id", "")) == card_id:
+			return str(inst.get("uid", ""))
+	var tmpl: Dictionary = CardRegistry.get_template(card_id)
+	var uid: String = _gen_uid(card_id)
+	var inst_dict: Dictionary = _CardInstanceUtil.make(uid, card_id, "common", int(tmpl.get("attack", 0)),
+			int(tmpl.get("health", 0)), int(tmpl.get("cost", 0)))
+	owned_cards.append(inst_dict)
+	_uid_index[uid] = inst_dict
+	_dirty = true
+	return uid
+
+## Adds technique `uid` to the active deck if there is room and the deck's
+## technique mix stays legal. Returns true when it was added.
+func _add_technique_to_deck(uid: String) -> bool:
+	if uid == "" or player_deck.has(uid) or player_deck.size() >= IsoConst.DECK_MAX:
+		return false
+	var ids: Array = get_deck_template_ids()
+	ids.append(str(get_instance_by_uid(uid).get("template_id", "")))
+	if _TechniqueDefs.deck_violation(ids) != "":
+		return false
+	var deck: Array[String] = player_deck.duplicate()
+	deck.append(uid)
+	set_active_deck(deck)
+	return true
+
+## Load repair + migration (GID-175): every known technique (Strike + learned
+## abilities) has its card, and a pre-GID-175 save's skill bar (SaveMigrations
+## v46 `technique_deck_pending`) is dealt into the active deck once.
+func _restore_technique_cards(data: Dictionary) -> void:
+	for card_id: String in _TechniqueDefs.known_cards(learned_abilities):
+		_own_technique(card_id)
+	var pending: Variant = data.get("technique_deck_pending", [])
+	if pending is Array:
+		for v: Variant in pending as Array:
+			_add_technique_to_deck(_own_technique(str(v)))
+
 ## GID-136 / TID-537: learns a skill-bar ability from a trainer NPC, spending
 ## coins. Gating (level, coins, already known) is `SkillBar.can_learn`'s job —
 ## call it before offering the Learn button; this just performs the purchase.
@@ -1340,14 +1385,11 @@ func learn_ability(id: String, cost: int) -> bool:
 		return false
 	learned_abilities.append(id)
 	coins -= cost
-	# A newly learned skill takes a free slot on a customised bar (an empty bar
-	# already means "the default bar, filtered to what's known").
-	if _SkillBar.ABILITIES.has(id) and not skill_bar.is_empty() and not skill_bar.has(id):
-		var free: int = skill_bar.find("")
-		if free >= 0:
-			skill_bar[free] = id
-		elif skill_bar.size() < _SkillBar.SLOTS:
-			skill_bar.append(id)
+	# GID-175: a technique ability is its card — owned, and dealt into the active
+	# deck while that stays legal (TechniqueDefs.deck_violation).
+	var tech: String = _TechniqueDefs.card_for(id)
+	if tech != "":
+		_add_technique_to_deck(_own_technique(tech))
 	_dirty = true
 	coins_changed.emit(coins)
 	quests.progress_event("learn", id)
