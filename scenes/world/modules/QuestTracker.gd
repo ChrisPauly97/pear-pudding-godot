@@ -263,6 +263,7 @@ func toggle_realm_map() -> void:
 	_world.add_child(_realm_overlay)
 	_realm_overlay.setup(_world._player, _world.map_name, active_quests(), tracked_quest(), npc_map_marks())
 	_realm_overlay.closed.connect(func() -> void: _realm_overlay = null)
+	_realm_overlay.fast_travel_requested.connect(_world.named_props.open_fast_travel_panel)
 
 func is_realm_map_open() -> bool:
 	return is_instance_valid(_realm_overlay)

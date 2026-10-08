@@ -7,6 +7,8 @@
 extends CanvasLayer
 
 signal closed
+## The Fast Travel button: the minimap tap used to open fast travel here.
+signal fast_travel_requested
 
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
@@ -103,6 +105,10 @@ func setup(player: Node3D, map_name: String, quests: Array[Dictionary], tracked:
 
 	var close_btn := _UiUtil.make_button("X", Vector2(vh * 0.055, vh * 0.055), int(vh * 0.028), _close, self)
 	close_btn.position = Vector2(_panel.end.x - vh * 0.065, _panel.position.y + vh * 0.01)
+
+	var travel_btn := _UiUtil.make_button("Fast Travel", Vector2(vh * 0.16, vh * 0.05), int(vh * 0.020),
+		_on_fast_travel, self)
+	travel_btn.position = Vector2(_panel.position.x + vh * 0.01, _panel.position.y + vh * 0.01)
 
 
 ## Tile rect covering every town, road and story site, padded, grown to include
@@ -225,6 +231,11 @@ func _draw_quests(c: Control, font: Font) -> void:
 func _set_waypoint_at(screen_pos: Vector2) -> void:
 	var t: Vector2 = _panel_to_tile(screen_pos)
 	SceneManager.save_manager.set_waypoint({"map": _map_name, "tx": int(floor(t.x)), "tz": int(floor(t.y))})
+
+
+func _on_fast_travel() -> void:
+	fast_travel_requested.emit()
+	_close()
 
 
 func _close() -> void:
