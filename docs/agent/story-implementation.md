@@ -168,7 +168,7 @@ WoW-style NPC asks, separate from the story chain.
   `offers_for(npc)`, `turn_ins_for(npc)`, `log_entries()`. A `flag` objective already met counts at accept.
 - **Progress hooks:** `kill` from `BattleVictory` next to each bounty `defeat_enemy_type` increment (main + joined
   enemies; Spire kills excluded); `flag` from `SaveManager.set_story_flag`; `learn` from `SaveManager.learn_ability`.
-  `talk` from `NpcInteractions.interact`; `use_skill` from `RealtimeTechniques` / `BurialMound`; `open` from
+  `talk` from `NpcInteractions.interact`; `use_skill` from `BattleRealtime._on_caster_event` / `BurialMound`; `open` from
   `ChestLoot.open` (GID-141). `explore` and `rift_tier` are wired by the tasks that add their sources (GID-142).
 - **Starter chain** (GID-141 / TID-592): see `starter-zone-and-training.md`. Chapter 1 now opens with story step
   `help_townsfolk` (done_flag `town_quests_done`); Maiteln's Madrian NPC waits on it (`MapNpc.show_flag_key`).

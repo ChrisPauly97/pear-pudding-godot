@@ -17,6 +17,7 @@ The simulator needs a predictable stand-in for the player that drives PlayerCast
 
 ## Research Notes
 
+- From TID-713: drive the player with `PlayerCaster` (`game_logic/battle/PlayerCaster.gd`). Per tick: `caster.tick(DT)` then `rt.advance(DT)`; act with `caster.play(card, resolver, target)`, where target is `{}`, `{"type":"minion","card":c}` or `{"type":"hero"}`; check legality with `caster.play_blocker(card)`; `caster.notify` gives combo / proc / interrupt / fizzled / resolved{dealt} / technique events for stats. A resolver is `SpellEffectResolver.new()` + `setup(state)`.
 - New `game_logic/battle/BalanceBot.gd` (pure): `decide(state, rt, caster) -> {card, target}` or nothing, called each tick when `caster` can act.
 - Policy, in order:
   1. Kick if an enemy is casting and Kick is in hand.

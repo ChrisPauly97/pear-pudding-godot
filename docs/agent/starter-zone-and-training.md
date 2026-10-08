@@ -183,7 +183,7 @@ Quests live in `SideQuests.QUESTS` (see `story-implementation.md` → Side Quest
   done_flag `town_quests_done`). Madrian's Maiteln NPC (`npc_1`) carries `MapNpc.show_flag_key =
   "town_quests_done"`: `ChunkRenderer` skips it until then and `StoryCast.spawn_flag_shown_npcs()` spawns it the
   moment the flag flips. Migration v44 sets `town_quests_done` on existing saves.
-- **New progress hooks:** `use_skill` from `RealtimeTechniques.after_resolve` when a technique card resolves in
+- **New progress hooks:** `use_skill` from `BattleRealtime._on_caster_event` ("technique") when a technique card resolves in
   real time (ability id, e.g. `mend`), `use_skill "skeleton_dig"` from `BurialMound`, `open <chest id>` from `ChestLoot.open`.
 - Pacing is asserted by `test_side_quests.test_starter_chain_paces_levels_and_gold`: quest kills only, real kill
   XP/coins, every training affordable when its quest asks for it, level 6 + companion gold at the end.

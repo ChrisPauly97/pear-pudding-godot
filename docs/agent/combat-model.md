@@ -320,6 +320,29 @@ real-time fight path touches an autoload. `CardInstance` instance ids still coun
 template ids, not instance ids. Test: `tests/unit/test_battle_determinism.gd` (same seed → identical 60 s trace;
 mutation-checked by dropping either seed).
 
+## PlayerCaster — the player's casting rules, shared (GID-176 / TID-713)
+
+`game_logic/battle/PlayerCaster.gd` is the single, pure home of the local player's real-time rules:
+
+- **GCD gate:** `on_cooldown()` (outside the spell-queue window, or mid-cast).
+- **Cast state machine:** `begin(card, finish, target, cast_time)` → `tick(dt)`. Queue delay, the GCD start, a
+  technique's own cast time, pushback from hits since the last tick, fizzle when the unit target left the board,
+  then `finish`.
+- **Off-GCD:** `run_off_gcd()`.
+- **Combo / free-cast payoff:** a non-technique card is wrapped by `_with_combo`, and a full combo makes it instant.
+- **Techniques:** `is_off_gcd`, `technique_blocker`, `resolve_reactive` (Kick / Daze), `casting_enemy`, and builder
+  hits after a technique resolves.
+
+`BattleRealtime` owns one (`caster`) and only presents. `run_cast` / `run_off_gcd` / `is_casting` / `on_cooldown`
+/ `note_player_play` forward to it, and its `notify` events (`combo`, `proc`, `interrupt`, `dazed`, `fizzled`,
+`resolved`, `technique`) become toasts, hit feel, FightStats and quest progress in `_on_caster_event`.
+`MomentumHud` lost `wrap_card`; `RealtimeTechniques` keeps only presentation (`control_for`, `pulse_reactive`).
+
+The balance simulator plays through `play(card, resolver, target)` / `play_blocker(card)`. These apply the same
+gates as a hand tap, the same cast path, then `PlayerState.play_card*` + `SpellEffectResolver` (Allies go to the
+first free slot), without FX. Not mirrored: snow first-card discount, weather on summons, scripted-battle tutorial
+steps. Tests: `tests/unit/test_player_caster.gd` (mutation-checked on pushback and the combo spend).
+
 ## Momentum — always a button to press (GID-139)
 
 Problem (2026-09-27 playtest): with 400 mana at 20/s and a 2 s spend pause, a 3-cost card came
@@ -337,11 +360,11 @@ played itself. The fix keeps real time but makes the loop **build → spend**:
   instead of being a GCD-spammed filler.
 - **Combo charges:** each builder hit adds one (cap `combo_max` 3, pips ◆◇ on the action strip). The next
   hand card spends them all for `combo_refund` mana each; a **full** combo makes that card instant.
-  Hook: `BattleRealtime.run_cast` → `MomentumHud.wrap_card` (technique cards are skipped, GID-175); the combo is spent only once the card actually left the hand.
+  Hook: `PlayerCaster.begin` → `_with_combo` (technique cards are skipped, GID-175); the combo is spent only once the card actually left the hand.
 - **Essence surge procs:** builder hits roll `proc_chance` (0.15), auto hits `auto_proc_chance` (0.05);
   a proc banks `PlayerState.next_card_free` (effective_cost → 0, cleared by `play_card*`) so the next
   card is free and instant. Auto-hit procs arrive as a `{"type": "proc"}` advance event, technique procs
-  from `RealtimeTechniques.after_resolve`. The hand pulses gold (free) or blue (full combo) via
+  from `PlayerCaster._after_technique`. The hand pulses gold (free) or blue (full combo) via
   `self_modulate`.
 - All numbers are **Momentum** rows in `CombatTuning` (⚙ Tune). Tests: `test_combat_momentum.gd`.
 - Next (GID-139 todo): telegraphed heavy enemy attacks (TID-579), real-time hit-stop/shake (TID-580).
@@ -409,16 +432,16 @@ and a test still keeps every value ≤ 9.
   (`BattleShortcuts.first_hand_key()` = `KEY_1`).
 - **Tap routing** (`BattleInput._realtime_technique_tap`): an untargeted technique (and Kick / Daze) casts on tap,
   with no confirm; targeted ones (Strike, Ember Lance) use the normal targeting flow.
-  `RealtimeTechniques.blocker()` refuses Kick with nothing casting ("Nothing to interrupt").
+  `PlayerCaster.technique_blocker()` refuses Kick with nothing casting ("Nothing to interrupt").
 - **Cast time:** `run_cast` takes `TechniqueDefs.cast_time(id)` when the caller passes none (Mend 1.5 s, Ember Lance
   1 s, others instant).
-- **Off-GCD:** `_can_local_act(ignore_gcd)` is passed `techniques.is_off_gcd(card)`, and `BattleRealtime.run_off_gcd()`
+- **Off-GCD:** `_can_local_act(ignore_gcd)` is passed `caster.is_off_gcd(card)`, and `BattleRealtime.run_off_gcd()`
   resolves at once without starting or waiting on the GCD.
-- **Kick / Daze:** in real time `RealtimeTechniques.resolve_reactive()` replaces the resolver. Kick interrupts the
+- **Kick / Daze:** in real time `PlayerCaster.resolve_reactive()` replaces the resolver. Kick interrupts the
   casting enemy (target first); Daze stuns that hero and cancels its cast.
-- **Momentum:** `RealtimeTechniques.after_resolve()` runs after a cast or off-GCD resolve. Damage dealt → `rt.on_player_hit(dmg,
+- **Momentum:** `PlayerCaster._after_technique()` runs after a cast or off-GCD resolve. Damage dealt → `rt.on_player_hit(dmg,
   true)` (siphon, combo, proc); also `note_skill_used`, plus quest `use_skill` progress with the ability id.
-  `MomentumHud.wrap_card` skips techniques (they never spend combo). `PlayerState.effective_cost` / `play_card`
+  `PlayerCaster.begin` only combo-wraps non-technique cards (techniques never spend combo). `PlayerState.effective_cost` / `play_card`
   never spend `next_card_free` on a technique.
 - **Kick pulse:** `RealtimeTechniques.pulse_reactive()` pulses a held Kick / Daze card (`modulate`) while an enemy casts.
   `control_for(ability_id)` finds a technique's hand panel (onboarding tips use it too).
@@ -536,7 +559,7 @@ and distinct from the one-shot `TutorialRegistry` popups above:
   | Enemy starts a cast | `RealtimeCombat` "enemy_cast_start" event |
   | An ally is ready | `RealtimeCombat` "ally_ready" event |
   | A technique comes back round | technique cards in hand rise since last frame (`MentorBarks._cooldown_candidates`) |
-  | You land an interrupt | `RealtimeTechniques.resolve_reactive` reports a successful Kick card via `BattleRealtime.note_skill_used("interrupt")` — a real, mechanical interrupt
+  | You land an interrupt | `PlayerCaster.resolve_reactive` reports a successful Kick card via `BattleRealtime.note_skill_used("interrupt")` — a real, mechanical interrupt
     (`RealtimeCombat.interrupt_enemy_cast`), not flavor text |
   | Low HP / empty mana | Hero state read directly each frame |
 - **Post-fight tip** (`fight_stats`, `game_logic/battle/FightStats.gd`): per-fight accumulators (duration,

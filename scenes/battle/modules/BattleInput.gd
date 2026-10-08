@@ -120,7 +120,7 @@ func _on_hand_card_input(event: InputEvent, card: CardInstance) -> void:
 ## Real-time Kick / Daze (GID-175) play off the global cooldown.
 func _off_gcd(card: CardInstance) -> bool:
 	var rtm: _BattleRealtime = _battle.realtime
-	return rtm != null and rtm.techniques != null and rtm.techniques.is_off_gcd(card)
+	return rtm != null and rtm.caster != null and rtm.caster.is_off_gcd(card)
 
 func _on_hand_card_tap(card: CardInstance) -> void:
 	if not _battle._can_local_act(_off_gcd(card)) or _inspect_open():
@@ -168,7 +168,7 @@ func _on_hand_card_tap(card: CardInstance) -> void:
 ## untargeted technique casts straight away (no confirm — it comes back anyway).
 ## Returns false to fall through to the normal spell routing (targeted ones).
 func _realtime_technique_tap(card: CardInstance) -> bool:
-	var why: String = _battle.realtime.techniques.blocker(card)
+	var why: String = _battle.realtime.caster.technique_blocker(card)
 	if why != "":
 		_battle.realtime.toast(why)
 		return true
@@ -260,7 +260,7 @@ func _cast_confirmed_spell(card: CardInstance) -> void:
 			AudioManager.play_sfx("card_play")
 			_battle._fx.haptic(20)
 			var snap: Array[Dictionary] = _battle._fx.snapshot()
-			if not (_battle.realtime.techniques != null and _battle.realtime.techniques.resolve_reactive(card)):
+			if not (_battle.realtime.caster != null and _battle.realtime.caster.resolve_reactive(card)):
 				_battle._resolver.resolve_spell(card, _battle._my_idx())
 			_battle._fx.trigger_fx(snap)
 			_battle._refresh_all()

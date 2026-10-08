@@ -15,7 +15,7 @@ Fidelity rule: the simulator runs the **same** rules code as the game (pure `Rea
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | [TID-712](TID-712--headless-deterministic-core.md) | Headless-safe, seeded battle core | agent | done | — |
-| [TID-713](TID-713--player-caster.md) | Extract player cast rules into a pure PlayerCaster | agent | pending | TID-712 |
+| [TID-713](TID-713--player-caster.md) | Extract player cast rules into a pure PlayerCaster | agent | done | TID-712 |
 | [TID-714](TID-714--battle-setup.md) | Shared pure battle setup | agent | pending | TID-712 |
 | [TID-715](TID-715--balance-bot.md) | Simulated player (fixed policy) | agent | pending | TID-713, TID-714 |
 | [TID-716](TID-716--balance-sim-cli.md) | tools/balance_sim.gd — batch runner, sweeps, CSV | agent | pending | TID-715 |

@@ -4,7 +4,6 @@
 ## next_card_free); parents its widgets under the action strip, never a module node.
 extends RefCounted
 
-const _TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
 const _BattleScene = preload("res://scenes/battle/BattleScene.gd")
 const _BattleRealtime = preload("res://scenes/battle/modules/BattleRealtime.gd")
 const RealtimeCombat = preload("res://game_logic/battle/RealtimeCombat.gd")
@@ -49,30 +48,6 @@ func update() -> void:
 			if ctl != null:
 				ctl.self_modulate = glow
 	_was_free = free or full
-
-## `run_cast` hook for a hand card (not a skill): cast time 0 while empowered,
-## and a `finish` that spends the combo once the card has actually left the hand.
-func wrap_card(card: CardInstance, finish: Callable, t: float) -> Array:
-	var rt: RealtimeCombat = _realtime.rt
-	if _TechniqueDefs.is_technique(card.template_id):
-		return [finish, t]  # a technique (GID-175) builds the combo, never spends it
-	var me := rt.state.players[RealtimeCombat.PLAYER]
-	var free: bool = me.next_card_free
-	var wrapped := func() -> void:
-		finish.call()
-		if me.hand.has(card):
-			return
-		var n: int = rt.spend_combo()
-		if free:
-			_realtime.toast("Essence surge — cast for free!")
-		elif n > 0:
-			_realtime.toast("Combo ×%d — +%d mana" % [n, n * rt.tune.get_i("combo_refund")])
-		# TID-580: the payoff lands heavier the more it was built up.
-		if free or n >= rt.tune.get_i("combo_max"):
-			_realtime.hit_feel(3)
-		elif n > 0:
-			_realtime.hit_feel(2)
-	return [wrapped, 0.0 if rt.next_card_instant() else t]
 
 ## A free-cast proc just fired (auto-attack or skill hit).
 func on_proc() -> void:
