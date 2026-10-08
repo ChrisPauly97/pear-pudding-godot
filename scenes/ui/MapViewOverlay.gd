@@ -4,6 +4,8 @@
 extends CanvasLayer
 
 signal closed
+## "World Map": swap this interior map for the zoomable realm map.
+signal world_map_requested
 ## Emitted when the player taps a "Rally To" entry (GID-105 / TID-388). WorldScene
 ## connects this and performs the actual teleport/transition.
 signal rally_requested(peer_id: int)
@@ -182,6 +184,9 @@ func setup(world_map: _WorldMap, map_name: String, player: CharacterBody3D,
 	clr_btn.pressed.connect(_clear_waypoint)
 	add_child(clr_btn)
 
+	_UiUtil.make_button("World Map", Vector2(vh * 0.16, vh * 0.05), int(vh * 0.020), _on_world_map,
+		self).position = Vector2(_panel_pos.x + vh * 0.01, _panel_pos.y + vh * 0.01)
+
 	# ── Fast travel panel ─────────────────────────────────────────────────────
 	_build_fast_travel_panel(vp, vh)
 
@@ -250,13 +255,8 @@ func _draw_waypoint(canvas: Control) -> void:
 func _draw_quests(canvas: Control) -> void:
 	if not is_instance_valid(_player):
 		return
-	for q: Dictionary in _quests:  # areas first, under every pin
-		var zone: float = _QuestLog.zone_tiles(q)
-		var at: Variant = _QuestLog.world_pos(q, _map_name, _player.position) if zone > 0.0 else null
-		if at != null:
-			var zp: Vector3 = at as Vector3
-			_MapMarkers.draw_zone(canvas, _world_to_panel(zp.x, zp.z), zone / 100.0 * _panel_size,
-				_QuestLog.kind_color(str(q.get("kind", ""))))
+	_MapMarkers.draw_quest_zones(canvas, _quests, _map_name,
+		func(w: Vector3) -> Vector2: return _world_to_panel(w.x, w.z))
 	for q: Dictionary in _quests:
 		var raw: Variant = _QuestLog.world_pos(q, _map_name, _player.position)
 		if raw == null:
@@ -429,6 +429,12 @@ func _friendly_label(waystone_id: String) -> String:
 		if parts.size() >= 3:
 			return "Waystone (%s, %s)" % [parts[1], parts[2]]
 	return waystone_id
+
+
+func _on_world_map() -> void:
+	closed.emit()
+	queue_free()
+	world_map_requested.emit()
 
 
 func _teleport_to_waystone(waystone_id: String) -> void:

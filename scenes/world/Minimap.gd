@@ -278,15 +278,13 @@ func _draw_quests(canvas: Control, origin: Vector3) -> void:
 	var center := Vector2(_half, _half)
 	var tracked_id: String = str(_world.quest_tracker.tracked_quest().get("id", ""))
 	var tracked_dot := Vector2.INF
+	_MapMarkers.draw_quest_zones(canvas, _world.quest_tracker.active_quests(), _world.map_name,
+			func(w: Vector3) -> Vector2: return _to_minimap(w, origin), _disc_clip())
 	for q: Dictionary in _world.quest_tracker.active_quests():
 		var raw: Variant = _world.quest_tracker.quest_pos(q)
 		if raw == null:
 			continue
 		var dot: Vector2 = _to_minimap(raw as Vector3, origin)
-		var zone: float = _QuestLog.zone_tiles(q)
-		if zone > 0.0:
-			_MapMarkers.draw_zone(canvas, dot, zone * IsoConst.TILE_SIZE * _scale,
-					_QuestLog.kind_color(str(q.get("kind", ""))), _disc_clip())
 		if not _inside_minimap(dot, center):
 			dot = center + (dot - center).normalized() * (_half * 0.86)
 		var col: Color = _QuestLog.kind_color(str(q.get("kind", "")))

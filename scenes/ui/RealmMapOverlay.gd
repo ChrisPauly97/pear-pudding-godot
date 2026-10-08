@@ -1,9 +1,12 @@
 # scenes/ui/RealmMapOverlay.gd
-# Realm map for the overworld (GID-140), toggled by M / a minimap tap. The
-# named-map MapViewOverlay draws a 100×100 tile grid; the overworld is infinite,
-# so this draws the stitched story realm (RealmLayout) as a vector map instead:
-# towns, the roads between them, waystones, the player and every quest pin.
-# North (−Z) is up. Right-click / long-press sets the custom waypoint.
+# Realm map for the overworld (GID-140), toggled by M / a minimap tap, and from an
+# interior's map ("World Map"). The named-map MapViewOverlay draws a 100×100 tile
+# grid; the overworld is infinite, so this draws the stitched story realm
+# (RealmLayout) as a vector map instead: towns, the roads between them,
+# waystones, the player, quest areas and every quest pin.
+# WoW-style zoom: opens on the player's surroundings; wheel / pinch / +/− zoom,
+# drag pans, "World" shows the whole realm. North (−Z) is up. Right-click /
+# long-press sets the custom waypoint.
 extends CanvasLayer
 
 signal closed
@@ -27,6 +30,10 @@ const _COL_WAYSTONE := Color(0.40, 0.90, 1.00)
 const _COL_WAYPOINT := Color(0.20, 0.80, 1.00)
 ## Tiles of wilderness shown around the realm's outline.
 const _MARGIN_TILES: float = 32.0
+## Zoom 1 = the whole realm (world overview); the map opens at OPEN_ZOOM on the player.
+const MAX_ZOOM: float = 8.0
+const OPEN_ZOOM: float = 4.0
+const _WHEEL_STEP: float = 1.25
 
 class _MapLayer extends Control:
 	var overlay: _RealmMapOverlay
@@ -39,6 +46,7 @@ class _MapLayer extends Control:
 
 	func _draw() -> void:
 		if overlay:
+			draw_set_transform(-position)  # draw in viewport coords, clipped to the panel
 			overlay._on_draw(self)
 
 var _player: Node3D
@@ -50,16 +58,27 @@ var _npc_marks: Array[Dictionary] = []
 var _panel := Rect2()
 var _bounds := Rect2()   # in overworld tiles
 var _scale: float = 1.0  # panel px per tile
+var _base_scale: float = 1.0  # _scale at zoom 1
+var _zoom: float = 1.0
+var _center := Vector2.ZERO  # view centre, in overworld tiles
+## Where the hero is in the overworld when the map was opened indoors (tiles), or null.
+var _anchor: Variant = null
+## Touch index → position, for one-finger pan and two-finger pinch.
+var _touches: Dictionary = {}
+var _drag_from: Variant = null  # mouse drag-pan start, or null
 var _font_size: int = 12
 var _layer: _MapLayer
 var _long_press := _LongPressTracker.new()
 
 
+## `map_name` is where the hero stands; indoors (not the overworld) pass
+## `anchor`, the overworld spot (world Vector3) they went in at, or null.
 func setup(player: Node3D, map_name: String, quests: Array[Dictionary], tracked: Dictionary,
-		npc_marks: Array[Dictionary] = []) -> void:
-	_player = player
-	_npc_marks = npc_marks
-	_map_name = map_name
+		npc_marks: Array[Dictionary] = [], anchor: Variant = null) -> void:
+	var outdoors: bool = _RealmLayout.is_overworld(map_name)
+	_player = player if outdoors else null
+	_npc_marks = npc_marks if outdoors else []
+	_anchor = _world_to_tile(anchor as Vector3) if not outdoors and anchor is Vector3 else null
 	_quests = quests
 	_tracked_id = str(tracked.get("id", ""))
 	layer = 20
@@ -70,7 +89,12 @@ func setup(player: Node3D, map_name: String, quests: Array[Dictionary], tracked:
 	_panel = Rect2((vp - Vector2(side, side)) * 0.5, Vector2(side, side))
 	_font_size = int(vh * 0.020)
 	_bounds = realm_bounds(_extra_tiles())
-	_scale = side / maxf(_bounds.size.x, _bounds.size.y)
+	_base_scale = side / maxf(_bounds.size.x, _bounds.size.y)
+	var here: Variant = _player_tile()
+	if here != null:
+		_set_view(OPEN_ZOOM, here as Vector2)
+	else:
+		_set_view(1.0, _bounds.get_center())
 
 	var bg := ColorRect.new()
 	bg.color = Color(0.0, 0.0, 0.0, 0.70)
@@ -80,7 +104,9 @@ func setup(player: Node3D, map_name: String, quests: Array[Dictionary], tracked:
 
 	_layer = _MapLayer.new()
 	_layer.overlay = self
-	_layer.size = vp
+	_layer.position = _panel.position
+	_layer.size = _panel.size
+	_layer.clip_contents = true
 	add_child(_layer)
 
 	var title := _UiUtil.make_title_label("The Realm", vh)
@@ -110,6 +136,21 @@ func setup(player: Node3D, map_name: String, quests: Array[Dictionary], tracked:
 		_on_fast_travel, self)
 	travel_btn.position = Vector2(_panel.position.x + vh * 0.01, _panel.position.y + vh * 0.01)
 
+	# Zoom controls down the panel's right edge (touch parity for wheel / pinch).
+	var zb := Vector2(vh * 0.055, vh * 0.055)
+	var zx: float = _panel.end.x - vh * 0.065
+	var zoom_in := _UiUtil.make_button("+", zb, int(vh * 0.028), func() -> void: _zoom_by(1.6, _panel.get_center()),
+		self)
+	zoom_in.position = Vector2(zx, _panel.position.y + vh * 0.08)
+	var zoom_out := _UiUtil.make_button("−", zb, int(vh * 0.028),
+		func() -> void: _zoom_by(1.0 / 1.6, _panel.get_center()), self)
+	zoom_out.position = Vector2(zx, _panel.position.y + vh * 0.145)
+	var world_btn := _UiUtil.make_button("World", Vector2(vh * 0.10, vh * 0.05), int(vh * 0.018),
+		func() -> void: _set_view(1.0, _bounds.get_center()), self)
+	world_btn.position = Vector2(_panel.end.x - vh * 0.11, _panel.end.y - vh * 0.06)
+	var me_btn := _UiUtil.make_button("Me", Vector2(vh * 0.08, vh * 0.05), int(vh * 0.018), _center_on_player, self)
+	me_btn.position = Vector2(_panel.end.x - vh * 0.20, _panel.end.y - vh * 0.06)
+
 
 ## Tile rect covering every town, road and story site, padded, grown to include
 ## `extra` tiles (the player, quest targets) and made square.
@@ -133,8 +174,9 @@ static func realm_bounds(extra: Array[Vector2] = []) -> Rect2:
 
 func _extra_tiles() -> Array[Vector2]:
 	var out: Array[Vector2] = []
-	if is_instance_valid(_player):
-		out.append(_world_to_tile(_player.position))
+	var here: Variant = _player_tile()
+	if here != null:
+		out.append(here as Vector2)
 	for q: Dictionary in _quests:
 		var raw: Variant = _QuestLog.world_pos(q, _map_name, _player_pos())
 		if raw != null:
@@ -143,7 +185,18 @@ func _extra_tiles() -> Array[Vector2]:
 
 
 func _player_pos() -> Vector3:
-	return _player.position if is_instance_valid(_player) else Vector3.ZERO
+	var t: Variant = _player_tile()
+	if t == null:
+		return Vector3.ZERO
+	var v: Vector2 = (t as Vector2) * IsoConst.TILE_SIZE
+	return Vector3(v.x, 0.0, v.y)
+
+
+## The hero's overworld tile: live outdoors, the way-in spot indoors, else null.
+func _player_tile() -> Variant:
+	if is_instance_valid(_player):
+		return _world_to_tile(_player.position)
+	return _anchor
 
 
 static func _world_to_tile(p: Vector3) -> Vector2:
@@ -151,7 +204,37 @@ static func _world_to_tile(p: Vector3) -> Vector2:
 
 
 func _tile_to_panel(t: Vector2) -> Vector2:
-	return _panel.position + (t - _bounds.position) * _scale
+	return _panel.get_center() + (t - _center) * _scale
+
+
+## Zoom (1 … MAX_ZOOM) and view centre, kept so the realm never leaves the panel.
+func _set_view(zoom: float, center: Vector2) -> void:
+	_zoom = clampf(zoom, 1.0, MAX_ZOOM)
+	_scale = _base_scale * _zoom
+	var half: Vector2 = _panel.size * 0.5 / _scale
+	var lo: Vector2 = _bounds.position + half
+	var hi: Vector2 = _bounds.end - half
+	_center = Vector2(clampf(center.x, lo.x, maxf(lo.x, hi.x)), clampf(center.y, lo.y, maxf(lo.y, hi.y)))
+	if _zoom <= 1.0:
+		_center = _bounds.get_center()
+
+
+## Zoom by `factor`, keeping the tile under screen point `at` fixed.
+func _zoom_by(factor: float, at: Vector2) -> void:
+	var pinned: Vector2 = _panel_to_tile(at)
+	var z: float = clampf(_zoom * factor, 1.0, MAX_ZOOM)
+	var new_scale: float = _base_scale * z
+	_set_view(z, pinned - (at - _panel.get_center()) / new_scale)
+
+
+func _pan_by(screen_delta: Vector2) -> void:
+	_set_view(_zoom, _center - screen_delta / _scale)
+
+
+func _center_on_player() -> void:
+	var here: Variant = _player_tile()
+	if here != null:
+		_set_view(maxf(_zoom, OPEN_ZOOM), here as Vector2)
 
 
 ## The eastern sea (Coast, GID-171), clipped to the map panel.
@@ -166,7 +249,7 @@ func _draw_sea(c: Control) -> void:
 
 
 func _panel_to_tile(p: Vector2) -> Vector2:
-	return (p - _panel.position) / _scale + _bounds.position
+	return (p - _panel.get_center()) / _scale + _center
 
 
 func _on_draw(c: Control) -> void:
@@ -177,7 +260,7 @@ func _on_draw(c: Control) -> void:
 		var pts := PackedVector2Array()
 		for p: Vector2 in road:
 			pts.append(_tile_to_panel(p))
-		c.draw_polyline(pts, _COL_ROAD, maxf(2.0, _scale * 2.0), true)
+		c.draw_polyline(pts, _COL_ROAD, clampf(_scale * 2.0, 2.0, 6.0), true)
 	for town: String in _RealmLayout.town_names():
 		var wr: Rect2i = _RealmLayout.world_rect(town)
 		var rect := Rect2(_tile_to_panel(Vector2(wr.position)), Vector2(wr.size) * _scale)
@@ -197,8 +280,9 @@ func _on_draw(c: Control) -> void:
 		var mp: Vector2 = _tile_to_panel(_world_to_tile(m["pos"] as Vector3))
 		if _panel.has_point(mp):
 			_MapMarkers.draw_quest_mark(c, mp, str(m["text"]), m["color"] as Color, _font_size + 4)
-	if is_instance_valid(_player):
-		var pp: Vector2 = _tile_to_panel(_world_to_tile(_player.position))
+	var here: Variant = _player_tile()
+	if here != null:
+		var pp: Vector2 = _tile_to_panel(here as Vector2)
 		c.draw_circle(pp, 8.0, Color.BLACK)
 		c.draw_circle(pp, 6.0, Color.WHITE)
 
@@ -212,12 +296,8 @@ func _draw_waypoint(c: Control) -> void:
 
 
 func _draw_quests(c: Control, font: Font) -> void:
-	for q: Dictionary in _quests:  # areas first, under every pin
-		var zone: float = _QuestLog.zone_tiles(q)
-		var at: Variant = _QuestLog.world_pos(q, _map_name, _player_pos()) if zone > 0.0 else null
-		if at != null:
-			_MapMarkers.draw_zone(c, _tile_to_panel(_world_to_tile(at as Vector3)), zone * _scale,
-				_QuestLog.kind_color(str(q.get("kind", ""))))
+	_MapMarkers.draw_quest_zones(c, _quests, "main",
+		func(w: Vector3) -> Vector2: return _tile_to_panel(_world_to_tile(w)))
 	for q: Dictionary in _quests:
 		var raw: Variant = _QuestLog.world_pos(q, _map_name, _player_pos())
 		if raw == null:
@@ -236,7 +316,7 @@ func _draw_quests(c: Control, font: Font) -> void:
 
 func _set_waypoint_at(screen_pos: Vector2) -> void:
 	var t: Vector2 = _panel_to_tile(screen_pos)
-	SceneManager.save_manager.set_waypoint({"map": _map_name, "tx": int(floor(t.x)), "tz": int(floor(t.y))})
+	SceneManager.save_manager.set_waypoint({"map": "main", "tx": int(floor(t.x)), "tz": int(floor(t.y))})
 
 
 func _on_fast_travel() -> void:
@@ -259,25 +339,83 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		_close()
 		return
+	var mag := event as InputEventMagnifyGesture
+	if mag != null:
+		_zoom_by(mag.factor, mag.position)
+		get_viewport().set_input_as_handled()
+		return
 	var mb := event as InputEventMouseButton
-	if mb != null and mb.pressed:
-		if mb.button_index == MOUSE_BUTTON_RIGHT and _panel.has_point(mb.position):
-			_set_waypoint_at(mb.position)
-			get_viewport().set_input_as_handled()
-		elif mb.button_index == MOUSE_BUTTON_LEFT and not _panel.has_point(mb.position):
-			get_viewport().set_input_as_handled()
-			_close()
+	if mb != null:
+		_on_mouse_button(mb)
+		return
+	var mm := event as InputEventMouseMotion
+	if mm != null and _drag_from != null:
+		_pan_by(mm.position - (_drag_from as Vector2))
+		_drag_from = mm.position
+		get_viewport().set_input_as_handled()
 		return
 	var st := event as InputEventScreenTouch
 	if st != null:
-		if st.pressed and _panel.has_point(st.position):
-			_long_press.press(st.position)
-		elif st.pressed:
-			get_viewport().set_input_as_handled()
-			_close()
-		else:
-			_long_press.cancel()
+		_on_touch(st)
 		return
 	var sd := event as InputEventScreenDrag
-	if sd != null:
+	if sd != null and _touches.has(sd.index):
+		_on_touch_drag(sd)
+
+
+func _on_mouse_button(mb: InputEventMouseButton) -> void:
+	var inside: bool = _panel.has_point(mb.position)
+	if mb.button_index == MOUSE_BUTTON_WHEEL_UP and inside:
+		_zoom_by(_WHEEL_STEP, mb.position)
+	elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN and inside:
+		_zoom_by(1.0 / _WHEEL_STEP, mb.position)
+	elif mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed and inside:
+		_set_waypoint_at(mb.position)
+	elif mb.button_index == MOUSE_BUTTON_LEFT:
+		if not mb.pressed:
+			_drag_from = null
+			return
+		if not inside:
+			get_viewport().set_input_as_handled()
+			_close()
+			return
+		_drag_from = mb.position
+	else:
+		return
+	get_viewport().set_input_as_handled()
+
+
+func _on_touch(st: InputEventScreenTouch) -> void:
+	if not st.pressed:
+		_touches.erase(st.index)
+		_long_press.cancel()
+		return
+	if not _panel.has_point(st.position):
+		get_viewport().set_input_as_handled()
+		_close()
+		return
+	_touches[st.index] = st.position
+	if _touches.size() == 1:
+		_long_press.press(st.position)
+	else:
+		_long_press.cancel()
+
+
+## One finger pans; two fingers pinch-zoom about their midpoint.
+func _on_touch_drag(sd: InputEventScreenDrag) -> void:
+	var before: Vector2 = _touches[sd.index]
+	if _touches.size() >= 2:
+		var other: Vector2 = Vector2.ZERO
+		for k: Variant in _touches:
+			if int(k) != sd.index:
+				other = _touches[k]
+				break
+		var d0: float = before.distance_to(other)
+		var d1: float = sd.position.distance_to(other)
+		if d0 > 1.0:
+			_zoom_by(d1 / d0, (sd.position + other) * 0.5)
+	else:
 		_long_press.move(sd.position)
+		_pan_by(sd.position - before)
+	_touches[sd.index] = sd.position
+	get_viewport().set_input_as_handled()

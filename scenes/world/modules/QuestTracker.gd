@@ -15,6 +15,7 @@ const _ObjectiveTracker = preload("res://game_logic/ObjectiveTracker.gd")
 const _StoryQuests = preload("res://game_logic/quests/StoryQuests.gd")
 const _SideQuests = preload("res://game_logic/quests/SideQuests.gd")
 const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
+const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const _NpcInteractions = preload("res://scenes/world/modules/NpcInteractions.gd")
 
 ## First-time guide (TutorialRegistry id) opened when a ladder entry is learned.
@@ -262,9 +263,22 @@ func toggle_realm_map() -> void:
 		return
 	_realm_overlay = _RealmMapOverlay.new()
 	_world.add_child(_realm_overlay)
-	_realm_overlay.setup(_world._player, _world.map_name, active_quests(), tracked_quest(), npc_map_marks())
+	_realm_overlay.setup(_world._player, _world.map_name, active_quests(), tracked_quest(), npc_map_marks(),
+			overworld_anchor())
 	_realm_overlay.closed.connect(func() -> void: _realm_overlay = null)
 	_realm_overlay.fast_travel_requested.connect(_world.named_props.open_fast_travel_panel)
+
+## Indoors: the overworld spot the hero went in at (world Vector3), so the realm
+## map can still show where they are; null outdoors or when unknown.
+func overworld_anchor() -> Variant:
+	if _RealmLayout.is_overworld(_world.map_name):
+		return null
+	var stack: Array[String] = SceneManager.door_stack
+	for i: int in range(stack.size() - 1, -1, -1):
+		var p: Variant = _RealmLayout.parse_pos_token(stack[i])
+		if p != null:
+			return p
+	return _RealmLayout.return_pos_for(_world.map_name)
 
 func is_realm_map_open() -> bool:
 	return is_instance_valid(_realm_overlay)
