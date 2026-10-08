@@ -73,6 +73,11 @@ Determinism: `BattleSetup.build` calls `seed(n)` (global RNG: shuffles, resolver
 With full HP and mana and average play (the default bot): beat an enemy of the **same level 100 %** of the time,
 one **level above about 75 %**. TID-718 tunes toward this; TID-717 turns it into CI bands.
 
+### Design decisions behind the targets (user, 2026-10-08)
+
+- A zone has a level range; each enemy type a sub-range inside it; starter camps take their level from the zone (TID-719).
+- Enemies behave the same whatever the player has learned; heavy blows and enemy casts scale with **enemy** level. Weak enemies still cast but hit softly, so Kick lands on something familiar (TID-720).
+
 ### First measurement (TID-716, 30 fights each, `undead_basic`, ladder-learned, no gear)
 
 | Player level | Win | Note |
