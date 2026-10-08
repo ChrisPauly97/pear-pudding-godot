@@ -90,6 +90,25 @@ The `Sprite3D` uses `BILLBOARD_ENABLED` so it always faces the camera:
   - Formula: `pixel_height * pixel_size * 0.5 + margin = 48 * 0.04 * 0.5 + 0.14 ≈ 1.1`
 - Idle state shows frame 0
 
+### Swimming (GID-172 / TID-696)
+
+Deep water — the sea off the piers and a river off its bridges (`Rivers.deep_water`, ≥ `Coast.WADE_DEPTH` 1.5
+tiles) — is swum, not blocked. The `Coastline` world module checks the hero's tile every physics frame
+(priority 100, after the move) and calls `Player.set_swimming(deep)`; entering deep water also dismisses the mount.
+Tuning lives in `game_logic/world/Swimming.gd`:
+
+| | |
+|---|---|
+| Speed | `SPEED × SPEED_MULT` (0.55); mounts and ley lines don't apply (`_get_move_speed`) |
+| Look | the sprite pose sinks `SINK` (0.62 u), so the terrain occludes legs and hips (set in `_update_mount_visuals`) |
+| Animation | `HeroAnim.pick(..., swimming)` → `swim` (4-frame crawl, 6 fps) moving, `tread` (2 frames) idle; back views `swim_back` / `tread_back`; PaperDoll draws them (arms only matter) |
+| Sound | `footstep_water` on stroke frames (`STROKE_FRAMES` 0, 2) |
+| Splashes | foot dust keeps emitting while swimming; AmbientTouches already turns it into water droplets on wet ground |
+| Refused | jump; mounting (`Mounts.toggle` toast); Skeleton Dig (`Cantrips`) |
+| Tap-to-move | `TapToMove.step_cost` → `Pathfinder.find_path(..., cost_lookup)`: deep water costs `PATH_COST` (4) per step, and path smoothing won't straighten a walk back across water that costs more than its ends |
+
+Stamina and drowning: TID-697.
+
 ### Occluded Silhouette (GID-146)
 
 Scenery is never cut away. `SpriteOutline.apply_xray(sprite)` chains

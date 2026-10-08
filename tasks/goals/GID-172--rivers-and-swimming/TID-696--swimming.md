@@ -2,7 +2,7 @@
 
 **Goal:** GID-172
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-694
 
 ## Lock
@@ -27,12 +27,27 @@ Shared constraints: chunk-gen code (`InfiniteWorldGen`/`RealmLayout`/`TerrainMat
 
 ## Plan
 
-_Written during Plan phase._
+1. Pure tuning `game_logic/world/Swimming.gd` (speed, sink, stroke frames, path cost).
+2. PaperDoll `swim` (4-frame crawl) / `tread` (2) + back views; HeroAnim.pick(..., swimming), BACK_OF, is_swim.
+3. Player (at its 500-line cap → first move the dust-material boilerplate into `AmbientParticles.dust_material`):
+   `swimming` + `set_swimming`, swim speed, sprite sink, no jump, splash dust, stroke sfx.
+4. Coastline: replace the slide-back with the swim switch (dismiss mount on entry). WorldScene stays under its ceiling.
+5. Mounts.toggle and Skeleton Dig refuse while swimming.
+6. Pathfinder optional `cost_lookup` (+ cost-aware smoothing); TapToMove.step_cost → deep water `PATH_COST`.
+7. Tests: `test_swimming`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `game_logic/world/Swimming.gd`.
+- `PaperDoll.ANIMS` swim / tread, `BACK_ANIMS` swim_back / tread_back; `HeroAnim.pick(.., swimming = false)`, `is_swim`.
+- `Player.gd`: `swimming`, `set_swimming()`, swim speed in `_get_move_speed`, sink in `_update_mount_visuals`, jump blocked,
+  splash dust, stroke sfx in `_on_sprite_frame_changed`. Dust materials now from `AmbientParticles.dust_material()` (−32 lines).
+- `Coastline._physics_process`: swim switch instead of slide-back / teleport wade-ashore (`_last_safe`, `TELEPORT_DIST` removed).
+- `Mounts.toggle`, `Cantrips.activate_skeleton_dig`: refuse while swimming.
+- `Pathfinder.find_path(.., cost_lookup)`, cost-aware `_has_line_of_sight` / `_smooth_path`; `TapToMove.step_cost`; deep water no longer a wall.
+- `tests/unit/test_swimming.gd` (4 tests). Suite 3067 pass / 0 SCRIPT ERROR; world, chunk, town, in-world-battle smokes clean; gdlint + unsafe-hits clean.
+- Not verified visually: swim sprite sink / stroke frames should be eyeballed in a real run.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`docs/agent/camera-and-player.md` (new Swimming section); `world-generation.md` (Rivers + eastern-sea table: swim instead of block); CLAUDE.md map note + Coastline row.

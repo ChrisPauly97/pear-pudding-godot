@@ -12,6 +12,7 @@ const Pathfinder = preload("res://game_logic/Pathfinder.gd")
 const _VirtualJoystick = preload("res://scenes/ui/VirtualJoystick.gd")
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const _Rivers = preload("res://game_logic/world/Rivers.gd")
+const _Swimming = preload("res://game_logic/world/Swimming.gd")
 const _TownDecor = preload("res://game_logic/world/TownDecor.gd")
 
 const DRAG_THRESHOLD: float = 30.0   # screen pixels; beyond this is a drag, not a tap
@@ -120,7 +121,7 @@ func handle_tap(screen_pos: Vector2) -> void:
 		return
 	var player_tile: Vector2i = IsoConst.world_to_tile(player.position.x, player.position.z)
 	var path: Array[Vector2i] = Pathfinder.find_path(
-		tile_at, player_tile, tile, MAX_PATH_NODES)
+		tile_at, player_tile, tile, MAX_PATH_NODES, step_cost)
 	if path.is_empty():
 		_reject(tile, "Can't reach that tile")
 		return
@@ -246,6 +247,9 @@ func tile_at(tx: int, tz: int) -> int:
 					_decor_blocked[_RealmLayout.to_world_tile(town, t as Vector2i)] = true
 	if _decor_blocked.has(Vector2i(tx, tz)):
 		return IsoConst.TILE_WALL
-	if _world._is_infinite and _Rivers.deep_water(tx, tz):
-		return IsoConst.TILE_WALL  # too deep to wade: sea or river (GID-171 / GID-172)
 	return _world.get_tile_global(tx, tz)
+
+
+## A* step multiplier: deep water is swum (GID-172), so paths cross it only when that saves a long walk.
+func step_cost(tx: int, tz: int) -> float:
+	return _Swimming.PATH_COST if _world._is_infinite and _Rivers.deep_water(tx, tz) else 1.0

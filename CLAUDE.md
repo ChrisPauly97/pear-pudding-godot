@@ -36,7 +36,7 @@ Their houses are raised into real buildings (tall walls, roofs, windows) by `Tow
 `BuildingMesh` (GID-154) — author a house as a wall ring with a 1-tile door gap; no map changes needed.
 Streets (gate → spawn trunks, door lanes) and grimy lit street lamps are generated too (`TownStreets`, GID-155).
 Plain townsfolk walk those streets on a clock-derived daily schedule and towns get their own critters (`TownLife`, GID-156).
-Maykalene is a port: the eastern sea (`Coast`, GID-171) is reserved realm ground drawn as terrain water; deep water blocks the hero.
+Maykalene is a port: the eastern sea (`Coast`, GID-171) is reserved realm ground drawn as terrain water; deep water is swum (GID-172).
 Three fixed rivers (`game_logic/world/Rivers.gd`, GID-172) run from mountain sources into that sea: reserved ground like
 the sea, folded into `WaterMath` (water + current) and `RealmLayout`; their chunks are forced to water biomes.
 
@@ -410,7 +410,7 @@ created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
 | `TownLife.gd` (`town_life`) | Walking townsfolk on `TownLife` street loops, role hours (indoors at night, lantern guard), talk hold, interaction x/z sync, hide-flag NPC despawn (GID-156) |
 | `BuildingSigns.gd` (`building_signs`) | Signpost beside every building door in the stitched towns (`TownSigns`: authored `NAMES`, else NPC role, else "House"); the name pops up (Label3D fade) within 6 units (GID-168) |
 | `Legend.gd` (`legend`) | Pear Pudding legend riddle spots (`RiddleSpots`): unmarked overworld props, look / Dig resolution, `try_dig` from Cantrips (GID-153) |
-| `Coastline.gd` (`coastline`) | Maykalene's waterfront on the eastern sea (`game_logic/world/Coast.gd`: coastline, depth, piers, boats) and the river bridges (`scenes/world/RiverBridges.gd`, GID-172): deep-water blocking (sea + rivers via `Rivers.deep_water`) (slide back each physics frame, works through Ghost Phase), railed piers (lamps via `street_lamps_world`), quay kerb, bobbing boats, cargo, beach clutter; the sandy beach is stamped path; runs its own `_process` (GID-171) |
+| `Coastline.gd` (`coastline`) | Maykalene's waterfront on the eastern sea (`game_logic/world/Coast.gd`: coastline, depth, piers, boats) and the river bridges (`scenes/world/RiverBridges.gd`, GID-172): swimming in deep water (sea + rivers via `Rivers.deep_water` → `Player.set_swimming`, `Swimming.gd` tuning), railed piers (lamps via `street_lamps_world`), quay kerb, bobbing boats, cargo, beach clutter; the sandy beach is stamped path; runs its own `_process` (GID-171) |
 
 BattleScene's single-player clusters live under `scenes/battle/modules/`, created by
 `BattleScene._ensure_battle_modules()`. Each has a `_battle` back-reference typed as

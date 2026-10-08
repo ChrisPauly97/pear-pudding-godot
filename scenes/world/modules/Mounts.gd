@@ -23,6 +23,9 @@ func toggle() -> void:
 	var sm := SceneManager.save_manager
 	if sm.current_map != "main" or sm.owned_mounts.is_empty():
 		return
+	if _world._player != null and _world._player.swimming and not sm.is_mounted:
+		GameBus.hud_message_requested.emit("Your horse won't swim. Mount up on dry land.")
+		return
 	if not sm.has_learned(_UnlockLadder.FEAT_MOUNT):
 		GameBus.hud_message_requested.emit(_UnlockLadder.locked_message(_UnlockLadder.FEAT_MOUNT))
 		return

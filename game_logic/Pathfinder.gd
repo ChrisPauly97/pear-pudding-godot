@@ -21,6 +21,7 @@ const _DIRS: Array[Vector2i] = [
 # Find a tile-coordinate path from `from` to `to`.
 #
 # tile_lookup — Callable(tx: int, tz: int) -> int, same signature as TerrainMath.
+# cost_lookup — optional Callable(tx, tz) -> float step multiplier (≥ 1; deep water, GID-172).
 # max_radius  — max Manhattan distance from `from` before giving up; prevents
 #               runaway searches on unreachable tiles (recommend 64 tiles).
 #
@@ -30,7 +31,8 @@ static func find_path(
 		tile_lookup: Callable,
 		from: Vector2i,
 		to: Vector2i,
-		max_radius: int) -> Array[Vector2i]:
+		max_radius: int,
+		cost_lookup: Callable = Callable()) -> Array[Vector2i]:
 
 	if from == to:
 		var result: Array[Vector2i] = [from]
@@ -67,7 +69,7 @@ static func find_path(
 
 		if current == to:
 			var raw: Array[Vector2i] = _reconstruct(came_from, current)
-			return _smooth_path(tile_lookup, raw)
+			return _smooth_path(tile_lookup, raw, cost_lookup)
 
 		open_set.erase(current)
 		closed_set[current] = true
@@ -96,6 +98,9 @@ static func find_path(
 				continue
 
 			var step_cost: float = _SQRT2 if (d.x != 0 and d.y != 0) else 1.0
+			if cost_lookup.is_valid():
+				var mult: float = cost_lookup.call(nb.x, nb.y)  # e.g. deep water is a slow swim (GID-172)
+				step_cost *= mult
 			var tentative_g: float = g_cost.get(current, INF) + step_cost
 			if tentative_g < g_cost.get(nb, INF):
 				came_from[nb] = current
@@ -121,7 +126,15 @@ static func _heuristic(a: Vector2i, b: Vector2i) -> float:
 	return float(hi) + (_SQRT2 - 1.0) * float(lo)
 
 
-static func _has_line_of_sight(tile_lookup: Callable, from: Vector2i, to: Vector2i) -> bool:
+## A straight walk from `from` to `to` over walkable tiles that never costs more than its ends do
+## (so a smoothed path can't cut back across deep water that A* walked round).
+static func _has_line_of_sight(tile_lookup: Callable, from: Vector2i, to: Vector2i,
+		cost_lookup: Callable = Callable()) -> bool:
+	var cap: float = INF
+	if cost_lookup.is_valid():
+		var c_from: float = cost_lookup.call(from.x, from.y)
+		var c_to: float = cost_lookup.call(to.x, to.y)
+		cap = maxf(c_from, c_to)
 	var x: int = from.x
 	var z: int = from.y
 	var dx: int = abs(to.x - from.x)
@@ -132,6 +145,10 @@ static func _has_line_of_sight(tile_lookup: Callable, from: Vector2i, to: Vector
 	while x != to.x or z != to.y:
 		if not _is_walkable(tile_lookup.call(x, z)):
 			return false
+		if cap < INF:
+			var c: float = cost_lookup.call(x, z)
+			if c > cap:
+				return false
 		var e2: int = 2 * err
 		if e2 > -dz:
 			err -= dz
@@ -145,14 +162,15 @@ static func _has_line_of_sight(tile_lookup: Callable, from: Vector2i, to: Vector
 # Collapses the A* path to only the minimum turn-point waypoints using a
 # greedy forward raycast. Open terrain produces [start, dest]; wall detours
 # produce a small number of corner waypoints.
-static func _smooth_path(tile_lookup: Callable, path: Array[Vector2i]) -> Array[Vector2i]:
+static func _smooth_path(tile_lookup: Callable, path: Array[Vector2i],
+		cost_lookup: Callable = Callable()) -> Array[Vector2i]:
 	if path.size() <= 2:
 		return path
 	var result: Array[Vector2i] = [path[0]]
 	var anchor_idx: int = 0
 	var i: int = 2
 	while i < path.size():
-		if not _has_line_of_sight(tile_lookup, path[anchor_idx], path[i]):
+		if not _has_line_of_sight(tile_lookup, path[anchor_idx], path[i], cost_lookup):
 			result.append(path[i - 1])
 			anchor_idx = i - 1
 		i += 1

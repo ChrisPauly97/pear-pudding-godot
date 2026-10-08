@@ -143,11 +143,28 @@ static func style_dust(pm: ParticleProcessMaterial) -> void:
 	pm.scale_curve = _dust_grow
 
 
+## A styled dust ParticleProcessMaterial puffing up from a sphere (the hero's foot,
+## mount and landing dust): radius, spread (degrees), launch speed range, scale range, alpha.
+static func dust_material(radius: float, spread: float, v_min: float, v_max: float,
+		s_min: float, s_max: float, alpha: float) -> ParticleProcessMaterial:
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	pm.emission_sphere_radius = radius
+	pm.direction = Vector3(0.0, 1.0, 0.0)
+	pm.spread = spread
+	pm.initial_velocity_min = v_min
+	pm.initial_velocity_max = v_max
+	pm.gravity = Vector3(0.0, -3.0, 0.0)
+	pm.scale_min = s_min
+	pm.scale_max = s_max
+	pm.color = Color(0.72, 0.60, 0.42, alpha)
+	style_dust(pm)
+	return pm
+
+
 ## Footstep dust on wet ground reads as water: pale blue droplets that are
 ## smaller and fall fast. The dry look is stashed on the material the first
 ## time, so toggling back restores it exactly.
-
-
 static func set_wet(pm: ParticleProcessMaterial, wet: bool) -> void:
 	if not pm.has_meta(&"dry_color"):
 		pm.set_meta(&"dry_color", pm.color)

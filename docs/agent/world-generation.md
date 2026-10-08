@@ -229,14 +229,14 @@ tiles; `on_bridge(wtx, wtz)` tests the oriented rect. `road_tile` makes road til
 river stamp as grass (RealmLayout's `d <= 0` branch), so the water draws and flows under the deck; the bank road stays
 paved. `scenes/world/RiverBridges.gd` (static `make_bridge`, local +X along the road) builds slab deck, capped
 parapets and pillars; the `Coastline` module adds one per bridge in its build. `deep_water(wtx, wtz)` = (sea deep or
-river deep) and not on a bridge — Coastline's slide-back and TapToMove's A* wall use it (swimming replaces both in
-TID-696/697). `nearest_dry` searches outward ring by ring (≤ `DRY_SEARCH` 40) for a tile a tile clear of both waters,
+river deep) and not on a bridge — Coastline switches the hero to swimming there and TapToMove charges
+`Swimming.PATH_COST` per step (TID-696; see camera-and-player.md → Swimming). `nearest_dry` searches outward ring by ring (≤ `DRY_SEARCH` 40) for a tile a tile clear of both waters,
 else `Coast.to_land`. Depth shading needs nothing new: river intensity uses the sea's 0.3 + 0.12/tile bands, so the
 shader's three depth bands show the deep channel. `WaterMath.edge_prop` adds `"river_rock"` (water 0.36–0.6, current
 > 1.2, 12 %) using the rock textures (SpriteRegistry `river_rock`), sunk to the water surface like lily pads.
 `RealmMapOverlay._draw_rivers` draws each centreline in the sea colour, widening downstream.
 
-Not yet (later GID-172 tasks): swimming / stamina, co-op swim state. `test_rivers` covers: mouths in the sea, clearance from towns / camps / riddle spots / story
+Not yet (later GID-172 tasks): swim stamina / drowning, co-op swim state. `test_rivers` covers: mouths in the sea, clearance from towns / camps / riddle spots / story
 sites, wadeable source vs deep lower course, the ford, continuity, WaterMath / RealmLayout / biome hooks, lookup cost.
 
 ---
@@ -253,7 +253,7 @@ A bay of open water east of Maykalene, from the town's quay (world x 43) out to 
 | `RealmLayout.chunk_touches_realm` | Chunks in the sea's bounding box are realm chunks |
 | `InfiniteWorldGen.biome_for_chunk` | Chunks by the sea are grasslands (only water biomes draw water) |
 | `WaterMath.intensity` / `water_at` / `wet_at` | max(inland water, `sea_water`) — the sea is added after the realm and structure fades, so it reaches the quay; 0.3 at the shoreline (so the water meets the sand) rising 0.12 per tile (three shader bands). No stream flow at sea; `edge_prop_ok` keeps reeds and lily pads off the sea coast |
-| `Coastline` world module | Slides the hero back out of deep water (`is_deep`: ≥ `WADE_DEPTH` 1.5 tiles, not a pier) every physics frame, wading ashore after a teleport/load; draws the piers (railings on every water-facing edge except `Coast.rail_open`: open pier ends and a gangway beside each berthed boat), quay kerb, moored boats, quay cargo, beach clutter (shells, starfish, driftwood near town) and a beached rowboat. `PIER_LAMPS` ride `RealmLayout.street_lamps_world()`, so they are street lamps that glow at night |
+| `Coastline` world module | Switches the hero to swimming in deep water (`Rivers.deep_water`: sea ≥ `WADE_DEPTH` 1.5 tiles off a pier, or a river off a bridge — GID-172; it used to slide the hero back); draws the piers (railings on every water-facing edge except `Coast.rail_open`: open pier ends and a gangway beside each berthed boat), quay kerb, moored boats, quay cargo, beach clutter (shells, starfish, driftwood near town) and a beached rowboat. `PIER_LAMPS` ride `RealmLayout.street_lamps_world()`, so they are street lamps that glow at night |
 | `TapToMove.tile_at` | Deep sea is a wall for A* |
 | `NocturnalSpawner`, `TreasureGen` | No spectres at sea; dig sites walk round their ring to land |
 | `RealmMapOverlay` | Draws the sea polygon (clipped) |
