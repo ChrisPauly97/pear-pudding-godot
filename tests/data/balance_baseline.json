@@ -1,12 +1,12 @@
 {
 	"cells": {
 		"bog_hag@7+0": {
-			"median_s": 33.4000000000002,
+			"median_s": 33.0500000000003,
 			"n": 20,
 			"win_rate": 1.0
 		},
 		"bog_hag@7+1": {
-			"median_s": 42.0499999999997,
+			"median_s": 41.2999999999998,
 			"n": 40,
 			"win_rate": 0.85
 		},
@@ -18,7 +18,7 @@
 		"forest_shade@6+1": {
 			"median_s": 36.4000000000001,
 			"n": 40,
-			"win_rate": 1.0
+			"win_rate": 0.975
 		},
 		"ghoul_pack@4+0": {
 			"median_s": 30.4000000000003,
@@ -26,39 +26,39 @@
 			"win_rate": 1.0
 		},
 		"ghoul_pack@4+1": {
-			"median_s": 39.3999999999999,
+			"median_s": 39.0499999999999,
 			"n": 40,
-			"win_rate": 0.875
+			"win_rate": 0.825
 		},
 		"imbued_stag@8+0": {
-			"median_s": 35.3500000000001,
+			"median_s": 33.4000000000002,
 			"n": 20,
 			"win_rate": 1.0
 		},
 		"imbued_stag@8+1": {
 			"median_s": 41.5499999999998,
 			"n": 40,
-			"win_rate": 0.725
+			"win_rate": 0.675
 		},
 		"martarquas_scout@9+0": {
-			"median_s": 35.1000000000001,
+			"median_s": 33.0500000000003,
 			"n": 20,
 			"win_rate": 1.0
 		},
 		"martarquas_scout@9+1": {
-			"median_s": 42.0499999999997,
+			"median_s": 41.5499999999998,
 			"n": 40,
-			"win_rate": 0.625
+			"win_rate": 0.6
 		},
 		"undead_basic@1+0": {
-			"median_s": 24.6000000000002,
+			"median_s": 24.0500000000002,
 			"n": 20,
 			"win_rate": 1.0
 		},
 		"undead_basic@1+1": {
-			"median_s": 33.0500000000003,
+			"median_s": 30.5000000000003,
 			"n": 40,
-			"win_rate": 0.55
+			"win_rate": 0.5
 		},
 		"undead_horde@3+0": {
 			"median_s": 9.04999999999999,
@@ -71,7 +71,7 @@
 			"win_rate": 1.0
 		},
 		"wolf_pack@5+0": {
-			"median_s": 33.0500000000003,
+			"median_s": 32.2500000000003,
 			"n": 20,
 			"win_rate": 1.0
 		},
@@ -81,5 +81,5 @@
 			"win_rate": 0.975
 		}
 	},
-	"measured_at": "2e4e7a7"
+	"measured_at": "62fd962"
 }

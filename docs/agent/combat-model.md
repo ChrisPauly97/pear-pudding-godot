@@ -383,6 +383,15 @@ from the foe, swell 10 %, warm glow; eased in so the last beat is the tell), dri
 Every swing (hero or unit, either side) lands with a slash streak and seven sparks at the target on the battle's
 float layer, timed to meet the lunge (`BattleRealtime._animate_swing`). Gold for your hits, red for the enemy's.
 
+### Critical hits (GID-178 / TID-728)
+
+Every auto-attack swing (heroes and units, both sides) rolls a crit in `RealtimeCombat._resolve_swing` on the
+seeded `rt.rng`: `crit_chance` (yours, 5 %) / `enemy_crit_chance` (5 %), damage × `crit_mult` (1.5, at least +1).
+Swing events carry `crit`; `BattleRealtime` shows a bigger `SwingFx` impact, a "CRIT!" float and `hit_feel(2)`.
+Spells and techniques don't crit. `BalanceFight` counts `crits_dealt` / `crits_taken`. Tuned with the band cells:
+symmetric 5 % is balance-neutral (one level up mean 80 % vs 81 % without crits). Unit tests that assert exact
+swing damage build their `RealtimeCombat` with crits off.
+
 ## Enemy strength by enemy level (GID-176 / TID-720)
 
 Enemies act the same whatever the player has learned; only the **enemy's** level (`RealtimeCombat.side_levels`)

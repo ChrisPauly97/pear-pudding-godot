@@ -6,6 +6,7 @@ const GameState = preload("res://game_logic/battle/GameState.gd")
 const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const RealtimeCombat = preload("res://game_logic/battle/RealtimeCombat.gd")
+const CombatTuning = preload("res://game_logic/battle/CombatTuning.gd")
 const TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
 const PlayerCaster = preload("res://game_logic/battle/PlayerCaster.gd")
 const SpellEffectResolver = preload("res://scenes/battle/SpellEffectResolver.gd")
@@ -21,7 +22,7 @@ func _setup() -> Array:
 		p.draw_deck.clear()
 	gs.players[1].hero.health = 1000
 	gs.players[1].hero.max_health = 1000
-	var rt := RealtimeCombat.new(gs, [5, 5])
+	var rt := RealtimeCombat.new(gs, [5, 5], CombatTuning.new({"crit_chance": 0.0, "enemy_crit_chance": 0.0}))
 	rt.set_passive(RealtimeCombat.ENEMY)
 	rt.tune.set_value("proc_chance", 0.0)
 	rt.tune.set_value("auto_proc_chance", 0.0)

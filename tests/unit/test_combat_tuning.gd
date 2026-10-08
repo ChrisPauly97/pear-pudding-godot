@@ -23,7 +23,7 @@ func _rt() -> RealtimeCombat:
 	for p: PlayerState in gs.players:
 		p.hand.clear()
 		p.draw_deck.clear()
-	return RealtimeCombat.new(gs)
+	return RealtimeCombat.new(gs, [1, 1], CombatTuning.new({"crit_chance": 0.0, "enemy_crit_chance": 0.0}))
 
 ## Advance in 0.1 s steps (plus one step of slack for float drift), collecting events.
 func _run(rt: RealtimeCombat, seconds: float) -> Array[Dictionary]:
@@ -51,7 +51,8 @@ func test_tuning_defaults_clamp_and_overrides() -> void:
 func test_tuning_drives_the_gcd() -> void:
 	var gs := GameState.new()
 	var levels: Array[int] = [1, 1]
-	var rt := RealtimeCombat.new(gs, levels, CombatTuning.new({"player_gcd": 2.0}))
+	var rt := RealtimeCombat.new(gs, levels, CombatTuning.new({"player_gcd": 2.0, "crit_chance": 0.0,
+		"enemy_crit_chance": 0.0}))
 	rt.start_gcd(0)
 	assert_eq(rt.gcd[0], 2.0)
 

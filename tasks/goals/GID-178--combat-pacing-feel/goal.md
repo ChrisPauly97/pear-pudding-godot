@@ -17,6 +17,7 @@ Today a technique goes to the bottom of the deck once resolved (GID-175: "deck c
 | [TID-724](TID-724--actions-per-10s.md) | Actions per 10 s: sim metric, techniques return to hand on a cooldown, Strike re-tuned, bands re-baselined | agent | done | — |
 | [TID-725](TID-725--card-draw-animation.md) | Card draw animation in real-time fights | agent | done | — |
 | [TID-726](TID-726--auto-attack-feel.md) | Auto-attack wind-up and hit effect | agent | done | — |
+| [TID-728](TID-728--crits.md) | Critical hits for heroes and enemies | agent | done | TID-726 |
 
 ## Acceptance Criteria
 

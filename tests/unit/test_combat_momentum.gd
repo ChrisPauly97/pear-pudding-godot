@@ -2,6 +2,7 @@
 extends "res://tests/framework/test_case.gd"
 
 const RealtimeCombat = preload("res://game_logic/battle/RealtimeCombat.gd")
+const CombatTuning = preload("res://game_logic/battle/CombatTuning.gd")
 const GameState = preload("res://game_logic/battle/GameState.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
@@ -12,7 +13,7 @@ func _rt() -> RealtimeCombat:
 		p.hand.clear()
 		p.draw_deck.clear()
 	gs.players[1].hero.health = 100000
-	var rt := RealtimeCombat.new(gs)
+	var rt := RealtimeCombat.new(gs, [1, 1], CombatTuning.new({"crit_chance": 0.0, "enemy_crit_chance": 0.0}))
 	rt.tune.set_value("proc_chance", 0.0)
 	rt.tune.set_value("auto_proc_chance", 0.0)
 	return rt

@@ -28,14 +28,19 @@ static func wind_up(tok: Control, frac: float, is_player: bool) -> void:
 	tok.self_modulate = Color.WHITE.lerp(Color(1.25, 1.15, 0.9), w)
 
 ## A slash streak and sparks at `pos` (global) on `layer`, after `delay` s (to
-## meet the lunge). `vh` sizes it; `player_hit` picks the colour.
-static func impact(layer: Node, pos: Vector2, vh: float, player_hit: bool, delay: float = 0.12) -> void:
+## meet the lunge). `vh` sizes it; `player_hit` picks the colour; a `crit` is a
+## bigger, whiter slash with twice the sparks (TID-728).
+static func impact(layer: Node, pos: Vector2, vh: float, player_hit: bool, delay: float = 0.12,
+		crit: bool = false) -> void:
 	if layer == null or not is_instance_valid(layer):
 		return
 	var tint: Color = PLAYER_HIT if player_hit else ENEMY_HIT
-	var reach: float = vh * 0.09
+	if crit:
+		tint = tint.lerp(Color.WHITE, 0.35)
+	var size_k: float = 1.7 if crit else 1.0
+	var reach: float = vh * 0.09 * size_k
 	var slash := Line2D.new()
-	slash.width = vh * 0.014
+	slash.width = vh * 0.014 * size_k
 	slash.default_color = tint
 	slash.begin_cap_mode = Line2D.LINE_CAP_ROUND
 	slash.end_cap_mode = Line2D.LINE_CAP_ROUND
@@ -50,8 +55,9 @@ static func impact(layer: Node, pos: Vector2, vh: float, player_hit: bool, delay
 	tw.tween_property(slash, "modulate:a", 1.0, 0.03)
 	tw.tween_property(slash, "modulate:a", 0.0, SLASH_TIME).set_ease(Tween.EASE_IN)
 	tw.tween_callback(slash.queue_free)
-	for i: int in SPARKS:
-		_spark(layer, pos, vh, tint, delay, TAU * float(i) / float(SPARKS) + 0.4)
+	var n: int = SPARKS * (2 if crit else 1)
+	for i: int in n:
+		_spark(layer, pos, vh * size_k, tint, delay, TAU * float(i) / float(n) + 0.4)
 
 static func _spark(layer: Node, pos: Vector2, vh: float, tint: Color, delay: float, angle: float) -> void:
 	var s := ColorRect.new()

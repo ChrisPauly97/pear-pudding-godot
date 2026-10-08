@@ -31,3 +31,10 @@ func test_impact_spawns_slash_and_sparks() -> void:
 	assert_eq(layer.get_child_count(), 1 + SwingFx.SPARKS)
 	assert_true(layer.get_child(0) is Line2D, "slash first")
 	layer.free()
+
+func test_crit_impact_is_bigger() -> void:
+	var layer := Node2D.new()
+	(Engine.get_main_loop() as SceneTree).root.add_child(layer)
+	SwingFx.impact(layer, Vector2(50, 50), 720.0, true, 0.12, true)
+	assert_eq(layer.get_child_count(), 1 + SwingFx.SPARKS * 2, "twice the sparks")
+	layer.free()

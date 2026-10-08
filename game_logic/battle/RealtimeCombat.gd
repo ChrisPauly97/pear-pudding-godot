@@ -441,8 +441,9 @@ func _tick_swings(delta: float, events: Array[Dictionary]) -> void:
 			if c.attack <= 0:
 				continue
 			var target: CardInstance = pick_minion_target(c)
-			_resolve_swing(c, c.attack, target, PLAYER, side)
-			events.append({"type": "swing", "side": side, "attacker": c, "target": target, "target_side": PLAYER})
+			var crit: bool = _resolve_swing(c, c.attack, target, PLAYER, side)
+			events.append({"type": "swing", "side": side, "attacker": c, "target": target, "target_side": PLAYER,
+				"crit": crit})
 		_tick_hero(side, delta, events)
 
 ## Allies auto-attack: every `ally_ready` seconds an Ally swings at whatever
@@ -459,8 +460,9 @@ func _tick_ally(c: CardInstance, delta: float, events: Array[Dictionary]) -> voi
 		return
 	var target: CardInstance = pick_target(PLAYER)
 	var target_side: int = owner_of(target) if target != null else target_enemy()
-	_resolve_swing(c, c.attack, target, target_side, PLAYER)
-	events.append({"type": "swing", "side": PLAYER, "attacker": c, "target": target, "target_side": target_side})
+	var crit: bool = _resolve_swing(c, c.attack, target, target_side, PLAYER)
+	events.append({"type": "swing", "side": PLAYER, "attacker": c, "target": target, "target_side": target_side,
+		"crit": crit})
 
 ## Main-hand swing interval for `side` (s): the weapon's speed, else unarmed.
 func swing_speed(side: int) -> float:
@@ -502,9 +504,9 @@ func _tick_hero(side: int, delta: float, events: Array[Dictionary]) -> void:
 func _hero_hit(side: int, dmg: int, hand: String, events: Array[Dictionary]) -> void:
 	var target: CardInstance = pick_target(side)
 	var target_side: int = owner_of(target) if target != null else (target_enemy() if side == PLAYER else PLAYER)
-	_resolve_swing(null, dmg, target, target_side, side)
+	var crit: bool = _resolve_swing(null, dmg, target, target_side, side)
 	events.append({"type": "swing", "side": side, "attacker": null, "hand": hand, "target": target,
-		"target_side": target_side})
+		"target_side": target_side, "crit": crit})
 	if side == PLAYER and on_player_hit(dmg, false):
 		events.append({"type": "proc", "side": PLAYER})
 
@@ -632,15 +634,20 @@ func _track_enemy_hits() -> void:
 
 ## One-way hit: in real time the target answers on its own swing timer,
 ## so there is no Hearthstone-style retaliation damage.
+## Returns true when the swing was a critical hit (GID-178 / TID-728): a seeded
+## roll on `crit_chance` (your side) / `enemy_crit_chance`, × `crit_mult`.
 func _resolve_swing(attacker: CardInstance, dmg: int, target: CardInstance, target_side: int,
-		from_side: int) -> void:
+		from_side: int) -> bool:
 	var opp: PlayerState = state.players[target_side]
 	var d: int = BattlefieldRules.modify_damage(dmg, state.battlefield_biome)
 	if from_side != PLAYER:
 		d = _gap_scaled(d, from_side)
+	var crit: bool = d > 0 and rng.randf() < tune.get_f("crit_chance" if from_side == PLAYER else "enemy_crit_chance")
+	if crit:
+		d = maxi(d + 1, roundi(float(d) * tune.get_f("crit_mult")))
 	if target == null:
 		opp.hero.take_damage(d)
-		return
+		return crit
 	target.take_damage(d)
 	if not target.is_alive():
 		if attacker != null:
@@ -649,6 +656,7 @@ func _resolve_swing(attacker: CardInstance, dmg: int, target: CardInstance, targ
 		opp.discard.append(target)
 		if focus_target == target:
 			focus_target = null
+	return crit
 
 ## A fallen enemy's minions flee and its cast fizzles, so the fight carries on
 ## against whoever is left.

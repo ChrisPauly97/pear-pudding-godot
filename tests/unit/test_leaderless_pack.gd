@@ -2,12 +2,14 @@
 extends "res://tests/framework/test_case.gd"
 
 const RealtimeCombat = preload("res://game_logic/battle/RealtimeCombat.gd")
+const CombatTuning = preload("res://game_logic/battle/CombatTuning.gd")
 const GameState = preload("res://game_logic/battle/GameState.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const HeroState = preload("res://game_logic/battle/HeroState.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 
+var _no_crit := CombatTuning.new({"crit_chance": 0.0, "enemy_crit_chance": 0.0})
 
 func _card(attack: int = 2, health: int = 3) -> CardInstance:
 	return CardInstance.new({
@@ -68,12 +70,12 @@ func test_leaderless_flag_round_trips() -> void:
 func test_realtime_hero_swings_at_weakest_pack_member() -> void:
 	var weak := _card(1, 2)
 	var tough := _card(1, 9)
-	var rt := RealtimeCombat.new(_pack_state([tough, weak]))
+	var rt := RealtimeCombat.new(_pack_state([tough, weak]), [1, 1], _no_crit)
 	assert_eq(rt.pick_target(RealtimeCombat.PLAYER), weak)
 
 
 func test_pack_stand_in_never_swings() -> void:
-	var rt := RealtimeCombat.new(_pack_state([_card()]))
+	var rt := RealtimeCombat.new(_pack_state([_card()]), [1, 1], _no_crit)
 	rt.state.players[1].hero.attack = 5
 	assert_eq(rt.main_hand_damage(RealtimeCombat.ENEMY), 0)
 

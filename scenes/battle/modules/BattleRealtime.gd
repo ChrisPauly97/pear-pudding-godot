@@ -473,7 +473,12 @@ func _animate_swing(ev: Dictionary) -> void:
 			else RealtimeCombat.ENEMY))
 	var to: Vector2 = _visuals.target_pos(target, target_side)
 	# GID-178 / TID-726: every swing lands with a slash + sparks as the lunge arrives.
-	_SwingFx.impact(_battle._float_layer, to, _battle._vh, side == RealtimeCombat.PLAYER)
+	var crit: bool = bool(ev.get("crit", false))
+	_SwingFx.impact(_battle._float_layer, to, _battle._vh, side == RealtimeCombat.PLAYER, 0.12, crit)
+	if crit:  # TID-728: crits call themselves out and land heavier
+		_battle._fx.spawn_float_label(to + Vector2(0.0, -_battle._vh * 0.06), "CRIT!",
+				_SwingFx.PLAYER_HIT if side == RealtimeCombat.PLAYER else _SwingFx.ENEMY_HIT)
+		hit_feel(2)
 	var attacker: CardInstance = ev.get("attacker") as CardInstance
 	if attacker == null:
 		_visuals.lunge_token(side, to)

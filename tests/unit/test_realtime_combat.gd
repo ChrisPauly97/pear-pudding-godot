@@ -25,7 +25,7 @@ func _rt() -> RealtimeCombat:
 	for p: PlayerState in gs.players:
 		p.hand.clear()
 		p.draw_deck.clear()
-	return RealtimeCombat.new(gs)
+	return RealtimeCombat.new(gs, [1, 1], CombatTuning.new({"crit_chance": 0.0, "enemy_crit_chance": 0.0}))
 
 ## Advance in 0.1 s steps (plus one step of slack for float drift), collecting events.
 func _run(rt: RealtimeCombat, seconds: float) -> Array[Dictionary]:
@@ -73,7 +73,7 @@ func test_levels_passed_to_constructor() -> void:
 	var gs := GameState.new()
 	gs.players[0].hero.bonus_mana = 1
 	var levels: Array[int] = [7, 1]
-	var rt := RealtimeCombat.new(gs, levels)
+	var rt := RealtimeCombat.new(gs, levels, CombatTuning.new({"crit_chance": 0.0, "enemy_crit_chance": 0.0}))
 	assert_eq(rt.state.players[0].hero.max_mana, RealtimeCombat.max_mana_for(7, 1))
 	assert_eq(rt.state.players[1].hero.max_mana, _tune.get_i("base_max_mana"))
 
@@ -390,6 +390,7 @@ func test_round_pulse_skips_desert_scorch_outside_desert() -> void:
 func test_round_pulse_tuning_knob_changes_pulse_period() -> void:
 	var tune := CombatTuning.new()
 	tune.set_value("round_seconds", 1.0)
+	tune.set_value("crit_chance", 0.0)
 	var gs := GameState.new()
 	for p: PlayerState in gs.players:
 		p.hand.clear()
