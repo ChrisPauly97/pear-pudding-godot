@@ -2,7 +2,7 @@
 
 **Goal:** GID-172
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -27,12 +27,33 @@ Shared constraints: chunk-gen code (`InfiniteWorldGen`/`RealmLayout`/`TerrainMat
 
 ## Plan
 
-_Written during Plan phase._
+Deviation from research notes: courses are **fixed realm geography** (like `RealmLayout.ROADS` and `Coast.SHORE`), not seeded —
+`RealmLayout.reserved_distance` takes no seed, co-op needs no extra sync, and the sources are made mountains by forcing the biome.
+
+1. `game_logic/world/Rivers.gd` (pure, static): three hand-routed control polylines (north, west, south) ending inside the sea;
+   built once (mutex, also from `InfiniteWorldGen.warm`) into a Catmull-Rom curve with a sine meander, then segments bucketed in
+   8-tile cells (each cell lists segments within `REACH` tiles), so a query scans one cell.
+   API: `depth(px, pz)` (signed tiles, + inside; half-width grows source→mouth; capped shallow at road fords), `tile_depth`,
+   `is_deep`, `water(wx, wz)` (sea-style intensity), `flow(wx, wz)`, `reserved_distance`, `touches_chunk`, `source_chunk`.
+2. `RealmLayout.reserved_distance` / `stamp_tile_in` / `chunk_touches_realm` include rivers (bank never 0 → never paved; valley
+   flattened over BLEND_MARGIN; trees/ruins/spawns keep off). `reserved_distance(.., rivers=false)` for the stream fade so streams
+   behave the same in realm-clear and other chunks (no seams).
+3. `WaterMath`: river water folded in after the fades like the sea (`intensity`, `water_at`, `wet_at`), `flow_at` returns the river current.
+4. `InfiniteWorldGen.biome_for_chunk`: chunks round a source → Mountains; river chunks in a dry biome → Grasslands (so the water draws).
+5. `tests/unit/test_rivers.gd`: reaches the sea, keeps off towns/camps/spots/sites, fords at the road crossing, depth/flow continuity, deep downstream, biome rules.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `game_logic/world/Rivers.gd`: three fixed courses (north / west / south), Catmull-Rom + faded sine meander, two
+  bucket tables (REACH 13 for depth/reserved, NEAR 5 for water/flow), fords at road crossings, `biome_for`, `water_reserved`.
+- `RealmLayout`: `reserved_distance(wtx, wtz, rivers = true)`; `stamp_tile_in` and `chunk_touches_realm` include rivers.
+- `WaterMath`: `sea_at` = max(sea, river); `flow_at` returns the river current; stream fade / realm-clear proof use
+  `reserved_distance(.., false)`; `edge_prop_ok` excludes only the sea.
+- `InfiniteWorldGen.biome_for_chunk` routes noise / safe-zone biomes through `Rivers.biome_for`.
+- `tests/unit/test_rivers.gd` (8 tests; ford test mutation-checked). Full suite 3060 pass, 0 SCRIPT ERROR; world/chunk/town smokes clean;
+  gdlint + unsafe-hits clean (RealmLayout / InfiniteWorldGen kept at the 500-line cap, no pragma).
+- Perf (`tools/profile_world.gd`, 900 frames): p50 6.91 → 6.89 ms, chunk generate unchanged within noise; river water lookup ~1.7 µs.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`docs/agent/world-generation.md` (Key Features + new Rivers section); CLAUDE.md map note.

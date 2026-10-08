@@ -10,6 +10,7 @@ extends RefCounted
 
 const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const _Coast = preload("res://game_logic/world/Coast.gd")
+const _Rivers = preload("res://game_logic/world/Rivers.gd")
 
 const STREAM_FREQUENCY: float = 0.011
 const STREAM_WIDTH: float = 0.045     # |noise| below this is in the stream
@@ -100,7 +101,8 @@ class DryGrid:
 static func chunk_context(points: PackedVector2Array, cx: int, cz: int) -> DryGrid:
 	var g := DryGrid.new(points)
 	var half: int = IsoConst.CHUNK_SIZE / 2
-	var d: float = RealmLayout.reserved_distance(cx * IsoConst.CHUNK_SIZE + half, cz * IsoConst.CHUNK_SIZE + half)
+	var d: float = RealmLayout.reserved_distance(cx * IsoConst.CHUNK_SIZE + half, cz * IsoConst.CHUNK_SIZE + half,
+			false)
 	g.realm_clear = d > REALM_DRY_TILES + CHUNK_REACH_TILES
 	return g
 
@@ -111,14 +113,15 @@ static func biome_has_water(biome_id: int) -> bool:
 	return WATER_BIOMES.has(biome_id)
 
 
-## 0 (dry) .. 1 (middle of a stream or pond, or out at sea) at world (wx, wz).
+## 0 (dry) .. 1 (middle of a stream or pond, a river, or out at sea) at world (wx, wz).
 static func intensity(wx: float, wz: float, world_seed: int, realm_clear: bool = false) -> float:
-	return maxf(_inland(wx, wz, world_seed, realm_clear), _Coast.sea_water(wx, wz, IsoConst.TILE_SIZE))
+	return maxf(_inland(wx, wz, world_seed, realm_clear), sea_at(wx, wz))
 
 
-## The eastern sea (GID-171): never faded by towns, roads or structures — the quay meets it.
+## The eastern sea (GID-171) and the rivers (GID-172): never faded by towns, roads or
+## structures — the quay meets the sea, and a road crosses a river at a ford.
 static func sea_at(wx: float, wz: float) -> float:
-	return _Coast.sea_water(wx, wz, IsoConst.TILE_SIZE)
+	return maxf(_Coast.sea_water(wx, wz, IsoConst.TILE_SIZE), _Rivers.water(wx, wz))
 
 
 ## Streams and ponds only.
@@ -135,7 +138,7 @@ static func _inland(wx: float, wz: float, world_seed: int, realm_clear: bool) ->
 		return w
 	# Stitched story towns and their roads stay dry (GID-138).
 	var ts: float = IsoConst.TILE_SIZE
-	var d: float = RealmLayout.reserved_distance(int(floor(wx / ts)), int(floor(wz / ts)))
+	var d: float = RealmLayout.reserved_distance(int(floor(wx / ts)), int(floor(wz / ts)), false)
 	return w * smoothstep(1.0, REALM_DRY_TILES, d)
 
 
@@ -168,7 +171,7 @@ static func water_at(wx: float, wz: float, world_seed: int, dry: DryGrid) -> flo
 
 static func wet_at(wx: float, wz: float, world_seed: int, dry: DryGrid) -> bool:
 	if sea_at(wx, wz) > _Coast.SHORE_WATER - 0.04:
-		return true  # grass and props stop right at the sea's drawn shoreline
+		return true  # grass and props stop right at the sea's (and rivers') drawn shoreline
 	var clear: bool = dry != null and dry.realm_clear
 	var w: float = _inland(wx, wz, world_seed, clear)
 	if w <= WET_LEVEL:
@@ -183,7 +186,9 @@ static func wet_at(wx: float, wz: float, world_seed: int, dry: DryGrid) -> bool:
 ## keeps one orientation along the whole stream and across chunk borders.
 ## A steep gradient means a narrow stream, which runs faster.
 static func flow_at(wx: float, wz: float, world_seed: int) -> Vector2:
-	if sea_at(wx, wz) > 0.0:
+	if _Rivers.water(wx, wz) > 0.0:
+		return _Rivers.flow(wx, wz)  # a river carries its own current (GID-172)
+	if _Coast.sea_water(wx, wz, IsoConst.TILE_SIZE) > 0.0:
 		return Vector2.ZERO  # the sea is still water; no stream current across it
 	_ensure(world_seed)
 	var n: float = _stream.get_noise_2d(wx, wz)
@@ -218,7 +223,8 @@ static func edge_prop(water: float, flow: Vector2, roll: float) -> String:
 
 ## Reeds and lily pads are freshwater: none along the sea's sand and quay (GID-171).
 static func edge_prop_ok(_key: String, wx: float, wz: float) -> bool:
-	return sea_at(wx, wz) <= 0.0 and _Coast.depth(wx / IsoConst.TILE_SIZE, wz / IsoConst.TILE_SIZE) < -1.0
+	var ts: float = IsoConst.TILE_SIZE
+	return _Coast.sea_water(wx, wz, ts) <= 0.0 and _Coast.depth(wx / ts, wz / ts) < -1.0
 
 
 static func _ensure(world_seed: int) -> void:

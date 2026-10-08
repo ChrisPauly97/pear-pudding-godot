@@ -8,6 +8,7 @@ const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const StarterZone = preload("res://game_logic/world/StarterZone.gd")
 const RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
 const _Coast = preload("res://game_logic/world/Coast.gd")
+const _Rivers = preload("res://game_logic/world/Rivers.gd")
 
 const NOISE_FREQ: float = 0.08  # base noise frequency; biome freq_scale multiplies the sampling coordinates
 
@@ -71,18 +72,17 @@ static func _get_biome_noise(world_seed: int) -> FastNoiseLite:
 	_biome_noise_seed = world_seed
 	return _biome_noise
 
-# Returns the biome ID for a given chunk coordinate.
+# Returns the biome ID for a given chunk coordinate; Rivers.biome_for adds the river rules (GID-172).
 static func biome_for_chunk(p_cx: int, p_cz: int, world_seed: int) -> int:
 	var dist: int = abs(p_cx) + abs(p_cz)
 	# Story towns (GID-138) and the sea's shore (GID-171: only water biomes draw water) are grasslands.
 	if (dist > SAFE_ZONE_DIST and RealmLayout.chunk_in_town(p_cx, p_cz)) or _Coast.touches_chunk(p_cx, p_cz):
 		return BiomeDef.GRASSLANDS
 	if dist <= SAFE_ZONE_DIST:
-		# Respect biome selection: use forced_start_biome if set, else default to Grasslands.
-		return forced_start_biome if forced_start_biome >= 0 else BiomeDef.GRASSLANDS
+		return _Rivers.biome_for(p_cx, p_cz, forced_start_biome if forced_start_biome >= 0 else BiomeDef.GRASSLANDS)
 	var n: float = _get_biome_noise(world_seed).get_noise_2d(float(p_cx), float(p_cz))
 	var v: float = (n + 1.0) * 0.5   # remap [-1,1] → [0,1]
-	return int(v * float(BiomeDef.COUNT)) % BiomeDef.COUNT
+	return _Rivers.biome_for(p_cx, p_cz, int(v * float(BiomeDef.COUNT)) % BiomeDef.COUNT)
 
 static func _chunk_seed(p_cx: int, p_cz: int, world_seed: int) -> int:
 	return (p_cx * 73856093) ^ (p_cz * 19349663) ^ world_seed

@@ -4,6 +4,7 @@
 
 - Infinite, seamlessly streaming world divided into 16×16 tile chunks
 - Five biomes: Grasslands, Forest, Desert, Scorched, Mountains — each with distinct terrain shape and enemy pools
+- Three rivers (GID-172) from mountain sources down to the eastern sea: narrow and wadeable at the source, deep downstream, forded by the road
 - Simplex noise-based tile assignment (GRASS / HILL / WALL) with per-biome frequency and threshold tuning
 - Height variation from 1 to 7 levels depending on biome steepness
 - Procedural ruins generation (~33% of chunks) with variable size, walls, crumbled segments, and door openings
@@ -187,6 +188,44 @@ main-thread generation. A worker given the wrong seed fails it with 116 mismatch
 Measured with `tools/profile_world.gd` (12 u/s, 4-core container): kick cost on the main thread
 went from 5–8 ms to 1–3 ms; p99 went from ~17 to ~11 ms. `MAX_CHUNK_JOBS` 2 vs 4 was tried: 2 lowers
 the worst frame on 4 cores but adds more >8 ms frames, so it stays at 4.
+
+---
+
+### Rivers (`game_logic/world/Rivers.gd`, GID-172 / TID-694)
+
+Three fixed rivers — realm geography like the roads and the sea, **not seeded**, so `RealmLayout.reserved_distance`
+needs no seed and co-op peers agree without sync. `COURSES` holds hand-routed control polylines (tiles), source
+first, last point inside the sea: **north** (150,−150 → bay's north shore), **west** (−235,15 → between Madrian and
+Maykalene, fording their road at (13, ~57) → bay's north-west corner; `wiggle` 0.5 keeps it off Maykalene), **south**
+(250,335 → bay's south shore).
+
+Built once (mutex-guarded `_ensure`, also triggered by `RealmLayout.warm()`'s first stamp): Catmull-Rom every
+`STEP` 2 tiles, plus a two-sine sideways meander faded over `MEANDER_FADE` at both ends; `t` = arc fraction 0
+(source) → 1 (mouth). Segments are bucketed in 8-tile cells twice: `_cells` (every segment within `REACH` 13
+tiles — exact for `depth` / `reserved_distance`) and `_near_cells` (within `NEAR` = HW_MOUTH + 1 — the hot
+`water` / `flow` lookups, ~1.7 µs). Build ~5 ms.
+
+| API | Meaning |
+|---|---|
+| `depth(px, pz)` / `tile_depth` | Signed tiles: `half_width(t) − distance` (> 0 in the water); `−INF` beyond REACH. Half-width `HW_SOURCE` 1 → `HW_MOUTH` 4 (`t^0.8`). Within `FORD_INNER` 3 tiles of a road crossing (`fords()`) capped at `FORD_DEPTH` 0.8, deepening 0.6/tile beyond |
+| `is_deep` / `is_river` | ≥ `Coast.WADE_DEPTH` (1.5) / any water — source stretches stay wadeable |
+| `water(wx, wz)` | Terrain intensity, sea-style bands: 0.3 at the bank + 0.12 per tile, 0 past 0.6 tiles outside |
+| `flow(wx, wz)` | Downstream unit direction × `FLOW_SOURCE` 1.8 → `FLOW_MOUTH` 0.7 |
+| `reserved_distance` / `water_reserved` | `RIVER_PAD` 0.5 in the water, distance to the bank (≥ 0.5, never paved) outside, INF beyond REACH; `water_reserved` = min with the sea |
+| `touches_chunk(cx, cz, margin)` / `source_chunk` | Conservative chunk test / chunk centre within `SOURCE_RADIUS` 40 of a source |
+| `biome_for(cx, cz, b)` | Source chunks → Mountains; river chunks in a dry biome → Grasslands (so the water draws) |
+
+| Hook | Effect |
+|---|---|
+| `RealmLayout.reserved_distance` / `stamp_tile_in` | Include `Rivers.water_reserved`: river valleys flatten over BLEND_MARGIN, trees / ruins / landmarks / spawns keep off. `reserved_distance(.., rivers = false)` is used by WaterMath's stream fade and realm-clear proof, so streams run on into a river identically in every chunk (no seams) |
+| `RealmLayout.chunk_touches_realm` | River chunks (bank + BLEND_MARGIN) are realm chunks |
+| `InfiniteWorldGen.biome_for_chunk` | Noise / safe-zone biome passed through `Rivers.biome_for` (towns and the sea's shore still win) |
+| `WaterMath.sea_at` (→ `intensity`, `water_at`, `wet_at`) | max(sea, river): added after the realm and structure fades. A road crossing stays dry because path tiles mask the water shader |
+| `WaterMath.flow_at` | The river current where river water is; still sea; else the stream noise current. `edge_prop_ok` allows reeds / lily pads on river banks (sea only excluded) |
+
+Not yet (later GID-172 tasks): bridges, depth shading tuned for rivers, tap-to-move swim cost, realm-map drawing,
+swimming / stamina. `test_rivers` covers: mouths in the sea, clearance from towns / camps / riddle spots / story
+sites, wadeable source vs deep lower course, the ford, continuity, WaterMath / RealmLayout / biome hooks, lookup cost.
 
 ---
 

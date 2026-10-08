@@ -37,6 +37,8 @@ Their houses are raised into real buildings (tall walls, roofs, windows) by `Tow
 Streets (gate → spawn trunks, door lanes) and grimy lit street lamps are generated too (`TownStreets`, GID-155).
 Plain townsfolk walk those streets on a clock-derived daily schedule and towns get their own critters (`TownLife`, GID-156).
 Maykalene is a port: the eastern sea (`Coast`, GID-171) is reserved realm ground drawn as terrain water; deep water blocks the hero.
+Three fixed rivers (`game_logic/world/Rivers.gd`, GID-172) run from mountain sources into that sea: reserved ground like
+the sea, folded into `WaterMath` (water + current) and `RealmLayout`; their chunks are forced to water biomes.
 
 ---
 

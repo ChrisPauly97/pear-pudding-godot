@@ -19,6 +19,7 @@ const _RiddleSpots = preload("res://game_logic/world/RiddleSpots.gd")
 const _StarterZone = preload("res://game_logic/world/StarterZone.gd")
 const _TownDecor = preload("res://game_logic/world/TownDecor.gd")
 const _Coast = preload("res://game_logic/world/Coast.gd")
+const _Rivers = preload("res://game_logic/world/Rivers.gd")  # cyclic, fine
 const _TownBuildings = preload("res://game_logic/world/TownBuildings.gd")
 const _TownStreets = preload("res://game_logic/world/TownStreets.gd")
 
@@ -167,11 +168,11 @@ static func road_distance(px: float, pz: float) -> float:
 			best = minf(best, p.distance_to(q))
 	return best
 
-## Distance (tiles) to the nearest town, road, glade, camp or sea (Coast); 0 inside a town or road.
-static func reserved_distance(wtx: int, wtz: int) -> float:
+## Tiles to the nearest town, road, glade, camp, sea or river (`rivers` false: stream fade); 0 in a town or road.
+static func reserved_distance(wtx: int, wtz: int, rivers: bool = true) -> float:
 	var best: float = maxf(0.0, road_distance(float(wtx), float(wtz)) - ROAD_HALF_WIDTH)
 	best = minf(best, minf(legend_site_distance(wtx, wtz), _StarterZone.camp_site_distance(wtx, wtz)))
-	best = minf(best, _Coast.reserved_distance(wtx, wtz))  # the eastern sea (GID-171)
+	best = minf(best, _Rivers.water_reserved(wtx, wtz) if rivers else _Coast.reserved_distance(wtx, wtz))
 	for k: Variant in TOWNS.keys():
 		var r: Rect2i = world_rect(str(k))
 		var dx: int = maxi(0, maxi(r.position.x - wtx, wtx - (r.end.x - 1)))
@@ -188,7 +189,7 @@ static func legend_site_distance(wtx: int, wtz: int) -> float:
 		best = minf(best, Vector2(wtx - t.x, wtz - t.y).length() + LEGEND_SITE_PAD)
 	return best
 
-## True when any tile of chunk (cx, cz), grown by BLEND_MARGIN, touches a town, road, legend glade or camp.
+## True when any tile of chunk (cx, cz), grown by BLEND_MARGIN, touches a town, road, glade, camp, sea or river.
 static func chunk_touches_realm(cx: int, cz: int) -> bool:
 	var cs: int = IsoConst.CHUNK_SIZE
 	var m: int = int(ceil(BLEND_MARGIN))
@@ -199,7 +200,7 @@ static func chunk_touches_realm(cx: int, cz: int) -> bool:
 	for spot: Dictionary in _RiddleSpots.SPOTS:
 		if area.has_point(spot["tile"] as Vector2i):
 			return true
-	if _StarterZone.camp_in_rect(area) or _Coast.touches(area, 0.0):
+	if _StarterZone.camp_in_rect(area) or _Coast.touches(area, 0.0) or _Rivers.touches_chunk(cx, cz, BLEND_MARGIN):
 		return true
 	var half: float = float(cs) * 0.5
 	var centre := Vector2(float(cx * cs) + half, float(cz * cs) + half)
@@ -304,7 +305,7 @@ static func stamp_tile_in(ctx: Dictionary, wtx: int, wtz: int, noise_tile: int, 
 	for t: Vector2i in spots:
 		d = minf(d, Vector2(wtx - t.x, wtz - t.y).length() + LEGEND_SITE_PAD)
 	d = minf(d, _StarterZone.camp_distance_in(ctx["camps"] as Array[Vector2i], wtx, wtz))
-	d = minf(d, _Coast.reserved_distance(wtx, wtz))
+	d = minf(d, _Rivers.water_reserved(wtx, wtz))
 	for entry: Array in towns:
 		var r: Rect2i = entry[1]
 		var dx: int = maxi(0, maxi(r.position.x - wtx, wtx - (r.end.x - 1)))
