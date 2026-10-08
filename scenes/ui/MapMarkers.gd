@@ -25,3 +25,13 @@ static func draw_pin(canvas: CanvasItem, at: Vector2, radius: float, col: Color)
 	canvas.draw_circle(at, radius, col)
 	canvas.draw_line(at + Vector2(0.0, -PIN_ARM_PX), at + Vector2(0.0, PIN_ARM_PX), col, 1.5)
 	canvas.draw_line(at + Vector2(-PIN_ARM_PX, 0.0), at + Vector2(PIN_ARM_PX, 0.0), col, 1.5)
+
+## A quest giver's "!" / "?" (QuestTracker marks) as outlined text on a dark disc.
+static func draw_quest_mark(canvas: CanvasItem, at: Vector2, text: String, col: Color, size: int) -> void:
+	var font: Font = ThemeDB.fallback_font
+	var half: float = size * 0.62
+	canvas.draw_circle(at, half + OUTLINE_PX, Color(0.0, 0.0, 0.0, 0.75))
+	var w: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	var base := at + Vector2(-w * 0.5, size * 0.36)
+	canvas.draw_string_outline(font, base, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, 4, Color.BLACK)
+	canvas.draw_string(font, base, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)

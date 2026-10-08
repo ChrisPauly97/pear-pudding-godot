@@ -215,6 +215,7 @@ func _on_draw(canvas: Control) -> void:
 	_draw_group(canvas, _npc_nodes,   origin, Color(0.30, 0.95, 0.45), 4.0)
 	_draw_waypoint(canvas, origin)
 	_draw_quests(canvas, origin)
+	_draw_npc_marks(canvas, origin)
 
 	# Roaming boss: larger dot in range, edge indicator when outside
 	if _enemy_nodes.has("roaming_boss"):
@@ -284,6 +285,17 @@ func _draw_quests(canvas: Control, origin: Vector3) -> void:
 		var kind: String = str(_world.quest_tracker.tracked_quest().get("kind", ""))
 		_MapMarkers.draw_outlined_diamond(canvas, tracked_dot, 6.0, _QuestLog.kind_color(kind),
 				Color(0.0, 0.0, 0.0, 0.8))
+
+
+## Quest givers' "!" / "?" over their dots, when on the disc.
+func _draw_npc_marks(canvas: Control, origin: Vector3) -> void:
+	if _world == null or _world.quest_tracker == null:
+		return
+	var center := Vector2(_half, _half)
+	for m: Dictionary in _world.quest_tracker.npc_map_marks():
+		var dot: Vector2 = _to_minimap(m["pos"] as Vector3, origin)
+		if _inside_minimap(dot, center):
+			_MapMarkers.draw_quest_mark(canvas, dot, str(m["text"]), m["color"] as Color, 13)
 
 
 func _draw_group(canvas: Control, nodes: Dictionary, origin: Vector3,

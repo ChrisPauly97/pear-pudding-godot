@@ -43,6 +43,8 @@ var _player: Node3D
 var _map_name: String = "main"
 var _quests: Array[Dictionary] = []
 var _tracked_id: String = ""
+## Quest givers' "!" / "?" (QuestTracker.npc_map_marks).
+var _npc_marks: Array[Dictionary] = []
 var _panel := Rect2()
 var _bounds := Rect2()   # in overworld tiles
 var _scale: float = 1.0  # panel px per tile
@@ -51,8 +53,10 @@ var _layer: _MapLayer
 var _long_press := _LongPressTracker.new()
 
 
-func setup(player: Node3D, map_name: String, quests: Array[Dictionary], tracked: Dictionary) -> void:
+func setup(player: Node3D, map_name: String, quests: Array[Dictionary], tracked: Dictionary,
+		npc_marks: Array[Dictionary] = []) -> void:
 	_player = player
+	_npc_marks = npc_marks
 	_map_name = map_name
 	_quests = quests
 	_tracked_id = str(tracked.get("id", ""))
@@ -183,6 +187,10 @@ func _on_draw(c: Control) -> void:
 		c.draw_circle(wp, 4.0, _COL_WAYSTONE if on else Color(_COL_WAYSTONE, 0.4))
 	_draw_waypoint(c)
 	_draw_quests(c, font)
+	for m: Dictionary in _npc_marks:
+		var mp: Vector2 = _tile_to_panel(_world_to_tile(m["pos"] as Vector3))
+		if _panel.has_point(mp):
+			_MapMarkers.draw_quest_mark(c, mp, str(m["text"]), m["color"] as Color, _font_size + 4)
 	if is_instance_valid(_player):
 		var pp: Vector2 = _tile_to_panel(_world_to_tile(_player.position))
 		c.draw_circle(pp, 8.0, Color.BLACK)
