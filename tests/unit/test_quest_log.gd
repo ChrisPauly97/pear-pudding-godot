@@ -129,5 +129,5 @@ func test_map_mark_reads_npc_label() -> void:
 	assert_eq(str(mark.get("text", "")), "!")
 	assert_eq(mark.get("color"), Color.YELLOW)
 	npc.visible = false
-	assert_true(QuestTracker.map_mark(npc).is_empty(), "hidden (indoor) NPC: no map mark")
+	assert_eq(str(QuestTracker.map_mark(npc).get("text", "")), "!", "indoors at night: still marked")
 	npc.free()

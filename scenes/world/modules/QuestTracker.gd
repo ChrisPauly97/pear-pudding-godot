@@ -182,8 +182,9 @@ func _refresh_npc_marks() -> void:
 
 ## The "!" / "?" a quest giver wears, for the map views: {text, color}, or {} when
 ## the NPC has no mark. Reads the Label3D `_set_mark` keeps, so maps and world agree.
+## Townsfolk indoors at night (hidden) keep theirs, at their house.
 static func map_mark(node: Node3D) -> Dictionary:
-	if not is_instance_valid(node) or not node.visible:
+	if not is_instance_valid(node):
 		return {}
 	var lbl: Label3D = node.get_node_or_null(_MARK_NAME) as Label3D
 	if lbl == null or lbl.is_queued_for_deletion():
