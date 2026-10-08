@@ -176,7 +176,7 @@
 | [GID-170](goals/GID-170--towns-like-madrian/goal.md) | Every Town Laid Out Like Madrian | done | 1 / 1 |
 | [GID-171](goals/GID-171--maykalene-coast/goal.md) | Maykalene on the Eastern Sea | done | 1 / 1 |
 | [GID-172](goals/GID-172--rivers-and-swimming/goal.md) | Rivers & Swimming | done | 5 / 5 |
-| [GID-173](goals/GID-173--cave-entrances/goal.md) | Cave Entrances | pending | 0 / 4 |
+| [GID-173](goals/GID-173--cave-entrances/goal.md) | Cave Entrances | in-progress | 1 / 4 |
 | [GID-174](goals/GID-174--bogs/goal.md) | Bogs | pending | 0 / 3 |
 
 ## Backlog
@@ -193,6 +193,7 @@ files in `tasks/archive/backlog/`.
 | [BID-081](backlog/BID-081--no-water-in-towns.md) | No water in named maps / towns; no bridges | content-gap | GID-152 research |
 | [BID-089](backlog/BID-089--no-battle-ui-profiler.md) | No profiler for battle / UI / save paths | doc-gap | GID-164 research |
 | [BID-090](backlog/BID-090--remaining-world-frame-costs.md) | Remaining per-frame world costs after GID-164 (enemy walk cycles, NPC marks) | code-smell | GID-164 / TID-685 |
+| [BID-091](backlog/BID-091--infinite-world-gen-not-s-safe.md) | Landmark ruin-roll replica masks the seed; RuinGen doesn't (`-s` compile half fixed in TID-699) | code-smell | GID-173 / TID-699 |
 
 ## Resolved Backlog
 

@@ -2,7 +2,7 @@
 
 **Goal:** GID-173
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -25,12 +25,20 @@ Shared constraints: chunk-gen code (`InfiniteWorldGen`/`RealmLayout`/`TerrainMat
 
 ## Plan
 
-_Written during Plan phase._
+InfiniteWorldGen sits at its 500-line cap: extract the ruin stamp into `RuinGen.gd` (same RNG stream), then add
+`CaveSites.gd` (rocky-biome roll, off realm / ruin / landmark, mouth at the foot of the tallest reachable hill,
+facing +X/+Z so it opens toward the camera) and one `add_to` call in `generate_chunk`. Tune by probing placement.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `game_logic/world/RuinGen.gd` (`has_ruin`, `stamp`) — InfiniteWorldGen 500 → 410 lines.
+- New `game_logic/world/CaveSites.gd` (`add_to`, `site_for`, `is_cave_map`); `InfiniteWorldGen.generate_chunk` calls it.
+- Placement tuned by probe: steep faces (height ≥ 3 within 2 tiles) essentially never occur in the generated hills,
+  so the mouth goes at the foot of the tallest hill instead; seed 42 ±25 chunks → 63 caves.
+- `tests/unit/test_cave_sites.gd` (4). Suite 3074 pass / 0 SCRIPT ERROR; world + chunk smokes clean; gdlint + unsafe-hits clean.
+- Found + fixed: `InfiniteWorldGen` couldn't compile in `-s` scripts (IsoConst function without a preload) — added the
+  preload. Logged BID-091 for the remaining landmark ruin-roll mask mismatch.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`docs/agent/world-generation.md` (RuinGen note, new Caves section).

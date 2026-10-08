@@ -12,14 +12,14 @@ User wants cave entrances "as opposed to dungeon ruins". Today ~33% of chunks ge
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| [TID-699](TID-699--cave-sites.md) | Cave site placement (pure logic) | agent | pending | — |
+| [TID-699](TID-699--cave-sites.md) | Cave site placement (pure logic) | agent | done | — |
 | [TID-700](TID-700--cave-mouth.md) | Cave mouth visuals + door | agent | pending | TID-699 |
 | [TID-701](TID-701--cave-interiors.md) | Cave interior theme for DungeonGen | agent | pending | — |
 | [TID-702](TID-702--retire-ruin-doors.md) | Retire ruin dungeon doors, tests & docs | agent | pending | TID-700, TID-701 |
 
 ## Acceptance Criteria
 
-- [ ] Cave site placement (pure logic)
+- [x] Cave site placement (pure logic)
 - [ ] Cave mouth visuals + door
 - [ ] Cave interior theme for DungeonGen
 - [ ] Retire ruin dungeon doors, tests & docs
