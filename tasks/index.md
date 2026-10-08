@@ -178,7 +178,7 @@
 | [GID-172](goals/GID-172--rivers-and-swimming/goal.md) | Rivers & Swimming | done | 5 / 5 |
 | [GID-173](goals/GID-173--cave-entrances/goal.md) | Cave Entrances | done | 4 / 4 |
 | [GID-174](goals/GID-174--bogs/goal.md) | Bogs | done | 3 / 3 |
-| [GID-175](goals/GID-175--technique-cards/goal.md) | Skill Bar → Technique Cards | in-progress | 1 / 6 |
+| [GID-175](goals/GID-175--technique-cards/goal.md) | Skill Bar → Technique Cards | in-progress | 2 / 6 |
 
 ## Backlog
 

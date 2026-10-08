@@ -334,7 +334,56 @@ played itself. The fix keeps real time but makes the loop **build → spend**:
 - All numbers are **Momentum** rows in `CombatTuning` (⚙ Tune). Tests: `test_combat_momentum.gd`.
 - Next (GID-139 todo): telegraphed heavy enemy attacks (TID-579), real-time hit-stop/shake (TID-580).
 
-## Skill bar — fixed abilities (TID-550)
+## Technique cards (GID-175 / TID-706) — supersedes the fixed skill bar
+
+Decided 2026-10-08. The spec's `## Identity` rule is that **the card is the atomic unit of the game**. The fixed
+3-slot bar (TID-550) broke it, so every bar ability becomes a **technique card**: deckbuilt, drawn and played from
+the hand. The sections "Skill bar — fixed abilities" and "Learning abilities & the loadout" below describe the old
+model and stay only until TID-710 removes the code.
+
+### Rules
+
+| Rule | Decision |
+|---|---|
+| Card type | `CardData.card_class = "technique"`, typeless (`magic_type = ""`), `can_craft = false`, `is_unique = true` (can't be traded, auctioned or stashed), never dropped, never captured |
+| Cooldown → recycle | Once a technique **resolves** it goes to the **bottom of `draw_deck`**, not the discard. Deck cycling is its cooldown. A fizzled cast keeps the card in hand (as with spells) |
+| Copies | **1 copy** of each technique per deck |
+| Deck cost | Techniques **take deck slots**, max **3 per deck** (`TECHNIQUE_DECK_MAX`, same weight as the old 3 slots). The cap also stops a tiny all-technique deck from cycling forever |
+| Cost | Card cost units, ×100 in real time like any card: **0** for Strike, Kick, Mana Tap and Daze; **1** for Mend, Guard, Ember Lance and Sweep |
+| Real-time extras | `game_logic/battle/TechniqueDefs.gd`, keyed by card id: `cast` (s, overrides the spell cast formula), `off_gcd`, `rt_value`, `mana_value`, `level_req`, `learn_cost`. It replaces `SkillBar.ABILITIES` and `UnlockLadder` reads it. The `.tres` holds only the face (name, cost, `spell_effect`, `spell_power` = turn-based value) |
+| GCD | Same as spells. Off-GCD techniques (Kick, Daze) skip the GCD gate but not "nothing fires mid-cast" |
+| Momentum | Damaging techniques are **builders** (`on_player_hit(dmg, true)`, can proc). Techniques **don't spend** combo or `next_card_free` (same as the old skill pseudo-cards) |
+| Reactive cards | Kick and Daze are held, not always ready: keeping one in a 5-card hand is the choice. A held Kick **pulses** while an enemy casts |
+| Both modes | Techniques work turn-based too (values below). The once-per-battle hero power stays |
+| Enemies | Enemies get no techniques; enemy casts stay as they are |
+| Auto-attack | **Kept** (user, 2026-10-08): weapon-driven, passive, feeds the deck through the siphon. No manual swing and no weapon abilities. If auto-attack decides fights, lower its damage rather than weakening cards |
+| Filler | Strike is a normal deck card (not guaranteed). Auto-attack covers the gaps. If playtests show dead hands, lower `draw_interval` (9 → 7 s) before anything else |
+| Learning | A trainer "Learn" grants **one** technique card into the collection (shows its face). Strike is in the starter deck. On load, a learned technique missing from the collection is re-granted |
+| Visual | Neutral steel frame, "Technique" badge and a ↻ recycle mark (`CardFace`, card-visuals.md) |
+
+### The eight techniques
+
+| Card | Cost | Real time (`TechniqueDefs`) | Turn-based (`spell_effect` / power) | Level / coins |
+|---|---|---|---|---|
+| Strike | 0 | 5 dmg to target, instant | `deal_damage_single` 2 | starter |
+| Mend | 1 | heal 6, 1.5 s cast | `heal_hero` 4 | 2 / 15 |
+| Kick | 0 | interrupt enemy cast, off GCD | `stun_single` (a minion, 1 turn) | 3 / 25 |
+| Guard | 1 | armor 6 | `armor_hero` 4 | 11 / 60 |
+| Ember Lance | 1 | 9 dmg, 1 s cast | `deal_damage_single` 4 | 13 / 90 |
+| Mana Tap | 0 | 2 dmg + 1 mana unit | new `mana_tap`: 1 dmg + 1 mana | 14 / 90 |
+| Sweep | 1 | 3 to every enemy minion | `deal_damage_all` 1 | 16 / 120 |
+| Daze | 0 | cancel enemy cast + `stun`, off GCD | `freeze_single` (a minion, 1 turn) | 18 / 150 |
+
+Turn-based numbers start low because a 0-cost card that keeps coming back is strong at 30 HP. TID-707 tunes them,
+and a test still keeps every value ≤ 9.
+
+### Migration (TID-708)
+
+`learned_abilities` keeps its feat ids (`feat_*`). Ability ids in it become one technique card each in the
+collection. `skill_bar` ids go into the active deck/loadout up to the cap (if there is room), and the field is then
+dropped from `PERSISTED_FIELDS`. The always-known Strike is granted to every save.
+
+## Skill bar — fixed abilities (TID-550) — superseded by Technique cards
 
 Decided 2026-09-26: a **small** fixed bar, not a full WoW action bar, so the deck stays the main
 engine (draw, hand management, deckbuilding). Bar skills are weaker but always there on their own

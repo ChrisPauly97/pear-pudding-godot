@@ -17,6 +17,7 @@ Add a `technique` card type and the 8 technique cards with effects that work in 
 
 ## Research Notes
 
+- **Design is fixed in combat-model.md → "Technique cards (GID-175 / TID-706)".** Create `game_logic/battle/TechniqueDefs.gd` (real-time extras + level/coins, replaces `SkillBar.ABILITIES`). Turn-based effects reuse existing `spell_effect` ids, except a new `mana_tap`. Add `TECHNIQUE_DECK_MAX = 3` and the 1-copy rule.
 - Card data: `data/CardData.gd`, `data/cards/*.tres` (preload in `CardRegistry`; every .tres needs a `.uid` sidecar; Android needs const preloads).
 - Play path: `PlayerState.play_card` / `play_card_at_slot` (game_logic/battle/PlayerState.gd:175/196). Recycle = on resolve, push the card to the bottom of `draw_deck` instead of discarding.
 - Effects to port from `SkillBar.apply()`: damage, heal, interrupt, shield (`hero.apply_status("armor")`), manatap, sweep, stun. Status rules: `game_logic/battle/StatusEffects.gd`.

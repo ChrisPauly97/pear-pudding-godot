@@ -2,7 +2,7 @@
 
 **Goal:** GID-175
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -26,12 +26,14 @@ Decide the rules for turning the real-time skill bar into technique cards before
 
 ## Plan
 
-_Written during Plan phase._
+Low complexity, so I proceeded without an approval stop. Read the skill bar, momentum, real-time draw, CardData and existing spell effects, then wrote a "Technique cards" section in combat-model.md that settles every open question in the Research Notes.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `docs/agent/combat-model.md`: new section "Technique cards (GID-175 / TID-706)" covering the rules table, the 8-technique table (real-time and turn-based values, mapped to existing `spell_effect` ids) and the migration. The skill-bar section is marked superseded.
+- TID-707 Research Notes point at the design and name `TechniqueDefs.gd`.
+- Decisions beyond the review-gate defaults: max 3 techniques per deck, costs of 0 or 1 unit, techniques don't spend combo or free-procs, `is_unique` (no trading), the old cast times kept via `TechniqueDefs`, enemies get no techniques.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+combat-model.md (new section, old section marked superseded).
