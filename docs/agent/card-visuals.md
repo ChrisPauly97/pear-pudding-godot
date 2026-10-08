@@ -62,6 +62,10 @@ move. Durations × the battle speed scale.
   (`flip_out`). The opening hand deals in the same way. A refresh mid-flight simply shows the card early
   (`update_card_view` resets modulate / scale on reuse).
 
+- **Real-time draw pile** (GID-178 / TID-725) — `scenes/battle/modules/DeckPile.gd` (built by `RealtimeVisuals`):
+  a stack of card backs with the cards-left count, right of the rightmost hand card; the top back hops on each
+  draw. `CardMotion.deal_from` points at it, so drawn cards and returning technique cards fly out of the pile
+  (`deal_time_mult` 1.7 slows the real-time flight so a draw reads).
 - **Hover / press** — `BattleInput._set_hover_lift` → `CardMotion.set_hover`: lift ×1.25 from the bottom edge,
   −3° tilt, brighter frame via `self_modulate`. Touch lifts while a finger is down (`InputEventScreenTouch`,
   connected in `_bind_card_input` after its disconnect sweep). `update_card_view` resets rotation / self_modulate.

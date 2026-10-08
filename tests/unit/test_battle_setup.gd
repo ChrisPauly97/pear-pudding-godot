@@ -116,3 +116,11 @@ func test_enemy_above_you_has_more_hp() -> void:
 func test_small_deck_starts_unhurt() -> void:
 	var st: GameState = BattleSetup.build({"seed": 5, "learned": []})["state"]
 	assert_eq(st.players[0].hero.health, st.players[0].hero.max_health)
+
+## GID-178: real-time fights open with every technique in hand.
+func test_techniques_start_in_hand() -> void:
+	var st: GameState = BattleSetup.build({"seed": 5, "player_level": 5, "learned": ALL})["state"]
+	var me: PlayerState = st.players[0]
+	for id: String in ["tech_strike", "tech_mend", "tech_kick"]:
+		assert_true(_ids(me.hand).has(id), id + " in the opening hand")
+		assert_false(_ids(me.draw_deck).has(id))

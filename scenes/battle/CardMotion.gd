@@ -24,12 +24,17 @@ const HOVER_GLOW := Color(1.18, 1.15, 1.0)
 const PLAYABLE_GLOW := Color(0.45, 1.0, 0.55)
 const PULSE_PERIOD := 1.1
 
+## Where drawn cards fly from (real time sets its visible deck pile, GID-178);
+## null = the right end of the hand row.
+var deal_from: Control = null
+## Multiplies the deal flight time (real time slows it so a draw reads).
+var deal_time_mult: float = 1.0
 # Hand cards already dealt, by instance id (instance state; see deal_new_hand_cards).
 var _seen_hand: Dictionary = {}
 
 ## Deals in every card in `cards` (the local hand, same order as the children
-## of `hand_view`) that was not there at the previous call. Cards fly from the
-## right end of the hand row, where the draw pile would sit.
+## of `hand_view`) that was not there at the previous call. Cards fly from
+## `deal_from` (else the right end of the hand row, where the draw pile would sit).
 func deal_new_hand_cards(layer: CanvasLayer, hand_view: Control, cards: Array, speed_scale: float) -> void:
 	var now: Dictionary = {}
 	var order: int = 0
@@ -39,12 +44,14 @@ func deal_new_hand_cards(layer: CanvasLayer, hand_view: Control, cards: Array, s
 			kids.append(n as Control)
 	var rect: Rect2 = hand_view.get_global_rect()
 	var from := Vector2(rect.end.x, rect.get_center().y)
+	if deal_from != null and is_instance_valid(deal_from) and deal_from.is_visible_in_tree():
+		from = deal_from.get_global_rect().get_center()
 	for i: int in range(cards.size()):
 		var id: String = str((cards[i] as Object).get("instance_id"))
 		now[id] = true
 		if _seen_hand.has(id) or i >= kids.size():
 			continue
-		deal_in(layer, kids[i], from, order, speed_scale)
+		deal_in(layer, kids[i], from, order, speed_scale * deal_time_mult)
 		order += 1
 	_seen_hand = now
 

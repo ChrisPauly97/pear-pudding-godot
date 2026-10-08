@@ -195,10 +195,20 @@ static func configure_realtime(rt: RealtimeCombat, player_level: int, enemy_type
 	# Early fights stay small: fewer Allies, a short opening hand.
 	rt.set_ally_cap(CombatOnboarding.ally_cap(player_level))
 	rt.trim_hand(RealtimeCombat.PLAYER, CombatOnboarding.opening_hand(player_level))
+	techniques_to_hand(rt.state.players[RealtimeCombat.PLAYER])
 	rt.weapon_speed[RealtimeCombat.PLAYER] = weapon_speed
 	rt.offhand_damage[RealtimeCombat.PLAYER] = offhand_damage
 	if EnemyRegistry.is_passive(enemy_type):
 		rt.set_passive(RealtimeCombat.ENEMY)
+
+## Real time: every technique card starts in the opening hand (on top of the
+## trimmed hand), like abilities on a bar; after use each returns on its own
+## cooldown (PlayerCaster, GID-178).
+static func techniques_to_hand(p: PlayerState) -> void:
+	for c: CardInstance in p.draw_deck.duplicate():
+		if TechniqueDefs.is_technique(c.template_id):
+			p.draw_deck.erase(c)
+			p.hand.append(c)
 
 ## How hard an enemy side's spells hit, by its level (weak enemies still cast,
 ## just softer — TID-720) and its level gap over the player (TID-718). Pass to `SpellEffectResolver.resolve_enemy_play`.

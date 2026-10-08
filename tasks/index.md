@@ -181,6 +181,7 @@
 | [GID-175](goals/GID-175--technique-cards/goal.md) | Skill Bar → Technique Cards | done | 6 / 6 |
 | [GID-176](goals/GID-176--balance-sim/goal.md) | Balance Simulation Harness | done | 9 / 9 |
 | [GID-177](goals/GID-177--progression-pacing/goal.md) | Progression Pacing | done | 3 / 3 |
+| [GID-178](goals/GID-178--combat-pacing-feel/goal.md) | Combat Pacing & Feel | done | 3 / 3 |
 
 ## Backlog
 

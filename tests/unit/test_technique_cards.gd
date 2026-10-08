@@ -88,7 +88,8 @@ func test_strike_uses_real_time_value_only_in_real_time() -> void:
 	var rt := _state(100)
 	hp = rt.players[1].hero.health
 	_cast(rt, _tech("tech_strike"), {"type": "hero"})
-	assert_eq(rt.players[1].hero.health, hp - 5, "real time 5")
+	assert_eq(rt.players[1].hero.health, hp - int(TechniqueDefs.def("tech_strike")["rt_value"]),
+		"real-time value")
 
 func test_mend_and_guard() -> void:
 	var gs := _state()

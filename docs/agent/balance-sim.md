@@ -138,6 +138,14 @@ The bot is very consistent, so win rates move in cliffs (0.05 → 0.10 extra ene
 from ~95 % to ~40 %). Outliers left for content tuning: `ghoul_pack` +1 is too hard and early undead +1 too easy
 (BID-095).
 
+### After GID-178 / TID-724 (pacing)
+
+Techniques start in hand and return on cooldowns (Strike 3 s, 2 dmg), so the player acts ~3–5 times per 10 s
+(new `act10` column / `actions_10s` CSV field). Enemies were pushed back up (`enemy_unarmed` 2,
+`enemy_hp_per_level` 0.18, gap 0.12 HP / 0.08 damage). Bands: same level 100 % for every cell; one level up
+mean 80 % (bog hag 88, forest shade 100, ghoul pack 100, imbued stag 60, martarquas scout 30, undead 68,
+horde 100, wolves 98). The scout is the new hard outlier (BID-095).
+
 ## CI balance bands (TID-717)
 
 `game_logic/battle/BalanceBands.gd` turns the targets into checks. Cells: one per Chapter 1 type at a level

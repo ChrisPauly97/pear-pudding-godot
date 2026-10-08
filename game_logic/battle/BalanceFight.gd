@@ -5,7 +5,8 @@
 ## `BattleRealtime._process` makes, minus presentation.
 ##
 ## `run(cfg, policy)` → {result: "win"|"loss"|"timeout", seconds, hero_hp,
-## hero_hp_frac, plays: {template_id: n}, dealt_cards, dealt_auto, interrupts,
+## hero_hp_frac, plays: {template_id: n}, actions (cards played), actions_10s
+## (cards played per 10 s, GID-178), dealt_cards, dealt_auto, interrupts,
 ## enemy_casts, procs, full_mana_s}.
 extends RefCounted
 
@@ -76,6 +77,11 @@ static func run(cfg: Dictionary, policy: Dictionary = {}) -> Dictionary:
 		result = "win" if state.winner() == RealtimeCombat.PLAYER else "loss"
 	stats["result"] = result
 	stats["seconds"] = t
+	var actions: int = 0
+	for n: Variant in (stats["plays"] as Dictionary).values():
+		actions += int(n)
+	stats["actions"] = actions
+	stats["actions_10s"] = 10.0 * float(actions) / maxf(DT, t)
 	stats["hero_hp"] = me.hero.health
 	stats["hero_hp_frac"] = float(me.hero.health) / float(maxi(1, me.hero.max_health))
 	SpellEffectResolver.silent = false

@@ -1,14 +1,14 @@
 {
 	"cells": {
 		"bog_hag@7+0": {
-			"median_s": 33.0500000000003,
+			"median_s": 33.4000000000002,
 			"n": 20,
 			"win_rate": 1.0
 		},
 		"bog_hag@7+1": {
-			"median_s": 42.3999999999997,
+			"median_s": 42.0499999999997,
 			"n": 40,
-			"win_rate": 0.975
+			"win_rate": 0.875
 		},
 		"forest_shade@6+0": {
 			"median_s": 30.0500000000003,
@@ -16,70 +16,70 @@
 			"win_rate": 1.0
 		},
 		"forest_shade@6+1": {
-			"median_s": 39.3999999999999,
+			"median_s": 36.4000000000001,
 			"n": 40,
 			"win_rate": 1.0
 		},
 		"ghoul_pack@4+0": {
-			"median_s": 36.5500000000001,
+			"median_s": 30.4000000000003,
 			"n": 20,
 			"win_rate": 1.0
 		},
 		"ghoul_pack@4+1": {
-			"median_s": 45.0499999999996,
+			"median_s": 36.4000000000001,
 			"n": 40,
-			"win_rate": 0.425
+			"win_rate": 1.0
 		},
 		"imbued_stag@8+0": {
-			"median_s": 37.25,
+			"median_s": 39.0499999999999,
 			"n": 20,
 			"win_rate": 1.0
 		},
 		"imbued_stag@8+1": {
-			"median_s": 47.4499999999994,
+			"median_s": 45.0499999999996,
 			"n": 40,
-			"win_rate": 0.775
+			"win_rate": 0.6
 		},
 		"martarquas_scout@9+0": {
-			"median_s": 39.0499999999999,
+			"median_s": 41.3499999999998,
 			"n": 20,
 			"win_rate": 1.0
 		},
 		"martarquas_scout@9+1": {
-			"median_s": 46.2499999999995,
+			"median_s": 42.0499999999997,
 			"n": 40,
-			"win_rate": 0.625
+			"win_rate": 0.3
 		},
 		"undead_basic@1+0": {
-			"median_s": 27.0500000000002,
+			"median_s": 24.6000000000002,
 			"n": 20,
 			"win_rate": 1.0
 		},
 		"undead_basic@1+1": {
-			"median_s": 39.0499999999999,
+			"median_s": 33.0500000000003,
 			"n": 40,
-			"win_rate": 1.0
+			"win_rate": 0.675
 		},
 		"undead_horde@3+0": {
-			"median_s": 9.04999999999999,
+			"median_s": 6.04999999999999,
 			"n": 20,
 			"win_rate": 1.0
 		},
 		"undead_horde@3+1": {
-			"median_s": 9.04999999999999,
+			"median_s": 6.04999999999999,
 			"n": 40,
 			"win_rate": 1.0
 		},
 		"wolf_pack@5+0": {
-			"median_s": 39.3999999999999,
+			"median_s": 33.0500000000003,
 			"n": 20,
 			"win_rate": 1.0
 		},
 		"wolf_pack@5+1": {
-			"median_s": 48.0499999999994,
+			"median_s": 38.45,
 			"n": 40,
-			"win_rate": 0.775
+			"win_rate": 0.975
 		}
 	},
-	"measured_at": "415ac16"
+	"measured_at": "eda5c80"
 }

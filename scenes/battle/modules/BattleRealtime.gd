@@ -15,6 +15,7 @@
 ## `_ensure_battle_modules()`. Reach the scene as `_battle.<name>`.
 extends Node
 
+const _SwingFx = preload("res://scenes/battle/modules/SwingFx.gd")
 const _BattleScene = preload("res://scenes/battle/BattleScene.gd")
 const RealtimeCombat = preload("res://game_logic/battle/RealtimeCombat.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
@@ -259,6 +260,8 @@ func _on_caster_event(kind: String, data: Dictionary) -> void:
 		"fizzled":
 			toast("Target lost — spell fizzled")
 			_battle._refresh_all()
+		"returned":
+			_battle._refresh_all()
 		"resolved":
 			if fight_stats != null: fight_stats.record_card_damage(int(data.get("dealt", 0)))  # TID-559 tip
 		"technique":
@@ -468,6 +471,8 @@ func _animate_swing(ev: Dictionary) -> void:
 	var target_side: int = int(ev.get("target_side", RealtimeCombat.PLAYER if side != RealtimeCombat.PLAYER
 			else RealtimeCombat.ENEMY))
 	var to: Vector2 = _visuals.target_pos(target, target_side)
+	# GID-178 / TID-726: every swing lands with a slash + sparks as the lunge arrives.
+	_SwingFx.impact(_battle._float_layer, to, _battle._vh, side == RealtimeCombat.PLAYER)
 	var attacker: CardInstance = ev.get("attacker") as CardInstance
 	if attacker == null:
 		_visuals.lunge_token(side, to)

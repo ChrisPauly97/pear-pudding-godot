@@ -19,6 +19,7 @@
 ##   "fizzled"     {}            the cast's unit target left the board
 ##   "resolved"    {card, dealt} a cast finished (dealt = enemy HP lost)
 ##   "technique"   {card, effect} a technique card resolved
+##   "returned"    {card}        a technique came back to the hand (GID-178)
 extends RefCounted
 
 const RealtimeCombat = preload("res://game_logic/battle/RealtimeCombat.gd")
@@ -43,6 +44,10 @@ var _target: CardInstance = null
 var _pushbacks: int = 0
 var _resolving: bool = false
 var _last_hp: int = 0
+## Resolved techniques waiting to return to the hand: [{card, left}] (GID-178).
+## The card sits at the bottom of the draw pile meanwhile, so a saved / resumed
+## fight never loses it, and a natural draw simply cancels the return.
+var _returning: Array[Dictionary] = []
 
 func _init(combat: RealtimeCombat) -> void:
 	rt = combat
@@ -133,6 +138,7 @@ func run_off_gcd(card: CardInstance, finish: Callable) -> void:
 ## Per tick, before `rt.advance`: queue delay, pushback from hits taken since
 ## the last tick, then resolve a finished cast.
 func tick(dt: float) -> void:
+	_tick_returns(dt)
 	var hp: int = _me().hero.health
 	var hit: bool = hp < _last_hp
 	_last_hp = hp
@@ -224,6 +230,35 @@ func _after_technique(card: CardInstance, dealt: int) -> void:
 	if dealt > 0 and rt.on_player_hit(dealt, true):
 		_emit("proc")
 	_emit("technique", {"card": card, "effect": card.spell_effect})
+	_returning.append({"card": card,
+		"left": TechniqueDefs.recycle_time(card.template_id) * rt.tune.get_f("tech_recycle_mult")})
+
+## Seconds until `card` is back in the hand (0 = not waiting).
+func return_left(card: CardInstance) -> float:
+	for r: Dictionary in _returning:
+		if r["card"] == card:
+			return maxf(0.0, float(r["left"]))
+	return 0.0
+
+## Counts the returns down; a ready technique leaves the draw pile for the hand.
+## Returns ignore the hand cap (only draws respect it), so a hand clogged with
+## Allies never locks out Strike. Drawn early or gone → dropped from the queue.
+func _tick_returns(dt: float) -> void:
+	if _returning.is_empty():
+		return
+	var me := _me()
+	for r: Dictionary in _returning.duplicate():
+		var card := r["card"] as CardInstance
+		if not me.draw_deck.has(card):
+			_returning.erase(r)
+			continue
+		r["left"] = float(r["left"]) - dt
+		if float(r["left"]) > 0.0:
+			continue
+		me.draw_deck.erase(card)
+		me.hand.append(card)
+		_returning.erase(r)
+		_emit("returned", {"card": card})
 
 # --- Headless play (balance simulator) ------------------------------------
 

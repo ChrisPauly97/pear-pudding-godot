@@ -14,3 +14,7 @@ With the TID-718 global tuning, every Chapter 1 type is beaten ~100 % at the sam
 ## Suggested Resolution
 
 Soften `ghoul_pack`'s pack (e.g. one ghoul + two zombies) and give leaderless packs a gap lever (scale pack unit health by `gap_hp`). Re-run the matrix; TID-717's CI bands should then cover every type.
+
+## Update (GID-178 / TID-724)
+
+After the pacing change the spread moved: `ghoul_pack` +1 is now 100 %, `martarquas_scout` +1 is ~30 % and `imbued_stag` ~60 %, leaderless `undead_horde` still 100 %.

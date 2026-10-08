@@ -457,14 +457,15 @@ func test_level_scale_curve() -> void:
 	assert_lt(_tune.level_scale(3), _tune.level_scale(6))
 
 func test_enemy_above_you_hits_harder() -> void:
-	var same := _heavy_rt(5)
+	var steep := CombatTuning.new({"gap_damage": 0.5})
+	var same := _heavy_rt(5, steep)
 	same.side_levels[RealtimeCombat.PLAYER] = 5
-	var above := _heavy_rt(6)
+	var above := _heavy_rt(6, steep)
 	above.side_levels[RealtimeCombat.PLAYER] = 5
 	assert_gt(above.heavy_damage(), same.heavy_damage(), "a higher-level enemy's heavy hits harder")
-	assert_gt(_tune.gap_mult(6, 5), 1.0)
-	assert_lt(_tune.gap_mult(4, 5), 1.0)
-	assert_almost_eq(_tune.gap_mult(1, 30), 0.5, 0.001, "never under half")
+	assert_gt(steep.gap_mult(6, 5), 1.0)
+	assert_lt(steep.gap_mult(4, 5), 1.0)
+	assert_almost_eq(steep.gap_mult(1, 30), 0.5, 0.001, "never under half")
 
 func test_kick_stops_the_heavy_blow() -> void:
 	var rt := _heavy_rt()
