@@ -125,6 +125,11 @@ static func camp_def(camp_id: String) -> Dictionary:
 
 
 static func _layout(camp_id: String) -> Array:
+	if not LAYOUTS.has(camp_id) and camp_id != "old_orchard":
+		# Road camps (GID-177) reuse a Madrian camp's dressing via their `dress` key.
+		var dress: String = str(camp_def(camp_id).get("dress", ""))
+		if dress != "" and dress != camp_id:
+			return _layout(dress)
 	if camp_id != "old_orchard":
 		return LAYOUTS.get(camp_id, []) as Array
 	var out: Array = []

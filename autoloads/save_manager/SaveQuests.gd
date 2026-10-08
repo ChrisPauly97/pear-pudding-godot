@@ -55,7 +55,7 @@ func npc_states() -> Dictionary:
 			out[_SideQuests.turn_in_npc(q)] = "turn_in"
 	for q: Dictionary in _SideQuests.all():
 		var giver: String = str(q.get("giver", ""))
-		if out.get(giver, "") == "turn_in":
+		if giver == "" or out.get(giver, "") == "turn_in":
 			continue
 		var min_level: int = int(q.get("min_level", 1))
 		if _SideQuests.can_offer(q, _save.level, _save.story_flags, _save.quests_active, _save.quests_completed):
@@ -127,9 +127,35 @@ func progress_event(event_type: String, target: String = "", amount: int = 1) ->
 		GameBus.quest_progressed.emit(id)
 		if not was_ready and _SideQuests.is_complete(q, progress):
 			GameBus.quest_ready.emit(id)
+			if bool(q.get("auto", false)):
+				_auto_complete(id, q)
 	if changed:
 		_save._dirty = true
 	return changed
+
+## GID-177 / TID-722: starts a giver-less bonus objective (a camp's "Cull"
+## quest) when the player walks into its camp — once the level allows and its
+## cooldown has run out. Returns true when it started.
+func auto_start(id: String, now: float = -1.0) -> bool:
+	var q: Dictionary = _SideQuests.def(id)
+	if q.is_empty() or not bool(q.get("auto", false)) or is_active(id):
+		return false
+	if (now if now >= 0.0 else _now()) < float(_save.quest_repeat_at.get(id, 0.0)):
+		return false
+	if not accept(id):
+		return false
+	GameBus.hud_message_requested.emit("Bonus objective: %s" % str(q.get("title", "")))
+	return true
+
+## A bonus objective pays out the moment it is done (no NPC to hand it to).
+func _auto_complete(id: String, q: Dictionary) -> void:
+	var rewards: Dictionary = turn_in(id)
+	if not rewards.is_empty():
+		GameBus.hud_message_requested.emit("%s complete — +%d XP" % [str(q.get("title", "")),
+				int(rewards.get("xp", 0))])
+
+static func _now() -> float:
+	return Time.get_unix_time_from_system()
 
 ## Hands a ready quest in: pays its rewards, sets its flag and records it.
 ## `gear_pick` is the chosen item of a `gear_choice` reward (TID-538; granted as a
@@ -147,7 +173,10 @@ func turn_in(id: String, gear_pick: String = "") -> Dictionary:
 		_save.gear.grant(gear_pick, quest_gear_roll(q))
 		rewards["gear"] = gear_pick
 	_save.quests_active.erase(id)
-	_save.quests_completed.append(id)
+	if _SideQuests.is_repeatable(q):
+		_save.quest_repeat_at[id] = _now() + float(q.get("cooldown_s", 0.0))
+	elif not _save.quests_completed.has(id):
+		_save.quests_completed.append(id)
 	var coins: int = int(rewards.get("coins", 0))
 	if coins > 0:
 		_save.add_coins(coins)

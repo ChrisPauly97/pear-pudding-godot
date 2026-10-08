@@ -21,6 +21,9 @@ const _BESTIARY_ELIGIBLE: Array[String] = [
 ## Starter-zone types are authored; the rest default by difficulty tier.
 const LEVEL_RANGES: Dictionary = {
 	"undead_basic": Vector2i(1, 2), "undead_horde": Vector2i(2, 4), "ghoul_pack": Vector2i(3, 5),
+	# GID-177 / TID-722: Chapter 1 road-camp types.
+	"wolf_pack": Vector2i(4, 6), "forest_shade": Vector2i(5, 8), "bog_hag": Vector2i(6, 8),
+	"imbued_stag": Vector2i(7, 9), "martarquas_scout": Vector2i(8, 10),
 }
 const TIER_LEVEL_RANGES: Array[Vector2i] = [Vector2i(1, 12), Vector2i(5, 24), Vector2i(12, 40), Vector2i(20, 60)]
 

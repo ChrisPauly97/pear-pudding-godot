@@ -1,4 +1,5 @@
-## StarterZone — Madrian's outskirts as the level 1–5 starter zone (zone levels: ZoneLevels)
+## StarterZone — Madrian's outskirts as the level 1–5 starter zone (zone levels: ZoneLevels),
+## plus the Chapter 1 road camps (levels 5–10, GID-177 / TID-722)
 ## (GID-141 / TID-591).
 ##
 ## Camps are fixed groups of enemies, placed in rings
@@ -45,6 +46,23 @@ const CAMPS: Array[Dictionary] = [
 		"count": 4, "tracking": true},
 	{"id": "south_road", "name": "South Road Wreck", "tile": Vector2i(40, 45), "enemy_type": "ghoul_pack",
 		"count": 5, "tracking": true},
+	# ── GID-177 / TID-722: Chapter 1 road camps (levels 5–10 come from their zone, TID-719).
+	# Sited 10–30 tiles off the route on clear ground (tools probe: reserved distance, rivers, coast).
+	# `dress` reuses a Madrian camp's set dressing (CampDressing.LAYOUTS).
+	{"id": "wolf_hollow", "name": "Wolf Hollow", "tile": Vector2i(-16, 68), "enemy_type": "wolf_pack",
+		"count": 4, "tracking": true, "dress": "north_tor"},
+	{"id": "shade_thicket", "name": "Shade Thicket", "tile": Vector2i(-15, 83), "enemy_type": "forest_shade",
+		"count": 4, "tracking": true, "dress": "east_copse"},
+	{"id": "mire_edge", "name": "Mire Edge", "tile": Vector2i(56, 128), "enemy_type": "bog_hag",
+		"count": 4, "tracking": true, "dress": "hedge_ruins"},
+	{"id": "stag_glade", "name": "Stag Glade", "tile": Vector2i(32, 146), "enemy_type": "imbued_stag",
+		"count": 4, "tracking": true, "dress": "east_copse"},
+	{"id": "old_watchtower", "name": "Old Watchtower", "tile": Vector2i(92, 168), "enemy_type": "forest_shade",
+		"count": 5, "tracking": true, "dress": "hedge_ruins"},
+	{"id": "martarquas_outpost", "name": "Martarquas Outpost", "tile": Vector2i(78, 206),
+		"enemy_type": "martarquas_scout", "count": 4, "tracking": true, "dress": "west_crossing"},
+	{"id": "scout_ridge", "name": "Scout Ridge", "tile": Vector2i(122, 212), "enemy_type": "martarquas_scout",
+		"count": 5, "tracking": true, "dress": "north_tor"},
 ]
 
 ## GID-166: each camp sits in a clearing this many tiles in radius for its set

@@ -8,6 +8,7 @@ extends Node
 
 const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const _StarterZone = preload("res://game_logic/world/StarterZone.gd")
+const _SideQuests = preload("res://game_logic/quests/SideQuests.gd")
 const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _LooseEnemySpawner = preload("res://scenes/world/LooseEnemySpawner.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
@@ -79,7 +80,15 @@ func tick(delta: float) -> void:
 				<= _StarterZone.ACTIVE_RANGE
 		for slot: int in range(int(camp["count"])):
 			_update_slot(camp, slot, near)
+		_maybe_start_bonus(camp, centre, player)
 	_update_barrow_king(player)
+
+## GID-177 / TID-722: stepping into a camp starts its repeatable "Cull" bonus objective.
+func _maybe_start_bonus(camp: Dictionary, centre: Vector3, player: Node3D) -> void:
+	var r: float = (_StarterZone.CAMP_CLEAR_RADIUS + 2.0) * IsoConst.TILE_SIZE
+	if Vector2(centre.x - player.position.x, centre.z - player.position.z).length() > r:
+		return
+	SceneManager.save_manager.quests.auto_start(_SideQuests.camp_quest_id(str(camp["id"])))
 
 func _update_slot(camp: Dictionary, slot: int, near: bool) -> void:
 	var id: String = _StarterZone.member_id(camp, slot)

@@ -106,7 +106,7 @@ func test_every_trainer_and_quest_giver_has_its_own_sprite() -> void:
 	const UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 	var ids: Array[String] = []
 	for q: Dictionary in SideQuests.all():
-		if not ids.has(str(q["giver"])):
+		if str(q["giver"]) != "" and not ids.has(str(q["giver"])):
 			ids.append(str(q["giver"]))
 	for t: Variant in UnlockLadder.TRAINER_NPCS:
 		var nid: String = str(UnlockLadder.TRAINER_NPCS[t])

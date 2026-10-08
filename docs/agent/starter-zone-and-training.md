@@ -178,11 +178,11 @@ Quests live in `SideQuests.QUESTS` (see `story-implementation.md` → Side Quest
 | 4 | Raise the Fallen | Old Tam | 4 | learn minions, 4 kills | North Barrow | 270 · 60 |
 | 5 | First Spark | Ivy | 5 | learn spells, 3 kills → **`town_quests_done`** | Hedge Ruins | 350 · 80 |
 | — | *Maiteln arrives* (story `speak_maiteln`) — teaches companion (L6) and magic/skills (L7) | | | | | |
-| 6 | Trouble in the East Copse | Old Tam | 6 | 4 kills | East Copse | 400 · 80 |
-| 7 | Hold the West Crossing | Brother Aldo | 7 | 5 kills | West Crossing | 450 · 100 |
-| 8 | The Board by the Well | Bounty Master | 8 | learn Bounties, 4 kills | North Tor | 520 · 120 |
+| 6 | Shades on the South Road (`east_copse`) | Old Tam | 6 | 4 forest shades | Shade Thicket (road, L6) | 400 · 80 |
+| 7 | The Mire Edge Hags (`west_crossing`) | Brother Aldo | 7 | 5 bog hags | Mire Edge (road, L7) | 450 · 100 |
+| 8 | The Board by the Well | Bounty Master | 8 | learn Bounties, 4 forest shades | Old Watchtower (road, L8) | 520 · 120 |
 | 9 | After Dark | Bounty Master | 9 | learn Night Hunts, 2 wisps | (night) | 560 · 140 |
-| 10 | The South Road Wreck | Hilda | 9 | 5 kills | South Road Wreck | 600 · 150 |
+| 10 | The Stolen Flour Cart (`south_road_wreck`) | Hilda | 9 | 5 Martarquas scouts | Martarquas Outpost (road, L9) | 600 · 150 |
 | 11 | Old Bones | Gravedigger | 10 | learn Dig, dig a graveyard mound | Graveyard | 800 · 200 |
 | 12 | The Sealed Crypt | Gravedigger | 12 | learn Phase, open the crypt chest | Sealed crypt | 1000 · 250 |
 
@@ -194,6 +194,41 @@ Quests live in `SideQuests.QUESTS` (see `story-implementation.md` → Side Quest
   real time (ability id, e.g. `mend`), `use_skill "skeleton_dig"` from `BurialMound`, `open <chest id>` from `ChestLoot.open`.
 - Pacing is asserted by `test_side_quests.test_starter_chain_paces_levels_and_gold`: quest kills only, real kill
   XP/coins, every training affordable when its quest asks for it, level 6 + companion gold at the end.
+
+### Chapter 1 road camps and camp bonus objectives (GID-177 / TID-722)
+
+Chapter 1 runs levels 1–10 along the story route (TID-719 zones), so the camps continue past Madrian. Seven road
+camps were appended to `StarterZone.CAMPS` (same shape; they spawn, refill and are never saved as defeated exactly
+like Madrian's). Their levels come from the zone, and their `dress` key reuses a Madrian camp's `CampDressing` layout.
+
+| Camp | Tile | Enemy (level range) | Level |
+|---|---|---|---|
+| Wolf Hollow | (−16, 68) | wolf_pack (4–6) | 5 |
+| Shade Thicket | (−15, 83) | forest_shade (5–8) | 6 |
+| Mire Edge | (56, 128) | bog_hag (6–8) | 7 |
+| Stag Glade | (32, 146) | imbued_stag (7–9) | 7 |
+| Old Watchtower | (92, 168) | forest_shade | 8 |
+| Martarquas Outpost | (78, 206) | martarquas_scout (8–10) | 9 |
+| Scout Ridge | (122, 212) | martarquas_scout | 10 |
+
+- **Siting:** found by probing the route for tiles of the right level 12–30 tiles off the road, with reserved
+  distance ≥ 9 and no deep water in the ring. The South Road strip between the coast, rivers and Maykalene has no
+  level-4 slot; Madrian's level-4 camps cover it.
+- **Bonus objectives:** `SideQuests.camp_quests()` generates one repeatable "Cull: <camp>" quest per camp (id
+  `cull_<camp>`): kill `CAMP_QUEST_KILLS` (5) of its type.
+  - `min_level` = max(3, camp level − 2); XP = ⅙ of `XpCurve.step(camp level)`; coins 10 + 4 × level. Final sizing
+    is TID-723's.
+  - There is no giver (`auto`, `giver` ""): `StarterCamps._maybe_start_bonus` calls `SaveQuests.auto_start(id)` when
+    the player is within `CAMP_CLEAR_RADIUS + 2` tiles of the camp.
+  - It completes and pays out the moment its kills are done (`_auto_complete`, HUD toasts).
+  - It isn't recorded in `quests_completed`; `SaveManager.quest_repeat_at[id]` holds when it may start again
+    (`CAMP_QUEST_COOLDOWN_S` 600 s).
+- `SideQuests.all()` = authored `QUESTS` + generated camp quests. `offers_for` / `upcoming_for` / `npc_states` ignore
+  giver-less quests.
+- The level 6–9 starter quests now send the player to road camps of their level (table above; ids kept for saves).
+- Tests: `tests/unit/test_camp_quests.gd` (camps cover levels 1–10, road camps on clear ground, a bonus objective
+  per camp, ≥ 3 quests open around each level 3–9, kill targets within 2 levels of the quest, auto-start / cooldown /
+  payout).
 
 ### Visual finish pass (TID-593 / TID-594)
 

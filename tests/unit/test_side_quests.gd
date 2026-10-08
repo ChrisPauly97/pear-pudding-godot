@@ -24,7 +24,10 @@ func test_table_is_well_formed() -> void:
 	var ids: Dictionary = {}
 	for q: Dictionary in SideQuests.all():
 		var id: String = str(q.get("id", ""))
-		for k: String in ["id", "title", "giver", "giver_name", "summary"]:
+		var keys: Array[String] = ["id", "title", "summary"]
+		if not bool(q.get("auto", false)):  # bonus objectives (GID-177) have no giver
+			keys.append_array(["giver", "giver_name"])
+		for k: String in keys:
 			assert_true(str(q.get(k, "")) != "", "%s has %s" % [id, k])
 		assert_false(ids.has(id), "quest id %s is unique" % id)
 		ids[id] = true
@@ -129,6 +132,8 @@ func test_every_giver_stands_in_a_stitched_town() -> void:
 	for npc: Dictionary in RealmLayout.entities("npcs"):
 		ids[str(npc.get("id", ""))] = true
 	for q: Dictionary in SideQuests.all():
+		if bool(q.get("auto", false)):
+			continue  # camp bonus objectives (GID-177) have no giver
 		assert_true(ids.has(str(q["giver"])), "%s giver %s is placed" % [str(q["id"]), str(q["giver"])])
 		assert_true(ids.has(SideQuests.turn_in_npc(q)), "%s turn-in NPC is placed" % str(q["id"]))
 

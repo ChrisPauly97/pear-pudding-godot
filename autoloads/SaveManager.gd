@@ -85,7 +85,7 @@ const PERSISTED_FIELDS: Dictionary = {
 	"owned_mounts": [], "active_mount": "", "is_mounted": false,
 	"packs_since_legendary": 0, "active_companion": "", "waypoint": {}, "tracked_quest": "",
 	"bounty_day": 0, "offered_bounties": [], "active_bounties": [],
-	"quests_active": {}, "quests_completed": [],
+	"quests_active": {}, "quests_completed": [], "quest_repeat_at": {},
 	# 0 means "absent" — _restore_derived_fields substitutes IsoConst's default,
 	# which can't be referenced from a const expression (IsoConst is an autoload).
 	"bag_size": 0,
@@ -307,6 +307,8 @@ var active_bounties: Array[Dictionary] = []
 ## Side quests (GID-136 / TID-533): {quest_id: {"progress": [int]}} and turned-in ids.
 var quests_active: Dictionary = {}
 var quests_completed: Array[String] = []
+## GID-177: repeatable quest id → unix time it may start again (camp bonus objectives).
+var quest_repeat_at: Dictionary = {}
 
 # Siege system
 # Active siege: {town: String, stage: int, hero_hp: int, day_started: int} or {} when none.
