@@ -21,6 +21,7 @@ Decide the rules for turning the real-time skill bar into technique cards before
 - `game_logic/battle/SkillBar.gd` `ABILITIES`: strike, mend, kick, guard, ember_lance, mana_tap, sweep, daze (cost in mana points, cooldown, cast, effect, value, off_gcd, level_req, learn_cost).
 - Real-time draw: `RealtimeCombat` `_draw_timer` / `tune.draw_interval` (6 s) / `hand_cap` (7); `trim_hand()` shrinks the opening hand.
 - Questions to settle in the doc: what replaces the cooldown (recycle to the bottom of the draw pile), whether techniques count toward deck size, Kick/Daze when drawn late (they are reactive), turn-based equivalents (interrupt → silence/stun), cost scale (points vs units), the GCD/off_gcd flag on a card, and whether draw tuning must change to keep "always a button" (GID-139).
+- **Keep hero auto-attack** (user, 2026-10-08): it is weapon-driven, passive and feeds the deck through the mana siphon. Rule: no manual swing or weapon abilities. If auto-attack decides fights, tune its damage down rather than weakening cards.
 - Output: a new "Technique cards (GID-175)" section in combat-model.md that supersedes the skill-bar sections (mark those superseded instead of deleting them).
 
 ## Plan
