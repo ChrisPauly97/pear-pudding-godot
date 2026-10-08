@@ -153,3 +153,16 @@ func test_type_hp_mult_applies() -> void:
 	assert_eq(p.hero.health, 34)
 	assert_lt(EnemyRegistry.rt_hp_mult("martarquas_scout"), 1.0)
 	assert_eq(EnemyRegistry.rt_hp_mult("undead_basic"), 1.0)
+
+## BID-095: a leaderless horde refills up to its pack size and hits harder.
+func test_horde_reinforces_and_hits_harder() -> void:
+	var rt: RealtimeCombat = BattleSetup.build({"seed": 5, "player_level": 3, "enemy_level": 3,
+		"enemy_type": "undead_horde"})["rt"]
+	assert_eq(rt.enemy_minion_cap, EnemyRegistry.get_pack("undead_horde").size(), "cap = pack size")
+	var p := PlayerState.new(1, true)
+	var unit := CardInstance.new({"id": "u", "name": "U", "cost": 1, "attack": 2, "health": 3,
+		"card_class": "minion", "description": ""})
+	p.hand.append(unit)
+	BattleSetup.add_enemy_attack(p, 1)
+	assert_eq(unit.attack, 3)
+	assert_gt(EnemyRegistry.rt_attack_bonus("undead_horde"), 0)

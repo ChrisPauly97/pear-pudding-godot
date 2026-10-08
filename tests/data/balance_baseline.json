@@ -61,12 +61,12 @@
 			"win_rate": 0.5
 		},
 		"undead_horde@3+0": {
-			"median_s": 9.04999999999999,
+			"median_s": 15.0500000000001,
 			"n": 20,
 			"win_rate": 1.0
 		},
 		"undead_horde@3+1": {
-			"median_s": 9.09999999999999,
+			"median_s": 15.5500000000001,
 			"n": 40,
 			"win_rate": 1.0
 		},
@@ -81,5 +81,5 @@
 			"win_rate": 0.975
 		}
 	},
-	"measured_at": "62fd962"
+	"measured_at": "8e7b18c"
 }

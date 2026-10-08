@@ -408,7 +408,7 @@ changes them. Knobs (CombatTuning, Enemy group):
 | `hp_per_level` | 5 | Your hero's max HP per level above 1 (keeps its HP fraction) |
 | `enemy_unarmed` | 2 | Enemy hero swing damage (+ tier − 1); raised back from 1 with GID-178's faster player pacing |
 
-Pack units on the board scale with level / gap like their hero; per-type `rt_hp_mult` (EnemyRegistry, real time only) trims outliers (BID-095).
+Pack units on the board scale with level / gap like their hero; per-type `rt_hp_mult` / `rt_attack_bonus` (EnemyRegistry, real time only) even out outliers; a leaderless pack refills up to its pack size (BID-095).
 Chapter 1 types (`EnemyRegistry.LEVEL_RANGES`) fight at tier 1 (`BattleSetup.base_tier`); their strength comes from
 level. Opening hands never fatigue (`PlayerState.draw_opening_hand`).
 

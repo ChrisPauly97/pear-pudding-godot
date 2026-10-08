@@ -1,6 +1,7 @@
 # BID-095: Chapter 1 enemy types spread widely one level up
 
 **Category:** balance
+**Status:** resolved (TID-727, TID-729)
 **Discovered During:** GID-176 / TID-718
 
 ## Description
@@ -26,3 +27,7 @@ After the pacing change the spread moved: `ghoul_pack` +1 is now 100 %, `martarq
 - Global `gap_damage` 0.08 → 0.10.
 - One level up, mean per type (30 fights / cell): ghoul pack 80 %, scout ~82 %, stag ~68 %, wolves ~91 %, forest shade ~82 %, bog hag ~81 %, undead ~78 %.
 - **Left open:** the leaderless `undead_horde` is 100 % one level up at any HP (its units die before they deal real damage); it needs more damage or a different pack, not HP.
+
+## Horde (TID-729)
+
+The leaderless `undead_horde` never summoned (its 3-unit pack already exceeded the 1-minion cap below enemy level 5) and its units died before dealing real damage. Now: its minion cap is its pack size (it refills from its deck as you cut it down — `BattleSetup.configure_realtime`), its pack is four strong (3 → 4), and its units get `rt_attack_bonus` +2 (`BattleSetup.add_enemy_attack`, board + hand + deck, real time only). One level up: L2 30 %, L3–4 100 % (mean ~77 %); same level 100 %. All Chapter 1 types are now in band on average.

@@ -191,8 +191,12 @@ static func configure_realtime(rt: RealtimeCombat, player_level: int, enemy_type
 		weapon_speed: float, offhand_damage: int, puzzle: bool = false) -> void:
 	rt.heavy_enabled = not puzzle
 	var enemy_level: int = rt.side_levels[RealtimeCombat.ENEMY]
-	rt.set_enemy_minion_cap(1 if enemy_level < rt.tune.get_i("enemy_two_minions_level")
-			else RealtimeCombat.MAX_ENEMY_MINIONS)
+	var cap: int = 1 if enemy_level < rt.tune.get_i("enemy_two_minions_level") else RealtimeCombat.MAX_ENEMY_MINIONS
+	# A leaderless horde is its units: it refills up to its pack size from its deck,
+	# so it reinforces as you cut it down instead of being three free kills (BID-095).
+	if EnemyRegistry.is_leaderless(enemy_type):
+		cap = maxi(cap, EnemyRegistry.get_pack(enemy_type).size())
+	rt.set_enemy_minion_cap(cap)
 	# Early fights stay small: fewer Allies, a short opening hand.
 	rt.set_ally_cap(CombatOnboarding.ally_cap(player_level))
 	rt.trim_hand(RealtimeCombat.PLAYER, CombatOnboarding.opening_hand(player_level))
@@ -202,6 +206,16 @@ static func configure_realtime(rt: RealtimeCombat, player_level: int, enemy_type
 	if EnemyRegistry.is_passive(enemy_type):
 		rt.set_passive(RealtimeCombat.ENEMY)
 	scale_enemy_hp(rt.state.players[RealtimeCombat.ENEMY], EnemyRegistry.rt_hp_mult(enemy_type))
+	add_enemy_attack(rt.state.players[RealtimeCombat.ENEMY], EnemyRegistry.rt_attack_bonus(enemy_type))
+
+## Adds `bonus` attack to every minion an enemy side has (board, hand, deck), so
+## reinforcements hit as hard as the opening pack (per-type tuning, BID-095).
+static func add_enemy_attack(p: PlayerState, bonus: int) -> void:
+	if bonus == 0:
+		return
+	for c: CardInstance in p.board.get_cards() + p.hand + p.draw_deck:
+		if c.card_class != "spell":
+			c.attack = maxi(0, c.attack + bonus)
 
 ## Multiplies an enemy side's hero and board-unit HP by `mult` (per-type
 ## real-time tuning, `EnemyRegistry.rt_hp_mult` — BID-095). Health keeps its fraction.

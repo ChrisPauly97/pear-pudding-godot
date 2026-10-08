@@ -152,6 +152,11 @@ Pack units scale with level / gap like their leader; per-type `rt_hp_mult` (Enem
 (0.85), stag (0.9) and ghoul pack (0.95); `gap_damage` 0.10. One level up, mean per type: 68–91 % for every
 Chapter 1 type except the leaderless horde (100 %, still open in BID-095). Bands mean 82 %.
 
+### After TID-729 (horde)
+
+The leaderless horde refills to its pack size (4 units) and its units get `rt_attack_bonus` +2. One level up it
+averages ~77 % (30 % at L2, 100 % at L3–4). Every Chapter 1 type is now in band on average; BID-095 resolved.
+
 ## CI balance bands (TID-717)
 
 `game_logic/battle/BalanceBands.gd` turns the targets into checks. Cells: one per Chapter 1 type at a level

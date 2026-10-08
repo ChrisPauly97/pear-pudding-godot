@@ -53,12 +53,14 @@ static func _ensure_loaded() -> void:
 			"capture_param": 9,
 		},
 		"undead_horde": {
+			"rt_attack_bonus": 2,  # BID-095: a horde hits as a horde (with its 4-unit pack)
 			"display_name": "Horde Shambler",
 			"deck": ["ghost", "ghost", "ghost", "ghost", "skeleton", "skeleton", "skeleton", "zombie", "zombie",
 					"ghoul", "ghoul"],
 			"drop_pool": ["skeleton", "zombie", "dawn_acolyte", "dusk_wraith", "shrouded_wraith", "dusk_seer",
 					"void_creeper"],
-			"pack": ["zombie", "skeleton", "ghost"],  # starts on the board; shown beside it in the world (TID-541)
+			# Starts on the board; shown beside it in the world (TID-541). Four strong: a horde (BID-095).
+			"pack": ["zombie", "skeleton", "ghost", "zombie"],
 			"leaderless": true,  # no enemy hero: clear the board to win (BID-077)
 			"coin_reward": 8,
 			"is_boss": false,
@@ -723,6 +725,12 @@ static func rt_hp_mult(type_id: String) -> float:
 	_ensure_loaded()
 	var data: Dictionary = _enemies.get(type_id, {})
 	return float(data.get("rt_hp_mult", 1.0))
+
+## Real-time per-type attack bonus for the type's units (BID-095), 0 when unset.
+static func rt_attack_bonus(type_id: String) -> int:
+	_ensure_loaded()
+	var data: Dictionary = _enemies.get(type_id, {})
+	return int(data.get("rt_attack_bonus", 0))
 
 static func is_passive(type_id: String) -> bool:
 	_ensure_loaded()
