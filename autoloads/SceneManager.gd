@@ -6,6 +6,7 @@ extends Node
 signal state_changed(from: State, to: State)
 
 const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
+const _BiomeDef = preload("res://game_logic/world/BiomeDef.gd")
 const _SceneFlow = preload("res://game_logic/SceneFlow.gd")
 const _RendererOptIn = preload("res://game_logic/RendererOptIn.gd")
 const _UiTheme = preload("res://scenes/ui/UiTheme.gd")
@@ -56,7 +57,6 @@ const _SESSION_STAT_KEYS: PackedStringArray = [
 ]
 
 # Fixed world seeds — one per biome, giving each a distinct world layout.
-const _BIOME_SEEDS: Array[int] = [42, 73856135, 100033, 19349705, 294967337]
 ## Camera zoom factor (orthographic size multiplier) for fighting in place.
 const _IN_WORLD_ZOOM: float = 0.6
 const _IN_WORLD_ZOOM_SECONDS: float = 0.35
@@ -405,7 +405,7 @@ func start_new_game() -> void:
 
 func start_new_game_with_biome(biome_id: int, head_start: bool = false) -> void:
 	_exit_world_cleanup()
-	save_manager.world_seed = _BIOME_SEEDS[clamp(biome_id, 0, _BIOME_SEEDS.size() - 1)]
+	save_manager.world_seed = _BiomeDef.START_SEEDS[clampi(biome_id, 0, _BiomeDef.START_SEEDS.size() - 1)]
 	save_manager.starting_biome = biome_id
 	save_manager.new_game(head_start)
 	_apply_audio_settings()

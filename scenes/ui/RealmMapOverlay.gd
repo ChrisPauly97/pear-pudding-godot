@@ -23,6 +23,7 @@ const _RealmMapOverlay = preload("res://scenes/ui/RealmMapOverlay.gd")
 
 const _Coast = preload("res://game_logic/world/Coast.gd")
 const _RealmMapArt = preload("res://game_logic/world/RealmMapArt.gd")
+const _RealmMapBaked = preload("res://game_logic/world/RealmMapBaked.gd")
 const _COL_BG := Color(0.13, 0.19, 0.12)
 const _COL_ROAD := Color(0.70, 0.58, 0.38)
 const _COL_SEA := Color(0.16, 0.33, 0.48)
@@ -30,8 +31,6 @@ const _COL_TOWN := Color(0.46, 0.40, 0.30)
 const _COL_TOWN_EDGE := Color(0.85, 0.75, 0.52)
 const _COL_WAYSTONE := Color(0.40, 0.90, 1.00)
 const _COL_WAYPOINT := Color(0.20, 0.80, 1.00)
-## Tiles of wilderness shown around the realm's outline.
-const _MARGIN_TILES: float = 32.0
 ## Zoom 1 = the whole realm (world overview); the map opens at OPEN_ZOOM on the player.
 const MAX_ZOOM: float = 8.0
 const OPEN_ZOOM: float = 4.0
@@ -57,7 +56,7 @@ class _MapLayer extends Control:
 # (QuestTracker steps it from world load) and shared by every realm map after.
 static var _art_seed: int = -1
 static var _painter: _RealmMapArt.Painter = null
-static var _terrain_tex: ImageTexture = null
+static var _terrain_tex: Texture2D = null
 static var _terrain_rect := Rect2i()
 static var _town_tex: Dictionary = {}
 
@@ -173,8 +172,14 @@ static func prewarm(world_seed: int) -> void:
 	_art_seed = world_seed
 	_terrain_tex = null
 	_town_tex = {}
-	var b: Rect2 = realm_bounds()
-	_terrain_rect = Rect2i(Vector2i(b.position.floor()), Vector2i(b.size.ceil()))
+	_terrain_rect = _RealmMapArt.terrain_rect()
+	# Baked at build time (tools/bake_realm_map.gd) for every start seed: instant.
+	var baked: Texture2D = _RealmMapBaked.terrain(world_seed)
+	if baked != null and _RealmMapBaked.RECT == _terrain_rect:
+		_terrain_tex = baked
+		_town_tex = _RealmMapBaked.towns()
+		_painter = null
+		return
 	_painter = _RealmMapArt.Painter.new(_terrain_rect, world_seed)
 
 
@@ -198,23 +203,9 @@ static func _mipmapped(img: Image) -> ImageTexture:
 
 
 ## Tile rect covering every town, road and story site, padded, grown to include
-## `extra` tiles (the player, quest targets) and made square.
+## `extra` tiles (the player, quest targets) and made square (RealmMapArt).
 static func realm_bounds(extra: Array[Vector2] = []) -> Rect2:
-	var r := Rect2()
-	var first: bool = true
-	for town: String in _RealmLayout.town_names():
-		var wr: Rect2i = _RealmLayout.world_rect(town)
-		var tr := Rect2(Vector2(wr.position), Vector2(wr.size))
-		r = tr if first else r.merge(tr)
-		first = false
-	for road: Array in _RealmLayout.ROADS:
-		for p: Vector2 in road:
-			r = r.expand(p)
-	for p: Vector2 in extra:
-		r = r.expand(p)
-	r = r.grow(_MARGIN_TILES)
-	var side: float = maxf(r.size.x, r.size.y)
-	return Rect2(r.get_center() - Vector2(side, side) * 0.5, Vector2(side, side))
+	return _RealmMapArt.realm_bounds(extra)
 
 
 func _extra_tiles() -> Array[Vector2]:
@@ -316,7 +307,7 @@ func _on_draw(c: Control) -> void:
 	for town: String in _RealmLayout.town_names():
 		var wr: Rect2i = _RealmLayout.world_rect(town)
 		var rect := Rect2(_tile_to_panel(Vector2(wr.position)), Vector2(wr.size) * _scale)
-		var art: ImageTexture = _town_tex.get(town) as ImageTexture if painted else null
+		var art: Texture2D = _town_tex.get(town) as Texture2D if painted else null
 		if art != null:
 			c.draw_texture_rect(art, rect, false)
 		else:
@@ -354,7 +345,7 @@ func _draw_town_banner(c: Control, _font: Font, town: String, rect: Rect2) -> vo
 	var seen: Rect2 = rect.intersection(_panel)
 	if seen.has_area():
 		var top: float = _panel.position.y + _font_size * 4.5 + fs  # below the button row
-		if at.y < top:
+		if rect.position.y < _panel.position.y and at.y < top:
 			at.y = minf(top, maxf(seen.end.y - fs * 0.3, _panel.position.y + fs))
 			at.x = seen.get_center().x - tw * 0.5
 		at.x = clampf(at.x, _panel.position.x + 4.0, maxf(_panel.position.x + 4.0, _panel.end.x - tw - 4.0))

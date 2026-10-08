@@ -7,6 +7,10 @@ const SCORCHED:   int = 3
 const MOUNTAINS:  int = 4
 const COUNT:      int = 5
 
+## World seed for each starting biome (new game picks by biome). The realm map's
+## art is baked for exactly these (tools/bake_realm_map.gd).
+const START_SEEDS: Array[int] = [42, 73856135, 100033, 19349705, 294967337]
+
 # Per-biome terrain generation parameters.
 # hill_thresh  — noise [0,1] above which a tile becomes TILE_HILL
 # max_hill_h   — maximum hill height in levels

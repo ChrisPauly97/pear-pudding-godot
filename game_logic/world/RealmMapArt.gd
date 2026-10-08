@@ -21,6 +21,9 @@ const _TreeScatter = preload("res://game_logic/world/TreeScatter.gd")
 const _TownDecor = preload("res://game_logic/world/TownDecor.gd")
 const _WorldMap = preload("res://game_logic/world/WorldMap.gd")
 
+## Tiles of wilderness shown around the realm's outline.
+const MARGIN_TILES: float = 32.0
+
 ## Image pixels per overworld tile for the terrain.
 const TERRAIN_PX: int = 2
 ## Tiles a biome border wanders either way of its chunk seam on the map.
@@ -62,6 +65,32 @@ const COL_LAMP := Color(1.0, 0.85, 0.40)
 
 
 ## The overworld inside `bounds` (tiles), TERRAIN_PX pixels per tile.
+## Tile rect covering every town and road, padded by MARGIN_TILES, grown to
+## include `extra` tiles (the player, quest targets) and made square.
+static func realm_bounds(extra: Array[Vector2] = []) -> Rect2:
+	var r := Rect2()
+	var first: bool = true
+	for town: String in _RealmLayout.town_names():
+		var wr: Rect2i = _RealmLayout.world_rect(town)
+		var tr := Rect2(Vector2(wr.position), Vector2(wr.size))
+		r = tr if first else r.merge(tr)
+		first = false
+	for road: Array in _RealmLayout.ROADS:
+		for p: Vector2 in road:
+			r = r.expand(p)
+	for p: Vector2 in extra:
+		r = r.expand(p)
+	r = r.grow(MARGIN_TILES)
+	var side: float = maxf(r.size.x, r.size.y)
+	return Rect2(r.get_center() - Vector2(side, side) * 0.5, Vector2(side, side))
+
+
+## The tile rect the terrain art covers (realm_bounds, whole tiles).
+static func terrain_rect() -> Rect2i:
+	var b: Rect2 = realm_bounds()
+	return Rect2i(Vector2i(b.position.floor()), Vector2i(b.size.ceil()))
+
+
 static func terrain_image(bounds: Rect2i, world_seed: int) -> Image:
 	var p := Painter.new(bounds, world_seed, false)
 	while not p.step(1 << 30):
