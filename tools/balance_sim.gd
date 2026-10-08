@@ -12,6 +12,7 @@
 ##   --weapon ID / --offhand ID
 ##   --enemy T[,T…]      enemy types, or "all" (undead_basic)
 ##   --enemy-level N     enemy zone level (default: the type's own tier level)
+##   --enemy-offset D    enemy level = player level + D (overrides --enemy-level)
 ##   --boss              fight it as a boss (tier 4, boss HP)
 ##   --tune k=v,k=v      CombatTuning overrides (clamped to each knob's range)
 ##   --policy k=v,…      BalanceBot knobs: heal_below, summon, interrupt
@@ -25,7 +26,7 @@ extends SceneTree
 
 var _opts: Dictionary = {
 	"fights": "200", "seed": "1", "level": "1", "learned": "ladder", "deck": "starter", "weapon": "",
-	"offhand": "", "enemy": "undead_basic", "enemy-level": "", "boss": "", "tune": "", "policy": "",
+	"offhand": "", "enemy": "undead_basic", "enemy-level": "", "enemy-offset": "", "boss": "", "tune": "", "policy": "",
 	"sweep": "", "csv": "", "max-seconds": "300",
 }
 
@@ -106,6 +107,8 @@ func _config(enemy: String, sweep_key: String, v: String) -> Dictionary:
 			cfg[k] = str(_opts[k])
 	if str(_opts["enemy-level"]) != "":
 		cfg["enemy_level"] = int(_opts["enemy-level"])
+	if str(_opts["enemy-offset"]) != "":
+		cfg["enemy_level"] = maxi(1, level + int(_opts["enemy-offset"]))
 	if sweep_key == "enemy_level":
 		cfg["enemy_level"] = int(v)
 	var tune: Dictionary = _kv(str(_opts["tune"]))

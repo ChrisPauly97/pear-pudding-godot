@@ -93,6 +93,19 @@ TID-719). In the sim, pass `--enemy-level L` with a type whose `EnemyRegistry.le
 | 4–5 | 93 % | + Allies |
 | 10 | 100 % | |
 
+### After TID-720 (100 fights each, `undead_basic`, ladder-learned, no gear)
+
+Enemy behaviour now follows the enemy's level only; heavies from level 1 (user, softened on the spell curve). `--enemy-offset D` sets enemy level = player level + D.
+
+| Player level | 1 | 2 | 3 | 4 | 5 | 6 | 8 | 10 |
+|---|---|---|---|---|---|---|---|---|
+| Same-level enemy (offset 0) | 0 % | 100 % | 0 % | 78 % | 66 % | 47 % | 36 % | 68 % |
+| Enemy one level up (offset 1) | 0 % | 0 % | 11 % | 66 % | 46 % | 38 % | 35 % | 38 % |
+| Enemy at its tier level (no offset) | — | — | — | 100 % | 100 % | — | — | 100 % |
+
+Far from the targets (100 % / ~75 %): level-matched enemies outscale the hero, and levels 1 and 3 are walls.
+TID-718 tunes this.
+
 ## Integrations
 
 - `tests/unit/test_battle_determinism.gd`, `test_player_caster.gd`, `test_battle_setup.gd`, `test_balance_bot.gd`

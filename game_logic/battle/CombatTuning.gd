@@ -34,7 +34,7 @@ const DEFS: Array = [
 	["heavy_windup", "Heavy blow wind-up (s)", 2.2, 0.5, 5.0, 0.1, "Enemy"],
 	["heavy_frac", "Heavy blow damage (x your max HP)", 0.25, 0.05, 0.6, 0.01, "Enemy"],
 	# GID-176 / TID-720: enemy behaviour scales with the enemy's level, never with what the player learned.
-	["heavy_min_level", "Heavy blows from enemy level", 3.0, 1.0, 20.0, 1.0, "Enemy"],
+	["heavy_min_level", "Heavy blows from enemy level", 1.0, 1.0, 20.0, 1.0, "Enemy"],
 	["enemy_full_level", "Enemy level at full heavy / spell strength", 10.0, 2.0, 30.0, 1.0, "Enemy"],
 	["enemy_low_scale", "Heavy / spell strength at the lowest level", 0.5, 0.1, 1.0, 0.05, "Enemy"],
 	["enemy_two_minions_level", "Enemy level fielding 2 minions", 4.0, 1.0, 20.0, 1.0, "Enemy"],

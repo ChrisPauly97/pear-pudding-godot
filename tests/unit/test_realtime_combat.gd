@@ -438,12 +438,13 @@ func test_heavy_blow_winds_up_then_lands() -> void:
 	assert_eq(hero.health, hp - rt.heavy_damage(), "a quarter of max HP lands")
 
 func test_low_level_enemy_has_no_heavy_blow() -> void:
-	var rt := _heavy_rt(_tune.get_i("heavy_min_level") - 1)
+	var rt := _heavy_rt(2)
+	rt.tune.set_value("heavy_min_level", 3.0)
 	assert_false(_types(_run(rt, rt.tune.get_f("heavy_every") * 2.0)).has("enemy_heavy_start"),
 		"below heavy_min_level the enemy never winds up")
 
 func test_heavy_blow_scales_with_enemy_level() -> void:
-	var low := _heavy_rt(_tune.get_i("heavy_min_level"))
+	var low := _heavy_rt(1)
 	var full := _heavy_rt(_tune.get_i("enemy_full_level"))
 	assert_lt(low.heavy_damage(), full.heavy_damage(), "a low-level heavy hits softer")
 	assert_eq(_heavy_rt(_tune.get_i("enemy_full_level") + 5).heavy_damage(), full.heavy_damage(), "capped at full")

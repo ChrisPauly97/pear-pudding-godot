@@ -377,7 +377,7 @@ changes them. Knobs (CombatTuning, Enemy group):
 
 | Knob | Default | Effect |
 |---|---|---|
-| `heavy_min_level` | 3 | Enemies below this never wind up heavy blows |
+| `heavy_min_level` | 1 | Enemies below this never wind up heavy blows (every enemy by default; heavies soften on the same curve as spells) |
 | `enemy_full_level` | 10 | Level at which heavies / spells hit at full strength |
 | `enemy_low_scale` | 0.5 | Strength at level 1; `CombatTuning.level_scale(L)` lerps to 1 at `enemy_full_level` |
 | `enemy_two_minions_level` | 4 | Below this an enemy fields one minion |
