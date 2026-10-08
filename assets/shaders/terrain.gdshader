@@ -46,21 +46,15 @@ instance uniform float blight_amount : hint_range(0.0, 1.0) = 0.0;
 #include "res://assets/shaders/terrain_puddles.gdshaderinc"
 #include "res://assets/shaders/contact_shadow.gdshaderinc"
 
-varying float v_blend;      // height ratio [0=flat ground .. 1=hill plateau]
-varying float v_wall;       // 1.0 if this vertex sits on a wall tile
-varying float v_path;       // 1.0 if this vertex sits on a path tile
-varying float v_cracked;    // 1.0 if this wall vertex is a TILE_CRACKED (cracked wall)
-varying vec3  v_normal_world;  // world-space normal — used for slope detection only
-varying vec2  v_world_xz;
-varying float v_world_y;    // world Y — used for vertical tiling on wall sides
-
-varying float v_d0;         // fbm noise channel 0, computed per-vertex
-varying float v_d1;         // fbm noise channel 1, computed per-vertex
-varying float v_ley;        // ley line intensity [0..1], baked into UV2.x per vertex
-varying float v_dip;        // 0 low .. 1 high flat-ground jitter (TID-515 puddles)
-varying float v_water;      // stream/pond intensity [0..1], baked into UV2.y (GID-134 / TID-524)
-varying vec2  v_flow;       // stream current (dir × speed), baked into CUSTOM0.xy (TID-642); 0 = still
-varying float v_bog;        // bog intensity [0..1], CUSTOM0.z in bog biomes (GID-174); 0 elsewhere
+// Varyings are packed into vec4s (GID-174 fix): the Mobile renderer gives every
+// varying its own interpolator slot whatever its size, and a 14th scalar pushed
+// the shader past the device limit — the whole terrain stopped drawing on Android.
+// Unpacked into locals of the old names at the top of vertex() / fragment().
+varying vec4 v_tile;        // blend (height ratio), wall flag, path flag, cracked-wall flag
+varying vec4 v_nrm_y;       // xyz world-space normal (slope detection only), w world Y (wall-side tiling)
+varying vec4 v_xz_d;        // xy world XZ, z/w per-vertex fbm noise channels d0/d1
+varying vec4 v_chan;        // x ley (UV2.x), y stream/pond (UV2.y, TID-524), z bog (CUSTOM0.z, GID-174)
+varying vec2 v_flow;        // stream current (dir × speed), baked into CUSTOM0.xy (TID-642); 0 = still
 
 // -- noise for micro grass detail on flat areas --
 float hash2(vec2 p) {
@@ -95,22 +89,21 @@ vec3 tile_sample(sampler2D tex, vec2 uv, out vec2 grad, out float h) {
 
 void vertex() {
 	// Pass blend factor, wall flag, and world normal to fragment
-	v_blend   = COLOR.r;
-	v_wall    = COLOR.g;
-	v_path    = COLOR.b;
+	float v_blend = COLOR.r;
+	float v_wall  = COLOR.g;
+	float v_path  = COLOR.b;
 	// Alpha < 0.5 encodes TILE_CRACKED (cracked wall); regular walls have alpha = 1.0
-	v_cracked = COLOR.a < 0.5 ? 1.0 : 0.0;
+	float v_cracked = COLOR.a < 0.5 ? 1.0 : 0.0;
 	// World-space normal is only used for slope detection in fragment(),
 	// not for lighting — Godot transforms NORMAL to view space automatically.
-	v_normal_world = (MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz;
+	vec3 v_normal_world = (MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz;
 	vec3 world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	v_world_xz     = world_pos.xz;
-	v_world_y      = world_pos.y;
+	vec2 v_world_xz = world_pos.xz;
+	float v_world_y = world_pos.y;
 
 	// Subtle micro-bump on flat grass — single hash instead of full FBM (cheap).
 	// Suppressed on path tiles so roads stay visually flat.
 	float flat_factor = clamp(1.0 - v_blend * 4.0, 0.0, 1.0);
-	v_dip = v_path > 0.5 ? 0.5 : puddle_dip(v_world_xz);
 	if (flat_factor > 0.01 && v_path < 0.5) {
 		VERTEX.y += hash2(v_world_xz * 0.08) * 0.12 * flat_factor;
 	}
@@ -119,15 +112,15 @@ void vertex() {
 	// (it changes over tens of units, so interpolation across a 1-unit tile is
 	// exact enough) — breaks the repeating grass tile into lighter/darker and
 	// drier/lusher patches without per-pixel cost.
-	v_d0 = fbm(world_pos.xz * 0.045);
-	v_d1 = fbm(world_pos.xz * 0.09 + vec2(7.3, 2.1));
+	float v_d0 = fbm(world_pos.xz * 0.045);
+	float v_d1 = fbm(world_pos.xz * 0.09 + vec2(7.3, 2.1));
 	// Ley intensity baked per vertex into UV2.x by ChunkRenderer.
-	v_ley = UV2.x;
+	float v_ley = UV2.x;
 	// Streams and ponds (UV2.y): the water surface sits a little below the
 	// meadow so it reads as a channel; collision is untouched (the hero wades).
-	v_water = UV2.y;
+	float v_water = UV2.y;
 	v_flow = CUSTOM0.xy;
-	v_bog = CUSTOM0.z;
+	float v_bog = CUSTOM0.z;
 	if (v_water > 0.01 && v_path < 0.5) {
 		VERTEX.y -= smoothstep(0.1, 0.6, v_water) * 0.2 * flat_factor;
 	}
@@ -135,9 +128,25 @@ void vertex() {
 	if (v_bog > 0.4 && v_path < 0.5) {
 		VERTEX.y -= smoothstep(0.4, 0.8, v_bog) * 0.12 * flat_factor;
 	}
+	v_tile = vec4(v_blend, v_wall, v_path, v_cracked);
+	v_nrm_y = vec4(v_normal_world, v_world_y);
+	v_xz_d = vec4(v_world_xz, v_d0, v_d1);
+	v_chan = vec4(v_ley, v_water, v_bog, 0.0);
 }
 
 void fragment() {
+	float v_blend = v_tile.x;
+	float v_wall = v_tile.y;
+	float v_path = v_tile.z;
+	float v_cracked = v_tile.w;
+	vec3 v_normal_world = v_nrm_y.xyz;
+	float v_world_y = v_nrm_y.w;
+	vec2 v_world_xz = v_xz_d.xy;
+	float v_d0 = v_xz_d.z;
+	float v_d1 = v_xz_d.w;
+	float v_ley = v_chan.x;
+	float v_water = v_chan.y;
+	float v_bog = v_chan.z;
 	// World-space XZ used for both texture sampling and procedural noise
 	vec2 uv_xz = v_world_xz * uv_scale;
 
