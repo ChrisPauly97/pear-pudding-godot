@@ -208,7 +208,12 @@ overworld: `RealmMapArt.Painter` runs the chunk generator (`InfiniteWorldGen._ge
 hill shading from the NW, streams / ponds / the sea (`WaterMath`), tree groves (`TreeScatter`) and
 stamped roads, `TERRAIN_PX` px per tile; then each stitched town as an illustrated plan
 (`town_image`: roofs from `building_plan`, cobbled `street_plan` streets, paths, walls, `TownDecor`
-set pieces, lamps). It is charted on the **main thread** in slices — `QuestTracker._process` steps
+set pieces, lamps). **Baked:** the game only uses the five `BiomeDef.START_SEEDS`, so `tools/bake_realm_map.gd` saves each
+seed's terrain and every town plan to `assets/maps/realm/*.png` (imported with mipmaps) and writes the
+preload table `game_logic/world/RealmMapBaked.gd`; `RealmMapOverlay.prewarm` uses it when `RECT` still
+matches, so the map is instant. Re-bake after changing world gen, `RealmLayout` or a town map
+(`godot --headless --path . -s tools/bake_realm_map.gd`, then import); `test_realm_map_art` fails on a
+stale bake. Any other seed falls back to live charting: it is charted on the **main thread** in slices — `QuestTracker._process` steps
 `RealmMapOverlay.step_art(3 ms)` after an overworld load, the open map steps 12 ms/frame until ready
 ("Charting the realm…" with vector roads meanwhile). Don't move it to a `WorkerThreadPool` task:
 an unjoined task deadlocked `WorldScene` teardown in `world_scene_smoke`. Textures are static
