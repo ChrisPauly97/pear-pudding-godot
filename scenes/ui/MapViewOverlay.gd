@@ -4,6 +4,8 @@
 extends CanvasLayer
 
 signal closed
+## "World Map": swap this interior map for the zoomable realm map.
+signal world_map_requested
 ## Emitted when the player taps a "Rally To" entry (GID-105 / TID-388). WorldScene
 ## connects this and performs the actual teleport/transition.
 signal rally_requested(peer_id: int)
@@ -38,6 +40,7 @@ const _Transforms = preload("res://scenes/ui/MapViewTransforms.gd")
 const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
 const _LongPressTracker = preload("res://scenes/ui/LongPressTracker.gd")
 const _MapMarkers = preload("res://scenes/ui/MapMarkers.gd")
+const _QuestTracker = preload("res://scenes/world/modules/QuestTracker.gd")
 
 var _player: CharacterBody3D
 var _npc_nodes: Dictionary
@@ -181,6 +184,9 @@ func setup(world_map: _WorldMap, map_name: String, player: CharacterBody3D,
 	clr_btn.pressed.connect(_clear_waypoint)
 	add_child(clr_btn)
 
+	_UiUtil.make_button("World Map", Vector2(vh * 0.16, vh * 0.05), int(vh * 0.020), _on_world_map,
+		self).position = Vector2(_panel_pos.x + vh * 0.01, _panel_pos.y + vh * 0.01)
+
 	# ── Fast travel panel ─────────────────────────────────────────────────────
 	_build_fast_travel_panel(vp, vh)
 
@@ -249,6 +255,8 @@ func _draw_waypoint(canvas: Control) -> void:
 func _draw_quests(canvas: Control) -> void:
 	if not is_instance_valid(_player):
 		return
+	_MapMarkers.draw_quest_zones(canvas, _quests, _map_name,
+		func(w: Vector3) -> Vector2: return _world_to_panel(w.x, w.z))
 	for q: Dictionary in _quests:
 		var raw: Variant = _QuestLog.world_pos(q, _map_name, _player.position)
 		if raw == null:
@@ -300,6 +308,10 @@ func _draw_npcs(canvas: Control) -> void:
 			_:           col = _DOT_NPC
 		var tp: Vector2 = _world_to_panel(n.position.x, n.position.z)
 		canvas.draw_circle(tp, 4.0, col)
+		var mark: Dictionary = _QuestTracker.map_mark(n)
+		if not mark.is_empty():
+			_MapMarkers.draw_quest_mark(canvas, tp + Vector2(0.0, -14.0), str(mark["text"]),
+					mark["color"] as Color, 16)
 
 
 func _world_to_panel(wx: float, wz: float) -> Vector2:
@@ -417,6 +429,12 @@ func _friendly_label(waystone_id: String) -> String:
 		if parts.size() >= 3:
 			return "Waystone (%s, %s)" % [parts[1], parts[2]]
 	return waystone_id
+
+
+func _on_world_map() -> void:
+	closed.emit()
+	queue_free()
+	world_map_requested.emit()
 
 
 func _teleport_to_waystone(waystone_id: String) -> void:

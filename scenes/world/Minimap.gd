@@ -46,6 +46,7 @@ var _door_nodes: Dictionary
 var _npc_nodes: Dictionary
 var _half: float   # half the minimap pixel dimension
 var _scale: float  # pixels per world unit
+var _disc := PackedVector2Array()  # round face, built on first use (_disc_clip)
 var _minimap_frame_counter: int = 0
 
 
@@ -215,6 +216,7 @@ func _on_draw(canvas: Control) -> void:
 	_draw_group(canvas, _npc_nodes,   origin, Color(0.30, 0.95, 0.45), 4.0)
 	_draw_waypoint(canvas, origin)
 	_draw_quests(canvas, origin)
+	_draw_npc_marks(canvas, origin)
 
 	# Roaming boss: larger dot in range, edge indicator when outside
 	if _enemy_nodes.has("roaming_boss"):
@@ -237,6 +239,14 @@ func _to_minimap(world_pos: Vector3, origin: Vector3) -> Vector2:
 func _inside_minimap(dot: Vector2, center: Vector2) -> bool:
 	var limit: float = _half * 0.94
 	return dot.distance_squared_to(center) <= limit * limit
+
+
+## The minimap's round face as a polygon, for clipping quest areas.
+func _disc_clip() -> PackedVector2Array:
+	if _disc.is_empty():
+		for i: int in range(48):
+			_disc.append(Vector2(_half, _half) + Vector2.from_angle(TAU * i / 48.0) * _half * 0.94)
+	return _disc
 
 
 func _draw_waypoint(canvas: Control, origin: Vector3) -> void:
@@ -268,6 +278,8 @@ func _draw_quests(canvas: Control, origin: Vector3) -> void:
 	var center := Vector2(_half, _half)
 	var tracked_id: String = str(_world.quest_tracker.tracked_quest().get("id", ""))
 	var tracked_dot := Vector2.INF
+	_MapMarkers.draw_quest_zones(canvas, _world.quest_tracker.active_quests(), _world.map_name,
+			func(w: Vector3) -> Vector2: return _to_minimap(w, origin), _disc_clip())
 	for q: Dictionary in _world.quest_tracker.active_quests():
 		var raw: Variant = _world.quest_tracker.quest_pos(q)
 		if raw == null:
@@ -284,6 +296,17 @@ func _draw_quests(canvas: Control, origin: Vector3) -> void:
 		var kind: String = str(_world.quest_tracker.tracked_quest().get("kind", ""))
 		_MapMarkers.draw_outlined_diamond(canvas, tracked_dot, 6.0, _QuestLog.kind_color(kind),
 				Color(0.0, 0.0, 0.0, 0.8))
+
+
+## Quest givers' "!" / "?" over their dots, when on the disc.
+func _draw_npc_marks(canvas: Control, origin: Vector3) -> void:
+	if _world == null or _world.quest_tracker == null:
+		return
+	var center := Vector2(_half, _half)
+	for m: Dictionary in _world.quest_tracker.npc_map_marks():
+		var dot: Vector2 = _to_minimap(m["pos"] as Vector3, origin)
+		if _inside_minimap(dot, center):
+			_MapMarkers.draw_quest_mark(canvas, dot, str(m["text"]), m["color"] as Color, 13)
 
 
 func _draw_group(canvas: Control, nodes: Dictionary, origin: Vector3,

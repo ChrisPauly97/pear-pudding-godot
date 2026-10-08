@@ -113,3 +113,21 @@ func test_bounty_turn_in_detection() -> void:
 	assert_true(QuestLog.has_bounty_turn_in([{"count": 2, "progress": 2}]))
 	assert_false(QuestLog.has_bounty_turn_in([{"count": 2, "progress": 2, "claimed": true}]))
 	assert_false(QuestLog.has_bounty_turn_in([{"count": 2, "progress": 1}]))
+
+
+## Map views read the quest giver's in-world "!" / "?" Label3D.
+func test_map_mark_reads_npc_label() -> void:
+	const QuestTracker = preload("res://scenes/world/modules/QuestTracker.gd")
+	var npc := Node3D.new()
+	assert_true(QuestTracker.map_mark(npc).is_empty(), "unmarked NPC: no map mark")
+	var lbl := Label3D.new()
+	lbl.name = "QuestMark"
+	lbl.text = "!"
+	lbl.modulate = Color.YELLOW
+	npc.add_child(lbl)
+	var mark: Dictionary = QuestTracker.map_mark(npc)
+	assert_eq(str(mark.get("text", "")), "!")
+	assert_eq(mark.get("color"), Color.YELLOW)
+	npc.visible = false
+	assert_eq(str(QuestTracker.map_mark(npc).get("text", "")), "!", "indoors at night: still marked")
+	npc.free()

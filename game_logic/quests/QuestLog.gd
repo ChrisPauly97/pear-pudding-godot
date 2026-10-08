@@ -20,7 +20,11 @@ const _ObjectiveTracker = preload("res://game_logic/ObjectiveTracker.gd")
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const _BountyGen = preload("res://game_logic/BountyGen.gd")
 const _SideQuests = preload("res://game_logic/quests/SideQuests.gd")
+const _QuestZones = preload("res://game_logic/quests/QuestZones.gd")
 const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
+
+## Objective types done anywhere inside an area, not at one spot (QuestZones).
+const _ZONE_TYPES: Array[String] = ["kill"]
 
 const STORY_ID: String = "story"
 const TREASURE_ID: String = "treasure"
@@ -66,15 +70,18 @@ static func active_quests(flags: Dictionary, treasure: Dictionary,
 		var done: bool = bool(b.get("completed", false)) or progress >= count
 		var desc: String = _BountyGen.describe(str(b.get("type", "")), str(b.get("target", "")), count)
 		var targets: Array[Dictionary] = []
+		var zones: Array[Dictionary] = []
 		if done:
 			targets = bounty_board_targets()
+		elif str(b.get("type", "")) == "defeat_enemy_type":
+			zones = _QuestZones.for_enemy_type(str(b.get("target", "")))
 		out.append({
 			"id": BOUNTY_PREFIX + str(b.get("id", "")), "kind": "bounty", "title": "Contract: " + desc,
 			"label": "Claim your bounty reward" if done else desc, "giver": "Bounty board",
 			"summary": ("Contract fulfilled. Any bounty board will pay out." if done
 				else "A posted contract. Progress counts anywhere in the realm."),
 			"progress": "%d / %d" % [progress, count],
-			"targets": targets,
+			"targets": targets, "zones": zones,
 		})
 	if not training.is_empty():
 		out.append(training_quest(training))
@@ -119,6 +126,7 @@ static func side_quest(entry: Dictionary) -> Dictionary:
 	var ready: bool = bool(entry.get("ready", false))
 	var label: String = ""
 	var targets: Array[Dictionary] = []
+	var zones: Array[Dictionary] = []
 	var objs: Array[Dictionary] = _SideQuests.objectives(q)
 	if ready:
 		var npc_id: String = _SideQuests.turn_in_npc(q)
@@ -134,6 +142,8 @@ static func side_quest(entry: Dictionary) -> Dictionary:
 			label = str(objs[i].get("label", ""))
 			if objs[i].has("map"):
 				targets.append(objs[i])
+				if _ZONE_TYPES.has(str(objs[i].get("type", ""))):
+					zones.append(_QuestZones.for_target(objs[i]))
 			elif str(objs[i].get("type", "")) == "talk":
 				var nt: Dictionary = npc_target(str(objs[i].get("target", "")))
 				if not nt.is_empty():
@@ -142,7 +152,7 @@ static func side_quest(entry: Dictionary) -> Dictionary:
 	return {
 		"id": SIDE_PREFIX + str(q.get("id", "")), "kind": "side", "title": str(q.get("title", "")),
 		"label": label, "giver": str(q.get("giver_name", "")), "summary": str(q.get("summary", "")),
-		"progress": _SideQuests.progress_text(q, progress), "targets": targets,
+		"progress": _SideQuests.progress_text(q, progress), "targets": targets, "zones": zones,
 	}
 
 ## Overworld tile target of the stitched-town NPC with entity id `npc_id`, or {}.
@@ -173,10 +183,14 @@ static func story_quest(flags: Dictionary) -> Dictionary:
 			"progress": "", "targets": boards,
 		}
 	var targets: Array[Dictionary] = [step]
+	# A story site (camp, ambush road) is an area to reach, not one tile.
+	var zones: Array[Dictionary] = []
+	if step.has("site"):
+		zones.append(_QuestZones.for_target(step))
 	return {
 		"id": STORY_ID, "kind": "story", "title": _StoryQuests.chapter_title(int(step["chapter"])),
 		"label": str(step["label"]), "giver": str(step.get("giver", "")),
-		"summary": str(step.get("summary", "")), "progress": "", "targets": targets,
+		"summary": str(step.get("summary", "")), "progress": "", "targets": targets, "zones": zones,
 	}
 
 ## The quest with `tracked_id`, else the story quest (a tracked bounty that was
@@ -208,6 +222,12 @@ static func world_pos(quest: Dictionary, map_name: String, from: Vector3) -> Var
 			best_d = d
 			best = pos
 	return best
+
+## The quest's shaded areas on the maps (QuestZones dicts); empty = pins only.
+static func zones(quest: Dictionary) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	out.assign(quest.get("zones", []))
+	return out
 
 ## True when the quest has somewhere to point at (in the overworld).
 static func has_target(quest: Dictionary) -> bool:

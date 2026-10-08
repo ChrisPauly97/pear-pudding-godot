@@ -43,7 +43,7 @@ Depth shading needs no shader change: the river's intensity already uses the sea
   slides the hero out of deep river water too and wades ashore via `Rivers.nearest_dry`.
 - `TapToMove.tile_at`: `Rivers.deep_water` is a wall (sea or river).
 - `WaterMath.edge_prop` → `"river_rock"`; `ChunkRenderer._compute_water_edge_props` places them at the water surface; `SpriteRegistry` `river_rock` variants.
-- `RealmMapOverlay._draw_rivers`.
+- `RealmMapOverlay._draw_rivers` (later dropped in the merge with the painted realm map, which draws rivers from `WaterMath.sea_at`).
 - Tests: `test_rivers` +3 (bridge, deep water/wading ashore, rocks); `test_realm_layout` stamp rule follows `Rivers.road_tile`.
   Suite 3063 pass / 0 SCRIPT ERROR; world + chunk smokes clean; gdlint + unsafe-hits clean.
 - Not verified visually (headless only): bridge look and rock placement should be eyeballed in a real run.

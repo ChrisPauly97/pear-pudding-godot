@@ -260,7 +260,7 @@ river deep) and not on a bridge — Coastline switches the hero to swimming ther
 else `Coast.to_land`. Depth shading needs nothing new: river intensity uses the sea's 0.3 + 0.12/tile bands, so the
 shader's three depth bands show the deep channel. `WaterMath.edge_prop` adds `"river_rock"` (water 0.36–0.6, current
 > 1.2, 12 %) using the rock textures (SpriteRegistry `river_rock`), sunk to the water surface like lily pads.
-`RealmMapOverlay._draw_rivers` draws each centreline in the sea colour, widening downstream.
+The realm map shows the rivers in its painted terrain (`RealmMapArt` reads `WaterMath.sea_at`, which includes them).
 
 Swim stamina, currents and washing ashore: camera-and-player.md → Swimming (TID-697). Co-op avatars swim from
 their position alone: multiplayer-coop.md → Remote avatars (TID-698). `test_rivers` covers: mouths in the sea, clearance from towns / camps / riddle spots / story
