@@ -15,6 +15,7 @@ extends Node
 const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const _TownLife = preload("res://game_logic/world/TownLife.gd")
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
+const _QuestTracker = preload("res://scenes/world/modules/QuestTracker.gd")
 const _WalkCycle = preload("res://scenes/world/entities/WalkCycle.gd")
 const _CritterDef = preload("res://game_logic/world/CritterDef.gd")
 
@@ -123,7 +124,9 @@ func _process(delta: float) -> void:
 			continue
 		if dt != delta:
 			_skipped.erase(id)
-		var out: bool = _TownLife.is_out(str(w["role"]), tod) and str(rec["town"]) != _besieged
+		# A quest giver with a "!" / "?" stays out after hours so the player can still talk to them.
+		var out: bool = ((_TownLife.is_out(str(w["role"]), tod) or not _QuestTracker.map_mark(node).is_empty())
+				and str(rec["town"]) != _besieged)
 		_drive(id, node, rec, t, out, hero, dt)
 
 
