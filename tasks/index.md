@@ -178,6 +178,7 @@
 | [GID-172](goals/GID-172--rivers-and-swimming/goal.md) | Rivers & Swimming | done | 5 / 5 |
 | [GID-173](goals/GID-173--cave-entrances/goal.md) | Cave Entrances | done | 4 / 4 |
 | [GID-174](goals/GID-174--bogs/goal.md) | Bogs | done | 3 / 3 |
+| [GID-175](goals/GID-175--technique-cards/goal.md) | Skill Bar → Technique Cards | in-progress | 1 / 6 |
 
 ## Backlog
 
@@ -194,6 +195,7 @@ files in `tasks/archive/backlog/`.
 | [BID-089](backlog/BID-089--no-battle-ui-profiler.md) | No profiler for battle / UI / save paths | doc-gap | GID-164 research |
 | [BID-090](backlog/BID-090--remaining-world-frame-costs.md) | Remaining per-frame world costs after GID-164 (enemy walk cycles, NPC marks) | code-smell | GID-164 / TID-685 |
 | [BID-091](backlog/BID-091--infinite-world-gen-not-s-safe.md) | Landmark ruin-roll replica masks the seed; RuinGen doesn't (`-s` compile half fixed in TID-699) | code-smell | GID-173 / TID-699 |
+| [BID-092](backlog/BID-092--spec-battle-section-stale.md) | Spec battle section describes the old turn-based model only | spec-gap | GID-175 |
 
 ## Resolved Backlog
 
