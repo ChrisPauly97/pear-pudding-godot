@@ -155,6 +155,14 @@ No geometry shader is used (Godot 4 does not support them).
 
 ---
 
+### Varying budget (Android)
+
+`terrain.gdshader` packs its per-vertex data into five varyings (`v_tile`, `v_nrm_y`, `v_xz_d`, `v_chan`,
+`v_flow`) and unpacks them into locals with the old `v_*` names at the top of `vertex()` / `fragment()`.
+The Mobile renderer spends one interpolator slot per varying regardless of size; GID-174's 14th scalar
+(`v_bog`) pushed it past the device limit and the whole terrain vanished on Android while desktop was fine.
+Add new per-vertex channels to a spare component (`v_chan.w`) rather than a new `varying`.
+
 ## Integrations with Other Features
 
 | System | Direction | Details |
