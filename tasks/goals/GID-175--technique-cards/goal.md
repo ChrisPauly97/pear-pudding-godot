@@ -15,7 +15,7 @@ Defaults agreed at the review gate: max 1 copy of each technique per deck; Strik
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | [TID-706](TID-706--technique-card-design.md) | Design: technique-card rules | agent | done | — |
-| [TID-707](TID-707--technique-card-type.md) | Technique card type: 8 cards, recycle-on-play, both modes | agent | pending | TID-706 |
+| [TID-707](TID-707--technique-card-type.md) | Technique card type: 8 cards, recycle-on-play, both modes | agent | done | TID-706 |
 | [TID-708](TID-708--technique-learning.md) | Learning grants cards + save migration | agent | pending | TID-707 |
 | [TID-709](TID-709--technique-realtime.md) | Real-time integration: hand replaces the bar | agent | pending | TID-707 |
 | [TID-710](TID-710--retire-skillbar.md) | Retire SkillBar dependents + docs | agent | pending | TID-708, TID-709 |

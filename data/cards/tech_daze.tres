@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://ezrjpt2yzswu"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_tech_daze"]
+
+[resource]
+script = ExtResource("1_tech_daze")
+id = "tech_daze"
+card_name = "Daze"
+cost = 0
+attack = 0
+health = 0
+card_class = "spell"
+description = "↻ Technique — Freeze an enemy minion for 1 turn. Real time: cancel an enemy cast and stun (off the global cooldown). Returns to the bottom of your deck."
+color = Color(0.62, 0.66, 0.72, 1)
+magic_type = ""
+magic_branch = ""
+spell_effect = "freeze_single"
+spell_power = 1
+can_craft = false
+is_unique = true

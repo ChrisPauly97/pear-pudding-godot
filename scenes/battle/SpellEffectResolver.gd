@@ -7,6 +7,7 @@ const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const CaptureTracker = preload("res://game_logic/battle/CaptureTracker.gd")
 const Keywords = preload("res://game_logic/battle/Keywords.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
+const TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
 
 # Co-located with resolver so match arms and targeting UI stay in sync.
 const ENEMY_TARGETED_EFFECTS: Array[String] = [
@@ -149,7 +150,8 @@ func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Diction
 	# "add", GID-135) the targeted minion's owner or the named hero's player.
 	opponent = _explicit_opponent(explicit_target, caster_pid, opponent)
 	var caster: PlayerState = _state.players[caster_pid]
-	var power: int = card.spell_power
+	# Techniques (GID-175) resolve with their real-time value when mana is scaled.
+	var power: int = TechniqueDefs.power(card.template_id, card.spell_power, caster.hero.mana_scale > 1)
 	var _spell_dmg: int = BattlefieldRules.modify_damage(power, _state.battlefield_biome)
 	# Single-target arms resolve their subject once here; `null` means the
 	# relevant board was empty, which every arm below treats as a no-op.
@@ -263,6 +265,9 @@ func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Diction
 				t.attack += power
 		"heal_hero":
 			caster.hero.heal(power)
+		"mana_tap":
+			opponent.hero.take_damage(_spell_dmg)
+			caster.hero.gain_mana(TechniqueDefs.mana_value(card.template_id))
 		"armor_hero":
 			caster.hero.apply_status("armor", power)
 		"grant_ward":

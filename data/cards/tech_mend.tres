@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://18pbfmi81lum"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_tech_mend"]
+
+[resource]
+script = ExtResource("1_tech_mend")
+id = "tech_mend"
+card_name = "Mend"
+cost = 1
+attack = 0
+health = 0
+card_class = "spell"
+description = "↻ Technique — Restore 4 HP to your hero (6 in real time, 1.5 s cast). Returns to the bottom of your deck."
+color = Color(0.62, 0.66, 0.72, 1)
+magic_type = ""
+magic_branch = ""
+spell_effect = "heal_hero"
+spell_power = 4
+can_craft = false
+is_unique = true

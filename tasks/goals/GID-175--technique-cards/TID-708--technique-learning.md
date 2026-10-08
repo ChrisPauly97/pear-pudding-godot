@@ -17,6 +17,7 @@ Trainer-taught abilities become technique cards added to the collection; existin
 
 ## Research Notes
 
+- From TID-707: card ids are `tech_strike`, `tech_mend`, `tech_kick`, `tech_guard`, `tech_ember_lance`, `tech_mana_tap`, `tech_sweep`, `tech_daze` (old ability id → `tech_` + id). Level and coin prices are in `TechniqueDefs.DEFS`, with display order `TechniqueDefs.ORDER`. Deck rule: `TechniqueDefs.deck_violation(ids)`. They are not in `CardRegistry.get_all_ids()`.
 - `SaveManager.learned_abilities` holds BOTH ability ids and UnlockLadder feat ids (`feat_*`). Only convert the ability ids.
 - `SaveManager.skill_bar` (PERSISTED_FIELDS) is retired. The migration goes in `game_logic/save/SaveMigrations.gd` (bump `CURRENT_VERSION`, append a row): add the learned technique cards to the collection and the bar's techniques to the active deck/loadout if there is room.
 - `UnlockLadder.gd` rows reference `SkillBar.ABILITIES` (line ~11). Point them at the technique card ids instead.

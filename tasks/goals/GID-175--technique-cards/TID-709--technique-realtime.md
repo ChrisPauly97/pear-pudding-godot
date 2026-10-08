@@ -17,6 +17,7 @@ Remove the fixed skill bar from real-time fights so every technique is played fr
 
 ## Research Notes
 
+- From TID-707: use `TechniqueDefs.cast_time(id)` (≥ 0 overrides the spell cast formula in `run_cast`) and `TechniqueDefs.off_gcd(id)`. Kick/Daze currently resolve `stun_single`/`freeze_single` on a minion. In real time they must instead interrupt the enemy cast (Daze also stuns the hero), so hook them before `resolve_spell`. Identify a technique with `TechniqueDefs.is_technique(card.template_id)`.
 - Remove `scenes/battle/modules/BattleSkillBar.gd` (`BattleRealtime.skills`) and its strip/keys 1-3 from the bottom action band. Keys 1-3 (or 1-7) may now target hand slots, with touch parity.
 - Momentum: `MomentumHud.wrap_card` skips skill pseudo-cards (`cost_points` meta). Technique cards are the builders now: `RealtimeCombat.on_player_hit(dmg, builder)`, combo/proc rules.
 - Cast-time techniques (Mend, Ember Lance) go through `BattleRealtime.run_cast`. An `off_gcd` card (Kick, Daze) must bypass the GCD gate.

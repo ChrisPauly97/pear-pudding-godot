@@ -3,6 +3,7 @@ extends Node
 const CardData = preload("res://data/CardData.gd")
 const TextureGen = preload("res://game_logic/TextureGen.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
+const _TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
 
 const _C_ARCANE_SEAL      := preload("res://data/cards/arcane_seal.tres")
 const _C_ALIGHT           := preload("res://data/cards/alight.tres")
@@ -134,6 +135,16 @@ const _C_COOP_RALLY        := preload("res://data/cards/coop_rally.tres")
 const _C_COOP_MANA_TITHE   := preload("res://data/cards/coop_mana_tithe.tres")
 const _C_COOP_SECOND_WIND  := preload("res://data/cards/coop_second_wind.tres")
 
+# GID-175 technique cards (the old skill bar). Kept out of get_all_ids() pools.
+const _C_TECH_STRIKE := preload("res://data/cards/tech_strike.tres")
+const _C_TECH_MEND := preload("res://data/cards/tech_mend.tres")
+const _C_TECH_KICK := preload("res://data/cards/tech_kick.tres")
+const _C_TECH_GUARD := preload("res://data/cards/tech_guard.tres")
+const _C_TECH_EMBER_LANCE := preload("res://data/cards/tech_ember_lance.tres")
+const _C_TECH_MANA_TAP := preload("res://data/cards/tech_mana_tap.tres")
+const _C_TECH_SWEEP := preload("res://data/cards/tech_sweep.tres")
+const _C_TECH_DAZE := preload("res://data/cards/tech_daze.tres")
+
 static var _cards: Dictionary = {}  # id -> CardData
 static var _loaded: bool = false
 static var _view_cache: Dictionary = {}  # "id|face" -> template dict (get_template_view)
@@ -182,6 +193,8 @@ static func _ensure_loaded() -> void:
 		_C_THORN_BRAMBLE_SNARE, _C_THORN_THORN_VOLLEY, _C_THORN_WILD_GROWTH,
 		_C_FLUX_DISPLACE, _C_FLUX_KINETIC_BOLT, _C_FLUX_MOMENTUM,
 		_C_FRACTURE_UNMAKE, _C_FRACTURE_FAULT, _C_FRACTURE_SHARDFALL,
+		_C_TECH_STRIKE, _C_TECH_MEND, _C_TECH_KICK, _C_TECH_GUARD,
+		_C_TECH_EMBER_LANCE, _C_TECH_MANA_TAP, _C_TECH_SWEEP, _C_TECH_DAZE,
 	]
 	for preloaded in all:
 		if preloaded == null:
@@ -261,12 +274,25 @@ static func get_template_view(id: String, face: String) -> Dictionary:
 	_view_cache[key] = tmpl
 	return tmpl
 
-## Returns all known card IDs, in no guaranteed order.
+## Returns all known card IDs, in no guaranteed order. Technique cards
+## (GID-175) are left out: every caller builds a drop / shop / pack / draft
+## pool from this, and techniques are only ever taught by trainers.
 static func get_all_ids() -> Array[String]:
 	_ensure_loaded()
 	var result: Array[String] = []
 	for k in _cards.keys():
-		result.append(str(k))
+		var id: String = str(k)
+		if not _TechniqueDefs.is_technique(id):
+			result.append(id)
+	return result
+
+## The technique card ids that are actually loaded (GID-175).
+static func get_technique_ids() -> Array[String]:
+	_ensure_loaded()
+	var result: Array[String] = []
+	for id: String in _TechniqueDefs.ids():
+		if _cards.has(id):
+			result.append(id)
 	return result
 
 ## Returns true if this card can be crafted via the crafting system.

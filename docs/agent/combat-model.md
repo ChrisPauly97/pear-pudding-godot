@@ -345,7 +345,7 @@ model and stay only until TID-710 removes the code.
 
 | Rule | Decision |
 |---|---|
-| Card type | `CardData.card_class = "technique"`, typeless (`magic_type = ""`), `can_craft = false`, `is_unique = true` (can't be traded, auctioned or stashed), never dropped, never captured |
+| Card type | `card_class = "spell"` (so every spell path — targeting, cast bar, resolver — works unchanged) with a `tech_*` id; `TechniqueDefs.is_technique(id)` is the marker. Typeless (`magic_type = ""`), `can_craft = false`, `is_unique = true` (can't be traded, auctioned or stashed), never dropped, never captured |
 | Cooldown → recycle | Once a technique **resolves** it goes to the **bottom of `draw_deck`**, not the discard. Deck cycling is its cooldown. A fizzled cast keeps the card in hand (as with spells) |
 | Copies | **1 copy** of each technique per deck |
 | Deck cost | Techniques **take deck slots**, max **3 per deck** (`TECHNIQUE_DECK_MAX`, same weight as the old 3 slots). The cap also stops a tiny all-technique deck from cycling forever |
@@ -359,7 +359,8 @@ model and stay only until TID-710 removes the code.
 | Auto-attack | **Kept** (user, 2026-10-08): weapon-driven, passive, feeds the deck through the siphon. No manual swing and no weapon abilities. If auto-attack decides fights, lower its damage rather than weakening cards |
 | Filler | Strike is a normal deck card (not guaranteed). Auto-attack covers the gaps. If playtests show dead hands, lower `draw_interval` (9 → 7 s) before anything else |
 | Learning | A trainer "Learn" grants **one** technique card into the collection (shows its face). Strike is in the starter deck. On load, a learned technique missing from the collection is re-granted |
-| Visual | Neutral steel frame, "Technique" badge and a ↻ recycle mark (`CardFace`, card-visuals.md) |
+| Visual | Typeless → neutral frame; the description opens "↻ Technique —" and ends "Returns to the bottom of your deck." A dedicated badge is optional polish |
+| Pools | `CardRegistry.get_all_ids()` **excludes** techniques (every drop / shop / pack / draft / craft pool is built from it); `get_technique_ids()` lists them |
 
 ### The eight techniques
 
@@ -376,6 +377,18 @@ model and stay only until TID-710 removes the code.
 
 Turn-based numbers start low because a 0-cost card that keeps coming back is strong at 30 HP. TID-707 tunes them,
 and a test still keeps every value ≤ 9.
+
+### Implementation (TID-707)
+
+- `game_logic/battle/TechniqueDefs.gd`: `DEFS` (rt_value, cast, off_gcd, mana_value, level_req, learn_cost), `ORDER`,
+  `DECK_MAX` 3 / `MAX_COPIES` 1, `power(id, printed, realtime)`, `cast_time`, `off_gcd`, `deck_violation(ids)`.
+- `data/cards/tech_*.tres` (8, with `.uid`), preloaded in `CardRegistry`.
+- `PlayerState._retire_spell()`: a played technique is `push_front`ed onto `draw_deck` (`draw_card` pops the back).
+- `SpellEffectResolver.resolve_spell`: `power = TechniqueDefs.power(...)` with real time = `hero.mana_scale > 1`; new
+  `mana_tap` arm (enemy hero damage + `gain_mana(mana_value)`), label in `SpellEffectLabels`.
+- Real-time-only behaviour (cast override, off-GCD, Kick/Daze interrupting an enemy cast) is wired in TID-709;
+  until then Kick/Daze resolve their turn-based stun/freeze in real time too.
+- Tests: `tests/unit/test_technique_cards.gd`.
 
 ### Migration (TID-708)
 

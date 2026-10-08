@@ -2,7 +2,7 @@
 
 **Goal:** GID-175
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-706
 
 ## Lock
@@ -28,12 +28,23 @@ Add a `technique` card type and the 8 technique cards with effects that work in 
 
 ## Plan
 
-_Written during Plan phase._
+Medium complexity, but the design was already settled, so I proceeded without an approval stop.
+1. `TechniqueDefs.gd`: real-time table + deck rules.
+2. Eight `tech_*.tres` cards, each `card_class = "spell"`, so every existing spell path works.
+3. CardRegistry preloads them and keeps them out of `get_all_ids()`.
+4. `PlayerState`: recycle on play.
+5. Resolver: real-time power + `mana_tap`.
+6. Tests.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `game_logic/battle/TechniqueDefs.gd`, plus `data/cards/tech_{strike,mend,kick,guard,ember_lance,mana_tap,sweep,daze}.tres` (+ `.uid`).
+- `autoloads/CardRegistry.gd`: preloads; `get_all_ids()` excludes techniques; new `get_technique_ids()`.
+- `game_logic/battle/PlayerState.gd`: `_retire_spell()` puts a technique at the bottom of the draw pile.
+- `scenes/battle/SpellEffectResolver.gd`: `TechniqueDefs.power()` (real time when `mana_scale > 1`); new `mana_tap` arm. Label in `SpellEffectLabels.gd`.
+- `tests/unit/test_technique_cards.gd` (12 tests). Full suite PASS with 0 SCRIPT ERROR; gdlint and unsafe-hits clean.
+- Deviation from the TID-706 design: `card_class` stays `"spell"` (19 code paths check `== "spell"`) instead of a new `"technique"` class. The `tech_*` id is the marker. The card-face badge is reduced to description text.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+combat-model.md → Technique cards: card-type, visual and pool rows corrected; new "Implementation (TID-707)" subsection. TID-708/709 research notes updated.

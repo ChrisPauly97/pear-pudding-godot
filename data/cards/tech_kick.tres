@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://ntdszk3ushx9"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_tech_kick"]
+
+[resource]
+script = ExtResource("1_tech_kick")
+id = "tech_kick"
+card_name = "Kick"
+cost = 0
+attack = 0
+health = 0
+card_class = "spell"
+description = "↻ Technique — Stun an enemy minion for 1 turn. Real time: interrupt an enemy cast (off the global cooldown). Returns to the bottom of your deck."
+color = Color(0.62, 0.66, 0.72, 1)
+magic_type = ""
+magic_branch = ""
+spell_effect = "stun_single"
+spell_power = 1
+can_craft = false
+is_unique = true
