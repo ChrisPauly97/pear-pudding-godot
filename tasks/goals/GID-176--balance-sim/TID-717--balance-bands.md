@@ -2,7 +2,7 @@
 
 **Goal:** GID-176
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-716, TID-718
 
 ## Lock
@@ -27,12 +27,21 @@ Lock in today's balance so a numbers change that moves it is noticed. User decis
 
 ## Plan
 
-_Written during Plan phase._
+1. Pure `BalanceBands` (cells, targets, drift check, baseline load) + `measure()` over BalanceFight.
+2. `tests/balance_bands.gd` CI step (too slow for the ≤ 5 s unit budget: ~480 fights, ~30 s); unit test for the logic.
+3. `balance_sim.gd --write-baseline`; commit the baseline; docs.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/battle/BalanceBands.gd`: 8 Chapter 1 cells × (+0: 20 fights, +1: 40), targets (same ≥ 97 %, +1 mean 65–85 %), drift (±10 pts, ±25 % median).
+- `tests/balance_bands.gd` + CI step "Run balance bands" (`.github/workflows/tests.yml`), with the SCRIPT ERROR gate.
+- `tests/data/balance_baseline.json` (measured at 415ac16): +1 mean 82 %.
+- `tools/balance_sim.gd --write-baseline`.
+- `tests/unit/test_balance_bands.gd`: check logic, cells in range, baseline covers every cell.
+- Deviation from the notes: the measurement runs as a CI step, not inside the unit suite (5 s budget too small for stable win rates). Levels 1/5/10/20 + boss replaced by the Chapter 1 type ladder (TID-718's definition of "enemy of level L").
+- Mutation check: `enemy_unarmed` 1 → 3 fails the bands.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/balance-sim.md`: "CI balance bands" section.
+- `CLAUDE.md` Running Tests: balance bands + how to update the baseline.

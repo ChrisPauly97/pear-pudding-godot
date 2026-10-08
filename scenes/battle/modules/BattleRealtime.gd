@@ -15,6 +15,7 @@
 ## `_ensure_battle_modules()`. Reach the scene as `_battle.<name>`.
 extends Node
 
+const _SwingFx = preload("res://scenes/battle/modules/SwingFx.gd")
 const _BattleScene = preload("res://scenes/battle/BattleScene.gd")
 const RealtimeCombat = preload("res://game_logic/battle/RealtimeCombat.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
@@ -81,7 +82,7 @@ func maybe_start(is_fresh: bool) -> void:
 		return
 	var player_level: int = SceneManager.save_manager.level
 	var enemy_type: String = str(_battle.enemy_data.get("enemy_type", ""))
-	var tier: int = _EnemyRegistry.get_difficulty_tier(enemy_type)
+	var tier: int = _BattleSetup.base_tier(enemy_type)
 	var saved: Variant = SceneManager.save_manager.get_setting(TUNING_SETTING, {})
 	var tuning := CombatTuning.new(saved as Dictionary if saved is Dictionary else {})
 	var enemy_level: int = int(_battle.enemy_data.get("enemy_level", enemy_level_for_tier(tier)))
@@ -259,6 +260,8 @@ func _on_caster_event(kind: String, data: Dictionary) -> void:
 		"fizzled":
 			toast("Target lost — spell fizzled")
 			_battle._refresh_all()
+		"returned":
+			_battle._refresh_all()
 		"resolved":
 			if fight_stats != null: fight_stats.record_card_damage(int(data.get("dealt", 0)))  # TID-559 tip
 		"technique":
@@ -355,7 +358,7 @@ func join_enemy(enemy_data: Dictionary) -> bool:
 		return false
 	var etype: String = str(enemy_data.get("enemy_type", "undead_basic"))
 	var is_boss: bool = bool(enemy_data.get("is_boss", false))
-	var tier: int = 4 if is_boss else _EnemyRegistry.get_difficulty_tier(etype)
+	var tier: int = 4 if is_boss else _BattleSetup.base_tier(etype)
 	var ps := PlayerState.new(_battle._state.players.size(), true)
 	var deck: Array[String] = []
 	deck.assign(enemy_data.get("enemy_deck", _EnemyRegistry.get_deck(etype)))
@@ -365,6 +368,7 @@ func join_enemy(enemy_data: Dictionary) -> bool:
 	if is_boss and bhp > 0:
 		ps.hero.health = bhp
 		ps.hero.max_health = bhp
+	_BattleSetup.scale_enemy_hp(ps, _EnemyRegistry.rt_hp_mult(etype))  # BID-095 per-type tuning
 	var side: int = rt.add_enemy(ps, enemy_level_for_tier(tier))
 	if side < 0:
 		return false
@@ -468,6 +472,13 @@ func _animate_swing(ev: Dictionary) -> void:
 	var target_side: int = int(ev.get("target_side", RealtimeCombat.PLAYER if side != RealtimeCombat.PLAYER
 			else RealtimeCombat.ENEMY))
 	var to: Vector2 = _visuals.target_pos(target, target_side)
+	# GID-178 / TID-726: every swing lands with a slash + sparks as the lunge arrives.
+	var crit: bool = bool(ev.get("crit", false))
+	_SwingFx.impact(_battle._float_layer, to, _battle._vh, side == RealtimeCombat.PLAYER, 0.12, crit)
+	if crit:  # TID-728: crits call themselves out and land heavier
+		_battle._fx.spawn_float_label(to + Vector2(0.0, -_battle._vh * 0.06), "CRIT!",
+				_SwingFx.PLAYER_HIT if side == RealtimeCombat.PLAYER else _SwingFx.ENEMY_HIT)
+		hit_feel(2)
 	var attacker: CardInstance = ev.get("attacker") as CardInstance
 	if attacker == null:
 		_visuals.lunge_token(side, to)

@@ -51,7 +51,8 @@ func test_enemy_minion_cap_by_enemy_level() -> void:
 
 func test_enemy_spell_scale_by_level() -> void:
 	var low: RealtimeCombat = BattleSetup.build({"seed": 5, "enemy_level": 1})["rt"]
-	var full: RealtimeCombat = BattleSetup.build({"seed": 5, "enemy_level": 10})["rt"]
+	var lvl: int = CombatTuning.new().get_i("enemy_full_level")
+	var full: RealtimeCombat = BattleSetup.build({"seed": 5, "player_level": lvl, "enemy_level": lvl})["rt"]
 	assert_lt(BattleSetup.enemy_spell_scale(low, RealtimeCombat.ENEMY), 1.0)
 	assert_almost_eq(BattleSetup.enemy_spell_scale(full, RealtimeCombat.ENEMY), 1.0, 0.001)
 
@@ -94,3 +95,74 @@ func test_unlock_filter() -> void:
 	assert_eq(_ids(BattleSetup.unlock_filter(deck, [])), ["tech_strike"] as Array[String])
 	assert_eq(_ids(BattleSetup.unlock_filter(deck, ["feat_minions"])), ["ghost", "tech_strike"] as Array[String])
 	assert_eq(BattleSetup.unlock_filter(deck, ALL).size(), 3)
+
+## TID-718: the hero grows `hp_per_level`; an enemy above you gets `gap_hp` more HP per level.
+func test_hero_hp_grows_with_level() -> void:
+	var t := CombatTuning.new()
+	var l1: GameState = BattleSetup.build({"seed": 5, "player_level": 1, "enemy_level": 1})["state"]
+	var l5: GameState = BattleSetup.build({"seed": 5, "player_level": 5, "enemy_level": 5})["state"]
+	assert_eq(l5.players[0].hero.max_health - l1.players[0].hero.max_health, roundi(t.get_f("hp_per_level") * 4.0))
+	assert_eq(l5.players[0].hero.health, l5.players[0].hero.max_health, "starts full")
+
+func test_enemy_above_you_has_more_hp() -> void:
+	var same: GameState = BattleSetup.build({"seed": 5, "player_level": 4, "enemy_level": 5})["state"]
+	var above: GameState = BattleSetup.build({"seed": 5, "player_level": 3, "enemy_level": 5})["state"]
+	var below: GameState = BattleSetup.build({"seed": 5, "player_level": 6, "enemy_level": 5})["state"]
+	assert_gt(above.players[1].hero.max_health, same.players[1].hero.max_health)
+	assert_lt(below.players[1].hero.max_health, same.players[1].hero.max_health)
+	assert_eq(above.players[1].hero.health, above.players[1].hero.max_health)
+
+## TID-718: a Strike-only deck must not take fatigue drawing its opening hand.
+func test_small_deck_starts_unhurt() -> void:
+	var st: GameState = BattleSetup.build({"seed": 5, "learned": []})["state"]
+	assert_eq(st.players[0].hero.health, st.players[0].hero.max_health)
+
+## GID-178: real-time fights open with every technique in hand.
+func test_techniques_start_in_hand() -> void:
+	var st: GameState = BattleSetup.build({"seed": 5, "player_level": 5, "learned": ALL})["state"]
+	var me: PlayerState = st.players[0]
+	for id: String in ["tech_strike", "tech_mend", "tech_kick"]:
+		assert_true(_ids(me.hand).has(id), id + " in the opening hand")
+		assert_false(_ids(me.draw_deck).has(id))
+
+## BID-095: a pack's units scale with level / gap like their hero.
+func test_pack_units_scale_with_the_gap() -> void:
+	var same: GameState = BattleSetup.build({"seed": 5, "player_level": 5, "enemy_level": 5,
+		"enemy_type": "ghoul_pack"})["state"]
+	var above: GameState = BattleSetup.build({"seed": 5, "player_level": 4, "enemy_level": 5,
+		"enemy_type": "ghoul_pack"})["state"]
+	var a: Array[CardInstance] = same.players[1].board.get_cards()
+	var b: Array[CardInstance] = above.players[1].board.get_cards()
+	assert_false(a.is_empty())
+	var hp_same: int = 0
+	var hp_above: int = 0
+	for c: CardInstance in a:
+		hp_same += c.max_health
+	for c: CardInstance in b:
+		hp_above += c.max_health
+		assert_eq(c.health, c.max_health, "pack starts full")
+	assert_gt(hp_above, hp_same)
+
+## BID-095: per-type real-time HP tuning (EnemyRegistry.rt_hp_mult).
+func test_type_hp_mult_applies() -> void:
+	var p := PlayerState.new(1, false)
+	p.hero.max_health = 40
+	p.hero.health = 40
+	BattleSetup.scale_enemy_hp(p, 0.85)
+	assert_eq(p.hero.max_health, 34)
+	assert_eq(p.hero.health, 34)
+	assert_lt(EnemyRegistry.rt_hp_mult("martarquas_scout"), 1.0)
+	assert_eq(EnemyRegistry.rt_hp_mult("undead_basic"), 1.0)
+
+## BID-095: a leaderless horde refills up to its pack size and hits harder.
+func test_horde_reinforces_and_hits_harder() -> void:
+	var rt: RealtimeCombat = BattleSetup.build({"seed": 5, "player_level": 3, "enemy_level": 3,
+		"enemy_type": "undead_horde"})["rt"]
+	assert_eq(rt.enemy_minion_cap, EnemyRegistry.get_pack("undead_horde").size(), "cap = pack size")
+	var p := PlayerState.new(1, true)
+	var unit := CardInstance.new({"id": "u", "name": "U", "cost": 1, "attack": 2, "health": 3,
+		"card_class": "minion", "description": ""})
+	p.hand.append(unit)
+	BattleSetup.add_enemy_attack(p, 1)
+	assert_eq(unit.attack, 3)
+	assert_gt(EnemyRegistry.rt_attack_bonus("undead_horde"), 0)

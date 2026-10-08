@@ -11,6 +11,7 @@ extends RefCounted
 const GameState = preload("res://game_logic/battle/GameState.gd")
 const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
+const HeroState = preload("res://game_logic/battle/HeroState.gd")
 const RealtimeCombat = preload("res://game_logic/battle/RealtimeCombat.gd")
 const CombatTuning = preload("res://game_logic/battle/CombatTuning.gd")
 const CombatOnboarding = preload("res://game_logic/battle/CombatOnboarding.gd")
@@ -117,9 +118,17 @@ static func weapon_speed_for_item(item_id: String) -> float:
 
 # --- Enemy ----------------------------------------------------------------
 
-## Enemy card tier: the type's difficulty tier (boss → 4), raised by zone level.
+## A type's base fight tier. Types with an authored level range (Chapter 1)
+## fight at tier 1 and take their strength from their level (GID-176 / TID-718);
+## the rest keep their difficulty tier. Drops / bestiary still read the authored tier.
+static func base_tier(enemy_type: String) -> int:
+	if enemy_type == "" or EnemyRegistry.LEVEL_RANGES.has(enemy_type):
+		return 1
+	return EnemyRegistry.get_difficulty_tier(enemy_type)
+
+## Enemy card tier: the type's base fight tier (boss → 4), raised by zone level.
 static func enemy_tier(enemy_type: String, is_boss: bool, enemy_level: int) -> int:
-	var tier: int = EnemyRegistry.get_difficulty_tier(enemy_type) if enemy_type != "" else 1
+	var tier: int = base_tier(enemy_type)
 	if is_boss:
 		tier = 4
 	return ZoneLevels.scaled_tier(tier, enemy_level)
@@ -182,20 +191,61 @@ static func configure_realtime(rt: RealtimeCombat, player_level: int, enemy_type
 		weapon_speed: float, offhand_damage: int, puzzle: bool = false) -> void:
 	rt.heavy_enabled = not puzzle
 	var enemy_level: int = rt.side_levels[RealtimeCombat.ENEMY]
-	rt.set_enemy_minion_cap(1 if enemy_level < rt.tune.get_i("enemy_two_minions_level")
-			else RealtimeCombat.MAX_ENEMY_MINIONS)
+	var cap: int = 1 if enemy_level < rt.tune.get_i("enemy_two_minions_level") else RealtimeCombat.MAX_ENEMY_MINIONS
+	# A leaderless horde is its units: it refills up to its pack size from its deck,
+	# so it reinforces as you cut it down instead of being three free kills (BID-095).
+	if EnemyRegistry.is_leaderless(enemy_type):
+		cap = maxi(cap, EnemyRegistry.get_pack(enemy_type).size())
+	rt.set_enemy_minion_cap(cap)
 	# Early fights stay small: fewer Allies, a short opening hand.
 	rt.set_ally_cap(CombatOnboarding.ally_cap(player_level))
 	rt.trim_hand(RealtimeCombat.PLAYER, CombatOnboarding.opening_hand(player_level))
+	techniques_to_hand(rt.state.players[RealtimeCombat.PLAYER])
 	rt.weapon_speed[RealtimeCombat.PLAYER] = weapon_speed
 	rt.offhand_damage[RealtimeCombat.PLAYER] = offhand_damage
 	if EnemyRegistry.is_passive(enemy_type):
 		rt.set_passive(RealtimeCombat.ENEMY)
+	scale_enemy_hp(rt.state.players[RealtimeCombat.ENEMY], EnemyRegistry.rt_hp_mult(enemy_type))
+	add_enemy_attack(rt.state.players[RealtimeCombat.ENEMY], EnemyRegistry.rt_attack_bonus(enemy_type))
 
-## How hard an enemy side's spells hit (0..1, by its level): weak enemies still
-## cast, just softer (TID-720). Pass to `SpellEffectResolver.resolve_enemy_play`.
+## Adds `bonus` attack to every minion an enemy side has (board, hand, deck), so
+## reinforcements hit as hard as the opening pack (per-type tuning, BID-095).
+static func add_enemy_attack(p: PlayerState, bonus: int) -> void:
+	if bonus == 0:
+		return
+	for c: CardInstance in p.board.get_cards() + p.hand + p.draw_deck:
+		if c.card_class != "spell":
+			c.attack = maxi(0, c.attack + bonus)
+
+## Multiplies an enemy side's hero and board-unit HP by `mult` (per-type
+## real-time tuning, `EnemyRegistry.rt_hp_mult` — BID-095). Health keeps its fraction.
+static func scale_enemy_hp(p: PlayerState, mult: float) -> void:
+	if is_equal_approx(mult, 1.0):
+		return
+	var h: HeroState = p.hero
+	if h.max_health > 0:
+		var frac: float = float(h.health) / float(h.max_health)
+		h.max_health = maxi(1, roundi(float(h.max_health) * mult))
+		h.health = clampi(roundi(frac * float(h.max_health)), 1 if h.health > 0 else 0, h.max_health)
+	for c: CardInstance in p.board.get_cards():
+		var hp: int = maxi(1, roundi(float(c.max_health) * mult))
+		c.health = clampi(c.health + hp - c.max_health, 1, hp)
+		c.max_health = hp
+
+## Real time: every technique card starts in the opening hand (on top of the
+## trimmed hand), like abilities on a bar; after use each returns on its own
+## cooldown (PlayerCaster, GID-178).
+static func techniques_to_hand(p: PlayerState) -> void:
+	for c: CardInstance in p.draw_deck.duplicate():
+		if TechniqueDefs.is_technique(c.template_id):
+			p.draw_deck.erase(c)
+			p.hand.append(c)
+
+## How hard an enemy side's spells hit, by its level (weak enemies still cast,
+## just softer — TID-720) and its level gap over the player (TID-718). Pass to `SpellEffectResolver.resolve_enemy_play`.
 static func enemy_spell_scale(rt: RealtimeCombat, side: int) -> float:
-	return rt.tune.level_scale(rt.side_levels[side] if side < rt.side_levels.size() else 1)
+	var level: int = rt.side_levels[side] if side < rt.side_levels.size() else 1
+	return rt.tune.level_scale(level) * rt.tune.gap_mult(level, rt.side_levels[RealtimeCombat.PLAYER])
 
 ## Knobs RealtimeCombat caches rather than reads each tick (base damage).
 static func apply_live_tuning(rt: RealtimeCombat, base_tier: int) -> void:
@@ -240,15 +290,15 @@ static func build(cfg: Dictionary) -> Dictionary:
 	var boss_hp: int = EnemyRegistry.get_boss_hp(enemy_type) if is_boss else 0
 	setup_enemy(foe, me, enemy_type, EnemyRegistry.get_deck(enemy_type), tier, enemy_level, boss_hp)
 	me.start_turn(1)
-	var base_tier: int = EnemyRegistry.get_difficulty_tier(enemy_type)
-	var rt_enemy_level: int = enemy_level if cfg.has("enemy_level") else enemy_level_for_tier(base_tier)
+	var type_tier: int = base_tier(enemy_type)
+	var rt_enemy_level: int = enemy_level if cfg.has("enemy_level") else enemy_level_for_tier(type_tier)
 	var tuning := CombatTuning.new(cfg.get("tuning", {}) as Dictionary)
 	var rt := RealtimeCombat.new(state, [player_level, rt_enemy_level], tuning)
 	if s != 0:
 		rt.rng.seed = s
 	configure_realtime(rt, player_level, enemy_type, weapon_speed_for_item(str(cfg.get("weapon", ""))),
 			offhand_damage_for_item(str(cfg.get("offhand", ""))))
-	apply_live_tuning(rt, base_tier)
+	apply_live_tuning(rt, type_tier)
 	return {"state": state, "rt": rt, "tier": tier}
 
 ## The new-game starter deck (SaveManager.new_game) plus Strike.

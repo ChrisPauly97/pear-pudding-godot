@@ -5,8 +5,9 @@
 ## `BattleRealtime._process` makes, minus presentation.
 ##
 ## `run(cfg, policy)` → {result: "win"|"loss"|"timeout", seconds, hero_hp,
-## hero_hp_frac, plays: {template_id: n}, dealt_cards, dealt_auto, interrupts,
-## enemy_casts, procs, full_mana_s}.
+## hero_hp_frac, plays: {template_id: n}, actions (cards played), actions_10s
+## (cards played per 10 s, GID-178), dealt_cards, dealt_auto, interrupts,
+## enemy_casts, procs, full_mana_s, crits_dealt, crits_taken (GID-178 / TID-728)}.
 extends RefCounted
 
 const BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
@@ -34,7 +35,7 @@ static func run(cfg: Dictionary, policy: Dictionary = {}) -> Dictionary:
 	var caster := PlayerCaster.new(rt)
 	var bot := BalanceBot.new(policy)
 	var stats: Dictionary = {"plays": {}, "dealt_cards": 0, "dealt_auto": 0, "interrupts": 0,
-		"enemy_casts": 0, "procs": 0, "full_mana_s": 0.0}
+		"enemy_casts": 0, "procs": 0, "full_mana_s": 0.0, "crits_dealt": 0, "crits_taken": 0}
 	caster.notify = func(kind: String, data: Dictionary) -> void:
 		match kind:
 			"resolved":
@@ -56,6 +57,10 @@ static func run(cfg: Dictionary, policy: Dictionary = {}) -> Dictionary:
 		var foe_hp: int = FightStats.enemy_health(rt)
 		for ev: Dictionary in rt.advance(DT):
 			match str(ev.get("type", "")):
+				"swing":
+					if bool(ev.get("crit", false)):
+						var k: String = "crits_dealt" if int(ev.get("side", 0)) == RealtimeCombat.PLAYER else "crits_taken"
+						stats[k] = int(stats[k]) + 1
 				"enemy_cast":
 					stats["enemy_casts"] = int(stats["enemy_casts"]) + 1
 					var side: int = int(ev.get("side", RealtimeCombat.ENEMY))
@@ -76,6 +81,11 @@ static func run(cfg: Dictionary, policy: Dictionary = {}) -> Dictionary:
 		result = "win" if state.winner() == RealtimeCombat.PLAYER else "loss"
 	stats["result"] = result
 	stats["seconds"] = t
+	var actions: int = 0
+	for n: Variant in (stats["plays"] as Dictionary).values():
+		actions += int(n)
+	stats["actions"] = actions
+	stats["actions_10s"] = 10.0 * float(actions) / maxf(DT, t)
 	stats["hero_hp"] = me.hero.health
 	stats["hero_hp_frac"] = float(me.hero.health) / float(maxi(1, me.hero.max_health))
 	SpellEffectResolver.silent = false

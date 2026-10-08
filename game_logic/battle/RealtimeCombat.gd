@@ -149,6 +149,10 @@ func _init_side(i: int, level: int) -> void:
 	p.max_units = MAX_ALLIES if i == PLAYER else enemy_minion_cap
 	var h := p.hero
 	h.mana_scale = MANA_SCALE
+	if i == PLAYER:
+		_grow_hero_hp(h, level)
+	else:
+		_gap_enemy_hp(h, level)
 	h.max_mana = max_mana_for(level, h.bonus_mana, tune)
 	h.mana = h.max_mana
 	_last_mana.append(h.mana)
@@ -437,8 +441,9 @@ func _tick_swings(delta: float, events: Array[Dictionary]) -> void:
 			if c.attack <= 0:
 				continue
 			var target: CardInstance = pick_minion_target(c)
-			_resolve_swing(c, c.attack, target, PLAYER)
-			events.append({"type": "swing", "side": side, "attacker": c, "target": target, "target_side": PLAYER})
+			var crit: bool = _resolve_swing(c, c.attack, target, PLAYER, side)
+			events.append({"type": "swing", "side": side, "attacker": c, "target": target, "target_side": PLAYER,
+				"crit": crit})
 		_tick_hero(side, delta, events)
 
 ## Allies auto-attack: every `ally_ready` seconds an Ally swings at whatever
@@ -455,8 +460,9 @@ func _tick_ally(c: CardInstance, delta: float, events: Array[Dictionary]) -> voi
 		return
 	var target: CardInstance = pick_target(PLAYER)
 	var target_side: int = owner_of(target) if target != null else target_enemy()
-	_resolve_swing(c, c.attack, target, target_side)
-	events.append({"type": "swing", "side": PLAYER, "attacker": c, "target": target, "target_side": target_side})
+	var crit: bool = _resolve_swing(c, c.attack, target, target_side, PLAYER)
+	events.append({"type": "swing", "side": PLAYER, "attacker": c, "target": target, "target_side": target_side,
+		"crit": crit})
 
 ## Main-hand swing interval for `side` (s): the weapon's speed, else unarmed.
 func swing_speed(side: int) -> float:
@@ -498,9 +504,9 @@ func _tick_hero(side: int, delta: float, events: Array[Dictionary]) -> void:
 func _hero_hit(side: int, dmg: int, hand: String, events: Array[Dictionary]) -> void:
 	var target: CardInstance = pick_target(side)
 	var target_side: int = owner_of(target) if target != null else (target_enemy() if side == PLAYER else PLAYER)
-	_resolve_swing(null, dmg, target, target_side)
+	var crit: bool = _resolve_swing(null, dmg, target, target_side, side)
 	events.append({"type": "swing", "side": side, "attacker": null, "hand": hand, "target": target,
-		"target_side": target_side})
+		"target_side": target_side, "crit": crit})
 	if side == PLAYER and on_player_hit(dmg, false):
 		events.append({"type": "proc", "side": PLAYER})
 
@@ -628,12 +634,20 @@ func _track_enemy_hits() -> void:
 
 ## One-way hit: in real time the target answers on its own swing timer,
 ## so there is no Hearthstone-style retaliation damage.
-func _resolve_swing(attacker: CardInstance, dmg: int, target: CardInstance, target_side: int) -> void:
+## Returns true when the swing was a critical hit (GID-178 / TID-728): a seeded
+## roll on `crit_chance` (your side) / `enemy_crit_chance`, × `crit_mult`.
+func _resolve_swing(attacker: CardInstance, dmg: int, target: CardInstance, target_side: int,
+		from_side: int) -> bool:
 	var opp: PlayerState = state.players[target_side]
 	var d: int = BattlefieldRules.modify_damage(dmg, state.battlefield_biome)
+	if from_side != PLAYER:
+		d = _gap_scaled(d, from_side)
+	var crit: bool = d > 0 and rng.randf() < tune.get_f("crit_chance" if from_side == PLAYER else "enemy_crit_chance")
+	if crit:
+		d = maxi(d + 1, roundi(float(d) * tune.get_f("crit_mult")))
 	if target == null:
 		opp.hero.take_damage(d)
-		return
+		return crit
 	target.take_damage(d)
 	if not target.is_alive():
 		if attacker != null:
@@ -642,6 +656,7 @@ func _resolve_swing(attacker: CardInstance, dmg: int, target: CardInstance, targ
 		opp.discard.append(target)
 		if focus_target == target:
 			focus_target = null
+	return crit
 
 ## A fallen enemy's minions flee and its cast fizzles, so the fight carries on
 ## against whoever is left.
@@ -705,7 +720,48 @@ static func is_heavy(card: CardInstance) -> bool:
 ## Heavy blows from a low-level enemy land softer (CombatTuning.level_scale, TID-720).
 func heavy_damage(side: int = ENEMY) -> int:
 	return maxi(1, roundi(float(state.players[PLAYER].hero.max_health) * tune.get_f("heavy_frac")
-			* tune.level_scale(_level_of(side))))
+			* tune.level_scale(_level_of(side)) * tune.gap_mult(_level_of(side), _level_of(PLAYER))))
+
+## An enemy side's swing damage after the level gap: the fractional part lands
+## as a seeded chance, so small integer hits still feel the gap (TID-718).
+func _gap_scaled(dmg: int, side: int) -> int:
+	if dmg <= 0:
+		return dmg
+	var x: float = float(dmg) * tune.gap_mult(_level_of(side), _level_of(PLAYER))
+	var whole: int = floori(x)
+	return whole + (1 if rng.randf() < x - float(whole) else 0)
+
+## The player's hero gains `hp_per_level` max HP per level above 1 (GID-176 /
+## TID-718); current HP keeps its fraction, so a wounded hero stays wounded.
+func _grow_hero_hp(h: HeroState, level: int) -> void:
+	var extra: int = roundi(tune.get_f("hp_per_level") * float(maxi(0, level - 1)))
+	if extra <= 0 or h.max_health <= 0:
+		return
+	var frac: float = float(h.health) / float(h.max_health)
+	h.max_health += extra
+	h.health = clampi(roundi(frac * float(h.max_health)), 1 if h.health > 0 else 0, h.max_health)
+
+## An enemy's hero gains `enemy_hp_per_level` × max HP per level above 1 (on top
+## of the zone scaling), and `gap_hp` × more per level it is above the player
+## (less below, never under half). Its pack units already on the board scale the
+## same way, so a pack keeps pace with its leader (BID-095). Health keeps its fraction.
+func _gap_enemy_hp(h: HeroState, level: int) -> void:
+	var gap: int = level - _level_of(PLAYER)
+	var mult: float = maxf(0.5, 1.0 + tune.get_f("gap_hp") * float(gap)) \
+			* (1.0 + tune.get_f("enemy_hp_per_level") * float(maxi(0, level - 1)))
+	if is_equal_approx(mult, 1.0):
+		return
+	if h.max_health > 0:
+		var frac: float = float(h.health) / float(h.max_health)
+		h.max_health = maxi(1, roundi(float(h.max_health) * mult))
+		h.health = clampi(roundi(frac * float(h.max_health)), 1 if h.health > 0 else 0, h.max_health)
+	for p: PlayerState in state.players:
+		if p.hero != h:
+			continue
+		for c: CardInstance in p.board.get_cards():
+			var hp: int = maxi(1, roundi(float(c.max_health) * mult))
+			c.health = clampi(c.health + hp - c.max_health, 1, hp)
+			c.max_health = hp
 
 ## A side's level (1 if unknown).
 func _level_of(side: int) -> int:

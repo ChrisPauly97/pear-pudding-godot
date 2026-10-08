@@ -20,10 +20,15 @@ const DEFS: Array = [
 	["mana_regen_delay", "Regen pause after spending (s)", 1.0, 0.0, 6.0, 0.25, "Mana & cards"],
 	["base_max_mana", "Max mana at level 1 (next fight)", 400.0, 100.0, 1000.0, 25.0, "Mana & cards"],
 	["mana_per_level", "Max mana per level (next fight)", 35.0, 0.0, 100.0, 5.0, "Mana & cards"],
+	["hp_per_level", "Your max HP per level (next fight)", 5.0, 0.0, 10.0, 0.5, "Mana & cards"],
 	["draw_interval", "Draw a card every (s)", 9.0, 1.0, 20.0, 0.5, "Mana & cards"],
+	["tech_recycle_mult", "Technique return-to-hand time (x)", 1.0, 0.1, 5.0, 0.1, "Mana & cards"],
 	["hand_cap", "Hand size cap", 5.0, 3.0, 10.0, 1.0, "Mana & cards"],
 	["hero_swing", "Unarmed swing speed (s)", 3.0, 1.0, 5.0, 0.1, "Auto-attack"],
 	["offhand_swing", "Off-hand swing speed (s)", 2.0, 1.0, 5.0, 0.1, "Auto-attack"],
+	["crit_chance", "Your crit chance per swing (heroes + Allies)", 0.05, 0.0, 1.0, 0.01, "Auto-attack"],
+	["enemy_crit_chance", "Enemy crit chance per swing", 0.05, 0.0, 1.0, 0.01, "Auto-attack"],
+	["crit_mult", "Crit damage multiplier", 1.5, 1.0, 3.0, 0.1, "Auto-attack"],
 	["unarmed", "Your unarmed damage", 3.0, 0.0, 10.0, 1.0, "Auto-attack"],
 	["enemy_unarmed", "Enemy hero base damage", 2.0, 0.0, 10.0, 1.0, "Auto-attack"],
 	["ally_ready", "Ally ready every (s)", 3.0, 0.5, 8.0, 0.25, "Units"],
@@ -34,10 +39,13 @@ const DEFS: Array = [
 	["heavy_windup", "Heavy blow wind-up (s)", 2.2, 0.5, 5.0, 0.1, "Enemy"],
 	["heavy_frac", "Heavy blow damage (x your max HP)", 0.25, 0.05, 0.6, 0.01, "Enemy"],
 	# GID-176 / TID-720: enemy behaviour scales with the enemy's level, never with what the player learned.
-	["heavy_min_level", "Heavy blows from enemy level", 3.0, 1.0, 20.0, 1.0, "Enemy"],
-	["enemy_full_level", "Enemy level at full heavy / spell strength", 10.0, 2.0, 30.0, 1.0, "Enemy"],
-	["enemy_low_scale", "Heavy / spell strength at the lowest level", 0.5, 0.1, 1.0, 0.05, "Enemy"],
-	["enemy_two_minions_level", "Enemy level fielding 2 minions", 4.0, 1.0, 20.0, 1.0, "Enemy"],
+	["heavy_min_level", "Heavy blows from enemy level", 1.0, 1.0, 20.0, 1.0, "Enemy"],
+	["enemy_full_level", "Enemy level at full heavy / spell strength", 15.0, 2.0, 30.0, 1.0, "Enemy"],
+	["enemy_low_scale", "Heavy / spell strength at the lowest level", 0.3, 0.1, 1.0, 0.05, "Enemy"],
+	["enemy_hp_per_level", "Extra enemy HP per level above 1 (x)", 0.18, 0.0, 0.5, 0.01, "Enemy"],
+	["gap_hp", "Enemy HP per level it is above you (x)", 0.12, 0.0, 1.0, 0.05, "Enemy"],
+	["gap_damage", "Enemy damage per level it is above you (x)", 0.1, 0.0, 1.0, 0.05, "Enemy"],
+	["enemy_two_minions_level", "Enemy level fielding 2 minions", 5.0, 1.0, 20.0, 1.0, "Enemy"],
 	["siphon_per_damage", "Mana siphoned per damage you deal", 15.0, 0.0, 60.0, 1.0, "Momentum"],
 	["fighting_regen_mult", "Regen multiplier while fighting", 0.4, 0.0, 2.0, 0.05, "Momentum"],
 	["combo_max", "Combo charges to fill", 3.0, 1.0, 5.0, 1.0, "Momentum"],
@@ -102,6 +110,11 @@ func level_scale(level: int) -> float:
 	var full: float = maxf(2.0, get_f("enemy_full_level"))
 	var k: float = clampf((float(level) - 1.0) / (full - 1.0), 0.0, 1.0)
 	return lerpf(get_f("enemy_low_scale"), 1.0, k)
+
+## Damage multiplier for an enemy `enemy_level` hitting a `player_level` hero:
+## +`gap_damage` per level above, less below (never under half) (TID-718).
+func gap_mult(enemy_level: int, player_level: int) -> float:
+	return maxf(0.5, 1.0 + get_f("gap_damage") * float(enemy_level - player_level))
 
 static func row_for(key: String) -> Array:
 	for row: Array in DEFS:

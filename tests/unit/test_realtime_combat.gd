@@ -25,7 +25,7 @@ func _rt() -> RealtimeCombat:
 	for p: PlayerState in gs.players:
 		p.hand.clear()
 		p.draw_deck.clear()
-	return RealtimeCombat.new(gs)
+	return RealtimeCombat.new(gs, [1, 1], CombatTuning.new({"crit_chance": 0.0, "enemy_crit_chance": 0.0}))
 
 ## Advance in 0.1 s steps (plus one step of slack for float drift), collecting events.
 func _run(rt: RealtimeCombat, seconds: float) -> Array[Dictionary]:
@@ -73,7 +73,7 @@ func test_levels_passed_to_constructor() -> void:
 	var gs := GameState.new()
 	gs.players[0].hero.bonus_mana = 1
 	var levels: Array[int] = [7, 1]
-	var rt := RealtimeCombat.new(gs, levels)
+	var rt := RealtimeCombat.new(gs, levels, CombatTuning.new({"crit_chance": 0.0, "enemy_crit_chance": 0.0}))
 	assert_eq(rt.state.players[0].hero.max_mana, RealtimeCombat.max_mana_for(7, 1))
 	assert_eq(rt.state.players[1].hero.max_mana, _tune.get_i("base_max_mana"))
 
@@ -390,6 +390,7 @@ func test_round_pulse_skips_desert_scorch_outside_desert() -> void:
 func test_round_pulse_tuning_knob_changes_pulse_period() -> void:
 	var tune := CombatTuning.new()
 	tune.set_value("round_seconds", 1.0)
+	tune.set_value("crit_chance", 0.0)
 	var gs := GameState.new()
 	for p: PlayerState in gs.players:
 		p.hand.clear()
@@ -406,12 +407,12 @@ func test_round_pulse_tuning_knob_changes_pulse_period() -> void:
 ## GID-139 / TID-579: telegraphed heavy blows.
 
 ## A full-strength (level 10) enemy with heavy blows on.
-func _heavy_rt(enemy_level: int = 10) -> RealtimeCombat:
+func _heavy_rt(enemy_level: int = 10, tuning: CombatTuning = null) -> RealtimeCombat:
 	var gs := GameState.new()
 	for p: PlayerState in gs.players:
 		p.hand.clear()
 		p.draw_deck.clear()
-	var rt := RealtimeCombat.new(gs, [1, enemy_level])
+	var rt := RealtimeCombat.new(gs, [1, enemy_level], tuning)
 	rt.heavy_enabled = true
 	rt.auto_attack = false
 	rt.unarmed[RealtimeCombat.ENEMY] = 0
@@ -438,20 +439,34 @@ func test_heavy_blow_winds_up_then_lands() -> void:
 	assert_eq(hero.health, hp - rt.heavy_damage(), "a quarter of max HP lands")
 
 func test_low_level_enemy_has_no_heavy_blow() -> void:
-	var rt := _heavy_rt(_tune.get_i("heavy_min_level") - 1)
+	var rt := _heavy_rt(2)
+	rt.tune.set_value("heavy_min_level", 3.0)
 	assert_false(_types(_run(rt, rt.tune.get_f("heavy_every") * 2.0)).has("enemy_heavy_start"),
 		"below heavy_min_level the enemy never winds up")
 
 func test_heavy_blow_scales_with_enemy_level() -> void:
-	var low := _heavy_rt(_tune.get_i("heavy_min_level"))
-	var full := _heavy_rt(_tune.get_i("enemy_full_level"))
+	var no_gap := CombatTuning.new({"gap_damage": 0.0})
+	var low := _heavy_rt(1, no_gap)
+	var full := _heavy_rt(_tune.get_i("enemy_full_level"), no_gap)
 	assert_lt(low.heavy_damage(), full.heavy_damage(), "a low-level heavy hits softer")
-	assert_eq(_heavy_rt(_tune.get_i("enemy_full_level") + 5).heavy_damage(), full.heavy_damage(), "capped at full")
+	assert_eq(_heavy_rt(_tune.get_i("enemy_full_level") + 5, no_gap).heavy_damage(), full.heavy_damage(),
+		"capped at full")
 
 func test_level_scale_curve() -> void:
 	assert_almost_eq(_tune.level_scale(1), _tune.get_f("enemy_low_scale"), 0.001)
 	assert_almost_eq(_tune.level_scale(_tune.get_i("enemy_full_level")), 1.0, 0.001)
 	assert_lt(_tune.level_scale(3), _tune.level_scale(6))
+
+func test_enemy_above_you_hits_harder() -> void:
+	var steep := CombatTuning.new({"gap_damage": 0.5})
+	var same := _heavy_rt(5, steep)
+	same.side_levels[RealtimeCombat.PLAYER] = 5
+	var above := _heavy_rt(6, steep)
+	above.side_levels[RealtimeCombat.PLAYER] = 5
+	assert_gt(above.heavy_damage(), same.heavy_damage(), "a higher-level enemy's heavy hits harder")
+	assert_gt(steep.gap_mult(6, 5), 1.0)
+	assert_lt(steep.gap_mult(4, 5), 1.0)
+	assert_almost_eq(steep.gap_mult(1, 30), 0.5, 0.001, "never under half")
 
 func test_kick_stops_the_heavy_blow() -> void:
 	var rt := _heavy_rt()

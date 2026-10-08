@@ -2,7 +2,7 @@
 
 **Goal:** GID-176
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-719, TID-720
 
 ## Lock
@@ -46,12 +46,24 @@ User targets (2026-10-08): with full HP, full mana and average play, the player 
 
 ## Plan
 
-_Written during Plan phase._
+1. Measure the level ladder (`--enemy-offset 0|1`) and each Chapter 1 type over its range.
+2. Find root causes before tuning (stat dumps, single-knob sweeps).
+3. Add global level-growth / level-gap knobs; sweep in parallel; pick defaults.
+4. Tests for each new rule; record the matrix; log per-type outliers.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **Bug fix:** `PlayerState.draw_opening_hand` / first `start_turn` draw never fatigue. A Strike-only deck started every fight at 20/30 HP.
+- `BattleSetup.base_tier`: Chapter 1 types (`LEVEL_RANGES`) fight at tier 1; used by `enemy_tier`, `build`, `BattleRealtime` (start + join).
+- `RealtimeCombat`: `_grow_hero_hp` (player `hp_per_level`), `_gap_enemy_hp` (`enemy_hp_per_level`, `gap_hp`), `_gap_scaled` on enemy swings, gap in `heavy_damage`; `_resolve_swing` takes the attacker side.
+- `CombatTuning`: new `hp_per_level`, `enemy_hp_per_level`, `gap_hp`, `gap_damage`, `gap_mult()`; defaults `enemy_unarmed` 1, `enemy_low_scale` 0.3, `enemy_full_level` 15, `enemy_two_minions_level` 5.
+- `BattleSetup.enemy_spell_scale` includes the gap; `resolve_enemy_play` scales up as well as down.
+- `BalanceBot` policy `focus` (auto-attack the weakest enemy minion); `tools/balance_sim.gd` accepts it.
+- `tools/balance_matrix.sh`: per-type matrix.
+- Tests: hero HP growth, enemy gap HP, small deck unhurt (mutation-checked), gap damage, heavy scaling without gap.
+- Result: same level ~100 % for every Chapter 1 type; one level up 63–100 % except `ghoul_pack` (23–40 %) → BID-095.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/balance-sim.md`: "After TID-718" matrix + what changed.
+- `docs/agent/combat-model.md`: enemy-level knob table (new knobs, defaults), base tier, fatigue note.

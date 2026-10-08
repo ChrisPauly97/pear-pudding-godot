@@ -93,6 +93,84 @@ TID-719). In the sim, pass `--enemy-level L` with a type whose `EnemyRegistry.le
 | 4–5 | 93 % | + Allies |
 | 10 | 100 % | |
 
+### After TID-720 (100 fights each, `undead_basic`, ladder-learned, no gear)
+
+Enemy behaviour now follows the enemy's level only; heavies from level 1 (user, softened on the spell curve). `--enemy-offset D` sets enemy level = player level + D.
+
+| Player level | 1 | 2 | 3 | 4 | 5 | 6 | 8 | 10 |
+|---|---|---|---|---|---|---|---|---|
+| Same-level enemy (offset 0) | 0 % | 100 % | 0 % | 78 % | 66 % | 47 % | 36 % | 68 % |
+| Enemy one level up (offset 1) | 0 % | 0 % | 11 % | 66 % | 46 % | 38 % | 35 % | 38 % |
+| Enemy at its tier level (no offset) | — | — | — | 100 % | 100 % | — | — | 100 % |
+
+Far from the targets (100 % / ~75 %): level-matched enemies outscale the hero, and levels 1 and 3 are walls.
+TID-718 tunes this.
+
+### After TID-718 (30 fights per cell, each Chapter 1 type at its level range)
+
+Player level L (ladder-learned, starter deck, no gear) vs the type at L and at L + 1
+(`bash tools/balance_matrix.sh [tune] [fights]` runs `--enemy TYPE --sweep level=… --enemy-offset 0|1` per type).
+
+| Enemy (levels) | Same level | One level up |
+|---|---|---|
+| `undead_basic` (1,2) | 100% / 100% | 100% / 100% |
+| `undead_horde` (2,3,4) | 100% / 100% / 100% | 100% / 100% / 100% |
+| `ghoul_pack` (3,4,5) | 100% / 100% / 96.7% | 23.3% / 40% / 26.7% |
+| `wolf_pack` (4,5,6) | 100% / 100% / 100% | 96.7% / 80% / 73.3% |
+| `forest_shade` (5,6,7,8) | 100% / 100% / 100% / 100% | 100% / 100% / 86.7% / 76.7% |
+| `bog_hag` (6,7,8) | 100% / 100% / 100% | 100% / 96.7% / 93.3% |
+| `imbued_stag` (7,8,9) | 100% / 100% / 100% | 96.7% / 73.3% / 50% |
+| `martarquas_scout` (8,9,10) | 100% / 100% / 100% | 86.7% / 63.3% / 86.7% |
+
+What changed:
+- **Fatigue bug:** a Strike-only deck took 1+2+3+4 fatigue drawing its opening hand, so every early fight
+  started at 20/30 HP. Opening hands and the first turn's draw never fatigue now (`PlayerState`).
+- **Bot focus:** `BalanceBot` taps the weakest enemy minion as its auto-attack focus (policy `focus`), what a
+  player does against a pack. Without it, packs were 0 %.
+- **Chapter 1 types fight at tier 1** (`BattleSetup.base_tier`): their strength comes from level; `ghoul_pack`
+  (authored tier 3) was a tier-3 fight at levels 3–5.
+- **Level growth, both sides** (CombatTuning): hero `hp_per_level` 5; enemy `enemy_hp_per_level` 0.08,
+  `enemy_unarmed` 1, `enemy_low_scale` 0.3, `enemy_full_level` 15, `enemy_two_minions_level` 5.
+- **Level gap:** an enemy above you has `gap_hp` 0.3 more HP and deals `gap_damage` 0.15 more damage
+  (swings, heavies, spells) per level; below you, less (never under half).
+
+The bot is very consistent, so win rates move in cliffs (0.05 → 0.10 extra enemy HP per level swings +1 fights
+from ~95 % to ~40 %). Outliers left for content tuning: `ghoul_pack` +1 is too hard and early undead +1 too easy
+(BID-095).
+
+### After GID-178 / TID-724 (pacing)
+
+Techniques start in hand and return on cooldowns (Strike 3 s, 2 dmg), so the player acts ~3–5 times per 10 s
+(new `act10` column / `actions_10s` CSV field). Enemies were pushed back up (`enemy_unarmed` 2,
+`enemy_hp_per_level` 0.18, gap 0.12 HP / 0.08 damage). Bands: same level 100 % for every cell; one level up
+mean 80 % (bog hag 88, forest shade 100, ghoul pack 100, imbued stag 60, martarquas scout 30, undead 68,
+horde 100, wolves 98). The scout is the new hard outlier (BID-095).
+
+### After TID-727 (BID-095 outliers)
+
+Pack units scale with level / gap like their leader; per-type `rt_hp_mult` (EnemyRegistry) trims the scout
+(0.85), stag (0.9) and ghoul pack (0.95); `gap_damage` 0.10. One level up, mean per type: 68–91 % for every
+Chapter 1 type except the leaderless horde (100 %, still open in BID-095). Bands mean 82 %.
+
+### After TID-729 (horde)
+
+The leaderless horde refills to its pack size (4 units) and its units get `rt_attack_bonus` +2. One level up it
+averages ~77 % (30 % at L2, 100 % at L3–4). Every Chapter 1 type is now in band on average; BID-095 resolved.
+
+## CI balance bands (TID-717)
+
+`game_logic/battle/BalanceBands.gd` turns the targets into checks. Cells: one per Chapter 1 type at a level
+inside its range (`CELLS`), at the same level (20 seeded fights) and one level up (40). `check()` fails when:
+
+- any same-level cell wins < 97 %;
+- the mean one-level-up win rate leaves 65–85 % (measured: 82 %);
+- a cell drifts from `tests/data/balance_baseline.json` by more than 10 points of win rate or 25 % of median length.
+
+CI runs `godot --headless --path . -s tests/balance_bands.gd` as its own step (~30 s; too slow for the unit
+suite). `tests/unit/test_balance_bands.gd` covers the check logic and that the baseline lists every cell.
+Changed the numbers on purpose? `godot --headless --path . -s tools/balance_sim.gd -- --write-baseline` rewrites
+the JSON (with the commit it was measured at); commit the diff so review sees the balance move.
+
 ## Integrations
 
 - `tests/unit/test_battle_determinism.gd`, `test_player_caster.gd`, `test_battle_setup.gd`, `test_balance_bot.gd`

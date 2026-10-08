@@ -3,6 +3,7 @@ extends "res://tests/framework/test_case.gd"
 
 const FightStats = preload("res://game_logic/battle/FightStats.gd")
 const RealtimeCombat = preload("res://game_logic/battle/RealtimeCombat.gd")
+const CombatTuning = preload("res://game_logic/battle/CombatTuning.gd")
 const GameState = preload("res://game_logic/battle/GameState.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 
@@ -90,7 +91,7 @@ func test_pick_tip_nothing_notable_returns_empty() -> void:
 
 func test_enemy_health_sums_enemy_hero_and_board() -> void:
 	var gs := GameState.new()
-	var rt := RealtimeCombat.new(gs)
+	var rt := RealtimeCombat.new(gs, [1, 1], CombatTuning.new({"crit_chance": 0.0, "enemy_crit_chance": 0.0}))
 	var foe := gs.players[RealtimeCombat.ENEMY]
 	var base: int = foe.hero.health
 	foe.board.slots[0] = CardInstance.new({

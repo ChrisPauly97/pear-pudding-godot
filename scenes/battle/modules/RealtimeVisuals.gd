@@ -17,6 +17,8 @@ const _PaperDoll = preload("res://game_logic/character/PaperDoll.gd")
 const _DiagonalBoard = preload("res://scenes/battle/modules/DiagonalBoard.gd")
 const _TokenFrames = preload("res://scenes/battle/modules/TokenFrames.gd")
 const _AllySlotLocks = preload("res://scenes/battle/modules/AllySlotLocks.gd")
+const _DeckPile = preload("res://scenes/battle/modules/DeckPile.gd")
+const _SwingFx = preload("res://scenes/battle/modules/SwingFx.gd")
 
 const READY_COLOR := Color(0.35, 1.0, 0.45)
 const CHARGING_COLOR := Color(0.45, 0.75, 1.0)
@@ -51,6 +53,7 @@ var _hand_shades: Array[ColorRect] = []
 var _slot_locks: _AllySlotLocks = null
 ## Enemy token attack / hit / death frames (GID-152 / TID-646).
 var _token_frames: _TokenFrames = _TokenFrames.new()
+var _pile: _DeckPile = null
 
 func _init(battle: _BattleScene) -> void:
 	_battle = battle
@@ -71,6 +74,10 @@ func build(enemy_type: String, is_boss: bool) -> void:
 	_cast_lbl = cast["label"]
 	_cast_bar = cast["bar"]
 	_setup_arena()
+	# Draws fly out of a visible pile, slower than turn-based deals (GID-178 / TID-725).
+	_pile = _DeckPile.new(_root, _battle._view.card_size(), int(_battle._vh * 0.022))
+	_battle._card_motion.deal_from = _pile.control
+	_battle._card_motion.deal_time_mult = 1.7
 	_battle.get_viewport().size_changed.connect(apply_layout)
 	apply_layout.call_deferred()
 
@@ -263,6 +270,7 @@ func update(rt: RealtimeCombat, player_cast: Dictionary) -> void:
 		if not tok.has_meta("lunging"):
 			tok.global_position = _token_home.get(side, tok.global_position)
 		(_token_bars[side] as ProgressBar).value = rt.hero_swing_fraction(int(side))
+		_SwingFx.wind_up(tok, rt.hero_swing_fraction(int(side)), int(side) == RealtimeCombat.PLAYER)
 		# A fallen enemy's token greys out.
 		if int(side) != RealtimeCombat.PLAYER:
 			tok.modulate = Color.WHITE if rt.is_alive(int(side)) else Color(0.45, 0.45, 0.45, 0.8)
@@ -276,7 +284,22 @@ func update(rt: RealtimeCombat, player_cast: Dictionary) -> void:
 		_slot_locks.update()
 	_token_frames.observe(rt)
 	_place_strip(_battle.get_viewport().get_visible_rect().size, _battle._vh * 0.015)
+	_update_pile()
 	_update_focus_ring(rt)
+
+## The draw pile tracks the deck size and sits right of the rightmost hand card.
+func _update_pile() -> void:
+	if _pile == null:
+		return
+	var hand: Control = _battle._player_hand_view
+	_pile.control.visible = hand.visible
+	_pile.set_count(_battle._state.players[RealtimeCombat.PLAYER].draw_deck.size())
+	var right: float = hand.get_global_rect().get_center().x
+	for c: Node in hand.get_children():
+		var ctl := c as Control
+		if ctl != null and ctl.visible:
+			right = maxf(right, ctl.get_global_rect().end.x)
+	_pile.place(right, _battle.get_viewport().get_visible_rect().size, _battle._vh * 0.015)
 
 ## Darkens the unready part of each hand card, draining from the top like the
 ## skill buttons: `frac` 1 = ready (no shade), 0 = fully shaded (e.g. mid-cast).

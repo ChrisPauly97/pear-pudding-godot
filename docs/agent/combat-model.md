@@ -370,6 +370,28 @@ Guard: `realtime_battle_smoke` `_check_setup_matches_sim` builds the sim fight n
 enemy max HP, ally / enemy-minion caps, heavy blows, base damage and both max manas (mutation-checked). Unit tests:
 `tests/unit/test_battle_setup.gd`.
 
+## Combat pacing (GID-178 / TID-724)
+
+Target: **about 3–5 player actions per 10 s** (`balance_sim` column `act10`). Before: ~1 per 10 s, because Strike
+was a deck card that came round every ~2 minutes. Now techniques start in hand and return on short cooldowns, so
+Strike (2 dmg) is pressed every few seconds and Kick / Mend come back every 15–20 s. Measured: L1 ~3.3, L3–10 ~4.7–5.
+
+### Auto-attack feel (GID-178 / TID-726)
+
+`scenes/battle/modules/SwingFx.gd`: hero tokens wind up over the last 35 % of their swing timer (lean back away
+from the foe, swell 10 %, warm glow; eased in so the last beat is the tell), driven from `RealtimeVisuals.update`.
+Every swing (hero or unit, either side) lands with a slash streak and seven sparks at the target on the battle's
+float layer, timed to meet the lunge (`BattleRealtime._animate_swing`). Gold for your hits, red for the enemy's.
+
+### Critical hits (GID-178 / TID-728)
+
+Every auto-attack swing (heroes and units, both sides) rolls a crit in `RealtimeCombat._resolve_swing` on the
+seeded `rt.rng`: `crit_chance` (yours, 5 %) / `enemy_crit_chance` (5 %), damage × `crit_mult` (1.5, at least +1).
+Swing events carry `crit`; `BattleRealtime` shows a bigger `SwingFx` impact, a "CRIT!" float and `hit_feel(2)`.
+Spells and techniques don't crit. `BalanceFight` counts `crits_dealt` / `crits_taken`. Tuned with the band cells:
+symmetric 5 % is balance-neutral (one level up mean 80 % vs 81 % without crits). Unit tests that assert exact
+swing damage build their `RealtimeCombat` with crits off.
+
 ## Enemy strength by enemy level (GID-176 / TID-720)
 
 Enemies act the same whatever the player has learned; only the **enemy's** level (`RealtimeCombat.side_levels`)
@@ -377,10 +399,18 @@ changes them. Knobs (CombatTuning, Enemy group):
 
 | Knob | Default | Effect |
 |---|---|---|
-| `heavy_min_level` | 3 | Enemies below this never wind up heavy blows |
-| `enemy_full_level` | 10 | Level at which heavies / spells hit at full strength |
-| `enemy_low_scale` | 0.5 | Strength at level 1; `CombatTuning.level_scale(L)` lerps to 1 at `enemy_full_level` |
-| `enemy_two_minions_level` | 4 | Below this an enemy fields one minion |
+| `heavy_min_level` | 1 | Enemies below this never wind up heavy blows (every enemy by default; heavies soften on the same curve as spells) |
+| `enemy_full_level` | 15 | Level at which heavies / spells hit at full strength |
+| `enemy_low_scale` | 0.3 | Strength at level 1; `CombatTuning.level_scale(L)` lerps to 1 at `enemy_full_level` |
+| `enemy_two_minions_level` | 5 | Below this an enemy fields one minion |
+| `enemy_hp_per_level` | 0.18 | Extra enemy hero HP (× max) per level above 1, on top of the zone's 6 % (TID-718) |
+| `gap_hp` / `gap_damage` | 0.12 / 0.10 | Per level an enemy is above you: × more HP / damage (swings, heavies, spells); below you, less (≥ half) |
+| `hp_per_level` | 5 | Your hero's max HP per level above 1 (keeps its HP fraction) |
+| `enemy_unarmed` | 2 | Enemy hero swing damage (+ tier − 1); raised back from 1 with GID-178's faster player pacing |
+
+Pack units on the board scale with level / gap like their hero; per-type `rt_hp_mult` / `rt_attack_bonus` (EnemyRegistry, real time only) even out outliers; a leaderless pack refills up to its pack size (BID-095).
+Chapter 1 types (`EnemyRegistry.LEVEL_RANGES`) fight at tier 1 (`BattleSetup.base_tier`); their strength comes from
+level. Opening hands never fatigue (`PlayerState.draw_opening_hand`).
 
 `heavy_damage(side)` = player max HP × `heavy_frac` × `level_scale`. Enemy spells keep their cast bars at every
 level (so Kick is familiar when learned) but `SpellEffectResolver.resolve_enemy_play(..., power_scale)` scales
@@ -430,7 +460,7 @@ played itself. The fix keeps real time but makes the loop **build → spend**:
   from your hero's swings and damaging techniques.
 - **Auto-attack is always on** (`RealtimeCombat.auto_attack`; the old ⚔ Auto / F "Focus" toggle and
   `focus_regen_mult` were removed): melee swings are automatic, siphon mana, and vein regen runs ×
-  `fighting_regen_mult` (0.4). The one starter ability, **Strike** (5 dmg, free), runs on a 6 s cooldown
+  `fighting_regen_mult` (0.4). The one starter ability, **Strike** (2 dmg real time since GID-178, free), returns to the hand 3 s after use
   instead of being a GCD-spammed filler.
 - **Combo charges:** each builder hit adds one (cap `combo_max` 3, pips ◆◇ on the action strip). The next
   hand card spends them all for `combo_refund` mana each; a **full** combo makes that card instant.
@@ -455,7 +485,7 @@ model and stay only until TID-710 removes the code.
 | Rule | Decision |
 |---|---|
 | Card type | `card_class = "spell"` (so every spell path — targeting, cast bar, resolver — works unchanged) with a `tech_*` id; `TechniqueDefs.is_technique(id)` is the marker. Typeless (`magic_type = ""`), `can_craft = false`, `is_unique = true` (can't be traded, auctioned or stashed), never dropped, never captured |
-| Cooldown → recycle | Once a technique **resolves** it goes to the **bottom of `draw_deck`**, not the discard. Deck cycling is its cooldown. A fizzled cast keeps the card in hand (as with spells) |
+| Cooldown → recycle | Once a technique **resolves** it goes to the **bottom of `draw_deck`**, not the discard. In real time (GID-178) it then **returns to the hand** after its `recycle` time × `tech_recycle_mult` (`PlayerCaster._tick_returns`; ignores the hand cap; a natural draw cancels it) — Strike 3 s, Ember Lance / Sweep 6 s, Mend / Daze 20 s, Kick / Guard / Mana Tap 15 s. Every technique also **starts in the opening hand** (`BattleSetup.techniques_to_hand`). A fizzled cast keeps the card in hand (as with spells) |
 | Copies | **1 copy** of each technique per deck |
 | Deck cost | Techniques **take deck slots**, max **3 per deck** (`TECHNIQUE_DECK_MAX`, same weight as the old 3 slots). The cap also stops a tiny all-technique deck from cycling forever |
 | Cost | Card cost units, ×100 in real time like any card: **0** for Strike, Kick, Mana Tap and Daze; **1** for Mend, Guard, Ember Lance and Sweep |

@@ -12,12 +12,15 @@
 ##   --weapon ID / --offhand ID
 ##   --enemy T[,T…]      enemy types, or "all" (undead_basic)
 ##   --enemy-level N     enemy zone level (default: the type's own tier level)
+##   --enemy-offset D    enemy level = player level + D (overrides --enemy-level)
 ##   --boss              fight it as a boss (tier 4, boss HP)
 ##   --tune k=v,k=v      CombatTuning overrides (clamped to each knob's range)
-##   --policy k=v,…      BalanceBot knobs: heal_below, summon, interrupt
+##   --policy k=v,…      BalanceBot knobs: heal_below, summon, interrupt, focus
 ##   --sweep key=v1,v2   one case per value; key = level | enemy_level | a tuning knob | a policy knob
 ##   --csv PATH          per-fight CSV (default user://balance/<time>.csv; "none" to skip)
 ##   --max-seconds S     per-fight cap, counted as a timeout (300)
+##   --write-baseline    measure the CI balance bands (BalanceBands) and rewrite
+##                       tests/data/balance_baseline.json; commit the diff
 ##
 ## It measures a fixed bot, not a skilled human: compare settings against
 ## each other. See docs/agent/balance-sim.md.
@@ -25,7 +28,7 @@ extends SceneTree
 
 var _opts: Dictionary = {
 	"fights": "200", "seed": "1", "level": "1", "learned": "ladder", "deck": "starter", "weapon": "",
-	"offhand": "", "enemy": "undead_basic", "enemy-level": "", "boss": "", "tune": "", "policy": "",
+	"offhand": "", "enemy": "undead_basic", "enemy-level": "", "enemy-offset": "", "boss": "", "tune": "", "policy": "",
 	"sweep": "", "csv": "", "max-seconds": "300",
 }
 
@@ -45,6 +48,9 @@ func _initialize() -> void:
 	_go.call_deferred()
 
 func _go() -> void:
+	if _opts.has("write-baseline"):
+		_write_baseline()
+		return
 	var fight: GDScript = load("res://game_logic/battle/BalanceFight.gd")
 	var stats: GDScript = load("res://game_logic/battle/BalanceStats.gd")
 	var registry: GDScript = load("res://autoloads/EnemyRegistry.gd")
@@ -75,7 +81,7 @@ func _go() -> void:
 		for v: String in sweep_vals:
 			var cfg: Dictionary = _config(enemy, sweep_key, v)
 			var policy: Dictionary = _kv(str(_opts["policy"]))
-			if sweep_key in ["heal_below", "summon", "interrupt"]:
+			if sweep_key in ["heal_below", "summon", "interrupt", "focus"]:
 				policy[sweep_key] = float(v)
 			var label: String = enemy + ("" if sweep_key == "" else " %s=%s" % [sweep_key, v])
 			var results: Array[Dictionary] = []
@@ -92,6 +98,28 @@ func _go() -> void:
 		"" if csv == null else "  csv: " + ProjectSettings.globalize_path(csv.get_path())])
 	quit(0)
 
+## Measures BalanceBands and writes the baseline JSON (with the commit it came from).
+func _write_baseline() -> void:
+	var bands: GDScript = load("res://game_logic/battle/BalanceBands.gd")
+	var cells: Dictionary = bands.call("measure")
+	var git: Array = []
+	OS.execute("git", ["rev-parse", "--short", "HEAD"], git)
+	var commit: String = str(git[0]).strip_edges() if not git.is_empty() else "unknown"
+	var data: Dictionary = {"measured_at": commit, "cells": cells}
+	var path: String = str(bands.get("BASELINE_PATH"))
+	var f: FileAccess = FileAccess.open(path, FileAccess.WRITE)
+	if f == null:
+		printerr("Cannot write " + path)
+		quit(1)
+		return
+	f.store_string(JSON.stringify(data, "\t", true) + "\n")
+	f.close()
+	var fails: Array = bands.call("check", cells, {})
+	for msg: Variant in fails:
+		printerr("Target missed: " + str(msg))
+	print("Wrote %s (%d cells, at %s)" % [ProjectSettings.globalize_path(path), cells.size(), commit])
+	quit(0)
+
 ## The BalanceFight config for one case.
 func _config(enemy: String, sweep_key: String, v: String) -> Dictionary:
 	var level: int = int(_opts["level"])
@@ -106,6 +134,8 @@ func _config(enemy: String, sweep_key: String, v: String) -> Dictionary:
 			cfg[k] = str(_opts[k])
 	if str(_opts["enemy-level"]) != "":
 		cfg["enemy_level"] = int(_opts["enemy-level"])
+	if str(_opts["enemy-offset"]) != "":
+		cfg["enemy_level"] = maxi(1, level + int(_opts["enemy-offset"]))
 	if sweep_key == "enemy_level":
 		cfg["enemy_level"] = int(v)
 	var tune: Dictionary = _kv(str(_opts["tune"]))

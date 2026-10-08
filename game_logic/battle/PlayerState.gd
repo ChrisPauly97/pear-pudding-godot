@@ -141,9 +141,11 @@ func _emit_fatigue(dmg: int) -> void:
 	if gamebus_emitter.is_valid():
 		gamebus_emitter.call(player_id, dmg)
 
+## Never fatigues: a small deck (a new player's Strike-only one) must not start
+## the fight hurt (GID-176 / TID-718).
 func draw_opening_hand(count: int = 4) -> void:
 	for _i in range(count):
-		draw_card()
+		draw_card(false)
 
 ## Returns the effective mana cost of a card in mana points (cost units ×
 ## `hero.mana_scale`), applying biome and time-of-day rules.
@@ -258,7 +260,7 @@ func start_turn(turn_number: int) -> void:
 	if skip_next_draw:
 		skip_next_draw = false
 	else:
-		draw_card()
+		draw_card(turn_number > 1)  # the first turn's draw never fatigues
 	for _i in range(bonus_draw):
 		draw_card(false)
 
