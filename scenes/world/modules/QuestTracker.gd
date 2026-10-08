@@ -180,6 +180,31 @@ func _refresh_npc_marks() -> void:
 		_set_mark(maiteln, {"text": "!", "kind": "training"} if _NpcInteractions.trainer_has_pending("maiteln")
 				else {})
 
+## The "!" / "?" a quest giver wears, for the map views: {text, color}, or {} when
+## the NPC has no mark. Reads the Label3D `_set_mark` keeps, so maps and world agree.
+## Townsfolk indoors at night (hidden) keep theirs, at their house.
+static func map_mark(node: Node3D) -> Dictionary:
+	if not is_instance_valid(node):
+		return {}
+	var lbl: Label3D = node.get_node_or_null(_MARK_NAME) as Label3D
+	if lbl == null or lbl.is_queued_for_deletion():
+		return {}
+	return {"text": lbl.text, "color": lbl.modulate}
+
+## Every marked quest giver on this map: [{pos: Vector3, text, color}].
+func npc_map_marks() -> Array[Dictionary]:
+	refresh(false)
+	var out: Array[Dictionary] = []
+	var nodes: Array = _world._npc_nodes.values()
+	nodes.append(_world._maiteln_node)
+	for raw: Variant in nodes:
+		var node: Node3D = _world._valid_node3d(raw)
+		var mark: Dictionary = map_mark(node)
+		if not mark.is_empty():
+			mark["pos"] = node.position
+			out.append(mark)
+	return out
+
 func _set_mark(node: Node3D, mark: Dictionary) -> void:
 	var lbl: Label3D = node.get_node_or_null(_MARK_NAME) as Label3D
 	if mark.is_empty():
@@ -237,8 +262,9 @@ func toggle_realm_map() -> void:
 		return
 	_realm_overlay = _RealmMapOverlay.new()
 	_world.add_child(_realm_overlay)
-	_realm_overlay.setup(_world._player, _world.map_name, active_quests(), tracked_quest())
+	_realm_overlay.setup(_world._player, _world.map_name, active_quests(), tracked_quest(), npc_map_marks())
 	_realm_overlay.closed.connect(func() -> void: _realm_overlay = null)
+	_realm_overlay.fast_travel_requested.connect(_world.named_props.open_fast_travel_panel)
 
 func is_realm_map_open() -> bool:
 	return is_instance_valid(_realm_overlay)

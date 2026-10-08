@@ -617,10 +617,7 @@ func _build_player_hud() -> void:
 	_minimap = Minimap.new()
 	add_child(_minimap)
 	_minimap.setup(self, _hud, _player, _enemy_nodes, _chest_nodes, _door_nodes, _npc_nodes)
-	if _is_infinite:
-		_minimap.tapped.connect(named_props.open_fast_travel_panel)
-	else:
-		_minimap.tapped.connect(_open_map_view)
+	_minimap.tapped.connect(_open_map_view)
 
 	GameBus.hud_message_requested.connect(func(text: String) -> void: _world_hud.show_dialogue(text))
 	GameBus.story_scroll_collected.connect(_on_scroll_collected)

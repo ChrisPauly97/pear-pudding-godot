@@ -38,6 +38,7 @@ const _Transforms = preload("res://scenes/ui/MapViewTransforms.gd")
 const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
 const _LongPressTracker = preload("res://scenes/ui/LongPressTracker.gd")
 const _MapMarkers = preload("res://scenes/ui/MapMarkers.gd")
+const _QuestTracker = preload("res://scenes/world/modules/QuestTracker.gd")
 
 var _player: CharacterBody3D
 var _npc_nodes: Dictionary
@@ -300,6 +301,10 @@ func _draw_npcs(canvas: Control) -> void:
 			_:           col = _DOT_NPC
 		var tp: Vector2 = _world_to_panel(n.position.x, n.position.z)
 		canvas.draw_circle(tp, 4.0, col)
+		var mark: Dictionary = _QuestTracker.map_mark(n)
+		if not mark.is_empty():
+			_MapMarkers.draw_quest_mark(canvas, tp + Vector2(0.0, -14.0), str(mark["text"]),
+					mark["color"] as Color, 16)
 
 
 func _world_to_panel(wx: float, wz: float) -> Vector2:

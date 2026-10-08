@@ -7,6 +7,8 @@
 extends CanvasLayer
 
 signal closed
+## The Fast Travel button: the minimap tap used to open fast travel here.
+signal fast_travel_requested
 
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
@@ -43,6 +45,8 @@ var _player: Node3D
 var _map_name: String = "main"
 var _quests: Array[Dictionary] = []
 var _tracked_id: String = ""
+## Quest givers' "!" / "?" (QuestTracker.npc_map_marks).
+var _npc_marks: Array[Dictionary] = []
 var _panel := Rect2()
 var _bounds := Rect2()   # in overworld tiles
 var _scale: float = 1.0  # panel px per tile
@@ -51,8 +55,10 @@ var _layer: _MapLayer
 var _long_press := _LongPressTracker.new()
 
 
-func setup(player: Node3D, map_name: String, quests: Array[Dictionary], tracked: Dictionary) -> void:
+func setup(player: Node3D, map_name: String, quests: Array[Dictionary], tracked: Dictionary,
+		npc_marks: Array[Dictionary] = []) -> void:
 	_player = player
+	_npc_marks = npc_marks
 	_map_name = map_name
 	_quests = quests
 	_tracked_id = str(tracked.get("id", ""))
@@ -99,6 +105,10 @@ func setup(player: Node3D, map_name: String, quests: Array[Dictionary], tracked:
 
 	var close_btn := _UiUtil.make_button("X", Vector2(vh * 0.055, vh * 0.055), int(vh * 0.028), _close, self)
 	close_btn.position = Vector2(_panel.end.x - vh * 0.065, _panel.position.y + vh * 0.01)
+
+	var travel_btn := _UiUtil.make_button("Fast Travel", Vector2(vh * 0.16, vh * 0.05), int(vh * 0.020),
+		_on_fast_travel, self)
+	travel_btn.position = Vector2(_panel.position.x + vh * 0.01, _panel.position.y + vh * 0.01)
 
 
 ## Tile rect covering every town, road and story site, padded, grown to include
@@ -183,6 +193,10 @@ func _on_draw(c: Control) -> void:
 		c.draw_circle(wp, 4.0, _COL_WAYSTONE if on else Color(_COL_WAYSTONE, 0.4))
 	_draw_waypoint(c)
 	_draw_quests(c, font)
+	for m: Dictionary in _npc_marks:
+		var mp: Vector2 = _tile_to_panel(_world_to_tile(m["pos"] as Vector3))
+		if _panel.has_point(mp):
+			_MapMarkers.draw_quest_mark(c, mp, str(m["text"]), m["color"] as Color, _font_size + 4)
 	if is_instance_valid(_player):
 		var pp: Vector2 = _tile_to_panel(_world_to_tile(_player.position))
 		c.draw_circle(pp, 8.0, Color.BLACK)
@@ -217,6 +231,11 @@ func _draw_quests(c: Control, font: Font) -> void:
 func _set_waypoint_at(screen_pos: Vector2) -> void:
 	var t: Vector2 = _panel_to_tile(screen_pos)
 	SceneManager.save_manager.set_waypoint({"map": _map_name, "tx": int(floor(t.x)), "tz": int(floor(t.y))})
+
+
+func _on_fast_travel() -> void:
+	fast_travel_requested.emit()
+	_close()
 
 
 func _close() -> void:
