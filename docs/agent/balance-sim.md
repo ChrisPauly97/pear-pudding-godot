@@ -138,6 +138,20 @@ The bot is very consistent, so win rates move in cliffs (0.05 → 0.10 extra ene
 from ~95 % to ~40 %). Outliers left for content tuning: `ghoul_pack` +1 is too hard and early undead +1 too easy
 (BID-095).
 
+## CI balance bands (TID-717)
+
+`game_logic/battle/BalanceBands.gd` turns the targets into checks. Cells: one per Chapter 1 type at a level
+inside its range (`CELLS`), at the same level (20 seeded fights) and one level up (40). `check()` fails when:
+
+- any same-level cell wins < 97 %;
+- the mean one-level-up win rate leaves 65–85 % (measured: 82 %);
+- a cell drifts from `tests/data/balance_baseline.json` by more than 10 points of win rate or 25 % of median length.
+
+CI runs `godot --headless --path . -s tests/balance_bands.gd` as its own step (~30 s; too slow for the unit
+suite). `tests/unit/test_balance_bands.gd` covers the check logic and that the baseline lists every cell.
+Changed the numbers on purpose? `godot --headless --path . -s tools/balance_sim.gd -- --write-baseline` rewrites
+the JSON (with the commit it was measured at); commit the diff so review sees the balance move.
+
 ## Integrations
 
 - `tests/unit/test_battle_determinism.gd`, `test_player_caster.gd`, `test_battle_setup.gd`, `test_balance_bot.gd`

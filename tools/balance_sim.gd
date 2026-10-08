@@ -19,6 +19,8 @@
 ##   --sweep key=v1,v2   one case per value; key = level | enemy_level | a tuning knob | a policy knob
 ##   --csv PATH          per-fight CSV (default user://balance/<time>.csv; "none" to skip)
 ##   --max-seconds S     per-fight cap, counted as a timeout (300)
+##   --write-baseline    measure the CI balance bands (BalanceBands) and rewrite
+##                       tests/data/balance_baseline.json; commit the diff
 ##
 ## It measures a fixed bot, not a skilled human: compare settings against
 ## each other. See docs/agent/balance-sim.md.
@@ -46,6 +48,9 @@ func _initialize() -> void:
 	_go.call_deferred()
 
 func _go() -> void:
+	if _opts.has("write-baseline"):
+		_write_baseline()
+		return
 	var fight: GDScript = load("res://game_logic/battle/BalanceFight.gd")
 	var stats: GDScript = load("res://game_logic/battle/BalanceStats.gd")
 	var registry: GDScript = load("res://autoloads/EnemyRegistry.gd")
@@ -91,6 +96,28 @@ func _go() -> void:
 	var ms: int = maxi(1, Time.get_ticks_msec() - t0)
 	print("%d fights in %.1f s (%.0f fights/s)%s" % [total, ms / 1000.0, total * 1000.0 / ms,
 		"" if csv == null else "  csv: " + ProjectSettings.globalize_path(csv.get_path())])
+	quit(0)
+
+## Measures BalanceBands and writes the baseline JSON (with the commit it came from).
+func _write_baseline() -> void:
+	var bands: GDScript = load("res://game_logic/battle/BalanceBands.gd")
+	var cells: Dictionary = bands.call("measure")
+	var git: Array = []
+	OS.execute("git", ["rev-parse", "--short", "HEAD"], git)
+	var commit: String = str(git[0]).strip_edges() if not git.is_empty() else "unknown"
+	var data: Dictionary = {"measured_at": commit, "cells": cells}
+	var path: String = str(bands.get("BASELINE_PATH"))
+	var f: FileAccess = FileAccess.open(path, FileAccess.WRITE)
+	if f == null:
+		printerr("Cannot write " + path)
+		quit(1)
+		return
+	f.store_string(JSON.stringify(data, "\t", true) + "\n")
+	f.close()
+	var fails: Array = bands.call("check", cells, {})
+	for msg: Variant in fails:
+		printerr("Target missed: " + str(msg))
+	print("Wrote %s (%d cells, at %s)" % [ProjectSettings.globalize_path(path), cells.size(), commit])
 	quit(0)
 
 ## The BalanceFight config for one case.

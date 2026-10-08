@@ -28,7 +28,7 @@ Fidelity rule: the simulator runs the **same** rules code as the game (pure `Rea
 | [TID-714](TID-714--battle-setup.md) | Shared pure battle setup | agent | done | TID-712 |
 | [TID-715](TID-715--balance-bot.md) | Simulated player (fixed policy) | agent | done | TID-713, TID-714 |
 | [TID-716](TID-716--balance-sim-cli.md) | tools/balance_sim.gd — batch runner, sweeps, CSV | agent | done | TID-715 |
-| [TID-717](TID-717--balance-bands.md) | CI balance bands from the user's targets | agent | pending | TID-716 |
+| [TID-717](TID-717--balance-bands.md) | CI balance bands from the user's targets | agent | done | TID-716 |
 | [TID-719](TID-719--zone-level-ranges.md) | Story-route zones with level ranges (Chapter 1 = 1–10), enemy sub-ranges, camps from zones | agent | done | TID-716 |
 | [TID-720](TID-720--enemy-level-scaling.md) | Enemies independent of player unlocks; casts/heavies scale by enemy level | agent | done | TID-716 |
 | [TID-718](TID-718--tune-to-targets.md) | Tune combat numbers to hit the targets | agent | done | TID-719, TID-720 |

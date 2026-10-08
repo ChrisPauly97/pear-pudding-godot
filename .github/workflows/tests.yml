@@ -108,6 +108,20 @@ jobs:
             fi
           done
 
+      # GID-176 / TID-717: the user's balance targets (same level ~100 %, one level
+      # up ~75 %) plus drift from tests/data/balance_baseline.json. Seeded, ~30 s.
+      # Moved the numbers on purpose? `balance_sim.gd -- --write-baseline` and commit.
+      - name: Run balance bands
+        run: |
+          set -o pipefail
+          godot --headless --path . -s tests/balance_bands.gd 2>&1 | tee /tmp/balance_bands.log
+          ERRORS=$(grep -A2 "SCRIPT ERROR" /tmp/balance_bands.log || true)
+          if [ -n "$ERRORS" ]; then
+            echo "::error::balance_bands logged runtime script errors:"
+            echo "$ERRORS"
+            exit 1
+          fi
+
   lint:
     name: gdlint
     runs-on: ubuntu-latest

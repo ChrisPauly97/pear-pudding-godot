@@ -532,6 +532,8 @@ Measure before and after a perf change; the flat ~6.9 ms median headless is the 
 
 Balance-test real-time fights headless (seeded, a fixed bot through the game's own rules, ~40 fights/s):
 `godot --headless --path . -s tools/balance_sim.gd -- --fights 200 --sweep level=1,3,5`. See `docs/agent/balance-sim.md`.
+CI also checks the balance bands (`tests/balance_bands.gd`: same level ≥ 97 %, one level up 65–85 % on average,
+drift vs `tests/data/balance_baseline.json`). Moved combat numbers on purpose? Re-run with `--write-baseline` and commit.
 
 ### You MUST import before the first test run
 
