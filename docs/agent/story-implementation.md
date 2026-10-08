@@ -194,14 +194,44 @@ WoW-style NPC asks, separate from the story chain.
 and immediately on `story_flag_set` (`on_story_changed`) / `quest_tracking_changed` / map
 load (`on_map_ready`). Each rebuild also moves the beacon (`_place_beacon`), so a claimed
 bounty or a nearer board moves the marker with no flag change. It also owns the realm map
-toggle (`toggle_realm_map`, called by `WorldScene._open_map_view` in the overworld).
+toggle (`toggle_realm_map`, called by `WorldScene._open_map_view` in the overworld — the
+minimap tap opens it there; its **Fast Travel** button opens the waystone panel — and by an
+interior map's **World Map** button, which passes `overworld_anchor()`, the spot the hero went in at).
+
+**Realm map zoom (WoW-style).** Opens at `OPEN_ZOOM` on the hero; wheel / pinch / **+ −** zoom
+about the pointer (1 = whole-realm overview, up to `MAX_ZOOM`), drag pans, **World** shows the
+overview, **Me** re-centres. The draw layer clips to the panel (`clip_contents`).
+
+**Painted realm map (`game_logic/world/RealmMapArt.gd`).** The map background is the real
+overworld: `RealmMapArt.Painter` runs the chunk generator (`InfiniteWorldGen._gen_tile_data`) over
+`realm_bounds()` and paints biome ground (borders jittered so chunk seams read as natural edges),
+hill shading from the NW, streams / ponds / the sea (`WaterMath`), tree groves (`TreeScatter`) and
+stamped roads, `TERRAIN_PX` px per tile; then each stitched town as an illustrated plan
+(`town_image`: roofs from `building_plan`, cobbled `street_plan` streets, paths, walls, `TownDecor`
+set pieces, lamps). It is charted on the **main thread** in slices — `QuestTracker._process` steps
+`RealmMapOverlay.step_art(3 ms)` after an overworld load, the open map steps 12 ms/frame until ready
+("Charting the realm…" with vector roads meanwhile). Don't move it to a `WorkerThreadPool` task:
+an unjoined task deadlocked `WorldScene` teardown in `world_scene_smoke`. Textures are static
+(per world seed) and mipmapped; town names sit on a ribbon above each plan.
+
+**Quest areas (`game_logic/quests/QuestZones.gd`).** A quest dict's `zones` (`QuestLog.zones(q)`)
+lists areas: a side-quest `kill` objective at a starter camp (its enemy slots, `R_CAMP`), a story
+step with a `site` (`R_SITE`), and an unfinished `defeat_enemy_type` bounty (every camp of that
+enemy). `QuestZones.outline()` casts the union of the spots' circles from their centroid with a
+seeded wobble (cached); `MapMarkers.draw_quest_zones()` draws it translucent with a rim on the
+minimap (clipped to the disc), realm map and interior map.
+
+**Quest givers on the maps.** `QuestTracker.map_mark(node)` / `npc_map_marks()` read the
+`QuestMark` Label3D, so all three map views show the same **!** / **?**. A walker with a mark
+stays out after hours (`TownLife`) so it can be talked to at night (sieges still send it in).
 
 | Consumer | Shows |
 |---|---|
 | Compass (`WorldHUD._create_compass`) | gold chevron + caption for the tracked quest; kind-coloured dots for untracked quests with a place |
 | `ObjectiveBeacon` (`QuestTracker._place_beacon`) | on the tracked quest's nearest target |
-| Minimap (`Minimap._draw_quests`) | diamond per quest, tracked larger/outlined, clamped to the rim when off-disc |
-| Realm map (`RealmMapOverlay`) | diamond per quest, tracked labelled |
+| Minimap (`Minimap._draw_quests`) | quest areas; diamond per quest, tracked larger/outlined, clamped to the rim when off-disc; NPC !/? |
+| Realm map (`RealmMapOverlay`) | quest areas; diamond per quest, tracked labelled; NPC !/? |
+| Interior map (`MapViewOverlay`) | quest areas; diamond per quest; NPC !/? |
 | Journal Quests tab | active quests (★ tracked), detail (giver, summary, progress), Track button, "Story so far" by chapter |
 
 **NPC marks "!" / "?" (TID-586).** Each quest refresh, `QuestTracker._refresh_npc_marks()`

@@ -1513,6 +1513,7 @@ func _open_map_view() -> void:
 		coop_session._build_rally_targets())
 	_map_overlay.closed.connect(func() -> void: _map_overlay = null)
 	_map_overlay.rally_requested.connect(coop_session._rally_to_peer)
+	_map_overlay.world_map_requested.connect(quest_tracker.toggle_realm_map)
 
 func _open_pause() -> void:
 	if _pause_overlay != null:

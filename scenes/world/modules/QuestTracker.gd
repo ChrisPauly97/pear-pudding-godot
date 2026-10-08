@@ -15,6 +15,7 @@ const _ObjectiveTracker = preload("res://game_logic/ObjectiveTracker.gd")
 const _StoryQuests = preload("res://game_logic/quests/StoryQuests.gd")
 const _SideQuests = preload("res://game_logic/quests/SideQuests.gd")
 const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
+const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const _NpcInteractions = preload("res://scenes/world/modules/NpcInteractions.gd")
 
 ## First-time guide (TutorialRegistry id) opened when a ladder entry is learned.
@@ -35,6 +36,8 @@ const _MAX_BOUNTIES: int = 3
 ## How often the cached quest list is re-read (ms). The compass and minimap
 ## poll every frame; a forced refresh (story flag, tracking change) is immediate.
 const REFRESH_MS: int = 250
+## Realm-map charting per frame in the background (RealmMapOverlay.step_art).
+const ART_BUDGET_USEC: int = 3000
 
 var _world: _WorldScene = null
 var _quests: Array[Dictionary] = []
@@ -49,6 +52,9 @@ var _beacon: _ObjectiveBeacon = null
 var _announced_step: String = ""
 var _realm_overlay: _RealmMapOverlay = null
 
+
+func _ready() -> void:
+	set_process(false)
 
 ## Every active quest (QuestLog), story first.
 func active_quests() -> Array[Dictionary]:
@@ -120,6 +126,14 @@ func on_side_quest_ready(quest_id: String) -> void:
 ## Map load: plant the beacon and take the current story step as already seen.
 func on_map_ready() -> void:
 	refresh(true)
+	if _RealmLayout.is_overworld(_world.map_name) and not NetworkManager.is_dedicated_server():
+		_RealmMapOverlay.prewarm(SceneManager.save_manager.world_seed)
+		set_process(true)
+
+## Charts the realm map a little each frame after an overworld load; stops when done.
+func _process(_delta: float) -> void:
+	if _RealmMapOverlay.step_art(ART_BUDGET_USEC):
+		set_process(false)
 	_announced_step = _story_step_label()
 
 ## Story flag changed (or the world came back from a battle).
@@ -262,9 +276,22 @@ func toggle_realm_map() -> void:
 		return
 	_realm_overlay = _RealmMapOverlay.new()
 	_world.add_child(_realm_overlay)
-	_realm_overlay.setup(_world._player, _world.map_name, active_quests(), tracked_quest(), npc_map_marks())
+	_realm_overlay.setup(_world._player, _world.map_name, active_quests(), tracked_quest(), npc_map_marks(),
+			overworld_anchor())
 	_realm_overlay.closed.connect(func() -> void: _realm_overlay = null)
 	_realm_overlay.fast_travel_requested.connect(_world.named_props.open_fast_travel_panel)
+
+## Indoors: the overworld spot the hero went in at (world Vector3), so the realm
+## map can still show where they are; null outdoors or when unknown.
+func overworld_anchor() -> Variant:
+	if _RealmLayout.is_overworld(_world.map_name):
+		return null
+	var stack: Array[String] = SceneManager.door_stack
+	for i: int in range(stack.size() - 1, -1, -1):
+		var p: Variant = _RealmLayout.parse_pos_token(stack[i])
+		if p != null:
+			return p
+	return _RealmLayout.return_pos_for(_world.map_name)
 
 func is_realm_map_open() -> bool:
 	return is_instance_valid(_realm_overlay)

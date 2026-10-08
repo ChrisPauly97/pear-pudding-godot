@@ -239,3 +239,15 @@ func test_npc_states_matches_per_npc_rule() -> void:
 						for _i: int in int(o.get("count", 1)):
 							sm.quests.progress_event(str(o.get("type", "")), str(o.get("target", "")))
 	assert_gt(checked, 100, "covered the quest table")
+
+
+## Kill objectives get a shaded quest area on the maps; hand-ins are a single spot.
+func test_kill_objective_has_map_zone() -> void:
+	var sm := _fresh()
+	sm.quests.accept(Q_ID)
+	var q: Dictionary = QuestLog.side_quest({"quest": SideQuests.def(Q_ID), "progress": [0], "ready": false})
+	var zones: Array[Dictionary] = QuestLog.zones(q)
+	assert_eq(zones.size(), 1, "one area: the camp")
+	assert_eq((zones[0]["pts"] as Array).size(), 4, "camp centre + its 3 enemy slots")
+	var done: Dictionary = QuestLog.side_quest({"quest": SideQuests.def(Q_ID), "progress": [5], "ready": true})
+	assert_true(QuestLog.zones(done).is_empty(), "return-to-giver: no area")
