@@ -15,7 +15,7 @@
 ##   --enemy-offset D    enemy level = player level + D (overrides --enemy-level)
 ##   --boss              fight it as a boss (tier 4, boss HP)
 ##   --tune k=v,k=v      CombatTuning overrides (clamped to each knob's range)
-##   --policy k=v,…      BalanceBot knobs: heal_below, summon, interrupt
+##   --policy k=v,…      BalanceBot knobs: heal_below, summon, interrupt, focus
 ##   --sweep key=v1,v2   one case per value; key = level | enemy_level | a tuning knob | a policy knob
 ##   --csv PATH          per-fight CSV (default user://balance/<time>.csv; "none" to skip)
 ##   --max-seconds S     per-fight cap, counted as a timeout (300)
@@ -76,7 +76,7 @@ func _go() -> void:
 		for v: String in sweep_vals:
 			var cfg: Dictionary = _config(enemy, sweep_key, v)
 			var policy: Dictionary = _kv(str(_opts["policy"]))
-			if sweep_key in ["heal_below", "summon", "interrupt"]:
+			if sweep_key in ["heal_below", "summon", "interrupt", "focus"]:
 				policy[sweep_key] = float(v)
 			var label: String = enemy + ("" if sweep_key == "" else " %s=%s" % [sweep_key, v])
 			var results: Array[Dictionary] = []

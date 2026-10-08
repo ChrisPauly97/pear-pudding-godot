@@ -51,7 +51,8 @@ func test_enemy_minion_cap_by_enemy_level() -> void:
 
 func test_enemy_spell_scale_by_level() -> void:
 	var low: RealtimeCombat = BattleSetup.build({"seed": 5, "enemy_level": 1})["rt"]
-	var full: RealtimeCombat = BattleSetup.build({"seed": 5, "enemy_level": 10})["rt"]
+	var lvl: int = CombatTuning.new().get_i("enemy_full_level")
+	var full: RealtimeCombat = BattleSetup.build({"seed": 5, "player_level": lvl, "enemy_level": lvl})["rt"]
 	assert_lt(BattleSetup.enemy_spell_scale(low, RealtimeCombat.ENEMY), 1.0)
 	assert_almost_eq(BattleSetup.enemy_spell_scale(full, RealtimeCombat.ENEMY), 1.0, 0.001)
 
@@ -94,3 +95,24 @@ func test_unlock_filter() -> void:
 	assert_eq(_ids(BattleSetup.unlock_filter(deck, [])), ["tech_strike"] as Array[String])
 	assert_eq(_ids(BattleSetup.unlock_filter(deck, ["feat_minions"])), ["ghost", "tech_strike"] as Array[String])
 	assert_eq(BattleSetup.unlock_filter(deck, ALL).size(), 3)
+
+## TID-718: the hero grows `hp_per_level`; an enemy above you gets `gap_hp` more HP per level.
+func test_hero_hp_grows_with_level() -> void:
+	var t := CombatTuning.new()
+	var l1: GameState = BattleSetup.build({"seed": 5, "player_level": 1, "enemy_level": 1})["state"]
+	var l5: GameState = BattleSetup.build({"seed": 5, "player_level": 5, "enemy_level": 5})["state"]
+	assert_eq(l5.players[0].hero.max_health - l1.players[0].hero.max_health, roundi(t.get_f("hp_per_level") * 4.0))
+	assert_eq(l5.players[0].hero.health, l5.players[0].hero.max_health, "starts full")
+
+func test_enemy_above_you_has_more_hp() -> void:
+	var same: GameState = BattleSetup.build({"seed": 5, "player_level": 4, "enemy_level": 5})["state"]
+	var above: GameState = BattleSetup.build({"seed": 5, "player_level": 3, "enemy_level": 5})["state"]
+	var below: GameState = BattleSetup.build({"seed": 5, "player_level": 6, "enemy_level": 5})["state"]
+	assert_gt(above.players[1].hero.max_health, same.players[1].hero.max_health)
+	assert_lt(below.players[1].hero.max_health, same.players[1].hero.max_health)
+	assert_eq(above.players[1].hero.health, above.players[1].hero.max_health)
+
+## TID-718: a Strike-only deck must not take fatigue drawing its opening hand.
+func test_small_deck_starts_unhurt() -> void:
+	var st: GameState = BattleSetup.build({"seed": 5, "learned": []})["state"]
+	assert_eq(st.players[0].hero.health, st.players[0].hero.max_health)

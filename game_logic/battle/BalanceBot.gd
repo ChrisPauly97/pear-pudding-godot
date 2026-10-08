@@ -9,7 +9,9 @@
 ##   3. Summon an Ally when a slot is free.
 ##   4. The best-value affordable damage / other card (spell power per mana unit).
 ## Hand order breaks ties, so a seeded fight stays deterministic. Allies attack
-## on their own in real time, so the bot never commands them.
+## on their own in real time, so the bot never commands them. With `focus` on it
+## taps the weakest enemy minion as its auto-attack focus (what a player does
+## against a pack, TID-718), else leaves swings on the hero.
 extends RefCounted
 
 const PlayerCaster = preload("res://game_logic/battle/PlayerCaster.gd")
@@ -25,8 +27,9 @@ const HEALS: Array[String] = ["heal_hero", "heal_all", "drain_hero", "lifesteal_
 const SKIPPED: Array[String] = ["bless_slot", "ward_slot"]
 
 ## Policy knobs (sweepable). heal_below: HP fraction that triggers healing;
-## summon: play Allies at all; interrupt: use Kick / Daze.
-var policy: Dictionary = {"heal_below": 0.4, "summon": true, "interrupt": true}
+## summon: play Allies at all; interrupt: use Kick / Daze; focus: auto-attack the
+## weakest enemy minion.
+var policy: Dictionary = {"heal_below": 0.4, "summon": true, "interrupt": true, "focus": true}
 
 func _init(knobs: Dictionary = {}) -> void:
 	policy.merge(knobs, true)
@@ -78,6 +81,8 @@ func decide(caster: PlayerCaster) -> Dictionary:
 
 ## Decides and plays; returns the played card's template id, or "".
 func act(caster: PlayerCaster, resolver: SpellEffectResolver) -> String:
+	if bool(policy["focus"]):
+		_focus(caster.rt)
 	var d: Dictionary = decide(caster)
 	if d.is_empty():
 		return ""
@@ -85,6 +90,16 @@ func act(caster: PlayerCaster, resolver: SpellEffectResolver) -> String:
 	if caster.play(card, resolver, d["target"] as Dictionary) != "":
 		return ""
 	return card.template_id
+
+## Keeps the auto-attack focus on the weakest living enemy minion (null = hero).
+func _focus(rt: RealtimeCombat) -> void:
+	if rt.focus_target != null and rt.focus_target.is_alive():
+		return
+	var foes: Array[CardInstance] = []
+	for c: CardInstance in rt.state.players[rt.target_enemy()].board.get_cards():
+		if c.is_alive():
+			foes.append(c)
+	rt.focus_target = _weakest(foes) if not foes.is_empty() else null
 
 func _find(cards: Array[CardInstance], id: String) -> CardInstance:
 	for c: CardInstance in cards:

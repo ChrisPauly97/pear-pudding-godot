@@ -106,6 +106,38 @@ Enemy behaviour now follows the enemy's level only; heavies from level 1 (user, 
 Far from the targets (100 % / ~75 %): level-matched enemies outscale the hero, and levels 1 and 3 are walls.
 TID-718 tunes this.
 
+### After TID-718 (30 fights per cell, each Chapter 1 type at its level range)
+
+Player level L (ladder-learned, starter deck, no gear) vs the type at L and at L + 1
+(`bash tools/balance_matrix.sh [tune] [fights]` runs `--enemy TYPE --sweep level=… --enemy-offset 0|1` per type).
+
+| Enemy (levels) | Same level | One level up |
+|---|---|---|
+| `undead_basic` (1,2) | 100% / 100% | 100% / 100% |
+| `undead_horde` (2,3,4) | 100% / 100% / 100% | 100% / 100% / 100% |
+| `ghoul_pack` (3,4,5) | 100% / 100% / 96.7% | 23.3% / 40% / 26.7% |
+| `wolf_pack` (4,5,6) | 100% / 100% / 100% | 96.7% / 80% / 73.3% |
+| `forest_shade` (5,6,7,8) | 100% / 100% / 100% / 100% | 100% / 100% / 86.7% / 76.7% |
+| `bog_hag` (6,7,8) | 100% / 100% / 100% | 100% / 96.7% / 93.3% |
+| `imbued_stag` (7,8,9) | 100% / 100% / 100% | 96.7% / 73.3% / 50% |
+| `martarquas_scout` (8,9,10) | 100% / 100% / 100% | 86.7% / 63.3% / 86.7% |
+
+What changed:
+- **Fatigue bug:** a Strike-only deck took 1+2+3+4 fatigue drawing its opening hand, so every early fight
+  started at 20/30 HP. Opening hands and the first turn's draw never fatigue now (`PlayerState`).
+- **Bot focus:** `BalanceBot` taps the weakest enemy minion as its auto-attack focus (policy `focus`), what a
+  player does against a pack. Without it, packs were 0 %.
+- **Chapter 1 types fight at tier 1** (`BattleSetup.base_tier`): their strength comes from level; `ghoul_pack`
+  (authored tier 3) was a tier-3 fight at levels 3–5.
+- **Level growth, both sides** (CombatTuning): hero `hp_per_level` 5; enemy `enemy_hp_per_level` 0.08,
+  `enemy_unarmed` 1, `enemy_low_scale` 0.3, `enemy_full_level` 15, `enemy_two_minions_level` 5.
+- **Level gap:** an enemy above you has `gap_hp` 0.3 more HP and deals `gap_damage` 0.15 more damage
+  (swings, heavies, spells) per level; below you, less (never under half).
+
+The bot is very consistent, so win rates move in cliffs (0.05 → 0.10 extra enemy HP per level swings +1 fights
+from ~95 % to ~40 %). Outliers left for content tuning: `ghoul_pack` +1 is too hard and early undead +1 too easy
+(BID-095).
+
 ## Integrations
 
 - `tests/unit/test_battle_determinism.gd`, `test_player_caster.gd`, `test_battle_setup.gd`, `test_balance_bot.gd`

@@ -81,7 +81,7 @@ func maybe_start(is_fresh: bool) -> void:
 		return
 	var player_level: int = SceneManager.save_manager.level
 	var enemy_type: String = str(_battle.enemy_data.get("enemy_type", ""))
-	var tier: int = _EnemyRegistry.get_difficulty_tier(enemy_type)
+	var tier: int = _BattleSetup.base_tier(enemy_type)
 	var saved: Variant = SceneManager.save_manager.get_setting(TUNING_SETTING, {})
 	var tuning := CombatTuning.new(saved as Dictionary if saved is Dictionary else {})
 	var enemy_level: int = int(_battle.enemy_data.get("enemy_level", enemy_level_for_tier(tier)))
@@ -355,7 +355,7 @@ func join_enemy(enemy_data: Dictionary) -> bool:
 		return false
 	var etype: String = str(enemy_data.get("enemy_type", "undead_basic"))
 	var is_boss: bool = bool(enemy_data.get("is_boss", false))
-	var tier: int = 4 if is_boss else _EnemyRegistry.get_difficulty_tier(etype)
+	var tier: int = 4 if is_boss else _BattleSetup.base_tier(etype)
 	var ps := PlayerState.new(_battle._state.players.size(), true)
 	var deck: Array[String] = []
 	deck.assign(enemy_data.get("enemy_deck", _EnemyRegistry.get_deck(etype)))

@@ -378,9 +378,16 @@ changes them. Knobs (CombatTuning, Enemy group):
 | Knob | Default | Effect |
 |---|---|---|
 | `heavy_min_level` | 1 | Enemies below this never wind up heavy blows (every enemy by default; heavies soften on the same curve as spells) |
-| `enemy_full_level` | 10 | Level at which heavies / spells hit at full strength |
-| `enemy_low_scale` | 0.5 | Strength at level 1; `CombatTuning.level_scale(L)` lerps to 1 at `enemy_full_level` |
-| `enemy_two_minions_level` | 4 | Below this an enemy fields one minion |
+| `enemy_full_level` | 15 | Level at which heavies / spells hit at full strength |
+| `enemy_low_scale` | 0.3 | Strength at level 1; `CombatTuning.level_scale(L)` lerps to 1 at `enemy_full_level` |
+| `enemy_two_minions_level` | 5 | Below this an enemy fields one minion |
+| `enemy_hp_per_level` | 0.08 | Extra enemy hero HP (× max) per level above 1, on top of the zone's 6 % (TID-718) |
+| `gap_hp` / `gap_damage` | 0.3 / 0.15 | Per level an enemy is above you: × more HP / damage (swings, heavies, spells); below you, less (≥ half) |
+| `hp_per_level` | 5 | Your hero's max HP per level above 1 (keeps its HP fraction) |
+| `enemy_unarmed` | 1 | Enemy hero swing damage (+ tier − 1) |
+
+Chapter 1 types (`EnemyRegistry.LEVEL_RANGES`) fight at tier 1 (`BattleSetup.base_tier`); their strength comes from
+level. Opening hands never fatigue (`PlayerState.draw_opening_hand`).
 
 `heavy_damage(side)` = player max HP × `heavy_frac` × `level_scale`. Enemy spells keep their cast bars at every
 level (so Kick is familiar when learned) but `SpellEffectResolver.resolve_enemy_play(..., power_scale)` scales

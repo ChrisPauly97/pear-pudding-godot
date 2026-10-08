@@ -179,7 +179,7 @@
 | [GID-173](goals/GID-173--cave-entrances/goal.md) | Cave Entrances | done | 4 / 4 |
 | [GID-174](goals/GID-174--bogs/goal.md) | Bogs | done | 3 / 3 |
 | [GID-175](goals/GID-175--technique-cards/goal.md) | Skill Bar → Technique Cards | done | 6 / 6 |
-| [GID-176](goals/GID-176--balance-sim/goal.md) | Balance Simulation Harness | in-progress | 7 / 9 |
+| [GID-176](goals/GID-176--balance-sim/goal.md) | Balance Simulation Harness | in-progress | 8 / 9 |
 | [GID-177](goals/GID-177--progression-pacing/goal.md) | Progression Pacing | done | 3 / 3 |
 
 ## Backlog
@@ -200,6 +200,7 @@ files in `tasks/archive/backlog/`.
 | [BID-092](backlog/BID-092--spec-battle-section-stale.md) | Spec battle section describes the old turn-based model only | spec-gap | GID-175 |
 | [BID-093](backlog/BID-093--session-starter-no-strike.md) | Multiplayer session starter character has no Strike technique | design-inconsistency | GID-175 / TID-708 |
 | [BID-094](backlog/BID-094--battle-setup-scattered.md) | Battle setup scattered across scene modules, reads autoloads | code-smell | GID-176 |
+| [BID-095](backlog/BID-095--chapter1-type-spread.md) | Chapter 1 enemy types spread widely one level up (ghoul_pack hard, undead easy) | balance | GID-176 |
 
 ## Resolved Backlog
 
