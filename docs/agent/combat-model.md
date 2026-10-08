@@ -356,7 +356,8 @@ calls each piece with values read from the save, and the balance simulator calls
 | `enemy_tier(type, is_boss, enemy_level)` | `BattleScene._setup_solo_battle` |
 | `setup_enemy(enemy, player, type, deck, tier, level, boss_hp)` (mirror trait deck, tier-scaled build + opening hand, pack, boss HP, zone HP; an empty deck keeps GameState's default) | `BattleScene._setup_solo_battle` (then `modifiers.set_trait_source`) |
 | `enemy_round(state, type, tier, round_n)` (fight traits) | `BattleModifiers.apply_enemy_traits` |
-| `configure_realtime(rt, level, learned, type, weapon_speed, offhand, puzzle)` (heavy blows, minion / ally caps, opening-hand trim, gear timers, passive) | `BattleRealtime.maybe_start` |
+| `configure_realtime(rt, level, type, weapon_speed, offhand, puzzle)` (heavy blows on, enemy-minion cap by **enemy** level, ally cap, opening-hand trim, gear timers, passive) | `BattleRealtime.maybe_start` |
+| `enemy_spell_scale(rt, side)` (0..1 power of an enemy side's spells by its level) | `BattleRealtime._after_enemy_play`, `BalanceFight` |
 | `apply_live_tuning(rt, base_tier)`, `enemy_level_for_tier`, `offhand_damage_for_item`, `weapon_speed_for_item` | `BattleRealtime` (its statics forward here) |
 
 `build(cfg)` keys: `player_level`, `learned`, `deck` (default `starter_deck()` = new-game deck + Strike), `gear`,
@@ -368,6 +369,22 @@ spire / siege HP, gambits, ambush, blight, weather, battlefield biome, companion
 Guard: `realtime_battle_smoke` `_check_setup_matches_sim` builds the sim fight next to the real scene and compares
 enemy max HP, ally / enemy-minion caps, heavy blows, base damage and both max manas (mutation-checked). Unit tests:
 `tests/unit/test_battle_setup.gd`.
+
+## Enemy strength by enemy level (GID-176 / TID-720)
+
+Enemies act the same whatever the player has learned; only the **enemy's** level (`RealtimeCombat.side_levels`)
+changes them. Knobs (CombatTuning, Enemy group):
+
+| Knob | Default | Effect |
+|---|---|---|
+| `heavy_min_level` | 3 | Enemies below this never wind up heavy blows |
+| `enemy_full_level` | 10 | Level at which heavies / spells hit at full strength |
+| `enemy_low_scale` | 0.5 | Strength at level 1; `CombatTuning.level_scale(L)` lerps to 1 at `enemy_full_level` |
+| `enemy_two_minions_level` | 4 | Below this an enemy fields one minion |
+
+`heavy_damage(side)` = player max HP × `heavy_frac` × `level_scale`. Enemy spells keep their cast bars at every
+level (so Kick is familiar when learned) but `SpellEffectResolver.resolve_enemy_play(..., power_scale)` scales
+`spell_power` for that resolve. `CombatOnboarding` only shapes the **player's** side (hand, spells, Ally slots).
 
 ## Balance bot and single fight (GID-176 / TID-715)
 

@@ -405,8 +405,13 @@ func test_round_pulse_tuning_knob_changes_pulse_period() -> void:
 
 ## GID-139 / TID-579: telegraphed heavy blows.
 
-func _heavy_rt() -> RealtimeCombat:
-	var rt := _rt()
+## A full-strength (level 10) enemy with heavy blows on.
+func _heavy_rt(enemy_level: int = 10) -> RealtimeCombat:
+	var gs := GameState.new()
+	for p: PlayerState in gs.players:
+		p.hand.clear()
+		p.draw_deck.clear()
+	var rt := RealtimeCombat.new(gs, [1, enemy_level])
 	rt.heavy_enabled = true
 	rt.auto_attack = false
 	rt.unarmed[RealtimeCombat.ENEMY] = 0
@@ -431,6 +436,22 @@ func test_heavy_blow_winds_up_then_lands() -> void:
 	assert_true(RealtimeCombat.is_heavy(rt.casting[RealtimeCombat.ENEMY] as CardInstance) or ev.has("enemy_heavy_hit"))
 	_run(rt, rt.tune.get_f("heavy_windup") + 0.5)
 	assert_eq(hero.health, hp - rt.heavy_damage(), "a quarter of max HP lands")
+
+func test_low_level_enemy_has_no_heavy_blow() -> void:
+	var rt := _heavy_rt(_tune.get_i("heavy_min_level") - 1)
+	assert_false(_types(_run(rt, rt.tune.get_f("heavy_every") * 2.0)).has("enemy_heavy_start"),
+		"below heavy_min_level the enemy never winds up")
+
+func test_heavy_blow_scales_with_enemy_level() -> void:
+	var low := _heavy_rt(_tune.get_i("heavy_min_level"))
+	var full := _heavy_rt(_tune.get_i("enemy_full_level"))
+	assert_lt(low.heavy_damage(), full.heavy_damage(), "a low-level heavy hits softer")
+	assert_eq(_heavy_rt(_tune.get_i("enemy_full_level") + 5).heavy_damage(), full.heavy_damage(), "capped at full")
+
+func test_level_scale_curve() -> void:
+	assert_almost_eq(_tune.level_scale(1), _tune.get_f("enemy_low_scale"), 0.001)
+	assert_almost_eq(_tune.level_scale(_tune.get_i("enemy_full_level")), 1.0, 0.001)
+	assert_lt(_tune.level_scale(3), _tune.level_scale(6))
 
 func test_kick_stops_the_heavy_blow() -> void:
 	var rt := _heavy_rt()

@@ -42,12 +42,17 @@ func _sfx(id: String) -> void:
 ## flush its auto-spells, then a minion's emergence or the spell itself, aimed
 ## at the player (BID-078: real time pins current_player_idx to the player, so
 ## the default opponent would be the caster). Shared with the balance sim.
-func resolve_enemy_play(card: CardInstance, ai_idx: int, player_idx: int = 0) -> void:
+## `power_scale` (0..1) softens a low-level enemy's spell (GID-176 / TID-720).
+func resolve_enemy_play(card: CardInstance, ai_idx: int, player_idx: int = 0, power_scale: float = 1.0) -> void:
 	flush_auto_spells(ai_idx)
 	if card.card_class != "spell":
 		resolve_emergence(card, ai_idx)
-	else:
-		resolve_spell(card, ai_idx, {"type": "hero", "pidx": player_idx})
+		return
+	var printed: int = card.spell_power
+	if power_scale < 1.0 and printed > 0:
+		card.spell_power = maxi(1, roundi(float(printed) * power_scale))
+	resolve_spell(card, ai_idx, {"type": "hero", "pidx": player_idx})
+	card.spell_power = printed
 
 func setup(state: GameState) -> void:
 	_state = state

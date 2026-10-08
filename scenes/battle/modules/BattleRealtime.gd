@@ -88,7 +88,7 @@ func maybe_start(is_fresh: bool) -> void:
 	rt = RealtimeCombat.new(_battle._state, [player_level, enemy_level], tuning)
 	# Gates, caps, opening hand and gear timers — shared with the balance sim (TID-714).
 	var sm := SceneManager.save_manager
-	_BattleSetup.configure_realtime(rt, player_level, sm.learned_abilities, enemy_type, equipped_weapon_speed(),
+	_BattleSetup.configure_realtime(rt, player_level, enemy_type, equipped_weapon_speed(),
 			offhand_damage_for_item(str(sm.equipped_offhand), sm.gear.mult(str(sm.equipped_offhand))),
 			_battle._state.puzzle_mode)
 	caster = PlayerCaster.new(rt)
@@ -485,7 +485,8 @@ func _on_round(side: int) -> void:
 
 func _after_enemy_play(card: CardInstance, ai_idx: int = RealtimeCombat.ENEMY) -> void:
 	var snap := _battle._fx.snapshot()
-	_battle._resolver.resolve_enemy_play(card, ai_idx, RealtimeCombat.PLAYER)  # shared with the balance sim
+	# Shared with the balance sim; a low-level enemy's spells hit softer (TID-720).
+	_battle._resolver.resolve_enemy_play(card, ai_idx, RealtimeCombat.PLAYER, _BattleSetup.enemy_spell_scale(rt, ai_idx))
 	if card.card_class != "spell":
 		_battle.modifiers._apply_weather_to_summoned(card, ai_idx)
 		GameBus.card_played.emit(card.template_id, "board", _battle._state.players[ai_idx].board.slots.find(card))

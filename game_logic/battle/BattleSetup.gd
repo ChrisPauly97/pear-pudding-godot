@@ -173,14 +173,17 @@ static func enemy_round(state: GameState, enemy_type: String, tier: int, round_n
 
 # --- Real time ------------------------------------------------------------
 
-## New-player gates, caps, opening hand and gear timers on a fresh
-## `RealtimeCombat` (what `BattleRealtime.maybe_start` applies).
-static func configure_realtime(rt: RealtimeCombat, player_level: int, learned: Array, enemy_type: String,
+## Caps, opening hand and gear timers on a fresh `RealtimeCombat` (what
+## `BattleRealtime.maybe_start` applies). Enemy behaviour depends only on the
+## **enemy's** level (GID-176 / TID-720): heavy blows from `heavy_min_level` (and
+## softer below `enemy_full_level`), a second minion from `enemy_two_minions_level`
+## — never on what the player has learned. Player-side caps follow the player's level.
+static func configure_realtime(rt: RealtimeCombat, player_level: int, enemy_type: String,
 		weapon_speed: float, offhand_damage: int, puzzle: bool = false) -> void:
-	# TID-579: telegraphed heavy blows only once the player has Kick to answer them.
-	rt.heavy_enabled = learned.has("kick") and not puzzle
-	# Before the player can field Allies, enemies summon just one minion.
-	rt.set_enemy_minion_cap(CombatOnboarding.enemy_minion_cap(learned, player_level))
+	rt.heavy_enabled = not puzzle
+	var enemy_level: int = rt.side_levels[RealtimeCombat.ENEMY]
+	rt.set_enemy_minion_cap(1 if enemy_level < rt.tune.get_i("enemy_two_minions_level")
+			else RealtimeCombat.MAX_ENEMY_MINIONS)
 	# Early fights stay small: fewer Allies, a short opening hand.
 	rt.set_ally_cap(CombatOnboarding.ally_cap(player_level))
 	rt.trim_hand(RealtimeCombat.PLAYER, CombatOnboarding.opening_hand(player_level))
@@ -188,6 +191,11 @@ static func configure_realtime(rt: RealtimeCombat, player_level: int, learned: A
 	rt.offhand_damage[RealtimeCombat.PLAYER] = offhand_damage
 	if EnemyRegistry.is_passive(enemy_type):
 		rt.set_passive(RealtimeCombat.ENEMY)
+
+## How hard an enemy side's spells hit (0..1, by its level): weak enemies still
+## cast, just softer (TID-720). Pass to `SpellEffectResolver.resolve_enemy_play`.
+static func enemy_spell_scale(rt: RealtimeCombat, side: int) -> float:
+	return rt.tune.level_scale(rt.side_levels[side] if side < rt.side_levels.size() else 1)
 
 ## Knobs RealtimeCombat caches rather than reads each tick (base damage).
 static func apply_live_tuning(rt: RealtimeCombat, base_tier: int) -> void:
@@ -238,7 +246,7 @@ static func build(cfg: Dictionary) -> Dictionary:
 	var rt := RealtimeCombat.new(state, [player_level, rt_enemy_level], tuning)
 	if s != 0:
 		rt.rng.seed = s
-	configure_realtime(rt, player_level, learned, enemy_type, weapon_speed_for_item(str(cfg.get("weapon", ""))),
+	configure_realtime(rt, player_level, enemy_type, weapon_speed_for_item(str(cfg.get("weapon", ""))),
 			offhand_damage_for_item(str(cfg.get("offhand", ""))))
 	apply_live_tuning(rt, base_tier)
 	return {"state": state, "rt": rt, "tier": tier}

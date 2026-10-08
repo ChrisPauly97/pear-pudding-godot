@@ -2,14 +2,14 @@
 
 **Goal:** GID-176
 **Type:** agent
-**Status:** pending
+**Status:** in-progress
 **Depends On:** TID-716
 
 ## Lock
 
-**Session:** none
-**Acquired:** —
-**Expires:** —
+**Session:** ccr-74960c86-ruw5if
+**Acquired:** 2026-10-08T16:14:08Z
+**Expires:** 2026-10-08T16:44:08Z
 
 ## Context
 
@@ -37,12 +37,22 @@ Decisions 2–4: enemy behaviour depends on the enemy's level, never on what the
 
 ## Plan
 
-_Written during Plan phase._
+1. CombatTuning Enemy knobs: `heavy_min_level`, `enemy_full_level`, `enemy_low_scale`, `enemy_two_minions_level`, plus `level_scale(L)`.
+2. RealtimeCombat: `side_levels`; heavies start only at `heavy_min_level`+ and `heavy_damage(side)` scales by level.
+3. BattleSetup.configure_realtime drops `learned`; heavy blows always on (not in puzzles); enemy-minion cap by enemy level; `enemy_spell_scale`.
+4. `resolve_enemy_play(..., power_scale)` softens enemy spells; scene and sim both pass it.
+5. Remove `CombatOnboarding.enemy_minion_cap`; tests; balance re-run.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `CombatTuning.gd`: 4 Enemy knobs + `level_scale()`.
+- `RealtimeCombat.gd`: `side_levels`, level-gated heavy start, `heavy_damage(side)` scaled, private `_level_of`.
+- `BattleSetup.gd`: `configure_realtime(rt, level, type, speed, offhand, puzzle)` — no `learned`; heavies on, enemy-minion cap from `enemy_two_minions_level`; new `enemy_spell_scale(rt, side)`.
+- `SpellEffectResolver.resolve_enemy_play`: `power_scale` arg (temporarily scales `spell_power`, restored after).
+- `BattleRealtime.gd`, `BalanceFight.gd`: pass the scale; `CombatOnboarding.enemy_minion_cap` removed.
+- Tests: `test_realtime_combat` (heavy gating / scaling / curve), `test_battle_setup` (enemy ignores unlocks, minion cap, spell scale), `test_combat_onboarding` trimmed.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/combat-model.md`: new "Enemy strength by enemy level" section; `configure_realtime` row updated.
+- `docs/agent/balance-sim.md`: TID-720 matrix.

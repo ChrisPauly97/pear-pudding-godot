@@ -58,8 +58,9 @@ static func run(cfg: Dictionary, policy: Dictionary = {}) -> Dictionary:
 			match str(ev.get("type", "")):
 				"enemy_cast":
 					stats["enemy_casts"] = int(stats["enemy_casts"]) + 1
-					resolver.resolve_enemy_play(ev["card"] as CardInstance,
-							int(ev.get("side", RealtimeCombat.ENEMY)), RealtimeCombat.PLAYER)
+					var side: int = int(ev.get("side", RealtimeCombat.ENEMY))
+					resolver.resolve_enemy_play(ev["card"] as CardInstance, side, RealtimeCombat.PLAYER,
+							BattleSetup.enemy_spell_scale(rt, side))
 				"round":
 					if int(ev.get("side", -1)) == RealtimeCombat.ENEMY:
 						rounds += 1
