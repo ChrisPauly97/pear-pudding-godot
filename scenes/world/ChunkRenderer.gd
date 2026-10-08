@@ -19,6 +19,7 @@ const _WorldScene   = preload("res://scenes/world/WorldScene.gd")
 const _EnemyScene        = preload("res://scenes/world/entities/EnemyNPC.tscn")
 const _ChestScene        = preload("res://scenes/world/entities/Chest.tscn")
 const _DoorScene         = preload("res://scenes/world/entities/Door.tscn")
+const _Door              = preload("res://scenes/world/entities/Door.gd")
 const _TownspersonScene  = preload("res://scenes/world/entities/TownspersonNPC.tscn")
 const _MerchantScene     = preload("res://scenes/world/entities/MerchantNPC.tscn")
 const _BountyBoardScene  = preload("res://scenes/world/entities/BountyBoardNPC.tscn")
@@ -641,7 +642,7 @@ func _spawn_entities(world_scene: _WorldScene) -> void:
 		world_scene.register_chest(c_data["id"], node, c_data)
 
 	for d_data in _chunk_data.doors:
-		var node: Node3D = TerrainMath.spawn_entity(_DoorScene, d_data, 0.75, entity_root, world_scene)
+		var node: Node3D = TerrainMath.spawn_entity(_DoorScene, d_data, _Door.SPAWN_Y, entity_root, world_scene)
 		_set_visibility_range(node)
 		world_scene.register_door(d_data["id"], node, d_data)
 

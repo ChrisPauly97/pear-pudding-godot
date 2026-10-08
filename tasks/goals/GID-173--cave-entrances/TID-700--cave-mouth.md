@@ -2,7 +2,7 @@
 
 **Goal:** GID-173
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-699
 
 ## Lock
@@ -25,12 +25,19 @@ Shared constraints: chunk-gen code (`InfiniteWorldGen`/`RealmLayout`/`TerrainMat
 
 ## Plan
 
-_Written during Plan phase._
+Cave doors (`kind` "cave") build a rock-arch mesh (`CaveMouth.gd`) instead of the door sprite; cave maps get cave
+names. Night glow and the minimap dot already come from being a door. `Door.SPAWN_Y` replaces the 0.75 literal so the
+arch can stand on the ground.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `scenes/world/entities/CaveMouth.gd` (static `make(facing, y_offset)`).
+- `Door.gd`: `_is_cave`, builds the mouth and hides the door mesh; `SPAWN_Y` const (ChunkRenderer uses it).
+- `PlaceNames.CAVE_NOUNS` + cave titles for `dungeon_cave_*`.
+- Tests: `test_cave_sites` +2 (mouth orientation/placement, door flag + names); ad-hoc real-tree check: Door.tscn with
+  cave data builds the CaveMouth and hides the door mesh. Suite 3076 pass / 0 SCRIPT ERROR; world smoke clean.
+- Not verified visually (headless): the arch's look against the hillside should be eyeballed.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`docs/agent/world-generation.md` (Caves → Mouth).

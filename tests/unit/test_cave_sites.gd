@@ -83,3 +83,32 @@ func test_ruin_gen_keeps_its_old_roll() -> void:
 						walls += 1
 				assert_gt(walls, 4, "ruin chunk (%d, %d) has its wall ring" % [cx, cz])
 	assert_between(ruins, 60, 200, "about a third of the off-realm chunks hold a ruin (%d)" % ruins)
+
+
+func test_cave_mouth_faces_the_approach() -> void:
+	const CaveMouth = preload("res://scenes/world/entities/CaveMouth.gd")
+	for f: Vector2i in [Vector2i(1, 0), Vector2i(0, 1)]:
+		var m: Node3D = CaveMouth.make(f, 0.75)
+		var into: Vector3 = m.basis * Vector3.FORWARD
+		assert_almost_eq(into.x, float(f.x), 0.001, "local −Z runs into the hill (x) for %s" % str(f))
+		assert_almost_eq(into.z, float(f.y), 0.001, "local −Z runs into the hill (z) for %s" % str(f))
+		assert_almost_eq(m.position.y, -0.75, 0.001, "the arch stands on the ground, not at the door's height")
+		assert_gt(Vector2(m.position.x, m.position.z).dot(Vector2(f)), 0.0, "set back toward the hill")
+		var arch: MeshInstance3D = m.get_child(0) as MeshInstance3D
+		assert_gt(arch.mesh.get_aabb().size.y, CaveMouth.OPEN_H, "an arch taller than the opening")
+		m.free()
+
+
+func test_cave_doors_and_names() -> void:
+	const Door = preload("res://scenes/world/entities/Door.gd")
+	const PlaceNames = preload("res://game_logic/PlaceNames.gd")
+	var d: Door = Door.new()
+	d.init_from_data({"target_map": "dungeon_cave_123", "kind": "cave", "facing": [1, 0], "x": 0.0, "z": 0.0})
+	assert_true(d._is_cave, "a cave door")
+	d.free()
+	var title: String = PlaceNames.title("dungeon_cave_123")
+	var cave_noun: bool = false
+	for n: String in PlaceNames.CAVE_NOUNS:
+		cave_noun = cave_noun or title.ends_with(" " + n)
+	assert_true(cave_noun, "cave maps get a cave name (%s)" % title)
+	assert_false(PlaceNames.title("dungeon_123").ends_with(" Cave"), "plain dungeons keep dungeon names")

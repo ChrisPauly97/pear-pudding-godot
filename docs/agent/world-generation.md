@@ -89,7 +89,14 @@ against +X then +Z (toward the iso camera, so the mouth opens toward the viewer)
 grass in front, `EDGE_MARGIN` 2 inside the chunk, is the approach. The door dict: `id` `cave_<cx>_<cz>`, approach
 tile centre, `target_map` `dungeon_cave_<seed>` (the `dungeon_` prefix keeps every dungeon path working),
 `target_door_id` "entrance", `kind` "cave", `facing` [dx, dz] (into the hill), `face_height`. Seed 42 within ±25
-chunks: ~63 caves over ~1200 rocky chunks. Tile data is untouched (the mouth is a mesh, see Door / CaveMouth).
+chunks: ~63 caves over ~1200 rocky chunks. Tile data is untouched (the mouth is a mesh).
+
+**Mouth (TID-700).** `Door.gd` sees `kind == "cave"` and builds `scenes/world/entities/CaveMouth.gd` instead of the
+door sprite: a dark opening framed by stacked rock pillars, a lintel and capstone, with rubble at the threshold —
+local −Z rotated onto `facing`, set back `SET_BACK` 1.1 u toward the hill and dropped by `Door.SPAWN_Y` (0.75, the
+height ChunkRenderer spawns doors at) so it stands on the ground. The label reads a cave name
+(`PlaceNames.CAVE_NOUNS`: "The Mossy Grotto"…). Being a door, it gets NightLights' lantern glow at night and a door
+dot on the minimap with no extra wiring.
 
 #### 3. Entity Spawning
 
