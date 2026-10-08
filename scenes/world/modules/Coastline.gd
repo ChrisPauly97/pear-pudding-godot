@@ -130,8 +130,8 @@ func _physics_process(delta: float) -> void:
 	if not SceneManager.is_in_world() or _washing:
 		return
 	var heading := Vector2(p.velocity.x, p.velocity.z) - flow * _Swimming.CURRENT_PUSH
-	stamina = _Swimming.step(stamina, delta, deep, _Swimming.depth_at(pos.x, pos.z), p._is_moving,
-			_Swimming.against(heading, flow))
+	var depth: float = _Swimming.depth_at(pos.x, pos.z) if deep else 0.0  # only swimming reads it
+	stamina = _Swimming.step(stamina, delta, deep, depth, p._is_moving, _Swimming.against(heading, flow))
 	if not deep:
 		_warned = false
 	elif stamina < _Swimming.LOW and not _warned:
@@ -173,8 +173,7 @@ func _wash_ashore() -> void:
 
 
 static func _deep(pos: Vector3) -> bool:
-	var t: Vector2i = IsoConst.world_to_tile(pos.x, pos.z)
-	return _Rivers.deep_water(t.x, t.y)  # the sea or a river (GID-172)
+	return _Swimming.deep_at(pos.x, pos.z)  # the sea or a river (GID-172)
 
 
 func _build() -> void:

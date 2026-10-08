@@ -2,7 +2,7 @@
 
 **Goal:** GID-172
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-695, TID-697
 
 ## Lock
@@ -25,12 +25,19 @@ Shared constraints: chunk-gen code (`InfiniteWorldGen`/`RealmLayout`/`TerrainMat
 
 ## Plan
 
-_Written during Plan phase._
+Co-op: derive a remote avatar's swimming from its position (`Swimming.deep_at`; rivers and sea are fixed geography) —
+no wire flag, older peers stay compatible. RemotePlayer sinks + swim/tread anims. Tests: extend `swim_smoke` with a
+RemotePlayer in deep water and on land; re-run the suite, smokes, net_coop_smoke, profiler; docs.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `Swimming.deep_at(wx, wz)`; `Coastline._deep` uses it, and only looks up the swim depth while swimming
+  (per-frame water checks measured 10–50 µs; depth lookup now skipped on land).
+- `RemotePlayer.gd`: public `swimming`, sprite sink, `HeroAnim.pick(.., swimming)` for swim / tread.
+- `tests/swim_smoke.gd`: remote avatar swims in deep water, idles on land.
+- Verified: suite 3070 pass / 0 SCRIPT ERROR; world, town, swim, net_coop smokes clean; gdlint + unsafe-hits clean;
+  profiler p50 6.90 ms (unchanged), p95 noisy 7.8–8.7 ms across runs.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`docs/agent/multiplayer-coop.md` (Swimming under Remote avatars); `world-generation.md` pointer.

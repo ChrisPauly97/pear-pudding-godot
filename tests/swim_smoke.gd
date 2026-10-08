@@ -1,6 +1,7 @@
 ## Headless smoke test for swimming (GID-172): in a real WorldScene, deep river water switches
 ## the hero to swimming (the Coastline module), the current carries them, and running out of
-## stamina washes them up on the nearest shore at 1 HP.
+## stamina washes them up on the nearest shore at 1 HP. A co-op avatar in the same water swims too
+## (derived from its position, TID-698).
 ##
 ##   godot --headless --path . -s tests/swim_smoke.gd
 ##
@@ -71,6 +72,24 @@ func _run() -> Array[String]:
 		fails.append("no river current on the swimmer")
 	if float(coast.get("stamina")) >= 1.0:
 		fails.append("swimming did not drain stamina")
+	# A co-op peer's avatar in the same water swims too, with no wire flag.
+	# load(), not preload: -s scripts compile before the autoloads RemotePlayer names exist.
+	var rp: Node3D = (load("res://scenes/world/entities/RemotePlayer.gd") as GDScript).new()
+	rp.set("world_scene", ws)
+	ws.add_child(rp)
+	rp.call("init_from_data", {"peer_id": 7, "x": spot.x * ts, "z": spot.y * ts})
+	rp.call("set_net_state", spot.x * ts, spot.y * ts, false, true)
+	await _wait(200)
+	var rsprite: AnimatedSprite3D = rp.get("_sprite")
+	if not bool(rp.get("swimming")) or rsprite.animation != &"swim":
+		fails.append("remote avatar in deep water isn't swimming (anim %s)" % str(rsprite.animation))
+	if rsprite.position.y >= float(rp.get("_sprite_base_y")):
+		fails.append("remote swimmer isn't sunk to the chest")
+	rp.call("set_net_state", 0.0, 0.0, false, false)  # far away on dry land (snaps)
+	await _wait(200)
+	if bool(rp.get("swimming")) or rsprite.animation != &"idle":
+		fails.append("remote avatar on land still swimming (anim %s)" % str(rsprite.animation))
+	rp.queue_free()
 	# Exhausted: washes up ashore at 1 HP.
 	save.set("hero_hp_frac", 1.0)
 	coast.set("stamina", 0.001)

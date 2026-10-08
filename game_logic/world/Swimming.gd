@@ -66,6 +66,14 @@ static func against(dir: Vector2, flow: Vector2) -> float:
 	return maxf(0.0, -dir.normalized().dot(flow))
 
 
+## Deep water at world point (wx, wz) on the overworld — where the hero (and any co-op avatar) swims.
+## Rivers and the sea are fixed geography, so every peer derives a remote avatar's swimming from its
+## position alone (TID-698: no wire flag).
+static func deep_at(wx: float, wz: float) -> bool:
+	var t: Vector2i = IsoConst.world_to_tile(wx, wz)
+	return _Rivers.deep_water(t.x, t.y)
+
+
 ## Whether frame `frame` of the swim animation is a stroke (plays the splash).
 static func is_stroke(frame: int) -> bool:
 	return STROKE_FRAMES.has(frame)

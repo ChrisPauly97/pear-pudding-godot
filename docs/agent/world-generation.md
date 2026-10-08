@@ -236,7 +236,8 @@ shader's three depth bands show the deep channel. `WaterMath.edge_prop` adds `"r
 > 1.2, 12 %) using the rock textures (SpriteRegistry `river_rock`), sunk to the water surface like lily pads.
 `RealmMapOverlay._draw_rivers` draws each centreline in the sea colour, widening downstream.
 
-Swim stamina, currents and washing ashore: camera-and-player.md → Swimming (TID-697). Co-op swim state: TID-698. `test_rivers` covers: mouths in the sea, clearance from towns / camps / riddle spots / story
+Swim stamina, currents and washing ashore: camera-and-player.md → Swimming (TID-697). Co-op avatars swim from
+their position alone: multiplayer-coop.md → Remote avatars (TID-698). `test_rivers` covers: mouths in the sea, clearance from towns / camps / riddle spots / story
 sites, wadeable source vs deep lower course, the ford, continuity, WaterMath / RealmLayout / biome hooks, lookup cost.
 
 ---

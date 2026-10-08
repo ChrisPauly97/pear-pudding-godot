@@ -149,6 +149,13 @@ walk sprite is built by the shared helper `scenes/world/entities/AvatarSprite.gd
 billboard `Label3D` name tag above the head; until identity arrives it defaults to the
 old neutral blue.
 
+**Swimming (GID-172 / TID-698).** A remote avatar swims when its position is deep water on the overworld
+(`Swimming.deep_at` → `Rivers.deep_water`: the sea and rivers are fixed geography, identical on every peer), so the
+avatar packet carries no swim flag and older peers stay compatible. `RemotePlayer._process` sinks the sprite by
+`Swimming.SINK` and picks `swim` / `tread` through `HeroAnim.pick(.., swimming)`; its public `swimming` mirrors it.
+Stamina and washing ashore are local to each player (only the resulting position travels). `tests/swim_smoke.gd`
+spawns a RemotePlayer in deep water and on land.
+
 ### Position sync — `scenes/world/NetSync.gd` + WorldScene hooks
 
 `NetSync` is a fixed-name `Node` child of WorldScene carrying one RPC:

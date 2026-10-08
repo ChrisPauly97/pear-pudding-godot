@@ -16,7 +16,7 @@ User: "Lets add real rivers, perhaps with swimming animations? Same for ocean yo
 | [TID-695](TID-695--river-rendering-bridges.md) | River rendering, banks & bridges | agent | done | TID-694 |
 | [TID-696](TID-696--swimming.md) | Swimming state + swim animation | agent | done | TID-694 |
 | [TID-697](TID-697--swim-stamina-drowning.md) | Swim stamina, currents & drowning | agent | done | TID-696 |
-| [TID-698](TID-698--rivers-coop-tests-docs.md) | Co-op sync, tests & docs | agent | pending | TID-695, TID-697 |
+| [TID-698](TID-698--rivers-coop-tests-docs.md) | Co-op sync, tests & docs | agent | done | TID-695, TID-697 |
 
 ## Acceptance Criteria
 
@@ -24,5 +24,5 @@ User: "Lets add real rivers, perhaps with swimming animations? Same for ocean yo
 - [x] River rendering, banks & bridges
 - [x] Swimming state + swim animation
 - [x] Swim stamina, currents & drowning
-- [ ] Co-op sync, tests & docs
-- [ ] Tests, gdlint and unsafe-hits clean; agent docs updated
+- [x] Co-op sync, tests & docs
+- [x] Tests, gdlint and unsafe-hits clean; agent docs updated
