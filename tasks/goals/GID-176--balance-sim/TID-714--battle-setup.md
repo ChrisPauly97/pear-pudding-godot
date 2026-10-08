@@ -2,7 +2,7 @@
 
 **Goal:** GID-176
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-712
 
 ## Lock
@@ -26,12 +26,24 @@ Fight setup is spread across BattleScene._ready, BattleModifiers and BattleRealt
 
 ## Plan
 
-_Written during Plan phase._
+Medium–high complexity, but the design was settled in the task notes, so I proceeded without an approval stop.
+1. New pure `BattleSetup` statics for each setup piece.
+2. The scene and modifiers call them with save-derived values; the scene keeps banners, gambits, blight, etc.
+3. `build(cfg)` for the sim in the scene's order.
+4. Equivalence guard in realtime_battle_smoke (mutation-checked) + unit tests.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `game_logic/battle/BattleSetup.gd`: `unlock_filter`, `apply_gear`, `apply_passives`, `offhand_damage_for_item`, `weapon_speed_for_item`, `enemy_tier`, `enemy_level_for_tier`, `setup_enemy`, `mirror_deck`, `place_pack`, `enemy_round`, `configure_realtime`, `apply_live_tuning`, `build`, `starter_deck`.
+- `scenes/battle/BattleScene.gd` `_setup_solo_battle`: enemy tier / deck / pack / boss HP / zone HP now come from `BattleSetup.enemy_tier` + `setup_enemy`, then `modifiers.set_trait_source`.
+- `scenes/battle/modules/BattleModifiers.gd`: equipment, passives, combat unlocks and enemy traits delegate to BattleSetup. `_place_enemy_pack`, `_apply_zone_level` and `trait_deck` were removed (moved), along with unused preloads.
+- `scenes/battle/modules/BattleRealtime.gd`: `maybe_start` calls `configure_realtime`; `_apply_live_tuning`, `enemy_level_for_tier`, `equipped_weapon_speed` and `offhand_damage_for_item` forward to BattleSetup (kept for existing callers and tests). Unused preloads removed.
+- Tests: new `tests/unit/test_battle_setup.gd` (7), plus `_check_setup_matches_sim` in `realtime_battle_smoke` comparing the sim build to the live scene (7 values). Mutation-checked: skipping `configure_realtime` produces 3 mismatches.
+- Behaviour note: a solo fight whose `enemy_data` has no `enemy_deck` kept GameState's default deck before and still does; an explicitly empty deck now also keeps it (it used to wipe it). No caller passes one.
+- Found and fixed (pre-existing since GID-175, not caused here): `battle_input_flow_smoke`'s auto-end-turn check failed intermittently. It zeroed mana to mean "nothing playable", but a drawn 0-cost technique card (Strike) is still playable. Reproduced deterministically by putting Strike in hand; the test now also drops free cards from the hand. The game behaviour (no auto-end while a free card is playable) is correct.
+- Validation: full suite PASS with 0 SCRIPT ERROR; all 12 CI smoke tests clean (battle_input_flow re-run after the fix); gdlint and unsafe-hits clean.
+- BID-094: progress noted; the remaining scene-only modifiers stay logged there.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+combat-model.md → new "BattleSetup — shared fight setup" section.

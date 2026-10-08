@@ -24,18 +24,16 @@ const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _TutorialPopup = preload("res://scenes/ui/TutorialPopup.gd")
 const _RealtimeVisuals = preload("res://scenes/battle/modules/RealtimeVisuals.gd")
 const CombatTuning = preload("res://game_logic/battle/CombatTuning.gd")
-const _WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
-const _UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 const _CombatTuningPanel = preload("res://scenes/battle/modules/CombatTuningPanel.gd")
 const _BattleOnboarding = preload("res://scenes/battle/modules/BattleOnboarding.gd")
 const TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
 const _RealtimeTechniques = preload("res://scenes/battle/modules/RealtimeTechniques.gd")
-const _CombatOnboarding = preload("res://game_logic/battle/CombatOnboarding.gd")
 const _MentorBarks = preload("res://scenes/battle/modules/MentorBarks.gd")
 const _BarkRules = preload("res://game_logic/battle/BarkRules.gd")
 const FightStats = preload("res://game_logic/battle/FightStats.gd")
 const _MomentumHud = preload("res://scenes/battle/modules/MomentumHud.gd")
 const PlayerCaster = preload("res://game_logic/battle/PlayerCaster.gd")
+const _BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
 ## Settings key holding the tuning panel's overrides (per device).
 const TUNING_SETTING: String = "combat_tuning"
 ## Hit feel per strength: [hit-stop seconds, shake pixels] (TID-580).
@@ -88,19 +86,11 @@ func maybe_start(is_fresh: bool) -> void:
 	var tuning := CombatTuning.new(saved as Dictionary if saved is Dictionary else {})
 	var enemy_level: int = int(_battle.enemy_data.get("enemy_level", enemy_level_for_tier(tier)))
 	rt = RealtimeCombat.new(_battle._state, [player_level, enemy_level], tuning)
-	# TID-579: telegraphed heavy blows only once the player has Kick to answer them.
-	rt.heavy_enabled = SceneManager.save_manager.learned_abilities.has("kick") and not _battle._state.puzzle_mode
-	# Before the player can field Allies, enemies summon just one minion.
-	rt.set_enemy_minion_cap(_CombatOnboarding.enemy_minion_cap(SceneManager.save_manager.learned_abilities,
-			player_level))
-	# Early fights stay small: fewer Allies, a short opening hand.
-	rt.set_ally_cap(_CombatOnboarding.ally_cap(player_level))
-	rt.trim_hand(RealtimeCombat.PLAYER, _CombatOnboarding.opening_hand(player_level))
-	rt.weapon_speed[RealtimeCombat.PLAYER] = equipped_weapon_speed()
-	rt.offhand_damage[RealtimeCombat.PLAYER] = offhand_damage_for_item(str(SceneManager.save_manager.equipped_offhand),
-			SceneManager.save_manager.gear.mult(str(SceneManager.save_manager.equipped_offhand)))
-	if _EnemyRegistry.is_passive(enemy_type):
-		rt.set_passive(RealtimeCombat.ENEMY)
+	# Gates, caps, opening hand and gear timers — shared with the balance sim (TID-714).
+	var sm := SceneManager.save_manager
+	_BattleSetup.configure_realtime(rt, player_level, sm.learned_abilities, enemy_type, equipped_weapon_speed(),
+			offhand_damage_for_item(str(sm.equipped_offhand), sm.gear.mult(str(sm.equipped_offhand))),
+			_battle._state.puzzle_mode)
 	caster = PlayerCaster.new(rt)
 	caster.notify = _on_caster_event
 	_enemy_tier = tier
@@ -142,7 +132,7 @@ func _build_ui() -> void:
 
 ## Enemy level-equivalent for mana until zone levels land (TID-536): tier 1 → 1, each tier +3.
 static func enemy_level_for_tier(tier: int) -> int:
-	return 1 + maxi(0, tier - 1) * 3
+	return _BattleSetup.enemy_level_for_tier(tier)
 
 ## The clock stops while the player is reading something: pause menu, card
 ## inspect (long-press), the first-battle tip, or any tutorial popup.
@@ -160,8 +150,7 @@ func on_cooldown() -> bool:
 
 ## The equipped main-hand weapon's swing speed (0 = unarmed).
 static func equipped_weapon_speed() -> float:
-	var w := _WeaponRegistry.get_weapon(SceneManager.save_manager.equipped_weapon)
-	return w.swing_speed if w != null else 0.0
+	return _BattleSetup.weapon_speed_for_item(SceneManager.save_manager.equipped_weapon)
 
 ## Off-hand swing damage for the given equipped offhand item id (TID-545), or
 ## 0 for no item / an offhand item that isn't an attack type (armor/mana
@@ -169,12 +158,7 @@ static func equipped_weapon_speed() -> float:
 ## autoload. The turn-based equivalent bonus (BattleModifiers) is skipped once
 ## real time is active, so the two never double up.
 static func offhand_damage_for_item(item_id: String, mult: float = 1.0) -> int:
-	if item_id == "":
-		return 0
-	var weapon := _WeaponRegistry.get_weapon(item_id)
-	if weapon == null or weapon.battle_effect_type != "offhand_atk":
-		return 0
-	return _UpgradeDefs.effective_stat(weapon, 0, mult)
+	return _BattleSetup.offhand_damage_for_item(item_id, mult)
 
 ## Opens the combat tuning panel over the battle (the clock pauses while it's open).
 func open_tuning() -> void:
@@ -205,8 +189,7 @@ func save_tuning() -> void:
 
 ## Knobs RealtimeCombat caches rather than reads each tick (base damage).
 func _apply_live_tuning() -> void:
-	rt.unarmed[RealtimeCombat.PLAYER] = rt.tune.get_i("unarmed")
-	rt.unarmed[RealtimeCombat.ENEMY] = rt.tune.get_i("enemy_unarmed") + maxi(0, _enemy_tier - 1)
+	_BattleSetup.apply_live_tuning(rt, _enemy_tier)
 
 ## A commanded Ally attack on the enemy hero interrupts its cast (WoW pet kick).
 func on_ally_hit_enemy_hero(side: int = RealtimeCombat.ENEMY) -> void:

@@ -4,6 +4,7 @@ extends Control
 
 const _ZoneLevels = preload("res://game_logic/world/ZoneLevels.gd")
 const GameState = preload("res://game_logic/battle/GameState.gd")
+const _BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
 const _BattleNet = preload("res://scenes/battle/net/BattleNet.gd")
 const _BattleNetSync = preload("res://scenes/battle/BattleNetSync.gd")
 const _BattleModifiers = preload("res://scenes/battle/modules/BattleModifiers.gd")
@@ -508,32 +509,24 @@ func _setup_solo_battle() -> void:
 
 	# Enemy deck — scale card stats by enemy difficulty tier
 	var _enemy_type: String = str(enemy_data.get("enemy_type", ""))
-	var _enemy_tier: int = EnemyRegistry.get_difficulty_tier(_enemy_type) if _enemy_type != "" else 1
-	if bool(enemy_data.get("is_boss", false)):
-		_enemy_tier = 4
+	var _is_boss: bool = bool(enemy_data.get("is_boss", false))
 	var _enemy_level: int = int(enemy_data.get("enemy_level", 1))  # zone level (TID-536)
-	_enemy_tier = _ZoneLevels.scaled_tier(_enemy_tier, _enemy_level)
+	var _enemy_tier: int = _BattleSetup.enemy_tier(_enemy_type, _is_boss, _enemy_level)
 	# Emboldened Foe gambit: set bonus before build_deck so it is applied to the draw_deck
 	# and persists for boss phase-2 rebuild via PlayerState.minion_attack_bonus.
 	var _gambit_id: String = str(enemy_data.get("gambit_id", ""))
 	if _gambit_id == "emboldened_foe":
 		_state.players[1].minion_attack_bonus = 1
+	# Deck (trait-shaped, tier-scaled) + opening hand, pack on the board (TID-541),
+	# boss HP and zone-level HP — shared with the balance sim (GID-176 / TID-714).
+	var enemy_deck: Array[String] = []
 	if enemy_data.has("enemy_deck"):
-		var enemy_deck: Array[String] = []
 		enemy_deck.assign(enemy_data["enemy_deck"])
-		enemy_deck = modifiers.trait_deck(_enemy_type, enemy_deck)  # GID-149: mirror
-		_state.players[1].build_deck(enemy_deck, _enemy_tier)
-		_state.players[1].draw_opening_hand(4)
-	modifiers._place_enemy_pack(_enemy_type, _enemy_tier)  # TID-541: packs start on the board
-
-	# Boss setup: override enemy hero HP and show name banner
-	if bool(enemy_data.get("is_boss", false)):
-		var bhp: int = int(enemy_data.get("boss_hp", 0))
-		if bhp > 0:
-			_state.players[1].hero.health = bhp
-			_state.players[1].hero.max_health = bhp
+	_BattleSetup.setup_enemy(_state.players[1], _state.players[0], _enemy_type, enemy_deck, _enemy_tier,
+			_enemy_level, int(enemy_data.get("boss_hp", 0)) if _is_boss else 0)
+	modifiers.set_trait_source(_enemy_type, _enemy_tier)
+	if _is_boss:
 		_result_ui.show_boss_banner(enemy_data)
-	modifiers._apply_zone_level(_enemy_level)
 
 	# Blighted zone buff: non-blight-heart enemies get +5 HP in blighted chunks.
 	if bool(enemy_data.get("is_blighted", false)) and not enemy_data.has("blight_heart_id"):

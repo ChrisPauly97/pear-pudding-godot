@@ -11,6 +11,10 @@ What a fight starts with (enemy tier and zone scaling, boss HP, packs, unlock st
 
 `scenes/battle/BattleScene.gd` ~480–575, `scenes/battle/modules/BattleModifiers.gd`, `scenes/battle/modules/BattleRealtime.gd` `maybe_start`.
 
+## Progress
+
+TID-714 (GID-176) moved the real-time PvE core into `game_logic/battle/BattleSetup.gd`: unlock filter, gear, passives, enemy tier, enemy setup, fight traits and the real-time config. The scene calls it. Still scene-only and autoload-bound: spire / siege HP, gambits, ambush, blight, weather, companions, persistent HP.
+
 ## Suggested Resolution
 
 GID-176 / TID-714 extracts the real-time PvE path into `BattleSetup.gd`. Afterwards, migrate the remaining modifiers (weather, gambits, ambush, blight, spire / siege HP) to take values instead of reading autoloads.

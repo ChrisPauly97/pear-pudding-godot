@@ -15,6 +15,7 @@ const _GameState = preload("res://game_logic/battle/GameState.gd")
 const _CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const _PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
+const _BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
 const _ENEMY_DECK: Array[String] = ["ghost", "ghost", "ghost", "skeleton", "skeleton", "skeleton",
 	"ghost", "ghost", "ghost", "skeleton", "skeleton", "skeleton"]
 const _MAX_WAIT_MS: int = 20000
@@ -61,6 +62,7 @@ func _run() -> bool:
 		print("  [FAIL] real-time module did not start")
 		return false
 	var fails: Array[String] = []
+	_check_setup_matches_sim(battle, save_manager, fails)
 	_check_diagonal_layout(battle, fails)
 	# Any tutorial popup must freeze the clock; then dismiss them like the player would.
 	var modal_up: bool = battle.get("_tutorial_overlay") != null or not get_nodes_in_group("modal_popup").is_empty()
@@ -366,6 +368,31 @@ func _check_techniques(battle: Node, state: _GameState, fails: Array[String]) ->
 		await process_frame
 	if me.hand.has(mend):
 		fails.append("Mend never completed / healed")
+
+## GID-176 / TID-714: the balance sim's `BattleSetup.build` gives the same
+## fight config the scene just built (enemy HP, caps, mana, base damage).
+func _check_setup_matches_sim(battle: Node, save_manager: Object, fails: Array[String]) -> void:
+	var rt: Object = (battle.get("realtime") as Node).get("rt")
+	var state: _GameState = battle.get("_state")
+	var learned: Array = save_manager.get("learned_abilities")
+	var sim: Dictionary = _BattleSetup.build({"player_level": int(save_manager.get("level")), "learned": learned,
+		"enemy_type": "undead_basic", "weapon": str(save_manager.get("equipped_weapon")),
+		"offhand": str(save_manager.get("equipped_offhand"))})
+	var srt: Object = sim["rt"]
+	var sst: _GameState = sim["state"]
+	var pairs: Dictionary = {
+		"enemy max HP": [state.players[1].hero.max_health, sst.players[1].hero.max_health],
+		"ally cap": [state.players[0].max_units, sst.players[0].max_units],
+		"enemy minion cap": [rt.get("enemy_minion_cap"), srt.get("enemy_minion_cap")],
+		"heavy blows": [rt.get("heavy_enabled"), srt.get("heavy_enabled")],
+		"base damage": [str(rt.get("unarmed")), str(srt.get("unarmed"))],
+		"max mana": [state.players[0].hero.max_mana, sst.players[0].hero.max_mana],
+		"enemy max mana": [state.players[1].hero.max_mana, sst.players[1].hero.max_mana],
+	}
+	for k: String in pairs:
+		var v: Array = pairs[k]
+		if str(v[0]) != str(v[1]):
+			fails.append("sim setup differs from the scene: %s %s vs %s" % [k, str(v[0]), str(v[1])])
 
 ## Hero strips live inside the tokens; each board row steps down-right.
 func _check_diagonal_layout(battle: Node, fails: Array[String]) -> void:

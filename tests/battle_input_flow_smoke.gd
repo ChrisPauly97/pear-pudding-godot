@@ -63,6 +63,11 @@ func _run() -> Array[String]:
 	await _wait_for_my_turn(state)
 	var me: Object = (state.get("players") as Array)[0]
 	(me.get("hero") as Object).set("mana", 0)
+	# Free cards (0-cost technique cards such as Strike, GID-175) stay playable at 0 mana: drop them.
+	var hand: Array = me.get("hand")
+	for c: Object in hand.duplicate():
+		if int(c.get("cost")) <= 0:
+			hand.erase(c)
 	var board: Object = me.get("board")
 	for c: Object in (board.call("get_cards") as Array):
 		c.set("attack_count", 0)

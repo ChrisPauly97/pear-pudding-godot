@@ -17,6 +17,7 @@ The tool the user runs: many seeded fights at a fixed timestep, with a summary t
 
 ## Research Notes
 
+- From TID-714: build each fight with `BattleSetup.build({player_level, learned, deck, weapon, offhand, enemy_type, enemy_level, is_boss, tuning, seed})` → `{state, rt, tier}`. On each `"round"` event for the enemy side call `BattleSetup.enemy_round(state, enemy_type, tier, n)` (fight traits), and after an enemy play `resolver.flush_auto_spells(side)` (see `BattleRealtime._after_enemy_play`). `BattleSetup.starter_deck()` is the default deck.
 - From TID-713: drive the player with `PlayerCaster` (`game_logic/battle/PlayerCaster.gd`). Per tick: `caster.tick(DT)` then `rt.advance(DT)`; act with `caster.play(card, resolver, target)`, where target is `{}`, `{"type":"minion","card":c}` or `{"type":"hero"}`; check legality with `caster.play_blocker(card)`; `caster.notify` gives combo / proc / interrupt / fizzled / resolved{dealt} / technique events for stats. A resolver is `SpellEffectResolver.new()` + `setup(state)`.
 - From TID-712: seed a fight with `seed(n)` (global: shuffles, resolver picks) **before** building decks, plus `rt.rng.seed = n`; set `SpellEffectResolver.silent = true`. RealtimeCombat is at gdlint's 30-public-method cap, so put new logic elsewhere.
 - Pattern: `tools/profile_world.gd` (extends SceneTree, `OS.get_cmdline_user_args()`). Prefer not to need autoloads (after TID-712); if CardRegistry/EnemyRegistry statics need `_ensure_loaded`, call them.

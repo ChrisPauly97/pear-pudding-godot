@@ -343,6 +343,32 @@ gates as a hand tap, the same cast path, then `PlayerState.play_card*` + `SpellE
 first free slot), without FX. Not mirrored: snow first-card discount, weather on summons, scripted-battle tutorial
 steps. Tests: `tests/unit/test_player_caster.gd` (mutation-checked on pushback and the combo spend).
 
+## BattleSetup — shared fight setup (GID-176 / TID-714)
+
+`game_logic/battle/BattleSetup.gd` (pure statics) holds what an ordinary solo PvE fight starts with. The scene
+calls each piece with values read from the save, and the balance simulator calls `build(cfg)`:
+
+| Piece | Called by the game from |
+|---|---|
+| `unlock_filter(deck, learned)` (minions / spells until learned, techniques always) | `BattleModifiers._apply_combat_unlocks` |
+| `apply_gear(player, [{id, level, mult}], realtime)` | `BattleModifiers._apply_equipment_effects` (builds the item list from the save) |
+| `apply_passives(player, skill_ids)` | `BattleModifiers._apply_passive_skills` |
+| `enemy_tier(type, is_boss, enemy_level)` | `BattleScene._setup_solo_battle` |
+| `setup_enemy(enemy, player, type, deck, tier, level, boss_hp)` (mirror trait deck, tier-scaled build + opening hand, pack, boss HP, zone HP; an empty deck keeps GameState's default) | `BattleScene._setup_solo_battle` (then `modifiers.set_trait_source`) |
+| `enemy_round(state, type, tier, round_n)` (fight traits) | `BattleModifiers.apply_enemy_traits` |
+| `configure_realtime(rt, level, learned, type, weapon_speed, offhand, puzzle)` (heavy blows, minion / ally caps, opening-hand trim, gear timers, passive) | `BattleRealtime.maybe_start` |
+| `apply_live_tuning(rt, base_tier)`, `enemy_level_for_tier`, `offhand_damage_for_item`, `weapon_speed_for_item` | `BattleRealtime` (its statics forward here) |
+
+`build(cfg)` keys: `player_level`, `learned`, `deck` (default `starter_deck()` = new-game deck + Strike), `gear`,
+`weapon`, `offhand`, `skills`, `enemy_type` (`undead_basic`), `enemy_level`, `is_boss`, `tuning`, `seed`. It
+returns `{state, rt, tier}` in the scene's order: player deck → unlock filter → gear → passives → opening hand →
+enemy → `start_turn(1)` → RealtimeCombat + `configure_realtime` + live tuning. Not covered (scene-only, BID-094):
+spire / siege HP, gambits, ambush, blight, weather, battlefield biome, companions, persistent HP.
+
+Guard: `realtime_battle_smoke` `_check_setup_matches_sim` builds the sim fight next to the real scene and compares
+enemy max HP, ally / enemy-minion caps, heavy blows, base damage and both max manas (mutation-checked). Unit tests:
+`tests/unit/test_battle_setup.gd`.
+
 ## Momentum — always a button to press (GID-139)
 
 Problem (2026-09-27 playtest): with 400 mana at 20/s and a 2 s spend pause, a 3-cost card came
