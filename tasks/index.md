@@ -177,7 +177,7 @@
 | [GID-171](goals/GID-171--maykalene-coast/goal.md) | Maykalene on the Eastern Sea | done | 1 / 1 |
 | [GID-172](goals/GID-172--rivers-and-swimming/goal.md) | Rivers & Swimming | done | 5 / 5 |
 | [GID-173](goals/GID-173--cave-entrances/goal.md) | Cave Entrances | done | 4 / 4 |
-| [GID-174](goals/GID-174--bogs/goal.md) | Bogs | pending | 0 / 3 |
+| [GID-174](goals/GID-174--bogs/goal.md) | Bogs | in-progress | 1 / 3 |
 
 ## Backlog
 

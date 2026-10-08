@@ -2,7 +2,7 @@
 
 **Goal:** GID-174
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -25,12 +25,15 @@ Shared constraints: chunk-gen code (`InfiniteWorldGen`/`RealmLayout`/`TerrainMat
 
 ## Plan
 
-_Written during Plan phase._
+`WaterMath.bog_at` / `bog_in` / `biome_has_bog`: a third noise ramped above BOG_LEVEL, faded by the full reserved
+distance (towns, roads, rivers, sea), gated to grasslands + forest; tune coverage by probe; tests.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `WaterMath`: BOG_* consts, `_bog` noise in `_ensure`, `biome_has_bog`, `bog_in`, `bog_at`.
+- Tuned BOG_LEVEL by probe: 0.42 → 1.8 %, 0.30 → 6.5 % (chosen), 0.26 → 8.8 % of grassland/forest.
+- `tests/unit/test_bogs.gd` (3). Suite passes (see commit), gdlint clean.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`docs/agent/world-generation.md` (Key Features + Bogs section).

@@ -9,6 +9,7 @@
 - Height variation from 1 to 7 levels depending on biome steepness
 - Procedural ruins generation (~33% of chunks) with variable size, walls, crumbled segments and wall gaps (scenery)
 - Cave entrances (GID-173) at the foot of hills in rocky chunks, leading into cellular-automaton caverns
+- Bogs (GID-174) in grassland and forest: peat and murky pools that slow the hero
 - Entity spawning per chunk: 0–2 enemies, 0–1 chest, 0–1 NPC
 - Deterministic output: fixed world seed + biome seed ensures the same world each load
 - Chunk data cached in memory; evicted when player moves far away
@@ -266,6 +267,15 @@ their position alone: multiplayer-coop.md → Remote avatars (TID-698). `test_ri
 sites, wadeable source vs deep lower course, the ford, continuity, WaterMath / RealmLayout / biome hooks, lookup cost.
 
 ---
+
+### Bogs (`WaterMath.bog_at` / `bog_in`, GID-174)
+
+Peat and murky pools in the lowlands. `bog_at(wx, wz, seed)` = a third simplex noise (`BOG_FREQUENCY` 0.016, seed +
+`BOG_SEED_OFFSET`) ramped from `BOG_LEVEL` 0.30 over `BOG_RAMP` 0.14, times `smoothstep(1, REALM_DRY_TILES + 2,
+RealmLayout.reserved_distance(..))` — the full reserved distance, rivers included, so bogs keep off towns, roads,
+rivers, the sea, camps and glades. Pools above `BOG_POOL` 0.55. `bog_in(biome, ..)` gates it to `BOG_BIOMES`
+(grasslands, forest — both water biomes). Seed 42: ~6.5 % of grassland/forest is bog (> 0.3), ~4.7 % pool. The
+noise is built in `_ensure` with the stream/pond pair (mutex), so it is safe on the chunk workers.
 
 ### The eastern sea (`game_logic/world/Coast.gd`, GID-171)
 

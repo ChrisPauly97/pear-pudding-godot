@@ -20,6 +20,15 @@ const STREAM_SEED_OFFSET: int = 771133
 const POND_SEED_OFFSET: int = 193771
 ## Biomes with water: grasslands, forest, mountains (no desert/scorched streams).
 const WATER_BIOMES: Array[int] = [0, 1, 4]
+## Bogs (GID-174): blobs of a third, low-frequency noise on level ground in the grasslands
+## and forests — peat and murky pools that slow the hero. `bog_at` ramps from 0 at BOG_LEVEL
+## to 1 over BOG_RAMP; pools above BOG_POOL. Kept off towns, roads, rivers and the sea like streams.
+const BOG_FREQUENCY: float = 0.016
+const BOG_LEVEL: float = 0.26
+const BOG_RAMP: float = 0.14
+const BOG_POOL: float = 0.55
+const BOG_SEED_OFFSET: int = 552211
+const BOG_BIOMES: Array[int] = [0, 1]
 ## Intensity above which a spot counts as "in the water" (grass, props, splashes).
 const WET_LEVEL: float = 0.3
 ## Keep water this far (world units) from structure tiles, fading over DRY_FADE.
@@ -58,6 +67,7 @@ const CHUNK_REACH_TILES: float = 13.0
 
 static var _stream: FastNoiseLite = null
 static var _pond: FastNoiseLite = null
+static var _bog: FastNoiseLite = null
 static var _seed: int = -1
 static var _mutex := Mutex.new()
 
@@ -116,6 +126,26 @@ static func chunk_context(points: PackedVector2Array, cx: int, cz: int) -> DryGr
 
 static func biome_has_water(biome_id: int) -> bool:
 	return WATER_BIOMES.has(biome_id)
+
+
+static func biome_has_bog(biome_id: int) -> bool:
+	return BOG_BIOMES.has(biome_id)
+
+
+## Bog intensity 0..1 at world (wx, wz) in a chunk of biome `biome_id` (0 outside bog biomes).
+static func bog_in(biome_id: int, wx: float, wz: float, world_seed: int) -> float:
+	return bog_at(wx, wz, world_seed) if biome_has_bog(biome_id) else 0.0
+
+
+## Bog intensity ignoring biome: the noise ramp, faded to nothing near towns, roads, rivers and the sea.
+static func bog_at(wx: float, wz: float, world_seed: int) -> float:
+	_ensure(world_seed)
+	var b: float = clampf((_bog.get_noise_2d(wx, wz) - BOG_LEVEL) / BOG_RAMP, 0.0, 1.0)
+	if b <= 0.0:
+		return 0.0
+	var ts: float = IsoConst.TILE_SIZE
+	var d: float = RealmLayout.reserved_distance(int(floor(wx / ts)), int(floor(wz / ts)))
+	return b * smoothstep(1.0, REALM_DRY_TILES + 2.0, d)
 
 
 ## 0 (dry) .. 1 (middle of a stream or pond, a river, or out at sea) at world (wx, wz).
@@ -236,11 +266,11 @@ static func edge_prop_ok(_key: String, wx: float, wz: float) -> bool:
 
 
 static func _ensure(world_seed: int) -> void:
-	if _seed == world_seed and _stream != null:
+	if _seed == world_seed and _stream != null and _bog != null:
 		return
 	# Chunk builds run on worker threads; build the pair once per seed.
 	_mutex.lock()
-	if _seed != world_seed or _stream == null:
+	if _seed != world_seed or _stream == null or _bog == null:
 		var st := FastNoiseLite.new()
 		st.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
 		st.seed = world_seed + STREAM_SEED_OFFSET
@@ -249,6 +279,11 @@ static func _ensure(world_seed: int) -> void:
 		pd.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
 		pd.seed = world_seed + POND_SEED_OFFSET
 		pd.frequency = POND_FREQUENCY
+		var bg := FastNoiseLite.new()
+		bg.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+		bg.seed = world_seed + BOG_SEED_OFFSET
+		bg.frequency = BOG_FREQUENCY
+		_bog = bg
 		_stream = st
 		_pond = pd
 		_seed = world_seed
