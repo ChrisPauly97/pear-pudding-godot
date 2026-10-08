@@ -307,6 +307,19 @@ minions flee and its token greys out.
 - **Victory:** `BattleVictory._reward_joined_enemies` marks each joined enemy defeated and pays its coins/XP,
   bestiary and bounty progress. Turn-based fights still refuse a second engage.
 
+## Determinism (GID-176 / TID-712)
+
+A real-time fight replays exactly when its randomness is seeded. There are two sources:
+
+- `RealtimeCombat.rng` (procs): randomized in `_init`; set `rt.rng.seed = n` after construction.
+- The global RNG (deck `shuffle()` in `PlayerState` / `RealtimeCombat.trim_hand`, `randi()` picks in
+  `SpellEffectResolver`): call `seed(n)` **before** building decks.
+
+`SpellEffectResolver.silent = true` skips its `AudioManager` sound calls for headless batch runs. Nothing else on the
+real-time fight path touches an autoload. `CardInstance` instance ids still count up across fights, so compare
+template ids, not instance ids. Test: `tests/unit/test_battle_determinism.gd` (same seed → identical 60 s trace;
+mutation-checked by dropping either seed).
+
 ## Momentum — always a button to press (GID-139)
 
 Problem (2026-09-27 playtest): with 400 mana at 20/s and a 2 s spend pause, a 3-cost card came

@@ -2,7 +2,7 @@
 
 **Goal:** GID-176
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -25,12 +25,20 @@ The simulator must run battle logic without the scene tree or audio, and the sam
 
 ## Plan
 
-_Written during Plan phase._
+Low complexity, so I proceeded without an approval stop.
+1. Give RealtimeCombat a settable rng seed.
+2. Rely on `seed()` for the global RNG instead of threading an RNG through every shuffle (smaller change, same determinism).
+3. Add a static `silent` flag to the resolver for audio.
+4. Determinism test, mutation-checked.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/battle/RealtimeCombat.gd`: documented `rng` as the seed hook (`rt.rng.seed = n`). A `reseed()` method was dropped because RealtimeCombat is at gdlint's 30-public-method cap.
+- `scenes/battle/SpellEffectResolver.gd`: `static var silent`, plus an `_sfx()` wrapper for both `AudioManager.play_sfx` calls.
+- New `tests/unit/test_battle_determinism.gd`: a 60 s, 12-card real-time fight with enemy AI and procs. The same seed gives an identical per-tick trace (HP, mana, hand, board, deck, combo, procs); different seeds diverge. Mutation check: dropping `seed()` or the rng seed each makes the test fail.
+- Audit: the only randomness on the fight path is global `shuffle()` / `randi()` (PlayerState, RealtimeCombat.trim_hand, resolver) and `rt.rng`. No `Time` / `OS` reads. The only autoload on the path is AudioManager. CaptureTracker is null-safe.
+- Validation: full suite PASS with 0 SCRIPT ERROR; realtime / coop / input smoke tests clean; gdlint and unsafe-hits clean.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+combat-model.md → new "Determinism (GID-176 / TID-712)" section.

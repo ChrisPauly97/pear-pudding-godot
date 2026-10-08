@@ -26,10 +26,17 @@ const ALLY_TARGETED_EFFECTS: Array[String] = [
 	"ally_grant_mana", "ally_revive",
 ]
 
+## Headless balance runs (GID-176) set this to skip sound effects.
+static var silent: bool = false
+
 var extra_turn_granted: bool = false
 var capture_tracker: CaptureTracker
 
 var _state: GameState
+
+func _sfx(id: String) -> void:
+	if not silent:
+		AudioManager.play_sfx(id)
 
 func setup(state: GameState) -> void:
 	_state = state
@@ -97,7 +104,7 @@ static func _grant(card: CardInstance, kw: String) -> void:
 func resolve_emergence(card: CardInstance, caster_pid: int) -> void:
 	if card.emergence_effect == "":
 		return
-	AudioManager.play_sfx("spell_resolve")
+	_sfx("spell_resolve")
 	# Mirrors resolve_spell's generalization: caster_pid is always current_player_idx
 	# at the time a just-played minion's emergence fires, so opponent() is correct.
 	var opponent: PlayerState = _state.opponent()
@@ -139,7 +146,7 @@ func _explicit_opponent(explicit_target: Dictionary, caster_pid: int, fallback: 
 	return fallback
 
 func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Dictionary = {}) -> void:
-	AudioManager.play_sfx("spell_resolve")
+	_sfx("spell_resolve")
 	var _ct_board_before: int = _state.players[1 - caster_pid].board.get_cards().size() if caster_pid == 0 else 0
 	# resolve_spell is only ever called for the currently-acting player (turn-gated by every
 	# caller), so _state.opponent() always reflects caster_pid's opponent — generalizes the

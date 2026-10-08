@@ -179,7 +179,7 @@
 | [GID-173](goals/GID-173--cave-entrances/goal.md) | Cave Entrances | done | 4 / 4 |
 | [GID-174](goals/GID-174--bogs/goal.md) | Bogs | done | 3 / 3 |
 | [GID-175](goals/GID-175--technique-cards/goal.md) | Skill Bar → Technique Cards | done | 6 / 6 |
-| [GID-176](goals/GID-176--balance-sim/goal.md) | Balance Simulation Harness | pending | 0 / 6 |
+| [GID-176](goals/GID-176--balance-sim/goal.md) | Balance Simulation Harness | in-progress | 1 / 6 |
 
 ## Backlog
 

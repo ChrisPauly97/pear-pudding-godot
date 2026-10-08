@@ -93,6 +93,9 @@ var auto_attack: bool = true
 ## Combo charges built by skill-bar hits; the next card spends them all.
 var combo: int = 0
 ## Rolls free-cast procs; tests seed it or pin the chance knobs to 0 / 1.
+## This fight's own rolls (procs). Randomized on construction; the balance sim
+## (GID-176) sets `rng.seed` for a repeatable fight. Deck shuffles and resolver
+## picks use the global RNG, so it also calls `seed(n)`.
 var rng := RandomNumberGenerator.new()
 
 ## Per-side resource and hero-swing timers.

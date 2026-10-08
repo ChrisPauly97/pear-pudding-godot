@@ -17,6 +17,7 @@ Player-side real-time rules live in scene modules, so a simulator would have to 
 
 ## Research Notes
 
+- From TID-712: seed a fight with `seed(n)` (global: shuffles, resolver picks) **before** building decks, plus `rt.rng.seed = n`; set `SpellEffectResolver.silent = true`. RealtimeCombat is at gdlint's 30-public-method cap, so put new logic elsewhere.
 - Logic to extract (from `scenes/battle/modules/BattleRealtime.gd`): `run_cast` (cast time from `rt.cast_time_for` / `TechniqueDefs.cast_time`, spell-queue delay `_cast_delay` = remaining GCD, GCD start), `_tick_cast` (pushback via `rt.pushback_for_hit`, fizzle when a unit target left the board, `_resolving_cast` so resolution doesn't restart the GCD), `run_off_gcd`, `on_cooldown()` (queue window), `note_player_play`.
 - From `scenes/battle/modules/RealtimeTechniques.gd`: `blocker`, `resolve_reactive` (Kick/Daze), `after_resolve` (builder hit → `rt.on_player_hit`, proc), `casting_enemy`.
 - From `scenes/battle/modules/MomentumHud.gd`: `wrap_card` combo spend (`rt.spend_combo`, full combo → instant, free-cast proc), skipping techniques.
