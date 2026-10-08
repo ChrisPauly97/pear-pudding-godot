@@ -110,7 +110,7 @@ func _spawn(camp: Dictionary, slot: int, id: String) -> void:
 		"enemy_type": etype,
 		"enemy_deck": _EnemyRegistry.get_deck(etype),
 		"tracking": bool(camp.get("tracking", false)),
-		"enemy_level": int(camp["level"]),
+		"enemy_level": _StarterZone.camp_level(camp),  # from its zone + type (TID-719)
 		"camp": str(camp["id"]),
 	}, x, z)
 

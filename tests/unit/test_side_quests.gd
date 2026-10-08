@@ -165,8 +165,10 @@ func test_starter_chain_paces_levels_and_gold() -> void:
 	sm.new_game(false)
 	var chain: Array[String] = ["rats_in_grain", "bruised_and_battered", "hedge_witch_chant",
 		"raise_the_fallen", "first_spark"]
+	var grind: int = 0
 	for qid: String in chain:
 		var q: Dictionary = SideQuests.def(qid)
+		grind += _grind_to(sm, int(q.get("min_level", 1)))
 		assert_gte(sm.level, int(q.get("min_level", 1)), "level reached for %s" % qid)
 		assert_true(sm.quests.accept(qid), "accepted %s" % qid)
 		for o: Dictionary in SideQuests.objectives(q):
@@ -183,16 +185,33 @@ func test_starter_chain_paces_levels_and_gold() -> void:
 						if int(c["tile"].x) == int(o.get("tx", 0)) and int(c["tile"].y) == int(o.get("tz", 0)):
 							camp = c
 					assert_eq(str(camp["enemy_type"]), target, "%s kills at a camp of %s" % [qid, target])
-					sm.add_xp(ZoneLevels.scaled_xp(EnemyRegistry.get_xp_reward(target), int(camp["level"]), sm.level))
+					sm.add_xp(ZoneLevels.scaled_xp(EnemyRegistry.get_xp_reward(target), StarterZone.camp_level(camp), sm.level))
 					sm.add_coins(EnemyRegistry.get_coin_reward(target))
 					sm.quests.progress_event("kill", target)
 				else:
 					sm.quests.progress_event(t, target)
 		assert_false(sm.quests.turn_in(qid).is_empty(), "turned in %s" % qid)
-	assert_gte(sm.level, 6, "the townsfolk chain ends at level 6")
+	# GID-176 / TID-719: camp levels follow the zone, so a little camp grinding
+	# between quests is expected (GID-177 slows levelling further on purpose).
+	grind += _grind_to(sm, UnlockLadder.level_req(UnlockLadder.FEAT_COMPANION))
+	assert_lte(grind, 40, "grinding between starter quests stays modest (%d extra kills)" % grind)
+	assert_gte(sm.level, 6, "the townsfolk chain (+ grinding) reaches level 6")
 	assert_true(sm.get_story_flag("town_quests_done"), "Maiteln is called")
 	assert_true(UnlockLadder.can_learn(UnlockLadder.FEAT_COMPANION, sm.level, sm.coins, sm.learned_abilities),
 			"…with gold to learn to fight beside him (%d gold)" % sm.coins)
+
+
+## Kills at the camp nearest the player's level until `level`; returns the kill count.
+func _grind_to(sm: Object, level: int) -> int:
+	var n: int = 0
+	while int(sm.get("level")) < level and n < 200:
+		var camp: Dictionary = StarterZone.camp_for_level(int(sm.get("level")))
+		var etype: String = str(camp["enemy_type"])
+		sm.call("add_xp", ZoneLevels.scaled_xp(EnemyRegistry.get_xp_reward(etype), StarterZone.camp_level(camp),
+				int(sm.get("level"))))
+		sm.call("add_coins", EnemyRegistry.get_coin_reward(etype))
+		n += 1
+	return n
 
 
 func test_starter_quest_targets_match_camps_and_learns() -> void:

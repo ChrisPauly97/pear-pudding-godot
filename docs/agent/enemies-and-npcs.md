@@ -406,14 +406,27 @@ behaviour is unchanged — the proximity-trigger AI, `EnemyRegistry` decks, and
 
 ## Zone Levels & Enemy Levels (GID-136 / TID-536)
 
-`game_logic/world/ZoneLevels.gd` (pure static) gives the overworld WoW-style level ranges:
+`game_logic/world/ZoneLevels.gd` (pure static, thread-safe) gives the overworld WoW-style levels. Since GID-176 /
+TID-719 they follow the **story route**, not the distance from Madrian:
 
-- **Zone level** = distance from Madrian's centre (`ORIGIN_TILE` (8,-5)): level 1 inside `STARTER_RADIUS` (30 tiles),
-  then +1 per `LEVEL_STEP_TILES` (12), capped at `MAX_LEVEL` 60. Story towns land in story order (Madrian 1,
-  Maykalene ~8, Marsax Hold ~15, Blancogov / Larik ~22). `range_at_tile()` gives a ±1 display range.
-- **Enemy level** (`EnemyNPC.enemy_level()`): a preset `enemy_data["enemy_level"]` wins (Spire/rifts, events); else
-  the zone level where it stands on `main`; else (dungeons, interiors) the player's level. Cached into `enemy_data`
-  when its **"Lv N" tag** (Label3D above the sprite) is added a frame after spawn, and stamped on the engage payload.
+- **Route:** `ROUTE` is a polyline of anchors with levels: Madrian 1 → `madrian_south_road` 1 → `wilderness_camp` 3
+  → Maykalene 7 → `isfig_road` 8 → Blancogov 10 (end of Chapter 1) → Larik 12 → `scout_ambush` 14 → Marsax Hold 16.
+  Town anchors are `RealmLayout.world_rect` centres (asserted by the test).
+- **Tile level:** `level_at_tile`, rounded. It's an inverse-distance blend (`BLEND_POWER` 6) of every segment's lerped
+  level, so the field stays smooth where Chapter 2 doubles back west of Chapter 1. Beyond `CORRIDOR` (30 tiles) from
+  the route, wild land adds 1 level per `LEVEL_STEP_TILES` (12), capped at `MAX_LEVEL` 60.
+- **Zones** (`ZONES`, the nearest segment's): Madrian Outskirts 1–5, The South Road 4–7, Farsyth Lands 6–9,
+  Blancogov Approach 8–10, Larik 10–14, Marsax Reach 13–17. `zone_at_tile` / `range_at_tile` give the zone; the
+  range stretches upward in wild land.
+- **Enemy level** (`EnemyNPC.enemy_level()`):
+  - a preset `enemy_data["enemy_level"]` wins (rifts, events, starter camps);
+  - else on `main`, `ZoneLevels.enemy_level_at(tile, EnemyRegistry.level_range(type))`: the tile level clamped into
+    zone range ∩ the type's sub-range (the zone wins if they don't overlap);
+  - else (dungeons, interiors) the player's level.
+
+  Type sub-ranges are `EnemyRegistry.LEVEL_RANGES` (undead_basic 1–2, undead_horde 2–4, ghoul_pack 3–5), otherwise
+  by tier (`TIER_LEVEL_RANGES`: 1–12, 5–24, 12–40, 20–60). The level is cached into `enemy_data` when its
+  **"Lv N" tag** is added and stamped on the engage payload.
 - **Con colour** vs the player's level: grey (≤ −5), green (−4..−2), yellow (±2), orange (+3..+4), red (≥ +5); the tag
   recolours on `GameBus.level_up`.
 - **Battle:** `BattleScene` raises the card tier (`scaled_tier`: +1 per 10 levels, max 4) before the enemy deck is

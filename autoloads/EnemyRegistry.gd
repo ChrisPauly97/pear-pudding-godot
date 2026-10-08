@@ -16,6 +16,13 @@ const _BESTIARY_ELIGIBLE: Array[String] = [
 	"duelist_novice", "duelist_adept", "duelist_champion", "roaming_terror",
 ]
 
+## GID-176 / TID-719: the level sub-range an enemy type lives in. An enemy's
+## level is its tile level clamped into its zone's range ∩ this (ZoneLevels.enemy_level_at).
+## Starter-zone types are authored; the rest default by difficulty tier.
+const LEVEL_RANGES: Dictionary = {
+	"undead_basic": Vector2i(1, 2), "undead_horde": Vector2i(2, 4), "ghoul_pack": Vector2i(3, 5),
+}
+const TIER_LEVEL_RANGES: Array[Vector2i] = [Vector2i(1, 12), Vector2i(5, 24), Vector2i(12, 40), Vector2i(20, 60)]
 
 static var _enemies: Dictionary = {}
 static var _loaded: bool = false
@@ -803,6 +810,12 @@ static func get_capture_param(type_id: String) -> int:
 	return 0
 
 ## Returns XP rewarded for defeating this enemy type. Bosses are 2×.
+static func level_range(type_id: String) -> Vector2i:
+	if LEVEL_RANGES.has(type_id):
+		return LEVEL_RANGES[type_id] as Vector2i
+	var tier: int = clampi(get_difficulty_tier(type_id), 1, TIER_LEVEL_RANGES.size())
+	return TIER_LEVEL_RANGES[tier - 1]
+
 static func get_xp_reward(type_id: String, is_boss: bool = false) -> int:
 	const XP_TABLE: Dictionary = {
 		"undead_basic": 20, "undead_horde": 35, "ghoul_pack": 50, "undead_elite": 80,

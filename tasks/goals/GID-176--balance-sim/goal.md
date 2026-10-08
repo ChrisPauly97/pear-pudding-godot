@@ -29,7 +29,7 @@ Fidelity rule: the simulator runs the **same** rules code as the game (pure `Rea
 | [TID-715](TID-715--balance-bot.md) | Simulated player (fixed policy) | agent | done | TID-713, TID-714 |
 | [TID-716](TID-716--balance-sim-cli.md) | tools/balance_sim.gd — batch runner, sweeps, CSV | agent | done | TID-715 |
 | [TID-717](TID-717--balance-bands.md) | CI balance bands from the user's targets | agent | pending | TID-716 |
-| [TID-719](TID-719--zone-level-ranges.md) | Story-route zones with level ranges (Chapter 1 = 1–10), enemy sub-ranges, camps from zones | agent | pending | TID-716 |
+| [TID-719](TID-719--zone-level-ranges.md) | Story-route zones with level ranges (Chapter 1 = 1–10), enemy sub-ranges, camps from zones | agent | done | TID-716 |
 | [TID-720](TID-720--enemy-level-scaling.md) | Enemies independent of player unlocks; casts/heavies scale by enemy level | agent | pending | TID-716 |
 | [TID-718](TID-718--tune-to-targets.md) | Tune combat numbers to hit the targets | agent | pending | TID-719, TID-720 |
 
@@ -39,7 +39,7 @@ Fidelity rule: the simulator runs the **same** rules code as the game (pure `Rea
 - [x] Scene and simulator share player cast rules and battle setup
 - [x] `tools/balance_sim.gd` runs N fights with sweeps and writes summary + CSV
 - [ ] CI fails when win rates miss the targets (same level 100%, +1 level ~75%)
-- [ ] Zones have level ranges; enemies a sub-range; starter camps follow the zone
+- [x] Zones have level ranges; enemies a sub-range; starter camps follow the zone
 - [ ] Enemy behaviour independent of player unlocks; casts / heavy blows scale with enemy level
 - [ ] Combat numbers tuned so the targets hold across the level ladder
 - [ ] docs/agent/balance-sim.md; tests, gdlint and unsafe-hits clean

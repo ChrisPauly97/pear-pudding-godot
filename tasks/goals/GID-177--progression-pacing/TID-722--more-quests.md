@@ -22,6 +22,7 @@ From level 3, a level should take a few quests. The starter chain (`SideQuests`)
 
 ## Research Notes
 
+- From TID-719: the Madrian camps now sit at levels 1–5, but the authored starter quests for levels 6–9 (`SideQuests`: East Copse min 6, … South Road Wreck min 9) still send the player to them. A level-9 player at a level-4 camp is grey (no XP). Move those quests' kill targets to road-zone camps (TID-722), or re-gate them. `test_side_quests` now grinds camp kills between quests (bound: 40 kills) as a stop-gap.
 - **Widened (user, 2026-10-08):** Chapter 1 spans levels 1–10 over story-route zones (TID-719): Madrian outskirts 1–5, South road and wilds 4–7, Farsyth lands and Isfig road 6–9, Blancogov approach 8–10. Levels 5–10 happen on the road, so **every Chapter 1 zone needs camps and repeatable quests**, not only Madrian's.
 - **Road camps:** generalise `StarterZone` camps into per-zone camp sets. Placed along the route between story sites (RealmLayout roads / sites), with clearings and set dressing via CampDressing, reserved ground in RealmLayout, respawn via the StarterCamps module (or a generalised `ZoneCamps`). Camp level is derived from the zone (TID-719); types use the zone-appropriate enemy sub-ranges. Keep chunk generation pure.
 - **Repeatable quests:** per camp (or per zone board / road NPC: a waystone keeper, a traveller at the wilderness camp, Farsyth's steward), sized so 3–4 quests + kills ≈ one level at that level (TID-721 curve).

@@ -1,7 +1,7 @@
-## StarterZone — Madrian's outskirts as an authored level 1–9 starter zone
+## StarterZone — Madrian's outskirts as the level 1–5 starter zone (zone levels: ZoneLevels)
 ## (GID-141 / TID-591).
 ##
-## Camps are fixed groups of enemies with an authored level, placed in rings
+## Camps are fixed groups of enemies, placed in rings
 ## that step outward from town so the starter quests (TID-592) can send a new
 ## player a little further each level. Camp enemies are transient: killing one
 ## never enters `SaveManager.defeated_enemies`; the `StarterCamps` world module
@@ -12,6 +12,9 @@
 ## Pure static data, no autoloads.
 extends RefCounted
 
+const _ZoneLevels = preload("res://game_logic/world/ZoneLevels.gd")
+const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
+
 ## Seconds before a fallen camp slot refills.
 const CAMP_RESPAWN_S: float = 45.0
 ## Camps further than this (world units) from the player are not topped up.
@@ -19,27 +22,29 @@ const ACTIVE_RANGE: float = 90.0
 ## Enemy ids of camp members start with this (never saved as defeated).
 const ID_PREFIX: String = "camp_"
 
-## {id, name, tile, enemy_type, count, level, tracking}. `tracking` = chases the
+## {id, name, tile, enemy_type, count, tracking}. A camp's level is not authored:
+## it comes from its tile's zone and its enemy type (`camp_level`, GID-176 / TID-719).
+## `tracking` = chases the
 ## player; the first two rings wait to be attacked, WoW-style passive critters.
 const CAMPS: Array[Dictionary] = [
 	{"id": "grain_store", "name": "Grain-Store Field", "tile": Vector2i(21, 17), "enemy_type": "undead_basic",
-		"count": 3, "level": 1, "tracking": false},
+		"count": 3, "tracking": false},
 	{"id": "south_field", "name": "South Field", "tile": Vector2i(-7, 21), "enemy_type": "undead_basic",
-		"count": 4, "level": 2, "tracking": false},
+		"count": 4, "tracking": false},
 	{"id": "old_orchard", "name": "The Old Orchard", "tile": Vector2i(47, 19), "enemy_type": "undead_horde",
-		"count": 4, "level": 3, "tracking": true},
+		"count": 4, "tracking": true},
 	{"id": "north_barrow", "name": "North Barrow", "tile": Vector2i(33, -21), "enemy_type": "undead_horde",
-		"count": 4, "level": 4, "tracking": true},
+		"count": 4, "tracking": true},
 	{"id": "hedge_ruins", "name": "Hedge Ruins", "tile": Vector2i(53, -27), "enemy_type": "ghoul_pack",
-		"count": 3, "level": 5, "tracking": true},
+		"count": 3, "tracking": true},
 	{"id": "east_copse", "name": "East Copse", "tile": Vector2i(76, -2), "enemy_type": "ghoul_pack",
-		"count": 4, "level": 6, "tracking": true},
+		"count": 4, "tracking": true},
 	{"id": "west_crossing", "name": "West Crossing", "tile": Vector2i(-55, 4), "enemy_type": "undead_horde",
-		"count": 5, "level": 7, "tracking": true},
+		"count": 5, "tracking": true},
 	{"id": "north_tor", "name": "North Tor", "tile": Vector2i(10, -62), "enemy_type": "ghoul_pack",
-		"count": 4, "level": 8, "tracking": true},
+		"count": 4, "tracking": true},
 	{"id": "south_road", "name": "South Road Wreck", "tile": Vector2i(40, 45), "enemy_type": "ghoul_pack",
-		"count": 5, "level": 9, "tracking": true},
+		"count": 5, "tracking": true},
 ]
 
 ## GID-166: each camp sits in a clearing this many tiles in radius for its set
@@ -63,7 +68,7 @@ const CRYPT_DOOR_LOCAL := Vector2i(24, 53)
 ## GID-149: the Barrow King wakes outside his crypt once "The Sealed Crypt" is
 ## done. Unique (no ID_PREFIX), so beating him is saved like any named enemy.
 const BARROW_KING := {"id": "barrow_king_madrian", "enemy_type": "barrow_king", "tile": Vector2i(-13, 22),
-	"level": 14, "requires_quest": "sealed_crypt"}
+	"level": 10, "requires_quest": "sealed_crypt"}  # top of Chapter 1 (L1–10)
 
 ## True when the Barrow King should stand at his crypt.
 static func barrow_king_awake(completed_quests: Array, defeated: Array) -> bool:
@@ -110,6 +115,11 @@ static func member_id(camp: Dictionary, slot: int) -> String:
 static func is_camp_enemy(enemy_id: String) -> bool:
 	return enemy_id.begins_with(ID_PREFIX)
 
+## A camp's level: its tile's zone level clamped to its enemy type's sub-range.
+static func camp_level(c: Dictionary) -> int:
+	var t: Vector2i = c["tile"]
+	return _ZoneLevels.enemy_level_at(t.x, t.y, _EnemyRegistry.level_range(str(c["enemy_type"])))
+
 static func camp(id: String) -> Dictionary:
 	for c: Dictionary in CAMPS:
 		if str(c["id"]) == id:
@@ -121,7 +131,7 @@ static func camp_for_level(level: int) -> Dictionary:
 	var best: Dictionary = {}
 	var best_gap: int = 999
 	for c: Dictionary in CAMPS:
-		var gap: int = absi(int(c["level"]) - level)
+		var gap: int = absi(camp_level(c) - level)
 		if gap < best_gap:
 			best_gap = gap
 			best = c

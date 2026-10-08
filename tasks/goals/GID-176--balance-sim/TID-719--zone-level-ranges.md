@@ -2,7 +2,7 @@
 
 **Goal:** GID-176
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-716
 
 ## Lock
@@ -56,8 +56,22 @@ Out of scope here, now in GID-177 / TID-722: camps and repeatable quests in the 
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/world/ZoneLevels.gd`:
+  - story-route model: `ROUTE` (anchors with levels; town anchors are `world_rect` centres) and `ZONES` (names + ranges);
+  - `level_at_tile` is an inverse-distance blend of segment levels (`BLEND_POWER` 6, so no cliffs where Chapter 2 doubles back) plus the off-route wild ramp (`CORRIDOR` 30, 1 level / 12 tiles);
+  - new `zone_at_tile`, `range_at_tile`, `enemy_level_at`;
+  - `ORIGIN_TILE` corrected to Madrian's real centre (-7, -1) (it ignored the crop position).
+- Route anchor levels (tuned so the first camps stay level 1): Madrian 1, south-road site 1, wilderness camp 3, Maykalene 7, Isfig road 8, Blancogov 10, Larik 12, scout ambush 14, Marsax 16. Deviation from the plan: the wilderness camp sits in Madrian Outskirts (3), not The South Road (4–7).
+- `autoloads/EnemyRegistry.gd`: `LEVEL_RANGES` (undead_basic 1–2, undead_horde 2–4, ghoul_pack 3–5), `TIER_LEVEL_RANGES`, `level_range(type)`.
+- `game_logic/world/StarterZone.gd`: the authored camp `level` is removed; `camp_level(camp)` derives it; `camp_for_level` uses it. Camps are now Grain 1, South Field 1, Orchard 2, Barrow 2, West Crossing 3, Hedge 4, North Tor 4, South Road Wreck 4, East Copse 5. Barrow King 14 → 10.
+- `scenes/world/modules/StarterCamps.gd` presets `camp_level`; `scenes/world/entities/EnemyNPC.gd` `enemy_level()` uses `enemy_level_at` with the type's range on `main`.
+- Tests:
+  - `test_zone_levels` rewritten: anchors match towns and sites; route levels non-decreasing; Chapter 1 towns ≤ 10 and Blancogov = 10; Marsax > 10; route levels inside zone ranges; wild land rises; no cliffs (≤ 2 between neighbours over a 400 × 400 sample); enemy clamp.
+  - `test_starter_zone`: camp levels inside zones, every level 1–4 has a camp.
+  - `test_side_quests` pacing now grinds the nearest camp between quests (≤ 40 extra kills) because lower camp levels give less kill XP. GID-177 / TID-723 replaces it with the time-based check.
+- Found and logged in GID-177 TID-722 / TID-723 notes: the authored level 6–9 starter quests still point at Madrian camps (now ≤ 5), so they give grey (zero) XP at those levels.
+- Validation: full suite PASS with 0 SCRIPT ERROR; all 12 CI smoke tests clean; gdlint and unsafe-hits clean.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+enemies-and-npcs.md (Zone Levels section rewritten for story-route zones and type sub-ranges); starter-zone-and-training.md (camp level table and derived-level rule, Barrow King); balance-sim.md ("an enemy of level L").

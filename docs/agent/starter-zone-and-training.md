@@ -119,17 +119,21 @@ own ladder decides what it sees.
 | Camp | Overworld tile | Enemy | × | Lvl | Chases? |
 |---|---|---|---|---|---|
 | Grain-Store Field | (21, 17) | undead_basic | 3 | 1 | no |
-| South Field | (−7, 21) | undead_basic | 4 | 2 | no |
-| The Old Orchard | (47, 19) | undead_horde | 4 | 3 | yes |
-| North Barrow | (33, −21) | undead_horde | 4 | 4 | yes |
-| Hedge Ruins | (53, −27) | ghoul_pack | 3 | 5 | yes |
-| East Copse | (76, −2) | ghoul_pack | 4 | 6 | yes |
-| West Crossing | (−55, 4) | undead_horde | 5 | 7 | yes |
-| North Tor | (10, −62) | ghoul_pack | 4 | 8 | yes |
-| South Road Wreck | (40, 45) | ghoul_pack | 5 | 9 | yes |
+| South Field | (−7, 21) | undead_basic | 4 | 1 | no |
+| The Old Orchard | (47, 19) | undead_horde | 4 | 2 | yes |
+| North Barrow | (33, −21) | undead_horde | 4 | 2 | yes |
+| Hedge Ruins | (53, −27) | ghoul_pack | 3 | 4 | yes |
+| East Copse | (76, −2) | ghoul_pack | 4 | 5 | yes |
+| West Crossing | (−55, 4) | undead_horde | 5 | 3 | yes |
+| North Tor | (10, −62) | ghoul_pack | 4 | 4 | yes |
+| South Road Wreck | (40, 45) | ghoul_pack | 5 | 4 | yes |
 
-- Members stand in a ring of radius 3 around the camp tile (`slot_tile`), carry a preset `enemy_level` (so the
-  authored level wins over the distance-based zone level, TID-536), and ids `camp_<camp>_<slot>`.
+- **Levels are derived, not authored (GID-176 / TID-719):** `StarterZone.camp_level(camp)` = its tile's zone level
+  clamped to the enemy type's sub-range (`ZoneLevels.enemy_level_at`). Madrian Outskirts is levels 1–5, so the camps
+  span 1–5 (table above). Level 5+ continues on the road zones (GID-177 / TID-722). `camp_for_level` picks the nearest
+  camp. The Barrow King is a unique boss at a fixed level 10 (top of Chapter 1).
+- Members stand in a ring of radius 3 around the camp tile (`slot_tile`), carry that level as a preset
+  `enemy_level`, and ids `camp_<camp>_<slot>`.
 - **Refill:** every 1.5 s the module tops up camps within `ACTIVE_RANGE` (90 units) of the player; a fallen member
   refills after `CAMP_RESPAWN_S` (45 s); camps out of range despawn. `SaveManager.mark_enemy_defeated` ignores
   `camp_` ids, so they never enter the permanent defeated list. Solo only (inert in a network session).
@@ -200,7 +204,7 @@ BID-065 (placeholder undead + townsfolk sprites), BID-066 (graveyard dressing), 
 ## Integrations
 
 - Quests: `SideQuests` / `SaveQuests` / `QuestLog` (`story-implementation.md`); story gate `help_townsfolk`.
-- Levels: `ZoneLevels` (`enemies-and-npcs.md`); camps preset their level.
+- Levels: `ZoneLevels` story-route zones (`enemies-and-npcs.md`); camps derive their level from their zone + type.
 - Combat: `CombatOnboarding` / `BattleOnboarding` (`combat-model.md`).
 - World modules: `StarterCamps`, `QuestTracker` (training marks + notices), `StoryCast` (flag-shown NPCs).
 - Rifts (GID-142) are `feat_spire`.

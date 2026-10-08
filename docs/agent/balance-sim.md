@@ -78,6 +78,11 @@ one **level above about 75 %**. TID-718 tunes toward this; TID-717 turns it into
 - A zone has a level range; each enemy type a sub-range inside it; starter camps take their level from the zone (TID-719).
 - Enemies behave the same whatever the player has learned; heavy blows and enemy casts scale with **enemy** level. Weak enemies still cast but hit softly, so Kick lands on something familiar (TID-720).
 
+### "An enemy of level L"
+
+An enemy's level is its tile's story-route level clamped to zone ∩ type sub-range (`ZoneLevels.enemy_level_at`,
+TID-719). In the sim, pass `--enemy-level L` with a type whose `EnemyRegistry.level_range` contains L.
+
 ### First measurement (TID-716, 30 fights each, `undead_basic`, ladder-learned, no gear)
 
 | Player level | Win | Note |
