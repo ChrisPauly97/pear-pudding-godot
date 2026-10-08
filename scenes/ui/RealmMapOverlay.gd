@@ -21,6 +21,7 @@ const _MapMarkers = preload("res://scenes/ui/MapMarkers.gd")
 const _RealmMapOverlay = preload("res://scenes/ui/RealmMapOverlay.gd")
 
 const _Coast = preload("res://game_logic/world/Coast.gd")
+const _RealmMapArt = preload("res://game_logic/world/RealmMapArt.gd")
 const _COL_BG := Color(0.13, 0.19, 0.12)
 const _COL_ROAD := Color(0.70, 0.58, 0.38)
 const _COL_SEA := Color(0.16, 0.33, 0.48)
@@ -34,6 +35,8 @@ const _MARGIN_TILES: float = 32.0
 const MAX_ZOOM: float = 8.0
 const OPEN_ZOOM: float = 4.0
 const _WHEEL_STEP: float = 1.25
+## Charting budget per frame while the map is open and the art isn't ready yet.
+const _ART_OPEN_BUDGET_USEC: int = 12000
 
 class _MapLayer extends Control:
 	var overlay: _RealmMapOverlay
@@ -48,6 +51,14 @@ class _MapLayer extends Control:
 		if overlay:
 			draw_set_transform(-position)  # draw in viewport coords, clipped to the panel
 			overlay._on_draw(self)
+
+# Painted map art (RealmMapArt), charted once per world seed a few ms per frame
+# (QuestTracker steps it from world load) and shared by every realm map after.
+static var _art_seed: int = -1
+static var _painter: _RealmMapArt.Painter = null
+static var _terrain_tex: ImageTexture = null
+static var _terrain_rect := Rect2i()
+static var _town_tex: Dictionary = {}
 
 var _player: Node3D
 var _map_name: String = "main"
@@ -82,6 +93,7 @@ func setup(player: Node3D, map_name: String, quests: Array[Dictionary], tracked:
 	_quests = quests
 	_tracked_id = str(tracked.get("id", ""))
 	layer = 20
+	prewarm(SceneManager.save_manager.world_seed)
 
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var vh: float = vp.y
@@ -107,12 +119,13 @@ func setup(player: Node3D, map_name: String, quests: Array[Dictionary], tracked:
 	_layer.position = _panel.position
 	_layer.size = _panel.size
 	_layer.clip_contents = true
+	_layer.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	add_child(_layer)
 
 	var title := _UiUtil.make_title_label("The Realm", vh)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.size = Vector2(side, vh * 0.045)
-	title.position = Vector2(_panel.position.x, _panel.position.y + vh * 0.008)
+	title.position = Vector2(_panel.position.x, _panel.position.y - vh * 0.055)
 	add_child(title)
 
 	var obj_text: String = str(tracked.get("label", ""))
@@ -150,6 +163,37 @@ func setup(player: Node3D, map_name: String, quests: Array[Dictionary], tracked:
 	world_btn.position = Vector2(_panel.end.x - vh * 0.11, _panel.end.y - vh * 0.06)
 	var me_btn := _UiUtil.make_button("Me", Vector2(vh * 0.08, vh * 0.05), int(vh * 0.018), _center_on_player, self)
 	me_btn.position = Vector2(_panel.end.x - vh * 0.20, _panel.end.y - vh * 0.06)
+
+
+## Starts charting the map art for `world_seed` (no-op once started).
+static func prewarm(world_seed: int) -> void:
+	if _art_seed == world_seed:
+		return
+	_art_seed = world_seed
+	_terrain_tex = null
+	_town_tex = {}
+	var b: Rect2 = realm_bounds()
+	_terrain_rect = Rect2i(Vector2i(b.position.floor()), Vector2i(b.size.ceil()))
+	_painter = _RealmMapArt.Painter.new(_terrain_rect, world_seed)
+
+
+## Charts for up to `budget_usec`; when done, turns the images into mipmapped
+## textures. True once the art is ready.
+static func step_art(budget_usec: int) -> bool:
+	if _terrain_tex != null:
+		return true
+	if _painter == null or not _painter.step(budget_usec):
+		return false
+	_terrain_tex = _mipmapped(_painter.terrain)
+	for town: String in _painter.towns:
+		_town_tex[town] = _mipmapped(_painter.towns[town] as Image)
+	_painter = null
+	return true
+
+
+static func _mipmapped(img: Image) -> ImageTexture:
+	img.generate_mipmaps()
+	return ImageTexture.create_from_image(img)
 
 
 ## Tile rect covering every town, road and story site, padded, grown to include
@@ -256,19 +300,28 @@ func _on_draw(c: Control) -> void:
 	c.draw_rect(_panel, _COL_BG)
 	var font: Font = ThemeDB.fallback_font
 	_draw_sea(c)
-	for road: Array in _RealmLayout.ROADS:
-		var pts := PackedVector2Array()
-		for p: Vector2 in road:
-			pts.append(_tile_to_panel(p))
-		c.draw_polyline(pts, _COL_ROAD, clampf(_scale * 2.0, 2.0, 6.0), true)
+	var painted: bool = step_art(_ART_OPEN_BUDGET_USEC)
+	if painted:
+		c.draw_texture_rect(_terrain_tex, Rect2(_tile_to_panel(Vector2(_terrain_rect.position)),
+			Vector2(_terrain_rect.size) * _scale), false)
+	else:
+		for road: Array in _RealmLayout.ROADS:
+			var pts := PackedVector2Array()
+			for p: Vector2 in road:
+				pts.append(_tile_to_panel(p))
+			c.draw_polyline(pts, _COL_ROAD, clampf(_scale * 2.0, 2.0, 6.0), true)
+		c.draw_string(font, Vector2(_panel.position.x, _panel.end.y - _font_size * 2.5), "Charting the realm…",
+			HORIZONTAL_ALIGNMENT_CENTER, _panel.size.x, _font_size, Color(1, 1, 1, 0.7))
 	for town: String in _RealmLayout.town_names():
 		var wr: Rect2i = _RealmLayout.world_rect(town)
 		var rect := Rect2(_tile_to_panel(Vector2(wr.position)), Vector2(wr.size) * _scale)
-		c.draw_rect(rect, _COL_TOWN)
+		var art: ImageTexture = _town_tex.get(town) as ImageTexture if painted else null
+		if art != null:
+			c.draw_texture_rect(art, rect, false)
+		else:
+			c.draw_rect(rect, _COL_TOWN)
 		c.draw_rect(rect, _COL_TOWN_EDGE, false, 2.0)
-		var name_text: String = town.replace("_", " ").capitalize()
-		c.draw_string(font, Vector2(rect.position.x, rect.get_center().y + _font_size * 0.35), name_text,
-			HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, _font_size, Color.WHITE)
+		_draw_town_banner(c, font, town, rect)
 	var lit: Array = SceneManager.save_manager.activated_waystones
 	for w: Dictionary in _RealmLayout.entities("waystones"):
 		var wp: Vector2 = _tile_to_panel(Vector2(float(w.get("x", 0.0)), float(w.get("z", 0.0))) / IsoConst.TILE_SIZE)
@@ -285,6 +338,17 @@ func _on_draw(c: Control) -> void:
 		var pp: Vector2 = _tile_to_panel(here as Vector2)
 		c.draw_circle(pp, 8.0, Color.BLACK)
 		c.draw_circle(pp, 6.0, Color.WHITE)
+
+
+## The town's name on a dark ribbon above its plan.
+func _draw_town_banner(c: Control, font: Font, town: String, rect: Rect2) -> void:
+	var text: String = town.replace("_", " ").capitalize()
+	var fs: int = _font_size + 2
+	var tw: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var at := Vector2(rect.get_center().x - tw * 0.5, rect.position.y - fs * 0.35)
+	c.draw_rect(Rect2(at + Vector2(-6.0, -fs * 0.95), Vector2(tw + 12.0, fs * 1.3)), Color(0.08, 0.06, 0.04, 0.80))
+	c.draw_string_outline(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 4, Color.BLACK)
+	c.draw_string(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1.0, 0.92, 0.70))
 
 
 func _draw_waypoint(c: Control) -> void:

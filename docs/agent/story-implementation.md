@@ -202,6 +202,18 @@ interior map's **World Map** button, which passes `overworld_anchor()`, the spot
 about the pointer (1 = whole-realm overview, up to `MAX_ZOOM`), drag pans, **World** shows the
 overview, **Me** re-centres. The draw layer clips to the panel (`clip_contents`).
 
+**Painted realm map (`game_logic/world/RealmMapArt.gd`).** The map background is the real
+overworld: `RealmMapArt.Painter` runs the chunk generator (`InfiniteWorldGen._gen_tile_data`) over
+`realm_bounds()` and paints biome ground (borders jittered so chunk seams read as natural edges),
+hill shading from the NW, streams / ponds / the sea (`WaterMath`), tree groves (`TreeScatter`) and
+stamped roads, `TERRAIN_PX` px per tile; then each stitched town as an illustrated plan
+(`town_image`: roofs from `building_plan`, cobbled `street_plan` streets, paths, walls, `TownDecor`
+set pieces, lamps). It is charted on the **main thread** in slices — `QuestTracker._process` steps
+`RealmMapOverlay.step_art(3 ms)` after an overworld load, the open map steps 12 ms/frame until ready
+("Charting the realm…" with vector roads meanwhile). Don't move it to a `WorkerThreadPool` task:
+an unjoined task deadlocked `WorldScene` teardown in `world_scene_smoke`. Textures are static
+(per world seed) and mipmapped; town names sit on a ribbon above each plan.
+
 **Quest areas (`game_logic/quests/QuestZones.gd`).** A quest dict's `zones` (`QuestLog.zones(q)`)
 lists areas: a side-quest `kill` objective at a starter camp (its enemy slots, `R_CAMP`), a story
 step with a `site` (`R_SITE`), and an unfinished `defeat_enemy_type` bounty (every camp of that
