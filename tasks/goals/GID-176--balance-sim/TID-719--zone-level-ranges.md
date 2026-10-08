@@ -2,14 +2,14 @@
 
 **Goal:** GID-176
 **Type:** agent
-**Status:** pending
+**Status:** in-progress
 **Depends On:** TID-716
 
 ## Lock
 
-**Session:** none
-**Acquired:** —
-**Expires:** —
+**Session:** ccr-74960c86-ruw5if
+**Acquired:** 2026-10-08T15:23:15Z
+**Expires:** 2026-10-08T15:53:15Z
 
 ## Context
 
@@ -33,7 +33,16 @@ Defines what "an enemy of level L" is, which the balance targets (TID-718) depen
 
 ## Plan
 
-_Written during Plan phase._
+**Waiting for user approval (2026-10-08).** High complexity: existing camp and town levels move.
+
+- **Zones:** `ZoneLevels.ZONES` distance bands with level ranges. Ranges overlap at the borders; the level ramps through the band.
+  - Madrian outskirts: d 0–75 (flat 1 to 24), levels 1–9.
+  - Maykalene march: d 75–150, levels 8–12 (Maykalene ≈ 9).
+  - Marsax reach: d 150–225, levels 13–17 (Marsax ≈ 16).
+  - Heartland: d 225–300, levels 18–24 (Blancogov / Larik ≈ 21).
+  - Wilds: every 75 tiles further, +6 per band, cap 60.
+- **Enemy sub-ranges:** `EnemyRegistry` `level_range`. Hand-authored: `undead_basic` 1–3, `undead_horde` 3–6, `ghoul_pack` 5–9. Default from tier: 1 → 1–12, 2 → 5–24, 3 → 12–40, 4 → 20–60. Enemy level = the tile level clamped to zone ∩ type (the zone wins if they don't overlap).
+- **Camps:** the authored `level` is dropped and derived instead. New levels: grain 1, south 2, barrow 3, orchard 5, hedge 5, west 6, tor 7, road 7, copse 8. `camp_for_level` becomes nearest; `test_starter_zone` and the `test_side_quests` pacing test are updated. The Barrow King keeps level 14 (unique boss).
 
 ## Changes Made
 
