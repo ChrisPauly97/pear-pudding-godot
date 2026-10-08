@@ -5,7 +5,6 @@ const RealtimeCombat = preload("res://game_logic/battle/RealtimeCombat.gd")
 const GameState = preload("res://game_logic/battle/GameState.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
-const SkillBar = preload("res://game_logic/battle/SkillBar.gd")
 
 func _rt() -> RealtimeCombat:
 	var gs := GameState.new()
@@ -48,10 +47,9 @@ func test_hits_siphon_mana() -> void:
 
 func test_strike_builds_combo_to_cap() -> void:
 	var rt := _rt()
-	var bar := SkillBar.new()
-	var i: int = bar.ids.find("strike")
+	# A damaging technique (Strike) is a builder hit (GID-175).
 	for _n: int in rt.tune.get_i("combo_max") + 2:
-		bar.apply(i, rt)
+		rt.on_player_hit(5, true)
 	assert_eq(rt.combo, rt.tune.get_i("combo_max"))
 	assert_true(rt.combo_full())
 	assert_true(rt.next_card_instant(), "a full combo makes the next card instant")

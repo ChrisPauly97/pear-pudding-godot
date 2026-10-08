@@ -15,7 +15,7 @@ const MAX_COPIES: int = 1
 
 ## card id → {rt_value (real-time power), cast (s, -1 = card cast formula),
 ## off_gcd, mana_value (units, mana_tap), level_req, learn_cost}.
-## Real-time values match the retired `SkillBar.ABILITIES`.
+## Real-time values match the retired skill bar (GID-135 / TID-550).
 const DEFS: Dictionary = {
 	"tech_strike": {"rt_value": 5, "cast": 0.0, "off_gcd": false, "level_req": 0, "learn_cost": 0},
 	"tech_mend": {"rt_value": 6, "cast": 1.5, "off_gcd": false, "level_req": 2, "learn_cost": 15},

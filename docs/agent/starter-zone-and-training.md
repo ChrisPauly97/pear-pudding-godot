@@ -37,8 +37,8 @@ visit that thing's trainer, read what it does and pay gold to learn it. Nothing 
 | 18 | `daze` | combat | 150 |
 | 40 | `feat_mount` (riding) | stable | 1000 |
 
-- **Skill rows** (`kind: "skill"`) read `level_req` / `learn_cost` from `SkillBar.ABILITIES` — never duplicated.
-  `SkillBar.ALWAYS_KNOWN` is now just `["strike"]`; `LEARNABLE_ORDER` includes Mend and Kick.
+- **Skill rows** (`kind: "skill"`) are technique cards (GID-175): `level_req` / `learn_cost` come from
+  `TechniqueDefs.DEFS["tech_<id>"]` — never duplicated. Strike is always known (a starter-deck card).
 - `how_to` is the text the trainer shows (the "read it before you buy it" moment) — keep it concrete: what the
   button is, where it appears, when to use it. Soulbinding is introduced in the minion/spell rows.
 - API: `def`, `has`, `level_req`, `cost`, `trainer_for`, `trainer_name`, `is_learned` (non-ladder ids are always
@@ -51,11 +51,10 @@ visit that thing's trainer, read what it does and pay gold to learn it. Nothing 
   skill into a free slot of a customised bar, progresses `learn` quest objectives and emits
   `GameBus.feature_learned(id)`.
 - `add_xp` emits `GameBus.training_available(ids)` with every entry unlocked by the level(s) just gained.
-- `new_game()` resets `learned_abilities` and `skill_bar`; **Head Start (debug)** learns the whole ladder.
+- `new_game()` resets `learned_abilities` and deals Strike into the starter deck; **Head Start (debug)** learns the whole ladder.
 - Migration v44 (`SaveMigrations._m44_unlock_ladder`): existing saves get every ladder *feature* plus Mend/Kick;
   riding only if they own a mount; unbought trainer skills stay unlearned.
-- `SkillBar.resolved_bar()` pads unknown slots with `""` (shown as "—") instead of offering unlearned skills;
-  `SkillBar._init` falls back to the known part of `DEFAULT_BAR`.
+- (Skill-bar slot padding is gone: techniques are cards, GID-175.)
 
 ### XP pacing
 
@@ -81,7 +80,7 @@ Every gate calls `save_manager.has_learned(UnlockLadder.FEAT_X)`; a blocked acti
 | Ghost Phase / Skeleton Dig | HUD buttons hidden until learned (`WorldHUD.refresh_action_cluster`, re-run on `feature_learned`); `Cantrips.activate_*` and `BurialMound.interact` refuse; the deck-family rule still applies after |
 | Riding | `Mounts.LEVEL_REQ` = 40; stable purchase needs `feat_mount`; Mount button / T hidden or refused without it |
 | Skills tab | `MenuHubScene.visible_tabs()` hides it until `feat_skills`; `skill_tree_requested` refuses |
-| Skill Bar tab | hidden until the player knows more than Strike |
+| Technique cards | Strike in the starter deck; each trainer-taught technique adds its card (GID-175) |
 | Companion | Character page companion slot hidden until `feat_companion` (battle side in TID-588) |
 | Bounty board | `SceneManager._on_bounty_board_requested` refuses until `feat_bounties` |
 | Night hunts | `NocturnalSpawner.tick` spawns nothing until `feat_night_hunts` |
@@ -184,8 +183,8 @@ Quests live in `SideQuests.QUESTS` (see `story-implementation.md` → Side Quest
   done_flag `town_quests_done`). Madrian's Maiteln NPC (`npc_1`) carries `MapNpc.show_flag_key =
   "town_quests_done"`: `ChunkRenderer` skips it until then and `StoryCast.spawn_flag_shown_npcs()` spawns it the
   moment the flag flips. Migration v44 sets `town_quests_done` on existing saves.
-- **New progress hooks:** `use_skill` from `BattleSkillBar` on every successful skill (Kick only succeeds when it
-  interrupts), `use_skill "skeleton_dig"` from `BurialMound`, `open <chest id>` from `ChestLoot.open`.
+- **New progress hooks:** `use_skill` from `RealtimeTechniques.after_resolve` when a technique card resolves in
+  real time (ability id, e.g. `mend`), `use_skill "skeleton_dig"` from `BurialMound`, `open <chest id>` from `ChestLoot.open`.
 - Pacing is asserted by `test_side_quests.test_starter_chain_paces_levels_and_gold`: quest kills only, real kill
   XP/coins, every training affordable when its quest asks for it, level 6 + companion gold at the end.
 

@@ -16,9 +16,9 @@ const MAX_PER_LINE: int = 2
 ## Bark ids, in the priority order `candidates_for` (in `MentorBarks`) emits
 ## them (most urgent first). Text lives here so tests and the module read the
 ## exact same copy. Each maps to a real moment: `interrupt` fires only on a
-## successful `Kick` (`SkillBar` "interrupt" effect); `ally_ready` on
-## `RealtimeCombat`'s own "ally_ready" event; `cooldown_ready` when a
-## `BattleSkillBar` slot's cooldown clears after having been used.
+## successful `Kick` card (`RealtimeTechniques.resolve_reactive`); `ally_ready`
+## on `RealtimeCombat`'s own "ally_ready" event; `cooldown_ready` when a technique
+## card comes back into the hand (GID-175).
 const LINES: Dictionary = {
 	"low_hp": "Your health is dropping — Mend, or a potion, before it's too late!",
 	"mana_empty": "Out of mana — lean on your weapon until it regens.",

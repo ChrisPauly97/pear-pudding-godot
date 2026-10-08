@@ -25,7 +25,7 @@ var _realtime: _BattleRealtime
 var _elapsed: float = 0.0
 var _last_bark_at: float = -1.0
 var _seen_counts: Dictionary = {}
-## One-shot moments a caller (BattleSkillBar's Kick) reports out of band —
+## One-shot moments a caller (the Kick technique card) reports out of band —
 ## consumed (and cleared) the next `on_frame`.
 var _queued: Array[String] = []
 ## Technique cards in hand last frame (a rise = one came back round, GID-175).
@@ -37,7 +37,7 @@ func _init(battle: _BattleScene, realtime: _BattleRealtime) -> void:
 	_battle = battle
 	_realtime = realtime
 
-## Reported by `BattleSkillBar._resolve` right after a successful `Kick`.
+## Reported by `BattleRealtime.note_skill_used` right after a successful `Kick`.
 func queue(id: String) -> void:
 	if not _queued.has(id):
 		_queued.append(id)

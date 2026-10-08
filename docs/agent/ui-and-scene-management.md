@@ -137,11 +137,11 @@ all WorldHUD fonts (`_ts` member), and AchievementToast. Battle files have their
 
 ### MenuHubScene (`scenes/ui/MenuHubScene.gd`)
 
-Unified tabbed shell that hosts five player-facing screens (Deck/Bag, Character, Skills, Skill Bar, Journal) as switchable pages. Added in TID-296/297; replaces the four separate SceneManager overlay states. The Skill Bar tab was added in TID-556 (GID-136) as the loadout picker's always-available entry point.
+Unified tabbed shell that hosts four player-facing screens (Deck/Bag, Character, Skills, Journal) as switchable pages. Added in TID-296/297; replaces the four separate SceneManager overlay states. (A Skill Bar tab, TID-556, existed until GID-175 turned the bar into technique cards.)
 
 **Structure:** backdrop → centered panel → VBox with [tab bar row, content area].
 
-**Tab bar layout:** `[Close] [Deck/Bag] [Character] [Skills] [Skill Bar] [Journal]` — Close is on the LEFT so it never overlaps the minimap in the top-right corner. Each tab button's width is `_ref * (0.80 / _TABS.size())` so the row keeps fitting as tabs are added, instead of a fixed width that would overflow.
+**Tab bar layout:** `[Close] [Deck/Bag] [Character] [Skills] [Journal]` — Close is on the LEFT so it never overlaps the minimap in the top-right corner. Each tab button's width is `_ref * (0.80 / _TABS.size())` so the row keeps fitting as tabs are added, instead of a fixed width that would overflow.
 
 **Layering:** `SceneManager.open_menu_hub()` wraps the hub in a `CanvasLayer` (layer 10, stored as `_menu_hub_layer`) so it renders above the HUD CanvasLayer (default layer 1). The layer is freed in `_on_menu_hub_closed()` and `_exit_world_cleanup()`.
 
@@ -169,7 +169,7 @@ The four GameBus signals are preserved as the public API — HUD buttons, WorldS
 - Does not emit `closed` on neutral actions (e.g., Save in InventoryScene)
 - Overrides `_input()` to return early so it does not consume `ui_cancel` (Escape must close the hub, not the page)
 
-All five pages follow this contract: `InventoryScene`, `CharacterScene`, `SkillTreeScene`, `SkillBarScene` (TID-556), `JournalScene`.
+All four pages follow this contract: `InventoryScene`, `CharacterScene`, `SkillTreeScene`, `JournalScene`.
 
 **Key bindings and tab cycling (TID-299):**
 
@@ -178,7 +178,6 @@ All five pages follow this contract: `InventoryScene`, `CharacterScene`, `SkillT
 | Open hub → Deck/Bag | I | "Menu" HUD button |
 | Open hub → Character | C | Tab bar "Character" button |
 | Open hub → Skills | K | Tab bar "Skills" button |
-| Open hub → Skill Bar | L | Tab bar "Skill Bar" button |
 | Open hub → Journal | J | Tab bar "Journal" button |
 | Previous tab | `[` | Tab bar buttons |
 | Next tab | `]` | Tab bar buttons |
@@ -188,26 +187,9 @@ Tab cycling (`[`/`]`) is handled in MenuHubScene's `_input()` which also re-decl
 
 **State:** `SceneManager.State.MENU_HUB`. The four old states (INVENTORY, CHARACTER, SKILL_TREE, JOURNAL) have been removed from the enum.
 
-### SkillBarScene — loadout picker (`scenes/ui/SkillBarScene.gd`, GID-136 / TID-556)
+### SkillBarScene — removed (GID-175)
 
-Chooses which learned abilities occupy the real-time skill bar's 3 slots (see
-`docs/agent/combat-model.md` "Skill bar"). Touch-friendly by design: tap a
-slot button to select it (highlighted gold), then tap an ability card below
-to fill that slot. Assigning an ability already on the bar **swaps** the two
-slots instead of duplicating it. Every change writes immediately via
-`SaveManager.set_skill_bar()` — there is no separate Save step.
-
-- `SkillBar.resolved_bar(saved_bar, learned_abilities)` seeds the editor:
-  always exactly `SkillBar.SLOTS` ids, saved choices kept where still known,
-  padded with unused known ids (`DEFAULT_BAR` first) so a fresh save starts
-  at strike/mend/kick.
-- The ability list below the slots is `SkillBar.known_ids(learned_abilities)`
-  — the always-known trio plus whatever the player has learned from a
-  trainer (TID-537); an unlearned ability never appears here to be picked.
-- Reachable two ways: the Menu Hub's "Skill Bar" tab (always available, `L`
-  key / tab-bar button) and a "Loadout" button on the trainer's teach panel
-  (`NpcInteractions.show_trainer_panel`) for "just learned it, now equip it"
-  flow.
+The loadout picker went away with the skill bar; technique cards are put in the deck from the Deck tab.
 
 ---
 

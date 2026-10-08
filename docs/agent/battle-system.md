@@ -458,8 +458,8 @@ All victory, defeat, and puzzle overlays live in `BattleResultUI` (extends RefCo
   immediately. Real time: enemy-targeted spells go at the focus target (`rt.focus_target`, else the focused
   enemy hero for `deal_damage_single`), like WoW. Team PvP / co-op always ask.
 - **Keys** (`scenes/battle/modules/BattleShortcuts.gd`, `BattleScene.shortcuts`): number keys play hand
-  cards as a tap would — `1`–`9` turn-based; in real time they start after the skill bar keys
-  (`first_hand_key()`, 1–3 are skills). `Space` ends the turn (turn-based). `Q` / `E` are the potion quick slots.
+  cards as a tap would — `1`–`9` in both modes (`first_hand_key()` = `KEY_1`; the real-time skill bar
+  keys are gone since GID-175). `Space` ends the turn (turn-based). `Q` / `E` are the potion quick slots.
 - **Auto end turn** (setting `auto_end_turn`, default on, Settings → Battle): solo turn-based only (not PvP,
   co-op, team, puzzle, scripted or real time). `BattleScene._refresh_all()` ends with
   `shortcuts.check_auto_end()`; when `has_move()` is false (no affordable card, no ready attacker with attack,

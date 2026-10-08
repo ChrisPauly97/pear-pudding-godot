@@ -96,7 +96,7 @@ func _run() -> bool:
 	if not state.is_game_over():
 		await _check_spell_queue(battle, fails)
 	if not state.is_game_over():
-		await _check_skill_bar(battle, state, fails)
+		await _check_techniques(battle, state, fails)
 	if not state.is_game_over():
 		await _check_tuning_panel(battle, fails)
 	if not state.is_game_over():
@@ -287,9 +287,8 @@ func _check_cast_time(battle: Node, fails: Array[String]) -> void:
 
 ## Spell queue (TID-555): an instant (0-cast-time) play attempted inside the
 ## queue-window tail of the GCD must wait for the GCD to actually end, not
-## resolve early. `run_cast` is the shared path for a deck spell's instant play
-## and the skill bar's instant on-GCD abilities (BattleSkillBar.press routes
-## every non-off_gcd press through it), so this covers both.
+## resolve early. `run_cast` is the shared path for every on-GCD instant play,
+## deck spells and technique cards alike (GID-175).
 func _check_spell_queue(battle: Node, fails: Array[String]) -> void:
 	var rt_mod: Node = battle.get("realtime") as Node
 	var rt: Object = rt_mod.get("rt")
@@ -319,7 +318,7 @@ func _check_spell_queue(battle: Node, fails: Array[String]) -> void:
 ## Technique cards (GID-175): Strike from the hand damages the enemy hero and
 ## starts the GCD, then recycles to the bottom of the deck; Mend runs its own
 ## 1.5 s cast bar and heals when it completes.
-func _check_skill_bar(battle: Node, state: _GameState, fails: Array[String]) -> void:
+func _check_techniques(battle: Node, state: _GameState, fails: Array[String]) -> void:
 	var rt_mod: Node = battle.get("realtime") as Node
 	var input: Object = battle.get("card_input")
 	var me: _PlayerState = state.players[0]

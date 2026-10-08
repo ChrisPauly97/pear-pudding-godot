@@ -7,7 +7,7 @@
 ##   level 4 — + the hand: minion cards (`feat_minions`)
 ##   level 5 — + spell cards in the hand (`feat_spells`)
 ##
-## Skills need no filtering here: SkillBar only ever holds learned ids. This
+## Techniques need no filtering here: only learned technique cards are owned. This
 ## decides the hand, spells, the enemy minion cap, the slow first clock, and the onboarding "stage"
 ## (how many of the combat unlocks are learned; -1 once all are). Existing saves
 ## were migrated with every unlock (SaveMigrations v44), so they get the full

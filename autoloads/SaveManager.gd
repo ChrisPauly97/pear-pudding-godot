@@ -15,7 +15,6 @@ const _SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
 const _SaveFile = preload("res://game_logic/save/SaveFile.gd")
 const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
 const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
-const _SkillBar = preload("res://game_logic/battle/SkillBar.gd")
 const _TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
 const _CombatOnboarding = preload("res://game_logic/battle/CombatOnboarding.gd")
 const _HeroVitality = preload("res://game_logic/HeroVitality.gd")
@@ -73,7 +72,7 @@ const PERSISTED_FIELDS: Dictionary = {
 	"collected_scrolls": [], "settings": {},
 	"achievement_progress": {}, "unlocked_achievements": [],
 	"visited_biomes": [], "visited_dungeon_rooms": [],
-	"xp": 0, "skill_points": 0, "unlocked_skills": [], "skill_bar": [], "realtime_fights": 0,
+	"xp": 0, "skill_points": 0, "unlocked_skills": [], "realtime_fights": 0,
 	"learned_abilities": [],
 	"magic_type": "", "corruption_points": 0, "redemption_points": 0,
 	"spire_run": {"active": false}, "spire_best_floor": 0, "solved_puzzles": [],
@@ -227,14 +226,11 @@ var xp: int = 0
 var level: int = 1
 var skill_points: int = 0
 var unlocked_skills: Array[String] = []
-## Real-time skill bar ability ids (SkillBar.ABILITIES); empty = the default bar (TID-550).
-var skill_bar: Array[String] = []
 ## Real-time fights started — drives the new-player control ramp (CombatOnboarding, TID-552).
 var realtime_fights: int = 0
-## Skill-bar abilities learned from town trainers (GID-136 / TID-537), beyond
-## the always-known strike/mend/kick (SkillBar.ALWAYS_KNOWN never appears
-## here). `skill_bar` is the player's chosen loadout (TID-556) — see
-## SkillBar.new(bar, learned_abilities).
+## UnlockLadder ids learned from town trainers (GID-141): `feat_*` systems and
+## technique ability ids ("mend" → the `tech_mend` card, GID-175). Strike is
+## always known and never listed here.
 var learned_abilities: Array[String] = []
 
 # Magic progression
@@ -572,7 +568,6 @@ func new_game(head_start: bool = false) -> void:
 	# GID-141: a new game knows only Strike; everything else is taught by trainers.
 	# Head start (debug) learns the whole unlock ladder.
 	learned_abilities.assign(_UnlockLadder.all_ids() if head_start else [])
-	skill_bar = []
 	magic_type = ""
 	corruption_points = 0
 	redemption_points = 0
@@ -1377,8 +1372,8 @@ func _restore_technique_cards(data: Dictionary) -> void:
 		for v: Variant in pending as Array:
 			_add_technique_to_deck(_own_technique(str(v)))
 
-## GID-136 / TID-537: learns a skill-bar ability from a trainer NPC, spending
-## coins. Gating (level, coins, already known) is `SkillBar.can_learn`'s job —
+## GID-136 / TID-537: learns a ladder entry from a trainer NPC, spending
+## coins. Gating (level, coins, already known) is `UnlockLadder.can_learn`'s job —
 ## call it before offering the Learn button; this just performs the purchase.
 func learn_ability(id: String, cost: int) -> bool:
 	if learned_abilities.has(id) or coins < cost:
@@ -1405,14 +1400,6 @@ func battle_mode() -> String:
 ## ladder entry at all.
 func has_learned(id: String) -> bool:
 	return _UnlockLadder.is_learned(id, learned_abilities)
-
-## TID-556: writes the player's chosen 3-slot loadout. Callers should already
-## have validated each id via SkillBar (known + not a duplicate); this stores
-## it verbatim — SkillBar.new(bar, learned_abilities) re-validates defensively
-## at read time, so a stale/invalid saved id can never surface in a fight.
-func set_skill_bar(bar: Array) -> void:
-	skill_bar.assign(bar)
-	_dirty = true
 
 func unlock_cross_skill(id: String, cost: int, currency: String) -> void:
 	if unlocked_skills.has(id):

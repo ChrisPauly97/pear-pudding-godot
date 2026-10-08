@@ -274,14 +274,14 @@ in Madrian next to the stable (`trainer_madrian` at 78,44;
 `training_dummy_madrian` at 81,44).
 
 **`"trainer"`** (`NpcInteractions.show_trainer_panel`): opens a panel listing
-every ability in `SkillBar.learnable_ids()` (the 5 trainer-taught abilities
-beyond the always-known strike/mend/kick — see `docs/agent/combat-model.md`
-"Learning abilities & the loadout") with its display name, level requirement,
-coin cost and description. Each row shows a **Learn** button (disabled when
-`SkillBar.can_learn()` says no — wrong level or not enough coins) or a
-"Known" label once learned. Learning calls `SaveManager.learn_ability(id,
-cost)` and rebuilds the panel in place. No per-NPC data is needed — the
-trainer always offers the full learnable set.
+that trainer's `UnlockLadder.for_trainer()` rows (technique cards and `feat_*`
+systems — see `docs/agent/starter-zone-and-training.md` and combat-model.md
+"Technique cards") with level requirement, coin cost and how-to text. Each row
+shows a **Learn** button (disabled when `UnlockLadder.can_learn()` says no) or
+"Learned ✓". Learning calls `SaveManager.learn_ability(id, cost)`, which for a
+technique grants its card ("<Name> card added to your collection" toast), and
+rebuilds the panel. The combat trainer adds a **Deck** button once more than
+Strike is known.
 
 **`"training_dummy"`** (`NpcInteractions._offer_training_dummy_fight`): a
 confirm prompt ("Practice against the dummy?"), then

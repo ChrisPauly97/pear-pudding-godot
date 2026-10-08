@@ -115,7 +115,7 @@ A "— Seeds —" section is appended after Trinkets in `_refresh()`. `_make_see
   `[Q] Healing Draught ×2` (no key hint on Android) plus the cooldown left. Hidden when the slot resolves empty; disabled
   on cooldown or off-turn. `_refresh_potion_button()` runs on setup, after a drink, on every turn change (BattleScene) and
   on each whole-second change of the real-time cooldown. Keys **Q / E** via the module's `_unhandled_key_input`
-  (1–3 belong to the real-time skill bar).
+  (1–9 play hand cards).
 - **Cooldown** (replaces "one potion per battle"): shared by both slots. Turn-based: `COOLDOWN_TURNS` (3) of the
   drinker's own turns (`player_turn_numbers[my_idx]` compared with the drink turn — nothing ticks). Real time:
   `potion_cooldown` CombatTuning knob (20 s), ticked by `BattleRealtime._process` → `consumables.tick_quick(dt)`.

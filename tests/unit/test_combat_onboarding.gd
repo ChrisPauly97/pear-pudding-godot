@@ -5,7 +5,7 @@ extends "res://tests/framework/test_case.gd"
 const CombatOnboarding = preload("res://game_logic/battle/CombatOnboarding.gd")
 const UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const RealtimeCombat = preload("res://game_logic/battle/RealtimeCombat.gd")
-const SkillBar = preload("res://game_logic/battle/SkillBar.gd")
+const TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
 const TutorialRegistry = preload("res://game_logic/TutorialRegistry.gd")
 
 const TIPS: Array[String] = ["rt_intro", "rt_skill_mend", "rt_skill_kick", "rt_cards", "rt_low_hp",
@@ -18,9 +18,9 @@ func test_stage_counts_combat_unlocks() -> void:
 	assert_eq(CombatOnboarding.stage_for(["mend", "kick", "feat_minions"]), 3)
 	assert_eq(CombatOnboarding.stage_for(ALL), -1, "all learned = the full fight")
 
-func test_fresh_player_bar_is_strike_only() -> void:
-	assert_eq(SkillBar.new([], []).ids, ["strike"] as Array[String])
-	assert_eq(SkillBar.new([], ["mend"]).ids, ["strike", "mend"] as Array[String])
+func test_fresh_player_knows_only_strike() -> void:
+	assert_eq(TechniqueDefs.known_cards([]), ["tech_strike"] as Array[String])
+	assert_eq(TechniqueDefs.known_cards(["mend", "feat_minions"]), ["tech_strike", "tech_mend"] as Array[String])
 
 func test_hand_and_spells_follow_the_ladder() -> void:
 	assert_false(CombatOnboarding.shows_hand(["mend", "kick"]))

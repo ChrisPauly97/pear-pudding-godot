@@ -1,8 +1,0 @@
-[gd_scene load_steps=2 format=3 uid="uid://c7k3n9x2m4q8w"]
-
-[ext_resource type="Script" path="res://scenes/ui/SkillBarScene.gd" id="1_skillbar"]
-
-[node name="SkillBarScene" type="Control"]
-anchor_right = 1.0
-anchor_bottom = 1.0
-script = ExtResource("1_skillbar")
