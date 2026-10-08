@@ -2,7 +2,7 @@
 
 **Goal:** GID-177
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-721, TID-722
 
 ## Lock
@@ -29,12 +29,23 @@ Make the whole starter chain land on the pacing targets and keep training afford
 
 ## Plan
 
-_Written during Plan phase._
+Medium complexity, so I proceeded without an approval stop.
+1. A pacing simulation on the real save API with an explicit time model.
+2. Iterate the authored quest XP and the camp-quest share until each level lands near its target.
+3. A time-based pacing test (mutation-checked).
+4. Docs.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `tests/support/pacing_sim.gd`: a scripted Chapter 1 player on the real `SaveManager` / `SaveQuests` with a time model (kill 60 s, quest 90 s + 90 s travel, other objective 60 s).
+- `autoloads/save_manager/SaveQuests.gd`: `clock_override` (simulated time); `_now()` became an instance method.
+- `game_logic/quests/SideQuests.gd`: quest XP retuned (rats 200, bruised 260, chanting 230, raise 170, spark 180, east_copse 280, west_crossing 350, board 400, after_dark 420, wreck 450); `CAMP_QUEST_XP_SHARE` 1/6 → 0.09.
+- Measured: L1 9.5, L2 17.5, L3 21, L4 23, L5 22, L6 36, L7 35, L8 48, L9 44 min (targets 10 … 50); 4.3 h to level 10; 2–4 quests per level from level 3.
+- New `tests/unit/test_pacing.gd` (4): per-level time ±30 %, total hours, quests per level, trainings on time. Mutation-checked (camp share 0.3 fails three levels and the total).
+- Gold: about 2 400 coins at level 10 vs about 755 of trainings. Training never stalls; gold is now plentiful (no sinks yet), which is a separate topic.
+- `test_starter_chain_paces_levels_and_gold` kept as a chain-integrity check.
+- Validation: full suite PASS with 0 SCRIPT ERROR; world / realtime / in-world smoke tests clean; gdlint and unsafe-hits clean.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+starter-zone-and-training.md: quest-chain XP column; new "Pacing model and tuning" section.

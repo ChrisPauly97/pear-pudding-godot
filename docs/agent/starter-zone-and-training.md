@@ -172,17 +172,17 @@ Quests live in `SideQuests.QUESTS` (see `story-implementation.md` → Side Quest
 
 | # | Quest | Giver | Lvl | Teaches / asks | Camp | XP · gold |
 |---|---|---|---|---|---|---|
-| 1 | Rats in the Grain Store | Hilda | 1 | 3 kills (auto-attack + Strike) | Grain-Store Field | 150 · 20 |
-| 2 | Bruised and Battered | Wenna | 2 | learn Mend, Mend in a fight, 4 kills | South Field | 180 · 30 |
-| 3 | The Chanting in the Orchard | Brother Aldo | 3 | learn Kick, 2 interrupts, 3 kills | Old Orchard | 240 · 45 |
-| 4 | Raise the Fallen | Old Tam | 4 | learn minions, 4 kills | North Barrow | 270 · 60 |
-| 5 | First Spark | Ivy | 5 | learn spells, 3 kills → **`town_quests_done`** | Hedge Ruins | 350 · 80 |
+| 1 | Rats in the Grain Store | Hilda | 1 | 3 kills (auto-attack + Strike) | Grain-Store Field | 200 · 20 |
+| 2 | Bruised and Battered | Wenna | 2 | learn Mend, Mend in a fight, 4 kills | South Field | 260 · 30 |
+| 3 | The Chanting in the Orchard | Brother Aldo | 3 | learn Kick, 2 interrupts, 3 kills | Old Orchard | 230 · 45 |
+| 4 | Raise the Fallen | Old Tam | 4 | learn minions, 4 kills | North Barrow | 170 · 60 |
+| 5 | First Spark | Ivy | 5 | learn spells, 3 kills → **`town_quests_done`** | Hedge Ruins | 180 · 80 |
 | — | *Maiteln arrives* (story `speak_maiteln`) — teaches companion (L6) and magic/skills (L7) | | | | | |
-| 6 | Shades on the South Road (`east_copse`) | Old Tam | 6 | 4 forest shades | Shade Thicket (road, L6) | 400 · 80 |
-| 7 | The Mire Edge Hags (`west_crossing`) | Brother Aldo | 7 | 5 bog hags | Mire Edge (road, L7) | 450 · 100 |
-| 8 | The Board by the Well | Bounty Master | 8 | learn Bounties, 4 forest shades | Old Watchtower (road, L8) | 520 · 120 |
-| 9 | After Dark | Bounty Master | 9 | learn Night Hunts, 2 wisps | (night) | 560 · 140 |
-| 10 | The Stolen Flour Cart (`south_road_wreck`) | Hilda | 9 | 5 Martarquas scouts | Martarquas Outpost (road, L9) | 600 · 150 |
+| 6 | Shades on the South Road (`east_copse`) | Old Tam | 6 | 4 forest shades | Shade Thicket (road, L6) | 280 · 80 |
+| 7 | The Mire Edge Hags (`west_crossing`) | Brother Aldo | 7 | 5 bog hags | Mire Edge (road, L7) | 350 · 100 |
+| 8 | The Board by the Well | Bounty Master | 8 | learn Bounties, 4 forest shades | Old Watchtower (road, L8) | 400 · 120 |
+| 9 | After Dark | Bounty Master | 9 | learn Night Hunts, 2 wisps | (night) | 420 · 140 |
+| 10 | The Stolen Flour Cart (`south_road_wreck`) | Hilda | 9 | 5 Martarquas scouts | Martarquas Outpost (road, L9) | 450 · 150 |
 | 11 | Old Bones | Gravedigger | 10 | learn Dig, dig a graveyard mound | Graveyard | 800 · 200 |
 | 12 | The Sealed Crypt | Gravedigger | 12 | learn Phase, open the crypt chest | Sealed crypt | 1000 · 250 |
 
@@ -229,6 +229,32 @@ like Madrian's). Their levels come from the zone, and their `dress` key reuses a
 - Tests: `tests/unit/test_camp_quests.gd` (camps cover levels 1–10, road camps on clear ground, a bonus objective
   per camp, ≥ 3 quests open around each level 3–9, kill targets within 2 levels of the quest, auto-start / cooldown /
   payout).
+
+### Pacing model and tuning (GID-177 / TID-723)
+
+`tests/support/pacing_sim.gd` plays Chapter 1 on the real save API: quest rewards, camp levels, kill XP
+(`ZoneLevels.scaled_xp`), `XpCurve`, trainer costs and the camp bonus objectives' cooldowns via the settable
+`SaveQuests.clock_override`.
+- **Time model:** a kill is 60 s (walk + about a 20 s fight + recover); an authored quest is 90 s of talking and
+  walking to the giver plus 90 s of travel to its camp; any other objective is 60 s.
+- **The scripted player:** takes authored quests when offered (in table order), otherwise the bonus objective at the
+  highest camp ≤ their level, and learns each training as soon as it's affordable.
+- `tests/unit/test_pacing.gd` asserts:
+  - each level 1–9 within ±30 % of `XpCurve.minutes_for` (10, 15 … 50 min);
+  - 3.5–5.5 h to level 10;
+  - ≥ 2 quests finished at each level 3–9;
+  - every training ≤ level 9 learned within a level of its requirement.
+
+  It is mutation-checked: camp share 0.3 → levels 4–6 too fast.
+- **Tuned (this table's XP column):** starter quests front-load levels 1–3 and stay modest after (rats 200, bruised
+  260, chanting 230, raise 170, spark 180, then 280 / 350 / 400 / 420 / 450), and camp bonus objectives pay
+  `CAMP_QUEST_XP_SHARE` 0.09 of a level.
+- **Measured:** L1 9.5 min, L2 17.5, L3 21, L4 23, L5 22, L6 36, L7 35, L8 48, L9 44; 4.3 h to level 10; 2–4
+  quests per level from level 3.
+- **Gold:** about 2 400 coins at level 10 against about 755 of trainings up to Dig, so training is never the
+  bottleneck. Gold sinks are a separate topic.
+- `test_side_quests.test_starter_chain_paces_levels_and_gold` stays as a chain-integrity check (its kills, trainings
+  in order, ≤ 40 grind kills).
 
 ### Visual finish pass (TID-593 / TID-594)
 

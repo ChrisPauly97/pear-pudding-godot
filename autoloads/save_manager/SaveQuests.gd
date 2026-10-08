@@ -11,6 +11,8 @@ const _SideQuests = preload("res://game_logic/quests/SideQuests.gd")
 const _GearRolls = preload("res://game_logic/items/GearRolls.gd")
 const _RiddleSpots = preload("res://game_logic/world/RiddleSpots.gd")
 
+## ≥ 0: use this as "now" instead of the system clock (simulations / tests).
+var clock_override: float = -1.0
 var _save: _SaveManager
 
 
@@ -154,8 +156,9 @@ func _auto_complete(id: String, q: Dictionary) -> void:
 		GameBus.hud_message_requested.emit("%s complete — +%d XP" % [str(q.get("title", "")),
 				int(rewards.get("xp", 0))])
 
-static func _now() -> float:
-	return Time.get_unix_time_from_system()
+## Wall-clock seconds; the pacing simulation (GID-177 / TID-723) sets `clock_override`.
+func _now() -> float:
+	return clock_override if clock_override >= 0.0 else Time.get_unix_time_from_system()
 
 ## Hands a ready quest in: pays its rewards, sets its flag and records it.
 ## `gear_pick` is the chosen item of a `gear_choice` reward (TID-538; granted as a

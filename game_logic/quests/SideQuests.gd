@@ -47,7 +47,7 @@ const CAMP_QUEST_COOLDOWN_S: float = 600.0
 ## Madrian's first camps are the tutorial quests' ground: bonus objectives start at level 3.
 const CAMP_QUEST_MIN_LEVEL: int = 3
 ## One camp quest pays this share of the level's XP (plus its kills): 3–4 per level.
-const CAMP_QUEST_XP_SHARE: float = 1.0 / 6.0
+const CAMP_QUEST_XP_SHARE: float = 0.09
 
 
 const OBJECTIVE_TYPES: Array[String] = ["kill", "use_skill", "learn", "talk", "flag", "explore", "open",
@@ -69,7 +69,7 @@ const QUESTS: Array[Dictionary] = [
 			+ "by the stables could teach you to patch yourself up. Mend, he calls it."),
 		"objectives": [{"type": "kill", "target": "undead_basic", "count": 3, "label": "Restless dead put down",
 			"map": "main", "tx": 21, "tz": 17}],
-		"min_level": 1, "rewards": {"xp": 150, "coins": 20}},
+		"min_level": 1, "rewards": {"xp": 200, "coins": 20}},
 	{"id": "bruised_and_battered", "title": "Bruised and Battered", "giver": "wenna_herbalist",
 		"giver_name": "Wenna the Herbalist", "prereqs": ["rats_in_grain"],
 		"summary": ("You look like you went three rounds with a haystack. Learn Mend from the Combat Trainer, "
@@ -81,7 +81,7 @@ const QUESTS: Array[Dictionary] = [
 			{"type": "use_skill", "target": "mend", "count": 1, "label": "Mend in a fight"},
 			{"type": "kill", "target": "undead_basic", "count": 4, "label": "South Field dead put down",
 				"map": "main", "tx": -7, "tz": 21}],
-		"min_level": 2, "rewards": {"xp": 180, "coins": 30,
+		"min_level": 2, "rewards": {"xp": 260, "coins": 30,
 			"gear_choice": ["leather_cap", "travel_boots", "leather_pauldrons"]}},
 	{"id": "hedge_witch_chant", "title": "The Chanting in the Orchard", "giver": "brother_aldo",
 		"giver_name": "Brother Aldo", "prereqs": ["bruised_and_battered"],
@@ -94,7 +94,7 @@ const QUESTS: Array[Dictionary] = [
 			{"type": "use_skill", "target": "kick", "count": 2, "label": "Casts interrupted"},
 			{"type": "kill", "target": "undead_horde", "count": 3, "label": "Orchard dead put down",
 				"map": "main", "tx": 47, "tz": 19}],
-		"min_level": 3, "rewards": {"xp": 240, "coins": 45}},
+		"min_level": 3, "rewards": {"xp": 230, "coins": 45}},
 	{"id": "raise_the_fallen", "title": "Raise the Fallen", "giver": "old_tam", "giver_name": "Old Tam",
 		"prereqs": ["hedge_witch_chant"],
 		"summary": ("One sword alone won't hold the North Barrow. Those cards you carry — the Trainer can teach "
@@ -105,7 +105,7 @@ const QUESTS: Array[Dictionary] = [
 			{"type": "learn", "target": "feat_minions", "count": 1, "label": "Learn to summon allies"},
 			{"type": "kill", "target": "undead_horde", "count": 4, "label": "Barrow dead put down",
 				"map": "main", "tx": 33, "tz": -21}],
-		"min_level": 4, "rewards": {"xp": 270, "coins": 60}},
+		"min_level": 4, "rewards": {"xp": 170, "coins": 60}},
 	{"id": "first_spark", "title": "First Spark", "giver": "ivy_chandler", "giver_name": "Ivy the Chandler",
 		"prereqs": ["raise_the_fallen"],
 		"summary": ("Spell cards, love — you've been carrying them about like dead weight. The Trainer will show "
@@ -116,7 +116,7 @@ const QUESTS: Array[Dictionary] = [
 			{"type": "learn", "target": "feat_spells", "count": 1, "label": "Learn to cast spells"},
 			{"type": "kill", "target": "ghoul_pack", "count": 3, "label": "Hedge Ruins ghouls put down",
 				"map": "main", "tx": 53, "tz": -27}],
-		"min_level": 5, "rewards": {"xp": 350, "coins": 80, "flag": "town_quests_done",
+		"min_level": 5, "rewards": {"xp": 180, "coins": 80, "flag": "town_quests_done",
 			"gear_choice": ["iron_helm", "iron_greaves", "buckler"]}},
 	# ── Optional: levels 6–12 ─────────────────────────────────────────────────
 	# GID-177 / TID-722: the level 6–9 quests send you down the south road to the
@@ -128,7 +128,7 @@ const QUESTS: Array[Dictionary] = [
 		"done_text": "Good work. Keep that blade oiled — the road only gets worse past the thicket.",
 		"objectives": [{"type": "kill", "target": "forest_shade", "count": 4, "label": "Thicket shades put down",
 			"map": "main", "tx": -15, "tz": 83}],
-		"min_level": 6, "rewards": {"xp": 400, "coins": 80}},
+		"min_level": 6, "rewards": {"xp": 280, "coins": 80}},
 	{"id": "west_crossing", "title": "The Mire Edge Hags", "giver": "brother_aldo",
 		"giver_name": "Brother Aldo", "prereqs": ["hedge_witch_chant"],
 		"summary": ("Pilgrims bound for Maykalene's shrine are vanishing at the Mire Edge, past the town. "
@@ -136,7 +136,7 @@ const QUESTS: Array[Dictionary] = [
 		"done_text": "The pilgrim road is open again. Bless you.",
 		"objectives": [{"type": "kill", "target": "bog_hag", "count": 5, "label": "Mire hags put down",
 			"map": "main", "tx": 56, "tz": 128}],
-		"min_level": 7, "rewards": {"xp": 450, "coins": 100}},
+		"min_level": 7, "rewards": {"xp": 350, "coins": 100}},
 	{"id": "board_by_the_well", "title": "The Board by the Well", "giver": "bounty_master_madrian",
 		"giver_name": "The Bounty Master",
 		"summary": ("Contracts pay better than thanks. Learn how the board works from me, then show me you can "
@@ -146,7 +146,7 @@ const QUESTS: Array[Dictionary] = [
 			{"type": "learn", "target": "feat_bounties", "count": 1, "label": "Learn Bounty Contracts"},
 			{"type": "kill", "target": "forest_shade", "count": 4, "label": "Watchtower shades put down",
 				"map": "main", "tx": 92, "tz": 168}],
-		"min_level": 8, "rewards": {"xp": 520, "coins": 120}},
+		"min_level": 8, "rewards": {"xp": 400, "coins": 120}},
 	{"id": "after_dark", "title": "After Dark", "giver": "bounty_master_madrian", "giver_name": "The Bounty Master",
 		"prereqs": ["board_by_the_well"],
 		"summary": ("After sundown the spectres come out. Learn Night Hunts from me and bring down two wisps — "
@@ -155,7 +155,7 @@ const QUESTS: Array[Dictionary] = [
 		"objectives": [
 			{"type": "learn", "target": "feat_night_hunts", "count": 1, "label": "Learn Night Hunts"},
 			{"type": "kill", "target": "spectre_wisp", "count": 2, "label": "Wisps hunted after dark"}],
-		"min_level": 9, "rewards": {"xp": 560, "coins": 140}},
+		"min_level": 9, "rewards": {"xp": 420, "coins": 140}},
 	{"id": "south_road_wreck", "title": "The Stolen Flour Cart", "giver": "hilda_baker",
 		"giver_name": "Hilda the Baker", "prereqs": ["first_spark"],
 		"summary": ("My flour cart never made it back from Blancogov. Martarquas raiders took it to their "
@@ -163,7 +163,7 @@ const QUESTS: Array[Dictionary] = [
 		"done_text": "My flour! Well — what's left of it. Here, you've earned this.",
 		"objectives": [{"type": "kill", "target": "martarquas_scout", "count": 5, "label": "Outpost scouts put down",
 			"map": "main", "tx": 78, "tz": 206}],
-		"min_level": 9, "rewards": {"xp": 600, "coins": 150,
+		"min_level": 9, "rewards": {"xp": 450, "coins": 150,
 			"gear_choice": ["hooded_cowl", "spurred_boots", "chainmail"]}},
 	{"id": "old_bones", "title": "Old Bones", "giver": "gravedigger_madrian", "giver_name": "The Gravedigger",
 		"summary": ("Carry enough skeleton cards and the old bones listen to you. I'll teach you to dig — "
