@@ -29,6 +29,11 @@ const BOG_RAMP: float = 0.14
 const BOG_POOL: float = 0.55
 const BOG_SEED_OFFSET: int = 552211
 const BOG_BIOMES: Array[int] = [0, 1]
+## Reeds stand in the peat round bog pools (bog between BOG_REED_MIN and BOG_POOL), chance per spot.
+const BOG_REED_MIN: float = 0.2
+const BOG_REED_CHANCE: float = 0.3
+## Dead trees replace a bog's living ones above this (TreeScatter); none stand in its pools.
+const BOG_DEAD_TREES: float = 0.15
 ## Intensity above which a spot counts as "in the water" (grass, props, splashes).
 const WET_LEVEL: float = 0.3
 ## Keep water this far (world units) from structure tiles, fading over DRY_FADE.
@@ -257,6 +262,11 @@ static func edge_prop(water: float, flow: Vector2, roll: float) -> String:
 	if water > LILY_MIN and flow == Vector2.ZERO:
 		return "lily_pad" if roll < LILY_CHANCE else ""
 	return ""
+
+
+## Bog dressing for one spot: "reed" in the peat round a pool, else "".
+static func bog_prop(bog: float, roll: float) -> String:
+	return "reed" if bog > BOG_REED_MIN and bog < BOG_POOL and roll < BOG_REED_CHANCE else ""
 
 
 ## Reeds and lily pads are freshwater: none along the sea's sand and quay (GID-171).

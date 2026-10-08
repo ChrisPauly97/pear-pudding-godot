@@ -277,6 +277,15 @@ rivers, the sea, camps and glades. Pools above `BOG_POOL` 0.55. `bog_in(biome, .
 (grasslands, forest — both water biomes). Seed 42: ~6.5 % of grassland/forest is bog (> 0.3), ~4.7 % pool. The
 noise is built in `_ensure` with the stream/pond pair (mutex), so it is safe on the chunk workers.
 
+**Look (TID-704).** ChunkRenderer bakes `bog_at` per terrain vertex in bog biomes into CUSTOM0.z: CUSTOM0 packing
+moved to `game_logic/TerrainChannels.gd` (RG float = flow as before; RGB float when a bog field rides along — only
+with a flow field, which every bog biome has). `terrain.gdshader` (`v_bog`): on level, non-wall, non-path ground the
+meadow darkens to peat (from ~0.12), pools above 0.55 are murky green-brown with a scum-fleck dither and a rare dull
+glint, lowered 0.12 u like stream water; drawn before the stream block so running water wins. No grass tufts in pools.
+Props: reeds in the peat round pools (`WaterMath.bog_prop`, 0.2–0.55, 30 %), via the edge-prop pass now in
+`game_logic/world/WaterEdgeProps.gd` (moved out of ChunkRenderer); TreeScatter swaps a bog's trees for `tree_dead`
+above `BOG_DEAD_TREES` 0.15 and plants none in pools.
+
 ### The eastern sea (`game_logic/world/Coast.gd`, GID-171)
 
 A bay of open water east of Maykalene, from the town's quay (world x 43) out to x ≈ 262, z 43..146.

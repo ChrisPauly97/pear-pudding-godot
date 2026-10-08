@@ -60,6 +60,7 @@ varying float v_ley;        // ley line intensity [0..1], baked into UV2.x per v
 varying float v_dip;        // 0 low .. 1 high flat-ground jitter (TID-515 puddles)
 varying float v_water;      // stream/pond intensity [0..1], baked into UV2.y (GID-134 / TID-524)
 varying vec2  v_flow;       // stream current (dir × speed), baked into CUSTOM0.xy (TID-642); 0 = still
+varying float v_bog;        // bog intensity [0..1], CUSTOM0.z in bog biomes (GID-174); 0 elsewhere
 
 // -- noise for micro grass detail on flat areas --
 float hash2(vec2 p) {
@@ -126,8 +127,13 @@ void vertex() {
 	// meadow so it reads as a channel; collision is untouched (the hero wades).
 	v_water = UV2.y;
 	v_flow = CUSTOM0.xy;
+	v_bog = CUSTOM0.z;
 	if (v_water > 0.01 && v_path < 0.5) {
 		VERTEX.y -= smoothstep(0.1, 0.6, v_water) * 0.2 * flat_factor;
+	}
+	// Bog pools sit a touch lower than the peat round them (GID-174).
+	if (v_bog > 0.4 && v_path < 0.5) {
+		VERTEX.y -= smoothstep(0.4, 0.8, v_bog) * 0.12 * flat_factor;
 	}
 }
 
@@ -337,6 +343,26 @@ void fragment() {
 		tinted_col = mix(tinted_col, vec3(0.70, 0.78, 0.86), puddle * step(1.0 - 0.06 * terrain_rain, blink));
 		wet_rough = mix(0.9, 0.6, wet);
 		wet_spec = mix(0.1, 0.25, max(wet, puddle));
+	}
+
+	// Bogs (GID-174): level grass only. Dark peat over the meadow, then murky
+	// green-brown pools with a scum fleck dither and a rare dull glint; drawn
+	// before streams so running water still wins where both meet.
+	if (v_bog > 0.05 && !is_wall && !is_path) {
+		float lg_b = step(0.75, v_normal_world.y) * step(v_blend, 0.06);
+		float bv = v_bog + (vnoise(wq * 0.9) - 0.5) * 0.18;
+		if (lg_b > 0.5 && bv > 0.12) {
+			vec3 peat = vec3(0.20, 0.17, 0.10);
+			tinted_col = mix(tinted_col, peat, smoothstep(0.12, 0.45, bv) * 0.75);
+			if (bv > 0.55) {
+				vec3 murk = bv > 0.75 ? vec3(0.10, 0.13, 0.08) : vec3(0.14, 0.17, 0.09);
+				float scum = step(0.82, hash2(floor(wq * 0.5)));
+				murk = mix(murk, vec3(0.24, 0.30, 0.12), scum * 0.6);
+				tinted_col = mix(murk, vec3(0.42, 0.48, 0.34), step(0.995, blink));
+				wet_rough = 0.5;
+				wet_spec = 0.15;
+			}
+		}
 	}
 
 	// Streams and ponds (GID-134 / TID-524): level grass only, ragged pixel

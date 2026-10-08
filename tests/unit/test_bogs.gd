@@ -62,3 +62,54 @@ func test_bogs_keep_off_towns_roads_and_rivers() -> void:
 	for road: Array in RealmLayout.ROADS:
 		var a: Vector2 = road[0]
 		assert_eq(WaterMath.bog_at(a.x * ts, a.y * ts, SEED), 0.0, "no bog on a road")
+
+
+func test_custom0_carries_flow_and_bog() -> void:
+	const TerrainChannels = preload("res://game_logic/TerrainChannels.gd")
+	var flow := PackedVector2Array([Vector2(1, 2), Vector2(3, 4)])
+	var bog := PackedFloat32Array([0.25, 0.75])
+	var both: Dictionary = TerrainChannels.custom0(flow, bog, 2, 3)
+	assert_eq(int(both["fmt"]), Mesh.ARRAY_CUSTOM_RGB_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT)
+	assert_eq(both["data"], PackedFloat32Array([1, 2, 0.25, 3, 4, 0.75, 0, 0, 0]), "xy flow, z bog; skirts dry")
+	var flow_only: Dictionary = TerrainChannels.custom0(flow, PackedFloat32Array(), 2, 2)
+	assert_eq(int(flow_only["fmt"]), Mesh.ARRAY_CUSTOM_RG_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT, "old RG layout")
+	assert_true(TerrainChannels.custom0(PackedVector2Array(), bog, 2, 2).is_empty(), "no flow field, no CUSTOM0")
+
+
+func test_a_bog_chunk_bakes_peat_reeds_and_dead_trees() -> void:
+	const ChunkRenderer = preload("res://scenes/world/ChunkRenderer.gd")
+	const ChunkData = preload("res://game_logic/world/ChunkData.gd")
+	var p: Vector2 = _bog_spot(0.85)
+	assert_ne(p, Vector2.INF, "found a deep bog")
+	var cs: int = IsoConst.CHUNK_SIZE
+	var cx: int = floori(p.x / (float(cs) * IsoConst.TILE_SIZE))
+	var cz: int = floori(p.y / (float(cs) * IsoConst.TILE_SIZE))
+	var cd := ChunkData.new(cx, cz)
+	cd.biome_id = BiomeDef.FOREST
+	var gw: int = cs + 6
+	var grid := PackedInt32Array()
+	grid.resize(gw * gw)
+	grid.fill(IsoConst.TILE_GRASS)
+	var hgrid := PackedInt32Array()
+	hgrid.resize(gw * gw)
+	var res: Dictionary = ChunkRenderer.prepare_terrain(cd, grid, hgrid, cx * cs - 3, cz * cs - 3, gw, SEED)
+	var mesh: ArrayMesh = res["mesh"]
+	var fmt: int = mesh.surface_get_format(0)
+	assert_eq((fmt >> Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT) & Mesh.ARRAY_FORMAT_CUSTOM_MASK, Mesh.ARRAY_CUSTOM_RGB_FLOAT,
+		"bog rides CUSTOM0.z")
+	var custom: PackedFloat32Array = mesh.surface_get_arrays(0)[Mesh.ARRAY_CUSTOM0]
+	var deep: int = 0
+	for i: int in range(2, custom.size(), 3):
+		if custom[i] > WaterMath.BOG_POOL:
+			deep += 1
+	assert_gt(deep, 10, "the chunk has bog pool vertices")
+	var props: Dictionary = res["props"]
+	var trees: Array = props.get("tree_oak", []) + props.get("tree_pine", [])
+	for t: Variant in trees:
+		var lp: Vector3 = t
+		var wp := Vector2(cd.origin_world().x + lp.x, cd.origin_world().z + lp.z)
+		assert_lt(WaterMath.bog_at(wp.x, wp.y, SEED), WaterMath.BOG_DEAD_TREES, "no living tree in the bog")
+	assert_gt((props.get("reed", []) as Array).size() + (props.get("tree_dead", []) as Array).size(), 0,
+		"reeds or dead trees dress the bog")
+	assert_eq(WaterMath.bog_prop(0.4, 0.1), "reed")
+	assert_eq(WaterMath.bog_prop(0.8, 0.1), "", "no reeds out in the pool")
