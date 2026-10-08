@@ -2,7 +2,7 @@
 
 **Goal:** GID-177
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -31,12 +31,25 @@ Make levelling follow the targets above.
 
 ## Plan
 
-_Written during Plan phase._
+Medium complexity, but the user's targets are explicit, so I proceeded without an approval stop.
+1. Derive the curve from the targets: minutes per level = 10 + 5 (L − 1); modelled XP / min = 30 × (1 + 0.1 (L − 1)).
+2. A pure XpCurve that SaveManager forwards to.
+3. A v47 migration preserving level and progress fraction, plus a slot-list fix and session-character repair.
+4. Tests.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `game_logic/progression/XpCurve.gd`: `minutes_for`, `xp_per_minute`, `step`, `xp_to_reach`, `level_for`, `legacy_*`, `migrate_xp`. Totals: L2 300, L3 800, L5 2 500, L10 12 260 (was 5 000), L15 32 900, L40 430 450.
+- `autoloads/SaveManager.gd`:
+  - `xp_for_level` / `_compute_level` forward to XpCurve;
+  - head start uses `xp_to_reach(15)`;
+  - the slot list's level comes from `_slot_level` (migrates a copy first, so old saves don't show a lower level);
+  - `adopt_session_character` raises a session character's XP to at least its level's threshold.
+- `game_logic/save/SaveMigrations.gd`: v47 `_m47_slow_xp_curve`.
+- Tests: new `tests/unit/test_xp_curve.gd` (7); `test_new_game_baseline` uses `xp_for_level` instead of literals.
+- Validation: full suite PASS with 0 SCRIPT ERROR; world / menu / realtime / in-world smoke tests clean; gdlint and unsafe-hits clean.
+- For the user: XP_PER_MIN_L1 = 30 is a model assumption that TID-723 checks against real play. Riding (L40) is now far away (430k XP); review the high-level ladder rows separately if that matters.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+starter-zone-and-training.md (XP pacing section rewritten); save-system.md (v46 + v47 migrations).

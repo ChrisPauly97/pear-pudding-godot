@@ -21,17 +21,17 @@ func test_new_game_head_start_values() -> void:
 	var sm := SaveManagerScript.new()
 	sm.new_game(true)
 	assert_eq(sm.level, 15)
-	assert_eq(sm.xp, 11250)
+	assert_eq(sm.xp, SaveManagerScript.xp_for_level(15))
 	assert_eq(sm.skill_points, 14)
 	assert_eq(sm.coins, 5000)
 
 func test_head_start_level_consistent_with_xp_curve() -> void:
-	assert_eq(SaveManagerScript._compute_level(11250), 15,
+	assert_eq(SaveManagerScript._compute_level(SaveManagerScript.xp_for_level(15)), 15,
 		"head-start xp must map to head-start level so the next level-up behaves normally")
 
 func test_default_start_first_level_up_reachable() -> void:
 	var sm := SaveManagerScript.new()
 	sm.new_game()
-	sm.add_xp(200)  # xp_for_level(2) == 200
+	sm.add_xp(SaveManagerScript.xp_for_level(2))
 	assert_eq(sm.level, 2)
 	assert_eq(sm.skill_points, 1)

@@ -58,13 +58,16 @@ visit that thing's trainer, read what it does and pay gold to learn it. Nothing 
 
 ### XP pacing
 
-Curve unchanged: level L is reached at a total of `xp_for_level(L) = 50·L²` XP (L2 200, L3 450, L4 800, L5 1 250,
-L6 1 800, L10 5 000, L15 11 250, L40 80 000). Early levels come from starter quests (TID-592) plus camp kills
-(20 XP at level 1); zone levels (TID-536) scale kill XP up by 10 %/level, so the same curve stretches toward the
-long-term level-40 riding goal. `test_side_quests.test_starter_chain_paces_levels_and_gold` walks the chain on
-the real numbers.
+**Slow curve (GID-177 / TID-721):** `game_logic/progression/XpCurve.gd` is derived from the pacing targets: level 1
+takes about **10 min**, each later level 5 min more (L9 ≈ 50 min, about 4.5 h to level 10), at a modelled
+`XP_PER_MIN_L1` 30 XP/min growing 10 %/level like kill XP. `step(L)` = minutes × XP/min (rounded to 10), and
+`xp_to_reach(L)` sums them: L2 300, L3 800, L4 1 520, L5 2 500, L6 3 760, L10 12 260, L15 32 900, L40 430 450. (The old curve was 50·L²: L10 5 000.)
+`SaveManager.xp_for_level` / `_compute_level` forward to it. From level 3 a level is meant to be 3–4 quests + kills;
+GID-177 TID-722 / TID-723 bring the quest supply and quest / kill XP in line with the curve.
+`test_side_quests.test_starter_chain_paces_levels_and_gold` walks the chain (grinding camps between quests as
+needed, bounded); tests: `tests/unit/test_xp_curve.gd`.
 
-### Combat gates (TID-588)
+## Combat gates (TID-588)
 
 Documented in `docs/agent/combat-model.md` → "New-player onboarding": bar = learned skills, hand from
 `feat_minions` (Ally slots shown locked until then; enemies field 1 minion before it, 2 after — BID-085), spell cards from `feat_spells`, companion from `feat_companion`, real-time forced until the hand

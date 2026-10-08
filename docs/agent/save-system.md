@@ -204,3 +204,7 @@ No textures, shaders, or scene files are required by the save system itself.
 - v44 `_m44_unlock_ladder`: existing saves learn every ladder feature + Mend/Kick (riding only with a mount) and
   skip the townsfolk opening (`town_quests_done`).
 - v45 `_m45_rifts`: `spire_best_floor / 5` → Grasslands rift best tier; an active legacy run becomes Grasslands T1.
+- v46 `_m46_technique_cards` (GID-175): the old `skill_bar` → `technique_deck_pending` card ids; `skill_bar` erased.
+- v47 `_m47_slow_xp_curve` (GID-177): `xp` rescaled to `XpCurve` with `XpCurve.migrate_xp` (same level, same
+  fraction toward the next). The slot list (`_slot_level`) migrates a copy first, so an old save shows its real level;
+  a session character (`adopt_session_character`) has its XP raised to at least `xp_to_reach(level)`.

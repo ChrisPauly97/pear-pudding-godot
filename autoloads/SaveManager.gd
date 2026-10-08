@@ -16,6 +16,7 @@ const _SaveFile = preload("res://game_logic/save/SaveFile.gd")
 const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
 const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const _TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
+const _XpCurve = preload("res://game_logic/progression/XpCurve.gd")
 const _CombatOnboarding = preload("res://game_logic/battle/CombatOnboarding.gd")
 const _HeroVitality = preload("res://game_logic/HeroVitality.gd")
 const _SaveGarden = preload("res://autoloads/save_manager/SaveGarden.gd")
@@ -416,7 +417,7 @@ func get_slot_metadata(slot: int) -> Dictionary:
 	return {
 		"current_map": str(data.get("current_map", "?")),
 		"coins": int(data.get("coins", 0)),
-		"level": max(1, _compute_level(int(data.get("xp", 0)))),
+		"level": _slot_level(data),
 		"last_saved": str(data.get("last_saved", "")),
 	}
 
@@ -560,8 +561,8 @@ func new_game(head_start: bool = false) -> void:
 	unlocked_achievements = []
 	visited_biomes = []
 	visited_dungeon_rooms = []
-	# Head start: xp/level/skill_points kept mutually consistent — _compute_level(11250) == 15.
-	xp = 11250 if head_start else 0
+	# Head start: xp/level/skill_points kept mutually consistent (XpCurve).
+	xp = _XpCurve.xp_to_reach(15) if head_start else 0
 	level = 15 if head_start else 1
 	skill_points = 14 if head_start else 0
 	unlocked_skills = []
@@ -690,8 +691,9 @@ func adopt_session_character(record: Dictionary) -> void:
 	active_loadout = 0
 	coins = int(record.get("coins", 0))
 	essence = int(record.get("essence", 0))
-	xp = int(record.get("xp", 0))
 	level = max(1, int(record.get("level", 1)))
+	# GID-177: a session character saved on the old, faster curve keeps its level.
+	xp = maxi(int(record.get("xp", 0)), _XpCurve.xp_to_reach(level))
 	skill_points = int(record.get("skill_points", 0))
 	unlocked_skills.assign(record.get("unlocked_skills", []))
 	magic_type = str(record.get("magic_type", ""))
@@ -1307,14 +1309,18 @@ func get_equipped_by_slot(slot: String) -> String:
 		return str(get("equipped_" + slot))
 	return ""
 
+## The level shown for a save slot: migrated first, so an old save shows its real level.
+static func _slot_level(data: Dictionary) -> int:
+	var d: Dictionary = data.duplicate(true)
+	_SaveMigrations.apply(d)
+	return _compute_level(int(d.get("xp", 0)))
+
+## Total XP to *reach* level `lvl` (GID-177: `XpCurve`, the slow pacing curve).
 static func xp_for_level(lvl: int) -> int:
-	return lvl * lvl * 50  # total XP to *reach* level lvl (≥ 2): L2 200, L3 450, L4 800, L5 1250
+	return _XpCurve.xp_to_reach(lvl)
 
 static func _compute_level(current_xp: int) -> int:
-	var lvl: int = 1
-	while current_xp >= xp_for_level(lvl):
-		lvl += 1
-	return lvl - 1
+	return _XpCurve.level_for(current_xp)
 
 func set_magic_type(t: String) -> void:
 	magic_type = t

@@ -19,7 +19,7 @@ Unchanged unless the user says otherwise: the UnlockLadder (one system per level
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| [TID-721](TID-721--xp-curve.md) | XP curve to the pacing targets + save migration | agent | pending | — |
+| [TID-721](TID-721--xp-curve.md) | XP curve to the pacing targets + save migration | agent | done | — |
 | [TID-722](TID-722--more-quests.md) | Camps and repeatable quests across Chapter 1's zones | agent | pending | TID-721, GID-176/TID-719 |
 | [TID-723](TID-723--pacing-retune.md) | Re-tune quest / kill XP and gold to the new curve; pacing test | agent | pending | TID-721, TID-722 |
 
@@ -27,5 +27,5 @@ Unchanged unless the user says otherwise: the UnlockLadder (one system per level
 
 - [ ] Level 1 ≈ 10 min of play, each later level longer (time model test)
 - [ ] From level 3, a level ≈ 3–4 quests + kills, with enough quests available
-- [ ] Existing saves keep their level
+- [x] Existing saves keep their level
 - [ ] Training stays affordable on time; tests, gdlint and unsafe-hits clean; docs updated
