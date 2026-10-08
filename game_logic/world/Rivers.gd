@@ -60,6 +60,12 @@ const WATER_PER_TILE: float = 0.12
 const FORD_DEPTH: float = 0.8
 const FORD_INNER: float = 3.0
 const FORD_SLOPE: float = 0.6
+## Bridges (TID-695): every ford carries the road over the water on a deck this many tiles wider
+## than the river on each bank, and BRIDGE_HALF_WIDTH tiles either side of the road's centreline.
+const BRIDGE_OVERHANG: float = 1.5
+const BRIDGE_HALF_WIDTH: float = 1.5
+## How far (tiles) `nearest_dry` searches for a bank to wade out to.
+const DRY_SEARCH: int = 40
 ## Reserved distance inside the river (like Coast.SEA_PAD): above 0 so it is never paved.
 const RIVER_PAD: float = 0.5
 ## Lookups are exact within REACH tiles of the centreline (≥ HW_MOUTH + RealmLayout.BLEND_MARGIN).
@@ -78,6 +84,7 @@ static var _cells: Dictionary = {}        # Vector2i → PackedInt32Array of seg
 static var _near_cells: Dictionary = {}   # the same within NEAR
 static var _fords := PackedVector2Array()
 static var _sources := PackedVector2Array()
+static var _bridges: Array[Dictionary] = []  # {centre, dir (along the road), half_len, half_wid} in tiles
 static var _course_counts := PackedInt32Array()  # centreline points per course
 static var _built: bool = false
 static var _mutex := Mutex.new()
@@ -129,6 +136,67 @@ static func tile_depth(wtx: int, wtz: int) -> float:
 ## Too deep to wade.
 static func is_deep(wtx: int, wtz: int) -> bool:
 	return tile_depth(wtx, wtz) >= _Coast.WADE_DEPTH
+
+
+## Too deep to wade anywhere in the overworld: the sea (off the piers) or a river (off the bridges).
+static func deep_water(wtx: int, wtz: int) -> bool:
+	return (_Coast.is_deep(wtx, wtz) or is_deep(wtx, wtz)) and not on_bridge(wtx, wtz)
+
+
+## True when tile (wtx, wtz)'s centre lies on a bridge deck.
+static func on_bridge(wtx: int, wtz: int) -> bool:
+	_ensure()
+	var p := Vector2(float(wtx) + 0.5, float(wtz) + 0.5)
+	for b: Dictionary in _bridges:
+		var rel: Vector2 = p - (b["centre"] as Vector2)
+		var dir: Vector2 = b["dir"]
+		if absf(rel.dot(dir)) <= float(b["half_len"]) and absf(rel.cross(dir)) <= float(b["half_wid"]):
+			return true
+	return false
+
+
+## The bridges (see `_bridges`), for the world module that builds them.
+static func bridges() -> Array[Dictionary]:
+	_ensure()
+	return _bridges
+
+
+## A road tile's surface (RealmLayout stamp): the river bed stays grass under a bridge, so the
+## water flows beneath the deck; elsewhere the road is paved.
+static func road_tile(wtx: int, wtz: int) -> int:
+	return IsoConst.TILE_GRASS if on_bridge(wtx, wtz) and is_river(wtx, wtz) else IsoConst.TILE_PATH
+
+
+## Nearest tile to (wtx, wtz) out of all water (sea and rivers, a tile clear of the bank) — where a
+## swimmer wades ashore. Searches ring by ring out to DRY_SEARCH, then falls back to Coast.to_land.
+static func nearest_dry(wtx: int, wtz: int) -> Vector2i:
+	for r: int in range(DRY_SEARCH + 1):
+		var best := Vector2i(wtx, wtz)
+		var best_d: float = INF
+		for t: Vector2i in _ring(wtx, wtz, r):
+			if _Coast.tile_depth(t.x, t.y) < -1.0 and tile_depth(t.x, t.y) < -1.0:
+				var d: float = Vector2(t.x - wtx, t.y - wtz).length()
+				if d < best_d:
+					best_d = d
+					best = t
+		if best_d < INF:
+			return best
+	return _Coast.to_land(wtx, wtz)
+
+
+## The tiles at Chebyshev distance exactly r from (cx, cz).
+static func _ring(cx: int, cz: int, r: int) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	if r == 0:
+		out.append(Vector2i(cx, cz))
+		return out
+	for d: int in range(-r, r + 1):
+		out.append(Vector2i(cx + d, cz - r))
+		out.append(Vector2i(cx + d, cz + r))
+	for d: int in range(-r + 1, r):
+		out.append(Vector2i(cx - r, cz + d))
+		out.append(Vector2i(cx + r, cz + d))
+	return out
 
 
 ## Any river water at all.
@@ -300,6 +368,19 @@ static func _build() -> void:
 	_cells = cells
 	_near_cells = near_cells
 	_fords = fords
+	var bridges: Array[Dictionary] = []
+	for f: Vector2 in fords:
+		var road_dir := Vector2.ZERO
+		for road: Array in _RealmLayout.ROADS:
+			for r: int in range(road.size() - 1):
+				var ra: Vector2 = road[r]
+				var rb: Vector2 = road[r + 1]
+				if f.distance_to(Geometry2D.get_closest_point_to_segment(f, ra, rb)) < 0.01:
+					road_dir = (rb - ra).normalized()
+		var n: Vector3 = _nearest(f, cells, REACH)
+		bridges.append({"centre": f, "dir": road_dir, "half_len": half_width(n.y) + BRIDGE_OVERHANG,
+			"half_wid": BRIDGE_HALF_WIDTH})
+	_bridges = bridges
 	_sources = sources
 	_course_counts = counts
 

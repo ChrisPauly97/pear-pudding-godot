@@ -2,7 +2,7 @@
 
 **Goal:** GID-172
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-694
 
 ## Lock
@@ -27,12 +27,27 @@ Shared constraints: chunk-gen code (`InfiniteWorldGen`/`RealmLayout`/`TerrainMat
 
 ## Plan
 
-_Written during Plan phase._
+1. `Rivers`: bridges at every ford (oriented rect along the road), `on_bridge`, `deep_water` (sea or river, minus bridges/piers), `road_tile` (river bed under a bridge stays water), `nearest_dry` (wade-ashore search).
+2. `RealmLayout.stamp_tile_in`: road tiles use `Rivers.road_tile` (line-neutral; file at its 500-line cap).
+3. `scenes/world/RiverBridges.gd` static builder; `Coastline` builds the bridges and blocks deep river water too (WorldScene is at its line ceiling, so no new module). TapToMove walls deep river water.
+4. `WaterMath.edge_prop` "river_rock" in fast water; ChunkRenderer + SpriteRegistry keys.
+5. `RealmMapOverlay` draws the rivers.
+6. Tests: bridge deck/stamp/orientation, deep water + wading ashore, rocks; realm stamp test follows the bridge rule.
+Depth shading needs no shader change: the river's intensity already uses the sea's depth bands.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/world/Rivers.gd`: `bridges()`, `on_bridge`, `deep_water`, `road_tile`, `nearest_dry` (+ `_ring`).
+- `RealmLayout.stamp_tile_in`: paved road → `Rivers.road_tile` (grass under a bridge over water).
+- New `scenes/world/RiverBridges.gd` (`make_bridge`: slab deck, capped parapets, pillars). `Coastline` builds one per bridge,
+  slides the hero out of deep river water too and wades ashore via `Rivers.nearest_dry`.
+- `TapToMove.tile_at`: `Rivers.deep_water` is a wall (sea or river).
+- `WaterMath.edge_prop` → `"river_rock"`; `ChunkRenderer._compute_water_edge_props` places them at the water surface; `SpriteRegistry` `river_rock` variants.
+- `RealmMapOverlay._draw_rivers`.
+- Tests: `test_rivers` +3 (bridge, deep water/wading ashore, rocks); `test_realm_layout` stamp rule follows `Rivers.road_tile`.
+  Suite 3063 pass / 0 SCRIPT ERROR; world + chunk smokes clean; gdlint + unsafe-hits clean.
+- Not verified visually (headless only): bridge look and rock placement should be eyeballed in a real run.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`docs/agent/world-generation.md` (Rivers: bridges, deep water, banks); CLAUDE.md Coastline module row.

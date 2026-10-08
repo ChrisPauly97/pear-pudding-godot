@@ -44,7 +44,12 @@ const REED_MAX: float = 0.3
 const REED_CHANCE: float = 0.45
 const LILY_MIN: float = 0.6
 const LILY_CHANCE: float = 0.3
-## Lily pads float at the lowered water surface, not the bank height.
+## Rocks break the surface in fast river water (GID-172): water band, minimum current, chance.
+const ROCK_MIN: float = 0.36
+const ROCK_MAX: float = 0.6
+const ROCK_FLOW: float = 1.2
+const ROCK_CHANCE: float = 0.12
+## Lily pads (and river rocks) sit at the lowered water surface, not the bank height.
 const LILY_SINK: float = 0.18
 
 ## A chunk tile farther than this (tiles) from the chunk's centre tile can't
@@ -211,11 +216,14 @@ static func flow_at(wx: float, wz: float, world_seed: int) -> Vector2:
 
 
 ## Water-edge dressing (TID-643) for one spot: "reed" on a bank (water just
-## below the wet line), "lily_pad" on still, deep pond water, else "". `roll`
+## below the wet line), "river_rock" in fast shallow-to-mid water (GID-172),
+## "lily_pad" on still, deep pond water, else "". `roll`
 ## is the caller's deterministic 0..1 hash for this spot.
 static func edge_prop(water: float, flow: Vector2, roll: float) -> String:
 	if water > REED_MIN and water < REED_MAX:
 		return "reed" if roll < REED_CHANCE else ""
+	if water > ROCK_MIN and water < ROCK_MAX and flow.length() > ROCK_FLOW:
+		return "river_rock" if roll < ROCK_CHANCE else ""
 	if water > LILY_MIN and flow == Vector2.ZERO:
 		return "lily_pad" if roll < LILY_CHANCE else ""
 	return ""

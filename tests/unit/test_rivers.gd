@@ -9,6 +9,7 @@ const RiddleSpots = preload("res://game_logic/world/RiddleSpots.gd")
 const WaterMath = preload("res://game_logic/world/WaterMath.gd")
 const InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
 const BiomeDef = preload("res://game_logic/world/BiomeDef.gd")
+const RiverBridges = preload("res://scenes/world/RiverBridges.gd")
 
 
 func test_every_river_runs_into_the_sea() -> void:
@@ -60,10 +61,6 @@ func test_road_crossing_is_a_ford() -> void:
 		assert_lt(RealmLayout.road_distance(f.x, f.y), 0.01, "the ford lies on a road")
 		for dz: int in range(-5, 6):
 			assert_lt(Rivers.depth(f.x, f.y + float(dz)), Coast.WADE_DEPTH, "the road fords the river (dz %d)" % dz)
-			var t := Vector2i(floori(f.x), floori(f.y) + dz)
-			if RealmLayout.road_distance(float(t.x) + 0.5, float(t.y) + 0.5) <= RealmLayout.ROAD_HALF_WIDTH:
-				assert_eq(RealmLayout.stamp_tile(t.x, t.y, IsoConst.TILE_HILL, 3).x, IsoConst.TILE_PATH,
-					"the road stays paved across the ford")
 
 
 func test_depth_and_flow_are_continuous() -> void:
@@ -120,3 +117,58 @@ func test_lookups_are_cheap() -> void:
 		Rivers.water(p.x + float(k % 40), p.y + float(k / 40))
 	var per: float = float(Time.get_ticks_usec() - t0) / 2000.0
 	assert_lt(per, 20.0, "a river water lookup stays cheap (%.1f µs)" % per)
+
+
+func test_a_bridge_carries_the_road_over_the_river() -> void:
+	var bridges: Array[Dictionary] = Rivers.bridges()
+	assert_eq(bridges.size(), Rivers.fords().size(), "one bridge per ford")
+	var b: Dictionary = bridges[0]
+	var c: Vector2 = b["centre"]
+	assert_almost_eq((b["dir"] as Vector2).length(), 1.0, 0.001, "the bridge runs along the road")
+	var water_under: int = 0
+	for k: int in range(-int(float(b["half_len"])), int(float(b["half_len"])) + 1):
+		var p: Vector2 = c + (b["dir"] as Vector2) * float(k)
+		var t := Vector2i(floori(p.x), floori(p.y))
+		assert_true(Rivers.on_bridge(t.x, t.y), "deck tile %s" % str(t))
+		assert_false(Rivers.deep_water(t.x, t.y), "the deck is never deep water (%s)" % str(t))
+		var surface: int = RealmLayout.stamp_tile(t.x, t.y, IsoConst.TILE_HILL, 3).x
+		if Rivers.is_river(t.x, t.y):
+			water_under += 1
+			assert_eq(surface, IsoConst.TILE_GRASS, "the river flows under the deck at %s" % str(t))
+		else:
+			assert_eq(surface, IsoConst.TILE_PATH, "the road is paved on the bank at %s" % str(t))
+	assert_gt(water_under, 2, "the bridge spans water")
+	var far: Vector2 = c + (b["dir"] as Vector2) * (float(b["half_len"]) + 3.0)
+	assert_false(Rivers.on_bridge(floori(far.x), floori(far.y)), "the deck ends past the bank")
+	var node: Node3D = RiverBridges.make_bridge(b, StandardMaterial3D.new(), 0.0)
+	assert_eq(node.get_child_count(), 1, "one deck mesh")
+	var deck: MeshInstance3D = node.get_child(0) as MeshInstance3D
+	assert_gt(deck.mesh.get_aabb().size.x, float(b["half_len"]) * IsoConst.TILE_SIZE * 1.9, "deck spans its length")
+	var along: Vector3 = node.basis * Vector3.RIGHT
+	assert_almost_eq(along.x, (b["dir"] as Vector2).x, 0.001, "local +X follows the road (x)")
+	assert_almost_eq(along.z, (b["dir"] as Vector2).y, 0.001, "local +X follows the road (z)")
+	node.free()
+
+
+func test_deep_water_and_wading_ashore() -> void:
+	var line: PackedVector2Array = Rivers.centreline(0)
+	var p: Vector2 = line[line.size() - 20]
+	var t := Vector2i(floori(p.x), floori(p.y))
+	assert_true(Rivers.deep_water(t.x, t.y), "mid-river downstream is too deep to wade")
+	var dry: Vector2i = Rivers.nearest_dry(t.x, t.y)
+	assert_lt(Rivers.tile_depth(dry.x, dry.y), -1.0, "wades out onto the bank")
+	assert_lt(Vector2(dry - t).length(), Rivers.HW_MOUTH + 3.0, "to the nearest bank")
+	assert_true(Rivers.deep_water(100, 95), "the open sea is deep water")
+	assert_false(Rivers.deep_water(0, 0), "Madrian is dry")
+	var land: Vector2i = Rivers.nearest_dry(100, 95)
+	assert_lt(Coast.tile_depth(land.x, land.y), -1.0, "far out at sea it still finds land")
+
+
+func test_rocks_break_fast_river_water() -> void:
+	assert_eq(WaterMath.edge_prop(0.45, Vector2(1.5, 0.0), 0.05), "river_rock", "rock in fast water")
+	assert_eq(WaterMath.edge_prop(0.45, Vector2(0.5, 0.0), 0.05), "", "no rock in a slow current")
+	assert_eq(WaterMath.edge_prop(0.45, Vector2(1.5, 0.0), 0.9), "", "rocks are sparse")
+	assert_eq(WaterMath.edge_prop(0.2, Vector2(1.5, 0.0), 0.05), "reed", "the bank keeps its reeds")
+	var line: PackedVector2Array = Rivers.centreline(2)
+	var q: Vector2 = line[10] * IsoConst.TILE_SIZE
+	assert_true(WaterMath.edge_prop_ok("reed", q.x, q.y), "river banks take reeds")

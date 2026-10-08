@@ -16,6 +16,7 @@ const _MapMarkers = preload("res://scenes/ui/MapMarkers.gd")
 const _RealmMapOverlay = preload("res://scenes/ui/RealmMapOverlay.gd")
 
 const _Coast = preload("res://game_logic/world/Coast.gd")
+const _Rivers = preload("res://game_logic/world/Rivers.gd")
 const _COL_BG := Color(0.13, 0.19, 0.12)
 const _COL_ROAD := Color(0.70, 0.58, 0.38)
 const _COL_SEA := Color(0.16, 0.33, 0.48)
@@ -155,6 +156,19 @@ func _draw_sea(c: Control) -> void:
 		c.draw_colored_polygon(poly, _COL_SEA)
 
 
+## The rivers (GID-172): sea-coloured lines widening from source to mouth, clipped to the panel.
+func _draw_rivers(c: Control) -> void:
+	for i: int in _Rivers.COURSES.size():
+		var line: PackedVector2Array = _Rivers.centreline(i)
+		for k: int in range(line.size() - 1):
+			var a: Vector2 = _tile_to_panel(line[k])
+			var b: Vector2 = _tile_to_panel(line[k + 1])
+			if not _panel.has_point(a) or not _panel.has_point(b):
+				continue
+			var w: float = _Rivers.half_width(float(k) / float(line.size() - 1)) * 2.0 * _scale
+			c.draw_line(a, b, _COL_SEA, maxf(1.5, w))
+
+
 func _panel_to_tile(p: Vector2) -> Vector2:
 	return (p - _panel.position) / _scale + _bounds.position
 
@@ -163,6 +177,7 @@ func _on_draw(c: Control) -> void:
 	c.draw_rect(_panel, _COL_BG)
 	var font: Font = ThemeDB.fallback_font
 	_draw_sea(c)
+	_draw_rivers(c)
 	for road: Array in _RealmLayout.ROADS:
 		var pts := PackedVector2Array()
 		for p: Vector2 in road:

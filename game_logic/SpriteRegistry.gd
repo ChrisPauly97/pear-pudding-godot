@@ -136,6 +136,7 @@ const _PROP_VARIANTS: Dictionary = {
 	"lichen": [_PROP_LICHEN_0, _PROP_LICHEN_1, _PROP_LICHEN_2],
 	"reed": [_PROP_REED_0, _PROP_REED_1, _PROP_REED_2],            # stream banks (TID-643)
 	"lily_pad": [_PROP_LILY_PAD_0, _PROP_LILY_PAD_1, _PROP_LILY_PAD_2],  # still ponds (TID-643)
+	"river_rock": [_PROP_ROCK_0, _PROP_ROCK_1, _PROP_ROCK_2, _PROP_ROCK_3],  # fast river water (GID-172)
 	"tree_oak": [_PROP_TREE_OAK_0, _PROP_TREE_OAK_1, _PROP_TREE_OAK_2],
 	"tree_pine": [_PROP_TREE_PINE_0, _PROP_TREE_PINE_1, _PROP_TREE_PINE_2],
 	"tree_snowpine": [_PROP_TREE_SNOWPINE_0, _PROP_TREE_SNOWPINE_1],

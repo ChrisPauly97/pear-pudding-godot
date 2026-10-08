@@ -1,6 +1,7 @@
 ## Maykalene's waterfront on the eastern sea (GID-171 / TID-692): keeps the hero
-## out of water too deep to wade (sliding along the shore, Ghost Phase and mounts
-## included), and dresses the shore — a plank pier, a stone quay edge, boats
+## out of water too deep to wade — the sea and the rivers (GID-172) — (sliding along
+## the shore, Ghost Phase and mounts included), builds the river bridges
+## (`RiverBridges`), and dresses the shore — a plank pier, a stone quay edge, boats
 ## bobbing at their moorings, crates and barrels on the quay. The sea itself is
 ## terrain water (`Coast` → `WaterMath`). Scenery only (not synced: every peer
 ## builds the same pieces from `Coast`).
@@ -10,6 +11,8 @@ extends Node
 
 const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const _Coast = preload("res://game_logic/world/Coast.gd")
+const _Rivers = preload("res://game_logic/world/Rivers.gd")
+const _RiverBridges = preload("res://scenes/world/RiverBridges.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const _WorldEntityBase = preload("res://scenes/world/entities/WorldEntityBase.gd")
 const _BOAT_TEX: Dictionary = {
@@ -118,8 +121,8 @@ func _physics_process(_delta: float) -> void:
 		return
 	# Arrived in the sea in one jump (a load, a teleport): wade ashore instead of sliding.
 	if _last_safe == Vector3.INF or Vector2(pos.x - _last_safe.x, pos.z - _last_safe.z).length() > TELEPORT_DIST:
-		var land: Vector2i = _Coast.to_land(IsoConst.world_to_tile(pos.x, pos.z).x,
-				IsoConst.world_to_tile(pos.x, pos.z).y)
+		var here: Vector2i = IsoConst.world_to_tile(pos.x, pos.z)
+		var land: Vector2i = _Rivers.nearest_dry(here.x, here.y)
 		var lx: float = IsoConst.tile_center(land.x)
 		var lz: float = IsoConst.tile_center(land.y)
 		p.global_position = Vector3(lx, _world.get_terrain_height(lx, lz) + 0.5, lz)
@@ -138,7 +141,7 @@ func _physics_process(_delta: float) -> void:
 
 static func _deep(pos: Vector3) -> bool:
 	var t: Vector2i = IsoConst.world_to_tile(pos.x, pos.z)
-	return _Coast.is_deep(t.x, t.y)
+	return _Rivers.deep_water(t.x, t.y)  # the sea or a river (GID-172)
 
 
 func _build() -> void:
@@ -159,6 +162,10 @@ func _build() -> void:
 	_root.add_child(mi)
 	for b: Dictionary in _Coast.BOATS:
 		_add_boat(b)
+	for b: Dictionary in _Rivers.bridges():  # where a road crosses a river (GID-172)
+		var c: Vector2 = b["centre"]
+		var ground: float = _world.get_terrain_height(c.x * IsoConst.TILE_SIZE, c.y * IsoConst.TILE_SIZE)
+		_root.add_child(_RiverBridges.make_bridge(b, mat, ground))
 	_build_beach()
 	for c: Dictionary in CARGO:
 		var tex: Texture2D = _CRATE_TEX if str(c["tex"]) == "crate" else _BARREL_TEX

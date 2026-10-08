@@ -331,7 +331,7 @@ static func _compute_prop_positions(
 						base.z + dz))
 	return result
 
-## Reeds along stream banks and lily pads on still ponds (TID-643): up to four
+## Reeds along stream banks, lily pads on still ponds (TID-643) and rocks in fast river water (GID-172): up to four
 ## candidate spots per grass tile, each kept by WaterMath.edge_prop.
 static func _compute_water_edge_props(
 		chunk_data: _ChunkData,
@@ -342,7 +342,7 @@ static func _compute_water_edge_props(
 		world_seed: int,
 		dry_points: _WaterMath.DryGrid) -> Dictionary:
 	const MAX_PER_TYPE: int = 40
-	var result: Dictionary = {"reed": [], "lily_pad": []}
+	var result: Dictionary = {"reed": [], "lily_pad": [], "river_rock": []}
 	var cx: int = chunk_data.cx
 	var cz: int = chunk_data.cz
 	var hash_s: int = (world_seed ^ (cx * 15731) ^ (cz * 789221) ^ 0x5bd1e995) & 0x7FFFFFFF
@@ -369,7 +369,7 @@ static func _compute_water_edge_props(
 				if arr.size() >= MAX_PER_TYPE:
 					continue
 				var y: float = _TreeScatter.height_at_local(hfield, nvx, lpx, lpz)
-				if key == "lily_pad":
+				if key == "lily_pad" or key == "river_rock":
 					y -= _WaterMath.LILY_SINK
 				arr.append(Vector3(lpx, y, lpz))
 	return result

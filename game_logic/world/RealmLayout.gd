@@ -314,7 +314,7 @@ static func stamp_tile_in(ctx: Dictionary, wtx: int, wtz: int, noise_tile: int, 
 		if d <= 0.0:
 			break
 	if d <= 0.0:
-		return Vector2i(IsoConst.TILE_PATH, 0)
+		return Vector2i(_Rivers.road_tile(wtx, wtz), 0)  # the river bed stays water under a bridge (GID-172)
 	if d >= BLEND_MARGIN:
 		return Vector2i(noise_tile, noise_height)
 	var h: int = int(floor(float(noise_height) * d / BLEND_MARGIN))

@@ -223,8 +223,20 @@ tiles — exact for `depth` / `reserved_distance`) and `_near_cells` (within `NE
 | `WaterMath.sea_at` (→ `intensity`, `water_at`, `wet_at`) | max(sea, river): added after the realm and structure fades. A road crossing stays dry because path tiles mask the water shader |
 | `WaterMath.flow_at` | The river current where river water is; still sea; else the stream noise current. `edge_prop_ok` allows reeds / lily pads on river banks (sea only excluded) |
 
-Not yet (later GID-172 tasks): bridges, depth shading tuned for rivers, tap-to-move swim cost, realm-map drawing,
-swimming / stamina. `test_rivers` covers: mouths in the sea, clearance from towns / camps / riddle spots / story
+**Bridges, deep water, banks (TID-695).** Each ford carries a stone bridge: `Rivers.bridges()` = {centre, dir
+(road direction), half_len = half-width at the ford + `BRIDGE_OVERHANG` 1.5, half_wid `BRIDGE_HALF_WIDTH` 1.5} in
+tiles; `on_bridge(wtx, wtz)` tests the oriented rect. `road_tile` makes road tiles that are on a bridge *and* in the
+river stamp as grass (RealmLayout's `d <= 0` branch), so the water draws and flows under the deck; the bank road stays
+paved. `scenes/world/RiverBridges.gd` (static `make_bridge`, local +X along the road) builds slab deck, capped
+parapets and pillars; the `Coastline` module adds one per bridge in its build. `deep_water(wtx, wtz)` = (sea deep or
+river deep) and not on a bridge — Coastline's slide-back and TapToMove's A* wall use it (swimming replaces both in
+TID-696/697). `nearest_dry` searches outward ring by ring (≤ `DRY_SEARCH` 40) for a tile a tile clear of both waters,
+else `Coast.to_land`. Depth shading needs nothing new: river intensity uses the sea's 0.3 + 0.12/tile bands, so the
+shader's three depth bands show the deep channel. `WaterMath.edge_prop` adds `"river_rock"` (water 0.36–0.6, current
+> 1.2, 12 %) using the rock textures (SpriteRegistry `river_rock`), sunk to the water surface like lily pads.
+`RealmMapOverlay._draw_rivers` draws each centreline in the sea colour, widening downstream.
+
+Not yet (later GID-172 tasks): swimming / stamina, co-op swim state. `test_rivers` covers: mouths in the sea, clearance from towns / camps / riddle spots / story
 sites, wadeable source vs deep lower course, the ford, continuity, WaterMath / RealmLayout / biome hooks, lookup cost.
 
 ---

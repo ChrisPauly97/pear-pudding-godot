@@ -175,7 +175,7 @@
 | [GID-169](goals/GID-169--npcs-indoors/goal.md) | Madrian Shopkeepers Indoors | done | 1 / 1 |
 | [GID-170](goals/GID-170--towns-like-madrian/goal.md) | Every Town Laid Out Like Madrian | done | 1 / 1 |
 | [GID-171](goals/GID-171--maykalene-coast/goal.md) | Maykalene on the Eastern Sea | done | 1 / 1 |
-| [GID-172](goals/GID-172--rivers-and-swimming/goal.md) | Rivers & Swimming | in-progress | 1 / 5 |
+| [GID-172](goals/GID-172--rivers-and-swimming/goal.md) | Rivers & Swimming | in-progress | 2 / 5 |
 | [GID-173](goals/GID-173--cave-entrances/goal.md) | Cave Entrances | pending | 0 / 4 |
 | [GID-174](goals/GID-174--bogs/goal.md) | Bogs | pending | 0 / 3 |
 
