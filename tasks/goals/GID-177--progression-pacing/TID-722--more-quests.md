@@ -2,14 +2,14 @@
 
 **Goal:** GID-177
 **Type:** agent
-**Status:** pending
+**Status:** in-progress
 **Depends On:** TID-721, GID-176 / TID-719
 
 ## Lock
 
-**Session:** none
-**Acquired:** —
-**Expires:** —
+**Session:** ccr-74960c86-ruw5if
+**Acquired:** 2026-10-08T15:54:22Z
+**Expires:** 2026-10-08T16:24:22Z
 
 ## Context
 
@@ -33,7 +33,22 @@ From level 3, a level should take a few quests. The starter chain (`SideQuests`)
 
 ## Plan
 
-_Written during Plan phase._
+**Waiting for user approval (2026-10-08):** high complexity, with content and design choices.
+
+1. **Road camps:** a `ZoneCamps` table (same shape as `StarterZone.CAMPS`), 8 camps 10–15 tiles off the route, level from the zone (TID-719).
+   - South Road: Wolf Hollow, Shade Thicket, Mire Edge.
+   - Farsyth Lands: Stag Glade, Drowned Mill, Old Watchtower.
+   - Blancogov Approach: Martarquas Outpost, Scout Ridge.
+   - New level ranges: wolf_pack 4–6, forest_shade 5–8, bog_hag 6–8, imbued_stag 7–9, martarquas_scout 8–10.
+   - The StarterCamps module, RealmLayout reserved ground, CampDressing (reused themes) and QuestZones read one camp list.
+2. **Repeatable "bonus objectives":** entering a camp's area auto-starts that camp's "Cull: defeat 5" quest, which auto-completes and restarts after a 10-minute cooldown.
+   - Covers every Chapter 1 camp; Madrian's from level 3.
+   - Needs: `repeatable` + `cooldown_s` in SideQuests (generated defs); a new PERSISTED field + migration for the next-allowed times; a camp-enter trigger in StarterCamps; auto turn-in.
+   - Rejected alternative: boards or NPC givers (new interactables, about 3× the work).
+3. **Re-point quests:** the authored level 6–9 starter quests (east_copse, west_crossing, board_by_the_well, south_road_wreck) move to road camps of matching level.
+4. **Tests:** camps inside zones and on clear ground; ≥ 3 quests for each level 3–9; cooldown; auto-start; quest targets within ±2 levels.
+
+Out of scope: final XP / gold sizing (TID-723).
 
 ## Changes Made
 
