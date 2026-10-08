@@ -14,6 +14,8 @@ const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _CardMotion = preload("res://scenes/battle/CardMotion.gd")
 const SpellEffectResolver = preload("res://scenes/battle/SpellEffectResolver.gd")
+const _TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
+const _BattleRealtime = preload("res://scenes/battle/modules/BattleRealtime.gd")
 const BattleNetProtocol = preload("res://game_logic/net/BattleNetProtocol.gd")
 const _BattleTargeting = preload("res://scenes/battle/modules/BattleTargeting.gd")
 
@@ -111,14 +113,22 @@ func _on_hand_card_input(event: InputEvent, card: CardInstance) -> void:
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_LEFT and not mb.pressed:
-			if not _battle._can_local_act():
+			if not _battle._can_local_act(_off_gcd(card)):
 				return
 			_on_hand_card_tap(card)
 
+## Real-time Kick / Daze (GID-175) play off the global cooldown.
+func _off_gcd(card: CardInstance) -> bool:
+	var rtm: _BattleRealtime = _battle.realtime
+	return rtm != null and rtm.techniques != null and rtm.techniques.is_off_gcd(card)
+
 func _on_hand_card_tap(card: CardInstance) -> void:
-	if not _battle._can_local_act() or _inspect_open():
+	if not _battle._can_local_act(_off_gcd(card)) or _inspect_open():
 		return
 	var can_play: bool = _battle._state.players[_battle._my_idx()].can_play(card)
+	if can_play and _battle.realtime != null and _battle.realtime.is_active() \
+			and _TechniqueDefs.is_technique(card.template_id) and _realtime_technique_tap(card):
+		return
 	if card.card_class != "spell" and can_play:
 		_battle.targeting._enter_slot_select_mode(card)
 		return
@@ -153,6 +163,21 @@ func _on_hand_card_tap(card: CardInstance) -> void:
 		# gdlint:ignore = max-returns
 		return
 	_battle._show_card_inspect(card)
+
+## Real-time technique tap (GID-175): Kick / Daze act on enemy casts, and an
+## untargeted technique casts straight away (no confirm — it comes back anyway).
+## Returns false to fall through to the normal spell routing (targeted ones).
+func _realtime_technique_tap(card: CardInstance) -> bool:
+	var why: String = _battle.realtime.techniques.blocker(card)
+	if why != "":
+		_battle.realtime.toast(why)
+		return true
+	var reactive: bool = card.template_id == "tech_kick" or card.template_id == "tech_daze"
+	if reactive or not (SpellEffectResolver.ENEMY_TARGETED_EFFECTS.has(card.spell_effect)
+			or SpellEffectResolver.FRIENDLY_TARGETED_EFFECTS.has(card.spell_effect)):
+		_cast_confirmed_spell(card)
+		return true
+	return false
 
 ## Confirm step for untargeted spells played by tap — they resolve instantly, so
 ## a bare tap (easy to fat-finger on a fanned hand) must not cast unprompted.
@@ -219,7 +244,7 @@ func _hide_cast_confirm() -> void:
 ## Shared untargeted-spell cast path — used by the drag drop (_board_drop) and
 ## the tap confirm. Handles the PvP-client intent relay.
 func _cast_confirmed_spell(card: CardInstance) -> void:
-	if not _battle._can_local_act() or not _battle._state.players[_battle._my_idx()].can_play(card):
+	if not _battle._can_local_act(_off_gcd(card)) or not _battle._state.players[_battle._my_idx()].can_play(card):
 		return
 	if _battle._is_pvp_client():
 		var hi: int = _battle._state.players[_battle._my_idx()].hand.find(card)
@@ -235,11 +260,15 @@ func _cast_confirmed_spell(card: CardInstance) -> void:
 			AudioManager.play_sfx("card_play")
 			_battle._fx.haptic(20)
 			var snap: Array[Dictionary] = _battle._fx.snapshot()
-			_battle._resolver.resolve_spell(card, _battle._my_idx())
+			if not (_battle.realtime.techniques != null and _battle.realtime.techniques.resolve_reactive(card)):
+				_battle._resolver.resolve_spell(card, _battle._my_idx())
 			_battle._fx.trigger_fx(snap)
 			_battle._refresh_all()
 			_battle._check_game_over()
 			_battle.tutorials._dismiss_battle_tutorial()
+	if _off_gcd(card):
+		_battle.realtime.run_off_gcd(card, finish)
+		return
 	if not _battle.realtime.run_cast(card, finish, null):
 		finish.call()
 

@@ -4,6 +4,7 @@
 ## next_card_free); parents its widgets under the action strip, never a module node.
 extends RefCounted
 
+const _TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
 const _BattleScene = preload("res://scenes/battle/BattleScene.gd")
 const _BattleRealtime = preload("res://scenes/battle/modules/BattleRealtime.gd")
 const RealtimeCombat = preload("res://game_logic/battle/RealtimeCombat.gd")
@@ -53,8 +54,8 @@ func update() -> void:
 ## and a `finish` that spends the combo once the card has actually left the hand.
 func wrap_card(card: CardInstance, finish: Callable, t: float) -> Array:
 	var rt: RealtimeCombat = _realtime.rt
-	if card.has_meta("cost_points"):
-		return [finish, t]  # a skill-bar pseudo-card: not a spender
+	if _TechniqueDefs.is_technique(card.template_id):
+		return [finish, t]  # a technique (GID-175) builds the combo, never spends it
 	var me := rt.state.players[RealtimeCombat.PLAYER]
 	var free: bool = me.next_card_free
 	var wrapped := func() -> void:

@@ -158,7 +158,8 @@ func hero_unreachable() -> bool:
 	return false
 
 func effective_cost(card: CardInstance) -> int:
-	if next_card_free:
+	# An essence-surge free cast (GID-139) is saved for a real card, not a technique (GID-175).
+	if next_card_free and not TechniqueDefs.is_technique(card.template_id):
 		return 0
 	return BattlefieldRules.effective_cost(
 		card.cost, card.magic_branch, battlefield_biome, is_night, grasslands_card_played) * hero.mana_scale
@@ -177,7 +178,8 @@ func play_card(card: CardInstance) -> bool:
 	if not can_play(card):
 		return false
 	var cost: int = effective_cost(card)
-	next_card_free = false
+	if not TechniqueDefs.is_technique(card.template_id):
+		next_card_free = false
 	hand.erase(card)
 	hero.spend_mana(cost)
 	if card.card_class == "spell":
@@ -200,7 +202,8 @@ func play_card_at_slot(card: CardInstance, slot_idx: int) -> bool:
 	if not board.add_card_at_slot(card, slot_idx):
 		return false
 	var cost: int = effective_cost(card)
-	next_card_free = false
+	if not TechniqueDefs.is_technique(card.template_id):
+		next_card_free = false
 	hand.erase(card)
 	hero.spend_mana(cost)
 	if card.card_class == "spell":

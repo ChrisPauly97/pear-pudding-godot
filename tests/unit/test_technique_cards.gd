@@ -138,3 +138,13 @@ func test_real_time_extras_match_old_bar() -> void:
 	assert_eq(TechniqueDefs.cast_time("ghost"), -1.0)
 	assert_true(TechniqueDefs.off_gcd("tech_kick"))
 	assert_false(TechniqueDefs.off_gcd("tech_strike"))
+
+func test_free_cast_proc_is_saved_for_a_real_card() -> void:
+	var gs := _state(100)
+	var p: PlayerState = gs.players[0]
+	p.next_card_free = true
+	var mend := _tech("tech_mend")
+	assert_eq(p.effective_cost(mend), 100, "technique pays its own cost")
+	p.hand.append(mend)
+	assert_true(p.play_card(mend))
+	assert_true(p.next_card_free, "proc still banked after a technique")

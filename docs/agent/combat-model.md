@@ -390,6 +390,33 @@ and a test still keeps every value ≤ 9.
   until then Kick/Daze resolve their turn-based stun/freeze in real time too.
 - Tests: `tests/unit/test_technique_cards.gd`.
 
+### Real-time integration (TID-709)
+
+- **No bar:** `BattleSkillBar` is no longer built (`BattleRealtime.skills` is gone). The technique logic lives in
+  `scenes/battle/modules/RealtimeTechniques.gd` (`BattleRealtime.techniques`, a RefCounted helper; real-time only). Number keys 1–9 play hand cards
+  (`BattleShortcuts.first_hand_key()` = `KEY_1`).
+- **Tap routing** (`BattleInput._realtime_technique_tap`): an untargeted technique (and Kick / Daze) casts on tap,
+  with no confirm; targeted ones (Strike, Ember Lance) use the normal targeting flow.
+  `RealtimeTechniques.blocker()` refuses Kick with nothing casting ("Nothing to interrupt").
+- **Cast time:** `run_cast` takes `TechniqueDefs.cast_time(id)` when the caller passes none (Mend 1.5 s, Ember Lance
+  1 s, others instant).
+- **Off-GCD:** `_can_local_act(ignore_gcd)` is passed `techniques.is_off_gcd(card)`, and `BattleRealtime.run_off_gcd()`
+  resolves at once without starting or waiting on the GCD.
+- **Kick / Daze:** in real time `RealtimeTechniques.resolve_reactive()` replaces the resolver. Kick interrupts the
+  casting enemy (target first); Daze stuns that hero and cancels its cast.
+- **Momentum:** `RealtimeTechniques.after_resolve()` runs after a cast or off-GCD resolve. Damage dealt → `rt.on_player_hit(dmg,
+  true)` (siphon, combo, proc); also `note_skill_used`, plus quest `use_skill` progress with the ability id.
+  `MomentumHud.wrap_card` skips techniques (they never spend combo). `PlayerState.effective_cost` / `play_card`
+  never spend `next_card_free` on a technique.
+- **Kick pulse:** `RealtimeTechniques.pulse_reactive()` pulses a held Kick / Daze card (`modulate`) while an enemy casts.
+  `control_for(ability_id)` finds a technique's hand panel (onboarding tips use it too).
+- **Onboarding:** the hand is always shown. `BattleModifiers._apply_combat_unlocks` strips minions until
+  `feat_minions` and spells until `feat_spells` but always keeps techniques, so a level-1 hand is technique-only.
+  Ally slots stay locked. Tips anchor to technique cards; `rt_*` tutorial texts describe cards.
+- **Mentor bark** `cooldown_ready` fires when a technique comes back into the hand.
+- Tests: `realtime_battle_smoke` (Strike from the hand hits + recycles to the bottom, Mend casts; the first fight's
+  hand is technique-only); `test_technique_cards` (free-cast exemption).
+
 ### Learning & migration (TID-708)
 
 - **Ids:** `learned_abilities` keeps the plain ability ids (`"mend"`) next to the `feat_*` ids, so UnlockLadder

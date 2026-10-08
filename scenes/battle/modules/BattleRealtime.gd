@@ -27,9 +27,9 @@ const CombatTuning = preload("res://game_logic/battle/CombatTuning.gd")
 const _WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const _UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 const _CombatTuningPanel = preload("res://scenes/battle/modules/CombatTuningPanel.gd")
-const _BattleSkillBar = preload("res://scenes/battle/modules/BattleSkillBar.gd")
 const _BattleOnboarding = preload("res://scenes/battle/modules/BattleOnboarding.gd")
-const SkillBar = preload("res://game_logic/battle/SkillBar.gd")
+const TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
+const _RealtimeTechniques = preload("res://scenes/battle/modules/RealtimeTechniques.gd")
 const _CombatOnboarding = preload("res://game_logic/battle/CombatOnboarding.gd")
 const _MentorBarks = preload("res://scenes/battle/modules/MentorBarks.gd")
 const _BarkRules = preload("res://game_logic/battle/BarkRules.gd")
@@ -42,8 +42,9 @@ const _HIT_FEEL: Array = [[0.0, 0.0], [0.045, 2.5], [0.08, 5.0], [0.12, 8.0]]
 
 var rt: RealtimeCombat = null
 ## The fixed ability bar (TID-550); null outside real time.
-var skills: _BattleSkillBar = null
 ## Auto-attack toggle, combo pips, free-cast glow (GID-139); null outside real time.
+## Technique cards in real time (GID-175).
+var techniques: _RealtimeTechniques = null
 var momentum: _MomentumHud = null
 ## New-player ramp + first-time tips (TID-552 / TID-553); null outside real time.
 var onboarding: _BattleOnboarding = null
@@ -119,10 +120,7 @@ func maybe_start(is_fresh: bool) -> void:
 	_visuals.set_action_strip(_strip)
 	onboarding = _BattleOnboarding.new(_battle, self)
 	onboarding.begin(not _EnemyRegistry.is_passive(enemy_type))
-	var sm := SceneManager.save_manager
-	var bar_ids: Array[String] = SkillBar.new(sm.skill_bar, sm.learned_abilities).ids
-	skills = _BattleSkillBar.new(_battle, self, bar_ids)
-	skills.build(_strip)
+	techniques = _RealtimeTechniques.new(_battle, self)
 	momentum = _MomentumHud.new(_battle, self)
 	momentum.build(_strip)
 	fight_stats = FightStats.new()
@@ -207,9 +205,6 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if k.keycode == KEY_T:
 		open_tuning()
 		get_viewport().set_input_as_handled()
-	elif k.keycode >= KEY_1 and k.keycode < KEY_1 + skills.bar.ids.size():
-		skills.press(k.keycode - KEY_1)
-		get_viewport().set_input_as_handled()
 
 ## Saves the tuning panel's overrides and applies them from the next tick.
 func save_tuning() -> void:
@@ -239,9 +234,8 @@ func note_player_play(player_idx: int) -> void:
 		rt.start_gcd(RealtimeCombat.PLAYER)
 	if fight_stats != null: fight_stats.record_skill_use()
 
-## Reported by `BattleSkillBar._resolve` right after a successful ability use
-## (GID-135 / TID-559 stats; TID-558 barks). `effect` is the ability's
-## `SkillBar.ABILITIES` effect id — "interrupt" is a real, successful `Kick`.
+## Reported right after a technique card resolves (GID-175; TID-559 stats,
+## TID-558 barks). `effect` "interrupt" is a real, successful Kick.
 func note_skill_used(effect: String) -> void:
 	if fight_stats != null:
 		fight_stats.record_skill_use()
@@ -259,10 +253,13 @@ func note_skill_used(effect: String) -> void:
 ## waits for the GCD to actually end instead of firing early, exactly like a
 ## cast-time spell's queued cast does. A unit `target` that dies mid-cast
 ## fizzles the spell (card stays in hand, no mana spent). `cast_time` >= 0
-## overrides the cost-based time (skill bar abilities).
+## overrides the cost-based time; a technique card uses its own
+## (`TechniqueDefs.cast_time`, GID-175).
 func run_cast(card: CardInstance, finish: Callable, target: CardInstance = null, cast_time: float = -1.0) -> bool:
 	if rt == null or _cast_card != null:
 		return false
+	if cast_time < 0.0:
+		cast_time = TechniqueDefs.cast_time(card.template_id)
 	var t: float = maxf(0.0, cast_time if cast_time >= 0.0 else rt.cast_time_for(card.cost))
 	var hooked: Array = momentum.wrap_card(card, finish, t)  # GID-139: combo spend, empowered = instant
 	finish = hooked[0]
@@ -303,6 +300,7 @@ func _tick_cast(dt: float) -> void:
 		return
 	var finish: Callable = _cast_finish
 	var target: CardInstance = _cast_target
+	var cast_card: CardInstance = _cast_card
 	_cast_card = null
 	_cast_finish = Callable()
 	_cast_target = null
@@ -314,7 +312,20 @@ func _tick_cast(dt: float) -> void:
 	var foe_hp: int = FightStats.enemy_health(rt)
 	finish.call()
 	_resolving_cast = false
-	if fight_stats != null: fight_stats.record_card_damage(foe_hp - FightStats.enemy_health(rt))  # TID-559 tip
+	var dealt: int = foe_hp - FightStats.enemy_health(rt)
+	if fight_stats != null: fight_stats.record_card_damage(dealt)  # TID-559 tip
+	techniques.after_resolve(cast_card, dealt)
+
+## Off-GCD play (Kick, Daze — GID-175): resolves now without starting or
+## waiting on the GCD.
+func run_off_gcd(card: CardInstance, finish: Callable) -> void:
+	if rt == null or _cast_card != null:
+		return
+	_resolving_cast = true
+	var foe_hp: int = FightStats.enemy_health(rt)
+	finish.call()
+	_resolving_cast = false
+	techniques.after_resolve(card, foe_hp - FightStats.enemy_health(rt))
 
 func _target_on_board(c: CardInstance) -> bool:
 	for p: PlayerState in _battle._state.players:
@@ -466,7 +477,7 @@ func _process(delta: float) -> void:
 		_hitstop_left -= delta
 		return
 	var dt: float = delta * _speed_factor()
-	skills.update(dt)
+	techniques.pulse_reactive()
 	_battle.consumables.tick_quick(dt)
 	momentum.update()
 	onboarding.update(dt)

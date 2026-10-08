@@ -58,15 +58,10 @@ func slow_clock() -> bool:
 ## After the UI is built: hide what isn't taught yet and show the opening tip.
 func apply() -> void:
 	if not shows_hand():
-		# No cards yet: hide the hand, but show your Ally slots locked so the
-		# enemy's summons have something to look forward to.
-		_battle._player_hand_view.visible = false
+		# No Allies yet (the hand holds only technique cards, GID-175): show your
+		# Ally slots locked so the enemy's summons have something to look forward to.
 		_realtime.lock_ally_slots(UnlockLadder.level_req(UnlockLadder.FEAT_MINIONS))
-	tip("rt_intro", _realtime.skills.button_for("strike"))
-	# First fight with a newly learned skill: its tip (each shows once ever).
-	for id: String in ["mend", "kick"]:
-		if _realtime.skills.button_for(id) != null:
-			tip("rt_skill_" + id, _realtime.skills.button_for(id))
+	tip("rt_intro", _realtime.techniques.control_for("strike"))
 	if shows_hand():
 		tip("rt_cards", _battle._player_hand_view)
 
@@ -74,14 +69,19 @@ func apply() -> void:
 func update(dt: float) -> void:
 	var rt: RealtimeCombat = _realtime.rt
 	var me: PlayerState = rt.state.players[RealtimeCombat.PLAYER]
-	var mend: Control = _realtime.skills.button_for("mend")
+	# First time a newly learned technique is in hand: its tip (each shows once ever).
+	for id: String in ["mend", "kick"]:
+		var ctl: Control = _realtime.techniques.control_for(id)
+		if ctl != null:
+			tip("rt_skill_" + id, ctl)
+	var mend: Control = _realtime.techniques.control_for("mend")
 	if mend != null and me.hero.health <= int(me.hero.max_health * LOW_HP):
 		tip("rt_low_hp", mend)
-	var kick: Control = _realtime.skills.button_for("kick")
+	var kick: Control = _realtime.techniques.control_for("kick")
 	for side: int in rt.enemy_sides():
 		if kick != null and rt.casting[side] != null:
 			tip("rt_enemy_cast", kick)
-	if me.hero.mana < _realtime.skills.cheapest_cost():
+	if me.hero.mana < me.hero.mana_scale:  # under one card-cost unit
 		tip("rt_out_of_mana", _realtime.token(RealtimeCombat.PLAYER))
 	if shows_hand() and not me.board.get_cards().is_empty():
 		var ally: CardInstance = me.board.get_cards()[0]

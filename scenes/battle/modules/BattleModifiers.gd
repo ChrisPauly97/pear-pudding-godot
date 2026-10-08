@@ -6,6 +6,7 @@
 ## `_battle.add_child` rather than a bare `add_child`.
 extends Node
 
+const _TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
 const _RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
 const _CombatOnboarding = preload("res://game_logic/battle/CombatOnboarding.gd")
 const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
@@ -232,16 +233,24 @@ func _build_rift_deck(player: PlayerState) -> Array[String]:
 		player.hero.add_armor(armor)
 	return []
 
-## GID-141 / TID-588: spell cards stay out of the battle deck until the player
-## has learned spells from the Combat Trainer.
+## GID-141 / TID-588: Ally (minion) cards stay out of the battle deck until the
+## player has learned minions, spell cards until spells. Technique cards (GID-175)
+## are always in — before minions they are the whole hand.
 func _apply_combat_unlocks(player: PlayerState) -> void:
 	if _battle._state.puzzle_mode or _battle._state.scripted_battle:
 		return
-	if _CombatOnboarding.allows_spells(SceneManager.save_manager.learned_abilities):
+	var learned: Array[String] = SceneManager.save_manager.learned_abilities
+	var minions: bool = _CombatOnboarding.shows_hand(learned)
+	var spells: bool = _CombatOnboarding.allows_spells(learned)
+	if minions and spells:
 		return
 	var kept: Array[CardInstance] = []
 	for c: CardInstance in player.draw_deck:
-		if c.card_class != "spell":
+		if _TechniqueDefs.is_technique(c.template_id):
+			kept.append(c)
+		elif c.card_class == "spell" and spells:
+			kept.append(c)
+		elif c.card_class != "spell" and minions:
 			kept.append(c)
 	player.draw_deck = kept
 

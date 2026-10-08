@@ -24,7 +24,7 @@ const LINES: Dictionary = {
 	"mana_empty": "Out of mana — lean on your weapon until it regens.",
 	"cast_bar": "Watch its cast bar — Kick it!",
 	"interrupt": "Nicely done!",
-	"cooldown_ready": "Your cooldown is back — put it to work.",
+	"cooldown_ready": "A technique's back in your hand — put it to work.",
 	"ally_ready": "Your ally is ready — send it in!",
 }
 
