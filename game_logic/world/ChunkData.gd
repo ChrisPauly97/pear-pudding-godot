@@ -14,6 +14,7 @@ var landmarks: Array[Dictionary] = []
 var mana_wells: Array[Dictionary] = []
 var is_generated: bool = false
 var has_entities: bool = false
+var has_ruin: bool = false  # RuinGen stamped a ruin here (its courtyard stays dry: ChunkRenderer)
 var biome_id: int = 0
 
 func _init(p_cx: int = 0, p_cz: int = 0) -> void:

@@ -1,6 +1,6 @@
-## Maykalene's waterfront on the eastern sea (GID-171 / TID-692): keeps the hero
-## out of water too deep to wade (sliding along the shore, Ghost Phase and mounts
-## included), and dresses the shore — a plank pier, a stone quay edge, boats
+## Maykalene's waterfront on the eastern sea (GID-171 / TID-692): switches the hero to
+## swimming in water too deep to wade — the sea and the rivers (GID-172, `Swimming`) —
+## builds the river bridges (`RiverBridges`), and dresses the shore — a plank pier, a stone quay edge, boats
 ## bobbing at their moorings, crates and barrels on the quay. The sea itself is
 ## terrain water (`Coast` → `WaterMath`). Scenery only (not synced: every peer
 ## builds the same pieces from `Coast`).
@@ -10,6 +10,11 @@ extends Node
 
 const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const _Coast = preload("res://game_logic/world/Coast.gd")
+const _Rivers = preload("res://game_logic/world/Rivers.gd")
+const _Player = preload("res://scenes/world/entities/Player.gd")
+const _Swimming = preload("res://game_logic/world/Swimming.gd")
+const _SwimMeter = preload("res://scenes/world/SwimMeter.gd")
+const _RiverBridges = preload("res://scenes/world/RiverBridges.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const _WorldEntityBase = preload("res://scenes/world/entities/WorldEntityBase.gd")
 const _BOAT_TEX: Dictionary = {
@@ -53,20 +58,21 @@ const CREW: Dictionary = {
 ## A rower's stroke while under way: bob height and strokes per second.
 const ROW_BOB: float = 0.05
 const ROW_RATE: float = 4.0
-## A move longer than this (world units) in one physics frame is a teleport, not a step.
-const TELEPORT_DIST: float = 4.0
 const DECK_Y: float = 0.03
 const WOOD := Color(0.47, 0.32, 0.19)
 const WOOD_DARK := Color(0.30, 0.20, 0.13)
 const STONE := Color(0.62, 0.62, 0.60)
 
+var stamina: float = 1.0  # swim stamina 0..1 (GID-172 / TID-697); not saved, refills on land
 var _world: _WorldScene = null
 var _root: Node3D = null
-var _last_safe: Vector3 = Vector3.INF
 var _boats: Array[Sprite3D] = []
 var _boat_base_y: Array[float] = []
 var _crew: Array[Sprite3D] = []
 var _time: float = 0.0
+var _meter: _SwimMeter = null
+var _warned: bool = false   # "head for shore" shown this swim
+var _washing: bool = false  # exhausted: the wash-ashore transition is running
 
 
 func _ready() -> void:
@@ -106,39 +112,68 @@ func _process(delta: float) -> void:
 		spr.position.y = _boat_base_y[i] + sin(_time * BOB_SPEED + float(i) * 1.7) * BOB_AMPLITUDE
 
 
-## Deep water stops the hero: keep the axis that stays in the shallows (slide along
-## the shore), else step back to the last safe spot.
-func _physics_process(_delta: float) -> void:
-	if _world == null or not _world._is_infinite or _world._player == null:
+## Deep water (the sea off the piers, a river off the bridges — GID-172) is swum: the hero
+## gets off a mount and the Player switches to its swim state; back in the shallows, walks.
+## Swimming drains stamina (`Swimming.step`), a river's current carries the swimmer, and an
+## exhausted swimmer washes up on the nearest shore at 1 HP.
+func _physics_process(delta: float) -> void:
+	if _world == null or _world._player == null:
 		return
-	var p: Node3D = _world._player
+	var p: _Player = _world._player
 	var pos: Vector3 = p.global_position
-	if not _deep(pos):
-		_last_safe = pos
+	var deep: bool = _world._is_infinite and _world.map_name == "main" and _deep(pos)
+	if deep and SceneManager.save_manager.is_mounted:
+		SceneManager.save_manager.dismiss_mount()  # the horse won't swim; whistle for it on land
+	p.set_swimming(deep)
+	var flow: Vector2 = _Rivers.flow(pos.x, pos.z) if deep else Vector2.ZERO
+	p.current_push = Vector3(flow.x, 0.0, flow.y) * _Swimming.CURRENT_PUSH
+	if not SceneManager.is_in_world() or _washing:
 		return
-	# Arrived in the sea in one jump (a load, a teleport): wade ashore instead of sliding.
-	if _last_safe == Vector3.INF or Vector2(pos.x - _last_safe.x, pos.z - _last_safe.z).length() > TELEPORT_DIST:
-		var land: Vector2i = _Coast.to_land(IsoConst.world_to_tile(pos.x, pos.z).x,
-				IsoConst.world_to_tile(pos.x, pos.z).y)
-		var lx: float = IsoConst.tile_center(land.x)
-		var lz: float = IsoConst.tile_center(land.y)
-		p.global_position = Vector3(lx, _world.get_terrain_height(lx, lz) + 0.5, lz)
-		_last_safe = p.global_position
-		return
-	var keep_x := Vector3(pos.x, pos.y, _last_safe.z)
-	var keep_z := Vector3(_last_safe.x, pos.y, pos.z)
-	if not _deep(keep_x):
-		p.global_position = keep_x
-	elif not _deep(keep_z):
-		p.global_position = keep_z
-	else:
-		p.global_position = Vector3(_last_safe.x, pos.y, _last_safe.z)
-	_last_safe = p.global_position
+	var heading := Vector2(p.velocity.x, p.velocity.z) - flow * _Swimming.CURRENT_PUSH
+	var depth: float = _Swimming.depth_at(pos.x, pos.z) if deep else 0.0  # only swimming reads it
+	stamina = _Swimming.step(stamina, delta, deep, depth, p._is_moving, _Swimming.against(heading, flow))
+	if not deep:
+		_warned = false
+	elif stamina < _Swimming.LOW and not _warned:
+		_warned = true
+		GameBus.hud_message_requested.emit("You're tiring — swim for the shore!")
+	if deep and stamina <= 0.0:
+		_wash_ashore()
+	_show_meter(delta)
+
+
+func _show_meter(delta: float) -> void:
+	if _meter == null and _world._hud != null:
+		_meter = _SwimMeter.new()
+		_world._hud.add_child(_meter)
+	if _meter != null:
+		_meter.show_stamina(stamina, _world._player.global_position, _world._camera, delta)
+
+
+## Exhausted (TID-697): the screen wipes and the hero wakes on the nearest shore at 1 HP.
+func _wash_ashore() -> void:
+	_washing = true
+	TransitionManager.transition(func() -> void:
+		var p: _Player = _world._player
+		if p != null:
+			var t: Vector2i = IsoConst.world_to_tile(p.global_position.x, p.global_position.z)
+			var land: Vector2i = _Rivers.nearest_dry(t.x, t.y)
+			var lx: float = IsoConst.tile_center(land.x)
+			var lz: float = IsoConst.tile_center(land.y)
+			p.global_position = Vector3(lx, _world.get_terrain_height(lx, lz) + 0.5, lz)
+			p.velocity = Vector3.ZERO
+			p.cancel_path()
+			p.set_swimming(false)
+		var sm := SceneManager.save_manager
+		sm.hero_hp_frac = minf(sm.hero_hp_frac, _Swimming.WASHED_UP_FRAC)
+		sm.mark_dirty()
+		stamina = 1.0
+		_washing = false
+		GameBus.hud_message_requested.emit("Exhausted, you wash up on the shore."))
 
 
 static func _deep(pos: Vector3) -> bool:
-	var t: Vector2i = IsoConst.world_to_tile(pos.x, pos.z)
-	return _Coast.is_deep(t.x, t.y)
+	return _Swimming.deep_at(pos.x, pos.z)  # the sea or a river (GID-172)
 
 
 func _build() -> void:
@@ -159,6 +194,10 @@ func _build() -> void:
 	_root.add_child(mi)
 	for b: Dictionary in _Coast.BOATS:
 		_add_boat(b)
+	for b: Dictionary in _Rivers.bridges():  # where a road crosses a river (GID-172)
+		var c: Vector2 = b["centre"]
+		var ground: float = _world.get_terrain_height(c.x * IsoConst.TILE_SIZE, c.y * IsoConst.TILE_SIZE)
+		_root.add_child(_RiverBridges.make_bridge(b, mat, ground))
 	_build_beach()
 	for c: Dictionary in CARGO:
 		var tex: Texture2D = _CRATE_TEX if str(c["tex"]) == "crate" else _BARREL_TEX

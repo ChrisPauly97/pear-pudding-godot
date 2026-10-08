@@ -6,6 +6,10 @@ const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const _SpriteLoop = preload("res://scenes/world/entities/SpriteLoop.gd")
 const _LandmarkFrames = preload("res://game_logic/LandmarkFrames.gd")
 const _PlaceNames = preload("res://game_logic/PlaceNames.gd")
+const _CaveMouth = preload("res://scenes/world/entities/CaveMouth.gd")
+
+## Doors stand this far above the ground (ChunkRenderer spawns them with this y offset).
+const SPAWN_Y: float = 0.75
 
 static var _door_mat: StandardMaterial3D
 static var _door_mesh: BoxMesh
@@ -15,6 +19,7 @@ var door_data: Dictionary = {}
 var _ring: MeshInstance3D = null
 var _sprite: Sprite3D = null   # non-null when SpriteRegistry art is available
 var _is_spire: bool = false    # set by init_from_data(), which runs before _ready()
+var _is_cave: bool = false     # a cave entrance (GID-173): rock arch instead of a door
 
 static func _ensure_shared_resources() -> void:
 	if _door_mat != null:
@@ -26,6 +31,13 @@ static func _ensure_shared_resources() -> void:
 func _ready() -> void:
 	add_to_group("interactable")
 	_ring = _WEB.build_highlight_ring(self, 1.0)
+	if _is_cave:
+		var f: Array = door_data.get("facing", [1, 0])
+		add_child(_CaveMouth.make(Vector2i(int(f[0]), int(f[1])), SPAWN_Y))
+		var mi_cave: MeshInstance3D = find_child("MeshInstance3D", true, false) as MeshInstance3D
+		if mi_cave:
+			mi_cave.visible = false
+		return
 
 	var tex: Texture2D = _SpriteRegistry.door_texture()
 	if tex != null:
@@ -67,6 +79,7 @@ func init_from_data(data: Dictionary) -> void:
 	door_data = data
 	var target: String = str(data.get("target_map", ""))
 	_is_spire = (target == "spire" or target.begins_with("rift:"))
+	_is_cave = str(data.get("kind", "")) == "cave"
 	var label_text: String = "Exit" if target.is_empty() else _PlaceNames.title(target)
 	if _is_spire:
 		label_text = _RiftDefs.rift_name(_RiftDefs.DEFAULT_RIFT if target == "spire" else target.trim_prefix("rift:"))

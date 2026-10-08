@@ -37,6 +37,8 @@ const _ContactShadow = preload("res://game_logic/ContactShadow.gd")
 const _SpriteOutline = preload("res://game_logic/SpriteOutline.gd")
 
 const _HeroAnim = preload("res://game_logic/character/HeroAnim.gd")
+const _Swimming = preload("res://game_logic/world/Swimming.gd")
+const _WaterMath = preload("res://game_logic/world/WaterMath.gd")
 const _WalkCycle = preload("res://scenes/world/entities/WalkCycle.gd")
 const PIXEL_SIZE: float = 0.05     # larger per-pixel size to match 32px sprite scale
 
@@ -64,6 +66,8 @@ const _WP_ARRIVE_DIST_SQ: float = 0.3 * 0.3  # arrive when within 0.3 world unit
 const _HOOF_INTERVAL: float = 0.26
 
 var visual_bob: float = 0.0  # walk/breath lift, set by CharacterPresence (GID-134)
+var swimming: bool = false  # in deep water (GID-172); set by the Coastline module via set_swimming()
+var current_push: Vector3 = Vector3.ZERO  # a river's current carrying the swimmer (world u/s), set by Coastline
 var _velocity_y: float = 0.0
 var _sprite: AnimatedSprite3D
 var _sprite_base_pos: Vector3 = Vector3.ZERO   # on-foot sprite position; the ride pose offsets from it
@@ -114,6 +118,8 @@ func _ready() -> void:
 	GameBus.enemy_engaged.connect(func(_d: Dictionary) -> void: cancel_path())
 
 func _get_move_speed() -> float:
+	if swimming:
+		return SPEED * _Swimming.SPEED_MULT
 	var speed: float = SPEED
 	if SaveManager.is_mounted and SaveManager.current_map == "main" and SaveManager.active_mount != "":
 		var mount: Dictionary = MountRegistry.get_mount(SaveManager.active_mount)
@@ -122,7 +128,17 @@ func _get_move_speed() -> float:
 	if SaveManager.current_map == "main" and TerrainMath.is_on_ley_line(
 			global_position.x, global_position.z, SaveManager.world_seed):
 		speed *= 1.15
+	if _bog_underfoot() > _WaterMath.BOG_SLOW:
+		speed *= _WaterMath.BOG_SPEED_MULT  # wading through peat (GID-174), mounted or not
 	return speed
+
+
+## Bog intensity at the hero's feet on the overworld (GID-174); 0 off it.
+func _bog_underfoot() -> float:
+	var world := get_tree().current_scene as _WorldScene if is_inside_tree() else null
+	if world == null or not world._is_infinite or SaveManager.current_map != "main":
+		return 0.0
+	return _WaterMath.bog_in(world._current_biome, global_position.x, global_position.z, SaveManager.world_seed)
 
 # Called by WorldScene after a tap-to-move path is found.
 func set_destination_path(waypoints: Array[Vector2i]) -> void:
@@ -193,30 +209,8 @@ func _build_sprite() -> void:
 	_dust_particles.lifetime = 0.6
 	_dust_particles.one_shot = false
 	_dust_particles.emitting = false
-	_dust_mat_mount = ParticleProcessMaterial.new()
-	_dust_mat_mount.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
-	_dust_mat_mount.emission_sphere_radius = 0.4
-	_dust_mat_mount.direction = Vector3(0.0, 1.0, 0.0)
-	_dust_mat_mount.spread = 60.0
-	_dust_mat_mount.initial_velocity_min = 0.5
-	_dust_mat_mount.initial_velocity_max = 1.5
-	_dust_mat_mount.gravity = Vector3(0.0, -3.0, 0.0)
-	_dust_mat_mount.scale_min = 0.30
-	_dust_mat_mount.scale_max = 0.55
-	_dust_mat_mount.color = Color(0.72, 0.60, 0.42, 0.75)
-	_dust_mat_foot = ParticleProcessMaterial.new()
-	_dust_mat_foot.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
-	_dust_mat_foot.emission_sphere_radius = 0.3
-	_dust_mat_foot.direction = Vector3(0.0, 1.0, 0.0)
-	_dust_mat_foot.spread = 50.0
-	_dust_mat_foot.initial_velocity_min = 0.3
-	_dust_mat_foot.initial_velocity_max = 0.8
-	_dust_mat_foot.gravity = Vector3(0.0, -3.0, 0.0)
-	_dust_mat_foot.scale_min = 0.18
-	_dust_mat_foot.scale_max = 0.32
-	_dust_mat_foot.color = Color(0.72, 0.60, 0.42, 0.45)
-	_AmbientParticles.style_dust(_dust_mat_mount)
-	_AmbientParticles.style_dust(_dust_mat_foot)
+	_dust_mat_mount = _AmbientParticles.dust_material(0.4, 60.0, 0.5, 1.5, 0.30, 0.55, 0.75)
+	_dust_mat_foot = _AmbientParticles.dust_material(0.3, 50.0, 0.3, 0.8, 0.18, 0.32, 0.45)
 	_dust_particles.process_material = _dust_mat_foot
 	_dust_particles.draw_pass_1 = _AmbientParticles.dust_mesh()   # TID-493: it never had one
 	_dust_particles.position = Vector3(0.0, 0.2, 0.0)
@@ -228,18 +222,8 @@ func _build_sprite() -> void:
 	_landing_dust.lifetime = 0.5
 	_landing_dust.one_shot = true
 	_landing_dust.emitting = false
-	var pm_land := ParticleProcessMaterial.new()
-	pm_land.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
-	pm_land.emission_sphere_radius = 0.5
-	pm_land.direction = Vector3(0.0, 1.0, 0.0)
-	pm_land.spread = 80.0
-	pm_land.initial_velocity_min = 1.0
-	pm_land.initial_velocity_max = 2.2
+	var pm_land: ParticleProcessMaterial = _AmbientParticles.dust_material(0.5, 80.0, 1.0, 2.2, 0.30, 0.60, 0.8)
 	pm_land.gravity = Vector3(0.0, -4.0, 0.0)
-	pm_land.scale_min = 0.30
-	pm_land.scale_max = 0.60
-	pm_land.color = Color(0.72, 0.60, 0.42, 0.8)
-	_AmbientParticles.style_dust(pm_land)
 	_landing_dust.process_material = pm_land
 	_landing_dust.draw_pass_1 = _AmbientParticles.dust_mesh()
 	_landing_dust.position = Vector3(0.0, 0.2, 0.0)
@@ -285,8 +269,8 @@ func _physics_process(delta: float) -> void:
 	# applies for the whole path, not just the first tick) so the waypoint
 	# arrival check doesn't fight a sluggish decel and orbit the destination.
 	var move_speed: float = _get_move_speed()
-	var target_vx: float = dir.x * move_speed
-	var target_vz: float = dir.z * move_speed
+	var target_vx: float = dir.x * move_speed + (current_push.x if swimming else 0.0)
+	var target_vz: float = dir.z * move_speed + (current_push.z if swimming else 0.0)
 	var accel: float = ACCEL if dir.length_squared() > 0.0 else DECEL
 	velocity.x = move_toward(velocity.x, target_vx, accel * delta)
 	velocity.z = move_toward(velocity.z, target_vz, accel * delta)
@@ -307,7 +291,7 @@ func _physics_process(delta: float) -> void:
 	_jump_buffer_timer = maxf(_jump_buffer_timer - delta, 0.0)
 	if _was_on_floor:
 		_coyote_timer = _COYOTE_TIME
-	if Input.is_action_just_pressed("jump"):
+	if Input.is_action_just_pressed("jump") and not swimming:
 		_jump_buffer_timer = _JUMP_BUFFER_TIME
 
 	if _jump_buffer_timer > 0.0 and _coyote_timer > 0.0:
@@ -341,7 +325,7 @@ func _physics_process(delta: float) -> void:
 	# instead of running on the spot.
 	_air_time = 0.0 if is_on_floor() else _air_time + delta
 	var want_anim: StringName = _HeroAnim.facing(_HeroAnim.pick(SaveManager.is_mounted, is_on_floor(),
-			_velocity_y, _air_time, _is_moving, _sprite.animation, _sprite.is_playing()), _back_facing)
+			_velocity_y, _air_time, _is_moving, _sprite.animation, _sprite.is_playing(), swimming), _back_facing)
 	if _sprite.animation != want_anim:
 		_sprite.play(want_anim)
 
@@ -349,7 +333,7 @@ func _physics_process(delta: float) -> void:
 	# swapped by _update_mount_visuals — mounted kicks more dust).
 	if _dust_particles != null:
 		_dust_particles.emitting = (_is_moving and is_on_floor()
-				and (SaveManager.is_mounted or _ambient_dust_on()))
+				and (SaveManager.is_mounted or swimming or _ambient_dust_on()))  # swimming: splashes
 	_tick_hoofbeats(delta)
 
 	_highlight_timer -= delta
@@ -377,6 +361,8 @@ func _squash_sprite(sx: float, sy: float, duration: float) -> void:
 ## Footsteps locked to the walk animation's contact frames (0 and 4 of the
 ## 8-frame cycle) instead of a fixed timer, so feet and sound stay in sync.
 func _on_sprite_frame_changed() -> void:
+	if _HeroAnim.is_swim(_sprite.animation) and _Swimming.is_stroke(_sprite.frame):
+		AudioManager.play_sfx_varied("footstep_water", 0.8)  # a stroke through the water
 	if SaveManager.is_mounted:
 		return
 	if not _HeroAnim.is_walk(_sprite.animation):
@@ -413,6 +399,8 @@ func _surface_underfoot() -> String:
 		biome = _InfiniteWorldGen.biome_for_chunk(floori(float(tx) / IsoConst.CHUNK_SIZE),
 				floori(float(tz) / IsoConst.CHUNK_SIZE), SaveManager.world_seed)
 		weather = WeatherManager.shown(WeatherManager.current_weather)
+	if _bog_underfoot() > _WaterMath.BOG_SLOW:
+		return "water"  # squelching through a bog (GID-174)
 	return _FootstepSurface.surface_for(tile, biome, map_name, weather)
 
 func _update_mount_visuals(mounted: bool) -> void:
@@ -423,6 +411,8 @@ func _update_mount_visuals(mounted: bool) -> void:
 		# is drawn over the horse rather than inside it. See _CAM_AXIS above.
 		if mounted:
 			_sprite_pose_pos = _sprite_base_pos + Vector3.UP * _RIDE_LIFT + _CAM_AXIS * _RIDE_DEPTH_LIFT
+		elif swimming:
+			_sprite_pose_pos = _sprite_base_pos + Vector3.DOWN * _Swimming.SINK  # legs under the surface
 		else:
 			_sprite_pose_pos = _sprite_base_pos
 		_sprite.position = _sprite_pose_pos + _pixel_offset
@@ -495,6 +485,16 @@ func _set_mount_facing(flipped: bool) -> void:
 func _on_equipment_changed(_slot: String, _item_id: String) -> void:
 	if _sprite != null:
 		_HeroAnim.wear(_sprite, _PaperDoll.frames_for(SaveManager))
+
+## Into or out of deep water (GID-172): the sprite sinks to the chest and the swim animations take over.
+func set_swimming(on: bool) -> void:
+	if on == swimming:
+		return
+	swimming = on
+	if on:
+		cancel_fall()
+	_update_mount_visuals(SaveManager.is_mounted)
+
 
 func _on_mount_state_changed(mounted: bool, _mount_id: String) -> void:
 	_update_mount_visuals(mounted)

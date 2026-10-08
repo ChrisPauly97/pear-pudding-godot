@@ -6,6 +6,7 @@ const GrassBlades   = preload("res://scenes/world/GrassBlades.gd")
 const TerrainMath   = preload("res://game_logic/TerrainMath.gd")
 const BiomeDef      = preload("res://game_logic/world/BiomeDef.gd")
 const _WaterMath    = preload("res://game_logic/world/WaterMath.gd")
+const _WaterEdgeProps = preload("res://game_logic/world/WaterEdgeProps.gd")
 const _TreeScatter  = preload("res://game_logic/world/TreeScatter.gd")
 const _ChunkStreamingManager = preload("res://scenes/world/ChunkStreamingManager.gd")
 const TextureGen    = preload("res://game_logic/TextureGen.gd")
@@ -19,6 +20,7 @@ const _WorldScene   = preload("res://scenes/world/WorldScene.gd")
 const _EnemyScene        = preload("res://scenes/world/entities/EnemyNPC.tscn")
 const _ChestScene        = preload("res://scenes/world/entities/Chest.tscn")
 const _DoorScene         = preload("res://scenes/world/entities/Door.tscn")
+const _Door              = preload("res://scenes/world/entities/Door.gd")
 const _TownspersonScene  = preload("res://scenes/world/entities/TownspersonNPC.tscn")
 const _MerchantScene     = preload("res://scenes/world/entities/MerchantNPC.tscn")
 const _BountyBoardScene  = preload("res://scenes/world/entities/BountyBoardNPC.tscn")
@@ -150,6 +152,10 @@ static func prepare_terrain(
 	# runtime noise in GLSL — guarantees visual/gameplay agreement on same seed.
 	# Streams/ponds (UV2.y, TID-524) ride along in biomes that have water.
 	var has_water: bool = _WaterMath.biome_has_water(chunk_data.biome_id)
+	var has_bog: bool = _WaterMath.biome_has_bog(chunk_data.biome_id)  # GID-174 (a water biome: rides CUSTOM0.z)
+	var bog_field := PackedFloat32Array()
+	if has_bog:
+		bog_field.resize(nvx * nvz)
 	var ley_field := PackedFloat32Array()
 	ley_field.resize(nvx * nvz)
 	var water_field := PackedFloat32Array()
@@ -171,11 +177,13 @@ static func prepare_terrain(
 				water_field[iz2 * nvx + ix2] = wv
 				if wv > 0.01:
 					flow_field[iz2 * nvx + ix2] = _WaterMath.flow_at(gx2, gz2, world_seed)
+			if has_bog:
+				bog_field[iz2 * nvx + ix2] = _WaterMath.bog_at(gx2, gz2, world_seed)
 
 	var terrain_res: Dictionary = TerrainMath.build_terrain_mesh(
 			hfield, grid_tile_lookup,
 			chunk_origin.x, chunk_origin.z,
-			nvx, nvz, step, IsoConst.HILL_PEAK_H, ley_field, water_field, flow_field)
+			nvx, nvz, step, IsoConst.HILL_PEAK_H, ley_field, water_field, flow_field, bog_field)
 
 	var wall_face_mesh: ArrayMesh = TerrainMath.build_wall_face_mesh(
 			grid_tile_lookup, grid_height_lookup,
@@ -192,6 +200,8 @@ static func prepare_terrain(
 			continue
 		if has_water and _WaterMath.wet_at(c.x, c.y, world_seed, dry_points):
 			continue
+		if has_bog and _WaterMath.bog_at(c.x, c.y, world_seed) > _WaterMath.BOG_POOL:
+			continue  # no tufts standing in a bog pool
 		kept.append(c)
 	grass_centres = kept
 	var grass_data: Dictionary = GrassBlades.prepare_buffers(grass_centres, Vector2i(chunk_data.cx, chunk_data.cz))
@@ -202,7 +212,7 @@ static func prepare_terrain(
 	prop_positions.merge(_TreeScatter.compute(
 			chunk_data, grid_tile_lookup, hfield, chunk_origin, nvx, world_seed, dry_points))
 	if has_water:
-		prop_positions.merge(_compute_water_edge_props(
+		prop_positions.merge(_WaterEdgeProps.compute(
 				chunk_data, grid_tile_lookup, hfield, chunk_origin, nvx, world_seed, dry_points))
 
 	return {
@@ -253,7 +263,7 @@ static func water_dry_points(chunk_data: _ChunkData, tile_grid: PackedInt32Array
 	var reach: float = _WaterMath.DRY_RADIUS + _WaterMath.DRY_FADE
 	var inner := Rect2(Vector2(c0) * ts + Vector2(reach, reach),
 			Vector2.ONE * (float(IsoConst.CHUNK_SIZE) * ts - reach * 2.0))
-	if not chunk_data.doors.is_empty() and hi.x >= lo.x:
+	if (chunk_data.has_ruin or not chunk_data.doors.is_empty()) and hi.x >= lo.x:
 		for tz: int in range(lo.y, hi.y + 1):
 			for tx: int in range(lo.x, hi.x + 1):
 				var p: Vector2 = (Vector2(tx, tz) + Vector2(0.5, 0.5)) * ts
@@ -329,49 +339,6 @@ static func _compute_prop_positions(
 				var dz: float = (float((hash_s >> 8) & 0xFF) / 255.0 - 0.5) * 0.9
 				arr.append(Vector3(base.x + dx, _TreeScatter.height_at_local(hfield, nvx, base.x + dx, base.z + dz),
 						base.z + dz))
-	return result
-
-## Reeds along stream banks and lily pads on still ponds (TID-643): up to four
-## candidate spots per grass tile, each kept by WaterMath.edge_prop.
-static func _compute_water_edge_props(
-		chunk_data: _ChunkData,
-		grid_tile_lookup: Callable,
-		hfield: PackedFloat32Array,
-		chunk_origin: Vector3,
-		nvx: int,
-		world_seed: int,
-		dry_points: _WaterMath.DryGrid) -> Dictionary:
-	const MAX_PER_TYPE: int = 40
-	var result: Dictionary = {"reed": [], "lily_pad": []}
-	var cx: int = chunk_data.cx
-	var cz: int = chunk_data.cz
-	var hash_s: int = (world_seed ^ (cx * 15731) ^ (cz * 789221) ^ 0x5bd1e995) & 0x7FFFFFFF
-	var ts: float = IsoConst.TILE_SIZE
-	for lz in range(IsoConst.CHUNK_SIZE):
-		for lx in range(IsoConst.CHUNK_SIZE):
-			var tile: int = grid_tile_lookup.call(cx * IsoConst.CHUNK_SIZE + lx, cz * IsoConst.CHUNK_SIZE + lz)
-			if tile != IsoConst.TILE_GRASS:
-				continue
-			for k in 4:
-				hash_s = (hash_s * 1103515245 + 12345 + k * 977) & 0x7FFFFFFF
-				var lpx: float = (float(lx) + 0.15 + 0.7 * float(hash_s & 0xFF) / 255.0) * ts
-				var lpz: float = (float(lz) + 0.15 + 0.7 * float((hash_s >> 8) & 0xFF) / 255.0) * ts
-				var wx: float = chunk_origin.x + lpx
-				var wz: float = chunk_origin.z + lpz
-				var w: float = _WaterMath.water_at(wx, wz, world_seed, dry_points)
-				if w <= _WaterMath.REED_MIN:
-					continue
-				var roll: float = float((hash_s >> 16) & 0x7FFF) / 32767.0
-				var key: String = _WaterMath.edge_prop(w, _WaterMath.flow_at(wx, wz, world_seed), roll)
-				if key == "" or not _WaterMath.edge_prop_ok(key, wx, wz):
-					continue
-				var arr: Array = result[key] as Array
-				if arr.size() >= MAX_PER_TYPE:
-					continue
-				var y: float = _TreeScatter.height_at_local(hfield, nvx, lpx, lpz)
-				if key == "lily_pad":
-					y -= _WaterMath.LILY_SINK
-				arr.append(Vector3(lpx, y, lpz))
 	return result
 
 # ── Main entry point (main thread only) ───────────────────────────────────
@@ -641,7 +608,7 @@ func _spawn_entities(world_scene: _WorldScene) -> void:
 		world_scene.register_chest(c_data["id"], node, c_data)
 
 	for d_data in _chunk_data.doors:
-		var node: Node3D = TerrainMath.spawn_entity(_DoorScene, d_data, 0.75, entity_root, world_scene)
+		var node: Node3D = TerrainMath.spawn_entity(_DoorScene, d_data, _Door.SPAWN_Y, entity_root, world_scene)
 		_set_visibility_range(node)
 		world_scene.register_door(d_data["id"], node, d_data)
 

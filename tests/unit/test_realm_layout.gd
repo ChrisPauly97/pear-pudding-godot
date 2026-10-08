@@ -3,6 +3,7 @@ extends "res://tests/framework/test_case.gd"
 
 const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
+const Rivers = preload("res://game_logic/world/Rivers.gd")
 
 func test_towns_do_not_overlap() -> void:
 	var names: Array[String] = RealmLayout.town_names()
@@ -80,7 +81,7 @@ func test_chunk_stamp_context_matches_full_stamp() -> void:
 					mismatches += 1
 				elif RealmLayout.town_at_tile(wtx, wtz) == "":
 					var d: float = RealmLayout.reserved_distance(wtx, wtz)
-					var want: Vector2i = Vector2i(IsoConst.TILE_PATH, 0) if d <= 0.0 \
+					var want: Vector2i = Vector2i(Rivers.road_tile(wtx, wtz), 0) if d <= 0.0 \
 							else (Vector2i(IsoConst.TILE_HILL, 7) if d >= RealmLayout.BLEND_MARGIN else full)
 					if full != want:
 						mismatches += 1

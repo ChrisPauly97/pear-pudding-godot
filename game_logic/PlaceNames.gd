@@ -26,6 +26,8 @@ const DUNGEON_ADJECTIVES: Array[String] = [
 const DUNGEON_NOUNS: Array[String] = [
 	"Crypt", "Barrow", "Vault", "Catacombs", "Warren", "Undercroft", "Tomb", "Cellars",
 ]
+## Cave interiors (`dungeon_cave_<seed>`, GID-173) take a cave noun instead.
+const CAVE_NOUNS: Array[String] = ["Cave", "Grotto", "Cavern", "Hollow", "Deeps", "Caves"]
 
 
 ## The name to show for `map_id`; empty for an empty id.
@@ -49,5 +51,6 @@ static func biome_title(biome_id: int) -> String:
 static func dungeon_title(map_id: String) -> String:
 	var h: int = absi(hash(map_id))
 	var adj: String = DUNGEON_ADJECTIVES[h % DUNGEON_ADJECTIVES.size()]
-	var noun: String = DUNGEON_NOUNS[(h / DUNGEON_ADJECTIVES.size()) % DUNGEON_NOUNS.size()]
+	var nouns: Array[String] = CAVE_NOUNS if map_id.begins_with("dungeon_cave_") else DUNGEON_NOUNS
+	var noun: String = nouns[(h / DUNGEON_ADJECTIVES.size()) % nouns.size()]
 	return "The %s %s" % [adj, noun]

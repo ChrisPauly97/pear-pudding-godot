@@ -48,6 +48,10 @@ func activate_skeleton_dig(quiet: bool = false) -> void:
 	var player: Node3D = _world._player
 	if player == null or not SceneManager.save_manager.has_learned(_UnlockLadder.FEAT_DIG):
 		return
+	if _world._player.swimming:
+		if not quiet:
+			GameBus.hud_message_requested.emit("You can't dig while swimming.")
+		return
 	var mound: Node3D = _world._find_nearby_burial_mound(player.position.x, player.position.z, IsoConst.INTERACT_RANGE)
 	if mound == null:
 		if _world.legend.try_dig(player.position.x, player.position.z):

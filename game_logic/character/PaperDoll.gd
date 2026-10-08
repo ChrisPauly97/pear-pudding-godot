@@ -19,7 +19,7 @@
 ##
 ## Animations (`ANIMS`): idle, an 8-frame walk (contact, down, pass, reach per
 ## leg), a 4-frame weapon swing (wind-up, strike, follow-through, recover),
-## jump (crouch, rise), fall, and land. A pose moves hands by offset, lifts and
+## jump (crouch, rise), fall, land, and swim / tread for deep water (GID-172). A pose moves hands by offset, lifts and
 ## steps legs, drops the body (`bob`) and angles the main-hand item (`wpn`,
 ## degrees clockwise from straight up; drawn upright then rotated about the
 ## grip). `build_frames()` caches SpriteFrames by look, so every co-op avatar
@@ -81,10 +81,22 @@ const ANIMS: Dictionary = {
 		{"bob": 2, "hand_r": Vector2i(1, 0), "hand_l": Vector2i(1, 0)},
 		{"bob": 1},
 	]},
+	# GID-172: in deep water the legs are under the surface (the sprite sinks), so only the
+	# arms read — an overarm crawl stroke, and treading water with the hands sculling.
+	"swim": {"fps": 6.0, "loop": true, "poses": [
+		{"hand_r": Vector2i(3, -7), "hand_l": Vector2i(-2, -1), "wpn": 70.0, "bob": 1},           # near arm reaches
+		{"hand_r": Vector2i(4, -2), "hand_l": Vector2i(-3, -4), "wpn": 90.0},                     # pull
+		{"hand_r": Vector2i(-1, 0), "hand_l": Vector2i(2, -7), "wpn": 60.0, "bob": 1},            # far arm reaches
+		{"hand_r": Vector2i(-3, -4), "hand_l": Vector2i(4, -2), "wpn": 40.0},                     # recover
+	]},
+	"tread": {"fps": 3.0, "loop": true, "poses": [
+		{"hand_r": Vector2i(2, -2), "hand_l": Vector2i(-1, -2)},
+		{"hand_r": Vector2i(1, -1), "hand_l": Vector2i(-2, -1), "bob": 1},
+	]},
 }
 
 ## Back-view animations (TID-618) → the side-view animation whose poses they reuse.
-const BACK_ANIMS: Dictionary = {"idle_back": "idle", "walk_back": "walk"}
+const BACK_ANIMS: Dictionary = {"idle_back": "idle", "walk_back": "walk", "swim_back": "swim", "tread_back": "tread"}
 
 ## Slots that change the hero's look. Rings are too small to read at 16 px.
 ## New slots go on the end: the co-op gear payload (`encode_gear`) is positional.

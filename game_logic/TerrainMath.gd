@@ -3,6 +3,8 @@
 class_name TerrainMath
 extends RefCounted
 
+const _TerrainChannels = preload("res://game_logic/TerrainChannels.gd")  # CUSTOM0 packing (flow, bog)
+
 # Shared terrain height, mesh, and wall-mesh building used by both the
 # named-map path (WorldScene) and the infinite-chunk path (ChunkRenderer).
 # Eliminates the three duplicate smoothstep implementations and the two
@@ -243,6 +245,7 @@ static func compute_height_field_grid(
 ## origin_x, origin_z: world-space origin (0 for named maps, chunk origin for chunks)
 ## ley_field: optional per-vertex ley intensity (UV2.x); empty = no ley glow
 ## flow_field: optional per-vertex stream current (CUSTOM0.xy, TID-642); empty = still water
+## bog_field: optional per-vertex bog intensity (CUSTOM0.z, GID-174; needs flow_field) — TerrainChannels
 ## Returns { "mesh": ArrayMesh, "hmap": HeightMapShape3D }
 static func build_terrain_mesh(
 		hfield: PackedFloat32Array,
@@ -252,7 +255,8 @@ static func build_terrain_mesh(
 		peak_h: float,
 		ley_field: PackedFloat32Array = PackedFloat32Array(),
 		water_field: PackedFloat32Array = PackedFloat32Array(),
-		flow_field: PackedVector2Array = PackedVector2Array()) -> Dictionary:
+		flow_field: PackedVector2Array = PackedVector2Array(),
+		bog_field: PackedFloat32Array = PackedFloat32Array()) -> Dictionary:
 	var total_verts: int = nvx * nvz
 	var has_ley: bool = ley_field.size() == total_verts
 	var has_water: bool = water_field.size() == total_verts  # UV2.y, GID-134 / TID-524
@@ -402,16 +406,10 @@ static func build_terrain_mesh(
 	arrays[Mesh.ARRAY_TEX_UV2]  = uv2s
 	arrays[Mesh.ARRAY_COLOR]    = colors
 	arrays[Mesh.ARRAY_INDEX]    = indices
-	var fmt: int = 0
-	if flow_field.size() == total_verts:
-		# Stream current rides in CUSTOM0 (RG float); skirts get still water.
-		var custom := PackedFloat32Array()
-		custom.resize(verts.size() * 2)
-		for i in range(total_verts):
-			custom[i * 2] = flow_field[i].x
-			custom[i * 2 + 1] = flow_field[i].y
-		arrays[Mesh.ARRAY_CUSTOM0] = custom
-		fmt = Mesh.ARRAY_CUSTOM_RG_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT
+	var c0: Dictionary = _TerrainChannels.custom0(flow_field, bog_field, total_verts, verts.size())
+	var fmt: int = int(c0.get("fmt", 0))
+	if not c0.is_empty():
+		arrays[Mesh.ARRAY_CUSTOM0] = c0["data"]
 	var terrain_mesh := ArrayMesh.new()
 	terrain_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, fmt)
 

@@ -1,7 +1,7 @@
 ## Picks the hero's PaperDoll animation each physics frame (GID-137).
 ##
 ## Pure so it can be unit-tested; `Player._physics_process` feeds it state.
-## Priority: mounted riders sit idle, then airborne (jump while rising, fall
+## Priority: swimmers swim / tread water (GID-172), mounted riders sit idle, then airborne (jump while rising, fall
 ## once airborne past a short grace so slope hops don't flicker), then a
 ## one-shot (swing / land) still playing, then walk / idle.
 extends RefCounted
@@ -12,11 +12,14 @@ const _SpriteOutline = preload("res://game_logic/SpriteOutline.gd")
 const FALL_GRACE: float = 0.1
 const ONE_SHOTS: Array[StringName] = [&"swing", &"land"]
 ## Side-view animation → its back-view twin (PaperDoll.BACK_ANIMS, TID-618).
-const BACK_OF: Dictionary = {&"idle": &"idle_back", &"walk": &"walk_back"}
+const BACK_OF: Dictionary = {&"idle": &"idle_back", &"walk": &"walk_back", &"swim": &"swim_back",
+	&"tread": &"tread_back"}
 
 
 static func pick(mounted: bool, on_floor: bool, vel_y: float, air_time: float, moving: bool,
-		current: StringName, playing: bool) -> StringName:
+		current: StringName, playing: bool, swimming: bool = false) -> StringName:
+	if swimming:
+		return &"swim" if moving else &"tread"
 	if mounted:
 		return &"idle"
 	if not on_floor:
@@ -29,7 +32,7 @@ static func pick(mounted: bool, on_floor: bool, vel_y: float, air_time: float, m
 	return &"walk" if moving else &"idle"
 
 
-## `anim` as seen from behind when `back` (only idle and walk have back views).
+## `anim` as seen from behind when `back` (idle, walk, swim and tread have back views).
 static func facing(anim: StringName, back: bool) -> StringName:
 	if back and BACK_OF.has(anim):
 		var b: StringName = BACK_OF[anim]
@@ -39,6 +42,10 @@ static func facing(anim: StringName, back: bool) -> StringName:
 
 static func is_walk(anim: StringName) -> bool:
 	return anim == &"walk" or anim == &"walk_back"
+
+
+static func is_swim(anim: StringName) -> bool:
+	return anim == &"swim" or anim == &"swim_back"
 
 
 ## Whether a ground direction heads up-screen (away from the camera, whose

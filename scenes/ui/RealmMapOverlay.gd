@@ -303,6 +303,7 @@ func _on_draw(c: Control) -> void:
 	_draw_sea(c)
 	var painted: bool = step_art(_ART_OPEN_BUDGET_USEC)
 	if painted:
+		# The painted terrain holds the rivers too (RealmMapArt reads WaterMath.sea_at, GID-172).
 		c.draw_texture_rect(_terrain_tex, Rect2(_tile_to_panel(Vector2(_terrain_rect.position)),
 			Vector2(_terrain_rect.size) * _scale), false)
 	else:

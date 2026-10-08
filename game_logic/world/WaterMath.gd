@@ -10,6 +10,7 @@ extends RefCounted
 
 const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const _Coast = preload("res://game_logic/world/Coast.gd")
+const _Rivers = preload("res://game_logic/world/Rivers.gd")
 
 const STREAM_FREQUENCY: float = 0.011
 const STREAM_WIDTH: float = 0.045     # |noise| below this is in the stream
@@ -19,6 +20,26 @@ const STREAM_SEED_OFFSET: int = 771133
 const POND_SEED_OFFSET: int = 193771
 ## Biomes with water: grasslands, forest, mountains (no desert/scorched streams).
 const WATER_BIOMES: Array[int] = [0, 1, 4]
+## Bogs (GID-174): blobs of a third, low-frequency noise on level ground in the grasslands
+## and forests — peat and murky pools that slow the hero. `bog_at` ramps from 0 at BOG_LEVEL
+## to 1 over BOG_RAMP; pools above BOG_POOL. Kept off towns, roads, rivers and the sea like streams.
+const BOG_FREQUENCY: float = 0.016
+const BOG_LEVEL: float = 0.26
+const BOG_RAMP: float = 0.14
+const BOG_POOL: float = 0.55
+const BOG_SEED_OFFSET: int = 552211
+const BOG_BIOMES: Array[int] = [0, 1]
+## Reeds stand in the peat round bog pools (bog between BOG_REED_MIN and BOG_POOL), chance per spot.
+const BOG_REED_MIN: float = 0.2
+const BOG_REED_CHANCE: float = 0.3
+## Gameplay (TID-705): above BOG_SLOW the hero wades through peat at BOG_SPEED_MULT speed (on foot or
+## mounted), tap-to-move pays BOG_PATH_COST per step, and a wild enemy spawning above BOG_HAG_LEVEL is a Bog Hag.
+const BOG_SLOW: float = 0.3
+const BOG_SPEED_MULT: float = 0.6
+const BOG_PATH_COST: float = 2.0
+const BOG_HAG_LEVEL: float = 0.3
+## Dead trees replace a bog's living ones above this (TreeScatter); none stand in its pools.
+const BOG_DEAD_TREES: float = 0.15
 ## Intensity above which a spot counts as "in the water" (grass, props, splashes).
 const WET_LEVEL: float = 0.3
 ## Keep water this far (world units) from structure tiles, fading over DRY_FADE.
@@ -43,7 +64,12 @@ const REED_MAX: float = 0.3
 const REED_CHANCE: float = 0.45
 const LILY_MIN: float = 0.6
 const LILY_CHANCE: float = 0.3
-## Lily pads float at the lowered water surface, not the bank height.
+## Rocks break the surface in fast river water (GID-172): water band, minimum current, chance.
+const ROCK_MIN: float = 0.36
+const ROCK_MAX: float = 0.6
+const ROCK_FLOW: float = 1.2
+const ROCK_CHANCE: float = 0.12
+## Lily pads (and river rocks) sit at the lowered water surface, not the bank height.
 const LILY_SINK: float = 0.18
 
 ## A chunk tile farther than this (tiles) from the chunk's centre tile can't
@@ -52,6 +78,7 @@ const CHUNK_REACH_TILES: float = 13.0
 
 static var _stream: FastNoiseLite = null
 static var _pond: FastNoiseLite = null
+static var _bog: FastNoiseLite = null
 static var _seed: int = -1
 static var _mutex := Mutex.new()
 
@@ -100,7 +127,8 @@ class DryGrid:
 static func chunk_context(points: PackedVector2Array, cx: int, cz: int) -> DryGrid:
 	var g := DryGrid.new(points)
 	var half: int = IsoConst.CHUNK_SIZE / 2
-	var d: float = RealmLayout.reserved_distance(cx * IsoConst.CHUNK_SIZE + half, cz * IsoConst.CHUNK_SIZE + half)
+	var d: float = RealmLayout.reserved_distance(cx * IsoConst.CHUNK_SIZE + half, cz * IsoConst.CHUNK_SIZE + half,
+			false)
 	g.realm_clear = d > REALM_DRY_TILES + CHUNK_REACH_TILES
 	return g
 
@@ -111,14 +139,35 @@ static func biome_has_water(biome_id: int) -> bool:
 	return WATER_BIOMES.has(biome_id)
 
 
-## 0 (dry) .. 1 (middle of a stream or pond, or out at sea) at world (wx, wz).
+static func biome_has_bog(biome_id: int) -> bool:
+	return BOG_BIOMES.has(biome_id)
+
+
+## Bog intensity 0..1 at world (wx, wz) in a chunk of biome `biome_id` (0 outside bog biomes).
+static func bog_in(biome_id: int, wx: float, wz: float, world_seed: int) -> float:
+	return bog_at(wx, wz, world_seed) if biome_has_bog(biome_id) else 0.0
+
+
+## Bog intensity ignoring biome: the noise ramp, faded to nothing near towns, roads, rivers and the sea.
+static func bog_at(wx: float, wz: float, world_seed: int) -> float:
+	_ensure(world_seed)
+	var b: float = clampf((_bog.get_noise_2d(wx, wz) - BOG_LEVEL) / BOG_RAMP, 0.0, 1.0)
+	if b <= 0.0:
+		return 0.0
+	var ts: float = IsoConst.TILE_SIZE
+	var d: float = RealmLayout.reserved_distance(int(floor(wx / ts)), int(floor(wz / ts)))
+	return b * smoothstep(1.0, REALM_DRY_TILES + 2.0, d)
+
+
+## 0 (dry) .. 1 (middle of a stream or pond, a river, or out at sea) at world (wx, wz).
 static func intensity(wx: float, wz: float, world_seed: int, realm_clear: bool = false) -> float:
-	return maxf(_inland(wx, wz, world_seed, realm_clear), _Coast.sea_water(wx, wz, IsoConst.TILE_SIZE))
+	return maxf(_inland(wx, wz, world_seed, realm_clear), sea_at(wx, wz))
 
 
-## The eastern sea (GID-171): never faded by towns, roads or structures — the quay meets it.
+## The eastern sea (GID-171) and the rivers (GID-172): never faded by towns, roads or
+## structures — the quay meets the sea, and a road crosses a river at a ford.
 static func sea_at(wx: float, wz: float) -> float:
-	return _Coast.sea_water(wx, wz, IsoConst.TILE_SIZE)
+	return maxf(_Coast.sea_water(wx, wz, IsoConst.TILE_SIZE), _Rivers.water(wx, wz))
 
 
 ## Streams and ponds only.
@@ -135,7 +184,7 @@ static func _inland(wx: float, wz: float, world_seed: int, realm_clear: bool) ->
 		return w
 	# Stitched story towns and their roads stay dry (GID-138).
 	var ts: float = IsoConst.TILE_SIZE
-	var d: float = RealmLayout.reserved_distance(int(floor(wx / ts)), int(floor(wz / ts)))
+	var d: float = RealmLayout.reserved_distance(int(floor(wx / ts)), int(floor(wz / ts)), false)
 	return w * smoothstep(1.0, REALM_DRY_TILES, d)
 
 
@@ -168,7 +217,7 @@ static func water_at(wx: float, wz: float, world_seed: int, dry: DryGrid) -> flo
 
 static func wet_at(wx: float, wz: float, world_seed: int, dry: DryGrid) -> bool:
 	if sea_at(wx, wz) > _Coast.SHORE_WATER - 0.04:
-		return true  # grass and props stop right at the sea's drawn shoreline
+		return true  # grass and props stop right at the sea's (and rivers') drawn shoreline
 	var clear: bool = dry != null and dry.realm_clear
 	var w: float = _inland(wx, wz, world_seed, clear)
 	if w <= WET_LEVEL:
@@ -183,7 +232,9 @@ static func wet_at(wx: float, wz: float, world_seed: int, dry: DryGrid) -> bool:
 ## keeps one orientation along the whole stream and across chunk borders.
 ## A steep gradient means a narrow stream, which runs faster.
 static func flow_at(wx: float, wz: float, world_seed: int) -> Vector2:
-	if sea_at(wx, wz) > 0.0:
+	if _Rivers.water(wx, wz) > 0.0:
+		return _Rivers.flow(wx, wz)  # a river carries its own current (GID-172)
+	if _Coast.sea_water(wx, wz, IsoConst.TILE_SIZE) > 0.0:
 		return Vector2.ZERO  # the sea is still water; no stream current across it
 	_ensure(world_seed)
 	var n: float = _stream.get_noise_2d(wx, wz)
@@ -206,27 +257,36 @@ static func flow_at(wx: float, wz: float, world_seed: int) -> Vector2:
 
 
 ## Water-edge dressing (TID-643) for one spot: "reed" on a bank (water just
-## below the wet line), "lily_pad" on still, deep pond water, else "". `roll`
+## below the wet line), "river_rock" in fast shallow-to-mid water (GID-172),
+## "lily_pad" on still, deep pond water, else "". `roll`
 ## is the caller's deterministic 0..1 hash for this spot.
 static func edge_prop(water: float, flow: Vector2, roll: float) -> String:
 	if water > REED_MIN and water < REED_MAX:
 		return "reed" if roll < REED_CHANCE else ""
+	if water > ROCK_MIN and water < ROCK_MAX and flow.length() > ROCK_FLOW:
+		return "river_rock" if roll < ROCK_CHANCE else ""
 	if water > LILY_MIN and flow == Vector2.ZERO:
 		return "lily_pad" if roll < LILY_CHANCE else ""
 	return ""
 
 
+## Bog dressing for one spot: "reed" in the peat round a pool, else "".
+static func bog_prop(bog: float, roll: float) -> String:
+	return "reed" if bog > BOG_REED_MIN and bog < BOG_POOL and roll < BOG_REED_CHANCE else ""
+
+
 ## Reeds and lily pads are freshwater: none along the sea's sand and quay (GID-171).
 static func edge_prop_ok(_key: String, wx: float, wz: float) -> bool:
-	return sea_at(wx, wz) <= 0.0 and _Coast.depth(wx / IsoConst.TILE_SIZE, wz / IsoConst.TILE_SIZE) < -1.0
+	var ts: float = IsoConst.TILE_SIZE
+	return _Coast.sea_water(wx, wz, ts) <= 0.0 and _Coast.depth(wx / ts, wz / ts) < -1.0
 
 
 static func _ensure(world_seed: int) -> void:
-	if _seed == world_seed and _stream != null:
+	if _seed == world_seed and _stream != null and _bog != null:
 		return
 	# Chunk builds run on worker threads; build the pair once per seed.
 	_mutex.lock()
-	if _seed != world_seed or _stream == null:
+	if _seed != world_seed or _stream == null or _bog == null:
 		var st := FastNoiseLite.new()
 		st.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
 		st.seed = world_seed + STREAM_SEED_OFFSET
@@ -235,6 +295,11 @@ static func _ensure(world_seed: int) -> void:
 		pd.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
 		pd.seed = world_seed + POND_SEED_OFFSET
 		pd.frequency = POND_FREQUENCY
+		var bg := FastNoiseLite.new()
+		bg.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+		bg.seed = world_seed + BOG_SEED_OFFSET
+		bg.frequency = BOG_FREQUENCY
+		_bog = bg
 		_stream = st
 		_pond = pd
 		_seed = world_seed

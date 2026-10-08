@@ -1,5 +1,6 @@
 extends RefCounted
 
+const IsoConst = preload("res://autoloads/IsoConst.gd")  # usable before autoloads register (-s runs)
 const ChunkData = preload("res://game_logic/world/ChunkData.gd")
 const BiomeDef  = preload("res://game_logic/world/BiomeDef.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
@@ -8,6 +9,10 @@ const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const StarterZone = preload("res://game_logic/world/StarterZone.gd")
 const RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
 const _Coast = preload("res://game_logic/world/Coast.gd")
+const _Rivers = preload("res://game_logic/world/Rivers.gd")
+const _RuinGen = preload("res://game_logic/world/RuinGen.gd")
+const _CaveSites = preload("res://game_logic/world/CaveSites.gd")
+const _WaterMath = preload("res://game_logic/world/WaterMath.gd")
 
 const NOISE_FREQ: float = 0.08  # base noise frequency; biome freq_scale multiplies the sampling coordinates
 
@@ -71,18 +76,17 @@ static func _get_biome_noise(world_seed: int) -> FastNoiseLite:
 	_biome_noise_seed = world_seed
 	return _biome_noise
 
-# Returns the biome ID for a given chunk coordinate.
+# Returns the biome ID for a given chunk coordinate; Rivers.biome_for adds the river rules (GID-172).
 static func biome_for_chunk(p_cx: int, p_cz: int, world_seed: int) -> int:
 	var dist: int = abs(p_cx) + abs(p_cz)
 	# Story towns (GID-138) and the sea's shore (GID-171: only water biomes draw water) are grasslands.
 	if (dist > SAFE_ZONE_DIST and RealmLayout.chunk_in_town(p_cx, p_cz)) or _Coast.touches_chunk(p_cx, p_cz):
 		return BiomeDef.GRASSLANDS
 	if dist <= SAFE_ZONE_DIST:
-		# Respect biome selection: use forced_start_biome if set, else default to Grasslands.
-		return forced_start_biome if forced_start_biome >= 0 else BiomeDef.GRASSLANDS
+		return _Rivers.biome_for(p_cx, p_cz, forced_start_biome if forced_start_biome >= 0 else BiomeDef.GRASSLANDS)
 	var n: float = _get_biome_noise(world_seed).get_noise_2d(float(p_cx), float(p_cz))
 	var v: float = (n + 1.0) * 0.5   # remap [-1,1] → [0,1]
-	return int(v * float(BiomeDef.COUNT)) % BiomeDef.COUNT
+	return _Rivers.biome_for(p_cx, p_cz, int(v * float(BiomeDef.COUNT)) % BiomeDef.COUNT)
 
 static func _chunk_seed(p_cx: int, p_cz: int, world_seed: int) -> int:
 	return (p_cx * 73856093) ^ (p_cz * 19349663) ^ world_seed
@@ -165,15 +169,18 @@ static func _append_realm_entities(chunk: ChunkData, p_cx: int, p_cz: int) -> vo
 # Generate full chunk with entities
 static func generate_chunk(p_cx: int, p_cz: int, world_seed: int) -> ChunkData:
 	var chunk := _gen_tile_data(p_cx, p_cz, world_seed)
-	_gen_ruins(chunk, p_cx, p_cz, world_seed)
+	_RuinGen.stamp(chunk, p_cx, p_cz, _chunk_seed(p_cx, p_cz, world_seed))
 	_gen_landmarks(chunk, p_cx, p_cz, world_seed)
 	_gen_entities(chunk, p_cx, p_cz, world_seed)
+	_CaveSites.add_to(chunk, p_cx, p_cz, _chunk_seed(p_cx, p_cz, world_seed))  # GID-173
 	chunk.is_generated = true
 	chunk.has_entities = true
 	return chunk
 
-## Enemies standing on a ley line are Imbued Stags in stag country and Riftborn Echoes in dry country.
+## Enemies standing on a ley line are Imbued Stags in stag country and Riftborn Echoes in dry country;
+## one standing in a bog is a Bog Hag (GID-174).
 static func enemy_type_at(pool_type: String, biome: int, wx: float, wz: float, world_seed: int) -> String:
+	if _WaterMath.bog_in(biome, wx, wz, world_seed) > _WaterMath.BOG_HAG_LEVEL: return "bog_hag"
 	if not TerrainMath.is_on_ley_line(wx, wz, world_seed): return pool_type
 	return "imbued_stag" if BiomeDef.LEY_STAG_BIOMES.has(biome) \
 			else ("rift_echo" if BiomeDef.LEY_ECHO_BIOMES.has(biome) else pool_type)
@@ -181,7 +188,7 @@ static func enemy_type_at(pool_type: String, biome: int, wx: float, wz: float, w
 # Generate tile/height data only (no entities) — used for border ring
 static func generate_chunk_data_only(p_cx: int, p_cz: int, world_seed: int) -> ChunkData:
 	var chunk := _gen_tile_data(p_cx, p_cz, world_seed)
-	_gen_ruins(chunk, p_cx, p_cz, world_seed)
+	_RuinGen.stamp(chunk, p_cx, p_cz, _chunk_seed(p_cx, p_cz, world_seed))
 	_gen_landmarks(chunk, p_cx, p_cz, world_seed)
 	chunk.is_generated = true
 	return chunk
@@ -230,99 +237,6 @@ static func _stamp_realm(chunk: ChunkData, p_cx: int, p_cz: int) -> void:
 					p_cz * IsoConst.CHUNK_SIZE + lz, chunk.get_tile(lx, lz), chunk.get_height(lx, lz))
 			chunk.set_tile(lx, lz, st.x)
 			chunk.set_height(lx, lz, st.y)
-
-static func _gen_ruins(chunk: ChunkData, p_cx: int, p_cz: int, world_seed: int) -> void:
-	var rng := RandomNumberGenerator.new()
-	rng.seed = _chunk_seed(p_cx, p_cz, world_seed) + 2
-
-	if RealmLayout.chunk_touches_realm(p_cx, p_cz):
-		return
-	# ~33% chance of a ruin per chunk
-	if rng.randi_range(0, 2) != 0:
-		return
-
-	# Inner size: 3x3 to 6x6 tiles; outer includes the wall ring
-	var inner_w: int = rng.randi_range(3, 6)
-	var inner_h: int = rng.randi_range(3, 6)
-	var outer_w: int = inner_w + 2
-	var outer_h: int = inner_h + 2
-
-	# Ensure the structure fits with a margin from chunk edges
-	const MARGIN: int = 2
-	if outer_w + MARGIN * 2 > IsoConst.CHUNK_SIZE or outer_h + MARGIN * 2 > IsoConst.CHUNK_SIZE:
-		return
-
-	var sx: int = rng.randi_range(MARGIN, IsoConst.CHUNK_SIZE - outer_w - MARGIN)
-	var sz: int = rng.randi_range(MARGIN, IsoConst.CHUNK_SIZE - outer_h - MARGIN)
-
-	# Wall heights: base 4–6 levels, corner towers get an extra 1–3 on top
-	var base_h: int = rng.randi_range(4, 6)
-	var corner_bonus: int = rng.randi_range(1, 3)
-
-	# Pick 1–2 door openings on the perimeter (not at corners)
-	var doors: Array[Vector2i] = []
-	var possible_doors: Array[Vector2i] = []
-	for i in range(1, outer_w - 1):
-		possible_doors.append(Vector2i(sx + i, sz))
-		possible_doors.append(Vector2i(sx + i, sz + outer_h - 1))
-	for i in range(1, outer_h - 1):
-		possible_doors.append(Vector2i(sx, sz + i))
-		possible_doors.append(Vector2i(sx + outer_w - 1, sz + i))
-	var door_count: int = rng.randi_range(1, 2)
-	for _d in range(door_count):
-		if possible_doors.is_empty():
-			break
-		var door_idx: int = rng.randi_range(0, possible_doors.size() - 1)
-		doors.append(possible_doors[door_idx])
-		possible_doors.remove_at(door_idx)
-
-	# Register each wall opening as a door entity pointing to a procedural dungeon
-	for door_pos in doors:
-		var wx: float = IsoConst.tile_center(p_cx * IsoConst.CHUNK_SIZE + door_pos.x)
-		var wz: float = IsoConst.tile_center(p_cz * IsoConst.CHUNK_SIZE + door_pos.y)
-		var dungeon_seed: int = abs(_chunk_seed(p_cx, p_cz, world_seed) ^ (door_pos.x * 1000003 + door_pos.y * 999983))
-		chunk.doors.append({
-			"id": "door_%d_%d_%d_%d" % [p_cx, p_cz, door_pos.x, door_pos.y],
-			"x": wx,
-			"z": wz,
-			"target_map": "dungeon_%d" % dungeon_seed,
-			"target_door_id": "entrance",
-		})
-
-	# Stamp the ruin — perimeter walls, flat interior floor
-	for lx in range(outer_w):
-		for lz in range(outer_h):
-			var tx: int = sx + lx
-			var tz: int = sz + lz
-			var on_perimeter: bool = lx == 0 or lx == outer_w - 1 or lz == 0 or lz == outer_h - 1
-
-			if not on_perimeter:
-				# Interior: clear to flat grass so the floor is walkable
-				chunk.set_tile(tx, tz, IsoConst.TILE_GRASS)
-				chunk.set_height(tx, tz, 0)
-				continue
-
-			var pos: Vector2i = Vector2i(tx, tz)
-			if pos in doors:
-				# Door opening — leave as grass
-				chunk.set_tile(tx, tz, IsoConst.TILE_GRASS)
-				chunk.set_height(tx, tz, 0)
-				continue
-
-			var is_corner: bool = (lx == 0 or lx == outer_w - 1) and (lz == 0 or lz == outer_h - 1)
-			if is_corner:
-				# Corner towers are always intact and slightly taller
-				chunk.set_tile(tx, tz, IsoConst.TILE_WALL)
-				chunk.set_height(tx, tz, base_h + corner_bonus)
-			else:
-				# 80% of wall segments remain; the rest have crumbled
-				if rng.randf() < 0.80:
-					var wall_h: int = base_h + rng.randi_range(-1, 1)
-					chunk.set_tile(tx, tz, IsoConst.TILE_WALL)
-					chunk.set_height(tx, tz, maxi(2, wall_h))
-				else:
-					chunk.set_tile(tx, tz, IsoConst.TILE_GRASS)
-					chunk.set_height(tx, tz, 0)
 
 static func _gen_entities(chunk: ChunkData, p_cx: int, p_cz: int, world_seed: int) -> void:
 	var rng := RandomNumberGenerator.new()

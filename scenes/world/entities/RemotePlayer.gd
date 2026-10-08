@@ -13,6 +13,7 @@ const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const _SpriteOutline = preload("res://game_logic/SpriteOutline.gd")
 const _PaperDoll = preload("res://game_logic/character/PaperDoll.gd")
 const _HeroAnim = preload("res://game_logic/character/HeroAnim.gd")
+const _Swimming = preload("res://game_logic/world/Swimming.gd")
 
 const _INTERP_RATE: float = 12.0
 const _DOWNED_TINT: Color = Color(0.35, 0.38, 0.45, 0.75)
@@ -23,6 +24,8 @@ var peer_id: int = 0
 ## Reference to WorldScene, set by WorldScene after spawning so we can query
 ## get_terrain_height(x, z) each frame. May be null before set.
 var world_scene: _WorldScene = null
+## Swimming (GID-172 / TID-698): derived locally from the avatar's position (fixed geography).
+var swimming: bool = false
 
 var _sprite: AnimatedSprite3D
 var _label: Label3D
@@ -51,6 +54,7 @@ var _is_downed: bool = false
 ## The peer's visible gear (GID-137 / TID-561), set by CoopAppearance.
 var _gear: Dictionary = {}
 var _look: Dictionary = {}  # PaperDoll appearance colours (TID-562)
+var _sprite_base_y: float = 0.0
 
 
 ## Called by WorldScene after instantiation. Expected keys: peer_id, x, z.
@@ -85,6 +89,7 @@ func _ready() -> void:
 	_SpriteOutline.apply_xray(_sprite)
 	_ContactShadow.register(self, _ContactShadow.radius_for_height(_SpriteRegistry.PLAYER_HEIGHT))
 	_sprite.play("idle")
+	_sprite_base_y = _sprite.position.y
 
 	# Billboard name tag floating above the sprite's head. no_depth_test keeps it
 	# visible over terrain; the top of the sprite is at 2 × its centre Y.
@@ -188,6 +193,11 @@ func _process(delta: float) -> void:
 	# stands in for the steering direction the local Player uses.
 	if _target_moving:
 		_back_facing = _HeroAnim.faces_away(Vector3(_net_velocity.x, 0.0, _net_velocity.y), _back_facing)
-	var want: StringName = _HeroAnim.facing(&"walk" if _target_moving else &"idle", _back_facing)
+	# Deep water: the peer is swimming — sunk to the chest, crawl / tread animations.
+	swimming = (world_scene != null and world_scene._is_infinite and world_scene.map_name == "main"
+			and _Swimming.deep_at(position.x, position.z))
+	_sprite.position.y = _sprite_base_y - (_Swimming.SINK if swimming else 0.0)
+	var want: StringName = _HeroAnim.facing(
+			_HeroAnim.pick(false, true, 0.0, 0.0, _target_moving, _sprite.animation, false, swimming), _back_facing)
 	if _sprite.animation != want:
 		_sprite.play(want)

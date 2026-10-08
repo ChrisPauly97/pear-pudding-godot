@@ -86,6 +86,12 @@ static func compute(chunk_data: _ChunkData, grid_tile_lookup: Callable, hfield: 
 			if blocked:
 				continue
 			var key: String = str(keys[(h >> 16) % keys.size()])
+			if _WaterMath.biome_has_bog(biome):  # GID-174: dead trees in a bog, none in its pools
+				var bog: float = _WaterMath.bog_at(wp.x, wp.y, world_seed)
+				if bog > _WaterMath.BOG_POOL:
+					continue
+				if bog > _WaterMath.BOG_DEAD_TREES:
+					key = "tree_dead"
 			if not result.has(key):
 				result[key] = []
 			(result[key] as Array).append(local)
