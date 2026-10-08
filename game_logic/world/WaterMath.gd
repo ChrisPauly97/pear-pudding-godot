@@ -32,6 +32,12 @@ const BOG_BIOMES: Array[int] = [0, 1]
 ## Reeds stand in the peat round bog pools (bog between BOG_REED_MIN and BOG_POOL), chance per spot.
 const BOG_REED_MIN: float = 0.2
 const BOG_REED_CHANCE: float = 0.3
+## Gameplay (TID-705): above BOG_SLOW the hero wades through peat at BOG_SPEED_MULT speed (on foot or
+## mounted), tap-to-move pays BOG_PATH_COST per step, and a wild enemy spawning above BOG_HAG_LEVEL is a Bog Hag.
+const BOG_SLOW: float = 0.3
+const BOG_SPEED_MULT: float = 0.6
+const BOG_PATH_COST: float = 2.0
+const BOG_HAG_LEVEL: float = 0.3
 ## Dead trees replace a bog's living ones above this (TreeScatter); none stand in its pools.
 const BOG_DEAD_TREES: float = 0.15
 ## Intensity above which a spot counts as "in the water" (grass, props, splashes).

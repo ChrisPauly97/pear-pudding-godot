@@ -65,10 +65,36 @@ PIGEON = {"a": rgb(150, 156, 172), "d": rgb(104, 108, 126), "n": rgb(92, 140, 12
           "k": rgb(70, 60, 60), "l": rgb(220, 112, 112), "t": rgb(90, 94, 110)}
 CHICKEN = {"w": rgb(244, 238, 226), "r": rgb(214, 40, 36), "e": rgb(20, 16, 20), "y": rgb(240, 180, 40),
            "o": rgb(232, 150, 40), "t": rgb(220, 212, 200)}
+# GID-174 bog critters
+FROG = {"g": rgb(92, 128, 54), "d": rgb(60, 90, 40), "b": rgb(196, 200, 120), "e": rgb(230, 200, 60),
+        "k": rgb(20, 16, 20)}
+WISP = {"o": rgb(170, 255, 225), "i": rgb(240, 255, 250), "h": rgb(110, 220, 200, 180)}
 CAT = {"a": rgb(206, 134, 62), "s": rgb(150, 88, 40), "e": rgb(120, 200, 90), "l": rgb(180, 112, 52),
        "t": rgb(196, 126, 58)}
 
 CRITTERS = {
+    "frog": [
+        ["....ek..",
+         "..gggggk",
+         ".ggdgggg",
+         "gbbbbgg.",
+         "d.d..d.d"],
+        ["...ek...",
+         ".gggggk.",
+         "ggdggggg",
+         "dbbbbbgd",
+         "........"],
+    ],
+    "wisp": [
+        [".h.",
+         "hih",
+         "oio",
+         ".o."],
+        ["...",
+         ".h.",
+         "hih",
+         "ooo"],
+    ],
     "pigeon": [
         ["........nn..",
          ".......nnek.",
@@ -473,9 +499,9 @@ if __name__ == "__main__":
     for key, frames in CRITTERS.items():
         pal = {"mouse": MOUSE, "rat": RAT, "butterfly": FLY, "bee": BEE, "scorched_larva": LARVA,
                "fawn": FAWN, "snow_rabbit": RABBIT, "blackened_adder": ADDER,
-               "pigeon": PIGEON, "chicken": CHICKEN, "cat": CAT}[key]
+               "pigeon": PIGEON, "chicken": CHICKEN, "cat": CAT, "frog": FROG, "wisp": WISP}[key]
         for i, rows in enumerate(frames):
-            build(rows, pal, shade=key not in ("butterfly", "bee")).save(
+            build(rows, pal, shade=key not in ("butterfly", "bee", "wisp")).save(
                 os.path.join(ROOT, "critters", "%s_%d.png" % (key, i)))
     for key, (rows, pal) in ENEMIES.items():
         idle = build(rows, pal)

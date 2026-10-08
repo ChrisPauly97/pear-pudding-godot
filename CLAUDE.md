@@ -38,6 +38,7 @@ Streets (gate → spawn trunks, door lanes) and grimy lit street lamps are gener
 Plain townsfolk walk those streets on a clock-derived daily schedule and towns get their own critters (`TownLife`, GID-156).
 Maykalene is a port: the eastern sea (`Coast`, GID-171) is reserved realm ground drawn as terrain water; deep water is swum (GID-172).
 Caves (`CaveSites` → `dungeon_cave_<seed>` built by `CaveGen`, GID-173) are the way underground; ruins (`RuinGen`) are scenery.
+Bogs (`WaterMath.bog_at` / `bog_in`, GID-174) in grassland/forest: baked into CUSTOM0.z (`TerrainChannels`), slow the hero, spawn bog hags, frogs and wisps.
 Three fixed rivers (`game_logic/world/Rivers.gd`, GID-172) run from mountain sources into that sea: reserved ground like
 the sea, folded into `WaterMath` (water + current) and `RealmLayout`; their chunks are forced to water biomes.
 

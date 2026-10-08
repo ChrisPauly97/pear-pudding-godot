@@ -113,3 +113,25 @@ func test_a_bog_chunk_bakes_peat_reeds_and_dead_trees() -> void:
 		"reeds or dead trees dress the bog")
 	assert_eq(WaterMath.bog_prop(0.4, 0.1), "reed")
 	assert_eq(WaterMath.bog_prop(0.8, 0.1), "", "no reeds out in the pool")
+
+
+func test_bog_critters_and_hags() -> void:
+	const CritterDef = preload("res://game_logic/world/CritterDef.gd")
+	assert_true(CritterDef.visible_now("frog", true) and CritterDef.visible_now("frog", false), "frogs day and night")
+	assert_false(CritterDef.visible_now("wisp", true), "will-o'-wisps hide by day")
+	assert_true(CritterDef.visible_now("wisp", false), "and drift at night")
+	assert_false(CritterDef.visible_now("butterfly", false), "day_only still works")
+	for r: int in 20:
+		assert_eq(CritterDef.species_for_bog(true, r), "frog", "only frogs by day")
+	var night: Dictionary = {}
+	for r: int in 20:
+		night[CritterDef.species_for_bog(false, r)] = true
+	assert_true(night.has("wisp") and night.has("frog"), "frogs and wisps at night")
+	assert_true(CritterDef.fits("frog", BiomeDef.DESERT, false, true), "bog critters fit in a bog")
+	assert_false(CritterDef.fits("frog", BiomeDef.GRASSLANDS, false, false), "but not out of one")
+	assert_eq((CritterDef.FRAMES["wisp"] as Array).size(), 2, "wisp sprite frames")
+	var p: Vector2 = _bog_spot(0.6)
+	assert_eq(InfiniteWorldGen.enemy_type_at("wolf_pack", BiomeDef.FOREST, p.x, p.y, SEED), "bog_hag",
+		"a wild enemy spawning in a bog is a bog hag")
+	assert_eq(InfiniteWorldGen.enemy_type_at("cactus_worm", BiomeDef.DESERT, p.x, p.y, SEED), "cactus_worm",
+		"no bog, no hag")

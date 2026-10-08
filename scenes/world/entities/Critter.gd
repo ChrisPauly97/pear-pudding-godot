@@ -59,6 +59,8 @@ func _ready() -> void:
 	_sprite.position.y = float(h_px) * px * 0.5 + 0.02
 	if species == "butterfly":
 		_sprite.modulate = _CritterDef.WING_TINTS[_rng.randi() % _CritterDef.WING_TINTS.size()]
+	elif _params.has("glow"):
+		_sprite.modulate = _params["glow"]  # will-o'-wisps (GID-174)
 	add_child(_sprite)
 	_SpriteOutline.apply(_sprite)
 	if bool(_params.get("fly", false)):

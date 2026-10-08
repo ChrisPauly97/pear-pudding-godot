@@ -1,7 +1,7 @@
 ## Ambient critters (CritterDef): keeps a handful of wildlife around the hero
 ## in the overworld — mice, rats, butterflies, bees, fawns, snow rabbits,
 ## scorched larvae, blackened adders by biome; pigeons, chickens and cats in
-## the stitched towns (GID-156). Scenery only: no battles, no
+## the stitched towns (GID-156); frogs and night will-o'-wisps in bogs (GID-174). Scenery only: no battles, no
 ## save state, not synced in co-op (each peer sees its own).
 extends Node
 
@@ -9,6 +9,7 @@ const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const _CritterDef = preload("res://game_logic/world/CritterDef.gd")
 const _Critter = preload("res://scenes/world/entities/Critter.gd")
 const _ChunkRenderer = preload("res://scenes/world/ChunkRenderer.gd")
+const _WaterMath = preload("res://game_logic/world/WaterMath.gd")
 
 const MAX_CRITTERS: int = 10
 const SPAWN_MIN: float = 8.0
@@ -44,22 +45,25 @@ func _process(delta: float) -> void:
 		_world.add_child(_root)
 	var hero: Vector3 = _world._player.global_position
 	var day: bool = _world._dnc == null or not _world._dnc.is_night_now()
+	var bog: bool = _in_bog(hero)
 	for n: Node in _root.get_children():
 		var c := n as _Critter
 		if c == null:
 			continue
 		var far: bool = Vector2(c.position.x - hero.x, c.position.z - hero.z).length() > DESPAWN_DIST
-		var hides: bool = not day and bool(_CritterDef.params(c.species).get("day_only", false))
-		var stray: bool = not _CritterDef.fits(c.species, _world._current_biome, _in_town())
+		var hides: bool = not _CritterDef.visible_now(c.species, day)
+		var stray: bool = not _CritterDef.fits(c.species, _world._current_biome, _in_town(), bog)
 		if far or hides or stray:
 			c.queue_free()
 	if _root.get_child_count() < MAX_CRITTERS:
-		_try_spawn(hero, day)
+		_try_spawn(hero, day, bog)
 
 
-func _try_spawn(hero: Vector3, day: bool) -> void:
+func _try_spawn(hero: Vector3, day: bool, bog: bool = false) -> void:
 	var key: String = (_CritterDef.species_for_town(day, _rng.randi()) if _in_town()
 			else _CritterDef.species_for(_world._current_biome, day, _rng.randi()))
+	if bog and not _in_town() and _rng.randf() < 0.6:
+		key = _CritterDef.species_for_bog(day, _rng.randi())
 	if key.is_empty():
 		return
 	var a: float = _rng.randf() * TAU
@@ -75,6 +79,11 @@ func _try_spawn(hero: Vector3, day: bool) -> void:
 
 func _hero_pos() -> Vector3:
 	return _world._player.global_position if _world != null and _world._player != null else Vector3.INF
+
+
+## The hero stands in or by a bog (bog critters, GID-174).
+func _in_bog(hero: Vector3) -> bool:
+	return _WaterMath.bog_in(_world._current_biome, hero.x, hero.z, _world.world_seed) > _CritterDef.BOG_NEAR
 
 
 ## The hero is in a stitched town (town critters, GID-156).

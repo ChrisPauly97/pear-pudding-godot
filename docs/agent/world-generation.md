@@ -286,6 +286,16 @@ Props: reeds in the peat round pools (`WaterMath.bog_prop`, 0.2–0.55, 30 %), v
 `game_logic/world/WaterEdgeProps.gd` (moved out of ChunkRenderer); TreeScatter swaps a bog's trees for `tree_dead`
 above `BOG_DEAD_TREES` 0.15 and plants none in pools.
 
+**Gameplay (TID-705).** Above `BOG_SLOW` 0.3 at the hero's feet (`Player._bog_underfoot`, overworld only, the
+chunk's biome via `WorldScene._current_biome`) movement is × `BOG_SPEED_MULT` 0.6 — mounted too, the horse just
+loses its edge (a deliberate change from the plan's "no mounting": dismounting at every bog edge felt punishing) —
+and footsteps use the "water" squelch. `TapToMove.step_cost` charges `BOG_PATH_COST` 2 per bog tile.
+`InfiniteWorldGen.enemy_type_at`: a wild enemy spawning above `BOG_HAG_LEVEL` 0.3 is a `bog_hag` (existing enemy).
+Critters: `CritterDef.BOG_CRITTERS` (frog; `wisp`, `night_only`, `glow` modulate) spawn 60 % of the time while the
+hero is within `BOG_NEAR` 0.1 of bog (`Critters._in_bog`); `visible_now` handles day_only / night_only; sprites from
+`scripts/gen_creature_sprites.py` (FROG / WISP templates). `tests/swim_smoke.gd` checks speed, squelch and path cost
+in a real scene.
+
 ### The eastern sea (`game_logic/world/Coast.gd`, GID-171)
 
 A bay of open water east of Maykalene, from the town's quay (world x 43) out to x ≈ 262, z 43..146.

@@ -1,7 +1,8 @@
 ## Headless smoke test for swimming (GID-172): in a real WorldScene, deep river water switches
 ## the hero to swimming (the Coastline module), the current carries them, and running out of
 ## stamina washes them up on the nearest shore at 1 HP. A co-op avatar in the same water swims too
-## (derived from its position, TID-698).
+## (derived from its position, TID-698). Bogs (GID-174): the hero wades slower and squelches, and
+## tap-to-move charges extra to cross one.
 ##
 ##   godot --headless --path . -s tests/swim_smoke.gd
 ##
@@ -12,6 +13,7 @@ const _WORLD_SCENE_PATH: String = "res://scenes/world/WorldScene.tscn"
 const _Rivers = preload("res://game_logic/world/Rivers.gd")
 const _Swimming = preload("res://game_logic/world/Swimming.gd")
 const IsoConst = preload("res://autoloads/IsoConst.gd")
+const _WaterMath = preload("res://game_logic/world/WaterMath.gd")
 const _SceneFlow = preload("res://game_logic/SceneFlow.gd")
 
 
@@ -106,4 +108,36 @@ func _run() -> Array[String]:
 		fails.append("hero HP after washing up is %.3f, not ~1 HP" % float(save.get("hero_hp_frac")))
 	if float(coast.get("stamina")) < 0.99:
 		fails.append("stamina not refilled after washing up")
+	await _check_bog(ws, player, fails)
 	return fails
+
+
+## GID-174: a deep bog near the start slows the hero and costs tap-to-move extra.
+func _check_bog(ws: Node, player: Node3D, fails: Array[String]) -> void:
+	var iwg: GDScript = load("res://game_logic/world/InfiniteWorldGen.gd")
+	var wseed: int = ws.get("world_seed")
+	var spot := Vector2.INF
+	for z: int in range(-200, 200, 2):
+		for x: int in range(-200, 200, 2):
+			var b: int = iwg.call("biome_for_chunk", floori(float(x) / 16.0), floori(float(z) / 16.0), wseed)
+			var wx: float = float(x) * 2.0 + 1.0
+			var wz: float = float(z) * 2.0 + 1.0
+			if spot == Vector2.INF and _WaterMath.bog_in(b, wx, wz, wseed) > 0.8:
+				spot = Vector2(wx, wz)
+	if spot == Vector2.INF:
+		fails.append("no deep bog within reach of the start (seed %d)" % wseed)
+		return
+	player.global_position = Vector3(spot.x, 1.0, spot.y)
+	await _wait(1500)
+	var dry: float = float(player.call("_get_move_speed")) / _WaterMath.BOG_SPEED_MULT
+	if float(player.call("_bog_underfoot")) <= _WaterMath.BOG_SLOW:
+		fails.append("the hero at %s isn't in the bog (biome %d)" % [str(spot), int(ws.get("_current_biome"))])
+	elif absf(float(player.call("_get_move_speed")) - dry * _WaterMath.BOG_SPEED_MULT) > 0.01 \
+			or float(player.call("_get_move_speed")) >= 6.0:
+		fails.append("the bog doesn't slow the hero (%.2f)" % float(player.call("_get_move_speed")))
+	if str(player.call("_surface_underfoot")) != "water":
+		fails.append("no squelch underfoot in the bog")
+	var t: Vector2i = IsoConst.world_to_tile(spot.x, spot.y)
+	var tap: Object = ws.get("tap_move")
+	if absf(float(tap.call("step_cost", t.x, t.y)) - _WaterMath.BOG_PATH_COST) > 0.001:
+		fails.append("tap-to-move doesn't charge extra in the bog")

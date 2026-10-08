@@ -13,6 +13,7 @@ const _VirtualJoystick = preload("res://scenes/ui/VirtualJoystick.gd")
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const _Rivers = preload("res://game_logic/world/Rivers.gd")
 const _Swimming = preload("res://game_logic/world/Swimming.gd")
+const _WaterMath = preload("res://game_logic/world/WaterMath.gd")
 const _TownDecor = preload("res://game_logic/world/TownDecor.gd")
 
 const DRAG_THRESHOLD: float = 30.0   # screen pixels; beyond this is a drag, not a tap
@@ -250,6 +251,14 @@ func tile_at(tx: int, tz: int) -> int:
 	return _world.get_tile_global(tx, tz)
 
 
-## A* step multiplier: deep water is swum (GID-172), so paths cross it only when that saves a long walk.
+## A* step multiplier: deep water is swum (GID-172) and bogs are waded (GID-174), so paths cross them
+## only when that saves a long walk.
 func step_cost(tx: int, tz: int) -> float:
-	return _Swimming.PATH_COST if _world._is_infinite and _Rivers.deep_water(tx, tz) else 1.0
+	if not _world._is_infinite:
+		return 1.0
+	if _Rivers.deep_water(tx, tz):
+		return _Swimming.PATH_COST
+	var wx: float = IsoConst.tile_center(tx)
+	var wz: float = IsoConst.tile_center(tz)
+	return _WaterMath.BOG_PATH_COST if _WaterMath.bog_in(_world._current_biome, wx, wz, _world.world_seed) \
+			> _WaterMath.BOG_SLOW else 1.0

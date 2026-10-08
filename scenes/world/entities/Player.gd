@@ -38,6 +38,7 @@ const _SpriteOutline = preload("res://game_logic/SpriteOutline.gd")
 
 const _HeroAnim = preload("res://game_logic/character/HeroAnim.gd")
 const _Swimming = preload("res://game_logic/world/Swimming.gd")
+const _WaterMath = preload("res://game_logic/world/WaterMath.gd")
 const _WalkCycle = preload("res://scenes/world/entities/WalkCycle.gd")
 const PIXEL_SIZE: float = 0.05     # larger per-pixel size to match 32px sprite scale
 
@@ -127,7 +128,17 @@ func _get_move_speed() -> float:
 	if SaveManager.current_map == "main" and TerrainMath.is_on_ley_line(
 			global_position.x, global_position.z, SaveManager.world_seed):
 		speed *= 1.15
+	if _bog_underfoot() > _WaterMath.BOG_SLOW:
+		speed *= _WaterMath.BOG_SPEED_MULT  # wading through peat (GID-174), mounted or not
 	return speed
+
+
+## Bog intensity at the hero's feet on the overworld (GID-174); 0 off it.
+func _bog_underfoot() -> float:
+	var world := get_tree().current_scene as _WorldScene if is_inside_tree() else null
+	if world == null or not world._is_infinite or SaveManager.current_map != "main":
+		return 0.0
+	return _WaterMath.bog_in(world._current_biome, global_position.x, global_position.z, SaveManager.world_seed)
 
 # Called by WorldScene after a tap-to-move path is found.
 func set_destination_path(waypoints: Array[Vector2i]) -> void:
@@ -388,6 +399,8 @@ func _surface_underfoot() -> String:
 		biome = _InfiniteWorldGen.biome_for_chunk(floori(float(tx) / IsoConst.CHUNK_SIZE),
 				floori(float(tz) / IsoConst.CHUNK_SIZE), SaveManager.world_seed)
 		weather = WeatherManager.shown(WeatherManager.current_weather)
+	if _bog_underfoot() > _WaterMath.BOG_SLOW:
+		return "water"  # squelching through a bog (GID-174)
 	return _FootstepSurface.surface_for(tile, biome, map_name, weather)
 
 func _update_mount_visuals(mounted: bool) -> void:

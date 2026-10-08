@@ -12,6 +12,7 @@ const _Coast = preload("res://game_logic/world/Coast.gd")
 const _Rivers = preload("res://game_logic/world/Rivers.gd")
 const _RuinGen = preload("res://game_logic/world/RuinGen.gd")
 const _CaveSites = preload("res://game_logic/world/CaveSites.gd")
+const _WaterMath = preload("res://game_logic/world/WaterMath.gd")
 
 const NOISE_FREQ: float = 0.08  # base noise frequency; biome freq_scale multiplies the sampling coordinates
 
@@ -176,8 +177,10 @@ static func generate_chunk(p_cx: int, p_cz: int, world_seed: int) -> ChunkData:
 	chunk.has_entities = true
 	return chunk
 
-## Enemies standing on a ley line are Imbued Stags in stag country and Riftborn Echoes in dry country.
+## Enemies standing on a ley line are Imbued Stags in stag country and Riftborn Echoes in dry country;
+## one standing in a bog is a Bog Hag (GID-174).
 static func enemy_type_at(pool_type: String, biome: int, wx: float, wz: float, world_seed: int) -> String:
+	if _WaterMath.bog_in(biome, wx, wz, world_seed) > _WaterMath.BOG_HAG_LEVEL: return "bog_hag"
 	if not TerrainMath.is_on_ley_line(wx, wz, world_seed): return pool_type
 	return "imbued_stag" if BiomeDef.LEY_STAG_BIOMES.has(biome) \
 			else ("rift_echo" if BiomeDef.LEY_ECHO_BIOMES.has(biome) else pool_type)
