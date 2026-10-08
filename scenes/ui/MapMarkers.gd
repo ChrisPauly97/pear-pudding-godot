@@ -35,3 +35,19 @@ static func draw_quest_mark(canvas: CanvasItem, at: Vector2, text: String, col: 
 	var base := at + Vector2(-w * 0.5, size * 0.36)
 	canvas.draw_string_outline(font, base, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, 4, Color.BLACK)
 	canvas.draw_string(font, base, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
+
+## A quest's area (QuestLog.zone_tiles): a translucent disc with a solid rim.
+## `clip` (optional polygon) trims it, e.g. to the minimap's round face.
+static func draw_zone(canvas: CanvasItem, at: Vector2, r: float, col: Color,
+		clip: PackedVector2Array = PackedVector2Array()) -> void:
+	var ring := PackedVector2Array()
+	for i: int in range(40):
+		ring.append(at + Vector2.from_angle(TAU * i / 40.0) * r)
+	var polys: Array[PackedVector2Array] = [ring]
+	if not clip.is_empty():
+		polys = Geometry2D.intersect_polygons(ring, clip)
+	for poly: PackedVector2Array in polys:
+		canvas.draw_colored_polygon(poly, Color(col, 0.22))
+		var edge := poly.duplicate()
+		edge.append(poly[0])
+		canvas.draw_polyline(edge, Color(col, 0.85), 2.0, true)

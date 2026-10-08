@@ -212,6 +212,12 @@ func _draw_waypoint(c: Control) -> void:
 
 
 func _draw_quests(c: Control, font: Font) -> void:
+	for q: Dictionary in _quests:  # areas first, under every pin
+		var zone: float = _QuestLog.zone_tiles(q)
+		var at: Variant = _QuestLog.world_pos(q, _map_name, _player_pos()) if zone > 0.0 else null
+		if at != null:
+			_MapMarkers.draw_zone(c, _tile_to_panel(_world_to_tile(at as Vector3)), zone * _scale,
+				_QuestLog.kind_color(str(q.get("kind", ""))))
 	for q: Dictionary in _quests:
 		var raw: Variant = _QuestLog.world_pos(q, _map_name, _player_pos())
 		if raw == null:

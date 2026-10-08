@@ -46,6 +46,7 @@ var _door_nodes: Dictionary
 var _npc_nodes: Dictionary
 var _half: float   # half the minimap pixel dimension
 var _scale: float  # pixels per world unit
+var _disc := PackedVector2Array()  # round face, built on first use (_disc_clip)
 var _minimap_frame_counter: int = 0
 
 
@@ -240,6 +241,14 @@ func _inside_minimap(dot: Vector2, center: Vector2) -> bool:
 	return dot.distance_squared_to(center) <= limit * limit
 
 
+## The minimap's round face as a polygon, for clipping quest areas.
+func _disc_clip() -> PackedVector2Array:
+	if _disc.is_empty():
+		for i: int in range(48):
+			_disc.append(Vector2(_half, _half) + Vector2.from_angle(TAU * i / 48.0) * _half * 0.94)
+	return _disc
+
+
 func _draw_waypoint(canvas: Control, origin: Vector3) -> void:
 	var wp: Dictionary = SceneManager.save_manager.waypoint
 	if wp.is_empty():
@@ -274,6 +283,10 @@ func _draw_quests(canvas: Control, origin: Vector3) -> void:
 		if raw == null:
 			continue
 		var dot: Vector2 = _to_minimap(raw as Vector3, origin)
+		var zone: float = _QuestLog.zone_tiles(q)
+		if zone > 0.0:
+			_MapMarkers.draw_zone(canvas, dot, zone * IsoConst.TILE_SIZE * _scale,
+					_QuestLog.kind_color(str(q.get("kind", ""))), _disc_clip())
 		if not _inside_minimap(dot, center):
 			dot = center + (dot - center).normalized() * (_half * 0.86)
 		var col: Color = _QuestLog.kind_color(str(q.get("kind", "")))

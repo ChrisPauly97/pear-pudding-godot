@@ -22,6 +22,12 @@ const _BountyGen = preload("res://game_logic/BountyGen.gd")
 const _SideQuests = preload("res://game_logic/quests/SideQuests.gd")
 const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 
+## Radius (tiles) of the shaded quest area the maps draw around an area objective
+## (a kill objective's camp: its CAMP_CLEAR_RADIUS clearing plus wander room).
+const ZONE_TILES: float = 9.0
+## Objective types done anywhere inside an area, not at one spot.
+const _ZONE_TYPES: Array[String] = ["kill"]
+
 const STORY_ID: String = "story"
 const TREASURE_ID: String = "treasure"
 const BOUNTY_PREFIX: String = "bounty:"
@@ -119,6 +125,7 @@ static func side_quest(entry: Dictionary) -> Dictionary:
 	var ready: bool = bool(entry.get("ready", false))
 	var label: String = ""
 	var targets: Array[Dictionary] = []
+	var zone: float = 0.0
 	var objs: Array[Dictionary] = _SideQuests.objectives(q)
 	if ready:
 		var npc_id: String = _SideQuests.turn_in_npc(q)
@@ -134,6 +141,8 @@ static func side_quest(entry: Dictionary) -> Dictionary:
 			label = str(objs[i].get("label", ""))
 			if objs[i].has("map"):
 				targets.append(objs[i])
+				if _ZONE_TYPES.has(str(objs[i].get("type", ""))):
+					zone = ZONE_TILES
 			elif str(objs[i].get("type", "")) == "talk":
 				var nt: Dictionary = npc_target(str(objs[i].get("target", "")))
 				if not nt.is_empty():
@@ -142,7 +151,7 @@ static func side_quest(entry: Dictionary) -> Dictionary:
 	return {
 		"id": SIDE_PREFIX + str(q.get("id", "")), "kind": "side", "title": str(q.get("title", "")),
 		"label": label, "giver": str(q.get("giver_name", "")), "summary": str(q.get("summary", "")),
-		"progress": _SideQuests.progress_text(q, progress), "targets": targets,
+		"progress": _SideQuests.progress_text(q, progress), "targets": targets, "zone": zone,
 	}
 
 ## Overworld tile target of the stitched-town NPC with entity id `npc_id`, or {}.
@@ -208,6 +217,10 @@ static func world_pos(quest: Dictionary, map_name: String, from: Vector3) -> Var
 			best_d = d
 			best = pos
 	return best
+
+## Radius in tiles of the quest's shaded area on the maps; 0 = a single spot.
+static func zone_tiles(quest: Dictionary) -> float:
+	return float(quest.get("zone", 0.0))
 
 ## True when the quest has somewhere to point at (in the overworld).
 static func has_target(quest: Dictionary) -> bool:
