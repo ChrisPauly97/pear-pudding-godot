@@ -735,16 +735,25 @@ func _grow_hero_hp(h: HeroState, level: int) -> void:
 
 ## An enemy's hero gains `enemy_hp_per_level` × max HP per level above 1 (on top
 ## of the zone scaling), and `gap_hp` × more per level it is above the player
-## (less below, never under half). Health keeps its fraction (TID-718).
+## (less below, never under half). Its pack units already on the board scale the
+## same way, so a pack keeps pace with its leader (BID-095). Health keeps its fraction.
 func _gap_enemy_hp(h: HeroState, level: int) -> void:
 	var gap: int = level - _level_of(PLAYER)
 	var mult: float = maxf(0.5, 1.0 + tune.get_f("gap_hp") * float(gap)) \
 			* (1.0 + tune.get_f("enemy_hp_per_level") * float(maxi(0, level - 1)))
-	if is_equal_approx(mult, 1.0) or h.max_health <= 0:
+	if is_equal_approx(mult, 1.0):
 		return
-	var frac: float = float(h.health) / float(h.max_health)
-	h.max_health = maxi(1, roundi(float(h.max_health) * mult))
-	h.health = clampi(roundi(frac * float(h.max_health)), 1 if h.health > 0 else 0, h.max_health)
+	if h.max_health > 0:
+		var frac: float = float(h.health) / float(h.max_health)
+		h.max_health = maxi(1, roundi(float(h.max_health) * mult))
+		h.health = clampi(roundi(frac * float(h.max_health)), 1 if h.health > 0 else 0, h.max_health)
+	for p: PlayerState in state.players:
+		if p.hero != h:
+			continue
+		for c: CardInstance in p.board.get_cards():
+			var hp: int = maxi(1, roundi(float(c.max_health) * mult))
+			c.health = clampi(c.health + hp - c.max_health, 1, hp)
+			c.max_health = hp
 
 ## A side's level (1 if unknown).
 func _level_of(side: int) -> int:

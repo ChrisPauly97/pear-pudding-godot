@@ -41,7 +41,7 @@ const DEFS: Array = [
 	["enemy_low_scale", "Heavy / spell strength at the lowest level", 0.3, 0.1, 1.0, 0.05, "Enemy"],
 	["enemy_hp_per_level", "Extra enemy HP per level above 1 (x)", 0.18, 0.0, 0.5, 0.01, "Enemy"],
 	["gap_hp", "Enemy HP per level it is above you (x)", 0.12, 0.0, 1.0, 0.05, "Enemy"],
-	["gap_damage", "Enemy damage per level it is above you (x)", 0.08, 0.0, 1.0, 0.05, "Enemy"],
+	["gap_damage", "Enemy damage per level it is above you (x)", 0.1, 0.0, 1.0, 0.05, "Enemy"],
 	["enemy_two_minions_level", "Enemy level fielding 2 minions", 5.0, 1.0, 20.0, 1.0, "Enemy"],
 	["siphon_per_damage", "Mana siphoned per damage you deal", 15.0, 0.0, 60.0, 1.0, "Momentum"],
 	["fighting_regen_mult", "Regen multiplier while fighting", 0.4, 0.0, 2.0, 0.05, "Momentum"],

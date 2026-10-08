@@ -395,10 +395,11 @@ changes them. Knobs (CombatTuning, Enemy group):
 | `enemy_low_scale` | 0.3 | Strength at level 1; `CombatTuning.level_scale(L)` lerps to 1 at `enemy_full_level` |
 | `enemy_two_minions_level` | 5 | Below this an enemy fields one minion |
 | `enemy_hp_per_level` | 0.18 | Extra enemy hero HP (× max) per level above 1, on top of the zone's 6 % (TID-718) |
-| `gap_hp` / `gap_damage` | 0.12 / 0.08 | Per level an enemy is above you: × more HP / damage (swings, heavies, spells); below you, less (≥ half) |
+| `gap_hp` / `gap_damage` | 0.12 / 0.10 | Per level an enemy is above you: × more HP / damage (swings, heavies, spells); below you, less (≥ half) |
 | `hp_per_level` | 5 | Your hero's max HP per level above 1 (keeps its HP fraction) |
 | `enemy_unarmed` | 2 | Enemy hero swing damage (+ tier − 1); raised back from 1 with GID-178's faster player pacing |
 
+Pack units on the board scale with level / gap like their hero; per-type `rt_hp_mult` (EnemyRegistry, real time only) trims outliers (BID-095).
 Chapter 1 types (`EnemyRegistry.LEVEL_RANGES`) fight at tier 1 (`BattleSetup.base_tier`); their strength comes from
 level. Opening hands never fatigue (`PlayerState.draw_opening_hand`).
 

@@ -368,6 +368,7 @@ func join_enemy(enemy_data: Dictionary) -> bool:
 	if is_boss and bhp > 0:
 		ps.hero.health = bhp
 		ps.hero.max_health = bhp
+	_BattleSetup.scale_enemy_hp(ps, _EnemyRegistry.rt_hp_mult(etype))  # BID-095 per-type tuning
 	var side: int = rt.add_enemy(ps, enemy_level_for_tier(tier))
 	if side < 0:
 		return false

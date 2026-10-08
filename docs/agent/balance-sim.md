@@ -146,6 +146,12 @@ Techniques start in hand and return on cooldowns (Strike 3 s, 2 dmg), so the pla
 mean 80 % (bog hag 88, forest shade 100, ghoul pack 100, imbued stag 60, martarquas scout 30, undead 68,
 horde 100, wolves 98). The scout is the new hard outlier (BID-095).
 
+### After TID-727 (BID-095 outliers)
+
+Pack units scale with level / gap like their leader; per-type `rt_hp_mult` (EnemyRegistry) trims the scout
+(0.85), stag (0.9) and ghoul pack (0.95); `gap_damage` 0.10. One level up, mean per type: 68–91 % for every
+Chapter 1 type except the leaderless horde (100 %, still open in BID-095). Bands mean 82 %.
+
 ## CI balance bands (TID-717)
 
 `game_logic/battle/BalanceBands.gd` turns the targets into checks. Cells: one per Chapter 1 type at a level

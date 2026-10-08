@@ -11,6 +11,7 @@ extends RefCounted
 const GameState = preload("res://game_logic/battle/GameState.gd")
 const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
+const HeroState = preload("res://game_logic/battle/HeroState.gd")
 const RealtimeCombat = preload("res://game_logic/battle/RealtimeCombat.gd")
 const CombatTuning = preload("res://game_logic/battle/CombatTuning.gd")
 const CombatOnboarding = preload("res://game_logic/battle/CombatOnboarding.gd")
@@ -200,6 +201,22 @@ static func configure_realtime(rt: RealtimeCombat, player_level: int, enemy_type
 	rt.offhand_damage[RealtimeCombat.PLAYER] = offhand_damage
 	if EnemyRegistry.is_passive(enemy_type):
 		rt.set_passive(RealtimeCombat.ENEMY)
+	scale_enemy_hp(rt.state.players[RealtimeCombat.ENEMY], EnemyRegistry.rt_hp_mult(enemy_type))
+
+## Multiplies an enemy side's hero and board-unit HP by `mult` (per-type
+## real-time tuning, `EnemyRegistry.rt_hp_mult` — BID-095). Health keeps its fraction.
+static func scale_enemy_hp(p: PlayerState, mult: float) -> void:
+	if is_equal_approx(mult, 1.0):
+		return
+	var h: HeroState = p.hero
+	if h.max_health > 0:
+		var frac: float = float(h.health) / float(h.max_health)
+		h.max_health = maxi(1, roundi(float(h.max_health) * mult))
+		h.health = clampi(roundi(frac * float(h.max_health)), 1 if h.health > 0 else 0, h.max_health)
+	for c: CardInstance in p.board.get_cards():
+		var hp: int = maxi(1, roundi(float(c.max_health) * mult))
+		c.health = clampi(c.health + hp - c.max_health, 1, hp)
+		c.max_health = hp
 
 ## Real time: every technique card starts in the opening hand (on top of the
 ## trimmed hand), like abilities on a bar; after use each returns on its own

@@ -90,6 +90,7 @@ static func _ensure_loaded() -> void:
 			"capture_param": 10,
 		},
 		"ghoul_pack": {
+			"rt_hp_mult": 0.95,  # BID-095: real-time balance vs its level band
 			"display_name": "Ghoul Pack Leader",
 			"deck": ["ghoul", "ghoul", "ghoul", "ghoul", "zombie", "zombie", "zombie", "zombie", "skeleton", "skeleton",
 					"skeleton", "skeleton"],
@@ -168,6 +169,7 @@ static func _ensure_loaded() -> void:
 					+ "warm brushes past, then rears up and lashes out. Its spines break off in whatever it strikes."),
 		},
 		"imbued_stag": {
+			"rt_hp_mult": 0.9,  # BID-095: real-time balance vs its level band
 			"display_name": "Imbued Stag",
 			"deck": ["ghost", "ghost", "ghoul", "ghoul", "flux_kinetic_bolt", "flux_kinetic_bolt", "flux_momentum",
 					"flux_momentum", "thorn_thorn_volley", "bloom_germinate", "bloom_germinate"],
@@ -417,6 +419,7 @@ static func _ensure_loaded() -> void:
 			"signature_card": "sig_cauldron_toad", "capture_condition": "hero_hp_at_least", "capture_param": 20,
 		},
 		"martarquas_scout": {
+			"rt_hp_mult": 0.85,  # BID-095: real-time balance vs its level band
 			"display_name": "Martarquas Scout",
 			"deck": ["dagger_throw", "dagger_throw", "dagger_throw", "shadow_bolt", "shadow_bolt", "brittle",
 					"brittle", "skeleton", "skeleton", "ghost", "ghost"],
@@ -714,6 +717,13 @@ static func get_ai_persona(type_id: String) -> String:
 ## TID-557: true for enemies that never cast or swing in real-time combat (the
 ## training dummy). `BattleRealtime.maybe_start` forwards this to
 ## `RealtimeCombat.set_passive`.
+## Real-time per-type HP multiplier (hero + pack units), content tuning that
+## evens a type out against its level band (BID-095). 1.0 when unset.
+static func rt_hp_mult(type_id: String) -> float:
+	_ensure_loaded()
+	var data: Dictionary = _enemies.get(type_id, {})
+	return float(data.get("rt_hp_mult", 1.0))
+
 static func is_passive(type_id: String) -> bool:
 	_ensure_loaded()
 	if _enemies.has(type_id):

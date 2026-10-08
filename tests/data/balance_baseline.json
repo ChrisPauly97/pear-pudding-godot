@@ -8,7 +8,7 @@
 		"bog_hag@7+1": {
 			"median_s": 42.0499999999997,
 			"n": 40,
-			"win_rate": 0.875
+			"win_rate": 0.85
 		},
 		"forest_shade@6+0": {
 			"median_s": 30.0500000000003,
@@ -26,29 +26,29 @@
 			"win_rate": 1.0
 		},
 		"ghoul_pack@4+1": {
-			"median_s": 36.4000000000001,
+			"median_s": 39.3999999999999,
 			"n": 40,
-			"win_rate": 1.0
+			"win_rate": 0.875
 		},
 		"imbued_stag@8+0": {
-			"median_s": 39.0499999999999,
+			"median_s": 35.3500000000001,
 			"n": 20,
 			"win_rate": 1.0
 		},
 		"imbued_stag@8+1": {
-			"median_s": 45.0499999999996,
+			"median_s": 41.5499999999998,
 			"n": 40,
-			"win_rate": 0.6
+			"win_rate": 0.725
 		},
 		"martarquas_scout@9+0": {
-			"median_s": 41.3499999999998,
+			"median_s": 35.1000000000001,
 			"n": 20,
 			"win_rate": 1.0
 		},
 		"martarquas_scout@9+1": {
 			"median_s": 42.0499999999997,
 			"n": 40,
-			"win_rate": 0.3
+			"win_rate": 0.625
 		},
 		"undead_basic@1+0": {
 			"median_s": 24.6000000000002,
@@ -58,15 +58,15 @@
 		"undead_basic@1+1": {
 			"median_s": 33.0500000000003,
 			"n": 40,
-			"win_rate": 0.675
+			"win_rate": 0.55
 		},
 		"undead_horde@3+0": {
-			"median_s": 6.04999999999999,
+			"median_s": 9.04999999999999,
 			"n": 20,
 			"win_rate": 1.0
 		},
 		"undead_horde@3+1": {
-			"median_s": 6.04999999999999,
+			"median_s": 9.09999999999999,
 			"n": 40,
 			"win_rate": 1.0
 		},
@@ -81,5 +81,5 @@
 			"win_rate": 0.975
 		}
 	},
-	"measured_at": "eda5c80"
+	"measured_at": "2e4e7a7"
 }

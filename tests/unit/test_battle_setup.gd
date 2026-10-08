@@ -124,3 +124,32 @@ func test_techniques_start_in_hand() -> void:
 	for id: String in ["tech_strike", "tech_mend", "tech_kick"]:
 		assert_true(_ids(me.hand).has(id), id + " in the opening hand")
 		assert_false(_ids(me.draw_deck).has(id))
+
+## BID-095: a pack's units scale with level / gap like their hero.
+func test_pack_units_scale_with_the_gap() -> void:
+	var same: GameState = BattleSetup.build({"seed": 5, "player_level": 5, "enemy_level": 5,
+		"enemy_type": "ghoul_pack"})["state"]
+	var above: GameState = BattleSetup.build({"seed": 5, "player_level": 4, "enemy_level": 5,
+		"enemy_type": "ghoul_pack"})["state"]
+	var a: Array[CardInstance] = same.players[1].board.get_cards()
+	var b: Array[CardInstance] = above.players[1].board.get_cards()
+	assert_false(a.is_empty())
+	var hp_same: int = 0
+	var hp_above: int = 0
+	for c: CardInstance in a:
+		hp_same += c.max_health
+	for c: CardInstance in b:
+		hp_above += c.max_health
+		assert_eq(c.health, c.max_health, "pack starts full")
+	assert_gt(hp_above, hp_same)
+
+## BID-095: per-type real-time HP tuning (EnemyRegistry.rt_hp_mult).
+func test_type_hp_mult_applies() -> void:
+	var p := PlayerState.new(1, false)
+	p.hero.max_health = 40
+	p.hero.health = 40
+	BattleSetup.scale_enemy_hp(p, 0.85)
+	assert_eq(p.hero.max_health, 34)
+	assert_eq(p.hero.health, 34)
+	assert_lt(EnemyRegistry.rt_hp_mult("martarquas_scout"), 1.0)
+	assert_eq(EnemyRegistry.rt_hp_mult("undead_basic"), 1.0)
