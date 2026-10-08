@@ -14,6 +14,7 @@ signal closed
 signal fast_travel_requested
 
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
+const _UiTheme = preload("res://scenes/ui/UiTheme.gd")
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
 const _LongPressTracker = preload("res://scenes/ui/LongPressTracker.gd")
@@ -340,15 +341,26 @@ func _on_draw(c: Control) -> void:
 		c.draw_circle(pp, 6.0, Color.WHITE)
 
 
-## The town's name on a dark ribbon above its plan.
-func _draw_town_banner(c: Control, font: Font, town: String, rect: Rect2) -> void:
+## The town's name above its plan in the Cinzel title face, gold on a dark
+## outline, growing a little as the map zooms in.
+func _draw_town_banner(c: Control, _font: Font, town: String, rect: Rect2) -> void:
+	var font: Font = _UiTheme.title_font()
 	var text: String = town.replace("_", " ").capitalize()
-	var fs: int = _font_size + 2
+	var fs: int = int(_font_size * lerpf(1.25, 2.0, (_zoom - 1.0) / (MAX_ZOOM - 1.0)))
 	var tw: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-	var at := Vector2(rect.get_center().x - tw * 0.5, rect.position.y - fs * 0.35)
-	c.draw_rect(Rect2(at + Vector2(-6.0, -fs * 0.95), Vector2(tw + 12.0, fs * 1.3)), Color(0.08, 0.06, 0.04, 0.80))
-	c.draw_string_outline(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 4, Color.BLACK)
-	c.draw_string(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1.0, 0.92, 0.70))
+	var at := Vector2(rect.get_center().x - tw * 0.5, rect.position.y - fs * 0.30)
+	# Zoomed into a town, its top edge leaves the panel: keep the name on screen
+	# while any of the town is (clamped to the visible part of its plan).
+	var seen: Rect2 = rect.intersection(_panel)
+	if seen.has_area():
+		var top: float = _panel.position.y + _font_size * 4.5 + fs  # below the button row
+		if at.y < top:
+			at.y = minf(top, maxf(seen.end.y - fs * 0.3, _panel.position.y + fs))
+			at.x = seen.get_center().x - tw * 0.5
+		at.x = clampf(at.x, _panel.position.x + 4.0, maxf(_panel.position.x + 4.0, _panel.end.x - tw - 4.0))
+	c.draw_string_outline(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, maxi(4, fs / 4),
+		Color(0.10, 0.06, 0.03, 0.95))
+	c.draw_string(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1.0, 0.86, 0.52))
 
 
 func _draw_waypoint(c: Control) -> void:
