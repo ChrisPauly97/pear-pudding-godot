@@ -2,7 +2,7 @@
 
 **Goal:** GID-172
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-696
 
 ## Lock
@@ -27,12 +27,22 @@ Shared constraints: chunk-gen code (`InfiniteWorldGen`/`RealmLayout`/`TerrainMat
 
 ## Plan
 
-_Written during Plan phase._
+1. `Swimming.gd`: stamina rules (`step`, `drain_rate`, `depth_at`, `against`), current push, LOW, WASHED_UP_FRAC (user decision: wash up at 1 HP, no other penalty).
+2. `Coastline`: stamina tick, river current → `Player.current_push`, low warning, wash-ashore transition, meter.
+3. `scenes/world/SwimMeter.gd`: stamina bar projected above the hero (WorldHUD is lint debt — kept out of it).
+4. Player: `current_push` added to the target velocity while swimming.
+5. Tests: stamina / range / helpers in `test_swimming`; new `tests/swim_smoke.gd` real-scene smoke (added to CI).
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/world/Swimming.gd`: stamina constants + `step`, `drain_rate`, `depth_at`, `against`.
+- `scenes/world/modules/Coastline.gd`: `stamina`, current push, `_wash_ashore()` (TransitionManager wipe → `Rivers.nearest_dry`, HP → 1/30, stamina full), `_show_meter`.
+- New `scenes/world/SwimMeter.gd`.
+- `Player.gd`: `current_push`.
+- Tests: `test_swimming` +3; new `tests/swim_smoke.gd`, added to `.github/workflows/tests.yml` scene smokes.
+  Suite 3070 pass / 0 SCRIPT ERROR; world, chunk, in-world-battle, swim smokes clean; gdlint + unsafe-hits clean.
+- No gasp SFX (no such asset); the low warning is the flashing meter + toast. Logged nothing new.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`docs/agent/camera-and-player.md` (Swimming: stamina table), `world-generation.md` pointer, CLAUDE.md Coastline row.

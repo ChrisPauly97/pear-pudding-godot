@@ -107,7 +107,21 @@ Tuning lives in `game_logic/world/Swimming.gd`:
 | Refused | jump; mounting (`Mounts.toggle` toast); Skeleton Dig (`Cantrips`) |
 | Tap-to-move | `TapToMove.step_cost` → `Pathfinder.find_path(..., cost_lookup)`: deep water costs `PATH_COST` (4) per step, and path smoothing won't straighten a walk back across water that costs more than its ends |
 
-Stamina and drowning: TID-697.
+**Stamina, currents, exhaustion (TID-697).** `Coastline` holds `stamina` (0..1, not saved) and steps it each
+physics frame while `SceneManager.is_in_world()` with `Swimming.step(stamina, delta, swimming, depth, moving, against)`:
+
+| | |
+|---|---|
+| Drain (swimming) | `BASE_DRAIN` 0.03/s (× `TREAD_SHARE` 0.6 treading) + `DEPTH_DRAIN` 0.0015/s per tile out (`Swimming.depth_at` = max of `Coast.depth`, `Rivers.depth`) + `AGAINST_DRAIN` 0.04/s per unit of current swum into (`Swimming.against(heading, flow)`) |
+| Range | ~33 s near shore; a straight swim out to sea runs dry at ~30 tiles (`test_swimming` pins 20–45); there and back across the widest river leaves > 40 % |
+| Regen | `REGEN` 0.35/s on land |
+| Current | `Rivers.flow` × `CURRENT_PUSH` (1.2 u/s per unit) → `Player.current_push`, added to the target velocity while swimming, so an idle swimmer drifts downstream |
+| Warning | below `LOW` (0.25) the meter flashes red and a one-off toast says to swim for shore |
+| Meter | `scenes/world/SwimMeter.gd` (ProgressBar on the WorldScene HUD layer), projected above the hero's head, shown while stamina < 1 |
+| Exhausted | at 0 while swimming: `TransitionManager.transition` wipe → hero placed on `Rivers.nearest_dry` (tile centre, terrain height + 0.5), swim off, `hero_hp_frac` = min(current, `WASHED_UP_FRAC` = 1/30 = 1 HP), stamina full, toast. No other penalty (user decision) |
+
+`tests/swim_smoke.gd` (CI scene smokes) drives a real WorldScene: deep river → swimming + current + drain; stamina
+0 → washed up on dry land near the river at ~1 HP, stamina refilled.
 
 ### Occluded Silhouette (GID-146)
 

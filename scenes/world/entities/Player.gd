@@ -66,6 +66,7 @@ const _HOOF_INTERVAL: float = 0.26
 
 var visual_bob: float = 0.0  # walk/breath lift, set by CharacterPresence (GID-134)
 var swimming: bool = false  # in deep water (GID-172); set by the Coastline module via set_swimming()
+var current_push: Vector3 = Vector3.ZERO  # a river's current carrying the swimmer (world u/s), set by Coastline
 var _velocity_y: float = 0.0
 var _sprite: AnimatedSprite3D
 var _sprite_base_pos: Vector3 = Vector3.ZERO   # on-foot sprite position; the ride pose offsets from it
@@ -257,8 +258,8 @@ func _physics_process(delta: float) -> void:
 	# applies for the whole path, not just the first tick) so the waypoint
 	# arrival check doesn't fight a sluggish decel and orbit the destination.
 	var move_speed: float = _get_move_speed()
-	var target_vx: float = dir.x * move_speed
-	var target_vz: float = dir.z * move_speed
+	var target_vx: float = dir.x * move_speed + (current_push.x if swimming else 0.0)
+	var target_vz: float = dir.z * move_speed + (current_push.z if swimming else 0.0)
 	var accel: float = ACCEL if dir.length_squared() > 0.0 else DECEL
 	velocity.x = move_toward(velocity.x, target_vx, accel * delta)
 	velocity.z = move_toward(velocity.z, target_vz, accel * delta)
