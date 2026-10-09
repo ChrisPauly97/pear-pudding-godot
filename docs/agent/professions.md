@@ -1,0 +1,53 @@
+# Professions — Alchemy, Cooking, Crafting (GID-181)
+
+## Key Features
+
+- Three levelled professions: **Alchemy** (potions), **Cooking** (foods), **Crafting** (gear, TID-754).
+- Materials come from gathering nodes (herb / ore / fish, TID-749) and enemy drops (meat / hide / core, TID-750). Garden plants also count as recipe inputs.
+- Each profession levels 1–50 by crafting. A recipe has a `skill_req`; its XP falls off as you outlevel it (WoW-style orange → yellow → green → grey bands).
+
+## How It Works
+
+### ProfessionDefs (`game_logic/professions/ProfessionDefs.gd`)
+
+Pure static tables (no autoloads; safe on chunk-gen worker threads). It is the single source of truth.
+
+| Table / function | Purpose |
+|---|---|
+| `PROFESSIONS` | id → `{display_name, color, station}` (`alchemy_table`, `cooking_fire`, `workbench`) |
+| `MATERIALS` | id → `{display_name, sell_value, source, description}`; `source` ∈ `SOURCES` (herb, ore, fish, meat, hide, core) |
+| `RECIPES` | id → `{profession, display_name, skill_req, inputs {id: n}, output {kind, id, count}, xp}` |
+| `xp_for_level(lv)` / `level_for_xp(xp)` | Total XP to reach a level: `n·XP_BASE + XP_STEP·n(n−1)/2` with n = lv−1, capped at `MAX_LEVEL` 50 |
+| `band(recipe, lv)` / `recipe_xp(recipe, lv)` | Gap = lv − skill_req: <0 locked, <5 orange, <10 yellow (full XP), <15 green (half), else grey (0). Colours in `BAND_COLORS` |
+| `is_input(id)` / `input_name(id)` | A material or a `GardenDefs.PLANTS` id |
+| `output_valid(output)` | `food` → `HeroVitality.FOODS`, `potion` → `GardenDefs.POTIONS` (`gear` lands with TID-754) |
+
+The starter recipes are Healing Draught and Clarity Brew (alchemy), and Travel Bread and Roast Fowl (cooking).
+
+### Save (`autoloads/save_manager/SaveProfessions.gd` → `SaveManager.professions`)
+
+The fields live on SaveManager (`PERSISTED_FIELDS`, migration v49): `profession_xp` (profession → xp) and `materials` (material → count). `new_game()` resets both.
+
+| API | Notes |
+|---|---|
+| `xp(prof)` / `level(prof)` | Level derived from XP, never stored |
+| `count(id)` | Material count, or the garden plant count for a plant id |
+| `add_material(id, n)` / `remove_material(id, n)` | Unknown ids are ignored; an emptied stack is erased |
+| `craft_block(recipe)` | `""` or `unknown` / `unsupported` / `skill` / `inputs` |
+| `craft(recipe)` | Consumes inputs (plants via `garden.remove_plants`), grants food → `foods`, potion → `garden.add_potions`, adds XP. Returns `{ok, reason, id, count, xp, level}`; `level` is the new level on a level-up, else 0 |
+
+Signals: `GameBus.profession_level_up(profession, level)` on a level-up, and `inventory_changed` after a craft or a material gain.
+
+## Integrations
+
+- The garden (`GardenDefs`): plants are inputs. Potions share `SaveManager.potions` with the battle quick slots.
+- Foods (`HeroVitality.FOODS`): crafted foods share `SaveManager.foods` with the world quick use.
+- Planned: gathering nodes (TID-749), enemy drops (TID-750), station panel (TID-751), cooking buffs (TID-752), alchemy migration (TID-753), gear (TID-754), trainers + Character tab (TID-755).
+
+## Asset Requirements
+
+None yet. The station and gathering-node sprites come with TID-749 / TID-751.
+
+## Tests
+
+`tests/unit/test_professions.gd` checks that the tables are valid, the XP curve round-trips and the bands behave, and covers the craft flow (inputs, outputs, refusals, level-up) and the v49 migration.

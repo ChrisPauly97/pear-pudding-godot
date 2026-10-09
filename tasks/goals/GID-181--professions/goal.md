@@ -12,7 +12,7 @@ User request 2026-10-09: "we should add professions like crafting, potion making
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-748 | Profession core: defs, save fields, module | agent | pending | — |
+| TID-748 | Profession core: defs, save fields, module | agent | done | — |
 | TID-749 | Gathering nodes in the world | agent | pending | TID-748 |
 | TID-750 | Material drops from enemies | agent | pending | TID-748 |
 | TID-751 | Crafting station panel + stations | agent | pending | TID-748 |

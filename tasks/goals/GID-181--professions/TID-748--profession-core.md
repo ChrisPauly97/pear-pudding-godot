@@ -2,7 +2,7 @@
 
 **Goal:** GID-181
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -30,12 +30,22 @@ Foundation for GID-181. Every profession, material and recipe lives in one pure 
 
 ## Plan
 
-_Written during Plan phase._
+1. `game_logic/professions/ProfessionDefs.gd` — pure static tables: PROFESSIONS, MATERIALS, RECIPES (starter set: 3 alchemy recipes mirroring the garden potions but with herbs as alt input left to TID-753, 2 cooking recipes → existing foods, gear recipes left to TID-754), XP curve (`level_for_xp`, `xp_for_level`, cap 50), `recipe_xp(recipe, level)` with grey falloff, `difficulty(recipe, level)` colour band.
+2. SaveManager: `profession_xp`, `materials` fields; migration v49 backfill.
+3. `autoloads/save_manager/SaveProfessions.gd` (`professions`): level/xp, add/remove material, can_craft, craft (inputs from `materials` + `plants`; outputs to `foods`/`potions`; gear deferred to TID-754 → refused).
+4. `GameBus.profession_level_up` signal, emitted in craft.
+5. Tests: `tests/test_professions.gd` (table validity, curve, craft flow, level-up).
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/professions/ProfessionDefs.gd` (new): PROFESSIONS, SOURCES, 10 MATERIALS, 4 starter RECIPES (2 alchemy, 2 cooking; crafting has none until TID-754), XP curve, difficulty bands, input/output validation.
+- `autoloads/save_manager/SaveProfessions.gd` (new): `SaveManager.professions` — xp/level, count (materials + garden plants), add/remove_material, craft_block, craft.
+- `SaveManager.gd`: `profession_xp`, `materials` in PERSISTED_FIELDS + vars + new_game reset; module built in `_init`.
+- `SaveMigrations.gd`: CURRENT_VERSION 49, backfill row.
+- `GameBus.gd`: `profession_level_up(profession, level)`.
+- `tests/unit/test_professions.gd` (new, 12 tests). Full suite 3232 passed, 0 SCRIPT ERRORs; gdlint + unsafe-hits clean.
+- Not done here (left to the tasks that own it): gear outputs (`craft_block` → "unsupported"); trainer gating (TID-755).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- New `docs/agent/professions.md`; CLAUDE.md docs table row + `professions` in the save-module list; `docs/agent/save-system.md` v49 row.
