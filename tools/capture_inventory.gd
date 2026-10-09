@@ -6,6 +6,7 @@
 ## CALL=<method> calls a no-arg method on the scene before the capture,
 ## BAG=<n> sets the bag size after filling (BAG=44 shows a full satchel),
 ## ADD=<n> adds the first n bag cards to the deck, HAND=1 opens "Try a hand",
+## FLAG=<n> flags n bag cards for sale, TAB=<i> picks a tab (shop: 1 = Sell), SELL=1 sells one card,
 ## COMBINE=<template> plays the combine ritual on three commons of it,
 ## PAGE=<binder page> opens that page (inventory), DRAG=1 floats a lifted drag preview (with sparkles) over the table.
 extends SceneTree
@@ -67,6 +68,15 @@ func _run() -> void:
 		return not (save.get("player_deck") as Array).has(str(i["uid"])))
 	for i in range(mini(add_n, bag.size())):
 		scene.call("_on_add_by_uid", str((bag[i] as Dictionary)["uid"]))
+	var flag_n: int = int(OS.get_environment("FLAG")) if OS.get_environment("FLAG") != "" else 0
+	for i in range(mini(flag_n, bag.size())):
+		save.call("toggle_for_sale", str((bag[i] as Dictionary)["uid"]))
+	if OS.get_environment("TAB") != "":
+		scene.call("_show_tab", int(OS.get_environment("TAB")))
+	if OS.get_environment("SELL") == "1":
+		var counter: Object = scene.get("_counter")
+		var first: Dictionary = (counter.call("sellable") as Array)[0]
+		counter.call("_sell_one", str(first["uid"]), null)
 	if OS.get_environment("COMBINE") != "":
 		scene.call("_combine", OS.get_environment("COMBINE"), "common")
 	if OS.get_environment("HAND") == "1":

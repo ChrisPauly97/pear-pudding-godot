@@ -121,15 +121,22 @@ static func _gild(tile: Control, rank: int, ref: float) -> void:
 static func add_count(tile: Control, n: int, ref: float) -> void:
 	if n <= 1:
 		return
+	_pill(tile, "×%d" % n, Color.WHITE, Color(1, 1, 1, 0.5), ref)
+
+## Gold "15g" price pill (vendor counter); a gold rim when the card is flagged for sale.
+static func add_price(tile: Control, gold: int, flagged: bool, ref: float) -> void:
+	_pill(tile, "%dg" % gold, Color(1.0, 0.85, 0.3), Color(1.0, 0.8, 0.2) if flagged else Color(1, 1, 1, 0.3), ref)
+
+static func _pill(tile: Control, text: String, tint: Color, rim: Color, ref: float) -> void:
 	var sz: Vector2 = tile_size(ref)
 	var pill := PanelContainer.new()
 	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pill.add_theme_stylebox_override("panel", _UiUtil.make_style(Color(0.05, 0.05, 0.08, 0.85), int(ref * 0.01),
-			Color(1, 1, 1, 0.5), 1))
-	var lbl := _label("×%d" % n, int(ref * 0.018), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, pill)
+			rim, 1 if rim.a < 1.0 else 2))
+	var lbl := _label(text, int(ref * 0.018), tint, HORIZONTAL_ALIGNMENT_CENTER, pill)
 	lbl.add_theme_constant_override("outline_size", 0)
 	tile.add_child(pill)
-	pill.position = Vector2(sz.x - ref * 0.05, sz.y * 0.47)
+	pill.position = Vector2(sz.x - ref * 0.012 * (text.length() + 2), sz.y * 0.47)
 
 ## Gold star for a perfect roll (top of every stat's band); CardJuice twinkles it.
 static func add_perfect_mark(tile: Control, ref: float) -> Label:

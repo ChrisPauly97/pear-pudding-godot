@@ -21,7 +21,7 @@ User request 2026-10-09: "deck management and inventory management has to be the
 | TID-742 | Forge: scrap + combine ritual; flag for sale replaces Sell | agent | done | TID-737, TID-738 |
 | TID-743 | Never lose loot + overstuffed satchel | agent | done | TID-737 |
 | TID-744 | Maiteln deck barks in the builder | agent | done | TID-736, TID-737 |
-| TID-745 | Vendor counter: slide-to-sell, reactions, coin pile, Sell basket | agent | pending | TID-742 |
+| TID-745 | Vendor counter: slide-to-sell, reactions, coin pile, Sell basket | agent | done | TID-742 |
 | TID-746 | Vendor magic-type preferences + buyback shelf | agent | pending | TID-745 |
 | TID-747 | World loop: fly-in new cards, HUD bag badge, campfire table | agent | pending | TID-737, TID-739 |
 

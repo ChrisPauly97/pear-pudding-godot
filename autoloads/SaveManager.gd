@@ -1048,14 +1048,17 @@ func toggle_for_sale(uid: String) -> bool:
 func is_for_sale(uid: String) -> bool:
 	return for_sale_uids.has(uid)
 
-## Sells a card instance for gold. No-op if uid not found or card is unique.
-func sell_card_instance(uid: String) -> void:
+## Sells a card instance for gold (vendors only, GID-180). `gold` < 0 = the
+## rarity's base sell price; a vendor passes its own (town preferences).
+## No-op if uid not found.
+func sell_card_instance(uid: String, gold: int = -1) -> void:
 	var inst: Dictionary = get_instance_by_uid(uid)
 	if inst.is_empty():
 		return
-	var rarity: String = str(inst.get("rarity", "common"))
-	var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(rarity, {})
-	add_coins(int(cfg.get("sell_gold", 0)))
+	if gold < 0:
+		var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(str(inst.get("rarity", "common")), {})
+		gold = int(cfg.get("sell_gold", 0))
+	add_coins(gold)
 	remove_card_instance(uid)
 
 ## Scraps a card instance for essence. No-op if uid not found or card is unique.

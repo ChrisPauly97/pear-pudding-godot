@@ -686,3 +686,14 @@ since_last_s)` (top candidate that isn't the last line, ≥ `MIN_INTERVAL_S` 6 s
 active companion, or the companion system isn't learned yet — he's the starter mentor). InventoryScene calls
 `_maybe_bark()` on open and after each deck edit; `DeckPile.say()` shows the parchment bubble for ~6 s (it fades but
 keeps its space so the grid doesn't jump).
+
+### Vendor counter (TID-745)
+
+`ShopScene` has **Buy / Sell** tabs. Sell is `scenes/ui/shop/VendorCounter.gd`: the vendor's speech line, a wooden
+counter (drop zone) with a `CoinPile` (drawn coins that drop in) and "+Ng this visit", a **Sell basket: N cards +Xg**
+button (every `for_sale_uids` card) and the sellable cards below (bag, in no deck, not unique; flagged first, gold
+price pill via `CardTile.add_price`). Tap or drag a card onto the counter: a copy slides across and fades, the vendor
+reacts (`game_logic/inventory/VendorReactions.gd`: perfect → legendary/epic → preferred → veteran → duplicate (sold
+this visit) → plain; rotating lines), coins drop, `SaveManager.sell_card_instance(uid, gold)` (optional price for
+vendor bonuses). `price_for` / `prefers` are Callables the shop sets (TID-746). `tools/capture_inventory.gd`
+`SCENE=shop TAB=1 FLAG=4 SELL=1`.

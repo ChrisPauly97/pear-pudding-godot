@@ -2,7 +2,7 @@
 
 **Goal:** GID-180
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-742
 
 ## Lock
@@ -30,12 +30,16 @@ Shared context:
 
 ## Plan
 
-_Written during Plan phase._
+Buy/Sell tabs in ShopScene; VendorCounter (slide-to-sell, reactions, coin pile, Sell basket); VendorReactions pure table; sell_card_instance gains optional price.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `scenes/ui/shop/VendorCounter.gd`, `scenes/ui/shop/CoinPile.gd`, `game_logic/inventory/VendorReactions.gd` + `tests/unit/test_vendor_reactions.gd`.
+- `ShopScene`: Buy/Sell tab row, `_show_tab`, counter wiring.
+- `SaveManager.sell_card_instance(uid, gold = -1)`.
+- `CardTile.add_price` (shared `_pill`).
+- Smoke: Sell basket. Capture env `FLAG`, `TAB`, `SELL`. Verified visually.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/inventory-and-deck.md`: Vendor counter section.

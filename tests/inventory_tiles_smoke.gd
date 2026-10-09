@@ -1,6 +1,7 @@
 ## Headless smoke test for the deck builder's tile reuse (GID-164 / TID-684):
 ## a refresh keeps unchanged bag tiles, adding a card to the deck drops only its
-## tile, search waits for typing to pause, and deck edits auto-save with undo (GID-180).
+## tile, search waits for typing to pause, deck edits auto-save with undo, and the vendor
+## counter sells the flagged basket (GID-180).
 ##
 ##   godot --headless --path . -s tests/inventory_tiles_smoke.gd
 ##
@@ -94,4 +95,16 @@ func _run() -> Array[String]:
 		fails.append("forge drop did not scrap the card for essence")
 	if (sm.get("for_sale_uids") as Array).has(spare_uid):
 		fails.append("scrapped card stayed flagged for sale")
+	# Vendor counter (TID-745): the Sell basket sells every flagged card.
+	var shop: Node = (load("res://scenes/ui/ShopScene.tscn") as PackedScene).instantiate()
+	root.add_child(shop)
+	await _frames(2)
+	shop.call("_show_tab", 1)
+	var basket_uid: String = sm.call("add_card_instance", "ghost", "rare")
+	sm.call("toggle_for_sale", basket_uid)
+	var coins0: int = int(sm.get("coins"))
+	(shop.get("_counter") as Object).call("_sell_basket")
+	if not (sm.call("get_instance_by_uid", basket_uid) as Dictionary).is_empty() or int(sm.get("coins")) <= coins0:
+		fails.append("Sell basket did not sell the flagged card")
+	shop.queue_free()
 	return fails
