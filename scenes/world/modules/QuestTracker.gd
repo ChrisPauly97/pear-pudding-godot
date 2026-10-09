@@ -125,6 +125,17 @@ func on_side_quest_ready(quest_id: String) -> void:
 		GameBus.hud_message_requested.emit("%s — done! Return to %s." % [str(q.get("title", "")),
 				_SideQuests.turn_in_name(q)])
 
+## Handed in: when nobody has a quest to offer yet, say who has the next one and
+## at what level, so a level-locked follow-up isn't a silent dead end.
+func on_side_quest_turned_in(_quest_id: String) -> void:
+	refresh(true)
+	var sm := SceneManager.save_manager
+	var q: Dictionary = _SideQuests.next_locked_quest(sm.level, sm.story_flags, sm.quests_active,
+			sm.quests_completed)
+	if not q.is_empty():
+		GameBus.hud_message_requested.emit("%s will have work for you at level %d — hunt beyond town to get there."
+				% [str(q.get("giver_name", "")), int(q.get("min_level", 1))])
+
 ## Map load: plant the beacon and take the current story step as already seen.
 func on_map_ready() -> void:
 	refresh(true)
@@ -311,7 +322,7 @@ func wire_signals() -> void:
 	GameBus.quest_accepted.connect(func(_id: String) -> void: refresh(true))
 	GameBus.quest_progressed.connect(func(_id: String) -> void: refresh(true))
 	GameBus.quest_ready.connect(on_side_quest_ready)
-	GameBus.quest_turned_in.connect(func(_id: String) -> void: refresh(true))
+	GameBus.quest_turned_in.connect(on_side_quest_turned_in)
 	# GID-141 / TID-590: level-up training notices and learn confirmations.
 	GameBus.training_available.connect(on_training_available)
 	GameBus.feature_learned.connect(on_feature_learned)

@@ -65,8 +65,9 @@ const QUESTS: Array[Dictionary] = [
 		"summary": ("Something's been at my grain store — and it's no rat, dearie, it's the restless dead, "
 			+ "shambling about the field just east of the village. Put three of them down for me. Just walk up and "
 			+ "tap them; your weapon swings on its own and Strike hits harder."),
-		"done_text": ("That's the lot of them! Here's your coin. You're quick on your feet — the Combat Trainer "
-			+ "by the stables could teach you to patch yourself up. Mend, he calls it."),
+		"done_text": ("That's the lot of them! Here's your coin. Put down a few more of the dead out there and "
+			+ "the Combat Trainer by the stables could teach you to patch yourself up — Mend, he calls it. "
+			+ "Wenna the Herbalist will want a word then, too."),
 		"objectives": [{"type": "kill", "target": "undead_basic", "count": 3, "label": "Restless dead put down",
 			"map": "main", "tx": 21, "tz": 17}],
 		"min_level": 1, "rewards": {"xp": 200, "coins": 20}},
@@ -353,6 +354,22 @@ static func upcoming_for(npc_id: String, level: int, flags: Dictionary, active: 
 		if can_offer(q, int(q.get("min_level", 1)), flags, active, completed):
 			out.append(q)
 	return out
+
+## The giver-led quest that opens soonest, given current flags and quest history:
+## {} when one is on offer now at `level` or none is ahead at any level.
+static func next_locked_quest(level: int, flags: Dictionary, active: Dictionary, completed: Array) -> Dictionary:
+	var best: Dictionary = {}
+	for q: Dictionary in all():
+		if str(q.get("giver", "")) == "":
+			continue
+		var at: int = maxi(level, int(q.get("min_level", 1)))
+		if not can_offer(q, at, flags, active, completed):
+			continue
+		if at == level:
+			return {}
+		if best.is_empty() or at < int(best.get("min_level", 1)):
+			best = q
+	return best
 
 ## Every objective's count reached for `progress` (Array[int], one per objective).
 static func is_complete(q: Dictionary, progress: Array) -> bool:

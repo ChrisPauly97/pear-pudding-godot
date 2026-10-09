@@ -275,3 +275,12 @@ func test_kill_objective_has_map_zone() -> void:
 	assert_eq((zones[0]["pts"] as Array).size(), 4, "camp centre + its 3 enemy slots")
 	var done: Dictionary = QuestLog.side_quest({"quest": SideQuests.def(Q_ID), "progress": [5], "ready": true})
 	assert_true(QuestLog.zones(done).is_empty(), "return-to-giver: no area")
+
+
+
+## After Hilda at level 1 the next quest (Wenna's) is level-locked: name it so the
+## turn-in hint can point there; nothing to hint once it is on offer.
+func test_next_locked_quest_after_hilda() -> void:
+	var q: Dictionary = SideQuests.next_locked_quest(1, {}, {}, ["rats_in_grain"])
+	assert_eq(str(q.get("id", "")), "bruised_and_battered")
+	assert_true(SideQuests.next_locked_quest(2, {}, {}, ["rats_in_grain"]).is_empty(), "on offer at 2")
