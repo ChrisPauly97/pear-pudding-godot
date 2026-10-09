@@ -2,7 +2,7 @@
 
 **Goal:** GID-180
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-737, TID-739
 
 ## Lock
@@ -30,12 +30,18 @@ Shared context:
 
 ## Plan
 
-_Written during Plan phase._
+Persisted new_card_uids + GameBus.new_cards_changed; NEW tag/glow in binder, cleared on leaving; BagBadge helper on the HUD Menu button with fly-in catch-up after battles; rest-site campfire deck option.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `SaveManager`: `new_card_uids`, `_mark_new`, `mark_cards_seen`, `is_new_card`; starter paths clear it.
+- `GameBus.new_cards_changed(count)`.
+- New `scenes/world/BagBadge.gd`; `WorldHUD` sets it up on the Menu/Bag button (3 lines).
+- `InventoryScene`: NEW tag + `CardJuice.new_glow`; `_exit_tree` marks seen.
+- `DungeonSessionUI`: Tend-your-deck button; used fires still open the panel.
+- New `tests/unit/test_new_cards.gd`. Full suite 3216 passed, 0 failed.
+- Fixed `tests/menu_hub_smoke.gd`: the detail panel check expected a Sell button (removed in TID-742); it now checks For sale. All CI scene smoke tests pass.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/inventory-and-deck.md`: World loop section.

@@ -57,7 +57,7 @@ const _OWNED_BY_SLOT: Dictionary = {
 ## `test_save_manager` asserts every key here is a real property.
 const PERSISTED_FIELDS: Dictionary = {
 	"owned_cards": [], "mailbox_cards": [], "player_deck": [], "loadouts": [], "for_sale_uids": [],
-	"buyback_cards": [],
+	"buyback_cards": [], "new_card_uids": [],
 	"active_loadout": 0, "essence": 0, "coins": 0,
 	"current_map": "main", "player_x": 0.0, "player_z": 0.0,
 	"map_stack": [], "door_stack": [],
@@ -142,6 +142,8 @@ var mailbox_cards: Array[Dictionary] = []
 var for_sale_uids: Array[String] = []
 # Cards sold to a vendor, newest first, each with "_sold_for" (GID-180 / TID-746).
 var buyback_cards: Array[Dictionary] = []
+# Bag cards gained since the player last opened the deck table (GID-180 / TID-747).
+var new_card_uids: Array[String] = []
 
 # Cards currently in the active battle deck — list of UIDs from owned_cards.
 # This mirrors loadouts[active_loadout].cards and is kept in sync at all times.
@@ -533,6 +535,7 @@ func new_game(head_start: bool = false) -> void:
 		add_card_instance(tid, "common")
 	# GID-175: Strike is a technique card in every starter deck.
 	player_deck.append(_own_technique("tech_strike"))
+	new_card_uids.clear()  # the starter cards aren't "new finds"
 	essence = 0
 	coins = 5000 if head_start else 50
 	current_map = "main"
@@ -670,6 +673,7 @@ func ensure_coop_deck() -> void:
 		if uid != "":
 			player_deck.append(uid)
 	player_deck.append(_own_technique("tech_strike"))
+	new_card_uids.clear()
 
 ## Load a multiplayer **session character** (GID-095 / TID-346) into the in-memory
 ## state that co-op and PvP already read (deck, collection, coins, level, skills,
@@ -987,10 +991,26 @@ func add_card_instance(template_id: String, rarity: String, attack: int = -1, he
 	var inst_dict: Dictionary = _CardInstanceUtil.make(uid, template_id, rarity, atk, hp, c)
 	owned_cards.append(inst_dict)
 	_uid_index[uid] = inst_dict
+	_mark_new(uid)
 	if rarity != "common":
 		GameBus.tutorial_popup_requested.emit("card_rarity")
 	_dirty = true
 	return uid
+
+func _mark_new(uid: String) -> void:
+	new_card_uids.append(uid)
+	GameBus.new_cards_changed.emit(new_card_uids.size())
+
+## Clears the "new" marks once the player has seen the deck table.
+func mark_cards_seen() -> void:
+	if new_card_uids.is_empty():
+		return
+	new_card_uids.clear()
+	_dirty = true
+	GameBus.new_cards_changed.emit(0)
+
+func is_new_card(uid: String) -> bool:
+	return new_card_uids.has(uid)
 
 ## Routes an automatic reward (battle win, chest, dig, achievement, story/quest, pack) into
 ## owned_cards, or into the mailbox overflow queue when the bag is full, instead of dropping
@@ -1013,6 +1033,7 @@ func grant_card_reward(template_id: String, rarity: String, attack: int = -1, he
 		return uid
 	owned_cards.append(inst_dict)
 	_uid_index[uid] = inst_dict
+	_mark_new(uid)
 	if rarity != "common":
 		GameBus.tutorial_popup_requested.emit("card_rarity")
 	_dirty = true
@@ -1023,6 +1044,7 @@ func grant_card_reward(template_id: String, rarity: String, attack: int = -1, he
 func remove_card_instance(uid: String) -> void:
 	_uid_index.erase(uid)
 	for_sale_uids.erase(uid)
+	new_card_uids.erase(uid)
 	for i in range(owned_cards.size() - 1, -1, -1):
 		if str(owned_cards[i].get("uid", "")) == uid:
 			owned_cards.remove_at(i)

@@ -132,11 +132,11 @@ func _buttons(n: Node, out: Array[String]) -> Array[String]:
 	return out
 
 
-## Selling and scrapping live only on the per-card detail panel, so if that panel
-## cannot be opened and kept open there is no way to disenchant a card at all.
-## It used to open directly over the card tile and be torn down by that tile's
-## mouse_exited, which meant moving the pointer towards Sell destroyed the panel
-## under the cursor. Neither failure raises an error.
+## Flag-for-sale and scrapping live on the per-card detail panel (selling itself is
+## vendor-only since GID-180), so if that panel cannot be opened and kept open the
+## bag has no tap path to them. It used to open directly over the card tile and be
+## torn down by that tile's mouse_exited, which meant moving the pointer towards a
+## button destroyed the panel under the cursor. Neither failure raises an error.
 func _check_card_detail_panel(hub: Node) -> bool:
 	hub.call("show_tab", "deck")
 	await process_frame
@@ -172,14 +172,14 @@ func _check_card_detail_panel(hub: Node) -> bool:
 		return false
 
 	var labels: Array[String] = _buttons(popup, [] as Array[String])
-	var has_sell: bool = false
+	var has_flag: bool = false
 	var has_scrap: bool = false
 	for t: String in labels:
-		if t.begins_with("Sell"):
-			has_sell = true
+		if t.begins_with("For sale"):
+			has_flag = true
 		if t.begins_with("Scrap"):
 			has_scrap = true
-	ok = _check(has_sell, "detail panel offers Sell (found %s)" % [labels]) and ok
+	ok = _check(has_flag, "detail panel offers For sale (found %s)" % [labels]) and ok
 	ok = _check(has_scrap, "detail panel offers Scrap (found %s)" % [labels]) and ok
 	ok = _check(labels.has("Close"), "detail panel can be dismissed (found %s)" % [labels]) and ok
 

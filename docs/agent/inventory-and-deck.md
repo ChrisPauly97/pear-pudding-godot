@@ -709,3 +709,15 @@ vendor bonuses). `price_for` / `prefers` are Callables the shop sets (TID-746). 
 - **Buyback shelf**: `SaveManager.buyback_cards` (persisted, newest first, `BUYBACK_CAP` 8, each with `_sold_for`);
   `sell_card_instance` shelves a copy, `buy_back(index)` returns the exact card (uid, rolls, history) for what it sold
   for (needs coins and bag room). Shown on the counter as small priced tiles.
+
+### World loop: new cards, HUD badge, campfire (TID-747)
+
+- `SaveManager.new_card_uids` (persisted): every card entering the bag (`add_card_instance`, `grant_card_reward`
+  bag path) is marked via `_mark_new` → `GameBus.new_cards_changed(count)`; starter decks clear it;
+  `remove_card_instance` prunes; `mark_cards_seen()` clears (InventoryScene `_exit_tree`).
+- Binder tiles of new cards carry a "✦ NEW" tag and a green-gold pulse (`CardJuice.new_glow`).
+- `scenes/world/BagBadge.gd` (owned by WorldHUD, set up on the Menu/Bag button): red count badge; a count rise while
+  the world is up flies little card backs from the screen centre into the button. Rewards granted during a battle
+  (world detached) are caught up 0.8 s after the HUD re-enters the tree (after the transition wipe).
+- Dungeon/cave **rest-site campfires** (`DungeonSessionUI.show_rest_site_panel`) offer **Tend your deck by the fire**
+  (opens the deck table) — also at a used fire, where Rest / Cull are disabled instead of the panel refusing.

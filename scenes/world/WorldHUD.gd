@@ -15,6 +15,7 @@ const UiFx             = preload("res://scenes/ui/UiFx.gd")
 const _UiUtil          = preload("res://scenes/ui/UiUtil.gd")
 const _WorldScene      = preload("res://scenes/world/WorldScene.gd")
 const _HudIcons = preload("res://scenes/ui/HudIcons.gd")
+const _BagBadge = preload("res://scenes/world/BagBadge.gd")
 
 # ── HUD Action Registry (GID-107) ───────────────────────────────────────────
 # Zones are real Container nodes that auto-stack their (visible) children, so
@@ -58,6 +59,7 @@ var _ley_indicator: Label = null
 var _mount_btn: Button = null
 var _ghost_btn: Button = null
 var _dig_btn: Button = null
+var _bag_badge: _BagBadge = _BagBadge.new()
 var _bounty_tracker: VBoxContainer = null
 var _interact_btn: Button = null   # Android-only tap button
 var _compass: Node = null
@@ -134,6 +136,7 @@ func _create_nav_buttons(_vh: float, _vw_unused: float, font_size: int,
 		func() -> void: SceneManager.open_menu_hub("deck"),
 		Callable(), Vector2(btn_w * 1.3, btn_h))
 	hub_btn.add_theme_font_size_override("font_size", font_size)
+	_bag_badge.setup(hub_btn, _hud, _vh)  # new-card badge + post-fight fly-in (GID-180)
 
 	_mount_btn = register_action("mount", "Mount", ZONE_NAV,
 		func() -> void: _world_scene.mounts.toggle(),

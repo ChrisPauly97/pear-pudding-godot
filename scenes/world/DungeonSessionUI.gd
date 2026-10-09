@@ -25,9 +25,8 @@ func _say(text: String) -> void:
 
 func show_rest_site_panel(npc_data: Dictionary) -> void:
 	var room_key: String = str(npc_data.get("after_dialogue", ""))
-	if SceneManager.save_manager.is_dungeon_room_used(room_key):
-		_say("This rest site has already been used.")
-		return
+	# A used fire can't heal again, but you can still tend your deck by it (GID-180 / TID-747).
+	var used: bool = SceneManager.save_manager.is_dungeon_room_used(room_key)
 
 	var vh: float = _hud.get_viewport().get_visible_rect().size.y
 	var vw: float = _hud.get_viewport().get_visible_rect().size.x
@@ -49,14 +48,19 @@ func show_rest_site_panel(npc_data: Dictionary) -> void:
 
 	var rest_btn := _UiUtil.make_button("Rest — Recover %d%% HP" % roundi(_HeroVitality.REST_SITE_HEAL * 100.0),
 			Vector2(0, btn_h), int(font_size))
-	rest_btn.disabled = frac >= 1.0
+	rest_btn.disabled = frac >= 1.0 or used
 	if rest_btn.disabled:
-		rest_btn.tooltip_text = "Already at full health"
+		rest_btn.tooltip_text = "This fire has already been rested at" if used else "Already at full health"
 	vbox.add_child(rest_btn)
 
 	var cull_btn := _UiUtil.make_button("Cull — Remove a card from deck", Vector2(0, btn_h), int(font_size), Callable(),
 			vbox)
-	cull_btn.disabled = SceneManager.save_manager.player_deck.size() < 2
+	cull_btn.disabled = SceneManager.save_manager.player_deck.size() < 2 or used
+
+	var deck_btn := _UiUtil.make_button("Tend your deck by the fire", Vector2(0, btn_h), int(font_size), func() -> void:
+		panel.queue_free()
+		SceneManager.open_menu_hub("deck"), vbox)
+	deck_btn.tooltip_text = "Open the deck table"
 
 	var leave_btn := _UiUtil.make_button("Leave", Vector2(0, btn_h), int(font_size), Callable(), vbox)
 

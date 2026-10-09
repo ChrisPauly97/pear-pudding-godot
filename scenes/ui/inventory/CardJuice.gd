@@ -10,6 +10,7 @@ const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 ## Sparkle particle count per rarity tier (common → legendary).
 const SPARKLE_AMOUNT: Array[int] = [6, 12, 20, 34]
 const SHIMMER_META := &"legend_shimmer"
+const NEW_META := &"new_glow"
 
 
 ## A lifted, tilting copy of the card for `Control.set_drag_preview`.
@@ -68,6 +69,16 @@ static func shimmer(tile: Control, rarity: String) -> void:
 	var tw := tile.create_tween().set_loops()
 	tw.tween_property(tile, "self_modulate", Color(1.25, 1.18, 0.9), 1.1).set_trans(Tween.TRANS_SINE)
 	tw.tween_property(tile, "self_modulate", Color.WHITE, 1.1).set_trans(Tween.TRANS_SINE)
+
+
+## Soft green-gold pulse on a card the player hasn't seen yet (TID-747). Idempotent.
+static func new_glow(tile: Control) -> void:
+	if not tile.is_inside_tree() or tile.has_meta(NEW_META):
+		return
+	tile.set_meta(NEW_META, true)
+	var tw := tile.create_tween().set_loops()
+	tw.tween_property(tile, "self_modulate", Color(1.15, 1.3, 0.95), 0.6).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(tile, "self_modulate", Color.WHITE, 0.6).set_trans(Tween.TRANS_SINE)
 
 
 ## Slow twinkle for the perfect-roll star. Call once it is in the tree; idempotent.

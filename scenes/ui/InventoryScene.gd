@@ -415,9 +415,9 @@ func _refresh_cards() -> void:
 			var inst: Dictionary = st["best"]
 			var n: int = (st["copies"] as Array).size()
 			var uid: String = str(inst.get("uid", ""))
-			var sig: String = "%d|%s|%s|%s|%s|%d|%d|%s|%s" % [inst.hash(), str(membership.get(uid, "")),
+			var sig: String = "%d|%s|%s|%s|%s|%d|%d|%s|%s|%s" % [inst.hash(), str(membership.get(uid, "")),
 					_selected.has(uid), _select_mode, face, int(_ref), n, DeckInsights.is_upgrade(inst, deck_now),
-					sm.is_for_sale(uid)]
+					sm.is_for_sale(uid), sm.is_new_card(uid)]
 			var tile: Control = _tiles.take(uid, sig)
 			if tile == null:
 				tile = _make_card_tile(inst, membership)
@@ -429,6 +429,8 @@ func _refresh_cards() -> void:
 				_tiles.put(uid, sig, tile)
 			grid.add_child(tile)
 			_CardJuice.shimmer(tile, str(inst.get("rarity", "")))
+			if sm.is_new_card(uid):
+				_CardJuice.new_glow(tile)
 			if tile.has_meta(&"perfect_star"):
 				_CardJuice.twinkle(tile.get_meta(&"perfect_star") as Control)
 		for tid: String in missing:
@@ -556,6 +558,8 @@ func _make_card_tile(inst: Dictionary, membership: Dictionary) -> Control:
 	var tag: String = "In %s" % str(membership[uid]) if membership.has(uid) else ""
 	if SceneManager.save_manager.is_for_sale(uid):
 		tag = "For sale"
+	elif SceneManager.save_manager.is_new_card(uid):
+		tag = "✦ NEW"
 	var selectable: bool = _is_selectable(inst, membership)
 	var cube := _CardTile.build(inst, tmpl, _ref, tag, _selected.has(uid), _select_mode and not selectable)
 
@@ -1108,6 +1112,11 @@ func _show_tab(index: int) -> void:
 
 func _on_close() -> void:
 	closed.emit()
+
+## Leaving the deck table clears the "new" marks and the HUD badge (TID-747).
+func _exit_tree() -> void:
+	if SceneManager.save_manager != null:
+		SceneManager.save_manager.mark_cards_seen()
 
 func _input(event: InputEvent) -> void:
 	var key := event as InputEventKey
