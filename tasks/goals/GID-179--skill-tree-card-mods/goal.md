@@ -15,7 +15,7 @@ Today: 32 passives add hero HP / attack / mana / draw (`BattleSetup.apply_passiv
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | [TID-730](TID-730--dig-deck-gate.md) | Dig: deck + cooldown gate on every dig path | agent | done | — |
-| [TID-731](TID-731--skill-mod-design.md) | Design: card-modifier vocabulary + 48 node table | agent | todo | — |
+| [TID-731](TID-731--skill-mod-design.md) | Design: card-modifier vocabulary + 48 node table | agent | done | — |
 | [TID-732](TID-732--spell-crits.md) | Spells and techniques can crit (real time) | agent | todo | TID-731 |
 | [TID-733](TID-733--skill-mods-engine.md) | SkillMods engine: recycle / cost / cast / power / crit / on-crit; passives removed | agent | todo | TID-732 |
 | [TID-734](TID-734--skill-techniques.md) | Skill .tres re-authored; actives → technique cards; hero power removed | agent | todo | TID-733 |

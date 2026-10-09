@@ -2,7 +2,7 @@
 
 **Goal:** GID-179
 **Type:** agent
-**Status:** todo
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -24,12 +24,12 @@ See goal.md (user request 2026-10-09).
 
 ## Plan
 
-_TBD._
+Write the vocabulary + node table into combat-model.md.
 
 ## Changes Made
 
-_TBD._
+- Design only (no code).
 
 ## Documentation Updates
 
-_TBD._
+- `combat-model.md` → "Skill tree modifies cards".
