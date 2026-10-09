@@ -33,6 +33,7 @@ static func run(cfg: Dictionary, policy: Dictionary = {}) -> Dictionary:
 	var resolver := SpellEffectResolver.new()
 	resolver.setup(state)
 	var caster := PlayerCaster.new(rt)
+	resolver.power_hook = caster.modify_power
 	var bot := BalanceBot.new(policy)
 	var stats: Dictionary = {"plays": {}, "dealt_cards": 0, "dealt_auto": 0, "interrupts": 0,
 		"enemy_casts": 0, "procs": 0, "full_mana_s": 0.0, "crits_dealt": 0, "crits_taken": 0}
@@ -44,6 +45,8 @@ static func run(cfg: Dictionary, policy: Dictionary = {}) -> Dictionary:
 				stats["interrupts"] = int(stats["interrupts"]) + 1
 			"proc":
 				stats["procs"] = int(stats["procs"]) + 1
+			"crit":
+				stats["crits_dealt"] = int(stats["crits_dealt"]) + 1
 	var me: PlayerState = state.players[RealtimeCombat.PLAYER]
 	var rounds: int = 0
 	var t: float = 0.0

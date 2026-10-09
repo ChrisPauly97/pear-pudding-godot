@@ -492,7 +492,6 @@ func _setup_solo_battle() -> void:
 		_state.players[0].build_deck(player_deck, 0, _dark_aligned)
 	modifiers._apply_combat_unlocks(_state.players[0])
 	modifiers._apply_equipment_effects(_state.players[0])
-	modifiers._apply_passive_skills(_state.players[0])
 	_state.players[0].draw_opening_hand(4)
 	# Spire run: hero HP persists across floors (damage carries over).
 	if SceneManager.save_manager.spire.is_spire_active():

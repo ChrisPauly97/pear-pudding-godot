@@ -46,9 +46,6 @@ func _apply_equipment_effects(player: PlayerState) -> void:
 		items.append({"id": item_id, "level": level, "mult": sm.gear.mult(item_id)})  # rarity roll (TID-538)
 	_BattleSetup.apply_gear(player, items, sm.battle_mode().begins_with("realtime"))
 
-func _apply_passive_skills(player: PlayerState) -> void:
-	_BattleSetup.apply_passives(player, SceneManager.save_manager.unlocked_skills)
-
 ## Apply once-per-battle companion passives (extra_mana, hero_armor).
 ## Call after start_turn(1) so the base mana is already established.
 ## Excluded in puzzle_mode and friendly_duel.
