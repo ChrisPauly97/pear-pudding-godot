@@ -665,3 +665,14 @@ Rename / Copy / Delete; emits `switched` / `loadout_renamed`, host reloads `_wor
 `CurveSkyline`, `SynergyThreads`, `BagFilters`, `CardTile`, `CardJuice`, `DragCardPreview`, `CompareTip`
 (`rows()` shared with the detail popup), `ForgeFx`, `CombineRitual`, `TestHandOverlay`. Pure rules in
 `game_logic/inventory/`: `DeckInsights`, `BinderOps`, `DeckUndo`, `BagOps`.
+
+### Never-lost loot + satchel (TID-743)
+
+- Audit (GID-180): every automatic reward already goes through `grant_card_reward` (mailbox overflow). The remaining
+  `add_card_instance` callers are the new-game / co-op starter decks (empty bag), `combine_cards` (frees 3 slots
+  first), and player spends that intentionally block on a full bag (ShopScene buy, CraftPanel craft).
+- `scenes/ui/inventory/Satchel.gd` replaces the "Bag X/Y" text: a drawn leather satchel whose fill rises with use,
+  bulges at ≥ 90 % with cards poking out (3 at full), "used/cap  ✉N" (N = waiting mailbox cards); tap = hint line.
+- `game_logic/inventory/SatchelLines.gd`: `line(kind, companion, n, card_name)` ("full" / "mailbox"; Maiteln's voice
+  when the companion is learned and active, else the satchel), `fullness(used, cap)` 0–3.
+  `SceneManager` routes `GameBus.bag_full` / `card_routed_to_mailbox` through it (`_grumbler()`, rotating `_grumbles`).

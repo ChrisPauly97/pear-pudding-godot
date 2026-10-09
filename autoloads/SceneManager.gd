@@ -6,6 +6,7 @@ extends Node
 signal state_changed(from: State, to: State)
 
 const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
+const _SatchelLines = preload("res://game_logic/inventory/SatchelLines.gd")
 const _BiomeDef = preload("res://game_logic/world/BiomeDef.gd")
 const _SceneFlow = preload("res://game_logic/SceneFlow.gd")
 const _RendererOptIn = preload("res://game_logic/RendererOptIn.gd")
@@ -104,6 +105,7 @@ var _saved_world_scene: Node = null
 
 var _toast: _AchievementToastScript = null
 var _menu_hub_layer: CanvasLayer = null
+var _grumbles: int = 0  # rotates the full-bag lines
 
 # Blocks proximity engagement for 2 s after returning from battle so the
 # player isn't immediately chain-engaged by a nearby enemy on world re-entry.
@@ -218,11 +220,14 @@ func _ready() -> void:
 	GameBus.treasure_map_assembled.connect(_on_treasure_map_assembled)
 	GameBus.treasure_excavated.connect(_on_treasure_excavated)
 	GameBus.pack_purchased.connect(_on_pack_purchased)
+	# A full bag gets a grumble from the companion (or the satchel itself) — GID-180 / TID-743.
 	GameBus.bag_full.connect(func() -> void:
-		GameBus.hud_message_requested.emit("Bag full! Scrap cards at the forge, or sell them at a vendor."))
+		_grumbles += 1
+		GameBus.hud_message_requested.emit(_SatchelLines.line("full", _grumbler(), _grumbles)))
 	GameBus.card_routed_to_mailbox.connect(func(template_id: String) -> void:
+		_grumbles += 1
 		var card_name: String = str(CardRegistry.get_template(template_id).get("name", template_id))
-		GameBus.hud_message_requested.emit("%s couldn't fit in your bag — sent to the mailbox." % card_name))
+		GameBus.hud_message_requested.emit(_SatchelLines.line("mailbox", _grumbler(), _grumbles, card_name)))
 	GameBus.siege_defeated.connect(func(coins_lost: int) -> void:
 		show_toast("Siege Lost", "The town fell. Lost %d coins." % coins_lost))
 	_maybe_boot_dedicated_server()
@@ -1061,6 +1066,10 @@ func _on_bounty_board_requested() -> void:
 		GameBus.hud_message_requested.emit(_UnlockLadder.locked_message(_UnlockLadder.FEAT_BOUNTIES))
 		return
 	_open_overlay(_bounty_board_scene_packed, State.BOUNTY_BOARD)
+
+## Who grumbles about a full bag: the learned, active companion, else "" (the satchel).
+func _grumbler() -> String:
+	return save_manager.active_companion if save_manager.has_learned(_UnlockLadder.FEAT_COMPANION) else ""
 
 func _on_mailbox_requested() -> void:
 	_open_overlay(_mailbox_scene_packed, State.MAILBOX)

@@ -4,6 +4,7 @@
 ##     godot --path . --rendering-driver opengl3 --resolution 1920x1080 -s tools/capture_inventory.gd
 ## SCENE=inventory|shop (default inventory), WAIT_MS delays the capture,
 ## CALL=<method> calls a no-arg method on the scene before the capture,
+## BAG=<n> sets the bag size after filling (BAG=44 shows a full satchel),
 ## ADD=<n> adds the first n bag cards to the deck, HAND=1 opens "Try a hand",
 ## COMBINE=<template> plays the combine ritual on three commons of it,
 ## PAGE=<binder page> opens that page (inventory), DRAG=1 floats a lifted drag preview (with sparkles) over the table.
@@ -45,6 +46,8 @@ func _run() -> void:
 			roundi(int(band["health"]) * 1.3 * 1.08))
 	save.call("add_card_instance", "ghoul", "rare")
 	save.call("add_coins", 500)
+	if OS.get_environment("BAG") != "":
+		save.set("bag_size", int(OS.get_environment("BAG")))
 	var scene_name: String = OS.get_environment("SCENE") if OS.get_environment("SCENE") != "" else "inventory"
 	var path: String = "res://scenes/ui/ShopScene.tscn" if scene_name == "shop" \
 			else "res://scenes/ui/InventoryScene.tscn"

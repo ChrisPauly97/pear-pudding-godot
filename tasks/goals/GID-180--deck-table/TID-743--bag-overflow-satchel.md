@@ -2,7 +2,7 @@
 
 **Goal:** GID-180
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-737
 
 ## Lock
@@ -29,12 +29,16 @@ Shared context:
 
 ## Plan
 
-_Written during Plan phase._
+Audit add_card_instance callers; Satchel widget in the tab bar; SatchelLines pure table; SceneManager grumbles on bag_full / mailbox routing.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Audit: no silent drops remain (see docs); automatic rewards already use `grant_card_reward`.
+- New `scenes/ui/inventory/Satchel.gd`, `game_logic/inventory/SatchelLines.gd` + `tests/unit/test_satchel_lines.gd`.
+- `InventoryScene`: satchel in the tab bar; wallet shows gold/essence only.
+- `SceneManager`: companion/satchel grumble lines for `bag_full` and `card_routed_to_mailbox`.
+- `tools/capture_inventory.gd`: `BAG` env. Verified visually (roomy + full).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/inventory-and-deck.md`: Never-lost loot + satchel section.

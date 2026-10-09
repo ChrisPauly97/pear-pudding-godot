@@ -22,6 +22,7 @@ const _ForgeFx          = preload("res://scenes/ui/inventory/ForgeFx.gd")
 const _CombineRitual    = preload("res://scenes/ui/inventory/CombineRitual.gd")
 const _LoadoutBar       = preload("res://scenes/ui/inventory/LoadoutBar.gd")
 const _CompareTip       = preload("res://scenes/ui/inventory/CompareTip.gd")
+const _Satchel          = preload("res://scenes/ui/inventory/Satchel.gd")
 
 const DeckAutoFill = preload("res://game_logic/DeckAutoFill.gd")
 const _TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
@@ -59,6 +60,7 @@ var _undo: _DeckUndo = _DeckUndo.new()
 var _filter_row: HBoxContainer
 var _filter_toggle: Button
 var _wallet_label: Label
+var _satchel: _Satchel
 var _hint_label: Label
 
 # Collection filters + binder page, search, sort (session-only state)
@@ -130,6 +132,9 @@ func _build_ui() -> void:
 			_show_tab)
 	_wallet_label = _UiUtil.make_label("", int(_ref * 0.021), Color(0.9, 0.9, 0.9), HORIZONTAL_ALIGNMENT_RIGHT,
 			tab_bar)
+	_satchel = _Satchel.new()
+	tab_bar.add_child(_satchel)
+	_satchel.setup(_ref)
 	_wallet_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_wallet_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	if not hub_mode:
@@ -313,8 +318,8 @@ func _refresh_wallet() -> void:
 	var sm := SceneManager.save_manager
 	var used: int = sm.get_slot_count(_working_deck)
 	var cap: int = sm.bag_size
-	_wallet_label.text = "Bag %d/%d    %d gold    %d essence" % [used, cap, sm.coins, sm.essence]
-	_wallet_label.modulate = Color(1.0, 0.45, 0.45) if used >= cap else Color.WHITE
+	_wallet_label.text = "%d gold    %d essence" % [sm.coins, sm.essence]
+	_satchel.set_counts(used, cap, sm.mailbox_cards.size())
 
 func _template(tid: String) -> Dictionary:
 	# Read-only cached view: sort, search and tiles only read it (GID-164 / TID-684).
