@@ -23,6 +23,8 @@ const _CombineRitual    = preload("res://scenes/ui/inventory/CombineRitual.gd")
 const _LoadoutBar       = preload("res://scenes/ui/inventory/LoadoutBar.gd")
 const _CompareTip       = preload("res://scenes/ui/inventory/CompareTip.gd")
 const _Satchel          = preload("res://scenes/ui/inventory/Satchel.gd")
+const DeckBarkRules     = preload("res://game_logic/inventory/DeckBarkRules.gd")
+const _UnlockLadder     = preload("res://game_logic/progression/UnlockLadder.gd")
 
 const DeckAutoFill = preload("res://game_logic/DeckAutoFill.gd")
 const _TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
@@ -61,6 +63,8 @@ var _filter_row: HBoxContainer
 var _filter_toggle: Button
 var _wallet_label: Label
 var _satchel: _Satchel
+var _bark_last_id: String = ""
+var _bark_last_ms: int = -100000
 var _hint_label: Label
 
 # Collection filters + binder page, search, sort (session-only state)
@@ -107,6 +111,7 @@ func _ready() -> void:
 	_working_deck.assign(SceneManager.save_manager.player_deck)
 	_build_ui()
 	_refresh()
+	_maybe_bark.call_deferred()
 
 func _build_ui() -> void:
 	var is_portrait: bool = _vw < _vh
@@ -1044,10 +1049,28 @@ func _edit_deck(next: Array[String]) -> void:
 	_refresh_cards()
 	for uid: String in added:
 		_pile.land(uid, str(SceneManager.save_manager.get_instance_by_uid(uid).get("rarity", "common")))
+	_maybe_bark()
 	if not added.is_empty():
 		_CardJuice.sound("place")
 	elif removed:
 		_CardJuice.sound("return")
+
+## Maiteln comments on the deck (TID-744), rate-limited by DeckBarkRules.
+func _maybe_bark() -> void:
+	var sm := SceneManager.save_manager
+	if not DeckBarkRules.is_eligible(sm.active_companion, sm.has_learned(_UnlockLadder.FEAT_COMPANION)):
+		return
+	var bag: Array[Dictionary] = []
+	for inst: Dictionary in sm.get_owned_instances():
+		if not _working_deck.has(str(inst.get("uid", ""))):
+			bag.append(inst)
+	var id: String = DeckBarkRules.next_bark(DeckBarkRules.candidates(sm.get_deck_instances(), bag),
+			_bark_last_id, float(Time.get_ticks_msec() - _bark_last_ms) / 1000.0)
+	if id == "":
+		return
+	_bark_last_id = id
+	_bark_last_ms = Time.get_ticks_msec()
+	_pile.say("Maiteln", DeckBarkRules.text_for(id))
 
 func _commit_deck() -> void:
 	SceneManager.save_manager.set_active_deck(_working_deck)

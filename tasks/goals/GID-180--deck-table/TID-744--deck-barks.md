@@ -2,7 +2,7 @@
 
 **Goal:** GID-180
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-736, TID-737
 
 ## Lock
@@ -29,12 +29,15 @@ Shared context:
 
 ## Plan
 
-_Written during Plan phase._
+Pure DeckBarkRules (BarkRules pattern) + DeckPile speech bubble; InventoryScene barks on open and after each edit.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `game_logic/inventory/DeckBarkRules.gd` + `tests/unit/test_deck_bark_rules.gd` (6 tests).
+- `DeckPile.say()` parchment bubble.
+- `InventoryScene._maybe_bark()`.
+- `tools/capture_inventory.gd` sets Maiteln active. Verified visually.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/inventory-and-deck.md`: Maiteln's deck barks section.

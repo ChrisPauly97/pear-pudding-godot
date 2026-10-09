@@ -30,6 +30,7 @@ func _run() -> void:
 	var save: Object = sm.get("save_manager")
 	save.call("new_game", 1)
 	save.set("bag_size", 60)
+	save.set("active_companion", "maiteln")
 	for id: String in _TutorialRegistry._DATA:
 		save.call("set_story_flag", "seen_tutorial_" + id)
 	var ids: Array[String] = _CardRegistry.get_all_ids()

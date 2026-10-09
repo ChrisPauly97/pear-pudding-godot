@@ -26,6 +26,9 @@ var _undo_btn: Button
 var _grid: HFlowContainer
 var _identity: _DeckIdentity
 var _threads: _SynergyThreads
+var _bubble: PanelContainer
+var _bubble_lbl: Label
+var _bubble_tw: Tween
 var _ref: float = 0.0
 var _by_uid: Dictionary = {}  # uid -> deck tile
 
@@ -37,6 +40,14 @@ func setup(ref: float, min_scroll_h: float) -> void:
 	_identity = _DeckIdentity.new()
 	add_child(_identity)
 	_identity.setup(ref)
+	# Maiteln's speech bubble (TID-744); hidden until he has something to say.
+	_bubble = PanelContainer.new()
+	_bubble.visible = false
+	_bubble.add_theme_stylebox_override("panel", _UiUtil.make_style(Color(0.95, 0.9, 0.78), int(ref * 0.012),
+			Color(0.55, 0.4, 0.2), 2))
+	add_child(_bubble)
+	_bubble_lbl = _UiUtil.make_label("", int(ref * 0.019), Color(0.2, 0.13, 0.05), HORIZONTAL_ALIGNMENT_LEFT, _bubble)
+	_bubble_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	header = _UiUtil.make_hbox(int(ref * 0.008), self)
 	_count_label = _UiUtil.make_label("", int(ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, header)
 	_count_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -110,3 +121,17 @@ func land(uid: String, rarity: String) -> void:
 		_CardJuice.pop(t, 0.25)
 		_CardJuice.sparkle(t, rarity, _ref)
 	_CardJuice.pop(_count_label, 0.12)
+
+
+## Shows a mentor line in the bubble for a few seconds.
+func say(speaker: String, text: String) -> void:
+	_bubble_lbl.text = "%s: “%s”" % [speaker, text]
+	_bubble.visible = true
+	_bubble.modulate.a = 0.0
+	if _bubble_tw != null and _bubble_tw.is_valid():
+		_bubble_tw.kill()
+	_bubble_tw = _bubble.create_tween()
+	_bubble_tw.tween_property(_bubble, "modulate:a", 1.0, 0.2)
+	_bubble_tw.tween_interval(6.0)
+	# Fades but keeps its space, so the deck grid doesn't jump when it goes.
+	_bubble_tw.tween_property(_bubble, "modulate:a", 0.0, 0.6)

@@ -676,3 +676,13 @@ Rename / Copy / Delete; emits `switched` / `loadout_renamed`, host reloads `_wor
 - `game_logic/inventory/SatchelLines.gd`: `line(kind, companion, n, card_name)` ("full" / "mailbox"; Maiteln's voice
   when the companion is learned and active, else the satchel), `fullness(used, cap)` 0–3.
   `SceneManager` routes `GameBus.bag_full` / `card_routed_to_mailbox` through it (`_grumbler()`, rotating `_grumbles`).
+
+### Maiteln's deck barks (TID-744)
+
+`game_logic/inventory/DeckBarkRules.gd` mirrors the battle `BarkRules`: `LINES` + `ORDER` (too_small, top_heavy
+(≥ 35 % cost 5+), no_early (< 3 cards at cost ≤ 2), no_allies, no_spells, upgrade (a bag copy beats a deck copy),
+synergy (≥ 2 keyword links), full), `candidates(deck, bag)` (techniques ignored), `next_bark(cands, last_id,
+since_last_s)` (top candidate that isn't the last line, ≥ `MIN_INTERVAL_S` 6 s apart) and `is_eligible` (Maiteln is the
+active companion, or the companion system isn't learned yet — he's the starter mentor). InventoryScene calls
+`_maybe_bark()` on open and after each deck edit; `DeckPile.say()` shows the parchment bubble for ~6 s (it fades but
+keeps its space so the grid doesn't jump).
