@@ -748,3 +748,16 @@ Ids and tree positions are unchanged, so existing saves keep their nodes.
 | fracture | Hairline Crack: `damage` +10% crit | Splintering: `damage` crit → refund 1 mana | Shatterwave: 4 to all, 1.5 s, ↻ 12 s | Hollow Core: spells −1 cost | Fault Line: techniques recycle 15% faster | Scavenged Shards: draw 2, ↻ 15 s |
 
 Technique numbers are starting points; TID-735 tunes them with the balance sim.
+
+### Implementation (TID-732 / TID-733)
+
+- `game_logic/battle/SkillMods.gd` (pure) lives on `PlayerState.skill_mods`, set by
+  `BattleSetup.apply_skill_mods(player, unlocked_skills)` from `BattleRealtime.maybe_start`
+  (and `BattleSetup.build`'s `cfg.skills` for the sim). Null in turn-based fights.
+- Cost: `PlayerState.effective_cost` reads `skill_mods.cost_for(card)` → hand cards show the discount.
+- Cast: `PlayerCaster.begin` × `cast_mult`; `RealtimeCombat.instant_next` (set by an
+  `on_crit_instant` node) zeroes the next cast and is consumed.
+- Recycle: `PlayerCaster._after_technique` × `recycle_mult`.
+- Power + crit: `SpellEffectResolver.power_hook` → `PlayerCaster.modify_power` (player side only):
+  `mod_power`, then the crit roll for damage / heal effects, on-crit triggers, a "crit" caster event
+  (scene toast; sim `crits_dealt`).

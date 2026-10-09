@@ -2,7 +2,7 @@
 
 **Goal:** GID-179
 **Type:** agent
-**Status:** todo
+**Status:** done
 **Depends On:** TID-732
 
 ## Lock
@@ -22,12 +22,17 @@ See goal.md (user request 2026-10-09).
 
 ## Plan
 
-_TBD._
+Pure `SkillMods` on `PlayerState.skill_mods` (real time only); hooks in cost, cast, recycle, power.
 
 ## Changes Made
 
-_TBD._
+- `game_logic/battle/SkillMods.gd`: filters (branch / spell / technique / ally / damage / heal / id), `cost_for`, `cast_mult`, `recycle_mult`, `power_for`, `crit_bonus`, `instant_on_crit`, `refund_on_crit`, `can_crit`.
+- `SkillData`: `filter`, `grants_card` fields; effect vocab comments.
+- `PlayerState.skill_mods`; `effective_cost` uses `cost_for` (hand cards show the discount).
+- `RealtimeCombat.instant_next`; `PlayerCaster.begin` applies cast mult and consumes `instant_next`; `_after_technique` applies recycle mult.
+- `BattleSetup.apply_skill_mods` replaces `apply_passives` (sim `cfg.skills`); `BattleRealtime.maybe_start` applies it; `BattleModifiers._apply_passive_skills` + its call removed (turn-based gets no skill stats).
+- Tests: `tests/unit/test_skill_mods.gd` (11).
 
 ## Documentation Updates
 
-_TBD._
+- `combat-model.md` → "Skill tree modifies cards".
