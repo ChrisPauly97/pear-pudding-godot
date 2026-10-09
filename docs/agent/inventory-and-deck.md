@@ -590,3 +590,15 @@ hand-built table. Used by the deck table header, binder, compare popup and Maite
   Ctrl/Cmd+Z (Cards tab only). Switching loadout clears the undo stack. Scrap/combine/sell call `_prune_working_deck()`.
 - Class/cost/rarity filters fold behind the toolbar's **Filters** toggle (shows "•" while a filter is active).
 - Tests: `tests/unit/test_deck_undo.gd`; `tests/inventory_tiles_smoke.gd` checks auto-save + undo.
+
+### Card juice (TID-738)
+
+`scenes/ui/inventory/CardJuice.gd` (statics) gives every deck-table surface the same feel:
+`drag_preview` (a `DragCardPreview` — lifted ×1.08 mini card over a soft shadow, tilting toward the drag direction),
+`sparkle` (one-shot `CPUParticles2D`, count/size by rarity tier), `pop` (TRANS_BACK scale punch), `shimmer`
+(looping `self_modulate` glow on legendary tiles, idempotent via meta, tween dies with the tile) and `sound`
+(`pick` / `place` / `return` / `shuffle` over `card_draw` / `card_play` takes with pitch jitter).
+InventoryScene: a drag start plays `pick` + sparkles; `_edit_deck` calls `DeckPile.land(uid)` (tile bounce, sparkles,
+count thump) and `place` / `return`. CardJuice names `AudioManager`, so `-s` tools must `load()` it at runtime
+(`tools/capture_inventory.gd` `DRAG=1` does). No hum loop for legendaries: the visual shimmer only, a looping sound in
+a menu got tiresome on paper.

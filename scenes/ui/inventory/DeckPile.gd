@@ -9,6 +9,7 @@ signal best_pressed
 
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _CardTile = preload("res://scenes/ui/inventory/CardTile.gd")
+const _CardJuice = preload("res://scenes/ui/inventory/CardJuice.gd")
 
 ## Deck tiles are drawn at this fraction of the binder's tile size.
 const TILE_SCALE: float = 0.78
@@ -20,6 +21,7 @@ var _count_label: Label
 var _undo_btn: Button
 var _grid: HFlowContainer
 var _ref: float = 0.0
+var _by_uid: Dictionary = {}  # uid -> deck tile
 
 
 func setup(ref: float, min_scroll_h: float) -> void:
@@ -54,11 +56,14 @@ func show_deck(insts: Array[Dictionary], template_for: Callable, decorate: Calla
 	var keep: int = scroll.scroll_vertical
 	for child in _grid.get_children():
 		child.queue_free()
+	_by_uid.clear()
 	for inst: Dictionary in insts:
 		var tmpl: Dictionary = template_for.call(str(inst.get("template_id", "")))
 		var tile: Button = _CardTile.build(inst, tmpl, _ref * TILE_SCALE)
 		_grid.add_child(tile)
+		_by_uid[str(inst.get("uid", ""))] = tile
 		decorate.call(tile, inst)
+		_CardJuice.shimmer(tile, str(inst.get("rarity", "")))
 	if insts.is_empty():
 		var hint := _UiUtil.make_label("Tap cards above to add them to your deck", int(_ref * 0.019),
 				Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, _grid)
@@ -70,3 +75,18 @@ func show_deck(insts: Array[Dictionary], template_for: Callable, decorate: Calla
 	if not ok:
 		_count_label.text += "  (need %d+)" % IsoConst.DECK_MIN
 	scroll.set_deferred("scroll_vertical", keep)
+
+
+## The deck tile showing `uid`, or null.
+func tile_for(uid: String) -> Control:
+	var t: Variant = _by_uid.get(uid, null)
+	return t as Control if is_instance_valid(t) else null
+
+
+## A card just landed: the tile bounces in with sparks and the count thumps.
+func land(uid: String, rarity: String) -> void:
+	var t: Control = tile_for(uid)
+	if t != null:
+		_CardJuice.pop(t, 0.25)
+		_CardJuice.sparkle(t, rarity, _ref)
+	_CardJuice.pop(_count_label, 0.12)

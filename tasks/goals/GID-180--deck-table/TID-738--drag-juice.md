@@ -2,7 +2,7 @@
 
 **Goal:** GID-180
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-737
 
 ## Lock
@@ -30,12 +30,16 @@ Shared context:
 
 ## Plan
 
-_Written during Plan phase._
+CardJuice statics (preview, sparkle, pop, shimmer, sound) + DragCardPreview; hook drag start, deck landing and binder/pile legendary tiles.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `scenes/ui/inventory/CardJuice.gd`, `scenes/ui/inventory/DragCardPreview.gd`.
+- `DeckPile`: `tile_for`, `land` (bounce + sparkles + count thump), legendary shimmer.
+- `InventoryScene`: card drag preview replaces the coloured square; pick sound + sparkle; place/return sounds in `_edit_deck`; binder shimmer.
+- `tools/capture_inventory.gd`: `DRAG=1` preview capture (verified visually).
+- Legendary 'hum' kept visual only (shimmer); no looping audio in menus.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/inventory-and-deck.md`: Card juice section.

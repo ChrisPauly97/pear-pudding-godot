@@ -12,6 +12,7 @@ const _CraftPanel       = preload("res://scenes/ui/inventory/CraftPanel.gd")
 const _ItemsPanel       = preload("res://scenes/ui/inventory/ItemsPanel.gd")
 const _DeckPile         = preload("res://scenes/ui/inventory/DeckPile.gd")
 const _DeckUndo         = preload("res://game_logic/inventory/DeckUndo.gd")
+const _CardJuice        = preload("res://scenes/ui/inventory/CardJuice.gd")
 
 const DeckAutoFill = preload("res://game_logic/DeckAutoFill.gd")
 const _TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
@@ -378,6 +379,7 @@ func _refresh_cards() -> void:
 				tile = _make_card_tile(inst, membership)
 				_tiles.put(uid, sig, tile)
 			grid.add_child(tile)
+			_CardJuice.shimmer(tile, str(inst.get("rarity", "")))
 	else:
 		var msg: String = "Your bag is empty — cards not in a deck live here" if bag_total == 0 \
 				else "No cards match the search / filters"
@@ -568,14 +570,13 @@ func _drag_card(ctrl: Control, at: Vector2, uid: String, in_deck: bool, tint: Co
 	# set_drag_preview needs a live viewport; skip it out of tree so the rules
 	# above stay unit-testable without standing up the whole panel.
 	if ctrl.is_inside_tree():
-		var preview := ColorRect.new()
-		preview.color = Color(tint.r, tint.g, tint.b, 0.85)
-		preview.custom_minimum_size = Vector2(_ref * 0.08, _ref * 0.08)
-		preview.size = preview.custom_minimum_size
-		var holder := Control.new()
-		holder.add_child(preview)
-		preview.position = -preview.size * 0.5
-		ctrl.set_drag_preview(holder)
+		var inst: Dictionary = SceneManager.save_manager.get_instance_by_uid(uid)
+		var tmpl: Dictionary = _template(str(inst.get("template_id", "")))
+		if tmpl.is_empty():
+			tmpl = {"color": tint}
+		ctrl.set_drag_preview(_CardJuice.drag_preview(inst, tmpl, _ref * (0.78 if in_deck else 1.0)))
+		_CardJuice.sound("pick")
+		_CardJuice.sparkle(ctrl, str(inst.get("rarity", "common")), _ref)
 	return {"kind": _DRAG_KIND, "uid": uid, "from_deck": in_deck}
 
 func _is_card_drag(data: Variant, from_deck: bool) -> bool:
@@ -882,9 +883,20 @@ func _edit_deck(next: Array[String]) -> void:
 	if next == _working_deck:
 		return
 	_undo.push(_working_deck)
+	var added: Array[String] = []
+	for uid: String in next:
+		if not _working_deck.has(uid):
+			added.append(uid)
+	var removed: bool = next.size() < _working_deck.size()
 	_working_deck = next
 	_commit_deck()
 	_refresh_cards()
+	for uid: String in added:
+		_pile.land(uid, str(SceneManager.save_manager.get_instance_by_uid(uid).get("rarity", "common")))
+	if not added.is_empty():
+		_CardJuice.sound("place")
+	elif removed:
+		_CardJuice.sound("return")
 
 func _commit_deck() -> void:
 	SceneManager.save_manager.set_active_deck(_working_deck)
