@@ -31,14 +31,17 @@ static func draw_pin(canvas: CanvasItem, at: Vector2, radius: float, col: Color)
 	canvas.draw_line(at + Vector2(0.0, -PIN_ARM_PX), at + Vector2(0.0, PIN_ARM_PX), col, 1.5)
 	canvas.draw_line(at + Vector2(-PIN_ARM_PX, 0.0), at + Vector2(PIN_ARM_PX, 0.0), col, 1.5)
 
-## A quest giver's "!" / "?" (QuestTracker marks) as outlined text on a dark disc.
+## A quest giver's "!" / "?" (QuestTracker marks): outlined text on a dark disc,
+## ringed and haloed in the mark's colour so it stands out over busy map art.
 static func draw_quest_mark(canvas: CanvasItem, at: Vector2, text: String, col: Color, size: int) -> void:
 	var font: Font = ThemeDB.fallback_font
 	var half: float = size * 0.62
-	canvas.draw_circle(at, half + OUTLINE_PX, Color(0.0, 0.0, 0.0, 0.75))
+	canvas.draw_circle(at, half + OUTLINE_PX * 4.0, Color(col, 0.25))
+	canvas.draw_circle(at, half + OUTLINE_PX, Color(0.0, 0.0, 0.0, 0.85))
+	canvas.draw_arc(at, half + OUTLINE_PX, 0.0, TAU, 32, col, 2.5, true)
 	var w: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
 	var base := at + Vector2(-w * 0.5, size * 0.36)
-	canvas.draw_string_outline(font, base, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, 4, Color.BLACK)
+	canvas.draw_string_outline(font, base, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, 5, Color.BLACK)
 	canvas.draw_string(font, base, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
 
 ## A quest area outline (panel px): a translucent fill with a solid rim.

@@ -247,6 +247,13 @@ board a violet **?** when an accepted contract is ready to claim
 3 are active. The mark is a `QuestMark` Label3D child, placed above the name tag and the
 beacon's bobbing arrow, and only rewritten when it changes.
 
+A step with `handoff_quest` (the opening "Help the townsfolk", → Hilda's `rats_in_grain`) stops
+pointing anywhere once that side quest is active or done (`StoryQuests.handed_off`, fed
+`SaveQuests.started_ids()`): no story target, no story "!" — the side-quest chain's own marks lead.
+Map views (`QuestTracker.map_mark`, read by minimap / named-map / realm map and TownLife) show only
+marks the player can act on now: the label's `quest_mark_kind` meta skips grey `side_upcoming`.
+`MapMarkers.draw_quest_mark` rings and haloes each mark in its colour.
+
 **New-objective tip.** `QuestTracker.announce_story_step()` shows `"New objective: <label>"`
 on the HUD tip line (not the dialogue line, so the NPC's last words stay up) when the
 story quest's label changes: on `story_flag_set`, and on `WorldScene._on_reattached` for a step

@@ -23,7 +23,8 @@ func _crit_rt(chance: float) -> RealtimeCombat:
 		p.hand.clear()
 		p.draw_deck.clear()
 	var rt := RealtimeCombat.new(gs, [1, 1],
-		CombatTuning.new({"crit_chance": chance, "enemy_crit_chance": chance}))
+		CombatTuning.new({"swing_mult": 1.0, "swing_damage": 1.0, "swing_spread": 0.0, "enemy_swing_delay": 0.0,
+			"crit_chance": chance, "enemy_crit_chance": chance}))
 	rt.unarmed[RealtimeCombat.ENEMY] = 0
 	rt.state.players[1].hero.attack = 0
 	return rt

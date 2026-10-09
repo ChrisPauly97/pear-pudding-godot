@@ -46,10 +46,11 @@ static var _board_targets: Array[Dictionary] = []
 
 
 ## All active quests, story first. `side` is SaveQuests.log_entries():
-## [{quest, progress, ready}]; `training` the UnlockLadder ids waiting at a trainer.
+## [{quest, progress, ready}]; `training` the UnlockLadder ids waiting at a trainer;
+## `started` the active + completed side quest ids (StoryQuests.handed_off).
 static func active_quests(flags: Dictionary, treasure: Dictionary,
-		bounties: Array, side: Array = [], training: Array = []) -> Array[Dictionary]:
-	var out: Array[Dictionary] = [story_quest(flags)]
+		bounties: Array, side: Array = [], training: Array = [], started: Array = []) -> Array[Dictionary]:
+	var out: Array[Dictionary] = [story_quest(flags, started)]
 	if not treasure.is_empty() and not bool(treasure.get("completed", false)):
 		out.append({
 			"id": TREASURE_ID, "kind": "treasure", "title": "Buried Treasure",
@@ -170,7 +171,7 @@ static func npc_target(npc_id: String) -> Dictionary:
 ## The main-story entry. Past the last written step it becomes a standing
 ## "between chapters" quest pointing at the bounty boards, so the tracker is
 ## never blank.
-static func story_quest(flags: Dictionary) -> Dictionary:
+static func story_quest(flags: Dictionary, started: Array = []) -> Dictionary:
 	var step: Dictionary = _StoryQuests.current_step(flags)
 	if step.is_empty():
 		var boards: Array[Dictionary] = bounty_board_targets()
@@ -182,7 +183,9 @@ static func story_quest(flags: Dictionary) -> Dictionary:
 				+ "and cleanse the blight."),
 			"progress": "", "targets": boards,
 		}
-	var targets: Array[Dictionary] = [step]
+	var targets: Array[Dictionary] = []
+	if not _StoryQuests.handed_off(step, started):
+		targets.append(step)
 	# A story site (camp, ambush road) is an area to reach, not one tile.
 	var zones: Array[Dictionary] = []
 	if step.has("site"):

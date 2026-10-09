@@ -30,6 +30,8 @@ const _LEARNED_BUTTONS: Dictionary = {
 }
 
 const _MARK_NAME: String = "QuestMark"
+## Label3D meta holding the mark's QuestLog kind, so map views can skip "side_upcoming".
+const _MARK_KIND_META: StringName = &"quest_mark_kind"
 ## Most bounties a player can hold at once (SaveBounties.accept_bounty).
 const _MAX_BOUNTIES: int = 3
 
@@ -123,6 +125,17 @@ func on_side_quest_ready(quest_id: String) -> void:
 		GameBus.hud_message_requested.emit("%s — done! Return to %s." % [str(q.get("title", "")),
 				_SideQuests.turn_in_name(q)])
 
+## Handed in: when nobody has a quest to offer yet, say who has the next one and
+## at what level, so a level-locked follow-up isn't a silent dead end.
+func on_side_quest_turned_in(_quest_id: String) -> void:
+	refresh(true)
+	var sm := SceneManager.save_manager
+	var q: Dictionary = _SideQuests.next_locked_quest(sm.level, sm.story_flags, sm.quests_active,
+			sm.quests_completed)
+	if not q.is_empty():
+		GameBus.hud_message_requested.emit("%s will have work for you at level %d — hunt beyond town to get there."
+				% [str(q.get("giver_name", "")), int(q.get("min_level", 1))])
+
 ## Map load: plant the beacon and take the current story step as already seen.
 func on_map_ready() -> void:
 	refresh(true)
@@ -172,7 +185,7 @@ func _refresh_npc_marks() -> void:
 	var sm := SceneManager.save_manager
 	var story_tile: Variant = null
 	var step: Dictionary = _StoryQuests.current_step(sm.story_flags)
-	if not step.is_empty():
+	if not step.is_empty() and not _StoryQuests.handed_off(step, sm.quests.started_ids()):
 		var placed: Dictionary = _ObjectiveTracker.place_on_map(step, _world.map_name)
 		if not placed.is_empty():
 			story_tile = Vector2i(int(placed["tx"]), int(placed["tz"]))
@@ -196,12 +209,15 @@ func _refresh_npc_marks() -> void:
 
 ## The "!" / "?" a quest giver wears, for the map views: {text, color}, or {} when
 ## the NPC has no mark. Reads the Label3D `_set_mark` keeps, so maps and world agree.
-## Townsfolk indoors at night (hidden) keep theirs, at their house.
+## Townsfolk indoors at night (hidden) keep theirs, at their house. Only work the
+## player can pick up or hand in now: a grey "upcoming" (level-locked) mark is left off.
 static func map_mark(node: Node3D) -> Dictionary:
 	if not is_instance_valid(node):
 		return {}
 	var lbl: Label3D = node.get_node_or_null(_MARK_NAME) as Label3D
 	if lbl == null or lbl.is_queued_for_deletion():
+		return {}
+	if lbl.has_meta(_MARK_KIND_META) and str(lbl.get_meta(_MARK_KIND_META)) == "side_upcoming":
 		return {}
 	return {"text": lbl.text, "color": lbl.modulate}
 
@@ -242,6 +258,7 @@ func _set_mark(node: Node3D, mark: Dictionary) -> void:
 		node.add_child(lbl)
 	lbl.text = text
 	lbl.modulate = col
+	lbl.set_meta(_MARK_KIND_META, str(mark["kind"]))
 
 ## Above the NPC's name tag (its highest Label3D child) and clear of the
 ## objective beacon's bobbing arrow, which often marks the same NPC.
@@ -305,7 +322,7 @@ func wire_signals() -> void:
 	GameBus.quest_accepted.connect(func(_id: String) -> void: refresh(true))
 	GameBus.quest_progressed.connect(func(_id: String) -> void: refresh(true))
 	GameBus.quest_ready.connect(on_side_quest_ready)
-	GameBus.quest_turned_in.connect(func(_id: String) -> void: refresh(true))
+	GameBus.quest_turned_in.connect(on_side_quest_turned_in)
 	# GID-141 / TID-590: level-up training notices and learn confirmations.
 	GameBus.training_available.connect(on_training_available)
 	GameBus.feature_learned.connect(on_feature_learned)

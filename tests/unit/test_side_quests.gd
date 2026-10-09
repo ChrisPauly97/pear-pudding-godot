@@ -275,3 +275,16 @@ func test_kill_objective_has_map_zone() -> void:
 	assert_eq((zones[0]["pts"] as Array).size(), 4, "camp centre + its 3 enemy slots")
 	var done: Dictionary = QuestLog.side_quest({"quest": SideQuests.def(Q_ID), "progress": [5], "ready": true})
 	assert_true(QuestLog.zones(done).is_empty(), "return-to-giver: no area")
+
+
+
+
+## Hilda's quest is the whole of level 1: its kills plus reward reach level 2, where
+## Wenna's quest and Mend open — no grinding before the follow-up.
+func test_first_quest_reaches_level_two() -> void:
+	var q: Dictionary = SideQuests.def("rats_in_grain")
+	var o: Dictionary = SideQuests.objectives(q)[0]
+	var xp: int = (int((q["rewards"] as Dictionary)["xp"])
+			+ int(o["count"]) * EnemyRegistry.get_xp_reward(str(o["target"])))
+	assert_gte(xp, SaveManagerScript.xp_for_level(2), "rats_in_grain kills + reward reach level 2")
+	assert_true(SideQuests.next_locked_quest(2, {}, {}, ["rats_in_grain"]).is_empty(), "follow-up on offer at 2")

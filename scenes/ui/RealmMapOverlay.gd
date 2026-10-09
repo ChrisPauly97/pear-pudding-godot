@@ -325,7 +325,7 @@ func _on_draw(c: Control) -> void:
 	for m: Dictionary in _npc_marks:
 		var mp: Vector2 = _tile_to_panel(_world_to_tile(m["pos"] as Vector3))
 		if _panel.has_point(mp):
-			_MapMarkers.draw_quest_mark(c, mp, str(m["text"]), m["color"] as Color, _font_size + 4)
+			_MapMarkers.draw_quest_mark(c, mp, str(m["text"]), m["color"] as Color, _font_size + 8)
 	var here: Variant = _player_tile()
 	if here != null:
 		var pp: Vector2 = _tile_to_panel(here as Vector2)

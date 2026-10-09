@@ -306,7 +306,7 @@ func _draw_npc_marks(canvas: Control, origin: Vector3) -> void:
 	for m: Dictionary in _world.quest_tracker.npc_map_marks():
 		var dot: Vector2 = _to_minimap(m["pos"] as Vector3, origin)
 		if _inside_minimap(dot, center):
-			_MapMarkers.draw_quest_mark(canvas, dot, str(m["text"]), m["color"] as Color, 13)
+			_MapMarkers.draw_quest_mark(canvas, dot, str(m["text"]), m["color"] as Color, 16)
 
 
 func _draw_group(canvas: Control, nodes: Dictionary, origin: Vector3,

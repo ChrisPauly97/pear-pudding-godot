@@ -23,7 +23,9 @@ func _rt() -> RealtimeCombat:
 	for p: PlayerState in gs.players:
 		p.hand.clear()
 		p.draw_deck.clear()
-	return RealtimeCombat.new(gs, [1, 1], CombatTuning.new({"crit_chance": 0.0, "enemy_crit_chance": 0.0}))
+	return RealtimeCombat.new(gs, [1, 1],
+		CombatTuning.new({"swing_mult": 1.0, "swing_damage": 1.0, "swing_spread": 0.0, "enemy_swing_delay": 0.0,
+			"crit_chance": 0.0, "enemy_crit_chance": 0.0}))
 
 ## Advance in 0.1 s steps (plus one step of slack for float drift), collecting events.
 func _run(rt: RealtimeCombat, seconds: float) -> Array[Dictionary]:
@@ -94,3 +96,28 @@ func test_enemy_cast_pushback_and_interrupt() -> void:
 	assert_null(rt.enemy_casting)
 	assert_true(rt.state.players[1].hand.has(cut), "interrupted card stays in hand")
 	assert_false(rt.gcd_ready(1), "interrupt puts the enemy on cooldown")
+
+
+## Default rhythm: swings at half the reference time, unarmed hits roll 1–3, and the
+## enemy hero's swings trail the player's by enemy_swing_delay.
+func test_default_swing_rhythm() -> void:
+	var gs := GameState.new()
+	for p: PlayerState in gs.players:
+		p.hand.clear()
+		p.draw_deck.clear()
+	var rt := RealtimeCombat.new(gs, [1, 1], CombatTuning.new({"crit_chance": 0.0, "enemy_crit_chance": 0.0}))
+	assert_almost_eq(rt.swing_speed(0), _tune.get_f("hero_swing") * _tune.get_f("swing_mult"), 0.001)
+	rt.rng.seed = 7
+	var seen: Dictionary = {}
+	for _i: int in range(2000):
+		seen[rt._roll_swing(rt._main_hand_avg(0), 0)] = true
+	assert_true(seen.has(1) and seen.has(3) and not seen.has(0) and not seen.has(4), "unarmed hits roll 1–3")
+	var first: Dictionary = {}
+	var t: float = 0.0
+	while first.size() < 2 and t < 5.0:
+		for e: Dictionary in rt.advance(0.05):
+			if str(e.get("type", "")) == "swing" and e.get("attacker") == null and not first.has(int(e["side"])):
+				first[int(e["side"])] = t
+		t += 0.05
+	assert_almost_eq(float(first.get(1, 0.0)) - float(first.get(0, 0.0)), _tune.get_f("enemy_swing_delay"), 0.06,
+			"enemy's first swing trails the player's")

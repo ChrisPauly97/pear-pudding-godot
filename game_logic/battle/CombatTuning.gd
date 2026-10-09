@@ -30,6 +30,12 @@ const DEFS: Array = [
 	["enemy_crit_chance", "Enemy crit chance per swing", 0.05, 0.0, 1.0, 0.01, "Auto-attack"],
 	["crit_mult", "Crit damage multiplier", 1.5, 1.0, 3.0, 0.1, "Auto-attack"],
 	["unarmed", "Your unarmed damage", 3.0, 0.0, 10.0, 1.0, "Auto-attack"],
+	# Every swing time (fists and weapons) is scaled by swing_mult and each hit by
+	# swing_damage; the player's hits then roll ± swing_spread.
+	["swing_mult", "Auto-attack swing time (x)", 0.5, 0.25, 2.0, 0.05, "Auto-attack"],
+	["swing_damage", "Auto-attack damage per swing (x)", 0.45, 0.1, 2.0, 0.01, "Auto-attack"],
+	["swing_spread", "Your auto-attack damage spread (± x)", 0.75, 0.0, 1.0, 0.05, "Auto-attack"],
+	["enemy_swing_delay", "Enemy hero's swings trail yours by (s)", 0.5, 0.0, 2.0, 0.05, "Auto-attack"],
 	["enemy_unarmed", "Enemy hero base damage", 2.0, 0.0, 10.0, 1.0, "Auto-attack"],
 	["ally_ready", "Ally ready every (s)", 3.0, 0.5, 8.0, 0.25, "Units"],
 	["enemy_swing", "Enemy minion swing (s)", 4.5, 1.0, 10.0, 0.25, "Units"],
@@ -51,7 +57,7 @@ const DEFS: Array = [
 	["combo_max", "Combo charges to fill", 3.0, 1.0, 5.0, 1.0, "Momentum"],
 	["combo_refund", "Mana back per charge a card spends", 60.0, 0.0, 200.0, 5.0, "Momentum"],
 	["proc_chance", "Free-cast chance per skill hit", 0.15, 0.0, 1.0, 0.01, "Momentum"],
-	["auto_proc_chance", "Free-cast chance per auto-attack hit", 0.05, 0.0, 1.0, 0.01, "Momentum"],
+	["auto_proc_chance", "Free-cast chance per auto-attack hit", 0.025, 0.0, 1.0, 0.01, "Momentum"],
 	["round_seconds", "Status/upkeep pulse per side (s)", 6.0, 1.0, 15.0, 0.5, "Status effects"],
 	["potion_cooldown", "Quick-slot potion cooldown (s)", 20.0, 0.0, 90.0, 1.0, "Consumables"],
 ]

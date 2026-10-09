@@ -3,6 +3,7 @@ extends "res://tests/framework/test_case.gd"
 
 const StoryQuests = preload("res://game_logic/quests/StoryQuests.gd")
 const QuestLog = preload("res://game_logic/quests/QuestLog.gd")
+const QuestTracker = preload("res://scenes/world/modules/QuestTracker.gd")
 const RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 
 
@@ -117,7 +118,6 @@ func test_bounty_turn_in_detection() -> void:
 
 ## Map views read the quest giver's in-world "!" / "?" Label3D.
 func test_map_mark_reads_npc_label() -> void:
-	const QuestTracker = preload("res://scenes/world/modules/QuestTracker.gd")
 	var npc := Node3D.new()
 	assert_true(QuestTracker.map_mark(npc).is_empty(), "unmarked NPC: no map mark")
 	var lbl := Label3D.new()
@@ -131,3 +131,26 @@ func test_map_mark_reads_npc_label() -> void:
 	npc.visible = false
 	assert_eq(str(QuestTracker.map_mark(npc).get("text", "")), "!", "indoors at night: still marked")
 	npc.free()
+
+
+## Level-locked ("upcoming") givers keep their grey in-world "!" but stay off the maps.
+func test_map_mark_skips_upcoming() -> void:
+	var npc := Node3D.new()
+	var lbl := Label3D.new()
+	lbl.name = "QuestMark"
+	lbl.text = "!"
+	lbl.set_meta(&"quest_mark_kind", "side_upcoming")
+	npc.add_child(lbl)
+	assert_true(QuestTracker.map_mark(npc).is_empty(), "upcoming: not on the map")
+	lbl.set_meta(&"quest_mark_kind", "side")
+	assert_false(QuestTracker.map_mark(npc).is_empty(), "offer: on the map")
+	npc.free()
+
+
+## The opening story step stops pointing at Hilda once her quest is taken.
+func test_story_step_hands_off_to_side_chain() -> void:
+	var flags: Dictionary = {}
+	var before: Array = QuestLog.story_quest(flags)["targets"]
+	assert_eq(before.size(), 1, "before: points at Hilda")
+	var after: Array = QuestLog.story_quest(flags, ["rats_in_grain"])["targets"]
+	assert_true(after.is_empty(), "after: no story pin")
