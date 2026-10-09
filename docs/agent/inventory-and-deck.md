@@ -49,7 +49,7 @@ SaveManager.get_slot_count(deck_uids: Array = []) -> int   # counts owned_cards 
 SaveManager.is_bag_full() -> bool                          # get_slot_count() >= bag_size
 ```
 
-`InventoryScene` passes its unsaved `_working_deck` into `get_slot_count()` so the "Bag: X / Y" label updates live as cards are dragged between the collection grid and the deck list, before "Save Deck" commits `_working_deck` to `SaveManager.player_deck`. `add_card_instance()` rejects new cards (returns `""`, emits `GameBus.bag_full`) once `is_bag_full()` is true against the *committed* deck — battle rewards, chest drops, and crafted cards are silently dropped when the bag is full; there is no overflow mailbox/stash yet.
+`InventoryScene` passes `_working_deck` into `get_slot_count()`. Since GID-180 every deck edit is committed at once (`_edit_deck` → `set_active_deck`), so the working deck always equals `player_deck`. `add_card_instance()` rejects new cards (returns `""`, emits `GameBus.bag_full`) once the bag is full; automatic rewards go through `grant_card_reward()`, which routes to the mailbox instead (see TID-743).
 
 The collection panel renders the backpack as an `HFlowContainer` of card-face tiles (`_make_card_tile` → `scenes/ui/inventory/CardTile.gd`), one per instance: cost gem, rarity-coloured frame + rarity letter, illustration (or a monogram on the card colour), name, ⚔ATK ♥HP (or "Spell"), veterancy chevrons, and an "In <deck>" tag when the card sits in another loadout. Right-click (desktop) or tap-and-hold (mobile, via `LongPressDetector`) opens a detail popup: mana/class/stats, rules text, kills/battles, a warning if the card is in a deck, Add to Deck, Inspect (full `CardInspectOverlay`), Sell/Scrap, Combine 3 → next tier (any tier below legendary, with an n/3 count) and Rename. A plain tap/click adds the card to the working deck.
 
@@ -578,3 +578,15 @@ hand-built table. Used by the deck table header, binder, compare popup and Maite
 | `roll_quality` / `is_perfect_roll` / `has_roll_range` | 0..1 position in the rarity's `RARITY_CONFIG` variance band; perfect = top of every variable stat (commons never) |
 | `compare(a, b)` | stat deltas a − b incl. rarity tier |
 | `power_score` / `replace_target` / `is_upgrade` | rarity tier, then atk+hp, then cheaper; upgrade = beats the weakest same-template deck copy |
+
+### Card table layout (TID-737)
+
+- Binder (bag grid) left / top; **deck pile** right (landscape) or below (portrait): `scenes/ui/inventory/DeckPile.gd`,
+  a pure view (header: count, ↶ Undo, ★ Best deck; `loadout_slot` for the loadout tabs; deck as `CardTile`s at
+  `TILE_SCALE` 0.78). InventoryScene wires each deck tile in `_decorate_deck_tile`: tap = take out, hold = inspect,
+  sideways drag = back to the binder.
+- **No Save Deck button.** Every change goes through `_edit_deck(next)`: snapshot into `DeckUndo`
+  (`game_logic/inventory/DeckUndo.gd`, cap 20, duplicate snapshots skipped), then `set_active_deck`. Undo = button or
+  Ctrl/Cmd+Z (Cards tab only). Switching loadout clears the undo stack. Scrap/combine/sell call `_prune_working_deck()`.
+- Class/cost/rarity filters fold behind the toolbar's **Filters** toggle (shows "•" while a filter is active).
+- Tests: `tests/unit/test_deck_undo.gd`; `tests/inventory_tiles_smoke.gd` checks auto-save + undo.

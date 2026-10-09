@@ -13,7 +13,7 @@ User request 2026-10-09: "deck management and inventory management has to be the
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-736 | Pure logic: DeckInsights | agent | done | — |
-| TID-737 | Card table layout + auto-save/undo | agent | pending | — |
+| TID-737 | Card table layout + auto-save/undo | agent | done | — |
 | TID-738 | Drag juice: lift, snap, sounds, sparkle | agent | pending | TID-737 |
 | TID-739 | Binder: stacks, pages, silhouettes, shimmer, gilding | agent | pending | TID-736, TID-737 |
 | TID-740 | Deck personality: name, crest, synergy threads, skyline, test hand | agent | pending | TID-736, TID-737 |

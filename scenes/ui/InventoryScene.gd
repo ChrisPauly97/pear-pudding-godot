@@ -10,6 +10,8 @@ const _CardTile         = preload("res://scenes/ui/inventory/CardTile.gd")
 const _TileCache        = preload("res://scenes/ui/inventory/TileCache.gd")
 const _CraftPanel       = preload("res://scenes/ui/inventory/CraftPanel.gd")
 const _ItemsPanel       = preload("res://scenes/ui/inventory/ItemsPanel.gd")
+const _DeckPile         = preload("res://scenes/ui/inventory/DeckPile.gd")
+const _DeckUndo         = preload("res://game_logic/inventory/DeckUndo.gd")
 
 const DeckAutoFill = preload("res://game_logic/DeckAutoFill.gd")
 const _TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
@@ -40,10 +42,12 @@ var hub_mode: bool = false
 var _working_deck: Array[String] = []
 
 var _collection_list: VBoxContainer
-var _deck_list: VBoxContainer
 var _collection_scroll: ScrollContainer
-var _deck_scroll: ScrollContainer
-var _deck_count_label: Label
+## Deck side of the table (GID-180). Every edit auto-saves; `_undo` reverts.
+var _pile: _DeckPile
+var _undo: _DeckUndo = _DeckUndo.new()
+var _filter_row: HBoxContainer
+var _filter_toggle: Button
 var _wallet_label: Label
 var _hint_label: Label
 
@@ -150,9 +154,10 @@ func _build_ui() -> void:
 
 	_build_toolbar(_UiUtil.make_hbox(int(_ref * 0.006), left_vbox))
 
-	# ---- Filter row ----
-	var filter_row := _UiUtil.make_hbox(int(_ref * 0.005), left_vbox)
-	_build_filter_buttons(filter_row)
+	# ---- Filter row (folded behind the toolbar's Filters toggle) ----
+	_filter_row = _UiUtil.make_hbox(int(_ref * 0.005), left_vbox)
+	_filter_row.visible = false
+	_build_filter_buttons(_filter_row)
 
 	_hint_label = _UiUtil.make_label("", int(_ref * 0.016), Color(0.65, 0.65, 0.7), HORIZONTAL_ALIGNMENT_CENTER,
 			left_vbox)
@@ -189,48 +194,28 @@ func _build_ui() -> void:
 	if not is_portrait:
 		root_box.add_child(VSeparator.new())
 
-	# ---- Deck panel (right) ----
-	var right_vbox := VBoxContainer.new()
-	right_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	right_vbox.size_flags_stretch_ratio = 1.0
+	# ---- Deck pile (right / bottom) ----
+	_pile = _DeckPile.new()
+	_pile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if is_portrait:
-		right_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	root_box.add_child(right_vbox)
+		_pile.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root_box.add_child(_pile)
+	_pile.setup(_ref, scroll_min_h)
+	_pile.undo_pressed.connect(_on_undo)
+	_pile.best_pressed.connect(_on_auto_fill)
+	attach_drag_scroll(_pile.scroll)
+	_pile.scroll.set_drag_forwarding(Callable(), _can_drop_into_deck, _drop_into_deck)
 
-	# ---- Loadout tab row ----
-	_loadout_tab_row = _UiUtil.make_hbox(int(_ref * 0.005), right_vbox)
-
-	# ---- Loadout action row (Rename / Copy / Delete) ----
-	_loadout_action_row = _UiUtil.make_hbox(int(_ref * 0.006), right_vbox)
-
+	# ---- Loadout tab row + actions (Rename / Copy / Delete) ----
+	_loadout_tab_row = _UiUtil.make_hbox(int(_ref * 0.005), _pile.loadout_slot)
+	_loadout_action_row = _UiUtil.make_hbox(int(_ref * 0.006), _pile.loadout_slot)
 	_rename_btn = _UiUtil.make_button("Rename", Vector2(_ref * 0.12, _ref * 0.055), int(_ref * 0.020),
 			_on_rename_loadout, _loadout_action_row)
-
 	_dup_btn = _UiUtil.make_button("Copy", Vector2(_ref * 0.10, _ref * 0.055), int(_ref * 0.020), _on_dup_loadout,
 			_loadout_action_row)
-
 	_del_btn = _UiUtil.make_button("Delete", Vector2(_ref * 0.12, _ref * 0.055), int(_ref * 0.020), _on_del_loadout,
 			_loadout_action_row)
 	_del_btn.modulate = Color(1.0, 0.4, 0.4)
-
-	var count_row := _UiUtil.make_hbox(int(_ref * 0.008), right_vbox)
-	_deck_count_label = _UiUtil.make_label("", int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, count_row)
-	_deck_count_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_UiUtil.make_button("Auto-Fill", Vector2(_ref * 0.14, _ref * 0.052), int(_ref * 0.019), _on_auto_fill, count_row)
-	_UiUtil.make_button("Save Deck", Vector2(_ref * 0.15, _ref * 0.052), int(_ref * 0.019), _on_save, count_row)
-
-	_deck_scroll = ScrollContainer.new()
-	var right_scroll: ScrollContainer = _deck_scroll
-	right_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	right_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	if scroll_min_h > 0.0:
-		right_scroll.custom_minimum_size = Vector2(0.0, scroll_min_h)
-	right_vbox.add_child(right_scroll)
-	attach_drag_scroll(right_scroll)
-	right_scroll.set_drag_forwarding(Callable(), _can_drop_into_deck, _drop_into_deck)
-
-	_deck_list = _UiUtil.make_vbox(int(_ref * 0.008), right_scroll)
-	_deck_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	# ====================================================================
 	# CRAFT + ITEMS PANELS
@@ -265,6 +250,10 @@ func _build_toolbar(row: HBoxContainer) -> void:
 		_query = t
 		_search_timer.start())
 	row.add_child(search)
+	_filter_toggle = _UiUtil.make_button("Filters", Vector2(_ref * 0.12, h), int(_ref * 0.018), func() -> void:
+		_filter_row.visible = not _filter_row.visible
+		_refresh_toolbar(), row)
+	_filter_toggle.tooltip_text = "Filter by class, cost and rarity"
 	_sort_btn = _UiUtil.make_button("", Vector2(_ref * 0.17, h), int(_ref * 0.018), _on_cycle_sort, row)
 	_sort_btn.tooltip_text = "Change the bag's sort order"
 	_select_btn = _UiUtil.make_button("", Vector2(_ref * 0.13, h), int(_ref * 0.018), _on_toggle_select, row)
@@ -342,11 +331,8 @@ func _refresh_cards() -> void:
 	_rebuild_loadout_bar()
 	_refresh_wallet()
 	var col_scroll: int = _collection_scroll.scroll_vertical if _collection_scroll else 0
-	var deck_scroll: int = _deck_scroll.scroll_vertical if _deck_scroll else 0
 	_tiles.detach_all()
 	for child in _collection_list.get_children():
-		child.queue_free()
-	for child in _deck_list.get_children():
 		child.queue_free()
 
 	var sm := SceneManager.save_manager
@@ -399,28 +385,20 @@ func _refresh_cards() -> void:
 
 	_tiles.sweep()
 
-	# ---- Deck list ----
-	if not deck_insts.is_empty():
-		BagOps.sort_instances(deck_insts, "cost", _template)
-		for inst: Dictionary in deck_insts:
-			_deck_list.add_child(_make_deck_row_instance(str(inst.get("uid", "")), inst))
-
-	var deck_sz: int = _working_deck.size()
-	_deck_count_label.text = "Deck  %d / %d" % [deck_sz, IsoConst.DECK_MAX]
-	if deck_sz < IsoConst.DECK_MIN or deck_sz > IsoConst.DECK_MAX:
-		_deck_count_label.modulate = Color.RED
-	else:
-		_deck_count_label.modulate = Color.WHITE
+	# ---- Deck pile ----
+	BagOps.sort_instances(deck_insts, "cost", _template)
+	_pile.show_deck(deck_insts, _template, _decorate_deck_tile, _undo.can_undo())
 	_refresh_toolbar()
 	if _collection_scroll and col_scroll > 0:
 		_collection_scroll.scroll_vertical = col_scroll
-	if _deck_scroll and deck_scroll > 0:
-		_deck_scroll.scroll_vertical = deck_scroll
 
 func _refresh_toolbar() -> void:
 	_sort_btn.text = "Sort: %s" % str(BagOps.SORT_LABELS.get(_sort, _sort))
 	_select_btn.text = "Done" if _select_mode else "Select"
 	_select_btn.modulate = Color(0.55, 1.0, 0.6) if _select_mode else Color.WHITE
+	var filtering: bool = _filter_class != "" or _filter_cost != "" or _filter_rarity != ""
+	_filter_toggle.text = "Filters •" if filtering else "Filters"
+	_filter_toggle.modulate = _GOLD if _filter_row.visible or filtering else Color.WHITE
 	_bulk_bar.visible = _select_mode
 	if _select_mode:
 		_hint_label.text = "Tap cards to select them  ·  Extras = spare copies"
@@ -527,8 +505,7 @@ func _on_auto_fill() -> void:
 			available.append(inst)
 	var target: int = maxi(IsoConst.DECK_MIN, _working_deck.size())
 	target = mini(target, IsoConst.DECK_MAX)
-	_working_deck = DeckAutoFill.fill(_working_deck, available, target)
-	_refresh()
+	_edit_deck(DeckAutoFill.fill(_working_deck, available, target))
 
 # -------------------------------------------------------------------------
 # Row helpers
@@ -758,6 +735,7 @@ func _detail_action(uid: String, action: String) -> void:
 	else:
 		SceneManager.save_manager.scrap_card_instance(uid)
 	_selected.erase(uid)
+	_prune_working_deck()
 	_hide_instance_detail()
 	_refresh_cards()
 
@@ -848,82 +826,20 @@ func _apply_bulk(action: String) -> void:
 			sm.scrap_card_instance(uid)
 	_selected.clear()
 	_select_mode = false
+	_prune_working_deck()
 	_refresh_cards()
 
-# Individual deck slot for a rare/epic/legendary card — shows its rolled stats.
-func _make_deck_row_instance(uid: String, inst: Dictionary) -> VBoxContainer:
-	var tid: String    = str(inst.get("template_id", uid))
-	var rarity: String = str(inst.get("rarity", "common"))
-	var _face: String = "dark" if CardRegistry.is_dark_aligned() else "light"
-	var tmpl: Dictionary  = CardRegistry.get_template_for_face(tid, _face)
-	var card_color: Color = tmpl.get("color", Color(0.3, 0.3, 0.35))
-	var card_name: String = tmpl.get("name", tid)
-	var is_dual: bool = str(tmpl.get("dual_card_id", "")) != ""
-
-	var kills: int    = int(inst.get("kills", 0))
-	var survived: int = int(inst.get("battles_survived", 0))
-	var rank: int     = VeterancyUtil.rank_for(kills, survived)
-	var disp_name: String = VeterancyUtil.display_name(inst, card_name)
-
-	var rolled_atk: int  = int(inst.get("attack", int(tmpl.get("attack", 0))))
-	var rolled_hp: int   = int(inst.get("health", int(tmpl.get("health", 0))))
-	var rolled_cost: int = int(inst.get("cost",   int(tmpl.get("cost",   0))))
-
-	var vbox := _UiUtil.make_vbox(int(_ref * 0.003))
-
-	var top_row := _UiUtil.make_hbox(int(_vw * 0.008), vbox)
-
-	var swatch_btn := Button.new()
-	swatch_btn.custom_minimum_size = Vector2(_ref * 0.03, _ref * 0.03)
-	swatch_btn.focus_mode = Control.FOCUS_NONE
-	swatch_btn.tooltip_text = "Drag sideways to remove from the deck"
-	var swatch_sb := _UiUtil.make_style(card_color, int(_ref * 0.004))
-	for st: String in ["normal", "hover", "pressed", "focus"]:
-		swatch_btn.add_theme_stylebox_override(st, swatch_sb)
-	top_row.add_child(swatch_btn)
-
-	var name_lbl := _UiUtil.make_label(disp_name, int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, top_row)
-	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-
-	if rank > 0:
-		var chev_lbl := _UiUtil.make_label(VeterancyUtil.rank_chevrons(rank), int(_ref * 0.018), Color(1.0, 0.82, 0.2),
-				HORIZONTAL_ALIGNMENT_LEFT, top_row)
-	if is_dual:
-		var dual_badge := _UiUtil.make_label("◑", int(_ref * 0.022))
-		dual_badge.add_theme_color_override("font_color", Color(0.6, 0.85, 1.0))
-		dual_badge.tooltip_text = "Dual-faced card"
-		top_row.add_child(dual_badge)
-
-	var badge_lbl := _UiUtil.make_label(_UiUtil.rarity_badge(rarity), int(_ref * 0.022), _UiUtil.rarity_color(rarity),
-			HORIZONTAL_ALIGNMENT_LEFT, top_row)
-
-	var rm_btn := _UiUtil.make_button("−", Vector2(_ref * 0.065, _ref * 0.065), int(_ref * 0.022))
-	if _working_deck.size() <= IsoConst.DECK_MIN:
-		if OS.has_feature("android"):
-			rm_btn.modulate = Color(1, 1, 1, 0.4)
-			rm_btn.pressed.connect(func() -> void:
-				GameBus.hud_message_requested.emit("Minimum deck size reached"))
-		else:
-			rm_btn.disabled = true
-			rm_btn.tooltip_text = "Minimum deck size reached"
-	else:
-		rm_btn.pressed.connect(_on_remove_by_uid.bind(uid))
-	top_row.add_child(rm_btn)
-
-	var stats_lbl := _UiUtil.make_label("Cost %d  ATK %d  HP %d" % [rolled_cost, rolled_atk, rolled_hp],
-			int(_ref * 0.022), _UiUtil.rarity_color(rarity).lerp(Color(0.75, 0.75, 0.75), 0.55),
-			HORIZONTAL_ALIGNMENT_LEFT, vbox)
-
-	# The row is a plain VBox, not a Button, so it has no button_down to record a
-	# press origin — drag it from the swatch, which is the card's colour chip and
-	# the natural grab handle.
-	_make_card_draggable(swatch_btn, uid, true, card_color)
-
+## Wires a deck-pile tile: tap returns it to the binder, hold inspects, a
+## sideways drag carries it back.
+func _decorate_deck_tile(tile: Button, inst: Dictionary) -> void:
+	var uid: String = str(inst.get("uid", ""))
+	var tid: String = str(inst.get("template_id", ""))
+	tile.tooltip_text += "\n(tap to take out of the deck)"
+	_UiUtil.bind_scroll_safe_press(tile, _on_remove_by_uid.bind(uid), _pile.scroll)
+	_make_card_draggable(tile, uid, true, _template(tid).get("color", Color(0.3, 0.3, 0.35)))
 	var lpd := LongPressDetector.new()
-	vbox.add_child(lpd)
+	tile.add_child(lpd)
 	lpd.long_pressed.connect(func() -> void: _show_inspect(tid))
-
-	return vbox
 
 
 # -------------------------------------------------------------------------
@@ -938,9 +854,10 @@ func _on_add_by_uid(uid: String) -> void:
 	if why != "":
 		GameBus.hud_message_requested.emit(why)
 		return
-	_working_deck.append(uid)
+	var next: Array[String] = _working_deck.duplicate()
+	next.append(uid)
 	_hide_instance_detail()
-	_refresh_cards()
+	_edit_deck(next)
 
 # Why adding `uid` would break the deck's technique rules (GID-175), or "".
 func _technique_violation_with(uid: String) -> String:
@@ -955,8 +872,29 @@ func _on_remove_by_uid(uid: String) -> void:
 	if _working_deck.size() <= IsoConst.DECK_MIN:
 		GameBus.hud_message_requested.emit("Minimum deck size reached")
 		return
-	_working_deck.erase(uid)
+	var next: Array[String] = _working_deck.duplicate()
+	next.erase(uid)
 	_hide_instance_detail()
+	_edit_deck(next)
+
+## Every deck change goes through here: snapshot for undo, then save at once.
+func _edit_deck(next: Array[String]) -> void:
+	if next == _working_deck:
+		return
+	_undo.push(_working_deck)
+	_working_deck = next
+	_commit_deck()
+	_refresh_cards()
+
+func _commit_deck() -> void:
+	SceneManager.save_manager.set_active_deck(_working_deck)
+
+func _on_undo() -> void:
+	if not _undo.can_undo():
+		return
+	_working_deck = _undo.pop()
+	_prune_working_deck()
+	_commit_deck()
 	_refresh_cards()
 
 # -------------------------------------------------------------------------
@@ -982,11 +920,6 @@ func _show_tab(index: int) -> void:
 	_items_panel.visible = index == 2
 	_refresh()
 
-func _on_save() -> void:
-	SceneManager.save_manager.set_active_deck(_working_deck)
-	if not hub_mode:
-		closed.emit()
-
 func _on_close() -> void:
 	closed.emit()
 
@@ -999,6 +932,7 @@ func _on_loadout_tab(index: int) -> void:
 	sm.set_active_deck(_working_deck)
 	sm.decks.set_active_loadout(index)
 	_working_deck.assign(sm.player_deck)
+	_undo.clear()
 	_refresh_cards()
 
 func _on_new_loadout() -> void:
@@ -1009,6 +943,7 @@ func _on_new_loadout() -> void:
 		return
 	sm.decks.set_active_loadout(new_idx)
 	_working_deck.assign(sm.player_deck)
+	_undo.clear()
 	_refresh_cards()
 
 func _on_rename_loadout() -> void:
@@ -1062,6 +997,7 @@ func _on_dup_loadout() -> void:
 		return
 	sm.decks.set_active_loadout(new_idx)
 	_working_deck.assign(sm.player_deck)
+	_undo.clear()
 	_refresh_cards()
 
 func _on_del_loadout() -> void:
@@ -1089,6 +1025,7 @@ func _on_del_loadout() -> void:
 		popup.queue_free()
 		sm.decks.delete_loadout(sm.active_loadout)
 		_working_deck.assign(sm.player_deck)
+		_undo.clear()
 		_refresh_cards())
 	btn_row.add_child(yes_btn)
 
@@ -1098,6 +1035,12 @@ func _on_del_loadout() -> void:
 	popup.popup_centered()
 
 func _input(event: InputEvent) -> void:
+	var key := event as InputEventKey
+	if key != null and key.pressed and not key.echo and key.keycode == KEY_Z \
+			and (key.ctrl_pressed or key.meta_pressed) and is_visible_in_tree() and _cards_panel.visible:
+		get_viewport().set_input_as_handled()
+		_on_undo()
+		return
 	if event.is_action_pressed("inventory"):
 		get_viewport().set_input_as_handled()
 		_on_close()

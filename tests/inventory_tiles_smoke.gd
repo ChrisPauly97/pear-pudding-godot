@@ -1,6 +1,6 @@
 ## Headless smoke test for the deck builder's tile reuse (GID-164 / TID-684):
 ## a refresh keeps unchanged bag tiles, adding a card to the deck drops only its
-## tile, and search waits for typing to pause.
+## tile, search waits for typing to pause, and deck edits auto-save with undo (GID-180).
 ##
 ##   godot --headless --path . -s tests/inventory_tiles_smoke.gd
 ##
@@ -60,4 +60,18 @@ func _run() -> Array[String]:
 	await _frames(1)
 	if not _tiles(inv).is_empty():
 		fails.append("debounced search never applied")
+	# Deck table (GID-180): edits save at once, Undo reverts and saves again.
+	var deck_before: Array = (sm.get("player_deck") as Array).duplicate()
+	var owned: Array = sm.call("get_owned_instances")
+	var spare: String = ""
+	for inst: Dictionary in owned:
+		if not deck_before.has(str(inst.get("uid", ""))):
+			spare = str(inst.get("uid", ""))
+			break
+	inv.call("_on_add_by_uid", spare)
+	if not (sm.get("player_deck") as Array).has(spare):
+		fails.append("adding a card did not auto-save the deck")
+	inv.call("_on_undo")
+	if (sm.get("player_deck") as Array) != deck_before:
+		fails.append("undo did not restore the saved deck")
 	return fails

@@ -2,7 +2,7 @@
 
 **Goal:** GID-180
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -31,12 +31,16 @@ Shared context:
 
 ## Plan
 
-_Written during Plan phase._
+DeckPile view module; DeckUndo pure stack; route every deck edit through _edit_deck (undo snapshot + immediate save); remove Save Deck; fold filters behind a toggle; Ctrl+Z.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `scenes/ui/inventory/DeckPile.gd` (deck side: count, Undo, Best deck, loadout slot, mini card tiles).
+- New `game_logic/inventory/DeckUndo.gd` + `tests/unit/test_deck_undo.gd`.
+- `InventoryScene.gd`: deck list rows replaced by DeckPile tiles (tap removes, hold inspects, drag back); `_edit_deck`/`_commit_deck`/`_on_undo`; Save Deck removed; Filters toggle; Ctrl+Z; prune after scrap/sell. File shrank 1103 → ~1046 lines.
+- `tests/inventory_tiles_smoke.gd`: auto-save + undo check.
+- Full suite: 3194 passed, 0 failed.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/inventory-and-deck.md`: Card table layout section; bag paragraph updated (no Save Deck).
