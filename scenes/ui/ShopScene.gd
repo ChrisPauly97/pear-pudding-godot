@@ -10,6 +10,7 @@ const _HeroVitality = preload("res://game_logic/HeroVitality.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const _CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
+const _VendorCounter = preload("res://scenes/ui/shop/VendorCounter.gd")
 
 const CARD_PRICE: int = 15
 const SEED_PRICE: int = 30
@@ -29,6 +30,7 @@ var _coin_label: Label
 var _title_lbl: Label
 var _shop_list: VBoxContainer
 var _shop_scroll: ScrollContainer
+var _counter: _VendorCounter
 
 func _ready() -> void:
 	super._ready()
@@ -52,6 +54,18 @@ func _build_ui() -> void:
 	_coin_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_coin_label.modulate = Color(1.0, 0.85, 0.1)
 	root_vbox.add_child(_coin_label)
+
+	# Buy / Sell tabs — the vendor is the only place cards are sold (GID-180 / TID-745).
+	var tabs := _UiUtil.make_hbox(int(_ref * 0.01), root_vbox)
+	tabs.alignment = BoxContainer.ALIGNMENT_CENTER
+	_UiUtil.make_tab_row(tabs, ["Buy", "Sell"] as Array[String], Vector2(_ref * 0.16, _ref * 0.055),
+			int(_ref * 0.022), _show_tab)
+	_counter = _VendorCounter.new()
+	_counter.visible = false
+	root_vbox.add_child(_counter)
+	_counter.setup(_ref, town_name)
+	_counter.sold.connect(func(_g: int) -> void:
+		_coin_label.text = "Your coins: %d" % SceneManager.save_manager.coins)
 
 	# Scrollable list
 	_shop_scroll = ScrollContainer.new()
@@ -468,6 +482,15 @@ func _on_buy_food(food_id: String, price: int) -> void:
 	sm.foods[food_id] = int(sm.foods.get(food_id, 0)) + 1
 	sm.mark_dirty()
 	_refresh()
+
+## 0 = Buy, 1 = Sell.
+func _show_tab(index: int) -> void:
+	_shop_scroll.visible = index == 0
+	_counter.visible = index == 1
+	if index == 1:
+		_counter.refresh()
+	else:
+		_refresh()
 
 func _on_close() -> void:
 	closed.emit()

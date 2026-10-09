@@ -160,6 +160,8 @@ signal rival_encounter_won(encounter_num: int)
 # Garden signals
 signal plant_harvested(plot_idx: int, plants_count: int)
 signal inventory_changed
+# Count of bag cards the player hasn't looked at yet (GID-180 / TID-747): HUD badge + fly-in.
+signal new_cards_changed(count: int)
 signal potion_crafted(potion_id: String)
 signal potion_used(potion_id: String)
 

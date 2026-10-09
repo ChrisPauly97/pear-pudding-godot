@@ -2,6 +2,7 @@ extends Object
 
 const IsoConst = preload("res://autoloads/IsoConst.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
+const DeckInsights = preload("res://game_logic/inventory/DeckInsights.gd")
 
 ## Fills `working_deck` (by UID) with cards from `available` (not already in deck)
 ## up to `target_size`, using a balanced-curve heuristic: higher rarity first,
@@ -32,8 +33,9 @@ static func fill(working_deck: Array[String], available: Array[Dictionary], targ
 	var secondary: Array[Dictionary] = []
 	for tid: String in by_template:
 		var group: Array = by_template[tid]
+		# Rarity first, then the better roll (GID-180: Best deck picks the strongest copy).
 		group.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-			return _rarity_rank(a) > _rarity_rank(b))
+			return DeckInsights.power_score(a) > DeckInsights.power_score(b))
 		primary.append(group[0])
 		for i in range(1, group.size()):
 			secondary.append(group[i])

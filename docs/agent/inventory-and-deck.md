@@ -49,7 +49,7 @@ SaveManager.get_slot_count(deck_uids: Array = []) -> int   # counts owned_cards 
 SaveManager.is_bag_full() -> bool                          # get_slot_count() >= bag_size
 ```
 
-`InventoryScene` passes its unsaved `_working_deck` into `get_slot_count()` so the "Bag: X / Y" label updates live as cards are dragged between the collection grid and the deck list, before "Save Deck" commits `_working_deck` to `SaveManager.player_deck`. `add_card_instance()` rejects new cards (returns `""`, emits `GameBus.bag_full`) once `is_bag_full()` is true against the *committed* deck — battle rewards, chest drops, and crafted cards are silently dropped when the bag is full; there is no overflow mailbox/stash yet.
+`InventoryScene` passes `_working_deck` into `get_slot_count()`. Since GID-180 every deck edit is committed at once (`_edit_deck` → `set_active_deck`), so the working deck always equals `player_deck`. `add_card_instance()` rejects new cards (returns `""`, emits `GameBus.bag_full`) once the bag is full; automatic rewards go through `grant_card_reward()`, which routes to the mailbox instead (see TID-743).
 
 The collection panel renders the backpack as an `HFlowContainer` of card-face tiles (`_make_card_tile` → `scenes/ui/inventory/CardTile.gd`), one per instance: cost gem, rarity-coloured frame + rarity letter, illustration (or a monogram on the card colour), name, ⚔ATK ♥HP (or "Spell"), veterancy chevrons, and an "In <deck>" tag when the card sits in another loadout. Right-click (desktop) or tap-and-hold (mobile, via `LongPressDetector`) opens a detail popup: mana/class/stats, rules text, kills/battles, a warning if the card is in a deck, Add to Deck, Inspect (full `CardInspectOverlay`), Sell/Scrap, Combine 3 → next tier (any tier below legendary, with an n/3 count) and Rename. A plain tap/click adds the card to the working deck.
 
@@ -554,3 +554,170 @@ const DeckAutoFill = preload("res://game_logic/DeckAutoFill.gd")
 | WeaponData script | `data/WeaponData.gd` | Resource class for all equipment types; `slot` field distinguishes them |
 | Equipment resources | `data/weapons/*.tres` | One `WeaponData` per item (all slots); each needs a `.uid` sidecar |
 | `WeaponRegistry.gd` | `autoloads/WeaponRegistry.gd` | Static registry; scans and indexes all equipment resources |
+
+---
+
+## Deck Table (GID-180)
+
+Deck building and bag management as a tactile "card table" — see `tasks/goals/GID-180--deck-table/goal.md`.
+Selling happens **only at vendors**; the bag offers Scrap and "flag for sale".
+
+### DeckInsights (`game_logic/inventory/DeckInsights.gd`, TID-736)
+
+Pure statics over card instances plus an optional `templates` table (empty → `CardRegistry`), so tests pass a
+hand-built table. Used by the deck table header, binder, compare popup and Maiteln's deck barks.
+
+| Function | Returns |
+|---|---|
+| `mana_curve(instances)` | `Array[int]` buckets 0..`CURVE_MAX` (7+ share the last bar) |
+| `dominant_branch` / `branch_counts` | most common `magic_branch` (ties alphabetical, "" if none) |
+| `archetype` | `bulwark` (≥30 % ward), `rush` (≥30 % surge), `titans` (avg cost ≥4.5), `tempo`/`grimoire` (≥60 % spells, cheap/dear), `swarm` (avg ≤2.5), else `host` |
+| `deck_name` | `BRANCH_WORDS[branch] + ARCHETYPE_NOUNS[archetype]`, e.g. "Bone-Choir Swarm"; "Empty Deck" |
+| `crest` | `{color, glyph (archetype), branch, rarity (average tier)}` |
+| `synergy_pairs` | ≤12 links `{a, b, kind: keyword|branch, tag}`: cards of one tag **chained** in deck order (one per template), keyword links first, keyword-linked cards skip branch links |
+| `sample_hand(insts, n, seed)` | every technique + `n` shuffled others (like a real-time opening hand) |
+| `roll_quality` / `is_perfect_roll` / `has_roll_range` | 0..1 position in the rarity's `RARITY_CONFIG` variance band; perfect = top of every variable stat (commons never) |
+| `compare(a, b)` | stat deltas a − b incl. rarity tier |
+| `power_score` / `replace_target` / `is_upgrade` | rarity tier, then atk+hp, then cheaper; upgrade = beats the weakest same-template deck copy |
+
+### Card table layout (TID-737)
+
+- Binder (bag grid) left / top; **deck pile** right (landscape) or below (portrait): `scenes/ui/inventory/DeckPile.gd`,
+  a pure view (header: count, ↶ Undo, ★ Best deck; `loadout_slot` for the loadout tabs; deck as `CardTile`s at
+  `TILE_SCALE` 0.78). InventoryScene wires each deck tile in `_decorate_deck_tile`: tap = take out, hold = inspect,
+  sideways drag = back to the binder.
+- **No Save Deck button.** Every change goes through `_edit_deck(next)`: snapshot into `DeckUndo`
+  (`game_logic/inventory/DeckUndo.gd`, cap 20, duplicate snapshots skipped), then `set_active_deck`. Undo = button or
+  Ctrl/Cmd+Z (Cards tab only). Switching loadout clears the undo stack. Scrap/combine/sell call `_prune_working_deck()`.
+- Class/cost/rarity filters fold behind the toolbar's **Filters** toggle (shows "•" while a filter is active).
+- Tests: `tests/unit/test_deck_undo.gd`; `tests/inventory_tiles_smoke.gd` checks auto-save + undo.
+
+### Card juice (TID-738)
+
+`scenes/ui/inventory/CardJuice.gd` (statics) gives every deck-table surface the same feel:
+`drag_preview` (a `DragCardPreview` — lifted ×1.08 mini card over a soft shadow, tilting toward the drag direction),
+`sparkle` (one-shot `CPUParticles2D`, count/size by rarity tier), `pop` (TRANS_BACK scale punch), `shimmer`
+(looping `self_modulate` glow on legendary tiles, idempotent via meta, tween dies with the tile) and `sound`
+(`pick` / `place` / `return` / `shuffle` over `card_draw` / `card_play` takes with pitch jitter).
+InventoryScene: a drag start plays `pick` + sparkles; `_edit_deck` calls `DeckPile.land(uid)` (tile bounce, sparkles,
+count thump) and `place` / `return`. CardJuice names `AudioManager`, so `-s` tools must `load()` it at runtime
+(`tools/capture_inventory.gd` `DRAG=1` does). No hum loop for legendaries: the visual shimmer only, a looping sound in
+a menu got tiresome on paper.
+
+### Binder (TID-739)
+
+- **Pages**: tab row `All · Light · Dark · Verdant · Rift · Neutral` (`BinderOps.PAGES`; page = template `magic_type`,
+  else neutral). A magic-type page shows "Found X / Y" and **silhouettes** (`CardTile.build_silhouette`: dark art,
+  "?", no foil) of collectable templates the player owns no copy of — techniques and `coop_` cards excluded
+  (`_collectable_ids`). Tapping one says how to get it (Craft tab if craftable). Silhouettes hide while searching,
+  filtering, selecting or browsing one stack.
+- **Stacks**: `BinderOps.stack(insts, membership)` groups template+rarity copies in display order; `best` = strongest
+  copy (`DeckInsights.power_score`) preferring one in no deck. The tile shows the best copy plus an "×N" pill
+  (`CardTile.add_count`); tap adds the best copy. The detail popup's **All N copies** button sets `_expand_key`
+  (one stack's copies, best first, with "‹ Back to binder"). Select mode always shows single copies.
+- **Perfect roll**: gold ✦ (`CardTile.add_perfect_mark`, twinkled by `CardJuice.twinkle`) when
+  `DeckInsights.is_perfect_roll`. **Veterancy gilding**: bronze / silver / gold edge by rank (`CardTile._gild`).
+- Filters + page state live in `scenes/ui/inventory/BagFilters.gd` (moved out of InventoryScene).
+- `tools/capture_inventory.gd` `PAGE=dark` captures a page.
+
+### Deck personality (TID-740)
+
+`DeckPile` now opens with a `DeckIdentity` row: crest (`DeckInsights.crest` — branch colour, archetype glyph from
+`DeckIdentity.GLYPHS`, border = average rarity), the generated name (TitleLabel; pops + sparkles when it changes) and a
+`CurveSkyline` (one lit building per cost bucket, heights ease to the new curve). The deck grid shares a
+MarginContainer with `SynergyThreads`, which draws pulsing lines between `synergy_pairs` tiles (keyword = gold, branch =
+branch colour). **✋ Try a hand** opens `TestHandOverlay`: shuffle sound, `sample_hand` with
+`CombatOnboarding.opening_hand(level)` draws, cards dealt one by one; "Shuffle & draw again" reseeds.
+`tools/capture_inventory.gd`: `ADD=<n>` fills the deck, `HAND=1` opens the overlay.
+
+### Compare + Best deck (TID-741)
+
+- **▲ upgrade mark** (`CardTile.add_upgrade_mark`) on binder tiles where `DeckInsights.is_upgrade(inst, deck)`.
+- **Compare by hovering**: deck tiles take drops (`_make_card_draggable` now forwards `can_drop`/`drop`). A bag copy
+  of the same template held over a deck tile shows `_compare_tip` (⚔ / ♥ / mana / tier diffs, green ▲ better, red ▼
+  worse; mana is better when lower); dropping swaps them (`_swap_in`). Other cards dropped on a deck tile just join
+  the deck. The tip hides on `NOTIFICATION_DRAG_END`.
+- **Tap path**: the detail popup shows the same diff vs `replace_target` and a **⇄ Swap into deck** button
+  (gold when it is an upgrade).
+- **★ Best deck** (`_on_auto_fill`): first `DeckInsights.upgrade_swaps` (each deck card → strongest unused bag copy
+  of its template that beats it), then `DeckAutoFill.fill` to the same target as before; HUD line reports
+  "N upgraded, M added". `DeckAutoFill` now picks the primary copy by `power_score` (rarity, then roll).
+
+### Forge, combine ritual, flag for sale (TID-742)
+
+**Selling happens only at vendors.** The bag has no Sell: the detail popup offers **For sale (Ng)** (toggle) and
+**Scrap**, bulk Select offers **For sale** and **Scrap**; `MailboxScene` lost its Sell button and
+`SaveMailbox.sell_mailbox_card` is gone.
+
+- `SaveManager.for_sale_uids` (persisted): `toggle_for_sale(uid)` (deck and unique cards refuse), `is_for_sale(uid)`.
+  `remove_card_instance` and `set_active_deck` prune it. Flagged tiles carry a "For sale" tag.
+- **Forge**: a drop zone under the binder (`_forge`). A bag card dropped there scraps at once (commons/rares) or after
+  the bulk confirm (epic+). Every scrap goes through `_forge_scrap(uid, from_rect)`: `ForgeFx.burn` (ember tint,
+  shrink, fade, `burn` sound, essence motes flying to the wallet) then `scrap_card_instance`.
+- **Combine ritual**: the popup's Combine runs `_combine` → `combine_cards` → `CombineRitual` overlay (three copies
+  orbit and spiral in, white flash, the new card lands big with sparkles and "Forged a Rare Ghost!"; tap or 2.2 s
+  closes). `tools/capture_inventory.gd COMBINE=ghost`.
+
+### Module map (deck table)
+
+InventoryScene coordinates; views live in `scenes/ui/inventory/`: `DeckPile` (deck side), `LoadoutBar` (loadout tabs +
+Rename / Copy / Delete; emits `switched` / `loadout_renamed`, host reloads `_working_deck`), `DeckIdentity`,
+`CurveSkyline`, `SynergyThreads`, `BagFilters`, `CardTile`, `CardJuice`, `DragCardPreview`, `CompareTip`
+(`rows()` shared with the detail popup), `ForgeFx`, `CombineRitual`, `TestHandOverlay`. Pure rules in
+`game_logic/inventory/`: `DeckInsights`, `BinderOps`, `DeckUndo`, `BagOps`.
+
+### Never-lost loot + satchel (TID-743)
+
+- Audit (GID-180): every automatic reward already goes through `grant_card_reward` (mailbox overflow). The remaining
+  `add_card_instance` callers are the new-game / co-op starter decks (empty bag), `combine_cards` (frees 3 slots
+  first), and player spends that intentionally block on a full bag (ShopScene buy, CraftPanel craft).
+- `scenes/ui/inventory/Satchel.gd` replaces the "Bag X/Y" text: a drawn leather satchel whose fill rises with use,
+  bulges at ≥ 90 % with cards poking out (3 at full), "used/cap  ✉N" (N = waiting mailbox cards); tap = hint line.
+- `game_logic/inventory/SatchelLines.gd`: `line(kind, companion, n, card_name)` ("full" / "mailbox"; Maiteln's voice
+  when the companion is learned and active, else the satchel), `fullness(used, cap)` 0–3.
+  `SceneManager` routes `GameBus.bag_full` / `card_routed_to_mailbox` through it (`_grumbler()`, rotating `_grumbles`).
+
+### Maiteln's deck barks (TID-744)
+
+`game_logic/inventory/DeckBarkRules.gd` mirrors the battle `BarkRules`: `LINES` + `ORDER` (too_small, top_heavy
+(≥ 35 % cost 5+), no_early (< 3 cards at cost ≤ 2), no_allies, no_spells, upgrade (a bag copy beats a deck copy),
+synergy (≥ 2 keyword links), full), `candidates(deck, bag)` (techniques ignored), `next_bark(cands, last_id,
+since_last_s)` (top candidate that isn't the last line, ≥ `MIN_INTERVAL_S` 6 s apart) and `is_eligible` (Maiteln is the
+active companion, or the companion system isn't learned yet — he's the starter mentor). InventoryScene calls
+`_maybe_bark()` on open and after each deck edit; `DeckPile.say()` shows the parchment bubble for ~6 s (it fades but
+keeps its space so the grid doesn't jump).
+
+### Vendor counter (TID-745)
+
+`ShopScene` has **Buy / Sell** tabs. Sell is `scenes/ui/shop/VendorCounter.gd`: the vendor's speech line, a wooden
+counter (drop zone) with a `CoinPile` (drawn coins that drop in) and "+Ng this visit", a **Sell basket: N cards +Xg**
+button (every `for_sale_uids` card) and the sellable cards below (bag, in no deck, not unique; flagged first, gold
+price pill via `CardTile.add_price`). Tap or drag a card onto the counter: a copy slides across and fades, the vendor
+reacts (`game_logic/inventory/VendorReactions.gd`: perfect → legendary/epic → preferred → veteran → duplicate (sold
+this visit) → plain; rotating lines), coins drop, `SaveManager.sell_card_instance(uid, gold)` (optional price for
+vendor bonuses). `price_for` / `prefers` are Callables the shop sets (TID-746). `tools/capture_inventory.gd`
+`SCENE=shop TAB=1 FLAG=4 SELL=1`.
+
+### Vendor tastes + buyback (TID-746)
+
+- `game_logic/inventory/VendorPrefs.gd`: `TOWNS` (madrian → Light, maykalene → Rift, blancogov → Verdant, larik → Dark,
+  marsax_hold → Neutral), `town_of(place)` (town or `<town>_interior`), `prefers`, `price` (+`BONUS` 25 %), `pitch`
+  ("Maykalene's dockmaster pays +25% for Rift cards."). `VendorCounter.setup(ref, place)` builds `price_for` /
+  `prefers` from it; favoured cards get the "preferred" reaction.
+- The shop's `town_name` is now the **story place** (`WorldScene.story_place()`), not `current_map` (which is `main`
+  in the stitched towns — BID-096), so the siege discount works there too.
+- **Buyback shelf**: `SaveManager.buyback_cards` (persisted, newest first, `BUYBACK_CAP` 8, each with `_sold_for`);
+  `sell_card_instance` shelves a copy, `buy_back(index)` returns the exact card (uid, rolls, history) for what it sold
+  for (needs coins and bag room). Shown on the counter as small priced tiles.
+
+### World loop: new cards, HUD badge, campfire (TID-747)
+
+- `SaveManager.new_card_uids` (persisted): every card entering the bag (`add_card_instance`, `grant_card_reward`
+  bag path) is marked via `_mark_new` → `GameBus.new_cards_changed(count)`; starter decks clear it;
+  `remove_card_instance` prunes; `mark_cards_seen()` clears (InventoryScene `_exit_tree`).
+- Binder tiles of new cards carry a "✦ NEW" tag and a green-gold pulse (`CardJuice.new_glow`).
+- `scenes/world/BagBadge.gd` (owned by WorldHUD, set up on the Menu/Bag button): red count badge; a count rise while
+  the world is up flies little card backs from the screen centre into the button. Rewards granted during a battle
+  (world detached) are caught up 0.8 s after the HUD re-enters the tree (after the transition wipe).
+- Dungeon/cave **rest-site campfires** (`DungeonSessionUI.show_rest_site_panel`) offer **Tend your deck by the fire**
+  (opens the deck table) — also at a used fire, where Rest / Cull are disabled instead of the panel refusing.

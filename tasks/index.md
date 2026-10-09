@@ -183,6 +183,7 @@
 | [GID-177](goals/GID-177--progression-pacing/goal.md) | Progression Pacing | done | 3 / 3 |
 | [GID-178](goals/GID-178--combat-pacing-feel/goal.md) | Combat Pacing & Feel | done | 4 / 4 |
 | [GID-179](goals/GID-179--skill-tree-card-mods/goal.md) | Skill Tree Modifies Cards | done | 6 / 6 |
+| [GID-180](goals/GID-180--deck-table/goal.md) | Deck Table — Fun, Tactile Deck & Bag Management | done | 12 / 12 |
 
 ## Backlog
 
@@ -208,6 +209,7 @@ files in `tasks/archive/backlog/`.
 
 | ID | Summary | Category | Discovered During |
 |----|---------|----------|-------------------|
+| [BID-096](archive/backlog/BID-096--shop-town-name-stitched.md) | Shop `town_name` was `main` in stitched towns | design-inconsistency | Resolved: GID-180 TID-746 (story place) |
 | [BID-088](archive/backlog/BID-088--chunk-gen-on-main-thread.md) | Chunk data generation on the main thread | perf | Resolved: GID-163 TID-671 (worker-side generation) |
 | [BID-086](archive/backlog/BID-086--stray-high-gid-refs.md) | Stray GID-361/368 refs in TID-369 | doc-gap | Resolved: relabelled TID-361 / TID-368 |
 | [BID-087](archive/backlog/BID-087--unreferenced-functions.md) | Unreferenced functions / constants | code-smell | Resolved: GID-159 TID-667 |

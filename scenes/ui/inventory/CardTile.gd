@@ -11,6 +11,8 @@ const _SELECTED_TINT := Color(0.7, 1.25, 0.75)
 const _HOVER_TINT := Color(1.25, 1.25, 1.25)
 const _ATK := Color(1.0, 0.78, 0.30)
 const _HP := Color(1.0, 0.42, 0.42)
+## Veterans wear their history: a bronze, silver then gold edge by rank (GID-180 / TID-739).
+const GILD_COLORS: Array[Color] = [Color(0.8, 0.5, 0.25), Color(0.85, 0.88, 0.95), Color(1.0, 0.82, 0.25)]
 
 ## Tile size for a given layout reference length (min of viewport w/h).
 static func tile_size(ref: float) -> Vector2:
@@ -84,6 +86,7 @@ static func build(inst: Dictionary, tmpl: Dictionary, ref: float, tag: String = 
 
 	var rank: int = VeterancyUtil.rank_for(int(inst.get("kills", 0)), int(inst.get("battles_survived", 0)))
 	if rank > 0:
+		_gild(tile, rank, ref)
 		var chev := _label(VeterancyUtil.rank_chevrons(rank), int(ref * 0.014), Color(1.0, 0.82, 0.2),
 				HORIZONTAL_ALIGNMENT_RIGHT, tile)
 		chev.position = Vector2(sz.x - ref * 0.03, ref * 0.03)
@@ -102,6 +105,72 @@ static func build(inst: Dictionary, tmpl: Dictionary, ref: float, tag: String = 
 		check.size = Vector2(sz.x, ref * 0.06)
 		check.add_theme_color_override("font_outline_color", Color.BLACK)
 		check.add_theme_constant_override("outline_size", maxi(3, int(ref * 0.006)))
+	return tile
+
+## Gilded edge by veterancy rank.
+static func _gild(tile: Control, rank: int, ref: float) -> void:
+	var edge := Panel.new()
+	edge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	edge.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var col: Color = GILD_COLORS[clampi(rank - 1, 0, GILD_COLORS.size() - 1)]
+	edge.add_theme_stylebox_override("panel", _UiUtil.make_style(Color(0, 0, 0, 0), int(ref * 0.008), col,
+			maxi(2, int(ref * (0.002 + 0.0012 * rank)))))
+	tile.add_child(edge)
+
+## "×N" pill for a binder stack of N copies.
+static func add_count(tile: Control, n: int, ref: float) -> void:
+	if n <= 1:
+		return
+	_pill(tile, "×%d" % n, Color.WHITE, Color(1, 1, 1, 0.5), ref)
+
+## Gold "15g" price pill (vendor counter); a gold rim when the card is flagged for sale.
+static func add_price(tile: Control, gold: int, flagged: bool, ref: float) -> void:
+	_pill(tile, "%dg" % gold, Color(1.0, 0.85, 0.3), Color(1.0, 0.8, 0.2) if flagged else Color(1, 1, 1, 0.3), ref)
+
+static func _pill(tile: Control, text: String, tint: Color, rim: Color, ref: float) -> void:
+	var sz: Vector2 = tile_size(ref)
+	var pill := PanelContainer.new()
+	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pill.add_theme_stylebox_override("panel", _UiUtil.make_style(Color(0.05, 0.05, 0.08, 0.85), int(ref * 0.01),
+			rim, 1 if rim.a < 1.0 else 2))
+	var lbl := _label(text, int(ref * 0.018), tint, HORIZONTAL_ALIGNMENT_CENTER, pill)
+	lbl.add_theme_constant_override("outline_size", 0)
+	tile.add_child(pill)
+	pill.position = Vector2(sz.x - ref * 0.012 * (text.length() + 2), sz.y * 0.47)
+
+## Gold star for a perfect roll (top of every stat's band); CardJuice twinkles it.
+static func add_perfect_mark(tile: Control, ref: float) -> Label:
+	var sz: Vector2 = tile_size(ref)
+	var star := _label("✦", int(ref * 0.03), Color(1.0, 0.88, 0.35), HORIZONTAL_ALIGNMENT_CENTER, tile)
+	star.tooltip_text = "Perfect roll"
+	star.add_theme_color_override("font_outline_color", Color(0.3, 0.2, 0.0))
+	star.add_theme_constant_override("outline_size", maxi(2, int(ref * 0.004)))
+	star.position = Vector2(sz.x * 0.5 - ref * 0.018, -ref * 0.004)
+	return star
+
+## Gold "▲" when this copy beats the one in your deck (GID-180 / TID-741).
+static func add_upgrade_mark(tile: Control, ref: float) -> void:
+	var sz: Vector2 = tile_size(ref)
+	var mark := _label("▲", int(ref * 0.026), Color(1.0, 0.82, 0.2), HORIZONTAL_ALIGNMENT_CENTER, tile)
+	mark.add_theme_color_override("font_outline_color", Color(0.25, 0.15, 0.0))
+	mark.add_theme_constant_override("outline_size", maxi(2, int(ref * 0.004)))
+	mark.position = Vector2(ref * 0.004, sz.y * 0.44)
+	tile.tooltip_text += "\n▲ Better than the copy in your deck"
+
+## Dark silhouette of a card the player has not found yet (binder pages).
+static func build_silhouette(tid: String, tmpl: Dictionary, ref: float) -> Button:
+	var fake: Dictionary = {"template_id": tid, "rarity": "common", "attack": int(tmpl.get("attack", 0)),
+		"health": int(tmpl.get("health", 0)), "cost": int(tmpl.get("cost", 0))}
+	var tile: Button = build(fake, tmpl, ref)
+	tile.material = null
+	tile.modulate = Color(0.32, 0.32, 0.38)
+	var box := tile.get_child(0) as Control
+	if box != null and box.get_child_count() > 0:
+		(box.get_child(0) as CanvasItem).modulate = Color(0, 0, 0, 0.92)
+	var q := _label("?", int(ref * 0.06), Color(0.85, 0.85, 0.95), HORIZONTAL_ALIGNMENT_CENTER, tile)
+	q.size = Vector2(tile_size(ref).x, ref * 0.08)
+	q.position = Vector2(0.0, tile_size(ref).y * 0.18)
+	tile.tooltip_text = "%s — not found yet" % str(tmpl.get("name", tid))
 	return tile
 
 ## The picture area: the card's illustration when it has one, otherwise a

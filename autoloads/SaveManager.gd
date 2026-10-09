@@ -56,7 +56,8 @@ const _OWNED_BY_SLOT: Dictionary = {
 ## `player_deck`) are fixed up after the pass — see `_restore_derived_fields`.
 ## `test_save_manager` asserts every key here is a real property.
 const PERSISTED_FIELDS: Dictionary = {
-	"owned_cards": [], "mailbox_cards": [], "player_deck": [], "loadouts": [],
+	"owned_cards": [], "mailbox_cards": [], "player_deck": [], "loadouts": [], "for_sale_uids": [],
+	"buyback_cards": [], "new_card_uids": [],
 	"active_loadout": 0, "essence": 0, "coins": 0,
 	"current_map": "main", "player_x": 0.0, "player_z": 0.0,
 	"map_stack": [], "door_stack": [],
@@ -100,6 +101,8 @@ const PERSISTED_FIELDS: Dictionary = {
 const SAVE_INTERVAL: float = 2.0  # batch disk writes at most every 2 seconds
 
 const CURRENT_SAVE_VERSION: int = _SaveMigrations.CURRENT_VERSION
+## Cards the vendor buyback shelf keeps (GID-180 / TID-746).
+const BUYBACK_CAP: int = 8
 
 const REDEMPTION_FLAG_AWARDS: Dictionary = {
 	"chapter1_left_madrian": 5,
@@ -133,6 +136,14 @@ var owned_cards: Array[Dictionary] = []
 # Overflow queue for card rewards that couldn't fit in the bag when granted.
 # Never counts against bag_size; not indexed in _uid_index until claimed.
 var mailbox_cards: Array[Dictionary] = []
+
+# Bag cards the player flagged "for sale" (GID-180): selling happens only at a
+# vendor, which offers these as one basket. Pruned when a card leaves the bag.
+var for_sale_uids: Array[String] = []
+# Cards sold to a vendor, newest first, each with "_sold_for" (GID-180 / TID-746).
+var buyback_cards: Array[Dictionary] = []
+# Bag cards gained since the player last opened the deck table (GID-180 / TID-747).
+var new_card_uids: Array[String] = []
 
 # Cards currently in the active battle deck — list of UIDs from owned_cards.
 # This mirrors loadouts[active_loadout].cards and is kept in sync at all times.
@@ -513,6 +524,8 @@ func new_game(head_start: bool = false) -> void:
 	var extra_ids: Array[String] = ["dawn_acolyte", "dusk_wraith"]
 	owned_cards.clear()
 	mailbox_cards.clear()
+	for_sale_uids.clear()
+	buyback_cards.clear()
 	_uid_index.clear()
 	player_deck.clear()
 	for tid: String in deck_ids:
@@ -522,6 +535,7 @@ func new_game(head_start: bool = false) -> void:
 		add_card_instance(tid, "common")
 	# GID-175: Strike is a technique card in every starter deck.
 	player_deck.append(_own_technique("tech_strike"))
+	new_card_uids.clear()  # the starter cards aren't "new finds"
 	essence = 0
 	coins = 5000 if head_start else 50
 	current_map = "main"
@@ -659,6 +673,7 @@ func ensure_coop_deck() -> void:
 		if uid != "":
 			player_deck.append(uid)
 	player_deck.append(_own_technique("tech_strike"))
+	new_card_uids.clear()
 
 ## Load a multiplayer **session character** (GID-095 / TID-346) into the in-memory
 ## state that co-op and PvP already read (deck, collection, coins, level, skills,
@@ -934,6 +949,9 @@ func grant_achievement_card(card_id: String) -> void:
 
 func set_active_deck(new_deck: Array[String]) -> void:
 	player_deck.assign(new_deck)
+	# A card put into the deck is no longer for sale.
+	for uid: String in player_deck:
+		for_sale_uids.erase(uid)
 	if active_loadout >= 0 and active_loadout < loadouts.size():
 		var synced: Array[String] = []
 		synced.assign(player_deck)
@@ -973,10 +991,26 @@ func add_card_instance(template_id: String, rarity: String, attack: int = -1, he
 	var inst_dict: Dictionary = _CardInstanceUtil.make(uid, template_id, rarity, atk, hp, c)
 	owned_cards.append(inst_dict)
 	_uid_index[uid] = inst_dict
+	_mark_new(uid)
 	if rarity != "common":
 		GameBus.tutorial_popup_requested.emit("card_rarity")
 	_dirty = true
 	return uid
+
+func _mark_new(uid: String) -> void:
+	new_card_uids.append(uid)
+	GameBus.new_cards_changed.emit(new_card_uids.size())
+
+## Clears the "new" marks once the player has seen the deck table.
+func mark_cards_seen() -> void:
+	if new_card_uids.is_empty():
+		return
+	new_card_uids.clear()
+	_dirty = true
+	GameBus.new_cards_changed.emit(0)
+
+func is_new_card(uid: String) -> bool:
+	return new_card_uids.has(uid)
 
 ## Routes an automatic reward (battle win, chest, dig, achievement, story/quest, pack) into
 ## owned_cards, or into the mailbox overflow queue when the bag is full, instead of dropping
@@ -999,6 +1033,7 @@ func grant_card_reward(template_id: String, rarity: String, attack: int = -1, he
 		return uid
 	owned_cards.append(inst_dict)
 	_uid_index[uid] = inst_dict
+	_mark_new(uid)
 	if rarity != "common":
 		GameBus.tutorial_popup_requested.emit("card_rarity")
 	_dirty = true
@@ -1008,6 +1043,8 @@ func grant_card_reward(template_id: String, rarity: String, attack: int = -1, he
 ## Removes a card instance by UID from owned_cards, player_deck, and all loadouts.
 func remove_card_instance(uid: String) -> void:
 	_uid_index.erase(uid)
+	for_sale_uids.erase(uid)
+	new_card_uids.erase(uid)
 	for i in range(owned_cards.size() - 1, -1, -1):
 		if str(owned_cards[i].get("uid", "")) == uid:
 			owned_cards.remove_at(i)
@@ -1022,15 +1059,59 @@ func remove_card_instance(uid: String) -> void:
 			lo_cards.remove_at(lo_idx)
 	_dirty = true
 
-## Sells a card instance for gold. No-op if uid not found or card is unique.
-func sell_card_instance(uid: String) -> void:
+## Flags / unflags a bag card for sale at the next vendor (GID-180). Deck cards and
+## unique cards can't be flagged. Returns the new flag state.
+func toggle_for_sale(uid: String) -> bool:
+	if for_sale_uids.has(uid):
+		for_sale_uids.erase(uid)
+		_dirty = true
+		return false
+	var inst: Dictionary = get_instance_by_uid(uid)
+	if inst.is_empty() or player_deck.has(uid) \
+			or bool(CardRegistry.get_template(str(inst.get("template_id", ""))).get("is_unique", false)):
+		return false
+	for_sale_uids.append(uid)
+	_dirty = true
+	return true
+
+func is_for_sale(uid: String) -> bool:
+	return for_sale_uids.has(uid)
+
+## Sells a card instance for gold (vendors only, GID-180). `gold` < 0 = the
+## rarity's base sell price; a vendor passes its own (town preferences).
+## No-op if uid not found.
+func sell_card_instance(uid: String, gold: int = -1) -> void:
 	var inst: Dictionary = get_instance_by_uid(uid)
 	if inst.is_empty():
 		return
-	var rarity: String = str(inst.get("rarity", "common"))
-	var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(rarity, {})
-	add_coins(int(cfg.get("sell_gold", 0)))
+	if gold < 0:
+		var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(str(inst.get("rarity", "common")), {})
+		gold = int(cfg.get("sell_gold", 0))
+	add_coins(gold)
+	var shelved: Dictionary = inst.duplicate(true)
+	shelved["_sold_for"] = gold
+	buyback_cards.push_front(shelved)
+	if buyback_cards.size() > BUYBACK_CAP:
+		buyback_cards.resize(BUYBACK_CAP)
 	remove_card_instance(uid)
+
+## Buys back buyback shelf entry `index` at the price it sold for: the exact
+## card (same uid, rolls and history) returns to the bag. False when the index
+## is bad, coins are short or the bag is full.
+func buy_back(index: int) -> bool:
+	if index < 0 or index >= buyback_cards.size() or is_bag_full():
+		return false
+	var inst: Dictionary = buyback_cards[index].duplicate(true)
+	var price: int = int(inst.get("_sold_for", 0))
+	if coins < price:
+		return false
+	inst.erase("_sold_for")
+	buyback_cards.remove_at(index)
+	add_coins(-price)
+	owned_cards.append(inst)
+	_uid_index[str(inst.get("uid", ""))] = inst
+	_dirty = true
+	return true
 
 ## Scraps a card instance for essence. No-op if uid not found or card is unique.
 func scrap_card_instance(uid: String) -> void:

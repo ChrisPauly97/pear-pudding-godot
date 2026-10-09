@@ -50,17 +50,6 @@ func claim_all_mailbox_cards() -> int:
 		claimed += 1
 	return claimed
 
-## Sells a mailbox card for gold. No-op if uid not found.
-func sell_mailbox_card(uid: String) -> void:
-	var idx: int = _mailbox_index(uid)
-	if idx < 0:
-		return
-	var rarity: String = str(_save.mailbox_cards[idx].get("rarity", "common"))
-	var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(rarity, {})
-	_save.add_coins(int(cfg.get("sell_gold", 0)))
-	_save.mailbox_cards.remove_at(idx)
-	_save._dirty = true
-
 ## Scraps a mailbox card for essence. No-op if uid not found.
 func scrap_mailbox_card(uid: String) -> void:
 	var idx: int = _mailbox_index(uid)
