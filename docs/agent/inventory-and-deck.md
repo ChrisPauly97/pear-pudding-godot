@@ -554,3 +554,27 @@ const DeckAutoFill = preload("res://game_logic/DeckAutoFill.gd")
 | WeaponData script | `data/WeaponData.gd` | Resource class for all equipment types; `slot` field distinguishes them |
 | Equipment resources | `data/weapons/*.tres` | One `WeaponData` per item (all slots); each needs a `.uid` sidecar |
 | `WeaponRegistry.gd` | `autoloads/WeaponRegistry.gd` | Static registry; scans and indexes all equipment resources |
+
+---
+
+## Deck Table (GID-180)
+
+Deck building and bag management as a tactile "card table" — see `tasks/goals/GID-180--deck-table/goal.md`.
+Selling happens **only at vendors**; the bag offers Scrap and "flag for sale".
+
+### DeckInsights (`game_logic/inventory/DeckInsights.gd`, TID-736)
+
+Pure statics over card instances plus an optional `templates` table (empty → `CardRegistry`), so tests pass a
+hand-built table. Used by the deck table header, binder, compare popup and Maiteln's deck barks.
+
+| Function | Returns |
+|---|---|
+| `mana_curve(instances)` | `Array[int]` buckets 0..`CURVE_MAX` (7+ share the last bar) |
+| `dominant_branch` / `branch_counts` | most common `magic_branch` (ties alphabetical, "" if none) |
+| `archetype` | `bulwark` (≥30 % ward), `rush` (≥30 % surge), `titans` (avg cost ≥4.5), `tempo`/`grimoire` (≥60 % spells, cheap/dear), `swarm` (avg ≤2.5), else `host` |
+| `deck_name` | `BRANCH_WORDS[branch] + ARCHETYPE_NOUNS[archetype]`, e.g. "Bone-Choir Swarm"; "Empty Deck" |
+| `crest` | `{color, glyph (archetype), branch, rarity (average tier)}` |
+| `synergy_pairs` | ≤12 `{a, b, kind: keyword|branch, tag}`; one per template pair, keyword pairs first |
+| `roll_quality` / `is_perfect_roll` / `has_roll_range` | 0..1 position in the rarity's `RARITY_CONFIG` variance band; perfect = top of every variable stat (commons never) |
+| `compare(a, b)` | stat deltas a − b incl. rarity tier |
+| `power_score` / `replace_target` / `is_upgrade` | rarity tier, then atk+hp, then cheaper; upgrade = beats the weakest same-template deck copy |

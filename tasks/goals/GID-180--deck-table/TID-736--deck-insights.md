@@ -2,7 +2,7 @@
 
 **Goal:** GID-180
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -34,12 +34,13 @@ Shared context:
 
 ## Plan
 
-_Written during Plan phase._
+Pure statics in `game_logic/inventory/DeckInsights.gd` + unit suite; templates injectable for tests.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `game_logic/inventory/DeckInsights.gd`: mana curve, dominant branch, archetype, deck name, crest, synergy pairs, roll quality / perfect roll, compare, power score, replace target, is_upgrade.
+- New `tests/unit/test_deck_insights.gd` (7 tests).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/inventory-and-deck.md`: new Deck Table section + DeckInsights table.
