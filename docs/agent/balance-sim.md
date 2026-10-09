@@ -170,7 +170,9 @@ CI runs `godot --headless --path . -s tests/balance_bands.gd` as its own step (~
 suite). `tests/unit/test_balance_bands.gd` covers the check logic and that the baseline lists every cell.
 Changed the numbers on purpose? `godot --headless --path . -s tools/balance_sim.gd -- --write-baseline` rewrites
 the JSON (with the commit it was measured at); commit the diff so review sees the balance move.
-GID-179 / TID-732: player spells and techniques crit now (scout L9+1 60 → 75 %); `cfg.skills` builds `SkillMods`.
+GID-179 / TID-732: player spells and techniques crit now (scout L9+1 60 → 75 %); `cfg.skills` / `--skills id,…`
+build `SkillMods`. Skill points start at level 10, so the L1–9 bands never include skill nodes. Measured at L9 +1
+(scout / bog hag / stag, 80 fights): none 79 / 51 / 68 %, four Thorn nodes 86 / 63 / 73 %.
 
 ## Integrations
 

@@ -163,7 +163,7 @@ Since GID-179 the tree changes **cards**, not hero stats (spec → Identity):
 | System | Integration |
 |---|---|
 | **SaveManager** | Stores `magic_type`, `skill_points`, `corruption_points`, `redemption_points`, `unlocked_skills` |
-| **GameBus** | `level_up` → `skill_points += 1` in SaveManager; `corruption_points_changed` / `redemption_points_changed` emitted on earn |
+| **GameBus** | `level_up` → skill points from `XpCurve.skill_points_at(level)` (first point at level 10, GID-179); `corruption_points_changed` / `redemption_points_changed` emitted on earn |
 | **BattleRealtime** | Reads `unlocked_skills` when a real-time fight starts → `SkillMods` (cost / cast / recycle / power / crit) |
 | **Dialogue system** (future) | Will call `add_corruption_points()` / `add_redemption_points()` at morally-aligned choice points |
 | **MagicTypes** | Owns the type/branch/colour/currency tables the whole tree reads |

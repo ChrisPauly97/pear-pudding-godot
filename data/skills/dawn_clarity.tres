@@ -6,10 +6,10 @@
 script = ExtResource("1_dawn_clarity")
 id = "dawn_clarity"
 display_name = "Clarity"
-description = "Techniques return to your hand 15% faster. Real-time fights only."
+description = "Techniques return to your hand 10% faster. Real-time fights only."
 skill_type = "passive"
 effect_type = "mod_recycle"
-effect_value = 15
+effect_value = 10
 filter = "technique"
 grants_card = ""
 prerequisites = ["dawn_wellspring"]

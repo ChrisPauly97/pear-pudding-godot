@@ -71,12 +71,13 @@ func cost_for(card: CardInstance) -> int:
 		return card.cost
 	return maxi(mini(card.cost, 1), card.cost - cut)
 
-## `power` after `mod_power` nodes (at least +1 when any applies).
+## `power` after `mod_power` nodes, rounded (no +1 floor: on Strike's 2 that
+## would turn +15% into +50%).
 func power_for(card: CardInstance, power: int) -> int:
 	var pct: int = total("mod_power", card)
 	if pct <= 0 or power <= 0:
 		return power
-	return maxi(power + 1, roundi(float(power) * (1.0 + float(pct) / 100.0)))
+	return roundi(float(power) * (1.0 + float(pct) / 100.0))
 
 ## Extra crit chance (0..1) from `mod_crit` nodes.
 func crit_bonus(card: CardInstance) -> float:

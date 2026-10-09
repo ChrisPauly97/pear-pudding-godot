@@ -9,6 +9,7 @@
 ##   --level L           player level (1)
 ##   --learned MODE      ladder (rows with level_req <= L, default) | all | none | id,id,…
 ##   --deck MODE         starter (default: new-game deck + Strike) | id,id,…
+##   --skills id,id,…    unlocked skill-tree nodes (card modifiers, GID-179; none)
 ##   --weapon ID / --offhand ID
 ##   --enemy T[,T…]      enemy types, or "all" (undead_basic)
 ##   --enemy-level N     enemy zone level (default: the type's own tier level)
@@ -29,7 +30,7 @@ extends SceneTree
 var _opts: Dictionary = {
 	"fights": "200", "seed": "1", "level": "1", "learned": "ladder", "deck": "starter", "weapon": "",
 	"offhand": "", "enemy": "undead_basic", "enemy-level": "", "enemy-offset": "", "boss": "", "tune": "", "policy": "",
-	"sweep": "", "csv": "", "max-seconds": "300",
+	"sweep": "", "csv": "", "max-seconds": "300", "skills": "",
 }
 
 func _initialize() -> void:
@@ -127,6 +128,8 @@ func _config(enemy: String, sweep_key: String, v: String) -> Dictionary:
 		level = int(v)
 	var cfg: Dictionary = {"player_level": level, "enemy_type": enemy, "learned": _learned(level),
 		"max_seconds": float(_opts["max-seconds"]), "is_boss": str(_opts["boss"]) != ""}
+	if str(_opts["skills"]) != "":
+		cfg["skills"] = Array(str(_opts["skills"]).split(",", false))
 	if str(_opts["deck"]) != "starter":
 		cfg["deck"] = Array(str(_opts["deck"]).split(",", false))
 	for k: String in ["weapon", "offhand"]:

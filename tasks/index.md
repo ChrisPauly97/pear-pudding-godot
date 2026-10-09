@@ -182,7 +182,7 @@
 | [GID-176](goals/GID-176--balance-sim/goal.md) | Balance Simulation Harness | done | 11 / 11 |
 | [GID-177](goals/GID-177--progression-pacing/goal.md) | Progression Pacing | done | 3 / 3 |
 | [GID-178](goals/GID-178--combat-pacing-feel/goal.md) | Combat Pacing & Feel | done | 4 / 4 |
-| [GID-179](goals/GID-179--skill-tree-card-mods/goal.md) | Skill Tree Modifies Cards | in-progress | 5 / 6 |
+| [GID-179](goals/GID-179--skill-tree-card-mods/goal.md) | Skill Tree Modifies Cards | done | 6 / 6 |
 
 ## Backlog
 

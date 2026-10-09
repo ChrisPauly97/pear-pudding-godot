@@ -22,7 +22,7 @@ func test_new_game_head_start_values() -> void:
 	sm.new_game(true)
 	assert_eq(sm.level, 15)
 	assert_eq(sm.xp, SaveManagerScript.xp_for_level(15))
-	assert_eq(sm.skill_points, 14)
+	assert_eq(sm.skill_points, 6, "first point at level 10 (GID-179)")
 	assert_eq(sm.coins, 5000)
 
 func test_head_start_level_consistent_with_xp_curve() -> void:
@@ -34,4 +34,7 @@ func test_default_start_first_level_up_reachable() -> void:
 	sm.new_game()
 	sm.add_xp(SaveManagerScript.xp_for_level(2))
 	assert_eq(sm.level, 2)
+	assert_eq(sm.skill_points, 0, "no skill points before level 10")
+	sm.add_xp(SaveManagerScript.xp_for_level(10) - sm.xp)
+	assert_eq(sm.level, 10)
 	assert_eq(sm.skill_points, 1)

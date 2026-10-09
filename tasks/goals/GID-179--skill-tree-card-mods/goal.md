@@ -19,7 +19,7 @@ Today: 32 passives add hero HP / attack / mana / draw (`BattleSetup.apply_passiv
 | [TID-732](TID-732--spell-crits.md) | Spells and techniques can crit (real time) | agent | done | TID-731 |
 | [TID-733](TID-733--skill-mods-engine.md) | SkillMods engine: recycle / cost / cast / power / crit / on-crit; passives removed | agent | done | TID-732 |
 | [TID-734](TID-734--skill-techniques.md) | Skill .tres re-authored; actives → technique cards; hero power removed | agent | done | TID-733 |
-| [TID-735](TID-735--skill-tree-ui-balance.md) | Skill tree UI text, save repair, balance re-baseline, docs | agent | todo | TID-734 |
+| [TID-735](TID-735--skill-tree-ui-balance.md) | Skill tree UI text, save repair, balance re-baseline, docs | agent | done | TID-734 |
 
 ## Acceptance Criteria
 
@@ -27,4 +27,4 @@ Today: 32 passives add hero HP / attack / mana / draw (`BattleSetup.apply_passiv
 - [x] No skill adds flat hero HP / attack / mana / draw; no hero-power button
 - [x] Each of the 16 active nodes grants a technique card
 - [x] Spells/techniques crit in real time; an on-crit node can make the next card instant
-- [ ] Balance bands pass; baseline re-written if numbers moved
+- [x] Balance bands pass; baseline re-written if numbers moved

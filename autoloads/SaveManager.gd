@@ -566,7 +566,7 @@ func new_game(head_start: bool = false) -> void:
 	# Head start: xp/level/skill_points kept mutually consistent (XpCurve).
 	xp = _XpCurve.xp_to_reach(15) if head_start else 0
 	level = 15 if head_start else 1
-	skill_points = 14 if head_start else 0
+	skill_points = _XpCurve.skill_points_at(15) if head_start else 0
 	unlocked_skills = []
 	# GID-141: a new game knows only Strike; everything else is taught by trainers.
 	# Head start (debug) learns the whole unlock ladder.
@@ -814,7 +814,7 @@ func _restore_derived_fields(data: Dictionary) -> void:
 	_restore_technique_cards(data)
 
 	level = maxi(1, _compute_level(xp))
-	skill_points = mini(skill_points, maxi(0, level - 1))
+	skill_points = mini(skill_points, _XpCurve.skill_points_at(level))
 	if bag_size <= 0:
 		bag_size = IsoConst.BAG_SIZE_DEFAULT
 
@@ -1446,7 +1446,7 @@ func add_xp(amount: int) -> void:
 	xp += amount
 	var new_level: int = _compute_level(xp)
 	if new_level > level:
-		skill_points += new_level - level
+		skill_points += _XpCurve.skill_points_at(new_level) - _XpCurve.skill_points_at(level)
 		var newly: Array[String] = []
 		for l: int in range(level + 1, new_level + 1):
 			newly.append_array(_UnlockLadder.available_at(l))
