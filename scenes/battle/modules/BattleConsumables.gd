@@ -1,4 +1,5 @@
-## Hero power and potions: their HUD buttons, the two consumable quick slots
+## Potions: their HUD buttons (the hero power is gone — active skills are
+## technique cards since GID-179), the two consumable quick slots
 ## (Q / E, shared cooldown — game_logic/battle/QuickSlots.gd, TID-542), and
 ## applying each effect.
 ##
@@ -8,10 +9,7 @@
 extends Node
 
 const _BattleScene = preload("res://scenes/battle/BattleScene.gd")
-const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
-const SkillRegistry = preload("res://autoloads/SkillRegistry.gd")
-const SkillData = preload("res://data/SkillData.gd")
 const GardenDefs = preload("res://game_logic/GardenDefs.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const BattleNetProtocol = preload("res://game_logic/net/BattleNetProtocol.gd")
@@ -28,16 +26,6 @@ var _battle: _BattleScene
 func _init(battle: _BattleScene) -> void:
 	_battle = battle
 
-
-func _add_hero_power_button() -> void:
-	var active_skill: SkillData = _get_active_skill()
-	if active_skill == null:
-		return
-	_battle._hero_power_btn = _UiUtil.make_button(active_skill.display_name, Vector2(_battle._vh * 0.18,
-			_battle._vh * 0.05), int(_battle._font(0.02)),
-			_use_hero_power)
-	_battle._hero_power_btn.tooltip_text = active_skill.description
-	_battle.get_node("SidePanel").add_child(_battle._hero_power_btn)
 
 func _add_potion_button() -> void:
 	if _battle._state.puzzle_mode or _battle._state.scripted_battle:
@@ -153,56 +141,3 @@ func _apply_potion_effect(potion_id: String) -> void:
 	_refresh_potion_button()
 	if _battle._pvp:
 		_battle._check_game_over()
-
-func _get_active_skill() -> SkillData:
-	var result: SkillData = null
-	for skill_id: String in SceneManager.save_manager.unlocked_skills:
-		var sk: SkillData = SkillRegistry.get_skill(skill_id)
-		if sk != null and sk.skill_type == "active":
-			result = sk
-	return result
-
-func _use_hero_power() -> void:
-	if _battle._hero_power_used:
-		return
-	if _battle._pvp and not _battle._can_local_act():
-		return
-	var active_skill: SkillData = _get_active_skill()
-	if active_skill == null:
-		return
-	_battle._hero_power_used = true
-	if _battle._hero_power_btn != null:
-		_battle._hero_power_btn.disabled = true
-	if _battle._is_pvp_client():
-		# Host doesn't know the client's skill — relay the effect itself.
-		_battle._send_intent(BattleNetProtocol.encode_hero_power({}, active_skill.effect_type,
-				active_skill.effect_value))
-		return
-	_apply_hero_power_effect(_battle._my_idx(), active_skill.effect_type, active_skill.effect_value)
-	_battle._refresh_all()
-	_battle._check_game_over()
-
-## Host → client: broadcast the full canonical state with a fresh seq.
-## Also fans to any registered spectators (TID-367).
-func _apply_hero_power_effect(player_idx: int, effect_type: String, value: int) -> void:
-	var player: PlayerState = _battle._state.players[player_idx]
-	# Hero power only fires on the acting player's own turn (current_player_idx ==
-	# player_idx, enforced by every caller), so opponent() resolves correctly for
-	# 2-player PvP, co-op-PvE (boss), and team PvP (auto lowest-HP enemy-team member —
-	# hero powers don't carry a manual target_pidx, consistent with other AOE effects).
-	var enemy: PlayerState = _battle._state.opponent()
-	match effect_type:
-		"active_damage_all":
-			for card: CardInstance in enemy.board.get_cards().duplicate():
-				card.take_damage(value)
-				if not card.is_alive():
-					enemy.board.remove_card(card)
-					enemy.discard.append(card)
-		"active_heal":
-			player.hero.health = mini(player.hero.health + value, player.hero.max_health)
-		"active_draw":
-			for _i in value:
-				player.draw_card()
-			_battle._resolver.flush_auto_spells(player_idx)
-		"active_mana":
-			player.hero.gain_mana(value)

@@ -6,10 +6,12 @@
 script = ExtResource("1_ash_grave_call")
 id = "ash_grave_call"
 display_name = "Grave Call"
-description = "Once per battle: beckon from the grave and draw 2 cards."
+description = "Grants the Grave Call technique card: Draw 2 cards (2 in real time). Returns to the bottom of your deck."
 skill_type = "active"
-effect_type = "active_draw"
-effect_value = 2
+effect_type = "grant_technique"
+effect_value = 0
+filter = ""
+grants_card = "tech_grave_call"
 prerequisites = ["ash_bone_armour"]
 tree_row = 2
 tree_col = 0

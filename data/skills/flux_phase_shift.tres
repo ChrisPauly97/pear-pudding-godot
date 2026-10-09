@@ -6,10 +6,12 @@
 script = ExtResource("1_flux_phase_shift")
 id = "flux_phase_shift"
 display_name = "Phase Shift"
-description = "You are half a step out of the moment, and it shows you more. Draw 1 extra card."
+description = "When a technique crits, your next card casts instantly. Real-time fights only."
 skill_type = "passive"
-effect_type = "passive_draw"
-effect_value = 1
+effect_type = "on_crit_instant"
+effect_value = 0
+filter = "technique"
+grants_card = ""
 prerequisites = ["flux_leyward_focus"]
 tree_row = 1
 tree_col = 0

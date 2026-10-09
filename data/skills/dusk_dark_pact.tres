@@ -6,10 +6,12 @@
 script = ExtResource("1_dusk_dark_pact")
 id = "dusk_dark_pact"
 display_name = "Dark Pact"
-description = "A pact with shadow sharpens your edge. +1 attack."
+description = "Dusk cards hit 20% harder. Real-time fights only."
 skill_type = "passive"
-effect_type = "passive_atk"
-effect_value = 1
+effect_type = "mod_power"
+effect_value = 20
+filter = "dusk"
+grants_card = ""
 prerequisites = []
 tree_row = 0
 tree_col = 0

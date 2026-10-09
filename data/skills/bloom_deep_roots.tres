@@ -6,10 +6,12 @@
 script = ExtResource("1_bloom_deep_roots")
 id = "bloom_deep_roots"
 display_name = "Deep Roots"
-description = "You draw strength from the ground itself. +15 max HP."
+description = "Healing cards cast 25% faster. Real-time fights only."
 skill_type = "passive"
-effect_type = "passive_hp"
-effect_value = 15
+effect_type = "mod_cast"
+effect_value = 25
+filter = "heal"
+grants_card = ""
 prerequisites = ["bloom_seedling"]
 tree_row = 1
 tree_col = 0

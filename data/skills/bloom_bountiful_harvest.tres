@@ -6,10 +6,12 @@
 script = ExtResource("1_bloom_bountiful_harvest")
 id = "bloom_bountiful_harvest"
 display_name = "Bountiful Harvest"
-description = "Once per battle: everything you planted comes due at once. Gain 4 mana."
+description = "Grants the Bountiful Harvest technique card: Hit for 2 and gain 2 mana (2 in real time). Returns to the bottom of your deck."
 skill_type = "active"
-effect_type = "active_mana"
-effect_value = 4
+effect_type = "grant_technique"
+effect_value = 0
+filter = ""
+grants_card = "tech_bountiful_harvest"
 prerequisites = ["bloom_sunward_reach"]
 tree_row = 2
 tree_col = 3

@@ -421,7 +421,7 @@ the BattleScene script (see "Typed back-references" below):
 | Module | Owns |
 |---|---|
 | `BattleModifiers.gd` (`modifiers`) | Equipment, passive skills, companions, weather, ambush, gambit handicaps, desert scorch |
-| `BattleConsumables.gd` (`consumables`) | Hero power + potion buttons, potion picker, their effects |
+| `BattleConsumables.gd` (`consumables`) | Potion buttons, potion picker, their effects (the hero power is gone — active skills are technique cards, GID-179) |
 | `BattleTutorials.gd` (`tutorials`) | First-battle tutorial card, scripted-battle tutorial steps |
 | `BattleArena.gd` (`arena`) | Backdrop, battlefield label/banner, slot highlights, co-op ally panels |
 | `BattleTargeting.gd` (`targeting`) | Board drop zone, spell/ally/slot targeting modes, resolving chosen targets |

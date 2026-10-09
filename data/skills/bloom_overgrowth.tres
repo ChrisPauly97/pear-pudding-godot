@@ -6,10 +6,12 @@
 script = ExtResource("1_bloom_overgrowth")
 id = "bloom_overgrowth"
 display_name = "Overgrowth"
-description = "Once per battle: green floods the field and restores 10 hero HP."
+description = "Grants the Overgrowth technique card: Restore 7 HP to your hero (8 in real time, 1 s cast). Returns to the bottom of your deck."
 skill_type = "active"
-effect_type = "active_heal"
-effect_value = 10
+effect_type = "grant_technique"
+effect_value = 0
+filter = ""
+grants_card = "tech_overgrowth"
 prerequisites = ["bloom_deep_roots"]
 tree_row = 2
 tree_col = 0

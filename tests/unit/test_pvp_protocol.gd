@@ -53,13 +53,6 @@ func test_end_turn_round_trip() -> void:
 	assert_eq(d["type"], Proto.INTENT_END_TURN)
 
 
-func test_hero_power_round_trip() -> void:
-	var d: Dictionary = Proto.decode_intent(Proto.encode_hero_power({"side": 1, "slot": 0}))
-	assert_eq(d["type"], Proto.INTENT_HERO_POWER)
-	var tgt: Dictionary = d["target"]
-	assert_eq(int(tgt["slot"]), 0)
-
-
 func test_potion_round_trip() -> void:
 	var d: Dictionary = Proto.decode_intent(Proto.encode_potion("heal_minor"))
 	assert_eq(d["type"], Proto.INTENT_POTION)

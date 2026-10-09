@@ -86,3 +86,20 @@ func test_load_repairs_and_deals_old_bar() -> void:
 	var n: int = reader.owned_cards.size()
 	reader._restore_derived_fields({"loadouts": reader.loadouts})
 	assert_eq(reader.owned_cards.size(), n)
+
+## GID-179 / TID-734: an active skill-tree node is its technique card.
+func test_unlocking_an_active_node_deals_its_card() -> void:
+	var sm := SaveManagerScript.new()
+	sm.new_game(false)
+	sm.skill_points = 2
+	sm.unlock_skill("ember_searing_focus")
+	assert_eq(_owned(sm, "tech_pyroblast"), 0, "a modifier node grants no card")
+	sm.unlock_skill("ember_pyroblast")
+	assert_eq(_owned(sm, "tech_pyroblast"), 1)
+	assert_true(sm.get_deck_template_ids().has("tech_pyroblast"), "dealt in while legal")
+
+func test_migration_queues_unlocked_skill_techniques() -> void:
+	var d: Dictionary = {"version": 47, "unlocked_skills": ["dawn_inner_light", "dawn_restoration"]}
+	_SaveMigrations.apply(d)
+	assert_eq(d["technique_deck_pending"], ["tech_restoration"])
+	assert_eq(int(d["version"]), _SaveMigrations.CURRENT_VERSION)

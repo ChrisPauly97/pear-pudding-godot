@@ -27,17 +27,21 @@ Each skill is a `Resource` instance with these fields:
 | `id` | `String` | Unique identifier, prefixed with branch name (e.g. `ember_pyroblast`) |
 | `display_name` | `String` | Human-readable name |
 | `description` | `String` | Flavour + mechanical description |
-| `skill_type` | `String` | `"passive"` or `"active"` |
-| `effect_type` | `String` | One of the passive/active effect types below |
-| `effect_value` | `int` | Magnitude of the effect |
+| `skill_type` | `String` | `"passive"` (card modifier) or `"active"` (grants a technique card) |
+| `effect_type` | `String` | One of the effect types below |
+| `effect_value` | `int` | % (recycle / cast / power / crit) or mana units (cost / refund) |
+| `filter` | `String` | Which cards a modifier touches: branch, `spell`, `technique`, `ally`, `damage`, `heal`, `any`, or a card id |
+| `grants_card` | `String` | `grant_technique` nodes: the technique card id |
 | `prerequisites` | `Array[String]` | IDs that must be unlocked first (home-branch only; ignored for cross-magic purchases) |
 | `tree_row` | `int` | Row in the 3×5 branch grid (0 = entry, 2 = capstone) |
 | `tree_col` | `int` | Column in the 3×5 branch grid |
 | `magic_branch` | `String` | One of the eight branches in `MagicTypes.TYPES` |
 | `alt_cost` | `int` | 0 = not cross-purchasable; >0 = costs this many corruption/redemption points |
 
-**Passive effect types:** `passive_hp`, `passive_mana`, `passive_atk`, `passive_draw`  
-**Active effect types:** `active_damage_all`, `active_heal`, `active_draw`, `active_mana`
+**Passive (modifier) effect types (GID-179):** `mod_recycle`, `mod_cost`, `mod_cast`, `mod_power`, `mod_crit`,
+`on_crit_instant`, `on_crit_refund` — real-time fights only.  
+**Active effect type:** `grant_technique` — the node owns a technique card (`TechniqueDefs` row with `"skill"`).
+Full node table: `combat-model.md` → "Skill tree modifies cards".
 
 ### Skill Roster (48 skills, 6 per branch)
 
@@ -144,12 +148,13 @@ SaveManager.add_redemption_points(amount: int)  # call at light dialogue choices
 
 ### Battle Integration
 
-Passive and active skill application is **unchanged** — still keyed by skill ID string in `unlocked_skills`:
+Since GID-179 the tree changes **cards**, not hero stats (spec → Identity):
 
-- **Passives** (`passive_hp`, `passive_mana`, etc.) — applied to `PlayerState` at battle start alongside weapon effects
-- **Active hero power** — the first active skill in `unlocked_skills` shows a once-per-battle button in BattleScene
-
-No branch-awareness is needed in the battle system; skills are identified purely by ID.
+- **Passives** are card modifiers: `BattleSetup.apply_skill_mods` builds `SkillMods` on `PlayerState.skill_mods`
+  when a real-time fight starts (`BattleRealtime.maybe_start`). Turn-based fights ignore them.
+- **Actives** grant technique cards (`tech_pyroblast`, …): `SaveManager.unlock_skill` / alt purchase owns the card and
+  deals it into the active deck while `TechniqueDefs.deck_violation` allows; load repair owns it for old saves and
+  migration v48 queues it once. The hero-power button is gone.
 
 ---
 
@@ -159,7 +164,7 @@ No branch-awareness is needed in the battle system; skills are identified purely
 |---|---|
 | **SaveManager** | Stores `magic_type`, `skill_points`, `corruption_points`, `redemption_points`, `unlocked_skills` |
 | **GameBus** | `level_up` → `skill_points += 1` in SaveManager; `corruption_points_changed` / `redemption_points_changed` emitted on earn |
-| **BattleScene** | Reads `unlocked_skills` at battle start to apply passive bonuses and wire the active hero power button |
+| **BattleRealtime** | Reads `unlocked_skills` when a real-time fight starts → `SkillMods` (cost / cast / recycle / power / crit) |
 | **Dialogue system** (future) | Will call `add_corruption_points()` / `add_redemption_points()` at morally-aligned choice points |
 | **MagicTypes** | Owns the type/branch/colour/currency tables the whole tree reads |
 | **BattlefieldRules** | `BRANCH_AFFINITY` — each signature branch's −1 mana condition |

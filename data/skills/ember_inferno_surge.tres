@@ -6,10 +6,12 @@
 script = ExtResource("1_ember_inferno_surge")
 id = "ember_inferno_surge"
 display_name = "Inferno Surge"
-description = "Your hero's attack power grows by +2 as the fire spreads."
+description = "Ember cards gain +10% crit chance. Real-time fights only."
 skill_type = "passive"
-effect_type = "passive_atk"
-effect_value = 2
+effect_type = "mod_crit"
+effect_value = 10
+filter = "ember"
+grants_card = ""
 prerequisites = ["ember_searing_focus"]
 tree_row = 1
 tree_col = 0

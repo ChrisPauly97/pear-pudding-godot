@@ -6,10 +6,12 @@
 script = ExtResource("1_ember_flame_tempo")
 id = "ember_flame_tempo"
 display_name = "Flame Tempo"
-description = "The heat of battle sharpens your reflexes. Draw 1 extra card."
+description = "When an Ember card crits, your next card casts instantly. Real-time fights only."
 skill_type = "passive"
-effect_type = "passive_draw"
-effect_value = 1
+effect_type = "on_crit_instant"
+effect_value = 0
+filter = "ember"
+grants_card = ""
 prerequisites = ["ember_torch_bearer"]
 tree_row = 1
 tree_col = 3

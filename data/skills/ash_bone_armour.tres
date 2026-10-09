@@ -6,10 +6,12 @@
 script = ExtResource("1_ash_bone_armour")
 id = "ash_bone_armour"
 display_name = "Bone Armour"
-description = "Risen bones clad your flesh. +15 max HP."
+description = "Ash cards cast 25% faster. Real-time fights only."
 skill_type = "passive"
-effect_type = "passive_hp"
-effect_value = 15
+effect_type = "mod_cast"
+effect_value = 25
+filter = "ash"
+grants_card = ""
 prerequisites = ["ash_cinderheart"]
 tree_row = 1
 tree_col = 0

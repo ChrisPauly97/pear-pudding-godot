@@ -1338,7 +1338,15 @@ func unlock_skill(id: String) -> void:
 		return
 	unlocked_skills.append(id)
 	skill_points -= 1
+	_grant_skill_technique(id)
 	_dirty = true
+
+## GID-179: an active skill-tree node is a technique card — owned, and dealt
+## into the active deck while that stays legal (TechniqueDefs.deck_violation).
+func _grant_skill_technique(skill_id: String) -> void:
+	var tech: String = _TechniqueDefs.card_for_skill(skill_id)
+	if tech != "":
+		_add_technique_to_deck(_own_technique(tech))
 
 ## GID-175: the uid of the owned `card_id` technique, creating it if missing.
 ## Techniques are bound (one each, untradeable), so they skip the bag cap.
@@ -1373,7 +1381,7 @@ func _add_technique_to_deck(uid: String) -> bool:
 ## abilities) has its card, and a pre-GID-175 save's skill bar (SaveMigrations
 ## v46 `technique_deck_pending`) is dealt into the active deck once.
 func _restore_technique_cards(data: Dictionary) -> void:
-	for card_id: String in _TechniqueDefs.known_cards(learned_abilities):
+	for card_id: String in _TechniqueDefs.known_cards(learned_abilities, unlocked_skills):
 		_own_technique(card_id)
 	var pending: Variant = data.get("technique_deck_pending", [])
 	if pending is Array:
@@ -1421,6 +1429,7 @@ func unlock_cross_skill(id: String, cost: int, currency: String) -> void:
 			return
 		redemption_points -= cost
 	unlocked_skills.append(id)
+	_grant_skill_technique(id)
 	_dirty = true
 
 func add_corruption_points(amount: int) -> void:

@@ -352,7 +352,7 @@ calls each piece with values read from the save, and the balance simulator calls
 |---|---|
 | `unlock_filter(deck, learned)` (minions / spells until learned, techniques always) | `BattleModifiers._apply_combat_unlocks` |
 | `apply_gear(player, [{id, level, mult}], realtime)` | `BattleModifiers._apply_equipment_effects` (builds the item list from the save) |
-| `apply_passives(player, skill_ids)` | `BattleModifiers._apply_passive_skills` |
+| `apply_skill_mods(player, skill_ids)` (GID-179) | `BattleRealtime.maybe_start` (real time only) |
 | `enemy_tier(type, is_boss, enemy_level)` | `BattleScene._setup_solo_battle` |
 | `setup_enemy(enemy, player, type, deck, tier, level, boss_hp)` (mirror trait deck, tier-scaled build + opening hand, pack, boss HP, zone HP; an empty deck keeps GameState's default) | `BattleScene._setup_solo_battle` (then `modifiers.set_trait_source`) |
 | `enemy_round(state, type, tier, round_n)` (fight traits) | `BattleModifiers.apply_enemy_traits` |
@@ -493,7 +493,7 @@ model and stay only until TID-710 removes the code.
 | GCD | Same as spells. Off-GCD techniques (Kick, Daze) skip the GCD gate but not "nothing fires mid-cast" |
 | Momentum | Damaging techniques are **builders** (`on_player_hit(dmg, true)`, can proc). Techniques **don't spend** combo or `next_card_free` (same as the old skill pseudo-cards) |
 | Reactive cards | Kick and Daze are held, not always ready: keeping one in a 5-card hand is the choice. A held Kick **pulses** while an enemy casts |
-| Both modes | Techniques work turn-based too (values below). The once-per-battle hero power stays |
+| Both modes | Techniques work turn-based too (values below). The hero power is gone since GID-179 — active skill nodes are technique cards |
 | Enemies | Enemies get no techniques; enemy casts stay as they are |
 | Auto-attack | **Kept** (user, 2026-10-08): weapon-driven, passive, feeds the deck through the siphon. No manual swing and no weapon abilities. If auto-attack decides fights, lower its damage rather than weakening cards |
 | Filler | Strike is a normal deck card (not guaranteed). Auto-attack covers the gaps. If playtests show dead hands, lower `draw_interval` (9 → 7 s) before anything else |
@@ -739,10 +739,10 @@ Ids and tree positions are unchanged, so existing saves keep their nodes.
 | Branch | Col 0 row 0 | Col 0 row 1 | Col 0 row 2 (technique) | Col 3 row 0 | Col 3 row 1 | Col 3 row 2 (technique) |
 |---|---|---|---|---|---|---|
 | ember | Searing Focus: ember +20% power | Inferno Surge: ember +10% crit | Pyroblast: 4 to all, 1.5 s cast, ↻ 10 s | Torch Bearer: ember −1 cost | Flame Tempo: ember crit → next card instant | Blazing Draw: draw 2, ↻ 20 s |
-| dawn | Inner Light: `heal` +25% power | Radiant Shield: dawn casts 25% faster | Restoration: heal 10, 1.5 s, ↻ 18 s | Wellspring: dawn −1 cost | Clarity: techniques recycle 15% faster | Arcane Clarity: draw 2, ↻ 20 s |
+| dawn | Inner Light: `heal` +25% power | Radiant Shield: dawn casts 25% faster | Restoration: heal 9, 1.5 s, ↻ 18 s | Wellspring: dawn −1 cost | Clarity: techniques recycle 15% faster | Arcane Clarity: draw 2, ↻ 20 s |
 | dusk | Dark Pact: dusk +20% power | Lifetap: dusk crit → refund 1 mana | Soul Siphon: drain 5, 1 s, ↻ 12 s | Shadow Well: dusk casts 25% faster | Void Tempo: dusk recycle 25% faster | Mana Drain: hit 2 + 1 mana, ↻ 15 s |
 | ash | Cinderheart: Allies −1 cost | Bone Armour: ash casts 25% faster | Grave Call: draw 2, ↻ 20 s | Entropy: ash +10% crit | Brittle Edge: ash crit → next card instant | Brittle Curse: 3 to all, 1 s, ↻ 10 s |
-| bloom | Seedling: `heal` +20% power | Deep Roots: `heal` casts 25% faster | Overgrowth: heal 12, 2 s, ↻ 20 s | First Shoots: Allies cast 25% faster | Sunward Reach: `heal` +15% crit | Bountiful Harvest: hit 2 + 2 mana, ↻ 20 s |
+| bloom | Seedling: `heal` +20% power | Deep Roots: `heal` casts 25% faster | Overgrowth: heal 8, 1 s, ↻ 16 s | First Shoots: Allies cast 25% faster | Sunward Reach: `heal` +15% crit | Bountiful Harvest: hit 2 + 2 mana, ↻ 20 s |
 | thorn | Barbed Growth: `damage` +15% power | Bramble Wall: techniques +10% crit | Thornburst: 3 to all, instant, ↻ 8 s | Wild Sap: techniques recycle 10% faster | Rampant Vines: `damage` crit → refund 1 mana | Second Bloom: heal 7, instant, ↻ 15 s |
 | flux | Leyward Focus: techniques recycle 10% faster | Phase Shift: technique crit → next card instant | Reweave: draw 2, ↻ 15 s | Unstable Form: spells cast 20% faster | Kinetic Charge: spells +10% crit | Mana Surge: hit 2 + 2 mana, ↻ 18 s |
 | fracture | Hairline Crack: `damage` +10% crit | Splintering: `damage` crit → refund 1 mana | Shatterwave: 4 to all, 1.5 s, ↻ 12 s | Hollow Core: spells −1 cost | Fault Line: techniques recycle 15% faster | Scavenged Shards: draw 2, ↻ 15 s |

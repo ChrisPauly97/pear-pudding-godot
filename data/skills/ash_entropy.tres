@@ -6,10 +6,12 @@
 script = ExtResource("1_ash_entropy")
 id = "ash_entropy"
 display_name = "Entropy"
-description = "Chaos feeds your strikes. +1 attack."
+description = "Ash cards gain +10% crit chance. Real-time fights only."
 skill_type = "passive"
-effect_type = "passive_atk"
-effect_value = 1
+effect_type = "mod_crit"
+effect_value = 10
+filter = "ash"
+grants_card = ""
 prerequisites = []
 tree_row = 0
 tree_col = 3

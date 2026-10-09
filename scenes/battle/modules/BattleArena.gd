@@ -258,12 +258,9 @@ func _append_player_loadout(out: Array[Dictionary]) -> void:
 		var sk: SkillData = SkillRegistry.get_skill(skill_id)
 		if sk == null:
 			continue
-		if sk.skill_type == "active" and sk == _battle.consumables._get_active_skill():
-			var used: String = "  (used)" if _battle._hero_power_used else "  (ready, once per battle)"
-			out.append({"title": "Hero Power: %s%s" % [sk.display_name, used], "desc": sk.description,
-					"color": _COL_SKILL})
-		elif sk.skill_type == "passive":
-			out.append({"title": "Passive: %s" % sk.display_name, "desc": sk.description, "color": _COL_SKILL})
+		# Card modifiers act in real-time fights only (GID-179); active nodes are deck cards.
+		if sk.skill_type == "passive" and _battle.realtime.is_active():
+			out.append({"title": "Skill: %s" % sk.display_name, "desc": sk.description, "color": _COL_SKILL})
 	for item_id: String in [
 			sm.equipped_weapon, sm.equipped_armor, sm.equipped_ring, sm.equipped_trinket, sm.equipped_offhand,
 			sm.equipped_shoulders, sm.equipped_helmet, sm.equipped_boots]:

@@ -6,10 +6,12 @@
 script = ExtResource("1_ash_brittle_edge")
 id = "ash_brittle_edge"
 display_name = "Brittle Edge"
-description = "Your blade carries the weight of decay. +2 attack."
+description = "When an Ash card crits, your next card casts instantly. Real-time fights only."
 skill_type = "passive"
-effect_type = "passive_atk"
-effect_value = 2
+effect_type = "on_crit_instant"
+effect_value = 0
+filter = "ash"
+grants_card = ""
 prerequisites = ["ash_entropy"]
 tree_row = 1
 tree_col = 3

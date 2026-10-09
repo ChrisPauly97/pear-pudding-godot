@@ -9,6 +9,9 @@ const SpellEffectResolver = preload("res://scenes/battle/SpellEffectResolver.gd"
 const TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
 const SpellEffectLabels = preload("res://game_logic/battle/SpellEffectLabels.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
+const SkillRegistry = preload("res://autoloads/SkillRegistry.gd")
+const SkillData = preload("res://data/SkillData.gd")
+const MagicTypes = preload("res://game_logic/MagicTypes.gd")
 
 func _tech(id: String) -> CardInstance:
 	return CardInstance.new(CardRegistry.get_template(id))
@@ -37,8 +40,8 @@ func _cast(gs: GameState, card: CardInstance, target: Dictionary = {}) -> void:
 
 func test_all_eight_load_as_typeless_unique_spells() -> void:
 	var ids: Array[String] = CardRegistry.get_technique_ids()
-	assert_eq(ids.size(), 8, "every technique .tres is preloaded")
-	for id: String in ids:
+	assert_eq(ids.size(), 24, "every technique .tres is preloaded (8 trainer + 16 skill-tree)")
+	for id: String in TechniqueDefs.ORDER:
 		var t: Dictionary = CardRegistry.get_template(id)
 		assert_eq(str(t.get("card_class", "")), "spell", id)
 		assert_eq(str(t.get("magic_type", "x")), "", id + " is typeless")
@@ -149,3 +152,26 @@ func test_free_cast_proc_is_saved_for_a_real_card() -> void:
 	p.hand.append(mend)
 	assert_true(p.play_card(mend))
 	assert_true(p.next_card_free, "proc still banked after a technique")
+
+
+## GID-179 / TID-734: each active skill-tree node grants a branch-typed technique.
+func test_skill_tree_techniques() -> void:
+	var granted: int = 0
+	for sid: String in SkillRegistry.get_all_ids():
+		var sk: SkillData = SkillRegistry.get_skill(sid)
+		if sk.skill_type != "active":
+			assert_true(TechniqueDefs.card_for_skill(sid) == "", sid + " grants nothing")
+			continue
+		var cid: String = TechniqueDefs.card_for_skill(sid)
+		assert_eq(cid, sk.grants_card, sid + " table and .tres agree")
+		var t: Dictionary = CardRegistry.get_template(cid)
+		assert_eq(str(t.get("magic_branch", "")), sk.magic_branch, cid + " carries its branch")
+		assert_eq(str(t.get("magic_type", "")), MagicTypes.type_for_branch(sk.magic_branch),
+			cid + " type matches branch")
+		assert_true(SpellEffectLabels.SPELL.has(str(t.get("spell_effect", ""))), cid + " has a label")
+		assert_true(TechniqueDefs.is_skill_technique(cid))
+		assert_false(TechniqueDefs.ORDER.has(cid), cid + " is not a trainer technique")
+		granted += 1
+	assert_eq(granted, 16)
+	var known: Array[String] = TechniqueDefs.known_cards([], ["ember_pyroblast", "ember_searing_focus"])
+	assert_eq(known, ["tech_strike", "tech_pyroblast"] as Array[String])

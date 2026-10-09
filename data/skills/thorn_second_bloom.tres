@@ -6,10 +6,12 @@
 script = ExtResource("1_thorn_second_bloom")
 id = "thorn_second_bloom"
 display_name = "Second Bloom"
-description = "Once per battle: cut back to the root and return. Restore 6 hero HP."
+description = "Grants the Second Bloom technique card: Restore 4 HP to your hero (7 in real time). Returns to the bottom of your deck."
 skill_type = "active"
-effect_type = "active_heal"
-effect_value = 6
+effect_type = "grant_technique"
+effect_value = 0
+filter = ""
+grants_card = "tech_second_bloom"
 prerequisites = ["thorn_rampant_vines"]
 tree_row = 2
 tree_col = 3

@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://rkh9o9tm3sg4"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_tech_restoration"]
+
+[resource]
+script = ExtResource("1_tech_restoration")
+id = "tech_restoration"
+card_name = "Restoration"
+cost = 2
+attack = 0
+health = 0
+card_class = "spell"
+description = "↻ Technique — Restore 6 HP to your hero (9 in real time, 1.5 s cast). Returns to the bottom of your deck."
+color = Color(0.62, 0.66, 0.72, 1)
+magic_type = "light"
+magic_branch = "dawn"
+spell_effect = "heal_hero"
+spell_power = 6
+can_craft = false
+is_unique = true

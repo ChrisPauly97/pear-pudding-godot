@@ -144,6 +144,23 @@ const _C_TECH_EMBER_LANCE := preload("res://data/cards/tech_ember_lance.tres")
 const _C_TECH_MANA_TAP := preload("res://data/cards/tech_mana_tap.tres")
 const _C_TECH_SWEEP := preload("res://data/cards/tech_sweep.tres")
 const _C_TECH_DAZE := preload("res://data/cards/tech_daze.tres")
+# Skill-tree technique cards (GID-179 / TID-734).
+const _C_TECH_PYROBLAST := preload("res://data/cards/tech_pyroblast.tres")
+const _C_TECH_BLAZING_DRAW := preload("res://data/cards/tech_blazing_draw.tres")
+const _C_TECH_RESTORATION := preload("res://data/cards/tech_restoration.tres")
+const _C_TECH_ARCANE_CLARITY := preload("res://data/cards/tech_arcane_clarity.tres")
+const _C_TECH_SOUL_SIPHON := preload("res://data/cards/tech_soul_siphon.tres")
+const _C_TECH_MANA_DRAIN := preload("res://data/cards/tech_mana_drain.tres")
+const _C_TECH_GRAVE_CALL := preload("res://data/cards/tech_grave_call.tres")
+const _C_TECH_BRITTLE_CURSE := preload("res://data/cards/tech_brittle_curse.tres")
+const _C_TECH_OVERGROWTH := preload("res://data/cards/tech_overgrowth.tres")
+const _C_TECH_BOUNTIFUL_HARVEST := preload("res://data/cards/tech_bountiful_harvest.tres")
+const _C_TECH_THORNBURST := preload("res://data/cards/tech_thornburst.tres")
+const _C_TECH_SECOND_BLOOM := preload("res://data/cards/tech_second_bloom.tres")
+const _C_TECH_REWEAVE := preload("res://data/cards/tech_reweave.tres")
+const _C_TECH_MANA_SURGE := preload("res://data/cards/tech_mana_surge.tres")
+const _C_TECH_SHATTERWAVE := preload("res://data/cards/tech_shatterwave.tres")
+const _C_TECH_SCAVENGED_SHARDS := preload("res://data/cards/tech_scavenged_shards.tres")
 
 static var _cards: Dictionary = {}  # id -> CardData
 static var _loaded: bool = false
@@ -195,6 +212,12 @@ static func _ensure_loaded() -> void:
 		_C_FRACTURE_UNMAKE, _C_FRACTURE_FAULT, _C_FRACTURE_SHARDFALL,
 		_C_TECH_STRIKE, _C_TECH_MEND, _C_TECH_KICK, _C_TECH_GUARD,
 		_C_TECH_EMBER_LANCE, _C_TECH_MANA_TAP, _C_TECH_SWEEP, _C_TECH_DAZE,
+		_C_TECH_PYROBLAST, _C_TECH_BLAZING_DRAW, _C_TECH_RESTORATION,
+		_C_TECH_ARCANE_CLARITY, _C_TECH_SOUL_SIPHON, _C_TECH_MANA_DRAIN,
+		_C_TECH_GRAVE_CALL, _C_TECH_BRITTLE_CURSE, _C_TECH_OVERGROWTH,
+		_C_TECH_BOUNTIFUL_HARVEST, _C_TECH_THORNBURST, _C_TECH_SECOND_BLOOM,
+		_C_TECH_REWEAVE, _C_TECH_MANA_SURGE, _C_TECH_SHATTERWAVE,
+		_C_TECH_SCAVENGED_SHARDS,
 	]
 	for preloaded in all:
 		if preloaded == null:
