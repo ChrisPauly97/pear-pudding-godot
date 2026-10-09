@@ -2,7 +2,7 @@
 
 **Goal:** GID-180
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-745
 
 ## Lock
@@ -29,12 +29,17 @@ Shared context:
 
 ## Plan
 
-_Written during Plan phase._
+Pure VendorPrefs; story-place town for the shop (BID-096); persisted buyback shelf + buy_back; counter pitch + shelf.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `game_logic/inventory/VendorPrefs.gd` + `tests/unit/test_vendor_prefs.gd` (incl. buyback round trip).
+- `SaveManager`: `buyback_cards` (PERSISTED_FIELDS), `BUYBACK_CAP`, shelving in `sell_card_instance`, `buy_back`; `new_game` clears for-sale + buyback.
+- `SceneManager._on_shop_requested`: story place (fixes BID-096 — resolved, archived).
+- `VendorCounter`: `setup(ref, place)` with town pricing, pitch line, buyback shelf; tighter sizes so the shop panel fits.
+- `ShopScene` stays under 500 lines (wiring moved into the counter).
+- Capture env `TOWN`. Verified visually.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/inventory-and-deck.md`: Vendor tastes + buyback section.

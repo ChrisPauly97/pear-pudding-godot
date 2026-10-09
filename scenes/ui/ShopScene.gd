@@ -63,7 +63,7 @@ func _build_ui() -> void:
 	_counter = _VendorCounter.new()
 	_counter.visible = false
 	root_vbox.add_child(_counter)
-	_counter.setup(_ref)
+	_counter.setup(_ref, town_name)
 	_counter.sold.connect(func(_g: int) -> void:
 		_coin_label.text = "Your coins: %d" % SceneManager.save_manager.coins)
 

@@ -1052,8 +1052,12 @@ func _on_inventory_requested() -> void:
 	open_menu_hub("deck")
 
 func _on_shop_requested() -> void:
+	# The story place, not current_map: outdoor towns are stitched into "main" (BID-096).
+	var scene: Node = get_tree().current_scene
+	var place: String = str(scene.call("story_place")) if scene != null and scene.has_method("story_place") \
+			else current_map
 	_open_overlay(_shop_scene_packed, State.SHOP, func(o: Node) -> void:
-		o.set("town_name", current_map))
+		o.set("town_name", place))
 
 func _on_traveling_shop_requested(stock: Array[String], price: int) -> void:
 	_open_overlay(_shop_scene_packed, State.SHOP, func(o: Node) -> void:

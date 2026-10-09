@@ -697,3 +697,15 @@ reacts (`game_logic/inventory/VendorReactions.gd`: perfect → legendary/epic �
 this visit) → plain; rotating lines), coins drop, `SaveManager.sell_card_instance(uid, gold)` (optional price for
 vendor bonuses). `price_for` / `prefers` are Callables the shop sets (TID-746). `tools/capture_inventory.gd`
 `SCENE=shop TAB=1 FLAG=4 SELL=1`.
+
+### Vendor tastes + buyback (TID-746)
+
+- `game_logic/inventory/VendorPrefs.gd`: `TOWNS` (madrian → Light, maykalene → Rift, blancogov → Verdant, larik → Dark,
+  marsax_hold → Neutral), `town_of(place)` (town or `<town>_interior`), `prefers`, `price` (+`BONUS` 25 %), `pitch`
+  ("Maykalene's dockmaster pays +25% for Rift cards."). `VendorCounter.setup(ref, place)` builds `price_for` /
+  `prefers` from it; favoured cards get the "preferred" reaction.
+- The shop's `town_name` is now the **story place** (`WorldScene.story_place()`), not `current_map` (which is `main`
+  in the stitched towns — BID-096), so the siege discount works there too.
+- **Buyback shelf**: `SaveManager.buyback_cards` (persisted, newest first, `BUYBACK_CAP` 8, each with `_sold_for`);
+  `sell_card_instance` shelves a copy, `buy_back(index)` returns the exact card (uid, rolls, history) for what it sold
+  for (needs coins and bag room). Shown on the counter as small priced tiles.

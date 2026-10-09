@@ -57,6 +57,7 @@ const _OWNED_BY_SLOT: Dictionary = {
 ## `test_save_manager` asserts every key here is a real property.
 const PERSISTED_FIELDS: Dictionary = {
 	"owned_cards": [], "mailbox_cards": [], "player_deck": [], "loadouts": [], "for_sale_uids": [],
+	"buyback_cards": [],
 	"active_loadout": 0, "essence": 0, "coins": 0,
 	"current_map": "main", "player_x": 0.0, "player_z": 0.0,
 	"map_stack": [], "door_stack": [],
@@ -100,6 +101,8 @@ const PERSISTED_FIELDS: Dictionary = {
 const SAVE_INTERVAL: float = 2.0  # batch disk writes at most every 2 seconds
 
 const CURRENT_SAVE_VERSION: int = _SaveMigrations.CURRENT_VERSION
+## Cards the vendor buyback shelf keeps (GID-180 / TID-746).
+const BUYBACK_CAP: int = 8
 
 const REDEMPTION_FLAG_AWARDS: Dictionary = {
 	"chapter1_left_madrian": 5,
@@ -137,6 +140,8 @@ var mailbox_cards: Array[Dictionary] = []
 # Bag cards the player flagged "for sale" (GID-180): selling happens only at a
 # vendor, which offers these as one basket. Pruned when a card leaves the bag.
 var for_sale_uids: Array[String] = []
+# Cards sold to a vendor, newest first, each with "_sold_for" (GID-180 / TID-746).
+var buyback_cards: Array[Dictionary] = []
 
 # Cards currently in the active battle deck — list of UIDs from owned_cards.
 # This mirrors loadouts[active_loadout].cards and is kept in sync at all times.
@@ -517,6 +522,8 @@ func new_game(head_start: bool = false) -> void:
 	var extra_ids: Array[String] = ["dawn_acolyte", "dusk_wraith"]
 	owned_cards.clear()
 	mailbox_cards.clear()
+	for_sale_uids.clear()
+	buyback_cards.clear()
 	_uid_index.clear()
 	player_deck.clear()
 	for tid: String in deck_ids:
@@ -1059,7 +1066,30 @@ func sell_card_instance(uid: String, gold: int = -1) -> void:
 		var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(str(inst.get("rarity", "common")), {})
 		gold = int(cfg.get("sell_gold", 0))
 	add_coins(gold)
+	var shelved: Dictionary = inst.duplicate(true)
+	shelved["_sold_for"] = gold
+	buyback_cards.push_front(shelved)
+	if buyback_cards.size() > BUYBACK_CAP:
+		buyback_cards.resize(BUYBACK_CAP)
 	remove_card_instance(uid)
+
+## Buys back buyback shelf entry `index` at the price it sold for: the exact
+## card (same uid, rolls and history) returns to the bag. False when the index
+## is bad, coins are short or the bag is full.
+func buy_back(index: int) -> bool:
+	if index < 0 or index >= buyback_cards.size() or is_bag_full():
+		return false
+	var inst: Dictionary = buyback_cards[index].duplicate(true)
+	var price: int = int(inst.get("_sold_for", 0))
+	if coins < price:
+		return false
+	inst.erase("_sold_for")
+	buyback_cards.remove_at(index)
+	add_coins(-price)
+	owned_cards.append(inst)
+	_uid_index[str(inst.get("uid", ""))] = inst
+	_dirty = true
+	return true
 
 ## Scraps a card instance for essence. No-op if uid not found or card is unique.
 func scrap_card_instance(uid: String) -> void:

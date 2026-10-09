@@ -6,6 +6,7 @@
 ## CALL=<method> calls a no-arg method on the scene before the capture,
 ## BAG=<n> sets the bag size after filling (BAG=44 shows a full satchel),
 ## ADD=<n> adds the first n bag cards to the deck, HAND=1 opens "Try a hand",
+## TOWN=<place> sets the shop's town (vendor tastes),
 ## FLAG=<n> flags n bag cards for sale, TAB=<i> picks a tab (shop: 1 = Sell), SELL=1 sells one card,
 ## COMBINE=<template> plays the combine ritual on three commons of it,
 ## PAGE=<binder page> opens that page (inventory), DRAG=1 floats a lifted drag preview (with sparkles) over the table.
@@ -58,6 +59,8 @@ func _run() -> void:
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.add_child(bg)
 	var scene: Node = (load(path) as PackedScene).instantiate()
+	if OS.get_environment("TOWN") != "":
+		scene.set("town_name", OS.get_environment("TOWN"))
 	root.add_child(scene)
 	await _wait(500)
 	if OS.get_environment("PAGE") != "":

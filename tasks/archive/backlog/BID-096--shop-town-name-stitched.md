@@ -14,3 +14,8 @@
 ## Suggested Resolution
 
 Pass the story place (`WorldScene.story_place()` / `realm_regions.current_town`). Fix in GID-180 / TID-746, which needs per-town vendor preferences.
+
+## Resolution
+
+GID-180 / TID-746: `SceneManager._on_shop_requested` passes `current_scene.story_place()` (falls back to
+`current_map`). Town vendor tastes use `VendorPrefs.town_of(place)`.

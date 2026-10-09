@@ -13,17 +13,15 @@ const _CoinPile = preload("res://scenes/ui/shop/CoinPile.gd")
 const BagOps = preload("res://game_logic/inventory/BagOps.gd")
 const DeckInsights = preload("res://game_logic/inventory/DeckInsights.gd")
 const VendorReactions = preload("res://game_logic/inventory/VendorReactions.gd")
+const VendorPrefs = preload("res://game_logic/inventory/VendorPrefs.gd")
 const VeterancyUtil = preload("res://game_logic/VeterancyUtil.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 
 const _DRAG_KIND := "vendor_card"
 
-## inst -> int sale price (TID-746 adds town preferences). Defaults to the rarity's sell_gold.
-var price_for: Callable = func(inst: Dictionary) -> int:
-	var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(str(inst.get("rarity", "common")), {})
-	return int(cfg.get("sell_gold", 0))
-## inst -> bool: does this vendor favour the card (bonus reaction).
-var prefers: Callable = func(_inst: Dictionary) -> bool: return false
+## inst -> int sale price and inst -> bool "favoured card", set in setup() from the town (VendorPrefs).
+var price_for: Callable
+var prefers: Callable
 
 var _ref: float = 0.0
 var _speech: Label
@@ -32,22 +30,33 @@ var _pile: _CoinPile
 var _earned_lbl: Label
 var _basket_btn: Button
 var _grid: HFlowContainer
+var _pitch: Label
+var _shelf: HBoxContainer
+var _shelf_box: VBoxContainer
 var _scroll: ScrollContainer
 var _earned: int = 0
 var _said: int = 0
 var _sold_by_tid: Dictionary = {}
 
 
-func setup(ref: float) -> void:
+## `place` = the story place the shop stands in; its town's vendor tastes set prices.
+func setup(ref: float, place: String = "") -> void:
 	_ref = ref
+	var town: String = VendorPrefs.town_of(place)
+	price_for = func(inst: Dictionary) -> int:
+		return VendorPrefs.price(inst, CardRegistry.get_template(str(inst.get("template_id", ""))), town)
+	prefers = func(inst: Dictionary) -> bool:
+		return VendorPrefs.prefers(CardRegistry.get_template(str(inst.get("template_id", ""))), town)
 	add_theme_constant_override("separation", int(ref * 0.008))
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_speech = _UiUtil.make_label("\"Got anything for me?\"", int(ref * 0.021), Color(1.0, 0.9, 0.7),
 			HORIZONTAL_ALIGNMENT_CENTER, self)
 	_speech.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_pitch = _UiUtil.make_label(VendorPrefs.pitch(town), int(ref * 0.017), Color(0.75, 0.9, 0.6),
+			HORIZONTAL_ALIGNMENT_CENTER, self)
 	# ---- The counter: drop zone + coin pile + basket ----
 	_counter = PanelContainer.new()
-	_counter.custom_minimum_size = Vector2(0, ref * 0.13)
+	_counter.custom_minimum_size = Vector2(0, ref * 0.09)
 	_counter.add_theme_stylebox_override("panel", _UiUtil.make_style(Color(0.36, 0.22, 0.12), int(ref * 0.01),
 			Color(0.6, 0.4, 0.2), 3))
 	add_child(_counter)
@@ -60,18 +69,27 @@ func setup(ref: float) -> void:
 	hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	var pile_box := _UiUtil.make_vbox(0, row)
 	_pile = _CoinPile.new()
-	_pile.custom_minimum_size = Vector2(ref * 0.16, ref * 0.08)
+	_pile.custom_minimum_size = Vector2(ref * 0.14, ref * 0.06)
 	pile_box.add_child(_pile)
 	_earned_lbl = _UiUtil.make_label("", int(ref * 0.018), Color(1.0, 0.85, 0.3), HORIZONTAL_ALIGNMENT_CENTER,
 			pile_box)
-	_basket_btn = _UiUtil.make_button("", Vector2(ref * 0.22, ref * 0.06), int(ref * 0.019), _sell_basket, self)
+	_basket_btn = _UiUtil.make_button("", Vector2(ref * 0.22, ref * 0.052), int(ref * 0.019), _sell_basket, self)
 	_basket_btn.modulate = Color(1.0, 0.88, 0.4)
 	_basket_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	# ---- Buyback shelf: recently sold cards, at what they sold for (TID-746) ----
+	_shelf_box = _UiUtil.make_vbox(int(ref * 0.004), self)
+	_UiUtil.make_label("Buyback shelf — changed your mind?", int(ref * 0.017), Color(0.8, 0.8, 0.85),
+			HORIZONTAL_ALIGNMENT_LEFT, _shelf_box)
+	var shelf_scroll := ScrollContainer.new()
+	shelf_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	shelf_scroll.custom_minimum_size = Vector2(0, _CardTile.tile_size(ref * 0.45).y + ref * 0.01)
+	_shelf_box.add_child(shelf_scroll)
+	_shelf = _UiUtil.make_hbox(int(ref * 0.006), shelf_scroll)
 	# ---- The player's sellable cards ----
 	_scroll = ScrollContainer.new()
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_scroll.custom_minimum_size = Vector2(0, ref * 0.25)
+	_scroll.custom_minimum_size = Vector2(0, ref * 0.16)
 	add_child(_scroll)
 	_grid = HFlowContainer.new()
 	_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -126,6 +144,7 @@ func refresh() -> void:
 	_basket_btn.disabled = basket_n == 0
 	_basket_btn.tooltip_text = "Flag cards \"For sale\" in your bag to fill the basket"
 	_earned_lbl.text = "+%dg this visit" % _earned if _earned > 0 else ""
+	_refresh_shelf()
 
 
 func _can_drop(_at: Vector2, data: Variant) -> bool:
@@ -206,3 +225,33 @@ func _slide(from: Rect2, inst: Dictionary, tmpl: Dictionary) -> void:
 	tw.tween_property(ghost, "global_position", dest, 0.3).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	tw.tween_property(ghost, "modulate:a", 0.0, 0.35)
 	tw.tween_callback(ghost.queue_free)
+
+
+func _refresh_shelf() -> void:
+	var sm := SceneManager.save_manager
+	for c in _shelf.get_children():
+		c.queue_free()
+	_shelf_box.visible = not sm.buyback_cards.is_empty()
+	for i in range(sm.buyback_cards.size()):
+		var inst: Dictionary = sm.buyback_cards[i]
+		var price: int = int(inst.get("_sold_for", 0))
+		var tile: Button = _CardTile.build(inst, CardRegistry.get_template(str(inst.get("template_id", ""))),
+				_ref * 0.45)
+		_CardTile.add_price(tile, price, false, _ref * 0.45)
+		tile.tooltip_text += "\nBuy back for %dg" % price
+		tile.disabled = sm.coins < price
+		tile.pressed.connect(_buy_back.bind(i))
+		_shelf.add_child(tile)
+
+
+func _buy_back(index: int) -> void:
+	var sm := SceneManager.save_manager
+	var price: int = int(sm.buyback_cards[index].get("_sold_for", 0)) if index < sm.buyback_cards.size() else 0
+	if not sm.buy_back(index):
+		GameBus.hud_message_requested.emit("Bag is full" if sm.is_bag_full() else "Not enough coins")
+		return
+	_earned -= price
+	_say("Back so soon? Here you go.")
+	_CardJuice.sound("pick")
+	sold.emit(-price)
+	refresh()
