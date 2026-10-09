@@ -145,8 +145,11 @@ func _init_side(i: int, level: int) -> void:
 	_draw_timer.append(0.0)
 	_regen_pause.append(0.0)
 	_hero_swing.append(0.0)
-	_offhand_swing.append(tune.get_f("offhand_swing"))
+	_offhand_swing.append(_offhand_interval())
 	_hero_swing[i] = swing_speed(i)
+	# Enemy swings land a beat after the player's, so the two don't hit as one.
+	if i != PLAYER:
+		_hero_swing[i] += tune.get_f("enemy_swing_delay")
 	var p: PlayerState = state.players[i]
 	p.max_units = MAX_ALLIES if i == PLAYER else enemy_minion_cap
 	var h := p.hero
@@ -466,20 +469,41 @@ func _tick_ally(c: CardInstance, delta: float, events: Array[Dictionary]) -> voi
 	events.append({"type": "swing", "side": PLAYER, "attacker": c, "target": target, "target_side": target_side,
 		"crit": crit})
 
-## Main-hand swing interval for `side` (s): the weapon's speed, else unarmed.
+## Main-hand swing interval for `side` (s): the weapon's speed, else unarmed,
+## scaled by `swing_mult`.
 func swing_speed(side: int) -> float:
+	return _raw_swing(side) * tune.get_f("swing_mult")
+
+func _raw_swing(side: int) -> float:
 	return weapon_speed[side] if weapon_speed[side] > 0.0 else tune.get_f("hero_swing")
 
-## Main-hand damage per swing for `side` (0 = this hero doesn't auto-attack).
+func _offhand_interval() -> float:
+	return tune.get_f("offhand_swing") * tune.get_f("swing_mult")
+
+## Average main-hand damage per swing for `side` (0 = this hero doesn't auto-attack).
 ## Scaled by swing speed ÷ unarmed speed, so a slow two-hander hits harder per
 ## swing and a dagger lighter, at roughly the same damage per second.
-func main_hand_damage(side: int) -> int:
+func _main_hand_avg(side: int) -> float:
 	if state.players[side].hero.leaderless:  # BID-077: no leader to swing
-		return 0
+		return 0.0
 	var base: int = state.players[side].hero.attack + unarmed[side]
 	if base <= 0:
-		return 0
-	return maxi(1, roundi(float(base) * swing_speed(side) / tune.get_f("hero_swing")))
+		return 0.0
+	return float(base) * _raw_swing(side) / tune.get_f("hero_swing") * tune.get_f("swing_damage")
+
+## Typical main-hand hit for `side`, rounded (0 = no auto-attack).
+func main_hand_damage(side: int) -> int:
+	var avg: float = _main_hand_avg(side)
+	return maxi(1, roundi(avg)) if avg > 0.0 else 0
+
+## One hit around `avg`: for the player a value in avg × (1 ± swing_spread), rounded
+## up or down by chance so the average holds (damage per second doesn't drift), at
+## least 1. Enemy hits don't spread (a spread enemy wins more close fights).
+func _roll_swing(avg: float, side: int) -> int:
+	var s: float = tune.get_f("swing_spread") if side == PLAYER else 0.0
+	var x: float = avg * rng.randf_range(1.0 - s, 1.0 + s)
+	var whole: int = floori(x)
+	return maxi(1, whole + (1 if rng.randf() < x - float(whole) else 0))
 
 ## Progress 0..1 of `side`'s main-hand swing (1 = about to swing).
 func hero_swing_fraction(side: int) -> float:
@@ -491,17 +515,18 @@ func _tick_hero(side: int, delta: float, events: Array[Dictionary]) -> void:
 		return
 	if side == PLAYER and not auto_attack:
 		return
-	var main: int = main_hand_damage(side)
-	if main > 0:
+	var main: float = _main_hand_avg(side)
+	if main > 0.0:
 		_hero_swing[side] -= delta
 		if _hero_swing[side] <= 0.0:
 			_hero_swing[side] += swing_speed(side)
-			_hero_hit(side, main, "main", events)
+			_hero_hit(side, _roll_swing(main, side), "main", events)
 	if offhand_damage[side] > 0 and not state.is_game_over():
 		_offhand_swing[side] -= delta
 		if _offhand_swing[side] <= 0.0:
-			_offhand_swing[side] += tune.get_f("offhand_swing")
-			_hero_hit(side, offhand_damage[side], "off", events)
+			_offhand_swing[side] += _offhand_interval()
+			_hero_hit(side, _roll_swing(float(offhand_damage[side]) * tune.get_f("swing_damage"), side), "off",
+					events)
 
 func _hero_hit(side: int, dmg: int, hand: String, events: Array[Dictionary]) -> void:
 	var target: CardInstance = pick_target(side)

@@ -16,7 +16,9 @@ func _rt() -> RealtimeCombat:
 	for p: PlayerState in gs.players:
 		p.hand.clear()
 		p.draw_deck.clear()
-	return RealtimeCombat.new(gs, [1, 1], CombatTuning.new({"crit_chance": 0.0, "enemy_crit_chance": 0.0}))
+	return RealtimeCombat.new(gs, [1, 1],
+		CombatTuning.new({"swing_mult": 1.0, "swing_damage": 1.0, "swing_spread": 0.0, "enemy_swing_delay": 0.0,
+			"crit_chance": 0.0, "enemy_crit_chance": 0.0}))
 
 func _add(rt: RealtimeCombat) -> int:
 	var ps := PlayerState.new(0, true)

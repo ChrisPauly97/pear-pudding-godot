@@ -63,12 +63,12 @@ const QUESTS: Array[Dictionary] = [
 	{"id": "rats_in_grain", "title": "Rats in the Grain Store", "giver": "hilda_baker",
 		"giver_name": "Hilda the Baker",
 		"summary": ("Something's been at my grain store — and it's no rat, dearie, it's the restless dead, "
-			+ "shambling about the field just east of the village. Put three of them down for me. Just walk up and "
+			+ "shambling about the field just east of the village. Put five of them down for me. Just walk up and "
 			+ "tap them; your weapon swings on its own and Strike hits harder."),
-		"done_text": ("That's the lot of them! Here's your coin. Put down a few more of the dead out there and "
-			+ "the Combat Trainer by the stables could teach you to patch yourself up — Mend, he calls it. "
-			+ "Wenna the Herbalist will want a word then, too."),
-		"objectives": [{"type": "kill", "target": "undead_basic", "count": 3, "label": "Restless dead put down",
+		"done_text": ("That's the lot of them! Here's your coin. You're quick on your feet — the Combat Trainer "
+			+ "by the stables could teach you to patch yourself up. Mend, he calls it. And Wenna the "
+			+ "Herbalist has been asking after you."),
+		"objectives": [{"type": "kill", "target": "undead_basic", "count": 5, "label": "Restless dead put down",
 			"map": "main", "tx": 21, "tz": 17}],
 		"min_level": 1, "rewards": {"xp": 200, "coins": 20}},
 	{"id": "bruised_and_battered", "title": "Bruised and Battered", "giver": "wenna_herbalist",

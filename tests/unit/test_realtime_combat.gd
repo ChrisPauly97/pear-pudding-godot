@@ -1,4 +1,5 @@
 # gdlint: disable=max-public-methods
+# gdlint: disable=max-file-lines
 ## GID-135 / TID-546/547: real-time combat driver (pure logic).
 extends "res://tests/framework/test_case.gd"
 
@@ -25,7 +26,9 @@ func _rt() -> RealtimeCombat:
 	for p: PlayerState in gs.players:
 		p.hand.clear()
 		p.draw_deck.clear()
-	return RealtimeCombat.new(gs, [1, 1], CombatTuning.new({"crit_chance": 0.0, "enemy_crit_chance": 0.0}))
+	return RealtimeCombat.new(gs, [1, 1],
+		CombatTuning.new({"swing_mult": 1.0, "swing_damage": 1.0, "swing_spread": 0.0, "enemy_swing_delay": 0.0,
+			"crit_chance": 0.0, "enemy_crit_chance": 0.0}))
 
 ## Advance in 0.1 s steps (plus one step of slack for float drift), collecting events.
 func _run(rt: RealtimeCombat, seconds: float) -> Array[Dictionary]:

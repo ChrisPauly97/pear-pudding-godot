@@ -278,9 +278,13 @@ func test_kill_objective_has_map_zone() -> void:
 
 
 
-## After Hilda at level 1 the next quest (Wenna's) is level-locked: name it so the
-## turn-in hint can point there; nothing to hint once it is on offer.
-func test_next_locked_quest_after_hilda() -> void:
-	var q: Dictionary = SideQuests.next_locked_quest(1, {}, {}, ["rats_in_grain"])
-	assert_eq(str(q.get("id", "")), "bruised_and_battered")
-	assert_true(SideQuests.next_locked_quest(2, {}, {}, ["rats_in_grain"]).is_empty(), "on offer at 2")
+
+## Hilda's quest is the whole of level 1: its kills plus reward reach level 2, where
+## Wenna's quest and Mend open — no grinding before the follow-up.
+func test_first_quest_reaches_level_two() -> void:
+	var q: Dictionary = SideQuests.def("rats_in_grain")
+	var o: Dictionary = SideQuests.objectives(q)[0]
+	var xp: int = (int((q["rewards"] as Dictionary)["xp"])
+			+ int(o["count"]) * EnemyRegistry.get_xp_reward(str(o["target"])))
+	assert_gte(xp, SaveManagerScript.xp_for_level(2), "rats_in_grain kills + reward reach level 2")
+	assert_true(SideQuests.next_locked_quest(2, {}, {}, ["rats_in_grain"]).is_empty(), "follow-up on offer at 2")
