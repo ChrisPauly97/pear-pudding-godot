@@ -657,3 +657,11 @@ branch colour). **✋ Try a hand** opens `TestHandOverlay`: shuffle sound, `samp
 - **Combine ritual**: the popup's Combine runs `_combine` → `combine_cards` → `CombineRitual` overlay (three copies
   orbit and spiral in, white flash, the new card lands big with sparkles and "Forged a Rare Ghost!"; tap or 2.2 s
   closes). `tools/capture_inventory.gd COMBINE=ghost`.
+
+### Module map (deck table)
+
+InventoryScene coordinates; views live in `scenes/ui/inventory/`: `DeckPile` (deck side), `LoadoutBar` (loadout tabs +
+Rename / Copy / Delete; emits `switched` / `loadout_renamed`, host reloads `_working_deck`), `DeckIdentity`,
+`CurveSkyline`, `SynergyThreads`, `BagFilters`, `CardTile`, `CardJuice`, `DragCardPreview`, `CompareTip`
+(`rows()` shared with the detail popup), `ForgeFx`, `CombineRitual`, `TestHandOverlay`. Pure rules in
+`game_logic/inventory/`: `DeckInsights`, `BinderOps`, `DeckUndo`, `BagOps`.

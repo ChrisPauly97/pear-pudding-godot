@@ -20,6 +20,8 @@ const _TestHandOverlay  = preload("res://scenes/ui/inventory/TestHandOverlay.gd"
 const _CombatOnboarding = preload("res://game_logic/battle/CombatOnboarding.gd")
 const _ForgeFx          = preload("res://scenes/ui/inventory/ForgeFx.gd")
 const _CombineRitual    = preload("res://scenes/ui/inventory/CombineRitual.gd")
+const _LoadoutBar       = preload("res://scenes/ui/inventory/LoadoutBar.gd")
+const _CompareTip       = preload("res://scenes/ui/inventory/CompareTip.gd")
 
 const DeckAutoFill = preload("res://game_logic/DeckAutoFill.gd")
 const _TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
@@ -64,11 +66,10 @@ var _filters: _BagFilters = _BagFilters.new()
 ## Binder stack being browsed copy by copy ("" = stacked view). GID-180 / TID-739.
 var _expand_key: String = ""
 var _page_label: Label
-var _compare_tip: PanelContainer = null
+var _compare_tip: _CompareTip = null
 var _query: String = ""
 var _tiles: _TileCache = _TileCache.new()  # reused bag tiles (GID-164 / TID-684)
 var _search_timer: Timer = null  # search refresh waits for typing to pause
-var _loadout_sig: String = ""
 var _sort: String = "name"
 var _sort_btn: Button
 
@@ -87,11 +88,7 @@ var _tab_btns: Array[Button] = []
 var _craft_panel: _CraftPanel
 var _items_panel: _ItemsPanel
 
-var _loadout_tab_row: HBoxContainer
-var _loadout_action_row: HBoxContainer
-var _rename_btn: Button
-var _dup_btn: Button
-var _del_btn: Button
+var _loadouts: _LoadoutBar
 
 ## Where each in-flight press began, so _get_drag_data can tell a sideways drag
 ## from a scroll. Keyed by the control being pressed.
@@ -249,16 +246,15 @@ func _build_ui() -> void:
 	attach_drag_scroll(_pile.scroll)
 	_pile.scroll.set_drag_forwarding(Callable(), _can_drop_into_deck, _drop_into_deck)
 
-	# ---- Loadout tab row + actions (Rename / Copy / Delete) ----
-	_loadout_tab_row = _UiUtil.make_hbox(int(_ref * 0.005), _pile.loadout_slot)
-	_loadout_action_row = _UiUtil.make_hbox(int(_ref * 0.006), _pile.loadout_slot)
-	_rename_btn = _UiUtil.make_button("Rename", Vector2(_ref * 0.12, _ref * 0.055), int(_ref * 0.020),
-			_on_rename_loadout, _loadout_action_row)
-	_dup_btn = _UiUtil.make_button("Copy", Vector2(_ref * 0.10, _ref * 0.055), int(_ref * 0.020), _on_dup_loadout,
-			_loadout_action_row)
-	_del_btn = _UiUtil.make_button("Delete", Vector2(_ref * 0.12, _ref * 0.055), int(_ref * 0.020), _on_del_loadout,
-			_loadout_action_row)
-	_del_btn.modulate = Color(1.0, 0.4, 0.4)
+	# ---- Loadout tabs + actions (Rename / Copy / Delete) ----
+	_loadouts = _LoadoutBar.new()
+	_pile.loadout_slot.add_child(_loadouts)
+	_loadouts.setup(_ref)
+	_loadouts.switched.connect(func() -> void:
+		_working_deck.assign(SceneManager.save_manager.player_deck)
+		_undo.clear()
+		_refresh_cards())
+	_loadouts.loadout_renamed.connect(_refresh_cards)
 
 	# ====================================================================
 	# CRAFT + ITEMS PANELS
@@ -313,42 +309,6 @@ func _refresh() -> void:
 	if _items_panel.visible:
 		_items_panel.refresh()
 
-func _rebuild_loadout_bar() -> void:
-	var sm := SceneManager.save_manager
-
-	var names: Array[String] = sm.decks.get_loadout_names()
-	var active_idx: int = sm.active_loadout
-	var at_cap: bool = names.size() >= sm.MAX_LOADOUTS
-	var valid: Array[bool] = []
-	for i in range(names.size()):
-		valid.append(_working_deck.size() >= IsoConst.DECK_MIN and _working_deck.size() <= IsoConst.DECK_MAX
-				if i == active_idx else sm.decks.is_loadout_valid(i))
-	# Only rebuilt when the tabs would look different (GID-164 / TID-684).
-	var sig: String = "%s|%d|%s|%d" % [",".join(names), active_idx, str(valid), int(_ref)]
-	if sig == _loadout_sig and _loadout_tab_row.get_child_count() > 0:
-		return
-	_loadout_sig = sig
-	for child in _loadout_tab_row.get_children():
-		child.queue_free()
-
-	for i in range(names.size()):
-		var tab_btn := _UiUtil.make_button(names[i], Vector2(_ref * 0.12, _ref * 0.055), int(_ref * 0.020))
-		tab_btn.flat = true
-		var is_valid: bool = valid[i]
-		if i == active_idx:
-			tab_btn.modulate = Color.WHITE if is_valid else Color(1.0, 0.35, 0.35)
-		else:
-			tab_btn.modulate = Color(0.7, 0.7, 0.7) if is_valid else Color(0.75, 0.28, 0.28)
-		tab_btn.pressed.connect(_on_loadout_tab.bind(i))
-		_loadout_tab_row.add_child(tab_btn)
-
-	var new_btn := _UiUtil.make_button("+", Vector2(_ref * 0.055, _ref * 0.055), int(_ref * 0.025), _on_new_loadout,
-			_loadout_tab_row)
-	new_btn.disabled = at_cap
-
-	_del_btn.disabled = names.size() <= 1
-	_dup_btn.disabled = at_cap
-
 func _refresh_wallet() -> void:
 	var sm := SceneManager.save_manager
 	var used: int = sm.get_slot_count(_working_deck)
@@ -371,7 +331,7 @@ func _is_selectable(inst: Dictionary, membership: Dictionary) -> bool:
 		and not bool(_template(str(inst.get("template_id", ""))).get("is_unique", false))
 
 func _refresh_cards() -> void:
-	_rebuild_loadout_bar()
+	_loadouts.refresh(_working_deck.size())
 	_refresh_wallet()
 	var col_scroll: int = _collection_scroll.scroll_vertical if _collection_scroll else 0
 	_tiles.detach_all()
@@ -717,7 +677,7 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 	if not _working_deck.has(uid):
 		var twin: Dictionary = DeckInsights.replace_target(inst, SceneManager.save_manager.get_deck_instances())
 		if not twin.is_empty():
-			vb.add_child(_compare_rows(inst, twin, "vs the copy in your deck:"))
+			vb.add_child(_CompareTip.rows(inst, twin, "vs the copy in your deck:", _ref))
 			var swap := _UiUtil.make_button("⇄ Swap into deck", Vector2(_ref * 0.22, _ref * 0.055), int(_ref * 0.019),
 					_swap_in.bind(uid, str(twin.get("uid", ""))), vb)
 			swap.modulate = Color(1.0, 0.9, 0.5) if DeckInsights.is_upgrade(inst,
@@ -1028,7 +988,7 @@ func _on_remove_by_uid(uid: String) -> void:
 	_hide_instance_detail()
 	_edit_deck(next)
 
-## Compare popup while a bag card hovers its deck twin (TID-741). Returns
+## Compare tip while a bag card hovers its deck twin (TID-741). Returns
 ## whether the tile accepts the drop; any other drag just passes through.
 func _hover_twin(tile: Control, deck_inst: Dictionary, data: Variant) -> bool:
 	if not _is_card_drag(data, false):
@@ -1038,36 +998,10 @@ func _hover_twin(tile: Control, deck_inst: Dictionary, data: Variant) -> bool:
 		_hide_compare()
 		return _can_drop_into_deck(Vector2.ZERO, data)
 	if _compare_tip == null or not is_instance_valid(_compare_tip):
-		_compare_tip = PanelContainer.new()
-		_compare_tip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_compare_tip.z_index = 20
-		_compare_tip.add_theme_stylebox_override("panel", _UiUtil.make_style(Color(0.06, 0.06, 0.1, 0.95),
-				int(_ref * 0.01), Color(1.0, 0.85, 0.3), 2))
+		_compare_tip = _CompareTip.new()
 		add_child(_compare_tip)
-	for c in _compare_tip.get_children():
-		c.queue_free()
-	_compare_tip.add_child(_compare_rows(held, deck_inst, "Swap in?"))
-	_compare_tip.reset_size()
-	var r: Rect2 = tile.get_global_rect()
-	_compare_tip.global_position = Vector2(r.position.x, r.position.y - _compare_tip.get_combined_minimum_size().y
-			- _ref * 0.01)
+	_compare_tip.show_over(tile, held, deck_inst, _ref)
 	return true
-
-## "⚔ +1  ♥ −2  ◆ 0" diff of `a` over `b` as coloured labels, under a heading.
-func _compare_rows(a: Dictionary, b: Dictionary, heading: String) -> VBoxContainer:
-	var vb := _UiUtil.make_vbox(int(_ref * 0.004))
-	_UiUtil.make_label(heading, int(_ref * 0.017), Color(0.85, 0.85, 0.9), HORIZONTAL_ALIGNMENT_LEFT, vb)
-	var row := _UiUtil.make_hbox(int(_ref * 0.012), vb)
-	var d: Dictionary = DeckInsights.compare(a, b)
-	for spec: Array in [["⚔", "attack", 1], ["♥", "health", 1], ["mana", "cost", -1], ["tier", "rarity", 1]]:
-		var v: int = int(d[str(spec[1])])
-		var good: bool = v * int(spec[2]) > 0
-		var arrow: String = "▲" if good else ("▼" if v != 0 else "=")
-		var col: Color = Color(0.45, 1.0, 0.5) if good else (Color(1.0, 0.45, 0.45) if v != 0 \
-				else Color(0.7, 0.7, 0.7))
-		_UiUtil.make_label("%s %s%+d" % [str(spec[0]), arrow, v] if v != 0 else "%s =" % str(spec[0]),
-				int(_ref * 0.019), col, HORIZONTAL_ALIGNMENT_LEFT, row)
-	return vb
 
 func _hide_compare() -> void:
 	if _compare_tip != null and is_instance_valid(_compare_tip):
@@ -1146,117 +1080,6 @@ func _show_tab(index: int) -> void:
 
 func _on_close() -> void:
 	closed.emit()
-
-# -------------------------------------------------------------------------
-# Loadout handlers
-# -------------------------------------------------------------------------
-
-func _on_loadout_tab(index: int) -> void:
-	var sm := SceneManager.save_manager
-	sm.set_active_deck(_working_deck)
-	sm.decks.set_active_loadout(index)
-	_working_deck.assign(sm.player_deck)
-	_undo.clear()
-	_refresh_cards()
-
-func _on_new_loadout() -> void:
-	var sm := SceneManager.save_manager
-	sm.set_active_deck(_working_deck)
-	var new_idx: int = sm.decks.add_loadout("Deck %d" % (sm.loadouts.size() + 1))
-	if new_idx < 0:
-		return
-	sm.decks.set_active_loadout(new_idx)
-	_working_deck.assign(sm.player_deck)
-	_undo.clear()
-	_refresh_cards()
-
-func _on_rename_loadout() -> void:
-	var sm := SceneManager.save_manager
-	if sm.active_loadout < 0 or sm.active_loadout >= sm.loadouts.size():
-		return
-	var current_name: String = str(sm.loadouts[sm.active_loadout].get("name", ""))
-
-	var popup := PopupPanel.new()
-	add_child(popup)
-
-	var vb := _UiUtil.make_vbox(int(_ref * 0.012), popup)
-	vb.custom_minimum_size = Vector2(_ref * 0.5, 0)
-
-	var title_lbl := _UiUtil.make_label("Rename Loadout", int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER,
-			vb)
-
-	var edit := LineEdit.new()
-	edit.text = current_name
-	edit.max_length = 20
-	edit.add_theme_font_size_override("font_size", int(_ref * 0.024))
-	edit.custom_minimum_size = Vector2(0, _ref * 0.065)
-	vb.add_child(edit)
-
-	var btn_row := _UiUtil.make_hbox(int(_ref * 0.012), vb)
-	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
-
-	var ok_btn := _UiUtil.make_button("OK", Vector2(_ref * 0.12, _ref * 0.065), int(_ref * 0.022))
-	ok_btn.pressed.connect(func() -> void:
-		var new_name: String = edit.text.strip_edges()
-		if new_name.length() > 0:
-			sm.decks.rename_loadout(sm.active_loadout, new_name)
-			_refresh_cards()
-		popup.queue_free())
-	btn_row.add_child(ok_btn)
-
-	var cancel_btn := _UiUtil.make_button("Cancel", Vector2(_ref * 0.12, _ref * 0.065), int(_ref * 0.022),
-			func() -> void: popup.queue_free(), btn_row)
-
-	popup.popup_centered()
-	# Shift to top half so the Android keyboard doesn't cover the input field.
-	popup.position.y = int(get_viewport_rect().size.y * 0.08)
-	edit.grab_focus()
-	edit.select_all()
-
-func _on_dup_loadout() -> void:
-	var sm := SceneManager.save_manager
-	sm.set_active_deck(_working_deck)
-	var new_idx: int = sm.decks.duplicate_loadout(sm.active_loadout)
-	if new_idx < 0:
-		return
-	sm.decks.set_active_loadout(new_idx)
-	_working_deck.assign(sm.player_deck)
-	_undo.clear()
-	_refresh_cards()
-
-func _on_del_loadout() -> void:
-	var sm := SceneManager.save_manager
-	if sm.loadouts.size() <= 1:
-		return
-	var loadout_name: String = str(sm.loadouts[sm.active_loadout].get("name", "this loadout"))
-
-	var popup := PopupPanel.new()
-	add_child(popup)
-
-	var vb := _UiUtil.make_vbox(int(_ref * 0.012), popup)
-	vb.custom_minimum_size = Vector2(_ref * 0.5, 0)
-
-	var lbl := _UiUtil.make_label("Delete '%s'?\nThis cannot be undone." % loadout_name, int(_ref * 0.022), Color.WHITE,
-			HORIZONTAL_ALIGNMENT_CENTER, vb)
-	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-
-	var btn_row := _UiUtil.make_hbox(int(_ref * 0.012), vb)
-	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
-
-	var yes_btn := _UiUtil.make_button("Yes, Delete", Vector2(_ref * 0.16, _ref * 0.065), int(_ref * 0.022))
-	yes_btn.modulate = Color(1.0, 0.4, 0.4)
-	yes_btn.pressed.connect(func() -> void:
-		popup.queue_free()
-		sm.decks.delete_loadout(sm.active_loadout)
-		_working_deck.assign(sm.player_deck)
-		_undo.clear()
-		_refresh_cards())
-	btn_row.add_child(yes_btn)
-
-	var no_btn := _UiUtil.make_button("Cancel", Vector2(_ref * 0.14, _ref * 0.065), int(_ref * 0.022),
-			func() -> void: popup.queue_free(), btn_row)
-
-	popup.popup_centered()
 
 func _input(event: InputEvent) -> void:
 	var key := event as InputEventKey
