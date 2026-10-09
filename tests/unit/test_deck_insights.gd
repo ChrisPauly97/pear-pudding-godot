@@ -52,6 +52,18 @@ func test_curve_clamps_high_costs() -> void:
 	assert_eq(curve[7], 2)
 
 
+func test_synergy_chains_instead_of_every_pair() -> void:
+	var deck: Array = [_c("a", "bone"), _c("b", "rot"),
+		{"uid": "c", "template_id": "c3", "cost": 1}, {"uid": "d", "template_id": "c4", "cost": 1}]
+	var t: Dictionary = _t.duplicate()
+	t["c3"] = {"magic_branch": "ash"}
+	t["c4"] = {"magic_branch": "ash"}
+	var pairs: Array[Dictionary] = DeckInsights.synergy_pairs(deck, t)
+	assert_eq(pairs.size(), 3, "4 ash cards → a 3-link chain, not 6 pairs")
+	assert_eq(str(pairs[2]["a"]), "c")
+	assert_eq(str(pairs[2]["b"]), "d")
+
+
 func test_synergy_keyword_before_branch_and_one_per_template_pair() -> void:
 	var deck: Array = [_c("a", "bone"), _c("a2", "bone"), _c("b", "rot"), _c("w", "wall"), _c("s", "shield")]
 	var pairs: Array[Dictionary] = DeckInsights.synergy_pairs(deck, _t)
@@ -88,3 +100,13 @@ func test_compare_and_upgrade() -> void:
 	var d: Dictionary = DeckInsights.compare(better, in_deck[0])
 	assert_eq(int(d["health"]), 1)
 	assert_eq(int(d["attack"]), 0)
+
+
+func test_sample_hand_keeps_techniques_and_draws_n() -> void:
+	var deck: Array = [{"uid": "s", "template_id": "tech_strike"}, _c("a", "bone"), _c("b", "rot"), _c("c", "wall"),
+		_c("d", "titan")]
+	var hand: Array[Dictionary] = DeckInsights.sample_hand(deck, 2, 7)
+	assert_eq(hand.size(), 3)
+	assert_eq(str(hand[0]["uid"]), "s")
+	assert_eq(DeckInsights.sample_hand(deck, 2, 7), hand, "same seed, same hand")
+	assert_eq(DeckInsights.sample_hand(deck, 99, 1).size(), 5)

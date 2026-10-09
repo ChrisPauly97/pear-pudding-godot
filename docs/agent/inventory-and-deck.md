@@ -574,7 +574,8 @@ hand-built table. Used by the deck table header, binder, compare popup and Maite
 | `archetype` | `bulwark` (≥30 % ward), `rush` (≥30 % surge), `titans` (avg cost ≥4.5), `tempo`/`grimoire` (≥60 % spells, cheap/dear), `swarm` (avg ≤2.5), else `host` |
 | `deck_name` | `BRANCH_WORDS[branch] + ARCHETYPE_NOUNS[archetype]`, e.g. "Bone-Choir Swarm"; "Empty Deck" |
 | `crest` | `{color, glyph (archetype), branch, rarity (average tier)}` |
-| `synergy_pairs` | ≤12 `{a, b, kind: keyword|branch, tag}`; one per template pair, keyword pairs first |
+| `synergy_pairs` | ≤12 links `{a, b, kind: keyword|branch, tag}`: cards of one tag **chained** in deck order (one per template), keyword links first, keyword-linked cards skip branch links |
+| `sample_hand(insts, n, seed)` | every technique + `n` shuffled others (like a real-time opening hand) |
 | `roll_quality` / `is_perfect_roll` / `has_roll_range` | 0..1 position in the rarity's `RARITY_CONFIG` variance band; perfect = top of every variable stat (commons never) |
 | `compare(a, b)` | stat deltas a − b incl. rarity tier |
 | `power_score` / `replace_target` / `is_upgrade` | rarity tier, then atk+hp, then cheaper; upgrade = beats the weakest same-template deck copy |
@@ -618,3 +619,13 @@ a menu got tiresome on paper.
   `DeckInsights.is_perfect_roll`. **Veterancy gilding**: bronze / silver / gold edge by rank (`CardTile._gild`).
 - Filters + page state live in `scenes/ui/inventory/BagFilters.gd` (moved out of InventoryScene).
 - `tools/capture_inventory.gd` `PAGE=dark` captures a page.
+
+### Deck personality (TID-740)
+
+`DeckPile` now opens with a `DeckIdentity` row: crest (`DeckInsights.crest` — branch colour, archetype glyph from
+`DeckIdentity.GLYPHS`, border = average rarity), the generated name (TitleLabel; pops + sparkles when it changes) and a
+`CurveSkyline` (one lit building per cost bucket, heights ease to the new curve). The deck grid shares a
+MarginContainer with `SynergyThreads`, which draws pulsing lines between `synergy_pairs` tiles (keyword = gold, branch =
+branch colour). **✋ Try a hand** opens `TestHandOverlay`: shuffle sound, `sample_hand` with
+`CombatOnboarding.opening_hand(level)` draws, cards dealt one by one; "Shuffle & draw again" reseeds.
+`tools/capture_inventory.gd`: `ADD=<n>` fills the deck, `HAND=1` opens the overlay.

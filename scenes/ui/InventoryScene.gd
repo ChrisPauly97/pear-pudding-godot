@@ -16,6 +16,8 @@ const _CardJuice        = preload("res://scenes/ui/inventory/CardJuice.gd")
 const _BagFilters       = preload("res://scenes/ui/inventory/BagFilters.gd")
 const BinderOps         = preload("res://game_logic/inventory/BinderOps.gd")
 const DeckInsights      = preload("res://game_logic/inventory/DeckInsights.gd")
+const _TestHandOverlay  = preload("res://scenes/ui/inventory/TestHandOverlay.gd")
+const _CombatOnboarding = preload("res://game_logic/battle/CombatOnboarding.gd")
 
 const DeckAutoFill = preload("res://game_logic/DeckAutoFill.gd")
 const _TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
@@ -222,6 +224,11 @@ func _build_ui() -> void:
 	_pile.setup(_ref, scroll_min_h)
 	_pile.undo_pressed.connect(_on_undo)
 	_pile.best_pressed.connect(_on_auto_fill)
+	_pile.test_hand_pressed.connect(func() -> void:
+		var overlay: _TestHandOverlay = _TestHandOverlay.new()
+		add_child(overlay)
+		overlay.open(SceneManager.save_manager.get_deck_instances(),
+				_CombatOnboarding.opening_hand(SceneManager.save_manager.level), _template, _ref))
 	attach_drag_scroll(_pile.scroll)
 	_pile.scroll.set_drag_forwarding(Callable(), _can_drop_into_deck, _drop_into_deck)
 

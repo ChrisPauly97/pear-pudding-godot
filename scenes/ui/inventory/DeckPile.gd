@@ -6,10 +6,14 @@ extends VBoxContainer
 
 signal undo_pressed
 signal best_pressed
+signal test_hand_pressed
 
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _CardTile = preload("res://scenes/ui/inventory/CardTile.gd")
 const _CardJuice = preload("res://scenes/ui/inventory/CardJuice.gd")
+const _DeckIdentity = preload("res://scenes/ui/inventory/DeckIdentity.gd")
+const _SynergyThreads = preload("res://scenes/ui/inventory/SynergyThreads.gd")
+const _DeckInsights = preload("res://game_logic/inventory/DeckInsights.gd")
 
 ## Deck tiles are drawn at this fraction of the binder's tile size.
 const TILE_SCALE: float = 0.78
@@ -20,6 +24,8 @@ var scroll: ScrollContainer
 var _count_label: Label
 var _undo_btn: Button
 var _grid: HFlowContainer
+var _identity: _DeckIdentity
+var _threads: _SynergyThreads
 var _ref: float = 0.0
 var _by_uid: Dictionary = {}  # uid -> deck tile
 
@@ -28,6 +34,9 @@ func setup(ref: float, min_scroll_h: float) -> void:
 	_ref = ref
 	add_theme_constant_override("separation", int(ref * 0.006))
 	loadout_slot = _UiUtil.make_vbox(int(ref * 0.005), self)
+	_identity = _DeckIdentity.new()
+	add_child(_identity)
+	_identity.setup(ref)
 	header = _UiUtil.make_hbox(int(ref * 0.008), self)
 	_count_label = _UiUtil.make_label("", int(ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, header)
 	_count_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -38,17 +47,26 @@ func setup(ref: float, min_scroll_h: float) -> void:
 	var best := _UiUtil.make_button("★ Best deck", Vector2(ref * 0.16, ref * 0.052), int(ref * 0.019),
 			func() -> void: best_pressed.emit(), header)
 	best.tooltip_text = "Fill the deck with your strongest cards"
+	var try_btn := _UiUtil.make_button("✋ Try a hand", Vector2(ref * 0.16, ref * 0.052), int(ref * 0.019),
+			func() -> void: test_hand_pressed.emit(), header)
+	try_btn.tooltip_text = "Shuffle and draw a sample opening hand"
 	scroll = ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	if min_scroll_h > 0.0:
 		scroll.custom_minimum_size = Vector2(0.0, min_scroll_h)
 	add_child(scroll)
+	# Grid and synergy threads overlap in one MarginContainer, so they share an origin.
+	var layer := MarginContainer.new()
+	layer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(layer)
 	_grid = HFlowContainer.new()
 	_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_grid.add_theme_constant_override("h_separation", int(ref * 0.006))
 	_grid.add_theme_constant_override("v_separation", int(ref * 0.006))
-	scroll.add_child(_grid)
+	layer.add_child(_grid)
+	_threads = _SynergyThreads.new()
+	layer.add_child(_threads)
 
 
 ## Rebuilds the deck tiles. `decorate(tile: Button, inst: Dictionary)` wires input.
@@ -69,6 +87,8 @@ func show_deck(insts: Array[Dictionary], template_for: Callable, decorate: Calla
 				Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, _grid)
 		hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_undo_btn.disabled = not can_undo
+	_identity.update(insts)
+	_threads.set_pairs(_DeckInsights.synergy_pairs(insts), tile_for)
 	_count_label.text = "Deck  %d / %d" % [insts.size(), IsoConst.DECK_MAX]
 	var ok: bool = insts.size() >= IsoConst.DECK_MIN and insts.size() <= IsoConst.DECK_MAX
 	_count_label.modulate = Color.WHITE if ok else Color(1.0, 0.4, 0.4)

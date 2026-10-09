@@ -4,6 +4,7 @@
 ##     godot --path . --rendering-driver opengl3 --resolution 1920x1080 -s tools/capture_inventory.gd
 ## SCENE=inventory|shop (default inventory), WAIT_MS delays the capture,
 ## CALL=<method> calls a no-arg method on the scene before the capture,
+## ADD=<n> adds the first n bag cards to the deck, HAND=1 opens "Try a hand",
 ## PAGE=<binder page> opens that page (inventory), DRAG=1 floats a lifted drag preview (with sparkles) over the table.
 extends SceneTree
 
@@ -56,6 +57,13 @@ func _run() -> void:
 	if OS.get_environment("PAGE") != "":
 		(scene.get("_filters") as Object).set("page", OS.get_environment("PAGE"))
 		scene.call("_refresh_cards")
+	var add_n: int = int(OS.get_environment("ADD")) if OS.get_environment("ADD") != "" else 0
+	var bag: Array = (save.call("get_owned_instances") as Array).filter(func(i: Dictionary) -> bool:
+		return not (save.get("player_deck") as Array).has(str(i["uid"])))
+	for i in range(mini(add_n, bag.size())):
+		scene.call("_on_add_by_uid", str((bag[i] as Dictionary)["uid"]))
+	if OS.get_environment("HAND") == "1":
+		(scene.get("_pile") as Object).emit_signal("test_hand_pressed")
 	var call: String = OS.get_environment("CALL")
 	if call != "" and scene.has_method(call):
 		scene.call(call)

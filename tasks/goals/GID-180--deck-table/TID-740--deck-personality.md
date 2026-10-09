@@ -2,7 +2,7 @@
 
 **Goal:** GID-180
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-736, TID-737
 
 ## Lock
@@ -30,12 +30,16 @@ Shared context:
 
 ## Plan
 
-_Written during Plan phase._
+DeckIdentity row (crest, name, CurveSkyline) + SynergyThreads overlay in DeckPile; TestHandOverlay over DeckInsights.sample_hand.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `scenes/ui/inventory/DeckIdentity.gd`, `CurveSkyline.gd`, `SynergyThreads.gd`, `TestHandOverlay.gd`.
+- `DeckInsights`: `sample_hand`; `synergy_pairs` now chains same-tag cards (all-pairs was visually noisy) — tests updated.
+- `DeckPile`: identity row, Try-a-hand button/signal, grid+threads layer.
+- `InventoryScene`: opens TestHandOverlay with `CombatOnboarding.opening_hand(level)`.
+- `tools/capture_inventory.gd`: `ADD`, `HAND`. Verified visually.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/inventory-and-deck.md`: Deck personality section; DeckInsights table updated.

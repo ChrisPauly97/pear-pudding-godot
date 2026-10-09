@@ -183,7 +183,7 @@
 | [GID-177](goals/GID-177--progression-pacing/goal.md) | Progression Pacing | done | 3 / 3 |
 | [GID-178](goals/GID-178--combat-pacing-feel/goal.md) | Combat Pacing & Feel | done | 4 / 4 |
 | [GID-179](goals/GID-179--skill-tree-card-mods/goal.md) | Skill Tree Modifies Cards | done | 6 / 6 |
-| [GID-180](goals/GID-180--deck-table/goal.md) | Deck Table — Fun, Tactile Deck & Bag Management | in-progress | 4 / 12 |
+| [GID-180](goals/GID-180--deck-table/goal.md) | Deck Table — Fun, Tactile Deck & Bag Management | in-progress | 5 / 12 |
 
 ## Backlog
 

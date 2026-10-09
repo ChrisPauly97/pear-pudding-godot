@@ -8,6 +8,7 @@ extends RefCounted
 
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const MagicTypes = preload("res://game_logic/MagicTypes.gd")
+const TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
 
 ## Highest cost bucket of the mana curve; costs at or above it share the last bar.
 const CURVE_MAX: int = 7
@@ -155,9 +156,11 @@ static func crest(instances: Array, templates: Dictionary = {}) -> Dictionary:
 	}
 
 
-## Pairs of deck cards that combo: a shared keyword, or the same magic branch.
-## One pair per template pair (first instance of each), keyword pairs first,
-## capped at MAX_SYNERGY_PAIRS. Each entry: {"a": uid, "b": uid, "kind": "keyword"|"branch", "tag": String}.
+## Links between deck cards that combo: a shared keyword, or the same magic
+## branch. Cards of one tag are chained in deck order (a—b—c, not every pair),
+## one card per template; keyword links come first, a card already linked by a
+## keyword is not linked again by branch; capped at MAX_SYNERGY_PAIRS.
+## Each entry: {"a": uid, "b": uid, "kind": "keyword"|"branch", "tag": String}.
 static func synergy_pairs(instances: Array, templates: Dictionary = {}) -> Array[Dictionary]:
 	var firsts: Array[Dictionary] = []
 	var seen: Dictionary = {}
@@ -166,32 +169,36 @@ static func synergy_pairs(instances: Array, templates: Dictionary = {}) -> Array
 		if not seen.has(tid):
 			seen[tid] = true
 			firsts.append(inst)
-	var kw_pairs: Array[Dictionary] = []
-	var branch_pairs: Array[Dictionary] = []
-	for i in range(firsts.size()):
-		var ta: Dictionary = _tmpl(_tid(firsts[i]), templates)
-		var kwa: PackedStringArray = PackedStringArray(ta.get("keywords", PackedStringArray()))
-		var ba: String = str(ta.get("magic_branch", ""))
-		for j in range(i + 1, firsts.size()):
-			var tb: Dictionary = _tmpl(_tid(firsts[j]), templates)
-			var kwb: PackedStringArray = PackedStringArray(tb.get("keywords", PackedStringArray()))
-			var pair: Dictionary = {"a": str(firsts[i].get("uid", "")), "b": str(firsts[j].get("uid", ""))}
-			var shared: String = ""
-			for k: String in kwa:
-				if kwb.has(k):
-					shared = k
-					break
-			if shared != "":
-				pair["kind"] = "keyword"
-				pair["tag"] = shared
-				kw_pairs.append(pair)
-			elif ba != "" and ba == str(tb.get("magic_branch", "")):
-				pair["kind"] = "branch"
-				pair["tag"] = ba
-				branch_pairs.append(pair)
+	var kw_groups: Dictionary = {}      # keyword -> Array of uids
+	var branch_groups: Dictionary = {}  # branch -> Array of uids
+	var kw_order: Array[String] = []
+	var branch_order: Array[String] = []
+	for inst: Dictionary in firsts:
+		var t: Dictionary = _tmpl(_tid(inst), templates)
+		var uid: String = str(inst.get("uid", ""))
+		for k: String in PackedStringArray(t.get("keywords", PackedStringArray())):
+			if not kw_groups.has(k):
+				kw_groups[k] = []
+				kw_order.append(k)
+			(kw_groups[k] as Array).append(uid)
+		var b: String = str(t.get("magic_branch", ""))
+		if b != "":
+			if not branch_groups.has(b):
+				branch_groups[b] = []
+				branch_order.append(b)
+			(branch_groups[b] as Array).append(uid)
 	var out: Array[Dictionary] = []
-	out.append_array(kw_pairs)
-	out.append_array(branch_pairs)
+	var linked: Dictionary = {}
+	for k: String in kw_order:
+		var uids: Array = kw_groups[k]
+		for i in range(uids.size() - 1):
+			out.append({"a": uids[i], "b": uids[i + 1], "kind": "keyword", "tag": k})
+			linked[uids[i]] = true
+			linked[uids[i + 1]] = true
+	for b: String in branch_order:
+		var uids: Array = (branch_groups[b] as Array).filter(func(u: String) -> bool: return not linked.has(u))
+		for i in range(uids.size() - 1):
+			out.append({"a": uids[i], "b": uids[i + 1], "kind": "branch", "tag": b})
 	if out.size() > MAX_SYNERGY_PAIRS:
 		out.resize(MAX_SYNERGY_PAIRS)
 	return out
@@ -276,3 +283,26 @@ static func replace_target(inst: Dictionary, deck: Array) -> Dictionary:
 static func is_upgrade(inst: Dictionary, deck: Array) -> bool:
 	var target: Dictionary = replace_target(inst, deck)
 	return not target.is_empty() and power_score(inst) > power_score(target)
+
+
+## A sample opening hand like a real-time fight deals it (BattleSetup): every
+## technique card starts in hand, plus `draw_n` shuffled other cards. Seeded so
+## a test (or "draw again" with a new seed) is reproducible.
+static func sample_hand(instances: Array, draw_n: int, rng_seed: int) -> Array[Dictionary]:
+	var techs: Array[Dictionary] = []
+	var rest: Array[Dictionary] = []
+	for inst: Dictionary in instances:
+		if TechniqueDefs.is_technique(_tid(inst)):
+			techs.append(inst)
+		else:
+			rest.append(inst)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = rng_seed
+	for i in range(rest.size() - 1, 0, -1):
+		var j: int = rng.randi_range(0, i)
+		var tmp: Dictionary = rest[i]
+		rest[i] = rest[j]
+		rest[j] = tmp
+	var hand: Array[Dictionary] = techs
+	hand.append_array(rest.slice(0, maxi(0, draw_n)))
+	return hand
