@@ -183,6 +183,7 @@
 | [GID-177](goals/GID-177--progression-pacing/goal.md) | Progression Pacing | done | 3 / 3 |
 | [GID-178](goals/GID-178--combat-pacing-feel/goal.md) | Combat Pacing & Feel | done | 4 / 4 |
 | [GID-179](goals/GID-179--skill-tree-card-mods/goal.md) | Skill Tree Modifies Cards | done | 6 / 6 |
+| [GID-180](goals/GID-180--deck-table/goal.md) | Deck Table — Fun, Tactile Deck & Bag Management | in-progress | 0 / 12 |
 
 ## Backlog
 
@@ -203,6 +204,7 @@ files in `tasks/archive/backlog/`.
 | [BID-093](backlog/BID-093--session-starter-no-strike.md) | Multiplayer session starter character has no Strike technique | design-inconsistency | GID-175 / TID-708 |
 | [BID-094](backlog/BID-094--battle-setup-scattered.md) | Battle setup scattered across scene modules, reads autoloads | code-smell | GID-176 |
 | [BID-095](backlog/BID-095--chapter1-type-spread.md) | Chapter 1 enemy types spread widely one level up — resolved (TID-727, TID-729) | balance | GID-176 |
+| [BID-096](backlog/BID-096--shop-town-name-stitched.md) | Shop `town_name` is `main` in stitched towns (siege discount never applies) | design-inconsistency | GID-180 research |
 
 ## Resolved Backlog
 
