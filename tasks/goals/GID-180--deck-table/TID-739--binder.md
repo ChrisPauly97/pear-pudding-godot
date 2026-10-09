@@ -2,7 +2,7 @@
 
 **Goal:** GID-180
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-736, TID-737
 
 ## Lock
@@ -30,12 +30,17 @@ Shared context:
 
 ## Plan
 
-_Written during Plan phase._
+Pure BinderOps (pages, stacks, missing templates, progress); BagFilters module (filters + page, out of InventoryScene); CardTile count pill, perfect star, gilding, silhouette; InventoryScene stacked rendering + expand view.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `game_logic/inventory/BinderOps.gd` + `tests/unit/test_binder_ops.gd`.
+- New `scenes/ui/inventory/BagFilters.gd` (filter state/buttons moved out of InventoryScene).
+- `CardTile`: `add_count`, `add_perfect_mark`, `build_silhouette`, veterancy `_gild`.
+- `CardJuice.twinkle`.
+- `InventoryScene`: page tabs + Found X/Y, stacked binder, All-copies expand view, silhouettes with how-to-get message.
+- `tools/capture_inventory.gd`: duplicates + `PAGE` env. Verified visually.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/inventory-and-deck.md`: Binder section.

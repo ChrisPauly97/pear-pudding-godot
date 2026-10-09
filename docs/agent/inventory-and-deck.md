@@ -602,3 +602,19 @@ InventoryScene: a drag start plays `pick` + sparkles; `_edit_deck` calls `DeckPi
 count thump) and `place` / `return`. CardJuice names `AudioManager`, so `-s` tools must `load()` it at runtime
 (`tools/capture_inventory.gd` `DRAG=1` does). No hum loop for legendaries: the visual shimmer only, a looping sound in
 a menu got tiresome on paper.
+
+### Binder (TID-739)
+
+- **Pages**: tab row `All · Light · Dark · Verdant · Rift · Neutral` (`BinderOps.PAGES`; page = template `magic_type`,
+  else neutral). A magic-type page shows "Found X / Y" and **silhouettes** (`CardTile.build_silhouette`: dark art,
+  "?", no foil) of collectable templates the player owns no copy of — techniques and `coop_` cards excluded
+  (`_collectable_ids`). Tapping one says how to get it (Craft tab if craftable). Silhouettes hide while searching,
+  filtering, selecting or browsing one stack.
+- **Stacks**: `BinderOps.stack(insts, membership)` groups template+rarity copies in display order; `best` = strongest
+  copy (`DeckInsights.power_score`) preferring one in no deck. The tile shows the best copy plus an "×N" pill
+  (`CardTile.add_count`); tap adds the best copy. The detail popup's **All N copies** button sets `_expand_key`
+  (one stack's copies, best first, with "‹ Back to binder"). Select mode always shows single copies.
+- **Perfect roll**: gold ✦ (`CardTile.add_perfect_mark`, twinkled by `CardJuice.twinkle`) when
+  `DeckInsights.is_perfect_roll`. **Veterancy gilding**: bronze / silver / gold edge by rank (`CardTile._gild`).
+- Filters + page state live in `scenes/ui/inventory/BagFilters.gd` (moved out of InventoryScene).
+- `tools/capture_inventory.gd` `PAGE=dark` captures a page.

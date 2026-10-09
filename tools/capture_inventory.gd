@@ -4,7 +4,7 @@
 ##     godot --path . --rendering-driver opengl3 --resolution 1920x1080 -s tools/capture_inventory.gd
 ## SCENE=inventory|shop (default inventory), WAIT_MS delays the capture,
 ## CALL=<method> calls a no-arg method on the scene before the capture,
-## DRAG=1 floats a lifted drag preview (with sparkles) over the table.
+## PAGE=<binder page> opens that page (inventory), DRAG=1 floats a lifted drag preview (with sparkles) over the table.
 extends SceneTree
 
 const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
@@ -36,6 +36,12 @@ func _run() -> void:
 		if bool(_CardRegistry.get_template(tid).get("is_unique", false)):
 			continue
 		save.call("add_card_instance", tid, rarities[i % rarities.size()])
+	for i in range(3):
+		save.call("add_card_instance", "ghost", "common")
+	var band: Dictionary = _CardRegistry.get_template("ghoul")
+	save.call("add_card_instance", "ghoul", "rare", roundi(int(band["attack"]) * 1.3 * 1.08),
+			roundi(int(band["health"]) * 1.3 * 1.08))
+	save.call("add_card_instance", "ghoul", "rare")
 	save.call("add_coins", 500)
 	var scene_name: String = OS.get_environment("SCENE") if OS.get_environment("SCENE") != "" else "inventory"
 	var path: String = "res://scenes/ui/ShopScene.tscn" if scene_name == "shop" \
@@ -47,6 +53,9 @@ func _run() -> void:
 	var scene: Node = (load(path) as PackedScene).instantiate()
 	root.add_child(scene)
 	await _wait(500)
+	if OS.get_environment("PAGE") != "":
+		(scene.get("_filters") as Object).set("page", OS.get_environment("PAGE"))
+		scene.call("_refresh_cards")
 	var call: String = OS.get_environment("CALL")
 	if call != "" and scene.has_method(call):
 		scene.call(call)

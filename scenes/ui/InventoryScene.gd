@@ -13,6 +13,9 @@ const _ItemsPanel       = preload("res://scenes/ui/inventory/ItemsPanel.gd")
 const _DeckPile         = preload("res://scenes/ui/inventory/DeckPile.gd")
 const _DeckUndo         = preload("res://game_logic/inventory/DeckUndo.gd")
 const _CardJuice        = preload("res://scenes/ui/inventory/CardJuice.gd")
+const _BagFilters       = preload("res://scenes/ui/inventory/BagFilters.gd")
+const BinderOps         = preload("res://game_logic/inventory/BinderOps.gd")
+const DeckInsights      = preload("res://game_logic/inventory/DeckInsights.gd")
 
 const DeckAutoFill = preload("res://game_logic/DeckAutoFill.gd")
 const _TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
@@ -52,11 +55,11 @@ var _filter_toggle: Button
 var _wallet_label: Label
 var _hint_label: Label
 
-# Collection filters, search, sort (session-only state)
-var _filter_class: String = ""    # "" = all, "minion", "spell"
-var _filter_cost: String = ""     # "" = all, "low" (0-2), "mid" (3-5), "high" (6+)
-var _filter_rarity: String = ""   # "" = all, "common", "rare", "epic", "legendary"
-var _filter_btns: Array[Button] = []
+# Collection filters + binder page, search, sort (session-only state)
+var _filters: _BagFilters = _BagFilters.new()
+## Binder stack being browsed copy by copy ("" = stacked view). GID-180 / TID-739.
+var _expand_key: String = ""
+var _page_label: Label
 var _query: String = ""
 var _tiles: _TileCache = _TileCache.new()  # reused bag tiles (GID-164 / TID-684)
 var _search_timer: Timer = null  # search refresh waits for typing to pause
@@ -158,7 +161,22 @@ func _build_ui() -> void:
 	# ---- Filter row (folded behind the toolbar's Filters toggle) ----
 	_filter_row = _UiUtil.make_hbox(int(_ref * 0.005), left_vbox)
 	_filter_row.visible = false
-	_build_filter_buttons(_filter_row)
+	_filters.build(_filter_row, _ref, _refresh)
+
+	# ---- Binder pages (one per magic type) ----
+	var page_row := _UiUtil.make_hbox(int(_ref * 0.005), left_vbox)
+	var page_names: Array[String] = []
+	for pg: String in BinderOps.PAGES:
+		page_names.append(BinderOps.page_label(pg))
+	_UiUtil.make_tab_row(page_row, page_names, Vector2(_ref * 0.1, _ref * 0.046), int(_ref * 0.017),
+			func(i: int) -> void:
+				_filters.page = BinderOps.PAGES[i]
+				_expand_key = ""
+				_refresh_cards())
+	_page_label = _UiUtil.make_label("", int(_ref * 0.017), Color(0.75, 0.75, 0.8), HORIZONTAL_ALIGNMENT_RIGHT,
+			page_row)
+	_page_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_page_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 
 	_hint_label = _UiUtil.make_label("", int(_ref * 0.016), Color(0.65, 0.65, 0.7), HORIZONTAL_ALIGNMENT_CENTER,
 			left_vbox)
@@ -352,7 +370,8 @@ func _refresh_cards() -> void:
 			deck_insts.append(inst)
 			continue
 		bag_total += 1
-		if _passes_filter(tid, str(inst.get("rarity", "common"))) and BagOps.matches_search(_template(tid), _query):
+		if _filters.passes(_template(tid), str(inst.get("rarity", "common"))) \
+				and BagOps.matches_search(_template(tid), _query):
 			avail.append(inst)
 
 	# Drop selections that no longer point at a pickable card.
@@ -361,25 +380,64 @@ func _refresh_cards() -> void:
 		if inst.is_empty() or not _is_selectable(inst, membership):
 			_selected.erase(uid)
 
-	# ---- Backpack grid ----
-	if not avail.is_empty():
-		BagOps.sort_instances(avail, _sort, _template)
+	# ---- Binder grid: stacks of copies, or one stack's copies, plus silhouettes ----
+	BagOps.sort_instances(avail, _sort, _template)
+	var stacked: bool = not _select_mode and _expand_key == ""
+	var stacks: Array[Dictionary] = BinderOps.stack(avail, membership)
+	if _expand_key != "":
+		var only: Array[Dictionary] = []
+		for inst: Dictionary in avail:
+			if BinderOps.stack_key(inst) == _expand_key:
+				only.append(inst)
+		avail = only
+		if avail.is_empty():
+			_expand_key = ""
+			stacked = not _select_mode
+	if _expand_key != "":
+		var back := _UiUtil.make_button("‹ Back to binder  ·  %d copies, best first" % avail.size(),
+				Vector2(0.0, _ref * 0.05), int(_ref * 0.018), func() -> void:
+					_expand_key = ""
+					_refresh_cards(), _collection_list)
+		back.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		avail = (BinderOps.stack(avail, membership)[0]["copies"] as Array[Dictionary]) if not avail.is_empty() \
+				else avail
+	var missing: Array[String] = _missing_on_page()
+	if not avail.is_empty() or not missing.is_empty():
 		var grid := HFlowContainer.new()
 		grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		grid.add_theme_constant_override("h_separation", int(_ref * 0.008))
 		grid.add_theme_constant_override("v_separation", int(_ref * 0.008))
 		_collection_list.add_child(grid)
 		var face: bool = CardRegistry.is_dark_aligned()
-		for inst: Dictionary in avail:
+		var deck_now: Array[Dictionary] = sm.get_deck_instances()
+		var shown: Array[Dictionary] = []
+		if stacked:
+			for st: Dictionary in stacks:
+				shown.append(st)
+		else:
+			for inst: Dictionary in avail:
+				shown.append({"best": inst, "copies": [inst]})
+		for st: Dictionary in shown:
+			var inst: Dictionary = st["best"]
+			var n: int = (st["copies"] as Array).size()
 			var uid: String = str(inst.get("uid", ""))
-			var sig: String = "%d|%s|%s|%s|%s|%d" % [inst.hash(), str(membership.get(uid, "")),
-					_selected.has(uid), _select_mode, face, int(_ref)]
+			var sig: String = "%d|%s|%s|%s|%s|%d|%d|%s" % [inst.hash(), str(membership.get(uid, "")),
+					_selected.has(uid), _select_mode, face, int(_ref), n, DeckInsights.is_upgrade(inst, deck_now)]
 			var tile: Control = _tiles.take(uid, sig)
 			if tile == null:
 				tile = _make_card_tile(inst, membership)
+				_CardTile.add_count(tile, n, _ref)
+				if DeckInsights.is_perfect_roll(inst):
+					tile.set_meta(&"perfect_star", _CardTile.add_perfect_mark(tile, _ref))
 				_tiles.put(uid, sig, tile)
 			grid.add_child(tile)
 			_CardJuice.shimmer(tile, str(inst.get("rarity", "")))
+			if tile.has_meta(&"perfect_star"):
+				_CardJuice.twinkle(tile.get_meta(&"perfect_star") as Control)
+		for tid: String in missing:
+			var sil: Button = _CardTile.build_silhouette(tid, _template(tid), _ref)
+			sil.pressed.connect(_on_silhouette.bind(tid))
+			grid.add_child(sil)
 	else:
 		var msg: String = "Your bag is empty — cards not in a deck live here" if bag_total == 0 \
 				else "No cards match the search / filters"
@@ -394,11 +452,44 @@ func _refresh_cards() -> void:
 	if _collection_scroll and col_scroll > 0:
 		_collection_scroll.scroll_vertical = col_scroll
 
+## Templates on the current binder page the player owns no copy of (decks included).
+## Hidden while searching or filtering — silhouettes answer "what am I missing", not a query.
+func _missing_on_page() -> Array[String]:
+	if _filters.page == "all" or _query != "" or _filters.any_active() or _select_mode or _expand_key != "":
+		_refresh_page_label({})
+		return []
+	var owned: Dictionary = {}
+	for inst: Dictionary in SceneManager.save_manager.get_owned_instances():
+		owned[str(inst.get("template_id", ""))] = true
+	_refresh_page_label(owned)
+	return BinderOps.missing_on_page(_filters.page, owned, _collectable_ids(), _template)
+
+func _refresh_page_label(owned: Dictionary) -> void:
+	if owned.is_empty():
+		_page_label.text = ""
+		return
+	var prog: Vector2i = BinderOps.page_progress(_filters.page, owned, _collectable_ids(), _template)
+	_page_label.text = "Found %d / %d" % [prog.x, prog.y]
+
+func _on_silhouette(tid: String) -> void:
+	var card_name: String = str(_template(tid).get("name", tid))
+	var how: String = "craft it in the Craft tab" if CardRegistry.is_craftable(tid) \
+			else "find it out in the world"
+	GameBus.hud_message_requested.emit("%s — not found yet. You can %s." % [card_name, how])
+
+## Cards a player can collect into the binder: not techniques (taught by trainers) or co-op-only cards.
+func _collectable_ids() -> Array[String]:
+	var out: Array[String] = []
+	for tid: String in CardRegistry.get_all_ids():
+		if not _TechniqueDefs.is_technique(tid) and not tid.begins_with("coop_"):
+			out.append(tid)
+	return out
+
 func _refresh_toolbar() -> void:
 	_sort_btn.text = "Sort: %s" % str(BagOps.SORT_LABELS.get(_sort, _sort))
 	_select_btn.text = "Done" if _select_mode else "Select"
 	_select_btn.modulate = Color(0.55, 1.0, 0.6) if _select_mode else Color.WHITE
-	var filtering: bool = _filter_class != "" or _filter_cost != "" or _filter_rarity != ""
+	var filtering: bool = _filters.any_active()
 	_filter_toggle.text = "Filters •" if filtering else "Filters"
 	_filter_toggle.modulate = _GOLD if _filter_row.visible or filtering else Color.WHITE
 	_bulk_bar.visible = _select_mode
@@ -423,77 +514,6 @@ func _selected_instances() -> Array[Dictionary]:
 		if not inst.is_empty():
 			out.append(inst)
 	return out
-
-# -------------------------------------------------------------------------
-# Filter helpers
-# -------------------------------------------------------------------------
-
-func _build_filter_buttons(row: HBoxContainer) -> void:
-	_filter_btns.clear()
-	var btn_h: float = _ref * 0.048
-	var btn_fs: int = int(_ref * 0.018)
-	var specs: Array = [
-		["All", "class", ""],
-		["Ally", "class", "minion"],
-		["Spell", "class", "spell"],
-		["0-2", "cost", "low"],
-		["3-5", "cost", "mid"],
-		["6+", "cost", "high"],
-		["C", "rarity", "common"],
-		["R", "rarity", "rare"],
-		["E", "rarity", "epic"],
-		["L", "rarity", "legendary"],
-	]
-	for spec in specs:
-		var lbl_text: String = str(spec[0])
-		var kind: String = str(spec[1])
-		var val: String = str(spec[2])
-		var btn := _UiUtil.make_button(lbl_text, Vector2(0.0, btn_h), int(btn_fs), Callable(), row)
-		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		btn.pressed.connect(_on_filter_btn.bind(kind, val, btn))
-		_filter_btns.append(btn)
-	_update_filter_visuals()
-
-func _on_filter_btn(kind: String, val: String, _btn: Button) -> void:
-	match kind:
-		"class":
-			_filter_class = "" if _filter_class == val else val
-		"cost":
-			_filter_cost = "" if _filter_cost == val else val
-		"rarity":
-			_filter_rarity = "" if _filter_rarity == val else val
-	_update_filter_visuals()
-	_refresh()
-
-func _update_filter_visuals() -> void:
-	var specs: Array = [
-		["class", ""], ["class", "minion"], ["class", "spell"],
-		["cost", "low"], ["cost", "mid"], ["cost", "high"],
-		["rarity", "common"], ["rarity", "rare"], ["rarity", "epic"], ["rarity", "legendary"],
-	]
-	for i in range(mini(specs.size(), _filter_btns.size())):
-		var kind: String = str(specs[i][0])
-		var val: String = str(specs[i][1])
-		var active: bool
-		match kind:
-			"class":  active = (_filter_class == val)
-			"cost":   active = (_filter_cost == val)
-			_:        active = (_filter_rarity == val)
-		_filter_btns[i].modulate = Color(1.0, 0.85, 0.3) if active else Color.WHITE
-
-func _passes_filter(tid: String, rarity: String) -> bool:
-	if _filter_rarity != "" and rarity != _filter_rarity:
-		return false
-	var tmpl: Dictionary = CardRegistry.get_template(tid)
-	if _filter_class != "" and str(tmpl.get("card_class", "minion")) != _filter_class:
-		return false
-	if _filter_cost != "":
-		var cost: int = int(tmpl.get("cost", 0))
-		match _filter_cost:
-			"low":  if cost > 2: return false
-			"mid":  if cost < 3 or cost > 5: return false
-			"high": if cost < 6: return false
-	return true
 
 func _on_auto_fill() -> void:
 	var sm := SceneManager.save_manager
@@ -656,6 +676,16 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 	_UiUtil.make_button("Inspect", Vector2(_ref * 0.14, _ref * 0.058), int(_ref * 0.019), func() -> void:
 		_hide_instance_detail()
 		_show_inspect(tid), top_row)
+	var copies: int = 0
+	for other: Dictionary in SceneManager.save_manager.get_owned_instances():
+		if BinderOps.stack_key(other) == BinderOps.stack_key(inst) and not _working_deck.has(str(other.get("uid", ""))):
+			copies += 1
+	if copies > 1 and _expand_key == "":
+		_UiUtil.make_button("All %d copies" % copies, Vector2(_ref * 0.16, _ref * 0.058), int(_ref * 0.019),
+				func() -> void:
+					_expand_key = BinderOps.stack_key(inst)
+					_hide_instance_detail()
+					_refresh_cards(), top_row)
 
 	if not bool(tmpl.get("is_unique", false)):
 		var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(rarity, {})

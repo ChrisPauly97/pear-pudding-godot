@@ -70,6 +70,19 @@ static func shimmer(tile: Control, rarity: String) -> void:
 	tw.tween_property(tile, "self_modulate", Color.WHITE, 1.1).set_trans(Tween.TRANS_SINE)
 
 
+## Slow twinkle for the perfect-roll star. Call once it is in the tree; idempotent.
+static func twinkle(ctrl: Control) -> void:
+	if not ctrl.is_inside_tree() or ctrl.has_meta(SHIMMER_META):
+		return
+	ctrl.set_meta(SHIMMER_META, true)
+	ctrl.pivot_offset = ctrl.size * 0.5
+	var tw := ctrl.create_tween().set_loops()
+	tw.tween_property(ctrl, "scale", Vector2(1.25, 1.25), 0.7).set_trans(Tween.TRANS_SINE)
+	tw.parallel().tween_property(ctrl, "modulate:a", 0.6, 0.7)
+	tw.tween_property(ctrl, "scale", Vector2.ONE, 0.7).set_trans(Tween.TRANS_SINE)
+	tw.parallel().tween_property(ctrl, "modulate:a", 1.0, 0.7)
+
+
 ## Card sounds: "pick" (lift), "place" (lands in the deck), "return" (back to the bag).
 static func sound(kind: String) -> void:
 	match kind:
