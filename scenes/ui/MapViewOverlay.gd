@@ -310,8 +310,8 @@ func _draw_npcs(canvas: Control) -> void:
 		canvas.draw_circle(tp, 4.0, col)
 		var mark: Dictionary = _QuestTracker.map_mark(n)
 		if not mark.is_empty():
-			_MapMarkers.draw_quest_mark(canvas, tp + Vector2(0.0, -14.0), str(mark["text"]),
-					mark["color"] as Color, 16)
+			_MapMarkers.draw_quest_mark(canvas, tp + Vector2(0.0, -18.0), str(mark["text"]),
+					mark["color"] as Color, 22)
 
 
 func _world_to_panel(wx: float, wz: float) -> Vector2:

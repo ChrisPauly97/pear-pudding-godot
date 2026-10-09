@@ -31,7 +31,9 @@ const STEPS: Array[Dictionary] = [
 	{"id": "help_townsfolk", "chapter": 1, "label": "Help the townsfolk of Madrian", "giver": "Hilda the Baker",
 		"summary": ("Madrian's folk have troubles of their own — the dead walk the fields past the village. Start "
 			+ "with Hilda the Baker; she always knows who needs a hand."),
-		"done_flag": "town_quests_done", "map": "madrian", "tx": 46, "tz": 30},
+		"done_flag": "town_quests_done", "map": "madrian", "tx": 46, "tz": 30,
+		# Once Hilda's quest is taken the side-quest chain does the pointing.
+		"handoff_quest": "rats_in_grain"},
 	{"id": "speak_maiteln", "chapter": 1, "label": "Speak to Maiteln", "giver": "Maiteln",
 		"summary": "The old wizard Maiteln has come looking for you in Madrian. He has news that cannot wait.",
 		"done_flag": "story_intro_complete", "map": "madrian", "tx": 32, "tz": 29},
@@ -107,6 +109,13 @@ static func current_step(flags: Dictionary) -> Dictionary:
 	if i >= STEPS.size():
 		return {}
 	return STEPS[i].duplicate()
+
+## True once `step` points nowhere itself: its `handoff_quest` (a side quest that
+## carries the wayfinding from there on) is active or done. `started` holds the
+## ids of active and completed side quests.
+static func handed_off(step: Dictionary, started: Array) -> bool:
+	var q: String = str(step.get("handoff_quest", ""))
+	return q != "" and started.has(q)
 
 ## Finished steps in story order.
 static func completed_steps(flags: Dictionary) -> Array[Dictionary]:

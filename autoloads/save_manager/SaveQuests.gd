@@ -67,6 +67,12 @@ func npc_states() -> Dictionary:
 			out[giver] = "upcoming"
 	return out
 
+## Ids of every active or completed side quest.
+func started_ids() -> Array:
+	var out: Array = _save.quests_active.keys()
+	out.append_array(_save.quests_completed)
+	return out
+
 ## Active quests `npc_id` takes back that are ready to hand in.
 func turn_ins_for(npc_id: String) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []

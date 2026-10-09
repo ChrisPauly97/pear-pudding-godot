@@ -917,7 +917,7 @@ func set_tracked_quest(quest_id: String) -> void:
 ## Every active quest (QuestLog), story first.
 func active_quests() -> Array[Dictionary]:
 	return _QuestLog.active_quests(story_flags, active_treasure, active_bounties, quests.log_entries(),
-			_UnlockLadder.pending(level, learned_abilities))
+			_UnlockLadder.pending(level, learned_abilities), quests.started_ids())
 
 ## The quest the markers follow (falls back to the story quest).
 func tracked_quest_data() -> Dictionary:
