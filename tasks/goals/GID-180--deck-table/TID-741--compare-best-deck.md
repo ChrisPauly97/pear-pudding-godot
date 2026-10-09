@@ -2,7 +2,7 @@
 
 **Goal:** GID-180
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-736, TID-738
 
 ## Lock
@@ -30,12 +30,16 @@ Shared context:
 
 ## Plan
 
-_Written during Plan phase._
+Upgrade mark on tiles; drop targets on deck tiles with a compare tip and swap; detail-popup compare + swap; Best deck = upgrade swaps then fill; DeckAutoFill prefers best roll.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `DeckInsights.upgrade_swaps` (+ test).
+- `DeckAutoFill`: primary copy chosen by `power_score`.
+- `CardTile.add_upgrade_mark`.
+- `InventoryScene`: `_hover_twin`, `_compare_rows`, `_compare_tip`, `_swap_in`, drag-end hide; detail popup compare + Swap button; Best deck upgrades + HUD summary.
+- `tests/inventory_tiles_smoke.gd`: Best deck swaps in a stronger copy.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/inventory-and-deck.md`: Compare + Best deck section.

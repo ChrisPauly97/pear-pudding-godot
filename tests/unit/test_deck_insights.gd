@@ -110,3 +110,11 @@ func test_sample_hand_keeps_techniques_and_draws_n() -> void:
 	assert_eq(str(hand[0]["uid"]), "s")
 	assert_eq(DeckInsights.sample_hand(deck, 2, 7), hand, "same seed, same hand")
 	assert_eq(DeckInsights.sample_hand(deck, 99, 1).size(), 5)
+
+
+func test_upgrade_swaps_take_the_best_copy_once() -> void:
+	var deck: Array = [_c("d1", "wall", "rare", 1, 12), _c("d2", "wall", "rare", 1, 12), _c("b", "bone")]
+	var bag: Array = [_c("n1", "wall", "rare", 1, 13), _c("n2", "wall", "rare", 1, 14), _c("n3", "wall", "rare", 1, 11),
+		_c("x", "bone")]
+	var swaps: Array = DeckInsights.upgrade_swaps(deck, bag)
+	assert_eq(swaps, [["d1", "n2"], ["d2", "n1"]])

@@ -62,6 +62,7 @@ var _filters: _BagFilters = _BagFilters.new()
 ## Binder stack being browsed copy by copy ("" = stacked view). GID-180 / TID-739.
 var _expand_key: String = ""
 var _page_label: Label
+var _compare_tip: PanelContainer = null
 var _query: String = ""
 var _tiles: _TileCache = _TileCache.new()  # reused bag tiles (GID-164 / TID-684)
 var _search_timer: Timer = null  # search refresh waits for typing to pause
@@ -434,6 +435,8 @@ func _refresh_cards() -> void:
 			if tile == null:
 				tile = _make_card_tile(inst, membership)
 				_CardTile.add_count(tile, n, _ref)
+				if DeckInsights.is_upgrade(inst, deck_now):
+					_CardTile.add_upgrade_mark(tile, _ref)
 				if DeckInsights.is_perfect_roll(inst):
 					tile.set_meta(&"perfect_star", _CardTile.add_perfect_mark(tile, _ref))
 				_tiles.put(uid, sig, tile)
@@ -534,7 +537,22 @@ func _on_auto_fill() -> void:
 			available.append(inst)
 	var target: int = maxi(IsoConst.DECK_MIN, _working_deck.size())
 	target = mini(target, IsoConst.DECK_MAX)
-	_edit_deck(DeckAutoFill.fill(_working_deck, available, target))
+	# Upgrade each deck card to its best bag copy first, then top up (GID-180 / TID-741).
+	var next: Array[String] = _working_deck.duplicate()
+	var deck_insts: Array[Dictionary] = []
+	for u: String in next:
+		deck_insts.append(sm.get_instance_by_uid(u))
+	var swaps: Array = DeckInsights.upgrade_swaps(deck_insts, available)
+	for pair: Array in swaps:
+		next[next.find(str(pair[0]))] = str(pair[1])
+		available = available.filter(func(i: Dictionary) -> bool: return str(i.get("uid", "")) != str(pair[1]))
+	var filled: Array[String] = DeckAutoFill.fill(next, available, target)
+	var added: int = filled.size() - _working_deck.size()
+	if swaps.is_empty() and added <= 0:
+		GameBus.hud_message_requested.emit("Already your best — no stronger copies in the bag")
+		return
+	GameBus.hud_message_requested.emit("Best deck: %d upgraded, %d added" % [swaps.size(), maxi(added, 0)])
+	_edit_deck(filled)
 
 # -------------------------------------------------------------------------
 # Row helpers
@@ -581,12 +599,13 @@ func _make_card_tile(inst: Dictionary, membership: Dictionary) -> Control:
 
 	return cube
 
-func _make_card_draggable(ctrl: Button, uid: String, in_deck: bool, tint: Color) -> void:
+func _make_card_draggable(ctrl: Button, uid: String, in_deck: bool, tint: Color,
+		can_drop: Callable = Callable(), drop: Callable = Callable()) -> void:
 	ctrl.button_down.connect(func() -> void:
 		_press_origin[ctrl] = ctrl.get_local_mouse_position())
 	ctrl.set_drag_forwarding(
 		func(at: Vector2) -> Variant: return _drag_card(ctrl, at, uid, in_deck, tint),
-		Callable(), Callable())
+		can_drop, drop)
 
 func _drag_card(ctrl: Control, at: Vector2, uid: String, in_deck: bool, tint: Color) -> Variant:
 	var origin: Vector2 = _press_origin.get(ctrl, at)
@@ -675,6 +694,15 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 		var warn := _UiUtil.make_label("In %s — selling or scrapping removes it from that deck."
 				% str(membership[uid]), int(_ref * 0.017), Color(1.0, 0.7, 0.4), HORIZONTAL_ALIGNMENT_LEFT, vb)
 		warn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+
+	if not _working_deck.has(uid):
+		var twin: Dictionary = DeckInsights.replace_target(inst, SceneManager.save_manager.get_deck_instances())
+		if not twin.is_empty():
+			vb.add_child(_compare_rows(inst, twin, "vs the copy in your deck:"))
+			var swap := _UiUtil.make_button("⇄ Swap into deck", Vector2(_ref * 0.22, _ref * 0.055), int(_ref * 0.019),
+					_swap_in.bind(uid, str(twin.get("uid", ""))), vb)
+			swap.modulate = Color(1.0, 0.9, 0.5) if DeckInsights.is_upgrade(inst,
+					SceneManager.save_manager.get_deck_instances()) else Color.WHITE
 
 	var top_row := _UiUtil.make_hbox(int(_ref * 0.006), vb)
 	var add_btn := _UiUtil.make_button("Add to Deck", Vector2(_ref * 0.17, _ref * 0.058), int(_ref * 0.019),
@@ -874,7 +902,16 @@ func _decorate_deck_tile(tile: Button, inst: Dictionary) -> void:
 	var tid: String = str(inst.get("template_id", ""))
 	tile.tooltip_text += "\n(tap to take out of the deck)"
 	_UiUtil.bind_scroll_safe_press(tile, _on_remove_by_uid.bind(uid), _pile.scroll)
-	_make_card_draggable(tile, uid, true, _template(tid).get("color", Color(0.3, 0.3, 0.35)))
+	# A bag copy of the same card held over this tile shows the stat diff; dropping swaps them.
+	_make_card_draggable(tile, uid, true, _template(tid).get("color", Color(0.3, 0.3, 0.35)),
+			func(_at: Vector2, data: Variant) -> bool: return _hover_twin(tile, inst, data),
+			func(at: Vector2, data: Variant) -> void:
+				_hide_compare()
+				var held: String = str((data as Dictionary).get("uid", ""))
+				if str(SceneManager.save_manager.get_instance_by_uid(held).get("template_id", "")) == tid:
+					_swap_in(held, uid)
+				else:
+					_drop_into_deck(at, data))
 	var lpd := LongPressDetector.new()
 	tile.add_child(lpd)
 	lpd.long_pressed.connect(func() -> void: _show_inspect(tid))
@@ -912,6 +949,66 @@ func _on_remove_by_uid(uid: String) -> void:
 		return
 	var next: Array[String] = _working_deck.duplicate()
 	next.erase(uid)
+	_hide_instance_detail()
+	_edit_deck(next)
+
+## Compare popup while a bag card hovers its deck twin (TID-741). Returns
+## whether the tile accepts the drop; any other drag just passes through.
+func _hover_twin(tile: Control, deck_inst: Dictionary, data: Variant) -> bool:
+	if not _is_card_drag(data, false):
+		return false
+	var held: Dictionary = SceneManager.save_manager.get_instance_by_uid(str((data as Dictionary).get("uid", "")))
+	if str(held.get("template_id", "")) != str(deck_inst.get("template_id", "")):
+		_hide_compare()
+		return _can_drop_into_deck(Vector2.ZERO, data)
+	if _compare_tip == null or not is_instance_valid(_compare_tip):
+		_compare_tip = PanelContainer.new()
+		_compare_tip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_compare_tip.z_index = 20
+		_compare_tip.add_theme_stylebox_override("panel", _UiUtil.make_style(Color(0.06, 0.06, 0.1, 0.95),
+				int(_ref * 0.01), Color(1.0, 0.85, 0.3), 2))
+		add_child(_compare_tip)
+	for c in _compare_tip.get_children():
+		c.queue_free()
+	_compare_tip.add_child(_compare_rows(held, deck_inst, "Swap in?"))
+	_compare_tip.reset_size()
+	var r: Rect2 = tile.get_global_rect()
+	_compare_tip.global_position = Vector2(r.position.x, r.position.y - _compare_tip.get_combined_minimum_size().y
+			- _ref * 0.01)
+	return true
+
+## "⚔ +1  ♥ −2  ◆ 0" diff of `a` over `b` as coloured labels, under a heading.
+func _compare_rows(a: Dictionary, b: Dictionary, heading: String) -> VBoxContainer:
+	var vb := _UiUtil.make_vbox(int(_ref * 0.004))
+	_UiUtil.make_label(heading, int(_ref * 0.017), Color(0.85, 0.85, 0.9), HORIZONTAL_ALIGNMENT_LEFT, vb)
+	var row := _UiUtil.make_hbox(int(_ref * 0.012), vb)
+	var d: Dictionary = DeckInsights.compare(a, b)
+	for spec: Array in [["⚔", "attack", 1], ["♥", "health", 1], ["mana", "cost", -1], ["tier", "rarity", 1]]:
+		var v: int = int(d[str(spec[1])])
+		var good: bool = v * int(spec[2]) > 0
+		var arrow: String = "▲" if good else ("▼" if v != 0 else "=")
+		var col: Color = Color(0.45, 1.0, 0.5) if good else (Color(1.0, 0.45, 0.45) if v != 0 \
+				else Color(0.7, 0.7, 0.7))
+		_UiUtil.make_label("%s %s%+d" % [str(spec[0]), arrow, v] if v != 0 else "%s =" % str(spec[0]),
+				int(_ref * 0.019), col, HORIZONTAL_ALIGNMENT_LEFT, row)
+	return vb
+
+func _hide_compare() -> void:
+	if _compare_tip != null and is_instance_valid(_compare_tip):
+		_compare_tip.queue_free()
+	_compare_tip = null
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_DRAG_END:
+		_hide_compare()
+
+## Puts bag card `new_uid` into the deck in place of `old_uid`.
+func _swap_in(new_uid: String, old_uid: String) -> void:
+	var idx: int = _working_deck.find(old_uid)
+	if idx < 0 or new_uid == "" or _working_deck.has(new_uid):
+		return
+	var next: Array[String] = _working_deck.duplicate()
+	next[idx] = new_uid
 	_hide_instance_detail()
 	_edit_deck(next)
 

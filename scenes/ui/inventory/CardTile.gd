@@ -141,6 +141,15 @@ static func add_perfect_mark(tile: Control, ref: float) -> Label:
 	star.position = Vector2(sz.x * 0.5 - ref * 0.018, -ref * 0.004)
 	return star
 
+## Gold "▲" when this copy beats the one in your deck (GID-180 / TID-741).
+static func add_upgrade_mark(tile: Control, ref: float) -> void:
+	var sz: Vector2 = tile_size(ref)
+	var mark := _label("▲", int(ref * 0.026), Color(1.0, 0.82, 0.2), HORIZONTAL_ALIGNMENT_CENTER, tile)
+	mark.add_theme_color_override("font_outline_color", Color(0.25, 0.15, 0.0))
+	mark.add_theme_constant_override("outline_size", maxi(2, int(ref * 0.004)))
+	mark.position = Vector2(ref * 0.004, sz.y * 0.44)
+	tile.tooltip_text += "\n▲ Better than the copy in your deck"
+
 ## Dark silhouette of a card the player has not found yet (binder pages).
 static func build_silhouette(tid: String, tmpl: Dictionary, ref: float) -> Button:
 	var fake: Dictionary = {"template_id": tid, "rarity": "common", "attack": int(tmpl.get("attack", 0)),

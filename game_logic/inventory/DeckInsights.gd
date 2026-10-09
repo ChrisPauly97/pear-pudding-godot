@@ -306,3 +306,22 @@ static func sample_hand(instances: Array, draw_n: int, rng_seed: int) -> Array[D
 	var hand: Array[Dictionary] = techs
 	hand.append_array(rest.slice(0, maxi(0, draw_n)))
 	return hand
+
+
+## Best-deck upgrades: for each deck card, the strongest unused bag copy of the
+## same template that beats it. Returns [[old_uid, new_uid], …] in deck order.
+static func upgrade_swaps(deck: Array, bag: Array) -> Array:
+	var used: Dictionary = {}
+	var out: Array = []
+	for d: Dictionary in deck:
+		var best: Dictionary = {}
+		for b: Dictionary in bag:
+			var buid: String = str(b.get("uid", ""))
+			if used.has(buid) or _tid(b) != _tid(d) or power_score(b) <= power_score(d):
+				continue
+			if best.is_empty() or power_score(b) > power_score(best):
+				best = b
+		if not best.is_empty():
+			used[str(best.get("uid", ""))] = true
+			out.append([str(d.get("uid", "")), str(best.get("uid", ""))])
+	return out

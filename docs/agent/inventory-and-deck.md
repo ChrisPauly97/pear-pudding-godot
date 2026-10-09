@@ -629,3 +629,16 @@ MarginContainer with `SynergyThreads`, which draws pulsing lines between `synerg
 branch colour). **✋ Try a hand** opens `TestHandOverlay`: shuffle sound, `sample_hand` with
 `CombatOnboarding.opening_hand(level)` draws, cards dealt one by one; "Shuffle & draw again" reseeds.
 `tools/capture_inventory.gd`: `ADD=<n>` fills the deck, `HAND=1` opens the overlay.
+
+### Compare + Best deck (TID-741)
+
+- **▲ upgrade mark** (`CardTile.add_upgrade_mark`) on binder tiles where `DeckInsights.is_upgrade(inst, deck)`.
+- **Compare by hovering**: deck tiles take drops (`_make_card_draggable` now forwards `can_drop`/`drop`). A bag copy
+  of the same template held over a deck tile shows `_compare_tip` (⚔ / ♥ / mana / tier diffs, green ▲ better, red ▼
+  worse; mana is better when lower); dropping swaps them (`_swap_in`). Other cards dropped on a deck tile just join
+  the deck. The tip hides on `NOTIFICATION_DRAG_END`.
+- **Tap path**: the detail popup shows the same diff vs `replace_target` and a **⇄ Swap into deck** button
+  (gold when it is an upgrade).
+- **★ Best deck** (`_on_auto_fill`): first `DeckInsights.upgrade_swaps` (each deck card → strongest unused bag copy
+  of its template that beats it), then `DeckAutoFill.fill` to the same target as before; HUD line reports
+  "N upgraded, M added". `DeckAutoFill` now picks the primary copy by `power_score` (rarity, then roll).

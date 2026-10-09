@@ -74,4 +74,13 @@ func _run() -> Array[String]:
 	inv.call("_on_undo")
 	if (sm.get("player_deck") as Array) != deck_before:
 		fails.append("undo did not restore the saved deck")
+	# Best deck upgrades a deck card to a stronger bag copy (TID-741).
+	var deck_tids: Array = []
+	for u: String in sm.get("player_deck"):
+		deck_tids.append(str((sm.call("get_instance_by_uid", u) as Dictionary).get("template_id", "")))
+	var up_tid: String = str(deck_tids[1])
+	var rare_uid: String = sm.call("add_card_instance", up_tid, "epic")
+	inv.call("_on_auto_fill")
+	if not (sm.get("player_deck") as Array).has(rare_uid):
+		fails.append("Best deck did not swap in the stronger %s copy" % up_tid)
 	return fails

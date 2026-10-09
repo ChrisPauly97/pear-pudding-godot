@@ -17,7 +17,7 @@ User request 2026-10-09: "deck management and inventory management has to be the
 | TID-738 | Drag juice: lift, snap, sounds, sparkle | agent | done | TID-737 |
 | TID-739 | Binder: stacks, pages, silhouettes, shimmer, gilding | agent | done | TID-736, TID-737 |
 | TID-740 | Deck personality: name, crest, synergy threads, skyline, test hand | agent | done | TID-736, TID-737 |
-| TID-741 | Compare on hover, upgrade dot, Best deck button | agent | pending | TID-736, TID-738 |
+| TID-741 | Compare on hover, upgrade dot, Best deck button | agent | done | TID-736, TID-738 |
 | TID-742 | Forge: scrap + combine ritual; flag for sale replaces Sell | agent | pending | TID-737, TID-738 |
 | TID-743 | Never lose loot + overstuffed satchel | agent | pending | TID-737 |
 | TID-744 | Maiteln deck barks in the builder | agent | pending | TID-736, TID-737 |
