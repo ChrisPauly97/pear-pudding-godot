@@ -6,10 +6,12 @@
 script = ExtResource("1_fracture_scavenged_shards")
 id = "fracture_scavenged_shards"
 display_name = "Scavenged Shards"
-description = "Once per battle: gather what came loose. Draw 2 cards."
+description = "Grants the Scavenged Shards technique card: Draw 2 cards (2 in real time). Returns to the bottom of your deck."
 skill_type = "active"
-effect_type = "active_draw"
-effect_value = 2
+effect_type = "grant_technique"
+effect_value = 0
+filter = ""
+grants_card = "tech_scavenged_shards"
 prerequisites = ["fracture_fault_line"]
 tree_row = 2
 tree_col = 3

@@ -31,6 +31,9 @@ static var silent: bool = false
 
 var extra_turn_granted: bool = false
 var capture_tracker: CaptureTracker
+## Real-time player power pass (GID-179): (card, caster_pid, power) -> power —
+## skill-tree modifiers and spell crits (`PlayerCaster.modify_power`).
+var power_hook: Callable = Callable()
 
 var _state: GameState
 
@@ -176,6 +179,8 @@ func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Diction
 	var caster: PlayerState = _state.players[caster_pid]
 	# Techniques (GID-175) resolve with their real-time value when mana is scaled.
 	var power: int = TechniqueDefs.power(card.template_id, card.spell_power, caster.hero.mana_scale > 1)
+	if power_hook.is_valid():
+		power = int(power_hook.call(card, caster_pid, power))
 	var _spell_dmg: int = BattlefieldRules.modify_damage(power, _state.battlefield_biome)
 	# Single-target arms resolve their subject once here; `null` means the
 	# relevant board was empty, which every arm below treats as a no-op.

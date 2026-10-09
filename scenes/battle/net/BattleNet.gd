@@ -433,9 +433,6 @@ func _apply_remote_intent(intent: Dictionary, player_idx: int) -> bool:
 			record_attack_fx(player_idx, attacker, opp_idx, target)
 			_show_remote_attack(attacker, target, player_idx, opp_idx)
 			return true
-		BattleNetProtocol.INTENT_HERO_POWER:
-			_battle.consumables._apply_hero_power_effect(player_idx, str(intent["effect_type"]), int(intent["effect_value"]))
-			return true
 		BattleNetProtocol.INTENT_POTION:
 			_apply_potion_state_effect(player_idx, str(intent["potion_id"]))
 			return true

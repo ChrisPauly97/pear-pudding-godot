@@ -6,10 +6,12 @@
 script = ExtResource("1_flux_mana_surge")
 id = "flux_mana_surge"
 display_name = "Mana Surge"
-description = "Once per battle: the rift gives back everything at once. Gain 4 mana."
+description = "Grants the Mana Surge technique card: Hit for 2 and gain 2 mana (2 in real time). Returns to the bottom of your deck."
 skill_type = "active"
-effect_type = "active_mana"
-effect_value = 4
+effect_type = "grant_technique"
+effect_value = 0
+filter = ""
+grants_card = "tech_mana_surge"
 prerequisites = ["flux_kinetic_charge"]
 tree_row = 2
 tree_col = 3

@@ -5,7 +5,7 @@
 ## Key Features
 
 - **Ghost Phase**: player phases through one TILE_WALL tile in the facing direction when the deck contains ≥4 Ghost-family cards. 15-second cooldown.
-- **Skeleton Dig**: player digs buried mounds spawned in ~10% of open-world chunks. Requires ≥4 Skeleton-family cards in deck. 10-second cooldown. Rewards: 10–30 coins + 60% card / 40% essence.
+- **Skeleton Dig**: player digs buried mounds spawned in ~10% of open-world chunks. Requires ≥4 Skeleton-family cards in deck. 10-second cooldown. Legend riddle dig spots (`Legend.has_dig_spot`) run the same gate — every path calls `CantripManager.use_blocker(id, deck, cooldowns, now)` (GID-179 / TID-730). Rewards: 10–30 coins + 60% card / 40% essence.
 - HUD buttons `[G] Phase` and `[D] Dig` (left side of screen), plus keyboard keys G and D. D doubles as `move_right`, so the D key digs only when a mound is in reach and never shows the "No burial mound nearby" toast (the button still does). Key repeats are ignored.
 - Both keys also work on desktop; the HUD buttons are the mobile touch targets.
 - Buttons are **always visible** (TID-463 / BID-050), even when locked: a

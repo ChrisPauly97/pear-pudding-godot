@@ -28,6 +28,7 @@ const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
 const FightStats = preload("res://game_logic/battle/FightStats.gd")
 const SpellEffectResolver = preload("res://scenes/battle/SpellEffectResolver.gd")
+const SkillMods = preload("res://game_logic/battle/SkillMods.gd")
 
 const SIDE: int = RealtimeCombat.PLAYER
 
@@ -96,10 +97,16 @@ func begin(card: CardInstance, finish: Callable, target: CardInstance = null, ca
 	if cast_time < 0.0:
 		cast_time = TechniqueDefs.cast_time(card.template_id)
 	var t: float = maxf(0.0, cast_time if cast_time >= 0.0 else rt.cast_time_for(card.cost))
+	var mods := _me().skill_mods
+	if mods != null:
+		t *= mods.cast_mult(card)
 	if not TechniqueDefs.is_technique(card.template_id):
 		finish = _with_combo(card, finish)
 		if rt.next_card_instant():
 			t = 0.0
+	if rt.instant_next and t > 0.0:
+		t = 0.0
+		rt.instant_next = false
 	_card = card
 	_total = t
 	_left = t
@@ -230,8 +237,33 @@ func _after_technique(card: CardInstance, dealt: int) -> void:
 	if dealt > 0 and rt.on_player_hit(dealt, true):
 		_emit("proc")
 	_emit("technique", {"card": card, "effect": card.spell_effect})
-	_returning.append({"card": card,
-		"left": TechniqueDefs.recycle_time(card.template_id) * rt.tune.get_f("tech_recycle_mult")})
+	var recycle: float = TechniqueDefs.recycle_time(card.template_id) * rt.tune.get_f("tech_recycle_mult")
+	if _me().skill_mods != null:
+		recycle *= _me().skill_mods.recycle_mult(card)
+	_returning.append({"card": card, "left": recycle})
+
+## SpellEffectResolver.power_hook (GID-179): a player spell / technique's power
+## after skill-tree `mod_power`, then its crit roll and on-crit triggers.
+func modify_power(card: CardInstance, caster_pid: int, power: int) -> int:
+	if caster_pid != SIDE:
+		return power
+	var mods := _me().skill_mods
+	if mods != null:
+		power = mods.power_for(card, power)
+	if not SkillMods.can_crit(card) or power <= 0:
+		return power
+	# The swing crit roll (TID-728) on the same seeded rng, plus `mod_crit` nodes (TID-732).
+	var chance: float = rt.tune.get_f("crit_chance") + (0.0 if mods == null else mods.crit_bonus(card))
+	if rt.rng.randf() >= chance:
+		return power
+	var instant: bool = mods != null and mods.instant_on_crit(card)
+	var refund: int = 0 if mods == null else mods.refund_on_crit(card)
+	if instant:
+		rt.instant_next = true
+	if refund > 0:
+		_me().hero.gain_mana(refund)
+	_emit("crit", {"card": card, "instant": instant, "refund": refund})
+	return maxi(power + 1, roundi(float(power) * rt.tune.get_f("crit_mult")))
 
 ## Seconds until `card` is back in the hand (0 = not waiting).
 func return_left(card: CardInstance) -> float:

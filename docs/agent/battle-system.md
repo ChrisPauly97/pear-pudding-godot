@@ -463,7 +463,7 @@ All victory, defeat, and puzzle overlays live in `BattleResultUI` (extends RefCo
 - **Auto end turn** (setting `auto_end_turn`, default on, Settings → Battle): solo turn-based only (not PvP,
   co-op, team, puzzle, scripted or real time). `BattleScene._refresh_all()` ends with
   `shortcuts.check_auto_end()`; when `has_move()` is false (no affordable card, no ready attacker with attack,
-  no unused hero power — potions don't count) and no selection is in progress, End Turn reads "Ending turn…"
+  potions don't count) and no selection is in progress, End Turn reads "Ending turn…"
   and the turn ends after `AUTO_END_DELAY` (1.2 s) if still nothing is playable.
 - The WoW spell queue (`RealtimeCombat.in_queue_window`, `spell_queue` knob) predates this task.
 - Smoke: `tests/battle_input_flow_smoke.gd` (Space, auto end; in CI).
@@ -729,7 +729,6 @@ else:
 
 **Cleared on:** `SceneManager._on_battle_won()` and `_on_battle_lost()` both call `save_manager.clear_pending_battle_state()` alongside `clear_pending_battle()`.
 
-**Note:** `_hero_power_used` is not persisted — the player always gets their hero power back on resume, which is acceptable.
 
 ---
 

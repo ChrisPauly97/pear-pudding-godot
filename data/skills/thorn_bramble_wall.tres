@@ -6,10 +6,12 @@
 script = ExtResource("1_thorn_bramble_wall")
 id = "thorn_bramble_wall"
 display_name = "Bramble Wall"
-description = "A thicket closes around you between blows. +12 max HP."
+description = "Techniques gain +10% crit chance. Real-time fights only."
 skill_type = "passive"
-effect_type = "passive_hp"
-effect_value = 12
+effect_type = "mod_crit"
+effect_value = 10
+filter = "technique"
+grants_card = ""
 prerequisites = ["thorn_barbed_growth"]
 tree_row = 1
 tree_col = 0

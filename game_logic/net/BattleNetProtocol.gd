@@ -20,7 +20,6 @@ const INTENT_PLAY_CARD_AT_SLOT: String = "play_card_at_slot"
 const INTENT_PLAY_SPELL: String = "play_spell"
 const INTENT_ATTACK: String = "attack"
 const INTENT_END_TURN: String = "end_turn"
-const INTENT_HERO_POWER: String = "hero_power"
 const INTENT_POTION: String = "potion"
 const INTENT_SURRENDER: String = "surrender"
 
@@ -59,16 +58,6 @@ static func encode_attack(attacker_slot: int, target_slot: int, target_pidx: int
 ## End the sender's turn.
 static func encode_end_turn() -> Dictionary:
 	return {"v": VERSION, "type": INTENT_END_TURN}
-
-
-## Use the hero power. `target` is {} for untargeted, else {"side": int, "slot": int}.
-## effect_type/effect_value carry the sender's own skill effect, since the host
-## does not know the client's unlocked skills and must apply it authoritatively.
-static func encode_hero_power(target: Dictionary = {}, effect_type: String = "", effect_value: int = 0) -> Dictionary:
-	return {
-		"v": VERSION, "type": INTENT_HERO_POWER, "target": target.duplicate(),
-		"effect_type": effect_type, "effect_value": effect_value,
-	}
 
 
 ## Use a consumable potion identified by potion_id.
@@ -122,12 +111,6 @@ static func decode_intent(payload: Variant) -> Dictionary:
 			out["target_pidx"] = int(d.get("target_pidx", -1))
 		INTENT_END_TURN:
 			out["type"] = t
-		INTENT_HERO_POWER:
-			out["type"] = t
-			var htgt: Variant = d.get("target", {})
-			out["target"] = (htgt as Dictionary).duplicate() if htgt is Dictionary else {}
-			out["effect_type"] = str(d.get("effect_type", ""))
-			out["effect_value"] = int(d.get("effect_value", 0))
 		INTENT_POTION:
 			out["type"] = t
 			out["potion_id"] = str(d.get("potion_id", ""))

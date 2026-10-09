@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://l6gukpcq8oka"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_tech_reweave"]
+
+[resource]
+script = ExtResource("1_tech_reweave")
+id = "tech_reweave"
+card_name = "Reweave"
+cost = 1
+attack = 0
+health = 0
+card_class = "spell"
+description = "↻ Technique — Draw 2 cards (2 in real time). Returns to the bottom of your deck."
+color = Color(0.62, 0.66, 0.72, 1)
+magic_type = "rift"
+magic_branch = "flux"
+spell_effect = "draw_card"
+spell_power = 2
+can_craft = false
+is_unique = true

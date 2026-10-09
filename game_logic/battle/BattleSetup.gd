@@ -23,8 +23,7 @@ const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
-const SkillRegistry = preload("res://autoloads/SkillRegistry.gd")
-const SkillData = preload("res://data/SkillData.gd")
+const SkillMods = preload("res://game_logic/battle/SkillMods.gd")
 
 const OPENING_HAND: int = 4
 
@@ -84,22 +83,12 @@ static func apply_gear(player: PlayerState, items: Array[Dictionary], realtime: 
 	if injected_any:
 		player.draw_deck.shuffle()
 
-## Unlocked passive skills (SkillRegistry, skill_type "passive").
-static func apply_passives(player: PlayerState, skill_ids: Array) -> void:
-	for v: Variant in skill_ids:
-		var skill: SkillData = SkillRegistry.get_skill(str(v))
-		if skill == null or skill.skill_type != "passive":
-			continue
-		match skill.effect_type:
-			"passive_hp":
-				player.hero.health += skill.effect_value
-				player.hero.max_health += skill.effect_value
-			"passive_mana":
-				player.hero.bonus_mana += skill.effect_value
-			"passive_atk":
-				player.hero.attack += skill.effect_value
-			"passive_draw":
-				player.bonus_draw += skill.effect_value
+## Skill-tree card modifiers for a real-time fight (GID-179): the unlocked
+## nodes as `SkillMods` on the player (turn-based fights get none).
+static func apply_skill_mods(player: PlayerState, skill_ids: Array) -> void:
+	var mods := SkillMods.new()
+	mods.add_skills(skill_ids)
+	player.skill_mods = null if mods.is_empty() else mods
 
 ## Off-hand swing damage for an equipped item (TID-545): 0 for none or a
 ## non-attack off-hand.
@@ -284,7 +273,7 @@ static func build(cfg: Dictionary) -> Dictionary:
 		if str(cfg.get(key, "")) != "":
 			gear.append({"id": str(cfg[key])})
 	apply_gear(me, gear, true)
-	apply_passives(me, cfg.get("skills", []))
+	apply_skill_mods(me, cfg.get("skills", []))
 	me.draw_opening_hand(OPENING_HAND)
 	var tier: int = enemy_tier(enemy_type, is_boss, enemy_level)
 	var boss_hp: int = EnemyRegistry.get_boss_hp(enemy_type) if is_boss else 0

@@ -71,7 +71,6 @@ func _run() -> Array[String]:
 	var board: Object = me.get("board")
 	for c: Object in (board.call("get_cards") as Array):
 		c.set("attack_count", 0)
-	battle.set("_hero_power_used", true)
 	var turn_at: int = int(state.get("turn_number"))
 	battle.call("_refresh_all")
 	await _wait(2500)

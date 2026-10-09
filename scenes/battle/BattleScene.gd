@@ -209,8 +209,6 @@ var _ai_thinking: bool = false
 var _action_busy: bool = false
 var _game_over_handled: bool = false
 var _boss_phase2_triggered: bool = false
-var _hero_power_btn: Button = null
-var _hero_power_used: bool = false
 var _gambit_badge: Control = null
 
 # Battlefield Resonance UI (GID-059)
@@ -375,7 +373,6 @@ func _ready() -> void:
 		_state.from_dict(_saved_battle)
 		_wire_gamebus_emitter()
 		_boss_phase2_triggered = bool(_saved_battle.get("_boss_phase2", false))
-		_hero_power_used = bool(_saved_battle.get("_hero_power_used", false))
 		_bump_card_next_id(_state)
 		SceneManager.save_manager.clear_pending_battle_state()
 	else:
@@ -400,7 +397,6 @@ func _ready() -> void:
 	_enemy_hero_view.gui_input.connect(card_input._on_enemy_hero_input)
 	targeting._setup_board_drop_zone()
 	_pause_ui.add_pause_button($SidePanel)
-	consumables._add_hero_power_button()
 	modifiers._add_companion_hud()
 	consumables._add_potion_button()
 	modifiers._add_gambit_badge()
@@ -492,7 +488,6 @@ func _setup_solo_battle() -> void:
 		_state.players[0].build_deck(player_deck, 0, _dark_aligned)
 	modifiers._apply_combat_unlocks(_state.players[0])
 	modifiers._apply_equipment_effects(_state.players[0])
-	modifiers._apply_passive_skills(_state.players[0])
 	_state.players[0].draw_opening_hand(4)
 	# Spire run: hero HP persists across floors (damage carries over).
 	if SceneManager.save_manager.spire.is_spire_active():
@@ -715,7 +710,6 @@ func _show_card_inspect(card: CardInstance) -> void:
 func _make_battle_save() -> Dictionary:
 	var d: Dictionary = _state.to_dict()
 	d["_boss_phase2"] = _boss_phase2_triggered
-	d["_hero_power_used"] = _hero_power_used
 	return d
 
 func _bump_card_next_id(state: GameState) -> void:

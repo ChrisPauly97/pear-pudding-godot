@@ -300,7 +300,8 @@ func _make_skill_node(sk: SkillData, w: float, h: float, is_cross: bool = false)
 
 	# On a home-branch tab the branch is the tab you're looking at, but the
 	# Cross-Magic tab mixes three types — name the source there.
-	var type_text: String = sk.skill_type.capitalize()
+	# GID-179: actives grant a technique card; passives modify cards in real-time fights.
+	var type_text: String = "Technique card" if sk.skill_type == "active" else "Card modifier"
 	if is_cross:
 		type_text = "%s · %s" % [sk.magic_branch.capitalize(), type_text]
 	var type_lbl := _UiUtil.make_label(type_text, int(_ref * 0.016),

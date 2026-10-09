@@ -1093,6 +1093,9 @@ func _on_achievement_unlocked(achievement_id: String) -> void:
 
 func _on_level_up(new_level: int) -> void:
 	var pts: int = save_manager.skill_points
+	if pts <= 0:  # no points before level 10 (GID-179)
+		_toast.show_text("Level Up!", "Level %d" % new_level)
+		return
 	_toast.show_text("Level Up!", "Level %d — %d skill point%s to spend!" % [new_level, pts, "s" if pts != 1 else ""])
 	GameBus.hud_message_requested.emit("Level %d! Open the Skill Tree to spend %d skill point%s." % [new_level, pts,
 			"s" if pts != 1 else ""])

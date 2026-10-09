@@ -78,9 +78,9 @@ const LADDER: Array[Dictionary] = [
 			+ "Character page.")},
 	{"id": FEAT_SKILLS, "kind": "feature", "trainer": "maiteln", "level_req": 7, "cost": 100,
 		"title": "Your Magic & Skill Tree",
-		"how_to": ("Every level you've gained has banked a Skill Point. Open Menu → Skills, pick your magic — "
-			+ "Light, Dark, Verdant or Rift — and spend points on its two branches. The choice shapes "
-			+ "which spells you draw strength from, so read each branch before you commit.")},
+		"how_to": ("Open Menu → Skills and pick your magic — Light, Dark, Verdant or Rift. From level 10 "
+			+ "every level gives a Skill Point to spend on its two branches: nodes that change how your "
+			+ "cards play, and technique cards of their own. Read each branch before you commit.")},
 	{"id": FEAT_BOUNTIES, "kind": "feature", "trainer": "bounty", "level_req": 8, "cost": 120,
 		"title": "Bounty Contracts",
 		"how_to": ("The bounty board by the well posts three new contracts every day: slay a kind of enemy, "

@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://hcm9rny9bmd8"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_tech_shatterwave"]
+
+[resource]
+script = ExtResource("1_tech_shatterwave")
+id = "tech_shatterwave"
+card_name = "Shatterwave"
+cost = 3
+attack = 0
+health = 0
+card_class = "spell"
+description = "↻ Technique — Deal 3 to every enemy (4 in real time, 1.5 s cast). Returns to the bottom of your deck."
+color = Color(0.62, 0.66, 0.72, 1)
+magic_type = "rift"
+magic_branch = "fracture"
+spell_effect = "deal_damage_all"
+spell_power = 3
+can_craft = false
+is_unique = true

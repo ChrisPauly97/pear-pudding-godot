@@ -27,9 +27,44 @@ const DEFS: Dictionary = {
 		"mana_value": 1},
 	"tech_sweep": {"rt_value": 3, "recycle": 6.0, "cast": 0.0, "off_gcd": false, "level_req": 16, "learn_cost": 120},
 	"tech_daze": {"rt_value": 0, "recycle": 20.0, "cast": 0.0, "off_gcd": true, "level_req": 18, "learn_cost": 150},
+	# Skill-tree techniques (GID-179 / TID-734): owned by unlocking `skill` in the
+	# skill tree, never taught by a trainer. Branch-typed, so branch modifiers reach them.
+	"tech_pyroblast": {"rt_value": 4, "recycle": 10.0, "cast": 1.5,
+		"off_gcd": false, "skill": "ember_pyroblast"},
+	"tech_blazing_draw": {"rt_value": 2, "recycle": 20.0, "cast": 0.0,
+		"off_gcd": false, "skill": "ember_blazing_draw"},
+	"tech_restoration": {"rt_value": 9, "recycle": 18.0, "cast": 1.5,
+		"off_gcd": false, "skill": "dawn_restoration"},
+	"tech_arcane_clarity": {"rt_value": 2, "recycle": 20.0, "cast": 0.0,
+		"off_gcd": false, "skill": "dawn_arcane_clarity"},
+	"tech_soul_siphon": {"rt_value": 5, "recycle": 12.0, "cast": 1.0,
+		"off_gcd": false, "skill": "dusk_soul_siphon"},
+	"tech_mana_drain": {"rt_value": 2, "recycle": 15.0, "cast": 0.0,
+		"off_gcd": false, "skill": "dusk_mana_drain", "mana_value": 1},
+	"tech_grave_call": {"rt_value": 2, "recycle": 20.0, "cast": 0.0,
+		"off_gcd": false, "skill": "ash_grave_call"},
+	"tech_brittle_curse": {"rt_value": 3, "recycle": 10.0, "cast": 1.0,
+		"off_gcd": false, "skill": "ash_brittle_curse"},
+	"tech_overgrowth": {"rt_value": 8, "recycle": 16.0, "cast": 1.0,
+		"off_gcd": false, "skill": "bloom_overgrowth"},
+	"tech_bountiful_harvest": {"rt_value": 2, "recycle": 20.0, "cast": 0.0,
+		"off_gcd": false, "skill": "bloom_bountiful_harvest", "mana_value": 2},
+	"tech_thornburst": {"rt_value": 3, "recycle": 8.0, "cast": 0.0,
+		"off_gcd": false, "skill": "thorn_thornburst"},
+	"tech_second_bloom": {"rt_value": 7, "recycle": 15.0, "cast": 0.0,
+		"off_gcd": false, "skill": "thorn_second_bloom"},
+	"tech_reweave": {"rt_value": 2, "recycle": 15.0, "cast": 0.0,
+		"off_gcd": false, "skill": "flux_reweave"},
+	"tech_mana_surge": {"rt_value": 2, "recycle": 18.0, "cast": 0.0,
+		"off_gcd": false, "skill": "flux_mana_surge", "mana_value": 2},
+	"tech_shatterwave": {"rt_value": 4, "recycle": 12.0, "cast": 1.5,
+		"off_gcd": false, "skill": "fracture_shatterwave"},
+	"tech_scavenged_shards": {"rt_value": 2, "recycle": 15.0, "cast": 0.0,
+		"off_gcd": false, "skill": "fracture_scavenged_shards"},
 }
 
-## Trainer display order (Strike is never taught — every save starts with it).
+## Trainer techniques in display order (Strike is never taught — every save
+## starts with it). Skill-tree techniques (a `skill` key) are not listed here.
 const ORDER: Array[String] = [
 	"tech_strike", "tech_mend", "tech_kick", "tech_guard",
 	"tech_ember_lance", "tech_mana_tap", "tech_sweep", "tech_daze",
@@ -45,20 +80,41 @@ static func card_for(ability_id: String) -> String:
 static func ability_for(card_id: String) -> String:
 	return card_id.trim_prefix("tech_") if DEFS.has(card_id) else ""
 
-## Technique card ids a save knows: Strike always, plus each learned ability.
-static func known_cards(learned: Array) -> Array[String]:
+## Technique card ids a save knows: Strike always, each learned ability, and
+## each unlocked skill-tree node that grants one (GID-179).
+static func known_cards(learned: Array, skills: Array = []) -> Array[String]:
 	var out: Array[String] = ["tech_strike"]
 	for v: Variant in learned:
 		var id: String = card_for(str(v))
 		if id != "" and not out.has(id):
 			out.append(id)
+	for v: Variant in skills:
+		var sid: String = card_for_skill(str(v))
+		if sid != "" and not out.has(sid):
+			out.append(sid)
 	return out
+
+## Skill-tree node id ("ember_pyroblast") → its technique card id, or "".
+static func card_for_skill(skill_id: String) -> String:
+	for id: String in DEFS:
+		if str((DEFS[id] as Dictionary).get("skill", "")) == skill_id:
+			return id
+	return ""
+
+## True for a technique granted by the skill tree rather than a trainer.
+static func is_skill_technique(card_id: String) -> bool:
+	return def(card_id).has("skill")
 
 static func is_technique(card_id: String) -> bool:
 	return DEFS.has(card_id)
 
+## Every technique card id: trainer ones in ORDER, then the skill-tree ones.
 static func ids() -> Array[String]:
-	return ORDER.duplicate()
+	var out: Array[String] = ORDER.duplicate()
+	for id: String in DEFS:
+		if not out.has(id):
+			out.append(id)
+	return out
 
 static func def(card_id: String) -> Dictionary:
 	return DEFS.get(card_id, {}) as Dictionary

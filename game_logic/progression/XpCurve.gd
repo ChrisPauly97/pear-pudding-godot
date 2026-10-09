@@ -15,6 +15,9 @@ const MINUTES_L1: float = 10.0
 const MINUTES_STEP: float = 5.0
 const XP_PER_MIN_L1: float = 30.0
 const MAX_LEVEL: int = 60
+## Skill points start here: one at this level and one per level after (GID-179 /
+## TID-735 — banking from level 1 handed a level-9 hero eight card modifiers).
+const FIRST_SKILL_POINT_LEVEL: int = 10
 
 ## Planned minutes of play to go from `level` to the next.
 static func minutes_for(level: int) -> float:
@@ -61,3 +64,7 @@ static func migrate_xp(old_xp: int) -> int:
 	var span: int = maxi(1, legacy_xp_to_reach(lvl + 1) - lo)
 	var frac: float = clampf(float(old_xp - lo) / float(span), 0.0, 0.999)
 	return xp_to_reach(lvl) + floori(frac * float(step(lvl)))
+
+## Skill points a hero has earned in total by `level` (spent or not).
+static func skill_points_at(level: int) -> int:
+	return maxi(0, level - FIRST_SKILL_POINT_LEVEL + 1)

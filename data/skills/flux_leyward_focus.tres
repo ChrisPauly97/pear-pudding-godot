@@ -6,10 +6,12 @@
 script = ExtResource("1_flux_leyward_focus")
 id = "flux_leyward_focus"
 display_name = "Leyward Focus"
-description = "You stand where the currents cross. +1 max mana."
+description = "Techniques return to your hand 10% faster. Real-time fights only."
 skill_type = "passive"
-effect_type = "passive_mana"
-effect_value = 1
+effect_type = "mod_recycle"
+effect_value = 10
+filter = "technique"
+grants_card = ""
 prerequisites = []
 tree_row = 0
 tree_col = 0

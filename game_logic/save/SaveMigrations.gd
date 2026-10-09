@@ -15,7 +15,7 @@ const RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
 const TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
 const XpCurve = preload("res://game_logic/progression/XpCurve.gd")
 
-const CURRENT_VERSION: int = 47
+const CURRENT_VERSION: int = 48
 
 
 ## Upgrades `data` in place. `up_to` stops after that version's row. The game
@@ -98,6 +98,19 @@ static func _m46_technique_cards(d: Dictionary) -> void:
 	d["technique_deck_pending"] = pending
 	d.erase("skill_bar")
 	d["version"] = 46
+
+
+## GID-179: active skill-tree nodes became technique cards (the hero power is
+## gone). Each one an existing save unlocked is queued like v46's skill bar, so
+## SaveManager owns it and deals it into the active deck while that stays legal.
+static func _m48_skill_techniques(d: Dictionary) -> void:
+	var pending: Array = d.get("technique_deck_pending", [])
+	for v: Variant in d.get("unlocked_skills", []):
+		var card: String = TechniqueDefs.card_for_skill(str(v))
+		if card != "" and not pending.has(card):
+			pending.append(card)
+	d["technique_deck_pending"] = pending
+	d["version"] = 48
 
 
 ## GID-177: levelling became much slower (XpCurve). A save keeps its level and
@@ -264,5 +277,6 @@ static func table() -> Array:
 		[45, _m45_rifts],
 		[46, _m46_technique_cards],
 		[47, _m47_slow_xp_curve],
+		[48, _m48_skill_techniques],
 	]
 	return rows

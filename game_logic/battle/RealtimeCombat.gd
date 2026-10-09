@@ -94,6 +94,8 @@ var enemy_pushbacks: int:
 var auto_attack: bool = true
 ## Combo charges built by skill-bar hits; the next card spends them all.
 var combo: int = 0
+## An on-crit skill node fired: the player's next cast is instant (GID-179).
+var instant_next: bool = false
 ## Rolls free-cast procs; tests seed it or pin the chance knobs to 0 / 1.
 ## This fight's own rolls (procs). Randomized on construction; the balance sim
 ## (GID-176) sets `rng.seed` for a repeatable fight. Deck shuffles and resolver
@@ -538,7 +540,6 @@ func combo_full() -> bool:
 ## True while the next card is empowered: free (proc) or instant (full combo).
 func next_card_instant() -> bool:
 	return state.players[PLAYER].next_card_free or combo_full()
-
 ## A card resolved: it spends every combo charge for a mana refund. Returns
 ## the charges spent (0 = none).
 func spend_combo() -> int:

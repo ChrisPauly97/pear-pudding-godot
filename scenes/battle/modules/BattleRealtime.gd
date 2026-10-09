@@ -92,8 +92,11 @@ func maybe_start(is_fresh: bool) -> void:
 	_BattleSetup.configure_realtime(rt, player_level, enemy_type, equipped_weapon_speed(),
 			offhand_damage_for_item(str(sm.equipped_offhand), sm.gear.mult(str(sm.equipped_offhand))),
 			_battle._state.puzzle_mode)
+	# Skill-tree card modifiers and spell crits (GID-179) — real time only.
+	_BattleSetup.apply_skill_mods(_battle._state.players[RealtimeCombat.PLAYER], sm.unlocked_skills)
 	caster = PlayerCaster.new(rt)
 	caster.notify = _on_caster_event
+	_battle._resolver.power_hook = caster.modify_power
 	_enemy_tier = tier
 	_apply_live_tuning()
 	_build_ui()
@@ -262,6 +265,11 @@ func _on_caster_event(kind: String, data: Dictionary) -> void:
 			_battle._refresh_all()
 		"returned":
 			_battle._refresh_all()
+		"crit":
+			var cc := data.get("card") as CardInstance
+			var extra: String = " — next cast instant" if bool(data.get("instant", false)) else ""
+			toast("Critical %s!%s" % [cc.name, extra])
+			hit_feel(2)
 		"resolved":
 			if fight_stats != null: fight_stats.record_card_damage(int(data.get("dealt", 0)))  # TID-559 tip
 		"technique":

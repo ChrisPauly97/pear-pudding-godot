@@ -10,6 +10,7 @@ const Keywords = preload("res://game_logic/battle/Keywords.gd")
 const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
 const MagicTypes = preload("res://game_logic/MagicTypes.gd")
 const TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
+const SkillMods = preload("res://game_logic/battle/SkillMods.gd")
 
 var player_id: int
 var hero: HeroState
@@ -22,6 +23,8 @@ var is_ai: bool = false
 var bonus_draw: int = 0
 var fatigue_counter: int = 0
 var skip_next_draw: bool = false
+## Skill-tree card modifiers (GID-179); null outside real-time fights.
+var skill_mods: SkillMods = null
 var minion_attack_bonus: int = 0
 ## Most units this player may have on the board at once (real time caps Allies at
 ## 3 and enemy minions at 2 — combat skews toward the hero and spells).
@@ -163,8 +166,9 @@ func effective_cost(card: CardInstance) -> int:
 	# An essence-surge free cast (GID-139) is saved for a real card, not a technique (GID-175).
 	if next_card_free and not TechniqueDefs.is_technique(card.template_id):
 		return 0
+	var printed: int = card.cost if skill_mods == null else skill_mods.cost_for(card)
 	return BattlefieldRules.effective_cost(
-		card.cost, card.magic_branch, battlefield_biome, is_night, grasslands_card_played) * hero.mana_scale
+		printed, card.magic_branch, battlefield_biome, is_night, grasslands_card_played) * hero.mana_scale
 
 ## The card's printed cost in mana points (no battlefield discounts).
 func base_cost(card: CardInstance) -> int:

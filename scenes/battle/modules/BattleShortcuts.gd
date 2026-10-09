@@ -78,7 +78,7 @@ func has_move() -> bool:
 	for card: CardInstance in me.board.get_cards():
 		if card.attack > 0 and card.can_attack():
 			return true
-	return _battle._hero_power_btn != null and not _battle._hero_power_used
+	return false
 
 
 func _auto_end_allowed() -> bool:

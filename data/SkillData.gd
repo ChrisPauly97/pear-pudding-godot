@@ -3,12 +3,19 @@ extends Resource
 @export var id: String = ""
 @export var display_name: String = ""
 @export var description: String = ""
-## "passive" or "active"
+## "passive" (a card modifier) or "active" (grants a technique card) — GID-179.
 @export var skill_type: String = "passive"
-## Passive: "passive_hp", "passive_mana", "passive_atk", "passive_draw"
-## Active:  "active_damage_all", "active_heal", "active_draw", "active_mana"
+## Card modifiers (real-time fights only, SkillMods): "mod_recycle", "mod_cost",
+## "mod_cast", "mod_power", "mod_crit", "on_crit_instant", "on_crit_refund";
+## or "grant_technique". See combat-model.md → "Skill tree modifies cards".
 @export var effect_type: String = ""
+## % for recycle / cast / power / crit, mana units for cost / refund.
 @export var effect_value: int = 0
+## Which cards a modifier touches: a branch, "spell", "technique", "ally",
+## "damage", "heal", "any", or a card id (SkillMods.matches).
+@export var filter: String = ""
+## grant_technique: the technique card id the node owns (TechniqueDefs).
+@export var grants_card: String = ""
 @export var prerequisites: Array[String] = []
 @export var tree_row: int = 0
 @export var tree_col: int = 0

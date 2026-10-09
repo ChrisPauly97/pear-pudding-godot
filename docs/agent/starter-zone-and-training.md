@@ -24,7 +24,7 @@ visit that thing's trainer, read what it does and pay gold to learn it. Nothing 
 | 4 | `feat_minions` (hand / minion cards in battle) | combat | 40 |
 | 5 | `feat_spells` (spell cards) | combat | 60 |
 | 6 | `feat_companion` (Maiteln as battle companion) | maiteln | 80 |
-| 7 | `feat_skills` (Skills tab + magic type) | maiteln | 100 |
+| 7 | `feat_skills` (Skills tab + magic type; skill points only from level 10 — GID-179) | maiteln | 100 |
 | 8 | `feat_bounties` | bounty | 120 |
 | 9 | `feat_night_hunts` | bounty | 140 |
 | 10 | `feat_dig` (Skeleton Dig) | gravedigger | 175 |

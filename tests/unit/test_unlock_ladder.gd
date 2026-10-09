@@ -43,7 +43,7 @@ func test_design_anchors() -> void:
 
 
 func test_every_learnable_technique_is_on_the_ladder() -> void:
-	for card_id: String in TechniqueDefs.ids():
+	for card_id: String in TechniqueDefs.ORDER:  # skill-tree techniques come from the tree (GID-179)
 		if card_id != "tech_strike":
 			assert_true(UnlockLadder.has(TechniqueDefs.ability_for(card_id)), "%s taught by a trainer" % card_id)
 

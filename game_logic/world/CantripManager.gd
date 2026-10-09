@@ -70,3 +70,16 @@ static func is_on_cooldown(cantrip_id: String, cooldowns: Dictionary, current_ti
 static func cooldown_remaining(cantrip_id: String, cooldowns: Dictionary, current_time: float) -> int:
 	var expiry: float = float(cooldowns.get(cantrip_id, 0.0))
 	return int(ceil(max(0.0, expiry - current_time)))
+
+## Why `cantrip_id` can't be used now ("" = it can): too few family cards in the
+## deck, or still cooling down. One gate for every path that uses a cantrip
+## (GID-179 / TID-730: the riddle-spot dig used to skip both).
+static func use_blocker(cantrip_id: String, template_ids: Array[String], cooldowns: Dictionary,
+		current_time: float) -> String:
+	var title: String = "Ghost Phase" if cantrip_id == "ghost_phase" else "Skeleton Dig"
+	if not is_available(cantrip_id, template_ids):
+		var fam: String = "Ghost" if cantrip_id == "ghost_phase" else "Skeleton"
+		return "%s requires %d+ %s-family cards in your deck." % [title, get_threshold(cantrip_id), fam]
+	if is_on_cooldown(cantrip_id, cooldowns, current_time):
+		return "%s on cooldown (%ds)." % [title, cooldown_remaining(cantrip_id, cooldowns, current_time)]
+	return ""

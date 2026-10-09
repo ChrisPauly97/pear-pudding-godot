@@ -6,10 +6,12 @@
 script = ExtResource("1_dusk_void_tempo")
 id = "dusk_void_tempo"
 display_name = "Void Tempo"
-description = "The rhythm of the void quickens your hand. Draw 1 extra card."
+description = "Dusk techniques return to your hand 15% faster. Real-time fights only."
 skill_type = "passive"
-effect_type = "passive_draw"
-effect_value = 1
+effect_type = "mod_recycle"
+effect_value = 15
+filter = "dusk"
+grants_card = ""
 prerequisites = ["dusk_shadow_well"]
 tree_row = 1
 tree_col = 3

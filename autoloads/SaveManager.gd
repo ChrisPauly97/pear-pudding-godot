@@ -566,7 +566,7 @@ func new_game(head_start: bool = false) -> void:
 	# Head start: xp/level/skill_points kept mutually consistent (XpCurve).
 	xp = _XpCurve.xp_to_reach(15) if head_start else 0
 	level = 15 if head_start else 1
-	skill_points = 14 if head_start else 0
+	skill_points = _XpCurve.skill_points_at(15) if head_start else 0
 	unlocked_skills = []
 	# GID-141: a new game knows only Strike; everything else is taught by trainers.
 	# Head start (debug) learns the whole unlock ladder.
@@ -814,7 +814,7 @@ func _restore_derived_fields(data: Dictionary) -> void:
 	_restore_technique_cards(data)
 
 	level = maxi(1, _compute_level(xp))
-	skill_points = mini(skill_points, maxi(0, level - 1))
+	skill_points = mini(skill_points, _XpCurve.skill_points_at(level))
 	if bag_size <= 0:
 		bag_size = IsoConst.BAG_SIZE_DEFAULT
 
@@ -1338,7 +1338,15 @@ func unlock_skill(id: String) -> void:
 		return
 	unlocked_skills.append(id)
 	skill_points -= 1
+	_grant_skill_technique(id)
 	_dirty = true
+
+## GID-179: an active skill-tree node is a technique card — owned, and dealt
+## into the active deck while that stays legal (TechniqueDefs.deck_violation).
+func _grant_skill_technique(skill_id: String) -> void:
+	var tech: String = _TechniqueDefs.card_for_skill(skill_id)
+	if tech != "":
+		_add_technique_to_deck(_own_technique(tech))
 
 ## GID-175: the uid of the owned `card_id` technique, creating it if missing.
 ## Techniques are bound (one each, untradeable), so they skip the bag cap.
@@ -1373,7 +1381,7 @@ func _add_technique_to_deck(uid: String) -> bool:
 ## abilities) has its card, and a pre-GID-175 save's skill bar (SaveMigrations
 ## v46 `technique_deck_pending`) is dealt into the active deck once.
 func _restore_technique_cards(data: Dictionary) -> void:
-	for card_id: String in _TechniqueDefs.known_cards(learned_abilities):
+	for card_id: String in _TechniqueDefs.known_cards(learned_abilities, unlocked_skills):
 		_own_technique(card_id)
 	var pending: Variant = data.get("technique_deck_pending", [])
 	if pending is Array:
@@ -1421,6 +1429,7 @@ func unlock_cross_skill(id: String, cost: int, currency: String) -> void:
 			return
 		redemption_points -= cost
 	unlocked_skills.append(id)
+	_grant_skill_technique(id)
 	_dirty = true
 
 func add_corruption_points(amount: int) -> void:
@@ -1437,7 +1446,7 @@ func add_xp(amount: int) -> void:
 	xp += amount
 	var new_level: int = _compute_level(xp)
 	if new_level > level:
-		skill_points += new_level - level
+		skill_points += _XpCurve.skill_points_at(new_level) - _XpCurve.skill_points_at(level)
 		var newly: Array[String] = []
 		for l: int in range(level + 1, new_level + 1):
 			newly.append_array(_UnlockLadder.available_at(l))

@@ -287,7 +287,6 @@ Pure, scene-free, unit-tested (mirrors `AvatarSync.gd`). JSON-primitive dicts.
 | `encode_play_spell(hand_index, target={})` | spell; `target` = `{}` / `{hero:true}` / `{side,slot}` / `{slot}` (slot spells) |
 | `encode_attack(attacker_slot, target_slot)` | `target_slot == -1` (`TARGET_HERO`) = enemy hero |
 | `encode_end_turn()` / `encode_surrender()` | — |
-| `encode_hero_power(target, effect_type, effect_value)` | effect carried because the host doesn't know the client's skills |
 | `encode_potion(potion_id)` | host applies the state effect (acting peer consumed its own inventory) |
 | `encode_state(state_dict, seq)` / `decode_state` | full-state mirror with a monotonic `seq` (client drops stale) |
 

@@ -6,10 +6,12 @@
 script = ExtResource("1_dawn_wellspring")
 id = "dawn_wellspring"
 display_name = "Wellspring"
-description = "A reservoir of dawn energy grants +1 max mana."
+description = "Dawn cards cost 1 less (never below 1). Real-time fights only."
 skill_type = "passive"
-effect_type = "passive_mana"
+effect_type = "mod_cost"
 effect_value = 1
+filter = "dawn"
+grants_card = ""
 prerequisites = []
 tree_row = 0
 tree_col = 3

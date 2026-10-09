@@ -25,13 +25,10 @@ func activate_ghost_phase() -> void:
 	if not sm.has_learned(_UnlockLadder.FEAT_PHASE):
 		GameBus.hud_message_requested.emit(_UnlockLadder.locked_message(_UnlockLadder.FEAT_PHASE))
 		return
-	if not CantripManager.is_available("ghost_phase", sm.get_deck_template_ids()):
-		GameBus.hud_message_requested.emit("Ghost Phase requires 4+ Ghost-family cards in your deck.")
-		return
 	var now: float = Time.get_unix_time_from_system()
-	if CantripManager.is_on_cooldown("ghost_phase", sm.cantrip_cooldowns, now):
-		var remaining: int = CantripManager.cooldown_remaining("ghost_phase", sm.cantrip_cooldowns, now)
-		GameBus.hud_message_requested.emit("Ghost Phase on cooldown (%ds)." % remaining)
+	var why: String = CantripManager.use_blocker("ghost_phase", sm.get_deck_template_ids(), sm.cantrip_cooldowns, now)
+	if why != "":
+		GameBus.hud_message_requested.emit(why)
 		return
 	var target: Variant = _phase_target()
 	if target == null:
@@ -53,14 +50,25 @@ func activate_skeleton_dig(quiet: bool = false) -> void:
 			GameBus.hud_message_requested.emit("You can't dig while swimming.")
 		return
 	var mound: Node3D = _world._find_nearby_burial_mound(player.position.x, player.position.z, IsoConst.INTERACT_RANGE)
-	if mound == null:
-		if _world.legend.try_dig(player.position.x, player.position.z):
-			return
+	if mound != null:
+		if mound.has_method("interact"):
+			mound.call("interact")  # BurialMound runs the same deck / cooldown gate
+		return
+	if not _world.legend.has_dig_spot(player.position.x, player.position.z):
 		if not quiet:
 			GameBus.hud_message_requested.emit("No burial mound nearby to dig.")
 		return
-	if mound.has_method("interact"):
-		mound.call("interact")
+	# A legend riddle spot: the deck and cooldown gate a mound dig has (TID-730).
+	var sm := SceneManager.save_manager
+	var now: float = Time.get_unix_time_from_system()
+	var why: String = CantripManager.use_blocker("skeleton_dig", sm.get_deck_template_ids(), sm.cantrip_cooldowns, now)
+	if why != "":
+		GameBus.hud_message_requested.emit(why)
+		return
+	_world.legend.try_dig(player.position.x, player.position.z)
+	sm.cantrip_cooldowns["skeleton_dig"] = now + CantripManager.get_cooldown("skeleton_dig")
+	sm.mark_dirty()
+	GameBus.cantrip_used.emit("skeleton_dig")
 
 ## Where a phase would land: two tiles away through a single wall tile, trying
 ## the facing direction first and then every cardinal. Null when none qualifies.
