@@ -111,10 +111,20 @@ func _brew_pudding(spot: Dictionary) -> void:
 	_UiUtil.make_button("Drink deep", Vector2(vh * 0.2, vh * 0.06), int(vh * 0.022), layer.queue_free, row)
 
 
+## True when a "dig" riddle spot is in reach (Cantrips checks the deck gate first).
+func has_dig_spot(px: float, pz: float) -> bool:
+	return _dig_spot(px, pz) != null
+
 ## Skeleton Dig next to a "dig" spot; true when one was in reach (Cantrips).
 func try_dig(px: float, pz: float) -> bool:
-	var node := _world._first_node_in_range(spot_nodes, px, pz, IsoConst.INTERACT_RANGE) as _RiddleSpot
-	if node == null or str(_RiddleSpots.def(node.spot_id).get("action", "")) != "dig":
+	var node := _dig_spot(px, pz)
+	if node == null:
 		return false
 	examine(node.spot_id, "dig")
 	return true
+
+func _dig_spot(px: float, pz: float) -> _RiddleSpot:
+	var node := _world._first_node_in_range(spot_nodes, px, pz, IsoConst.INTERACT_RANGE) as _RiddleSpot
+	if node == null or str(_RiddleSpots.def(node.spot_id).get("action", "")) != "dig":
+		return null
+	return node

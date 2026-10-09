@@ -55,7 +55,7 @@ Pure static `SPOTS` table + `evaluate(spot, action, ctx) -> idle | hint | missin
 - **World module** `scenes/world/modules/Legend.gd` (`WorldScene.legend`): builds one `RiddleSpot` per spot on the
   overworld (`map_name == "main"`) on first tick, `examine(spot_id, action)` shows the line, and on `solved` sets the
   flag, emits `GameBus.legend_riddle_solved(spot_id)` and refreshes the prop. `try_dig(px, pz)` is called by
-  `Cantrips.activate_skeleton_dig` when no burial mound is in reach.
+  `Cantrips.activate_skeleton_dig` when no burial mound is in reach, after the same Skeleton-deck + cooldown gate as a mound dig (`CantripManager.use_blocker`, TID-730).
 - **Entity** `scenes/world/entities/RiddleSpot.gd`: billboard + `interact()` callback. No ring, label or marker.
 - **Interaction:** `INTERACT_PRIORITY` entry `riddle_spot` (after `burial_mound`), prompt "EXAMINE",
   `_find_nearby_riddle_spot` in `_try_simple_interaction`.

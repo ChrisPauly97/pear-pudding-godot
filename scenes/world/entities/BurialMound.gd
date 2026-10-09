@@ -54,14 +54,11 @@ func interact() -> void:
 	if not sm.has_learned(_UnlockLadder.FEAT_DIG):
 		GameBus.hud_message_requested.emit(_UnlockLadder.locked_message(_UnlockLadder.FEAT_DIG))
 		return
-	var template_ids: Array[String] = sm.get_deck_template_ids()
-	if not CantripManager.is_available("skeleton_dig", template_ids):
-		GameBus.hud_message_requested.emit("Skeleton Dig requires 4+ Skeleton-family cards in your deck.")
-		return
 	var current_time: float = Time.get_unix_time_from_system()
-	if CantripManager.is_on_cooldown("skeleton_dig", sm.cantrip_cooldowns, current_time):
-		var remaining: int = CantripManager.cooldown_remaining("skeleton_dig", sm.cantrip_cooldowns, current_time)
-		GameBus.hud_message_requested.emit("Skeleton Dig on cooldown (%ds)." % remaining)
+	var why: String = CantripManager.use_blocker("skeleton_dig", sm.get_deck_template_ids(), sm.cantrip_cooldowns,
+			current_time)
+	if why != "":
+		GameBus.hud_message_requested.emit(why)
 		return
 
 	# Seeded rewards — same mound always gives the same loot on first dig

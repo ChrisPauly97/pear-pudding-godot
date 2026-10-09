@@ -135,3 +135,22 @@ func test_cooldown_remaining_zero_when_not_on_cooldown() -> void:
 func test_cooldown_remaining_positive_when_on_cooldown() -> void:
 	var cooldowns: Dictionary = {"ghost_phase": 1010.0}
 	assert_gt(CantripManager.cooldown_remaining("ghost_phase", cooldowns, 1000.0), 0)
+
+
+# ---------------------------------------------------------------------------
+# use_blocker — the one gate every dig / phase path runs (TID-730)
+# ---------------------------------------------------------------------------
+
+func test_use_blocker_needs_skeleton_deck() -> void:
+	var ids: Array[String] = ["skeleton", "ghost", "ghost", "ghost"]
+	assert_true(CantripManager.use_blocker("skeleton_dig", ids, {}, 100.0).contains("Skeleton-family"))
+
+func test_use_blocker_respects_cooldown() -> void:
+	var ids: Array[String] = ["skeleton", "skeleton", "zombie", "ghoul"]
+	var cds: Dictionary = {"skeleton_dig": 105.0}
+	assert_true(CantripManager.use_blocker("skeleton_dig", ids, cds, 100.0).contains("cooldown (5s)"))
+	assert_eq(CantripManager.use_blocker("skeleton_dig", ids, cds, 106.0), "")
+
+func test_use_blocker_ghost_phase_message() -> void:
+	var ids: Array[String] = ["skeleton"]
+	assert_true(CantripManager.use_blocker("ghost_phase", ids, {}, 0.0).contains("Ghost-family"))

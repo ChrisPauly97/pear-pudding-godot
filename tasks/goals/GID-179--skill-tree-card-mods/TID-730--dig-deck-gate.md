@@ -2,7 +2,7 @@
 
 **Goal:** GID-179
 **Type:** agent
-**Status:** todo
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -23,12 +23,16 @@ See goal.md (user request 2026-10-09).
 
 ## Plan
 
-_TBD._
+One pure gate (`CantripManager.use_blocker`: deck family + cooldown) run by Phase, mound Dig and riddle-spot Dig.
 
 ## Changes Made
 
-_TBD._
+- `CantripManager.use_blocker(id, deck, cooldowns, now)` → message or "".
+- `Cantrips`: Phase uses it; Dig with no mound checks `Legend.has_dig_spot`, then the gate, then digs, sets the cooldown, emits `cantrip_used`.
+- `Legend`: `has_dig_spot` / `_dig_spot` split out of `try_dig`.
+- `BurialMound.interact` uses the gate.
+- Tests: 3 `use_blocker` cases in `test_cantrip_manager`.
 
 ## Documentation Updates
 
-_TBD._
+- `card-cantrips.md`, `legends-pear-pudding.md`: riddle dig is deck + cooldown gated.
