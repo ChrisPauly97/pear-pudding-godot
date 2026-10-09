@@ -642,3 +642,18 @@ branch colour). **✋ Try a hand** opens `TestHandOverlay`: shuffle sound, `samp
 - **★ Best deck** (`_on_auto_fill`): first `DeckInsights.upgrade_swaps` (each deck card → strongest unused bag copy
   of its template that beats it), then `DeckAutoFill.fill` to the same target as before; HUD line reports
   "N upgraded, M added". `DeckAutoFill` now picks the primary copy by `power_score` (rarity, then roll).
+
+### Forge, combine ritual, flag for sale (TID-742)
+
+**Selling happens only at vendors.** The bag has no Sell: the detail popup offers **For sale (Ng)** (toggle) and
+**Scrap**, bulk Select offers **For sale** and **Scrap**; `MailboxScene` lost its Sell button and
+`SaveMailbox.sell_mailbox_card` is gone.
+
+- `SaveManager.for_sale_uids` (persisted): `toggle_for_sale(uid)` (deck and unique cards refuse), `is_for_sale(uid)`.
+  `remove_card_instance` and `set_active_deck` prune it. Flagged tiles carry a "For sale" tag.
+- **Forge**: a drop zone under the binder (`_forge`). A bag card dropped there scraps at once (commons/rares) or after
+  the bulk confirm (epic+). Every scrap goes through `_forge_scrap(uid, from_rect)`: `ForgeFx.burn` (ember tint,
+  shrink, fade, `burn` sound, essence motes flying to the wallet) then `scrap_card_instance`.
+- **Combine ritual**: the popup's Combine runs `_combine` → `combine_cards` → `CombineRitual` overlay (three copies
+  orbit and spiral in, white flash, the new card lands big with sparkles and "Forged a Rare Ghost!"; tap or 2.2 s
+  closes). `tools/capture_inventory.gd COMBINE=ghost`.

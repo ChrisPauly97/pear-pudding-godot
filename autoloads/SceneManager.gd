@@ -219,7 +219,7 @@ func _ready() -> void:
 	GameBus.treasure_excavated.connect(_on_treasure_excavated)
 	GameBus.pack_purchased.connect(_on_pack_purchased)
 	GameBus.bag_full.connect(func() -> void:
-		GameBus.hud_message_requested.emit("Bag full! Sell or scrap cards to make room."))
+		GameBus.hud_message_requested.emit("Bag full! Scrap cards at the forge, or sell them at a vendor."))
 	GameBus.card_routed_to_mailbox.connect(func(template_id: String) -> void:
 		var card_name: String = str(CardRegistry.get_template(template_id).get("name", template_id))
 		GameBus.hud_message_requested.emit("%s couldn't fit in your bag — sent to the mailbox." % card_name))

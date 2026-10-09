@@ -1,7 +1,7 @@
 extends "res://scenes/ui/BaseOverlay.gd"
 
 ## Mailbox overlay (TID-413) — lists SaveManager.mailbox_cards (overflow rewards
-## that couldn't fit in the bag) with Claim / Claim All / Sell / Scrap actions.
+## that couldn't fit in the bag) with Claim / Claim All / Scrap actions (selling happens at vendors, GID-180).
 ## Tile + detail-popup pattern duplicated from InventoryScene.gd (see TID-413
 ## research notes) since the two scenes' action sets diverge (Claim vs.
 ## Add-to-deck/Combine/Rename).
@@ -149,7 +149,6 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 			HORIZONTAL_ALIGNMENT_LEFT, vb)
 
 	var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(rarity, {})
-	var sell_gold: int  = int(cfg.get("sell_gold", 0))
 	var scrap_ess: int  = int(cfg.get("scrap_essence", 0))
 
 	var action_row := _UiUtil.make_hbox(int(_ref * 0.006), vb)
@@ -158,20 +157,12 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 	claim_btn.modulate = Color(0.5, 1.0, 0.5)
 	claim_btn.pressed.connect(func() -> void:
 		if SceneManager.save_manager.is_bag_full():
-			GameBus.hud_message_requested.emit("Bag is full — sell or scrap cards to make room.")
+			GameBus.hud_message_requested.emit("Bag is full — scrap cards at the forge or sell them at a vendor.")
 			return
 		SceneManager.save_manager.mailbox.claim_mailbox_card(uid)
 		_hide_detail()
 		_refresh())
 	action_row.add_child(claim_btn)
-
-	var sell_btn := _UiUtil.make_button("Sell +%dg" % sell_gold, Vector2(_ref * 0.14, _ref * 0.06), int(_ref * 0.020))
-	sell_btn.modulate = Color(1.0, 0.9, 0.3)
-	sell_btn.pressed.connect(func() -> void:
-		SceneManager.save_manager.mailbox.sell_mailbox_card(uid)
-		_hide_detail()
-		_refresh())
-	action_row.add_child(sell_btn)
 
 	var scrap_btn := _UiUtil.make_button("Scrap +%de" % scrap_ess, Vector2(_ref * 0.14, _ref * 0.06), int(_ref * 0.020))
 	scrap_btn.modulate = Color(0.5, 0.85, 1.0)
@@ -186,5 +177,5 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 func _on_claim_all() -> void:
 	var claimed: int = SceneManager.save_manager.mailbox.claim_all_mailbox_cards()
 	if claimed == 0 and not SceneManager.save_manager.mailbox.get_mailbox_instances().is_empty():
-		GameBus.hud_message_requested.emit("Bag is full — sell or scrap cards to make room.")
+		GameBus.hud_message_requested.emit("Bag is full — scrap cards at the forge or sell them at a vendor.")
 	_refresh()

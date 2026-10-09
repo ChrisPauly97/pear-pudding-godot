@@ -5,6 +5,7 @@
 ## SCENE=inventory|shop (default inventory), WAIT_MS delays the capture,
 ## CALL=<method> calls a no-arg method on the scene before the capture,
 ## ADD=<n> adds the first n bag cards to the deck, HAND=1 opens "Try a hand",
+## COMBINE=<template> plays the combine ritual on three commons of it,
 ## PAGE=<binder page> opens that page (inventory), DRAG=1 floats a lifted drag preview (with sparkles) over the table.
 extends SceneTree
 
@@ -62,6 +63,8 @@ func _run() -> void:
 		return not (save.get("player_deck") as Array).has(str(i["uid"])))
 	for i in range(mini(add_n, bag.size())):
 		scene.call("_on_add_by_uid", str((bag[i] as Dictionary)["uid"]))
+	if OS.get_environment("COMBINE") != "":
+		scene.call("_combine", OS.get_environment("COMBINE"), "common")
 	if OS.get_environment("HAND") == "1":
 		(scene.get("_pile") as Object).emit_signal("test_hand_pressed")
 	var call: String = OS.get_environment("CALL")

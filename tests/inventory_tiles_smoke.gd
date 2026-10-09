@@ -83,4 +83,15 @@ func _run() -> Array[String]:
 	inv.call("_on_auto_fill")
 	if not (sm.get("player_deck") as Array).has(rare_uid):
 		fails.append("Best deck did not swap in the stronger %s copy" % up_tid)
+	# Forge + flag for sale (TID-742): selling is vendor-only, the bag flags and scraps.
+	var spare_uid: String = sm.call("add_card_instance", "ghost", "common")
+	inv.call("_detail_action", spare_uid, "flag", Rect2())
+	if not sm.call("is_for_sale", spare_uid):
+		fails.append("flag for sale did not stick")
+	var ess0: int = int(sm.get("essence"))
+	inv.call("_drop_into_forge", Vector2.ZERO, {"kind": "inv_card", "uid": spare_uid, "from_deck": false})
+	if not (sm.call("get_instance_by_uid", spare_uid) as Dictionary).is_empty() or int(sm.get("essence")) <= ess0:
+		fails.append("forge drop did not scrap the card for essence")
+	if (sm.get("for_sale_uids") as Array).has(spare_uid):
+		fails.append("scrapped card stayed flagged for sale")
 	return fails

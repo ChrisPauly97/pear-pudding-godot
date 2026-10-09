@@ -18,6 +18,8 @@ const BinderOps         = preload("res://game_logic/inventory/BinderOps.gd")
 const DeckInsights      = preload("res://game_logic/inventory/DeckInsights.gd")
 const _TestHandOverlay  = preload("res://scenes/ui/inventory/TestHandOverlay.gd")
 const _CombatOnboarding = preload("res://game_logic/battle/CombatOnboarding.gd")
+const _ForgeFx          = preload("res://scenes/ui/inventory/ForgeFx.gd")
+const _CombineRitual    = preload("res://scenes/ui/inventory/CombineRitual.gd")
 
 const DeckAutoFill = preload("res://game_logic/DeckAutoFill.gd")
 const _TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
@@ -76,7 +78,8 @@ var _selected: Dictionary = {}    # uid -> true
 var _select_btn: Button
 var _bulk_bar: HBoxContainer
 var _bulk_label: Label
-var _bulk_sell_btn: Button
+var _bulk_flag_btn: Button
+var _forge: PanelContainer
 var _bulk_scrap_btn: Button
 
 var _cards_panel: Control
@@ -195,8 +198,9 @@ func _build_ui() -> void:
 	extras_btn.tooltip_text = ("Select spare copies: keeps your best copy of each card, and skips\n"
 			+ "cards in any deck, renamed cards and veterans")
 	_UiUtil.make_button("None", bb, bfs, _on_select_none, _bulk_bar)
-	_bulk_sell_btn = _UiUtil.make_button("Sell", bb, bfs, _on_bulk_action.bind("sell"), _bulk_bar)
-	_bulk_sell_btn.modulate = _GOLD
+	_bulk_flag_btn = _UiUtil.make_button("For sale", bb, bfs, _apply_bulk.bind("flag"), _bulk_bar)
+	_bulk_flag_btn.modulate = _GOLD
+	_bulk_flag_btn.tooltip_text = "Flag for sale — vendors buy flagged cards in one go"
 	_bulk_scrap_btn = _UiUtil.make_button("Scrap", bb, bfs, _on_bulk_action.bind("scrap"), _bulk_bar)
 	_bulk_scrap_btn.modulate = _ESSENCE
 
@@ -212,6 +216,18 @@ func _build_ui() -> void:
 
 	_collection_list = _UiUtil.make_vbox(int(_ref * 0.008), left_scroll)
 	_collection_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	# ---- Forge: drop a bag card here to scrap it for essence (GID-180 / TID-742) ----
+	_forge = PanelContainer.new()
+	_forge.custom_minimum_size = Vector2(0.0, _ref * 0.06)
+	_forge.add_theme_stylebox_override("panel", _UiUtil.make_style(Color(0.22, 0.09, 0.04, 0.9), int(_ref * 0.01),
+			Color(1.0, 0.5, 0.2), 2))
+	_forge.tooltip_text = "Scrap cards for essence. Craft new cards with essence in the Craft tab."
+	left_vbox.add_child(_forge)
+	var forge_lbl := _UiUtil.make_label("♨  Forge — drag a card here to scrap it for essence", int(_ref * 0.019),
+			Color(1.0, 0.75, 0.45), HORIZONTAL_ALIGNMENT_CENTER, _forge)
+	forge_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_forge.set_drag_forwarding(Callable(), _can_drop_into_forge, _drop_into_forge)
 
 	if not is_portrait:
 		root_box.add_child(VSeparator.new())
@@ -284,7 +300,7 @@ func _build_toolbar(row: HBoxContainer) -> void:
 	_sort_btn = _UiUtil.make_button("", Vector2(_ref * 0.17, h), int(_ref * 0.018), _on_cycle_sort, row)
 	_sort_btn.tooltip_text = "Change the bag's sort order"
 	_select_btn = _UiUtil.make_button("", Vector2(_ref * 0.13, h), int(_ref * 0.018), _on_toggle_select, row)
-	_select_btn.tooltip_text = "Pick several cards to sell or scrap at once"
+	_select_btn.tooltip_text = "Pick several cards to scrap or flag for sale at once"
 
 # -------------------------------------------------------------------------
 # Refresh
@@ -429,8 +445,9 @@ func _refresh_cards() -> void:
 			var inst: Dictionary = st["best"]
 			var n: int = (st["copies"] as Array).size()
 			var uid: String = str(inst.get("uid", ""))
-			var sig: String = "%d|%s|%s|%s|%s|%d|%d|%s" % [inst.hash(), str(membership.get(uid, "")),
-					_selected.has(uid), _select_mode, face, int(_ref), n, DeckInsights.is_upgrade(inst, deck_now)]
+			var sig: String = "%d|%s|%s|%s|%s|%d|%d|%s|%s" % [inst.hash(), str(membership.get(uid, "")),
+					_selected.has(uid), _select_mode, face, int(_ref), n, DeckInsights.is_upgrade(inst, deck_now),
+					sm.is_for_sale(uid)]
 			var tile: Control = _tiles.take(uid, sig)
 			if tile == null:
 				tile = _make_card_tile(inst, membership)
@@ -512,9 +529,9 @@ func _refresh_toolbar() -> void:
 	var picked: Array[Dictionary] = _selected_instances()
 	var value: Dictionary = BagOps.bulk_value(picked)
 	_bulk_label.text = "%d selected" % picked.size()
-	_bulk_sell_btn.text = "Sell +%dg" % int(value.get("gold", 0))
+	_bulk_flag_btn.text = "For sale (%dg)" % int(value.get("gold", 0))
 	_bulk_scrap_btn.text = "Scrap +%de" % int(value.get("essence", 0))
-	_bulk_sell_btn.disabled = picked.is_empty()
+	_bulk_flag_btn.disabled = picked.is_empty()
 	_bulk_scrap_btn.disabled = picked.is_empty()
 
 func _selected_instances() -> Array[Dictionary]:
@@ -567,6 +584,8 @@ func _make_card_tile(inst: Dictionary, membership: Dictionary) -> Control:
 	var tmpl: Dictionary  = _template(tid)
 	var card_color: Color = tmpl.get("color", Color(0.3, 0.3, 0.35))
 	var tag: String = "In %s" % str(membership[uid]) if membership.has(uid) else ""
+	if SceneManager.save_manager.is_for_sale(uid):
+		tag = "For sale"
 	var selectable: bool = _is_selectable(inst, membership)
 	var cube := _CardTile.build(inst, tmpl, _ref, tag, _selected.has(uid), _select_mode and not selectable)
 
@@ -691,7 +710,7 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 		_UiUtil.make_label("%d kills  ·  %d battles survived" % [kills, survived], int(_ref * 0.017),
 				Color(1.0, 0.82, 0.2), HORIZONTAL_ALIGNMENT_LEFT, vb)
 	if membership.has(uid):
-		var warn := _UiUtil.make_label("In %s — selling or scrapping removes it from that deck."
+		var warn := _UiUtil.make_label("In %s — scrapping removes it from that deck."
 				% str(membership[uid]), int(_ref * 0.017), Color(1.0, 0.7, 0.4), HORIZONTAL_ALIGNMENT_LEFT, vb)
 		warn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
@@ -725,11 +744,16 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 	if not bool(tmpl.get("is_unique", false)):
 		var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(rarity, {})
 		var action_row := _UiUtil.make_hbox(int(_ref * 0.006), vb)
-		var sell_btn := _UiUtil.make_button("Sell +%dg" % int(cfg.get("sell_gold", 0)),
-				Vector2(_ref * 0.155, _ref * 0.058), int(_ref * 0.019), _detail_action.bind(uid, "sell"), action_row)
-		sell_btn.modulate = _GOLD
+		var flagged: bool = SceneManager.save_manager.is_for_sale(uid)
+		var flag_btn := _UiUtil.make_button("Unflag sale" if flagged else "For sale (%dg)" % int(cfg.get("sell_gold", 0)),
+				Vector2(_ref * 0.17, _ref * 0.058), int(_ref * 0.019), _detail_action.bind(uid, "flag", Rect2()),
+				action_row)
+		flag_btn.modulate = _GOLD
+		flag_btn.tooltip_text = "Vendors buy every flagged card in one go"
+		flag_btn.disabled = _working_deck.has(uid)
 		var scrap_btn := _UiUtil.make_button("Scrap +%de" % int(cfg.get("scrap_essence", 0)),
-				Vector2(_ref * 0.155, _ref * 0.058), int(_ref * 0.019), _detail_action.bind(uid, "scrap"), action_row)
+				Vector2(_ref * 0.155, _ref * 0.058), int(_ref * 0.019),
+				_detail_action.bind(uid, "scrap", anchor.get_global_rect()), action_row)
 		scrap_btn.modulate = _ESSENCE
 
 		# Combine 3× same template+rarity → next tier (not for legendaries).
@@ -744,10 +768,7 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 			var next_rarity: String = IsoConst.RARITY_ORDER[next_idx]
 			var combine_btn := _UiUtil.make_button("Combine 3 → %s  (%d/3)" % [next_rarity.capitalize(),
 					mini(avail_count, 3)], Vector2(_ref * 0.3, _ref * 0.058), int(_ref * 0.019), func() -> void:
-				SceneManager.save_manager.combine_cards(tid, rarity)
-				_prune_working_deck()
-				_hide_instance_detail()
-				_refresh_cards(), vb)
+				_combine(tid, rarity), vb)
 			combine_btn.modulate = _UiUtil.rarity_color(next_rarity)
 			combine_btn.disabled = avail_count < 3
 			combine_btn.tooltip_text = "Merge three spare %s copies into one %s" % [rarity, next_rarity]
@@ -795,11 +816,11 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 		px = tile_rect.position.x - float(popup.size.x) - _ref * 0.01
 	popup.position.x = int(maxf(px, 0.0))
 
-func _detail_action(uid: String, action: String) -> void:
-	if action == "sell":
-		SceneManager.save_manager.sell_card_instance(uid)
+func _detail_action(uid: String, action: String, from: Rect2) -> void:
+	if action == "flag":
+		SceneManager.save_manager.toggle_for_sale(uid)
 	else:
-		SceneManager.save_manager.scrap_card_instance(uid)
+		_forge_scrap(uid, from)
 	_selected.erase(uid)
 	_prune_working_deck()
 	_hide_instance_detail()
@@ -821,7 +842,7 @@ func _on_toggle_select() -> void:
 
 func _toggle_selected(uid: String, selectable: bool) -> void:
 	if not selectable:
-		GameBus.hud_message_requested.emit("That card is in a deck or can't be sold")
+		GameBus.hud_message_requested.emit("That card is in a deck or can't be scrapped")
 		return
 	if _selected.has(uid):
 		_selected.erase(uid)
@@ -843,14 +864,68 @@ func _on_select_extras() -> void:
 		GameBus.hud_message_requested.emit("No spare copies — you only hold your best copy of each card")
 	_refresh_cards()
 
-## Confirms, then sells or scraps every selected card in one go.
+## Scraps `uid` with the forge burn: the card burns at `from` (global rect; the
+## forge when empty) and its essence flies to the wallet.
+func _forge_scrap(uid: String, from: Rect2) -> void:
+	var sm := SceneManager.save_manager
+	var inst: Dictionary = sm.get_instance_by_uid(uid)
+	if inst.is_empty():
+		return
+	if from.size == Vector2.ZERO:
+		var fr: Rect2 = _forge.get_global_rect()
+		from = Rect2(fr.get_center() - _CardTile.tile_size(_ref) * 0.5, _CardTile.tile_size(_ref))
+	var wallet: Rect2 = _wallet_label.get_global_rect()
+	var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(str(inst.get("rarity", "common")), {})
+	var ess: int = int(cfg.get("scrap_essence", 0))
+	_ForgeFx.burn(self, inst, _template(str(inst.get("template_id", ""))), from, wallet.get_center(), _ref,
+			clampi(ess / 5, 4, 16))
+	sm.scrap_card_instance(uid)
+
+func _can_drop_into_forge(_at: Vector2, data: Variant) -> bool:
+	if not _is_card_drag(data, false):
+		return false
+	var inst: Dictionary = SceneManager.save_manager.get_instance_by_uid(str((data as Dictionary).get("uid", "")))
+	var ok: bool = not inst.is_empty() and not bool(_template(str(inst.get("template_id", ""))).get("is_unique", false))
+	_forge.modulate = Color(1.5, 1.2, 0.9) if ok else Color(0.7, 0.5, 0.5)
+	return ok
+
+## Commons and rares burn at once; an epic or legendary asks first.
+func _drop_into_forge(_at: Vector2, data: Variant) -> void:
+	_forge.modulate = Color.WHITE
+	var uid: String = str((data as Dictionary).get("uid", ""))
+	var inst: Dictionary = SceneManager.save_manager.get_instance_by_uid(uid)
+	if IsoConst.RARITY_ORDER.find(str(inst.get("rarity", "common"))) < 2:
+		_detail_action(uid, "scrap", Rect2())
+		return
+	_selected.clear()
+	_selected[uid] = true
+	_on_bulk_action("scrap")
+
+## Combine 3 → next tier, played as the orbit-and-merge ritual.
+func _combine(tid: String, rarity: String) -> void:
+	var sm := SceneManager.save_manager
+	var sources: Array[Dictionary] = []
+	for other: Dictionary in sm.get_owned_instances():
+		if sources.size() < 3 and str(other.get("template_id", "")) == tid and str(other.get("rarity", "")) == rarity \
+				and not sm.player_deck.has(str(other.get("uid", ""))):
+			sources.append(other.duplicate())
+	var result: Dictionary = sm.combine_cards(tid, rarity)
+	_prune_working_deck()
+	_hide_instance_detail()
+	_refresh_cards()
+	if result.is_empty():
+		return
+	var ritual: _CombineRitual = _CombineRitual.new()
+	add_child(ritual)
+	ritual.play(sources, result, _template(tid), _ref)
+
+## Confirms, then scraps every selected card in one go.
 func _on_bulk_action(action: String) -> void:
 	var picked: Array[Dictionary] = _selected_instances()
 	if picked.is_empty():
 		return
 	var value: Dictionary = BagOps.bulk_value(picked)
-	var reward: String = "+%d gold" % int(value.get("gold", 0)) if action == "sell" \
-			else "+%d essence" % int(value.get("essence", 0))
+	var reward: String = "+%d essence" % int(value.get("essence", 0))
 	var by_rarity: Dictionary = {}
 	for inst: Dictionary in picked:
 		var r: String = str(inst.get("rarity", "common"))
@@ -873,7 +948,7 @@ func _on_bulk_action(action: String) -> void:
 			func() -> void:
 				popup.queue_free()
 				_apply_bulk(action), btn_row)
-	yes.modulate = _GOLD if action == "sell" else _ESSENCE
+	yes.modulate = _ESSENCE
 	_UiUtil.make_button("Cancel", Vector2(_ref * 0.14, _ref * 0.065), int(_ref * 0.022),
 			func() -> void: popup.queue_free(), btn_row)
 	popup.popup_centered()
@@ -882,14 +957,15 @@ func _apply_bulk(action: String) -> void:
 	var sm := SceneManager.save_manager
 	var membership: Dictionary = _deck_membership()
 	for inst: Dictionary in _selected_instances():
-		# Re-check at apply time: a deck edit since selecting must not be undone by a sale.
+		# Re-check at apply time: a deck edit since selecting must not be undone by a scrap.
 		if not _is_selectable(inst, membership):
 			continue
 		var uid: String = str(inst.get("uid", ""))
-		if action == "sell":
-			sm.sell_card_instance(uid)
+		if action == "flag":
+			if not sm.is_for_sale(uid):
+				sm.toggle_for_sale(uid)
 		else:
-			sm.scrap_card_instance(uid)
+			_forge_scrap(uid, Rect2())
 	_selected.clear()
 	_select_mode = false
 	_prune_working_deck()
@@ -1001,6 +1077,8 @@ func _hide_compare() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_DRAG_END:
 		_hide_compare()
+		if _forge != null:
+			_forge.modulate = Color.WHITE
 
 ## Puts bag card `new_uid` into the deck in place of `old_uid`.
 func _swap_in(new_uid: String, old_uid: String) -> void:

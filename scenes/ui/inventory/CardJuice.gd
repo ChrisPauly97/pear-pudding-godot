@@ -83,7 +83,8 @@ static func twinkle(ctrl: Control) -> void:
 	tw.parallel().tween_property(ctrl, "modulate:a", 1.0, 0.7)
 
 
-## Card sounds: "pick" (lift), "place" (lands in the deck), "return" (back to the bag).
+## Card sounds: "pick" (lift), "place" (lands in the deck), "return" (back to the bag),
+## "burn" (forge), "shuffle".
 static func sound(kind: String) -> void:
 	match kind:
 		"pick":
@@ -92,6 +93,8 @@ static func sound(kind: String) -> void:
 			AudioManager.play_sfx_varied("card_play", 1.0, 0.05, 1.0)
 		"return":
 			AudioManager.play_sfx_varied("card_draw", 0.85, 0.05, 1.0)
+		"burn":
+			AudioManager.play_sfx_varied("spell_resolve", 0.75, 0.05, 1.0)
 		"shuffle":
 			for i in range(3):
 				AudioManager.play_sfx_varied("card_draw", 0.9 + 0.12 * i, 0.08, 2.0)

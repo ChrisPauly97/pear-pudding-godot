@@ -56,7 +56,7 @@ const _OWNED_BY_SLOT: Dictionary = {
 ## `player_deck`) are fixed up after the pass — see `_restore_derived_fields`.
 ## `test_save_manager` asserts every key here is a real property.
 const PERSISTED_FIELDS: Dictionary = {
-	"owned_cards": [], "mailbox_cards": [], "player_deck": [], "loadouts": [],
+	"owned_cards": [], "mailbox_cards": [], "player_deck": [], "loadouts": [], "for_sale_uids": [],
 	"active_loadout": 0, "essence": 0, "coins": 0,
 	"current_map": "main", "player_x": 0.0, "player_z": 0.0,
 	"map_stack": [], "door_stack": [],
@@ -133,6 +133,10 @@ var owned_cards: Array[Dictionary] = []
 # Overflow queue for card rewards that couldn't fit in the bag when granted.
 # Never counts against bag_size; not indexed in _uid_index until claimed.
 var mailbox_cards: Array[Dictionary] = []
+
+# Bag cards the player flagged "for sale" (GID-180): selling happens only at a
+# vendor, which offers these as one basket. Pruned when a card leaves the bag.
+var for_sale_uids: Array[String] = []
 
 # Cards currently in the active battle deck — list of UIDs from owned_cards.
 # This mirrors loadouts[active_loadout].cards and is kept in sync at all times.
@@ -934,6 +938,9 @@ func grant_achievement_card(card_id: String) -> void:
 
 func set_active_deck(new_deck: Array[String]) -> void:
 	player_deck.assign(new_deck)
+	# A card put into the deck is no longer for sale.
+	for uid: String in player_deck:
+		for_sale_uids.erase(uid)
 	if active_loadout >= 0 and active_loadout < loadouts.size():
 		var synced: Array[String] = []
 		synced.assign(player_deck)
@@ -1008,6 +1015,7 @@ func grant_card_reward(template_id: String, rarity: String, attack: int = -1, he
 ## Removes a card instance by UID from owned_cards, player_deck, and all loadouts.
 func remove_card_instance(uid: String) -> void:
 	_uid_index.erase(uid)
+	for_sale_uids.erase(uid)
 	for i in range(owned_cards.size() - 1, -1, -1):
 		if str(owned_cards[i].get("uid", "")) == uid:
 			owned_cards.remove_at(i)
@@ -1021,6 +1029,24 @@ func remove_card_instance(uid: String) -> void:
 		if lo_idx >= 0:
 			lo_cards.remove_at(lo_idx)
 	_dirty = true
+
+## Flags / unflags a bag card for sale at the next vendor (GID-180). Deck cards and
+## unique cards can't be flagged. Returns the new flag state.
+func toggle_for_sale(uid: String) -> bool:
+	if for_sale_uids.has(uid):
+		for_sale_uids.erase(uid)
+		_dirty = true
+		return false
+	var inst: Dictionary = get_instance_by_uid(uid)
+	if inst.is_empty() or player_deck.has(uid) \
+			or bool(CardRegistry.get_template(str(inst.get("template_id", ""))).get("is_unique", false)):
+		return false
+	for_sale_uids.append(uid)
+	_dirty = true
+	return true
+
+func is_for_sale(uid: String) -> bool:
+	return for_sale_uids.has(uid)
 
 ## Sells a card instance for gold. No-op if uid not found or card is unique.
 func sell_card_instance(uid: String) -> void:

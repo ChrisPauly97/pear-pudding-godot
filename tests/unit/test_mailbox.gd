@@ -76,16 +76,6 @@ func test_claim_all_stops_at_capacity() -> void:
 	assert_eq(claimed, 2)
 	assert_eq(sm.mailbox_cards.size(), 1)
 
-func test_sell_mailbox_card_awards_gold_and_removes_entry() -> void:
-	var sm := SaveManagerScript.new()
-	sm.new_game()
-	_fill_bag(sm)
-	var uid: String = sm.grant_card_reward("bat", "common")
-	var coins_before: int = sm.coins
-	sm.mailbox.sell_mailbox_card(uid)
-	assert_eq(sm.mailbox_cards.size(), 0)
-	assert_true(sm.coins > coins_before)
-
 func test_scrap_mailbox_card_awards_essence_and_removes_entry() -> void:
 	var sm := SaveManagerScript.new()
 	sm.new_game()

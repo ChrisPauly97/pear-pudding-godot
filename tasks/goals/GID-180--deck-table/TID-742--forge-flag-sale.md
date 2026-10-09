@@ -2,7 +2,7 @@
 
 **Goal:** GID-180
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-737, TID-738
 
 ## Lock
@@ -31,12 +31,16 @@ Shared context:
 
 ## Plan
 
-_Written during Plan phase._
+Remove Sell from bag + mailbox; persisted for_sale_uids + toggle; forge drop zone with ForgeFx burn; CombineRitual overlay for combine.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `SaveManager`: `for_sale_uids` (PERSISTED_FIELDS), `toggle_for_sale`, `is_for_sale`, pruning in `remove_card_instance` / `set_active_deck`.
+- `SaveMailbox.sell_mailbox_card` + its test removed; `MailboxScene` Sell button removed; bag-full messages point to forge/vendor (`MailboxScene`, `SceneManager`).
+- New `scenes/ui/inventory/ForgeFx.gd`, `CombineRitual.gd`; `CardJuice.sound("burn")`.
+- `InventoryScene`: forge drop zone, `_forge_scrap`, `_combine`, flag toggle in popup + bulk, For-sale tag.
+- Smoke: flag + forge scrap. Visual check of forge + ritual.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/inventory-and-deck.md`: Forge / ritual / flag section.
