@@ -424,6 +424,73 @@ These reach shops, drafts, drops and crafting through the normal
 
 ---
 
+### Ally Roster — Verdant & Rift (GID-183 / TID-767)
+
+**Rift half built (TID-769):** the eight rift Allies below are `data/cards/flux_skitter`,
+`flux_blinkfox`, `flux_warp_adept`, `flux_temporal_rider`, `fracture_shardling`,
+`fracture_mirror_wight`, `fracture_displacer`, `fracture_unmaker` (`.tres` + `.uid`), registered in
+`CardRegistry._ensure_loaded()` and mapped in `CardArtRegistry._CARD_ART` (families as listed).
+`fracture_displacer` is the only card with a new effect: `emergence_freeze_random` (see battle-system.md).
+
+Design notes below. Every Ally below uses a keyword that exists (`ward`, `surge`, `shroud`) and/or an
+emergence effect that `SpellEffectResolver.resolve_emergence` already runs, except one flagged
+new mechanic. Stat budget is matched to the light/dark Allies: cost 1 ≈ 3 stat points, cost 2 ≈ 4,
+cost 3 ≈ 5–6, cost 4 ≈ 6–7 (a keyword or emergence buys roughly one stat point), cost 5 ≈ 8.
+Verdant identity is sustain, ward and growth (Bloom heals and grows, Thorn wards and retaliates).
+Rift identity is tempo, shroud and displacement (Flux acts fast, Fracture hides and stops things).
+
+| ID | Name | Branch | Cost | ATK/HP | Keyword / ability (existing) | Flavour | Art family |
+|---|---|---|---|---|---|---|---|
+| `bloom_sprout` | Sproutling | Bloom | 1 | 1/2 | `emergence_heal_hero` 1 | It is small, and it has already begun sharing its water. | herbalist |
+| `bloom_grove_mother` | Grove Mother | Bloom | 3 | 1/5 | `emergence_heal_hero` 3 | Every wound in the grove is somebody's nursery. | stag |
+| `bloom_rootweaver` | Rootweaver | Bloom | 4 | 2/5 | `emergence_buff_friendly` 1 | Its roots reach for the nearest friend and pull it closer. | treant |
+| `bloom_elder_root` | Elder Root | Bloom | 5 | 2/6 | `ward`; `emergence_heal_hero` 3 | It was here before the road, and it means to be here after. | treant |
+| `thorn_briar_sprite` | Briar Sprite | Thorn | 2 | 1/3 | `emergence_apply_poison` 1 | Brush it once and you will remember which hand. | worm |
+| `thorn_bramble_warden` | Bramble Warden | Thorn | 3 | 1/4 | `ward` | It never attacks. It has never needed to. | treant |
+| `thorn_thornback` | Thornback Briarhound | Thorn | 4 | 2/4 | `ward`; `emergence_apply_poison` 1 | Its spines grow back faster than you can take them. | wolf_pack |
+| `thorn_briarwall` | Briarwall Colossus | Thorn | 5 | 2/6 | `emergence_deal_damage` 2 (verdant school) | Walk into the thorns and the thorns walk into you. | terror |
+| `flux_skitter` | Skitterwisp | Flux | 1 | 1/2 | `emergence_draw` 1 | It arrives before the thing it came to warn about. | scout |
+| `flux_blinkfox` | Blinkfox | Flux | 2 | 2/2 | `surge` | There is always one more fox than you counted. | rift_echo |
+| `flux_warp_adept` | Warp Adept | Flux | 3 | 1/3 | `emergence_buff_friendly` 2 | She is already where she said she would be, which is rude. | duelist |
+| `flux_temporal_rider` | Temporal Rider | Flux | 5 | 3/3 | `surge`; `emergence_deal_damage` 2 (rift school) | He has been a moment early three days running. | rival |
+| `fracture_shardling` | Shardling | Fracture | 2 | 1/3 | `shroud` | A piece of something that was once whole, now mostly corners. | scarab |
+| `fracture_mirror_wight` | Mirror Wight | Fracture | 3 | 1/4 | `emergence_apply_poison` 1 | It shows you the wound before you have taken it. | ghost |
+| `fracture_displacer` | Displacer | Fracture | 4 | 2/4 | `shroud`; **NEW** `emergence_freeze_random` 1 | Every step it takes leaves the ground slightly less where it was. | warden |
+| `fracture_unmaker` | Unmaker | Fracture | 5 | 3/3 | `shroud`; `emergence_deal_damage` 2 (rift school) | The seam splits, and whatever sat on the seam is no longer there. | undead_elite |
+
+Art families are keys of `tools/generate_cards.py` `FAMILIES`, except `ghost` (the existing
+`_CARD_GHOST` in `game_logic/CardArtRegistry.gd`). Families are reused across cards (as `treant`,
+`worm`, `terror` are); TID-768 / TID-769 should check each portrait reads as the card and swap
+to a nearby family if not.
+
+Notes for the build tasks:
+- **Near-duplicate check.** Bramble Warden (1/4 ward) sits next to Bog Treant (1/5 ward, `treant`);
+  the 1 HP gap keeps the Thorn ward card below the Treant's stat line.
+- **Verdant Allies hit as verdant, Rift Allies hit as rift** (`DamageSchools.school_of`), so the
+  emergence damage on Briarwall and Unmaker, and the Thorn poison, follow the school rules in
+  `docs/agent/damage-schools.md`.
+- **One new mechanic (flagged).** `emergence_freeze_random` (Displacer): on placement, call
+  `apply_status("freeze", power)` on one random enemy minion, the same call `freeze_single` uses in
+  `SpellEffectResolver.gd`. Estimate: one `match` arm in `resolve_emergence` (~6 lines), one entry in
+  the emergence key list in `battle-system.md` and the `CardData` docs, and an `EMERGENCE_LABELS`
+  line for the card face. About 30 min including one unit test. Everything else in the roster uses
+  existing keys. If the build task wants to avoid it, Displacer becomes a plain `shroud` 2/4 at cost 4.
+- **Drop biomes** are TID-770's call; the roster does not set them.
+
+**Distribution (TID-770).** Every new Ally reaches the player three ways. Enemy decks are unchanged; only `drop_pool`s moved.
+
+| Ally school | Where it drops (`EnemyRegistry` `drop_pool`) | Cost 1–2 | Cost 3 | Cost 4–5 |
+|---|---|---|---|---|
+| Verdant (Bloom + Thorn) | `wolf_pack` (t1), `cactus_worm` (t1), `imbued_stag` (t2), `forest_shade` (t2), `bog_hag` (t2) | `bloom_sprout`, `thorn_briar_sprite` | `bloom_grove_mother`, `thorn_bramble_warden` | `bloom_rootweaver`, `thorn_thornback`; `bloom_elder_root`, `thorn_briarwall` (bog_hag only: no forest type is tier 3+) |
+| Rift (Flux + Fracture) | `spectre_wisp` (t1), `wraith` (t1), `scarab_swarm` (t2), `spectre_haunt` (t2), `ember_cultist` (t3), `scorched_revenant` (t3), `rift_echo` (t3), `spectre_dread` (t3), `roaming_terror` (t4) | `flux_skitter`, `fracture_shardling`, `flux_blinkfox` | `flux_warp_adept`, `fracture_mirror_wight` | `fracture_displacer`, `flux_temporal_rider`, `fracture_unmaker` |
+
+- **Packs:** `PackDefs.roll_pack` draws from every `is_craftable()` card, so all 16 are in both Standard and Premium packs with no table change.
+- **Shop:** `ShopScene` lists every unlocked, non-signature card at every town, so all 16 are sold there. Maykalene's dockmaster (Rift) and Blancogov's herbalist-trader (Verdant) pay the +25 % favoured-school sell bonus (`VendorPrefs`).
+- **Traveling merchant:** `WorldEvents._MERCHANT_CARD_POOL` gains the four cost-5 Allies (`bloom_elder_root`, `thorn_briarwall`, `flux_temporal_rider`, `fracture_unmaker`).
+- **Test:** `tests/unit/test_ally_distribution.gd` asserts every new Ally is in a drop pool and has a pack/shop/merchant route.
+
+---
+
 ## Card Stat Proposals
 
 ### Ember Branch Cards

@@ -57,6 +57,8 @@ const _MERCHANT_CARD_POOL: Array[String] = [
 	"soul_rend", "shrouded_wraith", "veiled_paladin", "ash_warden",
 	"duel_crown", "surge_spirit", "dawn_guardian", "dawn_paladin",
 	"blitz_ghoul", "void_creeper",
+	# GID-183 / TID-770: the cost-5 Verdant and Rift Allies (Maykalene and Blancogov favour these schools).
+	"bloom_elder_root", "thorn_briarwall", "flux_temporal_rider", "fracture_unmaker",
 ]
 
 

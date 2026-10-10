@@ -744,4 +744,5 @@ Agent-owned feature docs. Each covers Key Features, How It Works, Integrations, 
 | [docs/agent/balance-sim.md](docs/agent/balance-sim.md) | Headless seeded balance simulator: BattleSetup / PlayerCaster / BalanceBot / BalanceFight, `tools/balance_sim.gd` CLI, sweeps, balance targets (GID-176) |
 | [docs/agent/professions.md](docs/agent/professions.md) | Professions (Alchemy, Cooking, Crafting): ProfessionDefs materials/recipes/XP, gathering + drops, stations, cooking buffs, alchemy, gear crafting, Master Artisan trainer, Character block (GID-182) |
 | [docs/agent/legends-pear-pudding.md](docs/agent/legends-pear-pudding.md) | Secret Pear Pudding legend: townsfolk tales, Old Tales journal, riddle spots, Bottomless Pudding (GID-153) |
+| [docs/agent/damage-schools.md](docs/agent/damage-schools.md) | Damage schools (physical + magic types), resist/weak/immune profiles, DamageSchools.mult knobs in CombatTuning (GID-181) |
 | [docs/human/story.md](docs/human/story.md) | Story bible: characters, chapters, NPC dialogue, map specs (human-owned) |

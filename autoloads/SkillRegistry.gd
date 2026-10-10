@@ -52,6 +52,11 @@ const _S_EMBER_INFERNO_SURGE := preload("res://data/skills/ember_inferno_surge.t
 const _S_EMBER_PYROBLAST     := preload("res://data/skills/ember_pyroblast.tres")
 const _S_EMBER_SEARING_FOCUS := preload("res://data/skills/ember_searing_focus.tres")
 const _S_EMBER_TORCH_BEARER  := preload("res://data/skills/ember_torch_bearer.tres")
+# GID-181 / TID-754: row-3 school nodes (school_power / school_resist), one per Light/Dark branch pair.
+const _S_EMBER_KINDLED_LIGHT := preload("res://data/skills/ember_kindled_light.tres")
+const _S_DAWN_SUNWARD_WARD   := preload("res://data/skills/dawn_sunward_ward.tres")
+const _S_DUSK_UMBRAL_EDGE    := preload("res://data/skills/dusk_umbral_edge.tres")
+const _S_BLOOM_ROOTED_WARD   := preload("res://data/skills/bloom_rooted_ward.tres")
 
 static var _skills: Dictionary = {}
 static var _loaded: bool = false
@@ -81,6 +86,7 @@ static func _ensure_loaded() -> void:
 		_S_FRACTURE_FAULT_LINE, _S_FRACTURE_HAIRLINE_CRACK,
 		_S_FRACTURE_HOLLOW_CORE, _S_FRACTURE_SCAVENGED_SHARDS,
 		_S_FRACTURE_SHATTERWAVE, _S_FRACTURE_SPLINTERING,
+		_S_EMBER_KINDLED_LIGHT, _S_DAWN_SUNWARD_WARD, _S_DUSK_UMBRAL_EDGE, _S_BLOOM_ROOTED_WARD,
 	], "SkillRegistry")
 
 static func get_skill(id: String) -> SkillData:

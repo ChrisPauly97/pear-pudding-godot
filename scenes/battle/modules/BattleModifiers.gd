@@ -14,6 +14,8 @@ const _BattleScene = preload("res://scenes/battle/BattleScene.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
+const DamageResolver = preload("res://game_logic/battle/DamageResolver.gd")
+const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
 const CompanionRegistry = preload("res://autoloads/CompanionRegistry.gd")
@@ -22,6 +24,8 @@ const Gambits = preload("res://game_logic/battle/Gambits.gd")
 const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
+const _GameState = preload("res://game_logic/battle/GameState.gd")
+const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
 
 var _battle: _BattleScene
 ## Enemy type + tier the fight traits apply for (set with the pack).
@@ -35,6 +39,14 @@ func _init(battle: _BattleScene) -> void:
 
 func _apply_equipment_effects(player: PlayerState) -> void:
 	var sm := SceneManager.save_manager
+	var items: Array[Dictionary] = _equipped_items()
+	_BattleSetup.apply_gear(player, items, sm.battle_mode().begins_with("realtime"))
+	_BattleSetup.apply_school_power(player, items, sm.unlocked_skills)  # GID-181 / TID-754
+	_apply_well_fed(player)
+
+## The equipped items for this fight, each with its level, rarity mult and school affix.
+func _equipped_items() -> Array[Dictionary]:
+	var sm := SceneManager.save_manager
 	var items: Array[Dictionary] = []
 	for item_id: String in [sm.equipped_weapon, sm.equipped_armor, sm.equipped_ring, sm.equipped_trinket,
 			sm.equipped_offhand, sm.equipped_shoulders, sm.equipped_helmet, sm.equipped_boots]:
@@ -44,9 +56,10 @@ func _apply_equipment_effects(player: PlayerState) -> void:
 		var level: int = 0
 		if weapon != null and weapon.slot == "weapon":
 			level = int(sm.get_owned_weapon_by_id(item_id).get("upgrade_level", 0))
-		items.append({"id": item_id, "level": level, "mult": sm.gear.mult(item_id)})  # rarity roll (TID-538)
-	_BattleSetup.apply_gear(player, items, sm.battle_mode().begins_with("realtime"))
-	_apply_well_fed(player)
+		var roll: Dictionary = sm.gear.roll_of(item_id)
+		items.append({"id": item_id, "level": level, "mult": sm.gear.mult(item_id),  # rarity roll (TID-538)
+				"affix": roll.get("affix", {})})  # school affix (TID-754), {} when none
+	return items
 
 ## Well fed (TID-763): an ordinary solo fight that starts with a buff takes one of
 ## its charges and adds its max HP. Runs before `_apply_persistent_hp`, so the
@@ -141,6 +154,15 @@ func _apply_weather_battle_init() -> void:
 	match _battle._battle_weather:
 		"ash_fall", "volcanic":
 			_battle._state.players[1].hero.apply_status("poison", 2)
+
+## GID-181 / TID-755: stores this battlefield's school boosts (biome, weather, night) on
+## both sides. Call after set_battlefield_context, which stamps the biome and night.
+func _apply_school_environment() -> void:
+	var st: _GameState = _battle._state
+	var table: Dictionary = BattlefieldRules.school_env_table(
+			st.battlefield_biome, _battle._battle_weather, st.is_night)
+	for p: PlayerState in st.players:
+		p.env_school_mult = table.duplicate()
 
 ## Apply weather modifier to a newly summoned card (rain ghost bonus, sandstorm debuff).
 func _apply_weather_to_summoned(card: CardInstance, _player_idx: int) -> void:
@@ -250,7 +272,7 @@ func _apply_desert_scorch() -> void:
 		for si in range(5):
 			var c: CardInstance = _battle._state.players[pid].board.slots[si]
 			if c != null:
-				c.take_damage(1)
+				DamageResolver.deal(_battle._state.players[pid], c, 1, DamageSchools.PHYSICAL)
 				if not c.is_alive():
 					_battle._state.players[pid].board.remove_card(c)
 					_battle._state.players[pid].discard.append(c)
@@ -267,6 +289,16 @@ func _hp_carries() -> bool:
 
 
 ## Solo setup, after every max-HP modifier: start at the saved fraction.
+## Hero school resistances for this fight (GID-181 / TID-751): the player's hero gets the
+## capped fractions from `_school_resist_sources()` (gear affixes and skill nodes, TID-754).
+func _apply_school_resists(player: PlayerState) -> void:
+	player.hero.school_resist = DamageSchools.capped_resists(_school_resist_sources())
+
+## The hero's resistance sources: equipped school_resist affixes and skill nodes (TID-754).
+func _school_resist_sources() -> Dictionary:
+	var sm := SceneManager.save_manager
+	return _BattleSetup.school_resist_sources(_equipped_items(), sm.unlocked_skills)
+
 func _apply_persistent_hp() -> void:
 	if not _hp_carries():
 		return

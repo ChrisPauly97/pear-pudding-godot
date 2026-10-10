@@ -17,6 +17,7 @@ const RULE_SCORCHED:   String = "scorched"
 const RULE_MOUNTAINS:  String = "mountains"
 
 const _Keywords = preload("res://game_logic/battle/Keywords.gd")
+const _CombatTuning = preload("res://game_logic/battle/CombatTuning.gd")
 
 ## Data-driven rules table keyed by biome id.
 ## -1 = dungeon / named map (no rule).
@@ -76,6 +77,23 @@ const BRANCH_AFFINITY: Dictionary = {
 	"fracture": {"kind": "biome", "value": BIOME_SCORCHED,  "text": "Costs 1 less in Scorched."},
 }
 
+## Battlefield school boosts (GID-181 / TID-755). Same shape as BRANCH_AFFINITY: each row
+## names a school, a condition (`kind` / `value`, read by `_condition_met`) and the
+## CombatTuning knob that sets its multiplier. Every matching row multiplies in. WeatherManager
+## has no "storm" weather, so the storm-like rows use the rain, ash and sand weathers.
+## Night and day never overlap, so the two time rows cannot both fire.
+const SCHOOL_ENV: Array = [
+	{"school": "dark", "kind": "time", "value": true, "knob": "env_time_mult"},
+	{"school": "light", "kind": "time", "value": false, "knob": "env_time_mult"},
+	{"school": "verdant", "kind": "biome", "value": BIOME_FOREST, "knob": "env_biome_mult"},
+	{"school": "rift", "kind": "biome", "value": BIOME_SCORCHED, "knob": "env_biome_mult"},
+	{"school": "physical", "kind": "biome", "value": BIOME_MOUNTAINS, "knob": "env_biome_mult"},
+	{"school": "verdant", "kind": "weather", "value": ["rain", "heavy_rain"], "knob": "env_weather_mult"},
+	{"school": "rift", "kind": "weather", "value": ["ash_fall", "volcanic"], "knob": "env_weather_mult"},
+	{"school": "light", "kind": "weather", "value": ["snow", "blizzard"], "knob": "env_weather_mult"},
+	{"school": "physical", "kind": "weather", "value": ["sandstorm", "dust_devil"], "knob": "env_weather_mult"},
+]
+
 ## Returns the biome display name.
 static func get_biome_name(biome_id: int) -> String:
 	var entry: Dictionary = RULES.get(biome_id, RULES[BIOME_NONE]) as Dictionary
@@ -113,12 +131,57 @@ static func branch_affinity_active(card_branch: String, biome_id: int, is_night:
 	if not BRANCH_AFFINITY.has(card_branch):
 		return false
 	var entry: Dictionary = BRANCH_AFFINITY[card_branch] as Dictionary
-	match str(entry.get("kind", "")):
+	return _condition_met(str(entry.get("kind", "")), entry.get("value"), biome_id, "", is_night)
+
+## Shared condition check for BRANCH_AFFINITY and SCHOOL_ENV rows.
+static func _condition_met(kind: String, value: Variant, biome_id: int, weather: String,
+		is_night: bool) -> bool:
+	match kind:
 		"time":
-			return is_night == bool(entry.get("value", false))
+			return is_night == bool(value)
 		"biome":
-			return biome_id == int(entry.get("value", BIOME_NONE))
+			return biome_id == int(value)
+		"weather":
+			var ids: Array = value as Array
+			return ids.has(weather)
 	return false
+
+## Damage multiplier for a hit of `school` on this battlefield: the product of every
+## SCHOOL_ENV row that matches (1.0 when none does). `tune` supplies the knobs; null uses
+## the defaults.
+static func school_env_mult(school: String, biome_id: int, weather: String, is_night: bool,
+		tune: _CombatTuning = null) -> float:
+	var m: float = 1.0
+	for row: Dictionary in SCHOOL_ENV:
+		if str(row.get("school", "")) == school and _condition_met(str(row.get("kind", "")),
+				row.get("value"), biome_id, weather, is_night):
+			m *= _env_knob(str(row.get("knob", "")), tune)
+	return m
+
+## Every school with a non-neutral boost here, as {school: mult}. Empty on a neutral
+## battlefield. Stored once at battle start on each PlayerState; DamageResolver reads it.
+static func school_env_table(biome_id: int, weather: String, is_night: bool,
+		tune: _CombatTuning = null) -> Dictionary:
+	var out: Dictionary = {}
+	for row: Dictionary in SCHOOL_ENV:
+		var school: String = str(row.get("school", ""))
+		var m: float = school_env_mult(school, biome_id, weather, is_night, tune)
+		if not is_equal_approx(m, 1.0):
+			out[school] = m
+	return out
+
+## Player-facing one-liner for the battle banner, e.g. "Dark x1.15, Verdant x1.21", or "".
+static func school_env_text(biome_id: int, weather: String, is_night: bool) -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	var table: Dictionary = school_env_table(biome_id, weather, is_night)
+	for school: Variant in table.keys():
+		parts.append("%s x%.2f" % [str(school).capitalize(), float(table[school])])
+	return ", ".join(parts)
+
+static func _env_knob(knob: String, tune: _CombatTuning) -> float:
+	if tune != null:
+		return tune.get_f(knob)
+	return _CombatTuning.default_f(knob)
 
 ## Player-facing description of a branch's affinity, or "" if it has none.
 static func branch_affinity_text(card_branch: String) -> String:

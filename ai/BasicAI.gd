@@ -6,6 +6,8 @@ const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const Keywords = preload("res://game_logic/battle/Keywords.gd")
 const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
+const DamageResolver = preload("res://game_logic/battle/DamageResolver.gd")
+const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
 
 ## AI personas (GID-112). Assigned per enemy type via
 ## `EnemyRegistry.get_ai_persona()` and threaded in by BattleScene.
@@ -69,8 +71,10 @@ static func decide_turn(state: GameState, persona: String = PERSONA_BASIC) -> Ar
 			var target: CardInstance = _pick_attack_target(mc, state, persona)
 			if target == null:
 				# Attack hero — take retaliation (passive_atk symmetry fix)
-				state.opponent().hero.take_damage(BattlefieldRules.modify_damage(mc.attack, state.battlefield_biome))
-				mc.take_damage(BattlefieldRules.modify_damage(state.opponent().hero.attack, state.battlefield_biome))
+				DamageResolver.deal(state.opponent(), state.opponent().hero,
+						BattlefieldRules.modify_damage(mc.attack, state.battlefield_biome), DamageSchools.school_of(mc))
+				DamageResolver.deal(ai, mc, BattlefieldRules.modify_damage(state.opponent().hero.attack, state.battlefield_biome),
+						DamageSchools.PHYSICAL)
 				mc.attack_count -= 1
 				# Mirrors BattleScene.card_input._execute_attack()/_resolve_remote_attack(),
 				# which emit card_attacked for player-initiated attacks (BID-006) —
@@ -81,8 +85,10 @@ static func decide_turn(state: GameState, persona: String = PERSONA_BASIC) -> Ar
 					ai.discard.append(mc)
 			else:
 				var tgt := target
-				tgt.take_damage(BattlefieldRules.modify_damage(mc.attack, state.battlefield_biome))
-				mc.take_damage(BattlefieldRules.modify_damage(tgt.attack, state.battlefield_biome))
+				DamageResolver.deal(state.opponent(), tgt,
+						BattlefieldRules.modify_damage(mc.attack, state.battlefield_biome), DamageSchools.school_of(mc))
+				DamageResolver.deal(ai, mc, BattlefieldRules.modify_damage(tgt.attack, state.battlefield_biome),
+						DamageSchools.school_of(tgt))
 				mc.attack_count -= 1
 				GameBus.card_attacked.emit(mc.template_id, tgt.template_id)
 				if not tgt.is_alive():

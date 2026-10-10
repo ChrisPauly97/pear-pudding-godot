@@ -4,6 +4,7 @@ extends "res://tests/framework/test_case.gd"
 
 const BalanceBands = preload("res://game_logic/battle/BalanceBands.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
+const BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
 
 func _cell(win: float, secs: float = 30.0) -> Dictionary:
 	return {"win_rate": win, "median_s": secs, "n": 20}
@@ -47,3 +48,42 @@ func test_baseline_covers_every_cell() -> void:
 	for cell: Array in BalanceBands.CELLS:
 		for o: int in [0, 1]:
 			assert_true(b.has(BalanceBands.key(str(cell[0]), int(cell[1]), o)), "baseline lacks %s+%d" % [cell, o])
+
+## TID-757: school bands. Synthetic measurements; the real run is tests/balance_bands.gd.
+func _school_measure(matchup_gap: float) -> Dictionary:
+	# Forest: dark leads; desert: verdant leads, so no school is best in every biome (band (c) passes).
+	var forest: Dictionary = {"default": 0.5, "physical": 0.5, "light": 0.5, "dark": 0.9, "verdant": 0.5, "rift": 0.5}
+	var desert: Dictionary = {"default": 0.5, "physical": 0.5, "light": 0.5, "dark": 0.5, "verdant": 0.9, "rift": 0.5}
+	return {"roster": {"forest": forest, "desert": desert},
+		"matchup": {"cactus_worm@6/4": {"weak": 0.9, "resist": 0.9 - matchup_gap}}}
+
+func test_school_matchup_band_gates() -> void:
+	assert_eq(BalanceBands.check_schools(_school_measure(0.5)).size(), 0)
+	assert_eq(BalanceBands.check_schools(_school_measure(0.05)).size(), 1, "weak school barely beats resisted")
+
+func test_school_best_everywhere_gates() -> void:
+	assert_eq(BalanceBands.check_schools(_school_measure(0.5)).size(), 0, "dark and verdant lead different biomes")
+	var m: Dictionary = _school_measure(0.5)
+	(m["roster"]["desert"] as Dictionary)["dark"] = 0.95  # dark now leads both biomes
+	assert_eq(BalanceBands.check_schools(m).size(), 1)
+
+func test_school_roster_deviation_is_report_only() -> void:
+	var m: Dictionary = _school_measure(0.5)
+	(m["roster"]["forest"] as Dictionary)["light"] = 0.1  # far outside the band: a note, not a failure
+	assert_eq(BalanceBands.check_schools(m).size(), 0)
+	assert_true(BalanceBands.report_schools(m).size() >= 1, "the light deviation is noted")
+
+func test_school_matched_deck_is_the_default_with_school_cards() -> void:
+	var learned: Array = BalanceBands.all_learned()
+	var base: Array[String] = BattleSetup.level_deck(learned)
+	assert_eq(BattleSetup.school_matched_deck("physical", learned), base, "physical is the default deck")
+	var dark: Array[String] = BattleSetup.school_matched_deck("dark", learned)
+	assert_eq(dark.size(), base.size())
+	for keep: String in ["tech_strike", "tech_mend", "tech_kick"]:
+		assert_true(dark.has(keep), "keeps " + keep)
+	var swapped: int = 0
+	for id: String in dark:
+		if not base.has(id):
+			swapped += 1
+			assert_eq(BattleSetup._card_school(id), "dark", id)
+	assert_eq(swapped, BattleSetup.MATCHED_SWAP)

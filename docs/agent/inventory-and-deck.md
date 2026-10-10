@@ -191,6 +191,15 @@ three items with their rolled stats). `SaveManager.gear.grant(id, roll)` adds a 
 item names by rarity and shows "Rare · ilvl 7". Co-op session characters (BID-033) carry their own `gear_rolls`,
 and need/greed loot is rolled on the authority (BID-075).
 
+**School affixes (GID-181 / TID-754):** a roll may also carry `"affix": {"kind", "school", "pct"}`, on top of the
+rarity and item level (never replacing them). Kinds: `school_dmg` (outgoing power for that school),
+`school_resist` (a hero resist fraction) and `convert` (weapons only: the auto-attack and Strike hit as that
+school). `GearRolls.roll(tier, level, rng, weapon)` rolls it by tier; `SaveGear.roll_for(item, tier, level, rng)`
+is the drop entry point and passes `weapon` from the item's slot. The affix rides in `gear_rolls`, so
+`normalize` drops a malformed one and an old save reads as no affix (no migration). `GearRolls.affix_label`
+names it in the CharacterScene gear picker and in `SaveGear.drop_message`. Battle effects are read in
+`BattleSetup.apply_school_power` and `school_resist_sources`; see `damage-schools.md`.
+
 **Visuals (GID-137):** equipping emits `GameBus.equipment_changed(slot, id)` and the hero sprite redraws in the new gear. Every armour/shoulders/helmet/boots/weapon/offhand/trinket item needs a `PaperDoll.GEAR_VISUALS` entry (see `camera-and-player.md` → Paper-doll hero); rings are not drawn.
 
 Mana cap invariant: max_mana never permanently exceeds 10. The `starting_mana` effect grants a one-time turn-1 burst; `PlayerState.gain_mana_for_turn(turn)` resets `max_mana = min(10, turn)` on every subsequent turn, naturally undoing the boost.
@@ -420,6 +429,16 @@ A **loadout tab row** and **action row** sit above the `_deck_count_label` in th
 **Rename popup** (`_on_rename_loadout()`): `PopupPanel` with a `LineEdit` (max 20 chars), positioned in the top half of the screen (`position.y = viewport_h * 0.08`) so the Android virtual keyboard doesn't cover it. `grab_focus()` is called to trigger the keyboard on Android.
 
 **Delete popup** (`_on_del_loadout()`): `PopupPanel` confirmation with "Yes, Delete" / "Cancel". Guard: function returns early if only one loadout remains (button is also `disabled`), so the last loadout can never be deleted.
+
+### Matchup Swap Row (TID-756)
+
+Before a fight, the saved loadouts are ranked against the enemy's known weak schools
+(`game_logic/battle/LoadoutMatchup.gd`, pure). `scenes/ui/LoadoutSwapRow.gd` draws them as a row of
+buttons: the best match starred and tinted, the active loadout and too-small ones disabled, and the
+enemy's weak schools as colour chips. A tap calls `SaveManager.decks.set_active_loadout(i)`, so the next
+battle uses that deck. The row appears in the gambit picker (`GambitPickerOverlay`) and, with gambits
+auto-skipped, in a world "Swap deck" modal (`scenes/world/modules/SwapDeckPrompt.gd`). The deck builder
+itself is unchanged. Full rules in `docs/agent/damage-schools.md` ("Matchup Loadouts").
 
 ---
 
@@ -709,6 +728,9 @@ vendor bonuses). `price_for` / `prefers` are Callables the shop sets (TID-746). 
 - **Buyback shelf**: `SaveManager.buyback_cards` (persisted, newest first, `BUYBACK_CAP` 8, each with `_sold_for`);
   `sell_card_instance` shelves a copy, `buy_back(index)` returns the exact card (uid, rolls, history) for what it sold
   for (needs coins and bag room). Shown on the counter as small priced tiles.
+- **Ally stock (TID-770):** the town shop sells every unlocked, non-signature card regardless of town, so the
+  verdant and rift Allies are sold in all towns. Vendor tastes change only the sell price (Verdant at Blancogov,
+  Rift at Maykalene). The traveling merchant's premium `_MERCHANT_CARD_POOL` carries the four cost-5 Allies.
 
 ### World loop: new cards, HUD badge, campfire (TID-747)
 

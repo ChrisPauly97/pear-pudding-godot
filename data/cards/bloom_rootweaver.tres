@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://4f0zjx0vhfli"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_bloom_rootweaver"]
+
+[resource]
+script = ExtResource("1_bloom_rootweaver")
+id = "bloom_rootweaver"
+card_name = "Rootweaver"
+cost = 4
+attack = 2
+health = 5
+card_class = "minion"
+description = "Its roots reach for the nearest friend and pull it closer."
+color = Color(0.45, 0.9, 0.5, 1)
+magic_type = "verdant"
+magic_branch = "bloom"
+emergence_effect = "emergence_buff_friendly"
+emergence_power = 1

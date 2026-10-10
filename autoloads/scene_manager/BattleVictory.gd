@@ -110,7 +110,7 @@ func _on_battle_won(result: Dictionary) -> void:
 		var rng := RandomNumberGenerator.new()
 		rng.randomize()
 		var lvl: int = int(_sm.save_manager.pending_battle_enemy_data.get("enemy_level", _sm.save_manager.level))
-		var roll: Dictionary = _GearRolls.roll(drop_tier, lvl, rng)
+		var roll: Dictionary = _SaveGear.roll_for(weapon_reward, drop_tier, lvl, rng)
 		var got: String = _sm.save_manager.gear.grant(weapon_reward, roll)
 		if got == "upgraded":
 			GameBus.hud_message_requested.emit(_SaveGear.drop_message(weapon_reward, roll, got))

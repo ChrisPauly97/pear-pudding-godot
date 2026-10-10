@@ -3,8 +3,14 @@ extends "res://scenes/ui/BaseOverlay.gd"
 signal gambit_chosen(gambit_id: String)
 
 const Gambits = preload("res://game_logic/battle/Gambits.gd")
+const _LoadoutSwapRow = preload("res://scenes/ui/LoadoutSwapRow.gd")
+
+## Enemy type for the "Swap deck" row (TID-756). Set before the overlay enters the tree;
+## "" (a non-typed enemy) leaves the row out.
+var matchup_enemy_type: String = ""
 
 var _auto_skip_check: CheckBox = null
+var _swap_row: _LoadoutSwapRow = null
 
 func _ready() -> void:
 	super._ready()
@@ -26,6 +32,11 @@ func _ready() -> void:
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 	vbox.add_child(HSeparator.new())
+
+	if matchup_enemy_type != "":
+		_swap_row = _LoadoutSwapRow.new(matchup_enemy_type, _vh)
+		_swap_row.attach(vbox)
+		vbox.add_child(HSeparator.new())
 
 	# Gambits scroll; the title and skip controls stay pinned on screen.
 	var scroll := _build_scroll(vbox)

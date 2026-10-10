@@ -11,6 +11,8 @@ const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
 const MagicTypes = preload("res://game_logic/MagicTypes.gd")
 const TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
 const SkillMods = preload("res://game_logic/battle/SkillMods.gd")
+const DamageResolver = preload("res://game_logic/battle/DamageResolver.gd")
+const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
 
 var player_id: int
 var hero: HeroState
@@ -20,6 +22,21 @@ var draw_deck: Array[CardInstance] = []
 var discard: Array[CardInstance] = []
 var pending_auto_spells: Array[CardInstance] = []
 var is_ai: bool = false
+## School profile this side takes damage against (GID-181 / TID-749): resist / weak /
+## immune tags, see DamageSchools. Empty = neutral. Filled per enemy type (TID-750)
+## and per player (TID-751); never serialized, re-derived at battle setup.
+var school_profile: Dictionary = {}
+## Battlefield school boosts (GID-181 / TID-755): school → multiplier for hits of that school
+## on this battle, from BattlefieldRules.school_env_table. Set at battle start (same table on
+## both sides via GameState.set_school_environment); empty = neutral. Not serialized.
+var env_school_mult: Dictionary = {}
+## Outgoing school power (GID-181 / TID-754): school → fraction added to this side's hits of
+## that school (gear school_dmg affixes, school_power skill nodes). Read on the attacker in
+## DamageResolver. Set at solo battle start (BattleSetup.apply_school_power); not serialized.
+var school_power: Dictionary = {}
+## The weapon's convert affix (GID-181 / TID-754): the school the hero's auto-attack and Strike
+## hit as. "" = plain physical. Set at solo battle start; not serialized.
+var convert_school: String = ""
 var bonus_draw: int = 0
 var fatigue_counter: int = 0
 var skip_next_draw: bool = false
@@ -48,6 +65,10 @@ func _init(pid: int, ai: bool = false) -> void:
 	is_ai = ai
 	hero = HeroState.new(pid)
 	board = ZoneState.new()
+
+## The school this side's hero weapon hits as: the convert school, else physical (TID-754).
+func weapon_school() -> String:
+	return convert_school if convert_school != "" else DamageSchools.PHYSICAL
 
 func build_deck(card_ids: Array[String], difficulty_tier: int = 0, dark_aligned: bool = false) -> void:
 	draw_deck.clear()
@@ -129,7 +150,7 @@ func draw_card(fatigue_on_empty: bool = true) -> CardInstance:
 		if not fatigue_on_empty:
 			return null
 		fatigue_counter += 1
-		hero.take_damage(fatigue_counter)
+		DamageResolver.deal(self, hero, fatigue_counter, DamageSchools.PHYSICAL)
 		_emit_fatigue(fatigue_counter)
 		return null
 	var card := draw_deck.pop_back() as CardInstance

@@ -13,6 +13,8 @@ extends Node
 const _BattleScene = preload("res://scenes/battle/BattleScene.gd")
 const BattleNetProtocol = preload("res://game_logic/net/BattleNetProtocol.gd")
 const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
+const DamageResolver = preload("res://game_logic/battle/DamageResolver.gd")
+const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
 const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
@@ -485,10 +487,12 @@ func _show_remote_attack(attacker: CardInstance, target: CardInstance, attacker_
 
 func _resolve_remote_attack(attacker: CardInstance, target: CardInstance, attacker_pid: int, defender_pid: int) -> void:
 	var attacker_dmg: int = BattlefieldRules.modify_damage(attacker.attack, _battle._state.battlefield_biome)
+	var att_owner: PlayerState = _battle._state.players[attacker_pid]
+	var def_owner: PlayerState = _battle._state.players[defender_pid]
 	if target != null:
 		var target_dmg: int = BattlefieldRules.modify_damage(target.attack, _battle._state.battlefield_biome)
-		target.take_damage(attacker_dmg)
-		attacker.take_damage(target_dmg)
+		DamageResolver.deal(def_owner, target, attacker_dmg, DamageSchools.school_of(attacker))
+		DamageResolver.deal(att_owner, attacker, target_dmg, DamageSchools.school_of(target))
 		attacker.attack_count -= 1
 		if not target.is_alive():
 			attacker.battle_kills += 1
@@ -497,8 +501,9 @@ func _resolve_remote_attack(attacker: CardInstance, target: CardInstance, attack
 		GameBus.card_attacked.emit(attacker.template_id, target.template_id)
 	else:
 		var hero: HeroState = _battle._state.players[defender_pid].hero
-		hero.take_damage(attacker_dmg)
-		attacker.take_damage(BattlefieldRules.modify_damage(hero.attack, _battle._state.battlefield_biome))
+		DamageResolver.deal(def_owner, hero, attacker_dmg, DamageSchools.school_of(attacker))
+		var hero_hit: int = BattlefieldRules.modify_damage(hero.attack, _battle._state.battlefield_biome)
+		DamageResolver.deal(att_owner, attacker, hero_hit, DamageSchools.PHYSICAL)
 		attacker.attack_count -= 1
 		GameBus.card_attacked.emit(attacker.template_id, "hero")
 	if not attacker.is_alive():

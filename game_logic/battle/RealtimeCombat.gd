@@ -18,6 +18,8 @@ const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const Keywords = preload("res://game_logic/battle/Keywords.gd")
 const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
 const CombatTuning = preload("res://game_logic/battle/CombatTuning.gd")
+const DamageResolver = preload("res://game_logic/battle/DamageResolver.gd")
+const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
 
 const PLAYER: int = 0
 ## The first (original) enemy. Adds get later indices.
@@ -65,6 +67,9 @@ var weapon_speed: Array[float] = []
 ## interrupts it and Guard / armor soaks it. Off until the player can answer it
 ## (BattleRealtime enables it once Kick is learned).
 var heavy_enabled: bool = false
+## School of the enemy's hero swings and heavy blows (GID-181 / TID-751); set from the
+## enemy type in BattleSetup.configure_realtime. Physical unless the type says otherwise.
+var enemy_attack_school: String = DamageSchools.PHYSICAL
 ## Each side's level (index = side; the player's character level, an enemy's level-equivalent).
 var side_levels: Array[int] = []
 ## Most minions each enemy side may field. 1 until the player can field Allies
@@ -360,7 +365,7 @@ func _run_round_upkeep(side: int) -> void:
 	for c: CardInstance in p.board.get_cards().duplicate():
 		c.start_turn()
 		_tick_card_status(p, c)
-	_tick_hero_status(p.hero)
+	_tick_hero_status(p)
 	if state.battlefield_biome == BattlefieldRules.BIOME_DESERT and not state.is_night:
 		_scorch_leftmost(p)
 
@@ -370,7 +375,7 @@ func _run_round_upkeep(side: int) -> void:
 func _tick_card_status(p: PlayerState, c: CardInstance) -> void:
 	if c.has_status("poison"):
 		var dmg: int = c.get_status_value("poison")
-		c.take_damage(dmg)
+		DamageResolver.deal(p, c, dmg, DamageSchools.PHYSICAL, tune)
 		var nv: int = dmg - 1
 		if nv <= 0:
 			c.clear_status("poison")
@@ -390,10 +395,11 @@ func _tick_card_status(p: PlayerState, c: CardInstance) -> void:
 			c.apply_status("freeze", dur)
 
 ## Hero poison damage-then-decay, mirroring BattleFx._tick_statuses_on_hero.
-func _tick_hero_status(hero: HeroState) -> void:
+func _tick_hero_status(p: PlayerState) -> void:
+	var hero: HeroState = p.hero
 	if hero.has_status("poison"):
 		var dmg: int = hero.get_status_value("poison")
-		hero.take_damage(dmg)
+		DamageResolver.deal(p, hero, dmg, DamageSchools.PHYSICAL, tune)
 		var nv: int = dmg - 1
 		if nv <= 0:
 			hero.clear_status("poison")
@@ -407,7 +413,7 @@ func _scorch_leftmost(p: PlayerState) -> void:
 	for si in range(5):
 		var c: CardInstance = p.board.slots[si]
 		if c != null:
-			c.take_damage(1)
+			DamageResolver.deal(p, c, 1, DamageSchools.PHYSICAL, tune)
 			if not c.is_alive():
 				p.board.remove_card(c)
 				p.discard.append(c)
@@ -671,10 +677,16 @@ func _resolve_swing(attacker: CardInstance, dmg: int, target: CardInstance, targ
 	var crit: bool = d > 0 and rng.randf() < tune.get_f("crit_chance" if from_side == PLAYER else "enemy_crit_chance")
 	if crit:
 		d = maxi(d + 1, roundi(float(d) * tune.get_f("crit_mult")))
+	var school: String = DamageSchools.school_of(attacker)
+	var src: PlayerState = state.players[from_side]  # the attacking side: its school power (TID-754)
+	if attacker == null:
+		# A hero swing: an enemy hero's swing hits as its school (TID-751), the player's as the
+		# weapon's school (a convert affix, TID-754; physical otherwise).
+		school = enemy_attack_school if from_side == ENEMY else src.weapon_school()
 	if target == null:
-		opp.hero.take_damage(d)
+		DamageResolver.deal(opp, opp.hero, d, school, tune, src)
 		return crit
-	target.take_damage(d)
+	DamageResolver.deal(opp, target, d, school, tune, src)
 	if not target.is_alive():
 		if attacker != null:
 			attacker.battle_kills += 1
@@ -795,9 +807,10 @@ func _level_of(side: int) -> int:
 
 func _land_heavy(side: int, events: Array[Dictionary]) -> void:
 	var hero := state.players[PLAYER].hero
-	var before: int = hero.health
-	hero.take_damage(heavy_damage(side))
-	events.append({"type": "enemy_heavy_hit", "side": side, "damage": before - hero.health})
+	var school: String = enemy_attack_school if side == ENEMY else DamageSchools.PHYSICAL
+	var res: Dictionary = DamageResolver.deal(state.players[PLAYER], hero, heavy_damage(side), school, tune)
+	events.append({"type": "enemy_heavy_hit", "side": side, "damage": int(res["dealt"]),
+			"outcome": str(res["outcome"])})
 
 ## An enemy picks the most expensive card it can afford — units or spells (spells
 ## resolve at the player in BattleRealtime._after_enemy_play, BID-078). Heuristic

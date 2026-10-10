@@ -94,6 +94,9 @@ var _battle_overlay: Node = null
 ## True while an engaged fight waits on the gambit picker — the world is still
 ## live then, so a second engage must be refused (see accepts_engage).
 var _engage_pending: bool = false
+## Busy holds from world-side prompts (the swap-deck modal, TID-756): while any is up no
+## enemy may engage. Every hold_engage() is paired with a release_engage().
+var _engage_holds: int = 0
 ## Enemies that joined the running real-time fight (TID-551): their engage data,
 ## so victory can mark each defeated and pay its rewards.
 var _joined_enemies: Array[Dictionary] = []
@@ -612,9 +615,17 @@ static func _is_coop_joint_battle_enemy(enemy_data: Dictionary, current_map_name
 ## second one parked the first battle's overlay as "the world" and the real world
 ## was never restored.)
 func accepts_engage() -> bool:
+	if _engage_holds > 0:
+		return false
 	if _state == State.BATTLE:
 		return _battle_accepts_add()
 	return _state == State.WORLD and not _engage_pending and not is_instance_valid(_battle_overlay)
+
+func hold_engage() -> void:
+	_engage_holds += 1
+
+func release_engage() -> void:
+	_engage_holds = maxi(0, _engage_holds - 1)
 
 ## A real-time fight in the world can take one more enemy (a WoW "add").
 func _battle_accepts_add() -> bool:
@@ -685,6 +696,7 @@ func _on_enemy_engaged(enemy_data: Dictionary) -> void:
 		return
 	# Show gambit picker; battle starts once the player makes a choice.
 	var picker := _GambitPickerOverlay.new()
+	picker.matchup_enemy_type = engaged_enemy_type
 	var layer := CanvasLayer.new()
 	layer.layer = 200
 	get_tree().root.add_child(layer)

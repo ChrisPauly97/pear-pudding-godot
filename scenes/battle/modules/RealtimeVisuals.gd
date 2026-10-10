@@ -19,6 +19,7 @@ const _TokenFrames = preload("res://scenes/battle/modules/TokenFrames.gd")
 const _AllySlotLocks = preload("res://scenes/battle/modules/AllySlotLocks.gd")
 const _DeckPile = preload("res://scenes/battle/modules/DeckPile.gd")
 const _SwingFx = preload("res://scenes/battle/modules/SwingFx.gd")
+const _SchoolPips = preload("res://scenes/battle/modules/SchoolPips.gd")
 
 const READY_COLOR := Color(0.35, 1.0, 0.45)
 const CHARGING_COLOR := Color(0.45, 0.75, 1.0)
@@ -67,8 +68,8 @@ func build(enemy_type: String, is_boss: bool) -> void:
 	_tokens[RealtimeCombat.PLAYER] = _make_token(
 			_PaperDoll.idle_texture(_PaperDoll.gear_of(SaveManager), _PaperDoll.appearance_of(SaveManager)),
 			_battle._player_hero_view, RealtimeCombat.PLAYER)
-	_tokens[RealtimeCombat.ENEMY] = _make_token(
-			_SpriteRegistry.enemy_texture(enemy_type, false, is_boss), _battle._enemy_hero_view, RealtimeCombat.ENEMY)
+	_tokens[RealtimeCombat.ENEMY] = _make_token(_SpriteRegistry.enemy_texture(enemy_type, false, is_boss),
+			_battle._enemy_hero_view, RealtimeCombat.ENEMY, enemy_type)
 	var cast := _make_cast_panel(CHARGING_COLOR)
 	_cast_panel = cast["panel"]
 	_cast_lbl = cast["label"]
@@ -196,8 +197,8 @@ func _place_board(board: HBoxContainer, origin: Vector2, step: Vector2, arena: V
 
 ## A hero token: sprite on top, the scene's hero view (name, HP bar, mana /
 ## hand count — still refreshed by CardViewBuilder, still the hero tap target)
-## reparented under it, and the auto-attack swing bar.
-func _make_token(tex: Texture2D, hero_view: PanelContainer, side: int) -> PanelContainer:
+## reparented under it, the school pips for `enemy_type` (TID-752), and the swing bar.
+func _make_token(tex: Texture2D, hero_view: PanelContainer, side: int, enemy_type: String = "") -> PanelContainer:
 	var vh: float = _battle._vh
 	var panel := PanelContainer.new()
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -219,6 +220,7 @@ func _make_token(tex: Texture2D, hero_view: PanelContainer, side: int) -> PanelC
 	vbox.add_child(pic)
 	hero_view.reparent(vbox, false)
 	hero_view.custom_minimum_size = Vector2(0.0, vh * 0.09)
+	_SchoolPips.build(enemy_type, SaveManager.get_bestiary_entry(enemy_type), vbox, vh, toast)
 	var bar := _make_bar(vh * 0.012, ENEMY_BAR_COLOR if side != RealtimeCombat.PLAYER else Color(1.0, 0.75, 0.45))
 	vbox.add_child(bar)
 	_token_bars[side] = bar
@@ -487,7 +489,7 @@ func add_enemy_view(side: int, enemy_type: String, is_boss: bool, hero_input: Ca
 	hero_view.gui_input.connect(hero_input)
 	_root.add_child(hero_view)
 	add_hero_views[side] = hero_view
-	_make_token(_SpriteRegistry.enemy_texture(enemy_type, false, is_boss), hero_view, side)
+	_make_token(_SpriteRegistry.enemy_texture(enemy_type, false, is_boss), hero_view, side, enemy_type)
 	var row := HBoxContainer.new()
 	row.name = "AddBoardView%d" % side
 	_battle.add_child(row)

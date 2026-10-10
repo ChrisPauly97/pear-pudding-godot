@@ -1,3 +1,5 @@
+# gdlint: disable=max-file-lines
+# TID-752 added the school damage-number labels; the file was already at the 500-line limit.
 extends RefCounted
 
 const _BattlePacing = preload("res://game_logic/battle/BattlePacing.gd")
@@ -6,6 +8,9 @@ const HeroState = preload("res://game_logic/battle/HeroState.gd")
 const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const ZoneState = preload("res://game_logic/battle/ZoneState.gd")
 const GameState = preload("res://game_logic/battle/GameState.gd")
+const DamageResolver = preload("res://game_logic/battle/DamageResolver.gd")
+const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
+const SchoolFeedback = preload("res://game_logic/battle/SchoolFeedback.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _BattleJuice = preload("res://scenes/battle/BattleJuice.gd")
 const _CardMotion = preload("res://scenes/battle/CardMotion.gd")
@@ -23,6 +28,8 @@ var _player_board_view: Control
 var _scene_root: Control
 var _intent_panel: Control = null
 var _is_shaking: bool = false
+## Entity id -> the hit serial last seen by spawn_float_labels (TID-752 immune labels).
+var _seen_hits: Dictionary = {}
 # Multiplier from the "text_scale" setting (GID-119 / TID-451).
 var _text_scale: float = 1.0
 var _seat_idx_fn: Callable = Callable()
@@ -95,13 +102,13 @@ func hide_intent_banner() -> void:
 func process_start_of_turn_statuses(player_idx: int) -> void:
 	var player: PlayerState = _state.players[player_idx]
 	for card: CardInstance in player.board.get_cards():
-		_tick_statuses_on_card(card)
-	_tick_statuses_on_hero(player.hero, player_idx)
+		_tick_statuses_on_card(card, player)
+	_tick_statuses_on_hero(player.hero, player_idx, player)
 
-func _tick_statuses_on_card(card: CardInstance) -> void:
+func _tick_statuses_on_card(card: CardInstance, owner: PlayerState) -> void:
 	if card.has_status("poison"):
 		var dmg: int = card.get_status_value("poison")
-		card.take_damage(dmg)
+		DamageResolver.deal(owner, card, dmg, DamageSchools.PHYSICAL)
 		var nv: int = dmg - 1
 		if nv <= 0:
 			card.clear_status("poison")
@@ -116,11 +123,11 @@ func _tick_statuses_on_card(card: CardInstance) -> void:
 			card.apply_status("freeze", dur)
 		GameBus.status_ticked.emit(card.instance_id, "freeze", maxi(dur, 0))
 
-func _tick_statuses_on_hero(hero: HeroState, player_idx: int) -> void:
+func _tick_statuses_on_hero(hero: HeroState, player_idx: int, owner: PlayerState) -> void:
 	var hid: String = "hero_%d" % player_idx
 	if hero.has_status("poison"):
 		var dmg: int = hero.get_status_value("poison")
-		hero.take_damage(dmg)
+		DamageResolver.deal(owner, hero, dmg, DamageSchools.PHYSICAL)
 		var nv: int = dmg - 1
 		if nv <= 0:
 			hero.clear_status("poison")
@@ -176,7 +183,7 @@ func snapshot() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for i in range(2):
 		var hero: HeroState = _seat_player(i).hero
-		result.append({"id": "hero_%d" % i, "hp": hero.health, "pos": pos_of_hero(i == 1)})
+		result.append({"id": "hero_%d" % i, "hp": hero.health, "pos": pos_of_hero(i == 1), "unit": hero})
 		var zv: Node = _enemy_board_view if i == 1 else _player_board_view
 		var zone_name: String = "enemy_board" if i == 1 else "board"
 		var fallback: Vector2 = _scene_root.get_viewport().get_visible_rect().size * 0.5
@@ -191,7 +198,7 @@ func snapshot() -> Array[Dictionary]:
 					break
 			result.append({
 				"id": card.instance_id, "hp": card.health, "pos": panel_pos,
-				"zone": zone_name, "slot_idx": si,
+				"zone": zone_name, "slot_idx": si, "unit": card,
 			})
 	return result
 
@@ -228,12 +235,20 @@ static func detect_deaths(snap: Array[Dictionary], alive_ids: Array[String]) -> 
 static func scaled_duration(base: float, speed_scale: float) -> float:
 	return maxf(0.01, base * speed_scale)
 
+## Damage numbers (TID-752): each HP loss is coloured by the school of the hit that
+## caused it and suffixed "Weak!" / "Resisted" from the matchup it landed with (both
+## recorded on the unit by DamageResolver.deal). A hit that dealt 0 to an immune unit
+## still reads "Immune", so it is labelled only when the unit's hit serial advanced.
 func spawn_float_labels(snap: Array[Dictionary]) -> void:
 	var cur_hp: Dictionary = {}
+	var live: Dictionary = {}
 	for i in range(2):
-		cur_hp["hero_%d" % i] = _seat_player(i).hero.health
+		var hero: HeroState = _seat_player(i).hero
+		cur_hp["hero_%d" % i] = hero.health
+		live["hero_%d" % i] = hero
 		for c: CardInstance in _seat_player(i).board.get_cards():
 			cur_hp[c.instance_id] = c.health
+			live[c.instance_id] = c
 	for entry: Dictionary in snap:
 		var eid: String = str(entry["id"])
 		var hp_before: int = int(entry["hp"])
@@ -242,11 +257,24 @@ func spawn_float_labels(snap: Array[Dictionary]) -> void:
 		if cur_hp.has(eid):
 			hp_after = int(cur_hp[eid])
 		var diff: int = hp_after - hp_before
+		# A living unit's record is current; a unit that died this action is read from the
+		# snapshot's reference, and only trusted when it actually took a new hit.
+		var rec: Dictionary = SchoolFeedback.hit_record(live.get(eid, entry.get("unit")))
+		var serial: int = int(rec["serial"])
+		var fresh: bool = _seen_hits.has(eid) and serial > int(_seen_hits[eid])
+		if serial >= 0:
+			_seen_hits[eid] = serial
+		var trusted: bool = live.has(eid) or fresh
+		var school: String = str(rec["school"]) if trusted else ""
+		var outcome: String = str(rec["outcome"]) if trusted else ""
 		if diff < 0:
-			spawn_float_label(pos, str(diff), Color(1.0, 0.267, 0.267), diff)
+			spawn_float_label(pos, SchoolFeedback.damage_text(diff, outcome), SchoolFeedback.school_color(school), diff)
 			_BattleJuice.sparks(_float_layer, pos, Color(1.0, 0.5, 0.2), diff)
 		elif diff > 0:
 			spawn_float_label(pos, "+%d" % diff, Color(0.267, 1.0, 0.533), diff)
+		elif fresh and outcome == DamageSchools.IMMUNE:
+			spawn_float_label(pos, SchoolFeedback.damage_text(0, outcome), SchoolFeedback.school_color(school), 1)
+
 
 func spawn_float_label(pos: Vector2, text: String, color: Color, amount: int = 1) -> void:
 	if _float_layer == null or not is_instance_valid(_float_layer):

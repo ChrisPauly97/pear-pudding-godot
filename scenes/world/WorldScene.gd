@@ -70,6 +70,7 @@ const _TownLife = preload("res://scenes/world/modules/TownLife.gd")
 const _WorldClock = preload("res://scenes/world/modules/WorldClock.gd")
 const _WorldShortcuts = preload("res://scenes/world/modules/WorldShortcuts.gd")
 const _HeroHealth = preload("res://scenes/world/modules/HeroHealth.gd")
+const _SwapDeckPrompt = preload("res://scenes/world/modules/SwapDeckPrompt.gd")
 const _SpawnPoint = preload("res://game_logic/world/SpawnPoint.gd")
 const _TownSiege = preload("res://scenes/world/modules/TownSiege.gd")
 const _SunRaysFx = preload("res://scenes/world/SunRaysFx.gd")
@@ -789,6 +790,7 @@ func _ensure_world_modules() -> void:
 	world_clock = _ensure_world_module(world_clock, _WorldClock, "WorldClock") as _WorldClock
 	shortcuts = _ensure_world_module(shortcuts, _WorldShortcuts, "WorldShortcuts") as _WorldShortcuts
 	hero_health = _ensure_world_module(hero_health, _HeroHealth, "HeroHealth") as _HeroHealth
+	_ensure_world_module(get_node_or_null("SwapDeckPrompt"), _SwapDeckPrompt, "SwapDeckPrompt")  # TID-756
 	gather_nodes = _ensure_world_module(gather_nodes, _GatherNodes, "GatherNodes") as _GatherNodes
 
 func _ensure_world_module(existing: Node, script: GDScript, node_name: String) -> Node:

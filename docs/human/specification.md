@@ -66,6 +66,14 @@ Pear Pudding TCG is a 3D isometric open-world RPG built in Godot 4 where the pla
 - Drag-to-play card UI; BasicAI plays and attacks automatically on enemy turn
 - Card collection: earn cards from chests and battles; build/manage deck in Inventory scene
 
+### Damage Schools & Horizontal Progression
+*(Added 2026-10-10 with explicit user permission, GID-181 / TID-758.)*
+- Every hit has a school: physical, light, dark, verdant or rift (a card's magic type; cards without one are physical)
+- Enemies resist (×0.5) or are weak (×1.5) to schools, themed by biome and lore (e.g. bog creatures resist verdant, undead are weak to light); immunities only on boss phases; no enemy resists every school
+- Enemy attacks carry a school; the player gains school power and resistance from the skill tree and from gear school affixes, which sit on top of item-level stat rolls
+- Weather, battlefield and time of day boost schools; the bestiary reveals an enemy's school profile once encountered/defeated
+- Progression is horizontal: breadth of schools, cards and matchup loadouts matters more than raw stats. No level cap; no scaling of the player or enemies to each other's level
+
 ### Named Maps & Story Mode
 - Text-file map format (`.txt`) with tile grid and entity directives (SPAWN, NPC, ENEMY, CHEST, DOOR)
 - Hand-crafted maps: madrian, maykalene, farsyth_mansion, blancogov, blancogov_temple

@@ -12,9 +12,11 @@ extends Resource
 ## % for recycle / cast / power / crit, mana units for cost / refund.
 @export var effect_value: int = 0
 ## Which cards a modifier touches: a branch, "spell", "technique", "ally",
-## "damage", "heal", "any", or a card id (SkillMods.matches).
+## "damage", "heal", "any", or a card id (SkillMods.matches). For school_* nodes: the school.
 @export var filter: String = ""
 ## grant_technique: the technique card id the node owns (TechniqueDefs).
+## GID-181 / TID-754: "school_power" (outgoing % for hits of the school in `filter`) and
+## "school_resist" (% of that school's damage soaked); both apply in every fight mode.
 @export var grants_card: String = ""
 @export var prerequisites: Array[String] = []
 @export var tree_row: int = 0

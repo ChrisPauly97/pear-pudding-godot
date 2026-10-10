@@ -324,6 +324,9 @@ func _make_picker_row(item_id: String, w: WeaponData, is_equipped: bool) -> HBox
 	name_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_row.add_child(name_lbl)
+	var affix_text: String = _GearRolls.affix_label(roll)  # school affix (GID-181 / TID-754)
+	if affix_text != "":
+		_UiUtil.make_label(affix_text, int(_ref * 0.019), Color(0.7, 0.9, 1.0), HORIZONTAL_ALIGNMENT_LEFT, info_vbox)
 
 	if is_equipped:
 		var eq_lbl := _UiUtil.make_label("[E]", int(_ref * 0.022), Color(0.4, 1.0, 0.5), HORIZONTAL_ALIGNMENT_LEFT,

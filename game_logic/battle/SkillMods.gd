@@ -94,6 +94,17 @@ func instant_on_crit(card: CardInstance) -> bool:
 func refund_on_crit(card: CardInstance) -> int:
 	return total("on_crit_refund", card)
 
+## GID-181 / TID-754: summed `school_power` / `school_resist` node values per school. A node's
+## filter is the school and its value a percent. These are not card mods (`add_skills` skips
+## them), and they apply in turn-based fights too, so they are read from the unlocked ids.
+static func school_nodes(skill_ids: Array, effect_type: String) -> Dictionary:
+	var out: Dictionary = {}
+	for v: Variant in skill_ids:
+		var sk: SkillData = SkillRegistry.get_skill(str(v))
+		if sk != null and sk.effect_type == effect_type:
+			out[sk.filter] = int(out.get(sk.filter, 0)) + sk.effect_value
+	return out
+
 ## Can `card` crit at all (a damage or heal spell)?
 static func can_crit(card: CardInstance) -> bool:
 	return card.card_class == "spell" and (DAMAGE_EFFECTS.has(card.spell_effect)

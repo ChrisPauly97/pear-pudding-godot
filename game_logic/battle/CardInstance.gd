@@ -28,6 +28,13 @@ var shroud_active: bool = false  # true until the first hit is absorbed; set fal
 var collection_uid: String = ""
 var rarity: String = "common"  # collection rarity, for the card face (GID-151)
 var battle_kills: int = 0
+
+# Last damage this unit took (GID-181 / TID-752): the school and matchup outcome that
+# DamageResolver.deal recorded, and a serial that advances on every hit so the battle
+# UI can label a hit that dealt 0 (Immune). Serialized so PvP / co-op viewers see it.
+var hit_school: String = ""
+var hit_outcome: String = ""
+var hit_serial: int = 0
 var dual_card_id: String = ""
 var active_face: String = ""
 
@@ -62,6 +69,11 @@ func _init(tmpl: Dictionary = {}) -> void:
 	shroud_active = keywords.has("shroud")
 	dual_card_id = str(tmpl.get("dual_card_id", ""))
 	active_face = str(tmpl.get("active_face", ""))
+
+func note_hit(school: String, outcome: String) -> void:
+	hit_school = school
+	hit_outcome = outcome
+	hit_serial += 1
 
 func is_alive() -> bool:
 	return health > 0
@@ -142,6 +154,9 @@ func to_dict() -> Dictionary:
 		"collection_uid": collection_uid,
 		"rarity": rarity,
 		"battle_kills": battle_kills,
+		"hit_school": hit_school,
+		"hit_outcome": hit_outcome,
+		"hit_serial": hit_serial,
 	}
 
 func from_dict(d: Dictionary) -> void:
@@ -174,3 +189,6 @@ func from_dict(d: Dictionary) -> void:
 	collection_uid = str(d.get("collection_uid", ""))
 	rarity = str(d.get("rarity", "common"))
 	battle_kills = int(d.get("battle_kills", 0))
+	hit_school = str(d.get("hit_school", ""))
+	hit_outcome = str(d.get("hit_outcome", ""))
+	hit_serial = int(d.get("hit_serial", 0))

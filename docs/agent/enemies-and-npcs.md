@@ -84,6 +84,15 @@ as `roaming_terror` (also `is_boss = true` and world-spawnable, via
 story bosses (`hollow_steward`, `martarquas_vanguard`, see "Chapter 1 Story
 Bosses" below) are named-map-only, never in a biome pool.
 
+### Damage School Profiles (GID-181 / TID-750)
+
+Each enemy type has a `schools` entry in `EnemyRegistry._ensure_loaded()`: `resist` and `weak`
+lists of damage schools. Bosses with a `phase2_deck` may add `schools_phase2`, the only place
+an `immune` school can appear. `EnemyRegistry.get_school_profile(type_id, phase := 1)` returns
+the `{"resist", "weak", "immune"}` dict that `DamageSchools.outcome()` / `mult()` read. Nothing
+consumes it yet. The full table and the guardrail rules are in
+[damage-schools.md](damage-schools.md) (`tests/unit/test_enemy_school_profiles.gd`).
+
 ### AI Personas (GID-112)
 
 Every entry in `EnemyRegistry._enemies` carries an `ai_persona` field, read back
@@ -307,7 +316,7 @@ needed.
 
 Spawned by `WorldEventManager` via `game_logic/WorldEvents.gd` on a 10–20 minute randomised interval of overworld play. Only fires when no other world event is active.
 
-**Spawn:** `WorldEvents._spawn_traveling_merchant()` calls `WorldEventManager.find_spawn_tile()` to find a walkable grass tile 15–30 world-units from the player. The merchant's stock of 3 cards is seeded from `hash(Time.get_unix_time_from_system())` at spawn time, picked without replacement from `_MERCHANT_CARD_POOL` (18 rare/high-impact cards). The NPC is instantiated with `is_traveling=true` so it renders with a violet robe and "Traveling Merchant" label in purple.
+**Spawn:** `WorldEvents._spawn_traveling_merchant()` calls `WorldEventManager.find_spawn_tile()` to find a walkable grass tile 15–30 world-units from the player. The merchant's stock of 3 cards is seeded from `hash(Time.get_unix_time_from_system())` at spawn time, picked without replacement from `_MERCHANT_CARD_POOL` (22 rare/high-impact cards; TID-770 added four cost-5 Allies). The NPC is instantiated with `is_traveling=true` so it renders with a violet robe and "Traveling Merchant" label in purple.
 
 **Interaction flow:**
 1. Player presses E / taps interact prompt within `INTERACT_RANGE`

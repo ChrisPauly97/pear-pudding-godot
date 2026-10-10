@@ -11,6 +11,8 @@ const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const Keywords = preload("res://game_logic/battle/Keywords.gd")
 const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
+const DamageResolver = preload("res://game_logic/battle/DamageResolver.gd")
+const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _CardMotion = preload("res://scenes/battle/CardMotion.gd")
 const SpellEffectResolver = preload("res://scenes/battle/SpellEffectResolver.gd")
@@ -450,6 +452,8 @@ func _execute_attack(attacker: CardInstance, target: CardInstance, defender: int
 	var attacker_panel := _battle._fx.get_card_panel(attacker, false)
 	var snap := _battle._fx.snapshot()
 	var attacker_dmg: int = BattlefieldRules.modify_damage(attacker.attack, _battle._state.battlefield_biome)
+	var att_owner: PlayerState = _battle._state.players[_battle._my_idx()]
+	var def_owner: PlayerState = _battle._state.players[def_idx]
 	var target_panel_pre: Control = _battle._fx.get_card_panel(target, true) if target != null else null
 	var target_pos: Vector2 = (target_panel_pre.get_global_rect().get_center() if target_panel_pre != null
 			else _battle.realtime.hero_screen_pos(def_idx))
@@ -457,8 +461,8 @@ func _execute_attack(attacker: CardInstance, target: CardInstance, defender: int
 	await _battle._fx.animate_attack(attacker_panel, target_pos, _battle._speed_scale, 0.06 if is_big_hit else 0.0)
 	if target != null:
 		var target_dmg: int = BattlefieldRules.modify_damage(target.attack, _battle._state.battlefield_biome)
-		target.take_damage(attacker_dmg)
-		attacker.take_damage(target_dmg)
+		DamageResolver.deal(def_owner, target, attacker_dmg, DamageSchools.school_of(attacker), null, att_owner)
+		DamageResolver.deal(att_owner, attacker, target_dmg, DamageSchools.school_of(target), null, def_owner)
 		attacker.attack_count -= 1
 		var target_panel := _battle._fx.get_card_panel(target, true)
 		_battle._fx.flash_node(target_panel, Color(1.0, 0.3, 0.3, 1.0))
@@ -473,8 +477,9 @@ func _execute_attack(attacker: CardInstance, target: CardInstance, defender: int
 			_battle._capture_tracker.note_minion_attacked_hero(0)
 		_battle.realtime.on_ally_hit_enemy_hero(def_idx)  # real time: interrupts that enemy's cast
 		var hero := _battle._state.players[def_idx].hero
-		hero.take_damage(attacker_dmg)
-		attacker.take_damage(BattlefieldRules.modify_damage(hero.attack, _battle._state.battlefield_biome))
+		DamageResolver.deal(def_owner, hero, attacker_dmg, DamageSchools.school_of(attacker), null, att_owner)
+		var hero_hit: int = BattlefieldRules.modify_damage(hero.attack, _battle._state.battlefield_biome)
+		DamageResolver.deal(att_owner, attacker, hero_hit, DamageSchools.PHYSICAL, null, def_owner)
 		attacker.attack_count -= 1
 		_battle._fx.flash_node(_battle.realtime.hero_view_for(def_idx), Color(1.0, 0.3, 0.3, 1.0))
 		_battle._fx.flash_node(attacker_panel, Color(1.0, 0.3, 0.3, 1.0))
