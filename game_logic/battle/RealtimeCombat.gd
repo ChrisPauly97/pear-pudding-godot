@@ -18,6 +18,8 @@ const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const Keywords = preload("res://game_logic/battle/Keywords.gd")
 const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
 const CombatTuning = preload("res://game_logic/battle/CombatTuning.gd")
+const DamageResolver = preload("res://game_logic/battle/DamageResolver.gd")
+const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
 
 const PLAYER: int = 0
 ## The first (original) enemy. Adds get later indices.
@@ -360,7 +362,7 @@ func _run_round_upkeep(side: int) -> void:
 	for c: CardInstance in p.board.get_cards().duplicate():
 		c.start_turn()
 		_tick_card_status(p, c)
-	_tick_hero_status(p.hero)
+	_tick_hero_status(p)
 	if state.battlefield_biome == BattlefieldRules.BIOME_DESERT and not state.is_night:
 		_scorch_leftmost(p)
 
@@ -370,7 +372,7 @@ func _run_round_upkeep(side: int) -> void:
 func _tick_card_status(p: PlayerState, c: CardInstance) -> void:
 	if c.has_status("poison"):
 		var dmg: int = c.get_status_value("poison")
-		c.take_damage(dmg)
+		DamageResolver.deal(p, c, dmg, DamageSchools.PHYSICAL, tune)
 		var nv: int = dmg - 1
 		if nv <= 0:
 			c.clear_status("poison")
@@ -390,10 +392,11 @@ func _tick_card_status(p: PlayerState, c: CardInstance) -> void:
 			c.apply_status("freeze", dur)
 
 ## Hero poison damage-then-decay, mirroring BattleFx._tick_statuses_on_hero.
-func _tick_hero_status(hero: HeroState) -> void:
+func _tick_hero_status(p: PlayerState) -> void:
+	var hero: HeroState = p.hero
 	if hero.has_status("poison"):
 		var dmg: int = hero.get_status_value("poison")
-		hero.take_damage(dmg)
+		DamageResolver.deal(p, hero, dmg, DamageSchools.PHYSICAL, tune)
 		var nv: int = dmg - 1
 		if nv <= 0:
 			hero.clear_status("poison")
@@ -407,7 +410,7 @@ func _scorch_leftmost(p: PlayerState) -> void:
 	for si in range(5):
 		var c: CardInstance = p.board.slots[si]
 		if c != null:
-			c.take_damage(1)
+			DamageResolver.deal(p, c, 1, DamageSchools.PHYSICAL, tune)
 			if not c.is_alive():
 				p.board.remove_card(c)
 				p.discard.append(c)
@@ -671,10 +674,11 @@ func _resolve_swing(attacker: CardInstance, dmg: int, target: CardInstance, targ
 	var crit: bool = d > 0 and rng.randf() < tune.get_f("crit_chance" if from_side == PLAYER else "enemy_crit_chance")
 	if crit:
 		d = maxi(d + 1, roundi(float(d) * tune.get_f("crit_mult")))
+	var school: String = DamageSchools.school_of(attacker)
 	if target == null:
-		opp.hero.take_damage(d)
+		DamageResolver.deal(opp, opp.hero, d, school, tune)
 		return crit
-	target.take_damage(d)
+	DamageResolver.deal(opp, target, d, school, tune)
 	if not target.is_alive():
 		if attacker != null:
 			attacker.battle_kills += 1
@@ -796,7 +800,7 @@ func _level_of(side: int) -> int:
 func _land_heavy(side: int, events: Array[Dictionary]) -> void:
 	var hero := state.players[PLAYER].hero
 	var before: int = hero.health
-	hero.take_damage(heavy_damage(side))
+	DamageResolver.deal(state.players[PLAYER], hero, heavy_damage(side), DamageSchools.PHYSICAL, tune)
 	events.append({"type": "enemy_heavy_hit", "side": side, "damage": before - hero.health})
 
 ## An enemy picks the most expensive card it can afford — units or spells (spells

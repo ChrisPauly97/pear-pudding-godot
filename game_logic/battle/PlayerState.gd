@@ -11,6 +11,8 @@ const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
 const MagicTypes = preload("res://game_logic/MagicTypes.gd")
 const TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
 const SkillMods = preload("res://game_logic/battle/SkillMods.gd")
+const DamageResolver = preload("res://game_logic/battle/DamageResolver.gd")
+const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
 
 var player_id: int
 var hero: HeroState
@@ -20,6 +22,10 @@ var draw_deck: Array[CardInstance] = []
 var discard: Array[CardInstance] = []
 var pending_auto_spells: Array[CardInstance] = []
 var is_ai: bool = false
+## School profile this side takes damage against (GID-181 / TID-749): resist / weak /
+## immune tags, see DamageSchools. Empty = neutral. Filled per enemy type (TID-750)
+## and per player (TID-751); never serialized, re-derived at battle setup.
+var school_profile: Dictionary = {}
 var bonus_draw: int = 0
 var fatigue_counter: int = 0
 var skip_next_draw: bool = false
@@ -129,7 +135,7 @@ func draw_card(fatigue_on_empty: bool = true) -> CardInstance:
 		if not fatigue_on_empty:
 			return null
 		fatigue_counter += 1
-		hero.take_damage(fatigue_counter)
+		DamageResolver.deal(self, hero, fatigue_counter, DamageSchools.PHYSICAL)
 		_emit_fatigue(fatigue_counter)
 		return null
 	var card := draw_deck.pop_back() as CardInstance

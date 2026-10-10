@@ -11,7 +11,7 @@
 ## in none of them is neutral (×1.0).
 ##
 ## Pure logic: no autoloads, no scene tree, so the balance sim and `-s` tests can
-## load it. Nothing calls it yet; the damage events adopt it in later GID-181 tasks.
+## load it. `DamageResolver.deal` calls `scale` at every damage site.
 extends RefCounted
 
 const _MagicTypes = preload("res://game_logic/MagicTypes.gd")
