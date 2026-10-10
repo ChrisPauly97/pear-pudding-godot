@@ -18,6 +18,10 @@ var attack: int = 0
 ## Leaderless pack (BID-077): a hidden stand-in with no leader to hit. It takes
 ## no damage and never swings; GameState kills it once its board is empty.
 var leaderless: bool = false
+## Hero school resistances (GID-181 / TID-751): school → fraction of incoming damage of
+## that school soaked (0..CombatTuning.max_player_resist). Filled at battle start by
+## BattleModifiers; empty = no resistance. Serialized (co-op / resume).
+var school_resist: Dictionary = {}
 
 # Status effects: key = effect_id ("poison","armor","freeze","stun"), value = duration/stacks int
 var status_effects: Dictionary = {}
@@ -93,6 +97,7 @@ func to_dict() -> Dictionary:
 		"attack": attack,
 		"status_effects": status_effects.duplicate(),
 		"leaderless": leaderless,
+		"school_resist": school_resist.duplicate(),
 	}
 
 func from_dict(d: Dictionary) -> void:
@@ -105,5 +110,7 @@ func from_dict(d: Dictionary) -> void:
 	mana_scale = maxi(1, int(d.get("mana_scale", 1)))
 	attack = int(d.get("attack", 0))
 	leaderless = bool(d.get("leaderless", false))
+	var sr: Variant = d.get("school_resist", {})
+	school_resist = (sr as Dictionary).duplicate() if sr is Dictionary else {}
 	var se = d.get("status_effects", {})
 	status_effects = se if se is Dictionary else {}

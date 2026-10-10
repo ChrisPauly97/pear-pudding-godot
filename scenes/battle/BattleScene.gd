@@ -373,6 +373,9 @@ func _ready() -> void:
 		_state.from_dict(_saved_battle)
 		_wire_gamebus_emitter()
 		_boss_phase2_triggered = bool(_saved_battle.get("_boss_phase2", false))
+		# GID-181 / TID-751: the school profile is not saved; re-derive it from the enemy type.
+		_state.players[1].school_profile = EnemyRegistry.get_school_profile(
+				str(_saved_battle.get("_enemy_type", "")), 2 if _boss_phase2_triggered else 1)
 		_bump_card_next_id(_state)
 		SceneManager.save_manager.clear_pending_battle_state()
 	else:
@@ -488,6 +491,7 @@ func _setup_solo_battle() -> void:
 		_state.players[0].build_deck(player_deck, 0, _dark_aligned)
 	modifiers._apply_combat_unlocks(_state.players[0])
 	modifiers._apply_equipment_effects(_state.players[0])
+	modifiers._apply_school_resists(_state.players[0])  # GID-181 / TID-751
 	_state.players[0].draw_opening_hand(4)
 	# Spire run: hero HP persists across floors (damage carries over).
 	if SceneManager.save_manager.spire.is_spire_active():
@@ -710,6 +714,7 @@ func _show_card_inspect(card: CardInstance) -> void:
 func _make_battle_save() -> Dictionary:
 	var d: Dictionary = _state.to_dict()
 	d["_boss_phase2"] = _boss_phase2_triggered
+	d["_enemy_type"] = str(enemy_data.get("enemy_type", ""))  # re-derives the school profile on resume
 	return d
 
 func _bump_card_next_id(state: GameState) -> void:
@@ -1099,6 +1104,7 @@ func _check_boss_phase2() -> void:
 	var p2_enemy_type: String = str(enemy_data.get("enemy_type", ""))
 	var p2_tier: int = 4 if bool(enemy_data.get("is_boss", false)) else EnemyRegistry.get_difficulty_tier(p2_enemy_type)
 	_state.players[1].build_deck(p2_deck, p2_tier)
+	_state.players[1].school_profile = EnemyRegistry.get_school_profile(p2_enemy_type, 2)  # TID-751
 	_state.players[1].draw_opening_hand(4)
 	_refresh_all()
 	_result_ui.show_phase2_banner()

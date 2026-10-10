@@ -24,9 +24,10 @@ const _PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 ## (neutral). A null `defender` is treated as a profile-less side.
 static func deal(defender: _PlayerState, target: Variant, amount: int, school: String,
 		tune: _CombatTuning = null) -> Dictionary:
-	var profile: Dictionary = profile_of(defender)
-	var outcome: String = _DamageSchools.outcome(school, profile)
-	var scaled: int = _DamageSchools.scale(amount, school, profile, tune)
+	var outcome: String = _DamageSchools.outcome(school, profile_of(defender))
+	if outcome == "" and resist_fraction(defender, school) > 0.0:
+		outcome = _DamageSchools.RESIST  # a hero resistance reads as "Resisted" too (TID-751)
+	var scaled: int = scaled_amount(defender, amount, school, tune)
 	var dealt: int = 0
 	if target is _HeroState:
 		var hero: _HeroState = target as _HeroState
@@ -44,7 +45,18 @@ static func deal(defender: _PlayerState, target: Variant, amount: int, school: S
 ## direct health hits that ignore armor). Same profile and rules as `deal()`.
 static func scaled_amount(defender: _PlayerState, amount: int, school: String,
 		tune: _CombatTuning = null) -> int:
-	return _DamageSchools.scale(amount, school, profile_of(defender), tune)
+	var base: int = _DamageSchools.scale(amount, school, profile_of(defender), tune)
+	var frac: float = resist_fraction(defender, school)
+	if base <= 0 or frac <= 0.0:
+		return base
+	# A hero's school resistance (TID-751) soaks a fraction on top of the profile.
+	return maxi(1, roundi(float(base) * (1.0 - frac)))
+
+## The hero resistance fraction `defender` has against `school` (0 for none or a null side).
+static func resist_fraction(defender: _PlayerState, school: String) -> float:
+	if defender == null or defender.hero == null:
+		return 0.0
+	return _DamageSchools.resist_of(defender.hero.school_resist, school)
 
 ## The school profile a side takes damage against; empty (neutral) when there is no side.
 static func profile_of(defender: _PlayerState) -> Dictionary:

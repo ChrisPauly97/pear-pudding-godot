@@ -67,6 +67,9 @@ var weapon_speed: Array[float] = []
 ## interrupts it and Guard / armor soaks it. Off until the player can answer it
 ## (BattleRealtime enables it once Kick is learned).
 var heavy_enabled: bool = false
+## School of the enemy's hero swings and heavy blows (GID-181 / TID-751); set from the
+## enemy type in BattleSetup.configure_realtime. Physical unless the type says otherwise.
+var enemy_attack_school: String = DamageSchools.PHYSICAL
 ## Each side's level (index = side; the player's character level, an enemy's level-equivalent).
 var side_levels: Array[int] = []
 ## Most minions each enemy side may field. 1 until the player can field Allies
@@ -675,6 +678,8 @@ func _resolve_swing(attacker: CardInstance, dmg: int, target: CardInstance, targ
 	if crit:
 		d = maxi(d + 1, roundi(float(d) * tune.get_f("crit_mult")))
 	var school: String = DamageSchools.school_of(attacker)
+	if attacker == null and from_side == ENEMY:  # an enemy hero's swing (TID-751)
+		school = enemy_attack_school
 	if target == null:
 		DamageResolver.deal(opp, opp.hero, d, school, tune)
 		return crit
@@ -800,7 +805,8 @@ func _level_of(side: int) -> int:
 func _land_heavy(side: int, events: Array[Dictionary]) -> void:
 	var hero := state.players[PLAYER].hero
 	var before: int = hero.health
-	DamageResolver.deal(state.players[PLAYER], hero, heavy_damage(side), DamageSchools.PHYSICAL, tune)
+	var school: String = enemy_attack_school if side == ENEMY else DamageSchools.PHYSICAL
+	DamageResolver.deal(state.players[PLAYER], hero, heavy_damage(side), school, tune)
 	events.append({"type": "enemy_heavy_hit", "side": side, "damage": before - hero.health})
 
 ## An enemy picks the most expensive card it can afford — units or spells (spells

@@ -3,6 +3,7 @@
 extends Node
 
 const BiomeDef = preload("res://game_logic/world/BiomeDef.gd")
+const _DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
 
 const _FALLBACK_DECK: Array[String] = [
 	"ghost", "ghost", "skeleton", "skeleton",
@@ -36,6 +37,7 @@ static func _ensure_loaded() -> void:
 	_loaded = true
 	_enemies = {
 		"undead_basic": {
+			"attack_school": "dark",
 			"display_name": "Undead Wanderer",
 			"schools": {"resist": ["dark"], "weak": ["light"]},
 			"deck": ["ghost", "ghost", "ghost", "skeleton", "skeleton", "skeleton", "zombie", "zombie", "zombie",
@@ -54,6 +56,7 @@ static func _ensure_loaded() -> void:
 			"capture_param": 9,
 		},
 		"undead_horde": {
+			"attack_school": "dark",
 			"rt_attack_bonus": 2,  # BID-095: a horde hits as a horde (with its 4-unit pack)
 			"display_name": "Horde Shambler",
 			"schools": {"resist": ["dark"], "weak": ["light"]},
@@ -77,6 +80,7 @@ static func _ensure_loaded() -> void:
 			"capture_param": 0,
 		},
 		"undead_elite": {
+			"attack_school": "dark",
 			"display_name": "Undead Warlord",
 			"schools": {"resist": ["dark"], "weak": ["light", "rift"]},
 			"deck": ["ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "zombie", "zombie", "zombie", "zombie", "skeleton",
@@ -95,6 +99,7 @@ static func _ensure_loaded() -> void:
 			"capture_param": 10,
 		},
 		"ghoul_pack": {
+			"attack_school": "dark",
 			"rt_hp_mult": 0.95,  # BID-095: real-time balance vs its level band
 			"display_name": "Ghoul Pack Leader",
 			"schools": {"resist": ["dark"], "weak": ["light", "verdant"]},
@@ -117,6 +122,7 @@ static func _ensure_loaded() -> void:
 			"capture_param": 0,
 		},
 		"wraith": {
+			"attack_school": "dark",
 			"display_name": "Wraith",
 			"schools": {"resist": ["physical", "dark"], "weak": ["light", "rift"]},
 			"deck": ["ghost", "ghost", "ghost", "ghost", "ghost", "ghost", "skeleton", "skeleton", "ember_imp",
@@ -133,8 +139,9 @@ static func _ensure_loaded() -> void:
 					+ "to overwhelm before it is unmade."),
 		},
 		"forest_shade": {
+			"attack_school": "verdant",
 			"display_name": "Forest Shade",
-			"schools": {"resist": ["verdant", "physical"], "weak": ["light", "rift"]},
+			"schools": {"resist": ["verdant"], "weak": ["light", "rift"]},
 			"deck": ["skeleton", "skeleton", "skeleton", "zombie", "zombie", "dusk_wraith", "dusk_wraith", "insight",
 					"insight", "dusk_seer"],
 			"drop_pool": ["skeleton", "dusk_wraith", "insight", "dusk_seer", "shrouded_wraith"],
@@ -179,6 +186,7 @@ static func _ensure_loaded() -> void:
 					+ "warm brushes past, then rears up and lashes out. Its spines break off in whatever it strikes."),
 		},
 		"imbued_stag": {
+			"attack_school": "verdant",
 			"rt_hp_mult": 0.9,  # BID-095: real-time balance vs its level band
 			"display_name": "Imbued Stag",
 			"schools": {"resist": ["verdant"], "weak": ["dark"]},
@@ -196,6 +204,7 @@ static func _ensure_loaded() -> void:
 					+ "burn with raw magic and it guards the line as its own, charging any who come to tap it."),
 		},
 		"scorched_revenant": {
+			"attack_school": "dark",
 			"display_name": "Scorched Revenant",
 			"schools": {"resist": ["dark"], "weak": ["light", "verdant"]},
 			"deck": ["zombie", "zombie", "zombie", "ghoul", "ghoul", "scorch", "scorch", "char", "char", "alight",
@@ -244,6 +253,7 @@ static func _ensure_loaded() -> void:
 					+ "fight, the harder it hits back."),
 		},
 		"hollow_steward": {
+			"attack_school": "dark",
 			"display_name": "The Hollow Steward",
 			"schools": {"resist": ["dark"], "weak": ["light"]},
 			"deck": ["skeleton", "skeleton", "skeleton", "skeleton", "dusk_wraith", "dusk_wraith", "dusk_wraith",
@@ -345,6 +355,7 @@ static func _ensure_loaded() -> void:
 					+ "seasons."),
 		},
 		"roaming_terror": {
+			"attack_school": "rift",
 			"display_name": "Roaming Terror",
 			"schools": {"resist": ["rift"], "weak": ["light"]},
 			"deck": ["ghoul", "ghoul", "ghoul", "ghoul", "blitz_ghoul", "blitz_ghoul", "soul_harvest", "soul_harvest",
@@ -434,8 +445,9 @@ static func _ensure_loaded() -> void:
 			"signature_card": "sig_alpha_wolf", "capture_condition": "no_ally_lost", "capture_param": 0,
 		},
 		"bog_hag": {
+			"attack_school": "verdant",
 			"display_name": "Bog Hag",
-			"schools": {"resist": ["verdant", "dark"], "weak": ["physical"]},
+			"schools": {"resist": ["verdant", "dark"], "weak": []},
 			"deck": ["thorn_bramble_snare", "thorn_bramble_snare", "thorn_thorn_volley", "thorn_thorn_volley",
 					"bloom_germinate", "bloom_germinate", "wither", "wither", "treant", "treant", "drain"],
 			"drop_pool": ["treant", "thorn_bramble_snare", "bloom_germinate", "wither"],
@@ -473,6 +485,7 @@ static func _ensure_loaded() -> void:
 			"signature_card": "sig_scarab_matriarch", "capture_condition": "spell_final_blow", "capture_param": 0,
 		},
 		"ember_cultist": {
+			"attack_school": "rift",
 			"display_name": "Ember Cultist",
 			"schools": {"resist": ["rift"], "weak": ["physical", "dark"]},
 			"deck": ["ember_imp", "ember_imp", "ember_imp", "ember_imp", "ember_heat_wave", "ember_heat_wave",
@@ -498,6 +511,7 @@ static func _ensure_loaded() -> void:
 			"signature_card": "sig_wendigo_antler", "capture_condition": "win_by_turn", "capture_param": 7,
 		},
 		"rift_echo": {
+			"attack_school": "rift",
 			"display_name": "Riftborn Echo",
 			"schools": {"resist": ["rift"], "weak": ["light"]},
 			"deck": ["flux_kinetic_bolt", "flux_kinetic_bolt", "flux_momentum", "flux_displace", "fracture_fault",
@@ -511,6 +525,7 @@ static func _ensure_loaded() -> void:
 			"signature_card": "sig_echo_shard", "capture_condition": "hero_hp_at_least", "capture_param": 15,
 		},
 		"barrow_king": {
+			"attack_school": "dark",
 			"display_name": "The Barrow King",
 			"schools": {"resist": ["dark"], "weak": ["light"]},
 			"schools_phase2": {"resist": ["physical"], "weak": ["light"], "immune": ["dark"]},
@@ -527,6 +542,7 @@ static func _ensure_loaded() -> void:
 			"signature_card": "sig_barrow_crown", "capture_condition": "no_ally_lost", "capture_param": 0,
 		},
 		"rival_isfig_1": {
+			"attack_school": "rift",
 			"display_name": "Isfig",
 			"schools": {"resist": ["rift"], "weak": ["dark"]},
 			"deck": ["ghost", "ghost", "ghost", "skeleton", "skeleton", "skeleton", "mend", "wither"],
@@ -541,6 +557,7 @@ static func _ensure_loaded() -> void:
 					+ "smiles as he challenges you to a duel — not out of malice, but to measure you."),
 		},
 		"rival_isfig_2": {
+			"attack_school": "rift",
 			"display_name": "Isfig the Pursuing",
 			"schools": {"resist": ["rift"], "weak": ["dark", "physical"]},
 			"deck": ["skeleton", "skeleton", "skeleton", "zombie", "zombie", "zombie", "ghost", "mend", "wither",
@@ -557,6 +574,7 @@ static func _ensure_loaded() -> void:
 					+ "letter warned him about."),
 		},
 		"rival_isfig_3": {
+			"attack_school": "rift",
 			"display_name": "Isfig, Maiteln's Shadow",
 			"schools": {"resist": ["light", "rift"], "weak": ["dark"]},
 			"deck": ["zombie", "zombie", "zombie", "ghoul", "ghoul", "blitz_ghoul", "drain", "wither", "soul_rend",
@@ -573,6 +591,7 @@ static func _ensure_loaded() -> void:
 					+ "yours."),
 		},
 		"spectre_wisp": {
+			"attack_school": "dark",
 			"display_name": "Wisp",
 			"schools": {"resist": ["dark"], "weak": ["light"]},
 			"deck": ["ghost", "ghost", "ghost", "ghost", "shadow_bolt", "shadow_bolt", "soul_rend", "wither",
@@ -589,6 +608,7 @@ static func _ensure_loaded() -> void:
 					+ "wisp drifts, the veil between worlds has grown thin."),
 		},
 		"spectre_haunt": {
+			"attack_school": "dark",
 			"display_name": "Phantom",
 			"schools": {"resist": ["dark", "physical"], "weak": ["light", "rift"]},
 			"deck": ["ghost", "ghost", "ghost", "shadow_bolt", "shadow_bolt", "soul_rend", "soul_rend", "wither",
@@ -605,6 +625,7 @@ static func _ensure_loaded() -> void:
 					+ "with cold malice and retreats into shadow before the blow can be answered."),
 		},
 		"spectre_dread": {
+			"attack_school": "dark",
 			"display_name": "Wraith",
 			"schools": {"resist": ["dark", "physical"], "weak": ["light"]},
 			"deck": ["ghost", "ghost", "shadow_bolt", "shadow_bolt", "soul_rend", "soul_rend", "soul_harvest",
@@ -624,6 +645,7 @@ static func _ensure_loaded() -> void:
 					+ "hope."),
 		},
 		"mimic": {
+			"attack_school": "verdant",
 			"display_name": "Mimic",
 			"schools": {"resist": ["verdant"], "weak": ["rift"]},
 			"deck": ["ghost", "skeleton", "zombie", "ghoul", "ghost", "skeleton", "zombie", "ghoul"],
@@ -638,6 +660,7 @@ static func _ensure_loaded() -> void:
 					+ "indistinguishable from its surroundings — until you reach inside."),
 		},
 		"blight_heart": {
+			"attack_school": "dark",
 			"display_name": "The Blight Heart",
 			"schools": {"resist": ["dark"], "weak": ["light", "verdant"]},
 			"deck": ["void_creeper", "void_creeper", "void_creeper", "soul_harvest", "soul_harvest", "soul_harvest",
@@ -674,6 +697,13 @@ static func get_traits(type_id: String) -> Array[String]:
 	var out: Array[String] = []
 	out.assign((_enemies.get(type_id, {}) as Dictionary).get("traits", []))
 	return out
+
+## School of an enemy's hero swings and heavy blows (GID-181 / TID-751). Optional `attack_school`
+## per type; anything absent or unknown is "physical".
+static func get_attack_school(type_id: String) -> String:
+	_ensure_loaded()
+	var school: String = str((_enemies.get(type_id, {}) as Dictionary).get("attack_school", "physical"))
+	return school if _DamageSchools.is_school(school) else _DamageSchools.PHYSICAL
 
 ## Damage-school profile (GID-181 / TID-750) in the shape game_logic/battle/DamageSchools.gd reads:
 ## {"resist": {school: true}, "weak": {...}, "immune": {...}}. Every key is present (possibly empty).

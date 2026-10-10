@@ -65,6 +65,8 @@ const DEFS: Array = [
 	["resist_mult", "Damage multiplier vs a resisted school (x)", 0.5, 0.0, 1.0, 0.05, "Damage schools"],
 	["weak_mult", "Damage multiplier vs a weak school (x)", 1.5, 1.0, 3.0, 0.1, "Damage schools"],
 	["immune_mult", "Damage multiplier vs an immune school (x)", 0.0, 0.0, 1.0, 0.05, "Damage schools"],
+	# GID-181 / TID-751: cap on a hero's resistance to one school (fraction of damage soaked).
+	["max_player_resist", "Hero resistance cap per school (fraction)", 0.75, 0.0, 0.95, 0.05, "Damage schools"],
 ]
 
 var _values: Dictionary = {}
