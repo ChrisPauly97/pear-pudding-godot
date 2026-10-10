@@ -24,7 +24,7 @@ User request 2026-10-09: "we should add professions like crafting, potion making
 ## Acceptance Criteria
 
 - [x] One data table (`ProfessionDefs`) defines professions, materials and recipes; tests validate it
-- [ ] Materials come from world gathering nodes and enemy drops; both are deterministic and co-op safe (not yet: gathering harvests are not broadcast in co-op, so two peers can harvest the same node)
+- [ ] Materials come from world gathering nodes and enemy drops; both are deterministic and co-op safe (not yet: gathering harvests are not broadcast in co-op — tracked as BID-099)
 - [x] Each profession levels through crafting; recipes are gated by skill
 - [x] Cooking yields foods with well-fed battle buffs; Alchemy owns all potions; Crafting makes rolled gear
 - [x] Professions unlock through trainers (UnlockLadder) and show on the Character screen

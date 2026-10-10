@@ -185,7 +185,7 @@
 | [GID-179](goals/GID-179--skill-tree-card-mods/goal.md) | Skill Tree Modifies Cards | done | 6 / 6 |
 | [GID-180](goals/GID-180--deck-table/goal.md) | Deck Table — Fun, Tactile Deck & Bag Management | done | 12 / 12 |
 | [GID-181](goals/GID-181--damage-schools/goal.md) | Damage Schools & Matchups (Horizontal Progression) | pending | 0 / 11 |
-| [GID-182](goals/GID-182--professions/goal.md) | Professions — Alchemy, Cooking, Crafting | in-progress | 7 / 8 |
+| [GID-182](goals/GID-182--professions/goal.md) | Professions — Alchemy, Cooking, Crafting | done | 8 / 8 |
 
 ## Backlog
 
@@ -208,6 +208,7 @@ files in `tasks/archive/backlog/`.
 | [BID-094](backlog/BID-094--battle-setup-scattered.md) | Battle setup scattered across scene modules, reads autoloads | code-smell | GID-176 |
 | [BID-095](backlog/BID-095--chapter1-type-spread.md) | Chapter 1 enemy types spread widely one level up — resolved (TID-727, TID-729) | balance | GID-176 |
 | [BID-098](backlog/BID-098--battle-victory-over-500.md) | `BattleVictory.gd` over the 500-line cap (max-file-lines pragma) | code-smell | GID-182 TID-761 |
+| [BID-099](backlog/BID-099--coop-gather-sync.md) | Gathering harvests not synced in co-op (plus hold / respawn-clock gaps) | design-inconsistency | GID-182 TID-760 |
 
 ## Resolved Backlog
 
