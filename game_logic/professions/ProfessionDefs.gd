@@ -11,6 +11,7 @@ extends RefCounted
 
 const GardenDefs = preload("res://game_logic/GardenDefs.gd")
 const HeroVitality = preload("res://game_logic/HeroVitality.gd")
+const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 
 const ALCHEMY: String = "alchemy"
 const COOKING: String = "cooking"
@@ -68,6 +69,26 @@ const RECIPES: Dictionary = {
 	"cook_roast_fowl": {"profession": COOKING, "display_name": "Roast Fowl", "skill_req": 5,
 			"inputs": {"game_meat": 2, "wild_grain": 1}, "output": {"kind": "food", "id": "roast_fowl", "count": 1},
 			"xp": 14},
+	# Crafting (TID-765)
+	"stitch_leather_cap": {"profession": CRAFTING, "display_name": "Leather Cap", "skill_req": 1,
+			"inputs": {"rough_hide": 2}, "output": {"kind": "gear", "id": "leather_cap", "count": 1}, "xp": 8},
+	"stitch_leather_vest": {"profession": CRAFTING, "display_name": "Leather Vest", "skill_req": 3,
+			"inputs": {"rough_hide": 4}, "output": {"kind": "gear", "id": "leather_vest", "count": 1}, "xp": 10},
+	"stitch_leather_pauldrons": {"profession": CRAFTING, "display_name": "Leather Pauldrons", "skill_req": 4,
+			"inputs": {"rough_hide": 2}, "output": {"kind": "gear", "id": "leather_pauldrons", "count": 1}, "xp": 10},
+	"stitch_travel_boots": {"profession": CRAFTING, "display_name": "Travel Boots", "skill_req": 6,
+			"inputs": {"rough_hide": 3}, "output": {"kind": "gear", "id": "travel_boots", "count": 1}, "xp": 12},
+	"forge_iron_helm": {"profession": CRAFTING, "display_name": "Iron Helm", "skill_req": 5,
+			"inputs": {"iron_ore": 3}, "output": {"kind": "gear", "id": "iron_helm", "count": 1}, "xp": 16},
+	"forge_iron_pauldrons": {"profession": CRAFTING, "display_name": "Iron Pauldrons", "skill_req": 8,
+			"inputs": {"iron_ore": 3}, "output": {"kind": "gear", "id": "iron_pauldrons", "count": 1}, "xp": 16},
+	"forge_iron_greaves": {"profession": CRAFTING, "display_name": "Iron Greaves", "skill_req": 10,
+			"inputs": {"iron_ore": 4}, "output": {"kind": "gear", "id": "iron_greaves", "count": 1}, "xp": 18},
+	"forge_iron_shield": {"profession": CRAFTING, "display_name": "Iron Shield", "skill_req": 12,
+			"inputs": {"iron_ore": 4}, "output": {"kind": "gear", "id": "iron_shield", "count": 1}, "xp": 20},
+	"forge_berserker_axe": {"profession": CRAFTING, "display_name": "Berserker Axe", "skill_req": 15,
+			"inputs": {"iron_ore": 5, "copper_ore": 2}, "output": {"kind": "gear", "id": "berserker_axe", "count": 1},
+			"xp": 24},
 }
 
 const MAX_LEVEL: int = 50
@@ -153,4 +174,6 @@ static func output_valid(output: Dictionary) -> bool:
 			return HeroVitality.FOODS.has(id)
 		"potion":
 			return GardenDefs.POTIONS.has(id)
+		"gear":
+			return WeaponRegistry.has_weapon(id)
 	return false

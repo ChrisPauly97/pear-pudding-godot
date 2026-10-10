@@ -47,10 +47,8 @@ func test_every_material_has_a_known_source() -> void:
 		assert_true(ProfessionDefs.SOURCES.has(str(m["source"])), id)
 
 
-func test_every_profession_has_a_recipe_or_is_crafting() -> void:
+func test_every_profession_has_a_recipe() -> void:
 	for p: String in ProfessionDefs.PROFESSIONS:
-		if p == ProfessionDefs.CRAFTING:
-			continue  # gear recipes arrive with TID-765
 		assert_false(ProfessionDefs.recipes_for(p).is_empty(), p)
 
 

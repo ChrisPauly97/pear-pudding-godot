@@ -8,6 +8,7 @@ extends RefCounted
 const _SaveManager = preload("res://autoloads/SaveManager.gd")
 const ProfessionDefs = preload("res://game_logic/professions/ProfessionDefs.gd")
 const GardenDefs = preload("res://game_logic/GardenDefs.gd")
+const CraftedGear = preload("res://game_logic/professions/CraftedGear.gd")
 
 var _save: _SaveManager
 
@@ -52,7 +53,7 @@ func remove_material(id: String, n: int) -> bool:
 
 
 ## "" when `recipe_id` can be crafted now, else the reason it can't:
-## "unknown", "unsupported" (gear, until TID-765), "skill" or "inputs".
+## "unknown", "unsupported" (an output that names no real item), "skill" or "inputs".
 func craft_block(recipe_id: String) -> String:
 	var r: Dictionary = ProfessionDefs.def(recipe_id)
 	if r.is_empty():
@@ -68,9 +69,12 @@ func craft_block(recipe_id: String) -> String:
 	return ""
 
 
-## Crafts one `recipe_id`: consumes inputs, grants the output and XP.
-## Returns {ok, reason, id, count, xp, level} (level is the new level, or 0 when unchanged).
-func craft(recipe_id: String) -> Dictionary:
+## Crafts one `recipe_id`: consumes inputs, grants the output and XP. Gear is
+## rolled from the crafter's skill (CraftedGear) and granted like a drop, so a
+## duplicate keeps the better roll. `rng` is optional (tests pass a seeded one).
+## Returns {ok, reason, id, count, xp, level, roll, grant} (level is the new
+## level, or 0 when unchanged; roll / grant are set for gear only).
+func craft(recipe_id: String, rng: RandomNumberGenerator = null) -> Dictionary:
 	var reason: String = craft_block(recipe_id)
 	if reason != "":
 		return {"ok": false, "reason": reason}
@@ -85,11 +89,23 @@ func craft(recipe_id: String) -> Dictionary:
 	var out: Dictionary = r["output"]
 	var out_id: String = str(out["id"])
 	var n: int = int(out.get("count", 1))
+	var before: int = level(prof)
+	var roll: Dictionary = {}
+	var grant: String = ""
 	if str(out["kind"]) == "food":
 		_save.foods[out_id] = int(_save.foods.get(out_id, 0)) + n
+	elif str(out["kind"]) == "gear":
+		var gen: RandomNumberGenerator = rng
+		if gen == null:
+			gen = RandomNumberGenerator.new()
+			gen.randomize()
+		for _i: int in n:
+			roll = CraftedGear.roll(before, int(r["skill_req"]), gen)
+			grant = _save.gear.grant(out_id, roll)
+			if grant == "new" or grant == "upgraded":
+				GameBus.equipment_dropped.emit(out_id)
 	else:
 		_save.garden.add_potions(out_id, n)
-	var before: int = level(prof)
 	var gained: int = ProfessionDefs.recipe_xp(recipe_id, before)
 	_save.profession_xp[prof] = xp(prof) + gained
 	_save._dirty = true
@@ -98,7 +114,7 @@ func craft(recipe_id: String) -> Dictionary:
 		GameBus.profession_level_up.emit(prof, after)
 	GameBus.inventory_changed.emit()
 	return {"ok": true, "reason": "", "id": out_id, "count": n, "xp": gained,
-			"level": after if after > before else 0}
+			"level": after if after > before else 0, "roll": roll, "grant": grant}
 
 
 ## Grants raw profession XP (gathering, TID-760). Returns the new level when it
