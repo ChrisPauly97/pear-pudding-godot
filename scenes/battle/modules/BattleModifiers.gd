@@ -13,6 +13,8 @@ const _BattleScene = preload("res://scenes/battle/BattleScene.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
+const DamageResolver = preload("res://game_logic/battle/DamageResolver.gd")
+const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
 const CompanionRegistry = preload("res://autoloads/CompanionRegistry.gd")
@@ -232,7 +234,7 @@ func _apply_desert_scorch() -> void:
 		for si in range(5):
 			var c: CardInstance = _battle._state.players[pid].board.slots[si]
 			if c != null:
-				c.take_damage(1)
+				DamageResolver.deal(_battle._state.players[pid], c, 1, DamageSchools.PHYSICAL)
 				if not c.is_alive():
 					_battle._state.players[pid].board.remove_card(c)
 					_battle._state.players[pid].discard.append(c)

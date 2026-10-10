@@ -2,8 +2,9 @@
 
 Breadth as progression: a hit has a **school**, a target has a **school profile**, and one pure
 table turns the pair into a damage multiplier. The card you bring for a matchup matters more
-because the school lives on the card. TID-748 added the module and its knobs only. No damage
-event calls it yet, so no gameplay number has moved.
+because the school lives on the card. TID-748 added the module and its knobs. TID-749 added the
+single damage resolver that every damage event now goes through. With empty profiles (the default
+until TID-750 / TID-751) no gameplay number moves.
 
 ## Key Features
 
@@ -41,14 +42,41 @@ no magic type (plain minions, Strike, Kick, Mend) are `physical`. `TechniqueDefs
 school field: technique cards already carry `magic_type` in their `.tres`, so `school_of` covers
 them.
 
+## Damage resolver (TID-749)
+
+Module: `game_logic/battle/DamageResolver.gd`. Every production damage event goes through it.
+Raw `take_damage` lives only on HeroState and CardInstance.
+
+| Function | Returns |
+|---|---|
+| `deal(defender: PlayerState, target, amount, school, tune = null)` | `{"dealt": int, "outcome": String}`. Scales `amount` by the defender's profile, applies it with the target's `take_damage` (armor and shroud still soak), and reports the HP actually lost plus the outcome for UI |
+| `scaled_amount(defender, amount, school, tune = null) -> int` | the scaled amount for HP loss that skips armor (the Curse arm in SpellEffectResolver) |
+| `profile_of(defender) -> Dictionary` | `defender.school_profile`, or `{}` for a null side |
+
+- **Profile seam:** `PlayerState.school_profile: Dictionary = {}`, one per defending side. TID-750
+  fills enemy sides at battle setup from the enemy type, and TID-751 fills player sides. It is
+  not serialized, so it is re-derived at setup.
+- **School per source:** a card hits as `DamageSchools.school_of(card)`: spells, minion swings,
+  emergence damage, and counterattacks (the struck card's school). Hero swings and hero counters,
+  heavy blows, poison and burn ticks, desert scorch, fatigue and environmental damage use
+  `DamageSchools.PHYSICAL`. Statuses have no school of their own yet.
+- **Tune:** real-time sites pass the fight's `CombatTuning` (`rt.tune`). Turn-based sites pass
+  null, so the knob defaults apply.
+- **Guardrail:** `tests/unit/test_damage_resolver_guardrail.gd` fails if a `take_damage(` call
+  appears in production code (`game_logic/`, `scenes/`, `autoloads/`, `ai/`, `tools/`) outside the
+  resolver and the raw definitions. Tests are excluded, since unit fixtures set HP directly.
+
+Damage sites routed: SpellEffectResolver (emergence and all spell arms), RealtimeCombat (swings,
+poison, scorch, heavy blow), BattleInput and BattleNet (attacks and counters), BattleFx (status
+ticks), BattleModifiers (desert scorch), BasicAI (AI attacks), PlayerState (fatigue).
+
 ## Integrations
 
 - **CombatTuning:** the three knobs above. Knob reads go through `tune.get_f(...)`.
 - **MagicTypes:** the source of truth for magic type names and validity.
-- **Planned (later GID-181 tasks):** the single resolver (TID-749) calls `mult`/`scale` at every
-  damage site; enemy profiles (TID-750); enemy attack schools and hero resistances (TID-751); combat
-  UI feedback (TID-752); bestiary reveal (TID-753); player school sources (TID-754); balance sim
-  sweeps (TID-757).
+- **Planned (later GID-181 tasks):** enemy profiles (TID-750); enemy attack schools and hero
+  resistances (TID-751); combat UI feedback (TID-752); bestiary reveal (TID-753); player school
+  sources (TID-754); balance sim sweeps (TID-757).
 
 ## Asset Requirements
 
@@ -58,3 +86,7 @@ None. Pure logic, no art or audio.
 
 `tests/unit/test_damage_schools.gd` (auto-discovered by `tests/runner.gd`). Covers school lookup,
 tag precedence, knob overrides, and rounding of scaled damage.
+
+`tests/unit/test_damage_resolver.gd`: neutral behaviour with empty profiles, resist / weak / immune
+scaling, armor and shroud, null defender, knob overrides. `tests/unit/test_damage_resolver_guardrail.gd`:
+the `take_damage(` source scan.

@@ -6,6 +6,8 @@ const HeroState = preload("res://game_logic/battle/HeroState.gd")
 const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const ZoneState = preload("res://game_logic/battle/ZoneState.gd")
 const GameState = preload("res://game_logic/battle/GameState.gd")
+const DamageResolver = preload("res://game_logic/battle/DamageResolver.gd")
+const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _BattleJuice = preload("res://scenes/battle/BattleJuice.gd")
 const _CardMotion = preload("res://scenes/battle/CardMotion.gd")
@@ -95,13 +97,13 @@ func hide_intent_banner() -> void:
 func process_start_of_turn_statuses(player_idx: int) -> void:
 	var player: PlayerState = _state.players[player_idx]
 	for card: CardInstance in player.board.get_cards():
-		_tick_statuses_on_card(card)
-	_tick_statuses_on_hero(player.hero, player_idx)
+		_tick_statuses_on_card(card, player)
+	_tick_statuses_on_hero(player.hero, player_idx, player)
 
-func _tick_statuses_on_card(card: CardInstance) -> void:
+func _tick_statuses_on_card(card: CardInstance, owner: PlayerState) -> void:
 	if card.has_status("poison"):
 		var dmg: int = card.get_status_value("poison")
-		card.take_damage(dmg)
+		DamageResolver.deal(owner, card, dmg, DamageSchools.PHYSICAL)
 		var nv: int = dmg - 1
 		if nv <= 0:
 			card.clear_status("poison")
@@ -116,11 +118,11 @@ func _tick_statuses_on_card(card: CardInstance) -> void:
 			card.apply_status("freeze", dur)
 		GameBus.status_ticked.emit(card.instance_id, "freeze", maxi(dur, 0))
 
-func _tick_statuses_on_hero(hero: HeroState, player_idx: int) -> void:
+func _tick_statuses_on_hero(hero: HeroState, player_idx: int, owner: PlayerState) -> void:
 	var hid: String = "hero_%d" % player_idx
 	if hero.has_status("poison"):
 		var dmg: int = hero.get_status_value("poison")
-		hero.take_damage(dmg)
+		DamageResolver.deal(owner, hero, dmg, DamageSchools.PHYSICAL)
 		var nv: int = dmg - 1
 		if nv <= 0:
 			hero.clear_status("poison")
