@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://tbfgdya7aor3"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_fracture_displacer"]
+
+[resource]
+script = ExtResource("1_fracture_displacer")
+id = "fracture_displacer"
+card_name = "Displacer"
+cost = 4
+attack = 2
+health = 4
+card_class = "minion"
+description = "Every step it takes leaves the ground slightly less where it was."
+color = Color(0.9, 0.45, 0.75, 1)
+magic_type = "rift"
+magic_branch = "fracture"
+keywords = PackedStringArray("shroud")
+emergence_effect = "emergence_freeze_random"
+emergence_power = 1

@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://t1lobomyi8zp"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_flux_skitter"]
+
+[resource]
+script = ExtResource("1_flux_skitter")
+id = "flux_skitter"
+card_name = "Skitterwisp"
+cost = 1
+attack = 1
+health = 2
+card_class = "minion"
+description = "It arrives before the thing it came to warn about."
+color = Color(0.4, 0.8, 1, 1)
+magic_type = "rift"
+magic_branch = "flux"
+emergence_effect = "emergence_draw"
+emergence_power = 1

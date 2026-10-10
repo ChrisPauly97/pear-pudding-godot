@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://3crdeagsj1so"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_fracture_unmaker"]
+
+[resource]
+script = ExtResource("1_fracture_unmaker")
+id = "fracture_unmaker"
+card_name = "Unmaker"
+cost = 5
+attack = 3
+health = 3
+card_class = "minion"
+description = "The seam splits, and whatever sat on the seam is no longer there."
+color = Color(0.9, 0.45, 0.75, 1)
+magic_type = "rift"
+magic_branch = "fracture"
+keywords = PackedStringArray("shroud")
+emergence_effect = "emergence_deal_damage"
+emergence_power = 2

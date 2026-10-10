@@ -2,7 +2,7 @@
 
 **Goal:** GID-183
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-767
 
 ## Lock
@@ -27,12 +27,23 @@ Build the rift half of the TID-767 roster.
 
 ## Plan
 
-_Written during Plan phase._
+- Eight rift Allies from the TID-767 roster: flux (Skitterwisp, Blinkfox, Warp Adept, Temporal Rider)
+  and fracture (Shardling, Mirror Wight, Displacer, Unmaker). Stats, costs and keywords as in the roster.
+- Only new mechanic: `emergence_freeze_random` (Displacer), one `match` arm in `resolve_emergence`
+  reusing the `"freeze"` status. Real-time and AI placements already route through `resolve_emergence`.
+- Art rows reuse existing families (scout, rift_echo, duelist, rival, scarab, ghost, warden, undead_elite).
 
 ## Changes Made
 
-_Filled after Build phase._
+- `data/cards/{flux_skitter,flux_blinkfox,flux_warp_adept,flux_temporal_rider,fracture_shardling,fracture_mirror_wight,fracture_displacer,fracture_unmaker}.tres` + `.tres.uid` sidecars.
+- `autoloads/CardRegistry.gd`: 8 `_C_*` preloads (end of preload block) and 8 list entries (end of `_ensure_loaded()` list).
+- `game_logic/CardArtRegistry.gd`: 8 `_CARD_ART` rows (end of dict).
+- `scenes/battle/SpellEffectResolver.gd`: `"emergence_freeze_random"` arm in `resolve_emergence` (picks one opponent minion, `apply_status("freeze", power)`).
+- `game_logic/battle/SpellEffectLabels.gd`: `EMERGENCE` label for the new effect.
+- `tests/unit/test_emergence_freeze_random.gd`: freezes exactly one enemy, duration = power, never friendly, empty board no-op, rift cards registered with correct branches.
+- `tests/unit/test_card_registry.gd`: total card count 128 -> 136.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/magic-system.md`: roster section marked as built for the rift half; `fracture_displacer` noted as the new-effect card.
+- `docs/agent/battle-system.md`: `emergence_freeze_random` added to the emergence effect list (two places).

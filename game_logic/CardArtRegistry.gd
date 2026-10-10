@@ -88,6 +88,14 @@ const _CARD_ART: Dictionary = {
 	"thorn_bramble_warden": _CARD_TREANT,
 	"thorn_thornback": _CARD_WOLF_PACK,
 	"thorn_briarwall": _CARD_TERROR,
+	"flux_skitter": _CARD_SCOUT,
+	"flux_blinkfox": _CARD_RIFT_ECHO,
+	"flux_warp_adept": _CARD_DUELIST,
+	"flux_temporal_rider": _CARD_RIVAL,
+	"fracture_shardling": _CARD_SCARAB,
+	"fracture_mirror_wight": _CARD_GHOST,
+	"fracture_displacer": _CARD_WARDEN,
+	"fracture_unmaker": _CARD_UNDEAD_ELITE,
 }
 
 ## Maps a card illustration key + magic branch to its texture.

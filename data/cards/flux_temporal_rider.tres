@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://8mq8yolz136h"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_flux_temporal_rider"]
+
+[resource]
+script = ExtResource("1_flux_temporal_rider")
+id = "flux_temporal_rider"
+card_name = "Temporal Rider"
+cost = 5
+attack = 3
+health = 3
+card_class = "minion"
+description = "He has been a moment early three days running."
+color = Color(0.4, 0.8, 1, 1)
+magic_type = "rift"
+magic_branch = "flux"
+keywords = PackedStringArray("surge")
+emergence_effect = "emergence_deal_damage"
+emergence_power = 2
