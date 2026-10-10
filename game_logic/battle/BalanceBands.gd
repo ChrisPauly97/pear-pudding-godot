@@ -38,18 +38,19 @@ const DRIFT_SECONDS: float = 0.25
 ## Roster cells: [biome, [[enemy type, enemy level, player level], ...]]. TID-771: one cell per
 ## biome, chosen from a 60-fight grid where the default deck is neither saturated nor dead (the old
 ## pooled cells paired a 100 % cell with a 0 % cell, so a pooled rate said nothing). Each is the
-## biome's most informative enemy at its level gap.
+## biome's most informative enemy at its level gap. GID-186 re-picked desert / scorched /
+## mountains after every type took its fight tier from its level (the old cells saturated).
 const BIOME_ROSTERS: Array = [
 	["grasslands", [["martarquas_scout", 9, 7]]],
 	["forest", [["bog_hag", 8, 6]]],
-	["desert", [["cactus_worm", 5, 4]]],
-	["scorched", [["scorched_revenant", 6, 5]]],
-	["mountains", [["mountain_troll", 8, 6]]],
+	["desert", [["cactus_worm", 8, 6]]],
+	["scorched", [["scorched_revenant", 8, 6]]],
+	["mountains", [["mountain_troll", 8, 7]]],
 ]
 ## Matchup cells: [enemy type, enemy level, player level, weak school, resisted school]
 ## (EnemyRegistry profile: cactus worm is weak to dark and resists verdant).
 const MATCHUPS: Array = [
-	["cactus_worm", 6, 4, "dark", "verdant"],
+	["cactus_worm", 8, 6, "dark", "verdant"],
 ]
 ## Fights per roster enemy / per matchup side (fixed seeds 1..n, same for every deck).
 const SCHOOL_FIGHTS: int = 14

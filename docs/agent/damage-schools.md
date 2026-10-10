@@ -13,8 +13,12 @@ school power, from skill nodes, gear affixes and a weapon convert (see "Player S
 - **Schools:** `physical` plus the four magic types from `MagicTypes` (`light`, `dark`, `verdant`,
   `rift`). The magic type list is read from `MagicTypes`, never re-listed.
 - **Profiles:** a target lists schools it **resists**, is **weak** to, or is **immune** to.
-- **Three knobs** in `CombatTuning` (the one tuning table): `resist_mult` 0.5, `weak_mult` 1.5,
-  `immune_mult` 0.0. The in-battle tuning panel edits them live under the "Damage schools" group.
+- **Knobs** in `CombatTuning` (the one tuning table): `resist_mult` 0.5, `weak_mult` 1.5,
+  `immune_mult` 0.0 for magic schools; physical has its own milder pair, `physical_resist_mult` 0.8 and
+  `physical_weak_mult` 1.15 (GID-186: physical is every kit's base channel — auto-attacks, Strike, Allies — so a
+  physical tag moved a whole fight, 0 % walls and 100 % walkovers). The in-battle tuning panel edits them live
+  under the "Damage schools" group; spell hits read the fight's tuning too (`SpellEffectResolver.tune`, GID-186 —
+  before it they always used the defaults).
 - **Pure:** `game_logic/battle/DamageSchools.gd` is a RefCounted with no autoloads or scene tree,
   so the balance sim and `-s` tests load it directly.
 - **Player sources (TID-754):** skill-tree school nodes, gear school affixes and the weapon convert feed

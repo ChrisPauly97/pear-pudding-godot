@@ -89,7 +89,7 @@ func maybe_start(is_fresh: bool) -> void:
 	var tier: int = _BattleSetup.base_tier(enemy_type)
 	var saved: Variant = SceneManager.save_manager.get_setting(TUNING_SETTING, {})
 	var tuning := CombatTuning.new(saved as Dictionary if saved is Dictionary else {})
-	var enemy_level: int = int(_battle.enemy_data.get("enemy_level", enemy_level_for_tier(tier)))
+	var enemy_level: int = int(_battle.enemy_data.get("enemy_level", _BattleSetup.default_enemy_level(enemy_type)))
 	rt = RealtimeCombat.new(_battle._state, [player_level, enemy_level], tuning)
 	# Gates, caps, opening hand and gear timers — shared with the balance sim (TID-714).
 	var sm := SceneManager.save_manager
@@ -102,6 +102,7 @@ func maybe_start(is_fresh: bool) -> void:
 	caster = PlayerCaster.new(rt)
 	caster.notify = _on_caster_event
 	_battle._resolver.power_hook = caster.modify_power
+	_battle._resolver.tune = rt.tune  # GID-186: spell hits read the live matchup knobs
 	_enemy_tier = tier
 	_apply_live_tuning()
 	_build_ui()
@@ -376,7 +377,9 @@ func join_enemy(enemy_data: Dictionary) -> bool:
 		return false
 	var etype: String = str(enemy_data.get("enemy_type", "undead_basic"))
 	var is_boss: bool = bool(enemy_data.get("is_boss", false))
-	var tier: int = 4 if is_boss else _BattleSetup.base_tier(etype)
+	# GID-186: a joiner fights at its own level (its data's, else its authored tier's), tier from that.
+	var level: int = int(enemy_data.get("enemy_level", _BattleSetup.default_enemy_level(etype)))
+	var tier: int = _BattleSetup.enemy_tier(etype, is_boss, level)
 	var ps := PlayerState.new(_battle._state.players.size(), true)
 	var deck: Array[String] = []
 	deck.assign(enemy_data.get("enemy_deck", _EnemyRegistry.get_deck(etype)))
@@ -387,7 +390,7 @@ func join_enemy(enemy_data: Dictionary) -> bool:
 		ps.hero.health = bhp
 		ps.hero.max_health = bhp
 	_BattleSetup.scale_enemy_hp(ps, _EnemyRegistry.rt_hp_mult(etype))  # BID-095 per-type tuning
-	var side: int = rt.add_enemy(ps, enemy_level_for_tier(tier))
+	var side: int = rt.add_enemy(ps, level)
 	if side < 0:
 		return false
 	rt.unarmed[side] = rt.tune.get_i("enemy_unarmed") + maxi(0, tier - 1)

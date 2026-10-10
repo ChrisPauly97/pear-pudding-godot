@@ -189,6 +189,7 @@
 | [GID-183](goals/GID-183--magic-school-allies/goal.md) | Magic-school Allies (Verdant & Rift) | done | 5 / 5 |
 | [GID-184](goals/GID-184--light-school-balance/goal.md) | Light School Damage & School Balance (BID-101) | done | 2 / 2 |
 | [GID-185](goals/GID-185--unlocks-grant-cards/goal.md) | Unlocks Grant Cards & Expand the Deck | done | 3 / 3 |
+| [GID-186](goals/GID-186--balance-coverage/goal.md) | Balance Coverage — Every Level, School and Resistance | done | 1 / 1 |
 
 ## Backlog
 

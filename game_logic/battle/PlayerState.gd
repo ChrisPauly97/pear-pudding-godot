@@ -34,6 +34,9 @@ var env_school_mult: Dictionary = {}
 ## that school (gear school_dmg affixes, school_power skill nodes). Read on the attacker in
 ## DamageResolver. Set at solo battle start (BattleSetup.apply_school_power); not serialized.
 var school_power: Dictionary = {}
+## Outgoing damage multiplier from the hero's level, every school (real time: `CombatTuning.hero_level_power`,
+## set by RealtimeCombat for the player side). 1.0 = none. Not serialized.
+var level_power: float = 1.0
 ## The weapon's convert affix (GID-181 / TID-754): the school the hero's auto-attack and Strike
 ## hit as. "" = plain physical. Set at solo battle start; not serialized.
 var convert_school: String = ""

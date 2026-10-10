@@ -34,6 +34,7 @@ static func run(cfg: Dictionary, policy: Dictionary = {}) -> Dictionary:
 	resolver.setup(state)
 	var caster := PlayerCaster.new(rt)
 	resolver.power_hook = caster.modify_power
+	resolver.tune = rt.tune
 	var bot := BalanceBot.new(policy)
 	var stats: Dictionary = {"plays": {}, "dealt_cards": 0, "dealt_auto": 0, "interrupts": 0,
 		"enemy_casts": 0, "procs": 0, "full_mana_s": 0.0, "crits_dealt": 0, "crits_taken": 0}
