@@ -421,6 +421,16 @@ A **loadout tab row** and **action row** sit above the `_deck_count_label` in th
 
 **Delete popup** (`_on_del_loadout()`): `PopupPanel` confirmation with "Yes, Delete" / "Cancel". Guard: function returns early if only one loadout remains (button is also `disabled`), so the last loadout can never be deleted.
 
+### Matchup Swap Row (TID-756)
+
+Before a fight, the saved loadouts are ranked against the enemy's known weak schools
+(`game_logic/battle/LoadoutMatchup.gd`, pure). `scenes/ui/LoadoutSwapRow.gd` draws them as a row of
+buttons: the best match starred and tinted, the active loadout and too-small ones disabled, and the
+enemy's weak schools as colour chips. A tap calls `SaveManager.decks.set_active_loadout(i)`, so the next
+battle uses that deck. The row appears in the gambit picker (`GambitPickerOverlay`) and, with gambits
+auto-skipped, in a world "Swap deck" modal (`scenes/world/modules/SwapDeckPrompt.gd`). The deck builder
+itself is unchanged. Full rules in `docs/agent/damage-schools.md` ("Matchup Loadouts").
+
 ---
 
 ## Veterancy System (GID-060)
