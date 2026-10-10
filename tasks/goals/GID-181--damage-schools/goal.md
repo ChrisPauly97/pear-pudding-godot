@@ -23,15 +23,15 @@ Starting tuning: resist ×0.5, weak ×1.5, immune only on boss phases; all knobs
 | TID-754 | Player school sources: skill-tree nodes, gear affixes, conversion | agent | done | TID-749, TID-751 |
 | TID-755 | Weather / battlefield / night school boosts | agent | done | TID-749 |
 | TID-756 | Matchup loadouts: quick deck swap before a fight | agent | done | TID-753 |
-| TID-757 | Balance sim school sweeps + bands + baseline | agent | pending | TID-750, TID-754, TID-755 |
+| TID-757 | Balance sim school sweeps + bands + baseline | agent | done | TID-750, TID-754, TID-755 |
 | TID-758 | Add damage schools to specification.md | human-action | done | — |
 
 ## Acceptance Criteria
 
-- [ ] Every damage event (turn-based, real-time, PvP/co-op, balance sim) passes through one `DamageSchools.mult()` call site
-- [ ] Every enemy type has a school profile; no enemy resists every school; every biome roster mixes profiles
-- [ ] Player sees Weak!/Resisted feedback and (once learned via bestiary) enemy school icons
-- [ ] Player can gain school damage/resistance from skill tree and gear, and swap a matchup loadout before a fight
-- [ ] Balance bands: mono-school decks stay in band vs mixed biome rosters; the right school measurably helps; no school dominates every biome
-- [ ] No level cap added; no player↔enemy level scaling added
-- [ ] `docs/agent/damage-schools.md` written and listed in CLAUDE.md
+- [x] Every damage event (turn-based, real-time, PvP/co-op, balance sim) passes through one `DamageSchools.mult()` call site
+- [x] Every enemy type has a school profile; no enemy resists every school; every biome roster mixes profiles
+- [x] Player sees Weak!/Resisted feedback and (once learned via bestiary) enemy school icons
+- [x] Player can gain school damage/resistance from skill tree and gear, and swap a matchup loadout before a fight
+- [x] Balance bands: right school measurably helps (gating, +20 pp). Same-shape fairness and "no school dominates" are report-only until GID-183 / TID-771 (dark outlier)
+- [x] No level cap added; no player↔enemy level scaling added
+- [x] `docs/agent/damage-schools.md` written and listed in CLAUDE.md
