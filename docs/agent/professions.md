@@ -38,11 +38,29 @@ The fields live on SaveManager (`PERSISTED_FIELDS`, migration v49): `profession_
 
 Signals: `GameBus.profession_level_up(profession, level)` on a level-up, and `inventory_changed` after a craft or a material gain.
 
+### Gathering (TID-760)
+
+Gathering nodes are the herb, ore and fish sources of `MATERIALS`. They are placed by chunk generation and harvested in the world.
+
+| Piece | Where | Notes |
+|---|---|---|
+| `GatherDefs` (`game_logic/professions/GatherDefs.gd`) | Pure tables and `plan_chunk(chunk_seed, biome, water_near)` | Returns `[{kind, material, pick}]`, deterministic per chunk seed (worker-thread safe). `pick % grass_tiles.size()` gives the tile. |
+| Yields | `GatherDefs.YIELDS` (biome → kind → materials) | Herbs in grassland, forest and desert; ore in scorched lands and mountains; fishing spots only in grassland or forest with water beside the chunk (`Rivers.touches_chunk` / `Coast.touches_chunk`). Bog moss is not yet planted. |
+| Profession | `GatherDefs.profession_for(material)` | Herb → Alchemy (wild grain → Cooking), ore → Crafting, fish → Cooking. |
+| Node data | `ChunkData.gather_nodes` `{id, x, z, kind, material}` | Written by `InfiniteWorldGen._gen_entities` (`g_<cx>_<cz>_<i>`). Towns are excluded through `grass_tiles`. |
+| Entity | `scenes/world/entities/GatherNode.gd` (+ `.tscn`) | Placeholder coloured mound. `interact()` harvests: adds 1 material, grants the node's XP through `save_manager.professions.add_xp`, and shows a HUD message. |
+| Respawn | `GatherNode` (session-only) | A harvest hides the node for `respawn_seconds` (real time: herb 240 s, ore 360 s, fish 180 s). Nothing is saved, and the node comes back when its chunk reloads. |
+| Registry | `scenes/world/modules/GatherNodes.gd` (`WorldScene.gather_nodes`) | `register(id, node)` from ChunkRenderer; `find_nearby(px, pz, r)` skips depleted and freed nodes. |
+| Interact | `WorldScene.INTERACT_PRIORITY` entry `gather_node` (after `riddle_spot`, before `mana_well`) | Prompt verb `GATHER`. It runs through `_try_simple_interaction`, so touch uses the same HUD interact button. |
+| XP | `SaveProfessions.add_xp(profession, n)` | Raw XP grant. Returns the new level on a level-up and emits `GameBus.profession_level_up`. |
+
+Not done yet: co-op harvests are not broadcast (each peer can harvest the same node), and gathering takes no hold-time.
+
 ## Integrations
 
 - The garden (`GardenDefs`): plants are inputs. Potions share `SaveManager.potions` with the battle quick slots.
 - Foods (`HeroVitality.FOODS`): crafted foods share `SaveManager.foods` with the world quick use.
-- Planned: gathering nodes (TID-760), enemy drops (TID-761), station panel (TID-762), cooking buffs (TID-763), alchemy migration (TID-764), gear (TID-765), trainers + Character tab (TID-766).
+- Gathering nodes (TID-760) are described above. Planned: enemy drops (TID-761), station panel (TID-762), cooking buffs (TID-763), alchemy migration (TID-764), gear (TID-765), trainers + Character tab (TID-766).
 
 ## Asset Requirements
 
@@ -50,4 +68,4 @@ None yet. The station and gathering-node sprites come with TID-760 / TID-762.
 
 ## Tests
 
-`tests/unit/test_professions.gd` checks that the tables are valid, the XP curve round-trips and the bands behave, and covers the craft flow (inputs, outputs, refusals, level-up) and the v49 migration.
+`tests/unit/test_professions.gd` checks that the tables are valid, the XP curve round-trips and the bands behave, and covers the craft flow (inputs, outputs, refusals, level-up) and the v49 migration. `tests/unit/test_gathering.gd` covers gathering: deterministic planning per chunk seed, biome and water gating, yields that are valid materials of the matching source, `add_xp`, and the harvest-then-depleted cycle.

@@ -667,7 +667,7 @@ func _spawn_entities(world_scene: _WorldScene) -> void:
 	for g_data in _chunk_data.gather_nodes:
 		var gnode: Node3D = TerrainMath.spawn_entity(_GatherNodeScene, g_data, 0.0, entity_root, world_scene)
 		_set_visibility_range(gnode)
-		world_scene.register_gather_node(str(g_data.get("id", "")), gnode)
+		world_scene.gather_nodes.register(str(g_data.get("id", "")), gnode)
 
 	# ── Active treasure dig site ───────────────────────────────────────────────
 	var sm := SceneManager.save_manager

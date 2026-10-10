@@ -4,6 +4,7 @@
 extends Node3D
 
 const GatherDefs = preload("res://game_logic/professions/GatherDefs.gd")
+const ProfessionDefs = preload("res://game_logic/professions/ProfessionDefs.gd")
 const _WEB = preload("res://scenes/world/entities/WorldEntityBase.gd")
 
 var gather_id: String = ""
@@ -50,3 +51,15 @@ func harvest() -> String:
 	visible = false
 	_respawn_msec = Time.get_ticks_msec() + int(GatherDefs.respawn_seconds(kind) * 1000.0)
 	return material
+
+
+## Interact: the material goes to the bag and its profession earns the node XP.
+func interact() -> void:
+	var mat: String = harvest()
+	if mat == "":
+		return
+	var sm := SceneManager.save_manager
+	sm.professions.add_material(mat, 1)
+	sm.professions.add_xp(GatherDefs.profession_for(mat), GatherDefs.xp(kind))
+	AudioManager.play_sfx("chest_open")
+	GameBus.hud_message_requested.emit("Gathered %s from a %s." % [ProfessionDefs.input_name(mat), node_name()])

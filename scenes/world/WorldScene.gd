@@ -76,9 +76,7 @@ const _SunRaysFx = preload("res://scenes/world/SunRaysFx.gd")
 const _TapToMove = preload("res://scenes/world/modules/TapToMove.gd")
 const _StoryCast = preload("res://scenes/world/modules/StoryCast.gd")
 const _HomeGarden = preload("res://scenes/world/modules/HomeGarden.gd")
-const _GatherNode = preload("res://scenes/world/entities/GatherNode.gd")  # GID-182 / TID-760
-const _GatherDefs = preload("res://game_logic/professions/GatherDefs.gd")
-const _ProfessionDefs = preload("res://game_logic/professions/ProfessionDefs.gd")
+const _GatherNodes = preload("res://scenes/world/modules/GatherNodes.gd")  # GID-182 / TID-760
 const _Cantrips = preload("res://scenes/world/modules/Cantrips.gd")
 const _NocturnalSpawner = preload("res://scenes/world/modules/NocturnalSpawner.gd")
 const _CoopSocial = preload("res://scenes/world/coop/CoopSocial.gd")
@@ -141,8 +139,8 @@ const INTERACT_INTERVAL: float = 0.15  # check interactions at ~7 Hz, not 60
 const INTERACT_PRIORITY: PackedStringArray = [
 	"downed_peer",
 	"door", "chest", "npc", "scroll", "wilderness_camp", "maiteln", "shrine",
-	"digspot", "burial_mound", "riddle_spot", "mana_well", "waystone", "mailbox", "garden_plot",
-	"gather_node", "blight_heart", "scout_ambush", "enemy",
+	"digspot", "burial_mound", "riddle_spot", "gather_node", "mana_well", "waystone", "mailbox", "garden_plot",
+	"blight_heart", "scout_ambush", "enemy",
 ]
 
 ## HUD prompt verb per NPC type; anything unlisted falls back to "TALK".
@@ -206,6 +204,7 @@ var town_life: _TownLife = null   # modules/TownLife.gd (GID-156)
 var world_clock: _WorldClock = null   # modules/WorldClock.gd (BID-055)
 var shortcuts: _WorldShortcuts = null   # modules/WorldShortcuts.gd (BID-055)
 var hero_health: _HeroHealth = null   # modules/HeroHealth.gd (TID-543)
+var gather_nodes: _GatherNodes = null  # modules/GatherNodes.gd (GID-182 / TID-760)
 var current_town: String = ""  # stitched town the player is in; see story_place()
 var chest_loot: _ChestLoot = null    # modules/ChestLoot.gd
 var night_lights: _NightLights = null  # modules/NightLights.gd (TID-489)
@@ -357,7 +356,6 @@ var _burial_mound_nodes: Dictionary = {} # mound_id -> Node3D
 var _blight_heart_nodes: Dictionary = {} # heart_id -> Node3D
 var _active_landmark_data: Dictionary = {} # landmark_id -> Dictionary
 var _mana_well_nodes: Dictionary = {}    # well_id -> Node3D
-var _gather_nodes: Dictionary = {}       # gather id -> GatherNode (GID-182 / TID-760)
 var _current_biome: int = -1
 var _current_biome_graded: int = -1  # first grade after entry applies instantly
 var _terrain_mat: ShaderMaterial
@@ -785,6 +783,7 @@ func _ensure_world_modules() -> void:
 	world_clock = _ensure_world_module(world_clock, _WorldClock, "WorldClock") as _WorldClock
 	shortcuts = _ensure_world_module(shortcuts, _WorldShortcuts, "WorldShortcuts") as _WorldShortcuts
 	hero_health = _ensure_world_module(hero_health, _HeroHealth, "HeroHealth") as _HeroHealth
+	gather_nodes = _ensure_world_module(gather_nodes, _GatherNodes, "GatherNodes") as _GatherNodes
 
 func _ensure_world_module(existing: Node, script: GDScript, node_name: String) -> Node:
 	if existing != null and is_instance_valid(existing):
@@ -970,7 +969,6 @@ func _on_chunk_unloading(chunk_key: Vector2i, chunk_data: _ChunkData) -> void:
 		[chunk_data.burial_mounds, _burial_mound_nodes, {}],
 		[chunk_data.landmarks, {}, _active_landmark_data],
 		[chunk_data.mana_wells, _mana_well_nodes, {}],
-		[chunk_data.gather_nodes, _gather_nodes, {}],
 	]:
 		var nodes: Dictionary = entry[1]
 		var data: Dictionary = entry[2]
@@ -1151,33 +1149,9 @@ func register_mana_well(wid: String, node: Node3D) -> void:
 func _find_nearby_mana_well(px: float, pz: float, range_dist: float) -> Node3D:
 	return _first_node_in_range(_mana_well_nodes, px, pz, range_dist)
 
-func register_gather_node(gid: String, node: Node3D) -> void:
-	_gather_nodes[gid] = node
-
-## A gathering node in reach that can be harvested now (a depleted one is skipped until it respawns).
-func _find_nearby_gather_node(px: float, pz: float, range_dist: float) -> _GatherNode:
-	var range_sq: float = range_dist * range_dist
-	for raw: Variant in _gather_nodes.values():
-		var gn := _valid_node3d(raw) as _GatherNode
-		if gn == null or not gn.is_harvestable():
-			continue
-		var ddx: float = gn.position.x - px
-		var ddz: float = gn.position.z - pz
-		if ddx * ddx + ddz * ddz <= range_sq:
-			return gn
-	return null
-
-## Harvests a gathering node (GID-182 / TID-760): the material goes to the bag and its
-## profession earns the node XP. The node hides until its respawn time.
-func _harvest_gather_node(gn: _GatherNode) -> void:
-	var mat: String = gn.harvest()
-	if mat == "":
-		return
-	var sm := SceneManager.save_manager
-	sm.professions.add_material(mat, 1)
-	sm.professions.add_xp(_GatherDefs.profession_for(mat), _GatherDefs.xp(gn.kind))
-	AudioManager.play_sfx("chest_open")
-	GameBus.hud_message_requested.emit("Gathered %s from a %s." % [_ProfessionDefs.input_name(mat), gn.node_name()])
+## Gathering node in reach that can be harvested now (GID-182 / TID-760); see modules/GatherNodes.gd.
+func _find_nearby_gather_node(px: float, pz: float, range_dist: float) -> Node3D:
+	return gather_nodes.find_nearby(px, pz, range_dist)
 
 func _find_nearby_blight_heart(px: float, pz: float, range_dist: float) -> Node3D:
 	return _first_node_in_range(_blight_heart_nodes, px, pz, range_dist)
@@ -1479,6 +1453,8 @@ func _interact_prompt_label(px: float, pz: float) -> String:
 		return "DIG"
 	if _find_nearby_riddle_spot(px, pz, r) != null:
 		return "EXAMINE"
+	if _find_nearby_gather_node(px, pz, r) != null:
+		return "GATHER"
 	if _find_nearby_mana_well(px, pz, r) != null:
 		return "FILL"
 	if not _find_nearby_waystone(px, pz, r).is_empty():
@@ -1487,8 +1463,6 @@ func _interact_prompt_label(px: float, pz: float) -> String:
 		return "MAIL"
 	if _find_nearby_garden_plot(px, pz, r) != null:
 		return "TEND"
-	if _find_nearby_gather_node(px, pz, r) != null:
-		return "GATHER"
 	# Hostile entities last — see INTERACT_PRIORITY.
 	if _find_nearby_blight_heart(px, pz, r) != null:
 		return "CLEANSE"
@@ -1589,6 +1563,7 @@ func _try_simple_interaction(px: float, pz: float) -> bool:
 		[_find_nearby_digspot, "dig"],
 		[_find_nearby_burial_mound, "interact"],
 		[_find_nearby_riddle_spot, "interact"],
+		[_find_nearby_gather_node, "interact"],
 	]:
 		var finder: Callable = entry[0]
 		var method: String = entry[1]
@@ -1696,11 +1671,6 @@ func _handle_interact() -> void:
 	var garden_plot: Node3D = _find_nearby_garden_plot(px, pz, IsoConst.INTERACT_RANGE)
 	if garden_plot != null:
 		home_garden.show_panel(garden_plot)
-
-	var gather_node := _find_nearby_gather_node(px, pz, IsoConst.INTERACT_RANGE)
-	if gather_node != null:
-		_harvest_gather_node(gather_node)
-		return
 
 	# Hostile entities are probed last, so anything peaceful in reach wins: you can
 	# take a door, open a chest or read a scroll with an enemy standing next to you

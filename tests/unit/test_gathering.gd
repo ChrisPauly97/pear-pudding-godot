@@ -40,7 +40,7 @@ func test_plan_entries_are_well_formed() -> void:
 	for s: int in range(SEED_COUNT):
 		for b: int in range(BiomeDef.COUNT):
 			for node: Dictionary in GatherDefs.plan_chunk(s, b, true):
-				assert_has(GatherDefs.KINDS, str(node["kind"]), "known kind")
+				assert_true(GatherDefs.KINDS.has(str(node["kind"])), "known kind")
 				assert_true(int(node["pick"]) >= 0, "pick is non-negative")
 				assert_true(GatherDefs.profession_for(str(node["material"])) != "",
 					"material has a profession")
@@ -82,7 +82,7 @@ func test_yields_are_valid_materials_of_the_matching_source() -> void:
 	for b: int in range(GatherDefs.YIELDS.size()):
 		var table: Dictionary = GatherDefs.YIELDS[b]
 		for kind: String in table:
-			assert_has(source_for, kind, "biome %d kind %s is a gather kind" % [b, kind])
+			assert_true(source_for.has(kind), "biome %d kind %s is a gather kind" % [b, kind])
 			var mats: Array = table[kind]
 			assert_false(mats.is_empty(), "biome %d kind %s yields something" % [b, kind])
 			for mat: String in mats:
