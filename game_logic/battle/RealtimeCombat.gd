@@ -678,12 +678,15 @@ func _resolve_swing(attacker: CardInstance, dmg: int, target: CardInstance, targ
 	if crit:
 		d = maxi(d + 1, roundi(float(d) * tune.get_f("crit_mult")))
 	var school: String = DamageSchools.school_of(attacker)
-	if attacker == null and from_side == ENEMY:  # an enemy hero's swing (TID-751)
-		school = enemy_attack_school
+	var src: PlayerState = state.players[from_side]  # the attacking side: its school power (TID-754)
+	if attacker == null:
+		# A hero swing: an enemy hero's swing hits as its school (TID-751), the player's as the
+		# weapon's school (a convert affix, TID-754; physical otherwise).
+		school = enemy_attack_school if from_side == ENEMY else src.weapon_school()
 	if target == null:
-		DamageResolver.deal(opp, opp.hero, d, school, tune)
+		DamageResolver.deal(opp, opp.hero, d, school, tune, src)
 		return crit
-	DamageResolver.deal(opp, target, d, school, tune)
+	DamageResolver.deal(opp, target, d, school, tune, src)
 	if not target.is_alive():
 		if attacker != null:
 			attacker.battle_kills += 1

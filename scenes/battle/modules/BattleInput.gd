@@ -461,8 +461,8 @@ func _execute_attack(attacker: CardInstance, target: CardInstance, defender: int
 	await _battle._fx.animate_attack(attacker_panel, target_pos, _battle._speed_scale, 0.06 if is_big_hit else 0.0)
 	if target != null:
 		var target_dmg: int = BattlefieldRules.modify_damage(target.attack, _battle._state.battlefield_biome)
-		DamageResolver.deal(def_owner, target, attacker_dmg, DamageSchools.school_of(attacker))
-		DamageResolver.deal(att_owner, attacker, target_dmg, DamageSchools.school_of(target))
+		DamageResolver.deal(def_owner, target, attacker_dmg, DamageSchools.school_of(attacker), null, att_owner)
+		DamageResolver.deal(att_owner, attacker, target_dmg, DamageSchools.school_of(target), null, def_owner)
 		attacker.attack_count -= 1
 		var target_panel := _battle._fx.get_card_panel(target, true)
 		_battle._fx.flash_node(target_panel, Color(1.0, 0.3, 0.3, 1.0))
@@ -477,9 +477,9 @@ func _execute_attack(attacker: CardInstance, target: CardInstance, defender: int
 			_battle._capture_tracker.note_minion_attacked_hero(0)
 		_battle.realtime.on_ally_hit_enemy_hero(def_idx)  # real time: interrupts that enemy's cast
 		var hero := _battle._state.players[def_idx].hero
-		DamageResolver.deal(def_owner, hero, attacker_dmg, DamageSchools.school_of(attacker))
+		DamageResolver.deal(def_owner, hero, attacker_dmg, DamageSchools.school_of(attacker), null, att_owner)
 		var hero_hit: int = BattlefieldRules.modify_damage(hero.attack, _battle._state.battlefield_biome)
-		DamageResolver.deal(att_owner, attacker, hero_hit, DamageSchools.PHYSICAL)
+		DamageResolver.deal(att_owner, attacker, hero_hit, DamageSchools.PHYSICAL, null, def_owner)
 		attacker.attack_count -= 1
 		_battle._fx.flash_node(_battle.realtime.hero_view_for(def_idx), Color(1.0, 0.3, 0.3, 1.0))
 		_battle._fx.flash_node(attacker_panel, Color(1.0, 0.3, 0.3, 1.0))

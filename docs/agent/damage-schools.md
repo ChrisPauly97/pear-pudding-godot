@@ -5,7 +5,8 @@ table turns the pair into a damage multiplier. The card you bring for a matchup 
 because the school lives on the card. TID-748 added the module and its knobs. TID-749 added the
 single damage resolver that every damage event now goes through. TID-750 gave every enemy type a
 profile, and TID-751 wires them in at battle setup, so school matchups now move fights. The player
-side gets hero school resistances (`HeroState.school_resist`); no source feeds them yet (TID-754).
+side gets hero school resistances (`HeroState.school_resist`), and TID-754 feeds them, plus outgoing
+school power, from skill nodes, gear affixes and a weapon convert (see "Player School Sources" below).
 
 ## Key Features
 
@@ -16,6 +17,8 @@ side gets hero school resistances (`HeroState.school_resist`); no source feeds t
   `immune_mult` 0.0. The in-battle tuning panel edits them live under the "Damage schools" group.
 - **Pure:** `game_logic/battle/DamageSchools.gd` is a RefCounted with no autoloads or scene tree,
   so the balance sim and `-s` tests load it directly.
+- **Player sources (TID-754):** skill-tree school nodes, gear school affixes and the weapon convert feed
+  outgoing school power and hero resistances. Nothing is on by default.
 
 ## How It Works
 
@@ -187,7 +190,8 @@ rows use the rain, ash and sand weathers.
   sim fights stay neutral and the bands do not move. Opt in only by calling it deliberately.
 - **Known gap:** a battle resumed from a mid-fight save does not re-run the setup path, so its
   `env_school_mult` is empty (neutral) and the weather part cannot be restored (weather is not saved).
-  Logged as `tasks/backlog/BID-098--env-school-boost-resume.md`.
+  Logged as `tasks/backlog/BID-098--env-school-boost-resume.md`. The TID-754 player sources
+  (`school_power`, `convert_school`, hero resists) share that gap: a resumed fight has none of them.
 
 ## Combat feedback (TID-752)
 
@@ -290,6 +294,54 @@ Journal's BBCode text. `SchoolFeedback.school_bbcode(school)` is one colour-dot 
   is not listed on the page.
 - **Not built:** revealing one school on a Weak! / Resisted hit (would need a new persisted field).
 
+## Player School Sources (TID-754)
+
+The player's side of the school system. Each source is a card-centric choice, not a flat stat bar,
+and each one stacks on top of the normal item-level stat rolls rather than replacing them.
+
+| Source | Feeds | Where it is read |
+|---|---|---|
+| Skill node `school_power` (filter = school, value = %) | `PlayerState.school_power[school]` (fraction) | `BattleSetup.apply_school_power` |
+| Skill node `school_resist` (filter = school, value = %) | `HeroState.school_resist[school]` | `BattleModifiers._school_resist_sources` |
+| Gear affix `school_dmg` `{school, pct}` | `PlayerState.school_power[school]` | `BattleSetup.apply_school_power` |
+| Gear affix `school_resist` `{school, pct}` | `HeroState.school_resist[school]` | `BattleModifiers._school_resist_sources` |
+| Gear affix `convert` `{school}` (weapon only) | `PlayerState.convert_school` | `PlayerState.weapon_school()` |
+
+- **Outgoing power (attacker side).** `DamageResolver.deal` and `scaled_amount` take an optional
+  trailing `attacker: PlayerState = null`. The resolver multiplies by `power_mult(attacker, school)`
+  (= 1 + the school's fraction, never below 0), so the result is
+  `amount x matchup x battlefield boost x (1 - hero resist) x (1 + attacker power)`, rounded once.
+  Call sites that pass the attacker: spells (`SpellEffectResolver`, every player-side arm and the
+  emergence hit, with the caster), real-time swings (`RealtimeCombat._resolve_swing`, from the
+  attacking side) and local attacks (`BattleInput._execute_attack`). Enemy sides and the PvP replay
+  (`BattleNet`) have no sources, so they pass nothing and stay neutral.
+- **Convert.** `PlayerState.weapon_school()` is the school a hero's own auto-attack hits as, and the
+  school Strike (`tech_strike`) hits as. Minion attacks and cards keep their own magic type. A
+  physical convert is never rolled or accepted.
+- **Gear affixes** live on the item's roll: `SaveManager.gear_rolls[id].affix = {kind, school, pct}`.
+  `GearRolls.roll(tier, level, rng, weapon)` adds one on a chance by tier (5 / 12 / 20 / 30 %),
+  after the rarity draw, so the stat roll is unchanged. Kind weights: `school_dmg` 50, `school_resist`
+  35, `convert` 15 (weapons only). Pct: damage 5 + 5 per tier, resist 3 + 3 per tier, in percent of
+  the school. `GearRolls.normalize` keeps a well-formed affix and drops anything else, so old saves
+  have no affix and need no migration. `SaveGear.roll_for(item, tier, level, rng)` is the drop entry
+  point (chests, battle victories, co-op loot); it passes `weapon` from the item's slot.
+- **Skill nodes.** Four row-3 nodes, one per Light/Dark branch pair, hang under the column-3 row-2 node
+  of their branch (`ember_kindled_light`, `dawn_sunward_ward`, `dusk_umbral_edge`, `bloom_rooted_ward`).
+  `SkillMods.school_nodes(ids, effect_type)` sums them per school. They are not card modifiers, so they
+  apply in turn-based fights too. Node values are whole percent (10 = 10 %).
+- **Stacking.** Affix and node sources for the same school add. Hero resists are summed uncapped, then
+  clamped by `DamageSchools.capped_resists` to `max_player_resist`. Outgoing power is not capped (a
+  negative total floors at 0).
+- **Where they are set.** `BattleModifiers._apply_equipment_effects` builds the equipped items (with
+  each roll's affix) and calls `BattleSetup.apply_school_power`, in every solo fight. The headless
+  `BattleSetup.build` (balance sim) does the same from its config, so the sim's default config (no
+  gear affixes, no nodes) is neutral and the bands do not move.
+- **Display.** `GearRolls.affix_label` gives "+15% Dark damage", "+10% Rift resist" or "Strikes as
+  Light". It shows under the item name in the CharacterScene gear picker, and after the stats in
+  `SaveGear.drop_message` ("Found: Rare Iron Helm (ilvl 5), +10% Rift resist!").
+- **Knobs:** the caps stay where they were (`max_player_resist`). The affix chances, kind weights and pct
+  tables are data in `GearRolls`, not tuning knobs.
+
 ## Integrations
 
 - **CombatTuning:** the three matchup knobs, the three boost knobs (`env_time_mult`,
@@ -297,9 +349,9 @@ Journal's BBCode text. `SchoolFeedback.school_bbcode(school)` is one colour-dot 
 - **Combat UI (TID-752):** `SchoolFeedback` (pure text / colour / pips), `BattleFx` labels, `SchoolPips` on
   the real-time enemy tokens.
 - **MagicTypes:** the source of truth for magic type names and validity.
-- **Resolver order:** `scaled_amount` = amount x matchup x battlefield boost x (1 - hero resist), rounded once.
-- **Planned (later GID-181 tasks):** player school sources that feed
-  `_school_resist_sources` (TID-754); matchup loadouts (TID-756); balance sim sweeps (TID-757).
+- **Resolver order:** `scaled_amount` = amount x matchup x battlefield boost x (1 - hero resist) x (1 + attacker power), rounded once.
+- **Planned (later GID-181 tasks):** matchup loadouts (TID-756); balance sim
+  sweeps (TID-757).
 
 ## Asset Requirements
 
@@ -329,3 +381,9 @@ TID-751 adds: hero resist scaling and stacking with profiles, `capped_resists` c
 `school_resist` round-trip (`test_damage_resolver.gd`); enemy attack schools are valid, undead and forest
 types strike with their school, and `setup_enemy` fills the enemy profile (`test_enemy_school_profiles.gd`).
 The balance bands (`tests/balance_bands.gd`) are the absolute check on the profile tuning.
+
+`tests/unit/test_school_sources.gd` (TID-754): attacker power scaling (its school only, stacking with
+profile and resist, floor at 0, through `deal`), weapon convert, the four school skill nodes (registered,
+row 3 under row 2, summed per school, never card mods), affix wiring into power and resists (with caps,
+and no effect when nothing is equipped), affix validation and old-save reads, the roll (tier chance,
+convert weapon-only, stat roll unchanged), the label text, save round trip and drop message.

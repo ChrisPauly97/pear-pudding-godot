@@ -30,6 +30,13 @@ var school_profile: Dictionary = {}
 ## on this battle, from BattlefieldRules.school_env_table. Set at battle start (same table on
 ## both sides via GameState.set_school_environment); empty = neutral. Not serialized.
 var env_school_mult: Dictionary = {}
+## Outgoing school power (GID-181 / TID-754): school → fraction added to this side's hits of
+## that school (gear school_dmg affixes, school_power skill nodes). Read on the attacker in
+## DamageResolver. Set at solo battle start (BattleSetup.apply_school_power); not serialized.
+var school_power: Dictionary = {}
+## The weapon's convert affix (GID-181 / TID-754): the school the hero's auto-attack and Strike
+## hit as. "" = plain physical. Set at solo battle start; not serialized.
+var convert_school: String = ""
 var bonus_draw: int = 0
 var fatigue_counter: int = 0
 var skip_next_draw: bool = false
@@ -58,6 +65,10 @@ func _init(pid: int, ai: bool = false) -> void:
 	is_ai = ai
 	hero = HeroState.new(pid)
 	board = ZoneState.new()
+
+## The school this side's hero weapon hits as: the convert school, else physical (TID-754).
+func weapon_school() -> String:
+	return convert_school if convert_school != "" else DamageSchools.PHYSICAL
 
 func build_deck(card_ids: Array[String], difficulty_tier: int = 0, dark_aligned: bool = false) -> void:
 	draw_deck.clear()

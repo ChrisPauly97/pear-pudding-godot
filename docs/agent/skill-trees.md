@@ -33,17 +33,20 @@ Each skill is a `Resource` instance with these fields:
 | `filter` | `String` | Which cards a modifier touches: branch, `spell`, `technique`, `ally`, `damage`, `heal`, `any`, or a card id |
 | `grants_card` | `String` | `grant_technique` nodes: the technique card id |
 | `prerequisites` | `Array[String]` | IDs that must be unlocked first (home-branch only; ignored for cross-magic purchases) |
-| `tree_row` | `int` | Row in the 3×5 branch grid (0 = entry, 2 = capstone) |
-| `tree_col` | `int` | Column in the 3×5 branch grid |
+| `tree_row` | `int` | Row in the branch grid (0 = entry, 2 = capstone, 3 = school node row, TID-754) |
+| `tree_col` | `int` | Column in the branch grid |
 | `magic_branch` | `String` | One of the eight branches in `MagicTypes.TYPES` |
 | `alt_cost` | `int` | 0 = not cross-purchasable; >0 = costs this many corruption/redemption points |
 
 **Passive (modifier) effect types (GID-179):** `mod_recycle`, `mod_cost`, `mod_cast`, `mod_power`, `mod_crit`,
 `on_crit_instant`, `on_crit_refund` — real-time fights only.  
+**School effect types (TID-754):** `school_power` (outgoing % for hits of the school in `filter`) and
+`school_resist` (% of that school's damage soaked). Every fight mode, not just real time; see
+`damage-schools.md` → Player School Sources.
 **Active effect type:** `grant_technique` — the node owns a technique card (`TechniqueDefs` row with `"skill"`).
 Full node table: `combat-model.md` → "Skill tree modifies cards".
 
-### Skill Roster (48 skills, 6 per branch)
+### Skill Roster (52 skills: 6 per branch, plus 4 school nodes)
 
 | Branch | Magic | Skills |
 |---|---|---|
@@ -58,11 +61,24 @@ Full node table: `combat-model.md` → "Skill tree modifies cards".
 
 ★ = cross-magic accessible (`alt_cost = 2`)
 
+**School nodes (TID-754, row 3).** The tree has four rows now (`SkillTreeScene._ROWS` = 4). Row 3 holds one
+school node for four branches, under the column-3 row-2 node: `ember_kindled_light` (school_power light 10,
+Ember), `dawn_sunward_ward` (school_resist dark 10, Dawn), `dusk_umbral_edge` (school_power dark 10, Dusk) and
+`bloom_rooted_ward` (school_resist physical 10, Bloom). They cost a skill point like any home node and are not
+cross-purchasable.
+
 Every branch uses the same shape: two three-deep prerequisite chains at
 `tree_col` 0 and 3, with the row-2 entry of the first chain being the
 cross-purchasable active. New-branch effect magnitudes were copied from the
 Light/Dark skill at the same tree position, so the trees are power-neutral
 against each other.
+
+### SkillMods school nodes (TID-754)
+
+`SkillMods.school_nodes(skill_ids, effect_type) -> Dictionary` sums a `school_power` or `school_resist` node's
+`effect_value` per school (the `filter`). `add_skills` skips these, so they never set `PlayerState.skill_mods`
+or touch card costs and powers. `BattleSetup.apply_school_power` and `BattleSetup.school_resist_sources` read
+them, so they work in turn-based fights too.
 
 ### SkillRegistry (`autoloads/SkillRegistry.gd`)
 

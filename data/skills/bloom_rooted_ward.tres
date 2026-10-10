@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3 uid="uid://6307mp22exx3"]
+
+[ext_resource type="Script" path="res://data/SkillData.gd" id="1_bloom_rooted_ward"]
+
+[resource]
+script = ExtResource("1_bloom_rooted_ward")
+id = "bloom_rooted_ward"
+display_name = "Rooted Ward"
+description = "Physical hits deal 10% less damage to you. Applies in every fight."
+skill_type = "passive"
+effect_type = "school_resist"
+effect_value = 10
+filter = "physical"
+grants_card = ""
+prerequisites = ["bloom_bountiful_harvest"]
+tree_row = 3
+tree_col = 3
+magic_branch = "bloom"
+alt_cost = 0
