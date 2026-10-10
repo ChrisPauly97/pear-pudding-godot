@@ -76,6 +76,7 @@ const _SunRaysFx = preload("res://scenes/world/SunRaysFx.gd")
 const _TapToMove = preload("res://scenes/world/modules/TapToMove.gd")
 const _StoryCast = preload("res://scenes/world/modules/StoryCast.gd")
 const _HomeGarden = preload("res://scenes/world/modules/HomeGarden.gd")
+const _CraftingStations = preload("res://scenes/world/modules/CraftingStations.gd")
 const _Cantrips = preload("res://scenes/world/modules/Cantrips.gd")
 const _NocturnalSpawner = preload("res://scenes/world/modules/NocturnalSpawner.gd")
 const _CoopSocial = preload("res://scenes/world/coop/CoopSocial.gd")
@@ -139,7 +140,7 @@ const INTERACT_PRIORITY: PackedStringArray = [
 	"downed_peer",
 	"door", "chest", "npc", "scroll", "wilderness_camp", "maiteln", "shrine",
 	"digspot", "burial_mound", "riddle_spot", "mana_well", "waystone", "mailbox", "garden_plot",
-	"blight_heart", "scout_ambush", "enemy",
+	"crafting_station", "blight_heart", "scout_ambush", "enemy",
 ]
 
 ## HUD prompt verb per NPC type; anything unlisted falls back to "TALK".
@@ -181,6 +182,7 @@ var coop_session: _CoopSession = null
 var nocturnal: _NocturnalSpawner = null
 var cantrips: _Cantrips = null   # modules/Cantrips.gd (GID-065)
 var home_garden: _HomeGarden = null   # modules/HomeGarden.gd (GID-059)
+var crafting_stations: _CraftingStations = null   # modules/CraftingStations.gd (GID-182 / TID-762)
 var story_cast: _StoryCast = null    # modules/StoryCast.gd (GID-108)
 
 var world_seed: int = 42  # overwritten in _ready() for infinite worlds
@@ -336,6 +338,7 @@ var _active_waystone_data: Dictionary = {}  # id -> Dictionary
 var _mailbox_nodes: Dictionary = {}    # id -> Node3D
 var _active_mailbox_data: Dictionary = {}  # id -> Dictionary
 var _garden_plot_nodes: Array[Node3D] = []  # ordered by plot_idx
+var _crafting_station_nodes: Array[Node3D] = []  # CraftingStation entities (CraftingStations module)
 # Guildhall garden (GID-106 / TID-393): SessionStore is authority-only, so this
 # cache mirrors _pve_leaderboards' pattern — kept current via request/broadcast
 # RPCs, then pushed into each spawned GardenPlot (session_mode = true) node.
@@ -559,6 +562,7 @@ func _populate_world(server_ref_pos: Vector3) -> void:
 		if not NetworkManager.is_dedicated_server():
 			story_cast.spawn_open_world_beats()
 			named_props.spawn_realm()
+			crafting_stations.spawn_overworld()
 	else:
 		# Named map: load all chunks covering the 100×100 tile map synchronously
 		var max_cx: int = (WorldMap.MAP_WIDTH + IsoConst.CHUNK_SIZE - 1) / IsoConst.CHUNK_SIZE
@@ -570,6 +574,7 @@ func _populate_world(server_ref_pos: Vector3) -> void:
 		if map_name == "player_home":
 			player_home.spawn_trophies()
 			home_garden.spawn_home_plots()
+			crafting_stations.spawn_home()
 		town_siege.on_map_entered(map_name)
 		# Set chapter1_reached_blancogov when the player enters blancogov
 		if map_name == "blancogov" or map_name == "blancogov_temple":
@@ -756,6 +761,8 @@ func _ensure_world_modules() -> void:
 	nocturnal = _ensure_world_module(nocturnal, _NocturnalSpawner, "NocturnalSpawner") as _NocturnalSpawner
 	cantrips = _ensure_world_module(cantrips, _Cantrips, "Cantrips") as _Cantrips
 	home_garden = _ensure_world_module(home_garden, _HomeGarden, "HomeGarden") as _HomeGarden
+	crafting_stations = _ensure_world_module(
+		crafting_stations, _CraftingStations, "CraftingStations") as _CraftingStations
 	story_cast = _ensure_world_module(story_cast, _StoryCast, "StoryCast") as _StoryCast
 	tap_move = _ensure_world_module(tap_move, _TapToMove, "TapToMove") as _TapToMove
 	mounts = _ensure_world_module(mounts, _Mounts, "Mounts") as _Mounts
@@ -1093,6 +1100,9 @@ func _data_in_range(d: Dictionary, px: float, pz: float, range_dist: float) -> b
 
 func _find_nearby_garden_plot(px: float, pz: float, range_dist: float) -> Node3D:
 	return _first_node_in_range(_garden_plot_nodes, px, pz, range_dist)
+
+func _find_nearby_crafting_station(px: float, pz: float, range_dist: float) -> Node3D:
+	return _first_node_in_range(_crafting_station_nodes, px, pz, range_dist)
 
 ## Stitched town the player walks through, else the map itself (GID-138).
 ## Use this — not `map_name` — for "is the player in Maykalene?" checks.
@@ -1454,6 +1464,8 @@ func _interact_prompt_label(px: float, pz: float) -> String:
 		return "MAIL"
 	if _find_nearby_garden_plot(px, pz, r) != null:
 		return "TEND"
+	if _find_nearby_crafting_station(px, pz, r) != null:
+		return "CRAFT"
 	# Hostile entities last — see INTERACT_PRIORITY.
 	if _find_nearby_blight_heart(px, pz, r) != null:
 		return "CLEANSE"
@@ -1661,6 +1673,12 @@ func _handle_interact() -> void:
 	var garden_plot: Node3D = _find_nearby_garden_plot(px, pz, IsoConst.INTERACT_RANGE)
 	if garden_plot != null:
 		home_garden.show_panel(garden_plot)
+
+	# Crafting stations (GID-182 / TID-762): peaceful, so probed before the hostiles.
+	var crafting_station: Node3D = _find_nearby_crafting_station(px, pz, IsoConst.INTERACT_RANGE)
+	if crafting_station != null:
+		crafting_stations.show_panel(crafting_station)
+		return
 
 	# Hostile entities are probed last, so anything peaceful in reach wins: you can
 	# take a door, open a chest or read a scroll with an enemy standing next to you

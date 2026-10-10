@@ -51,3 +51,14 @@ None yet. The station and gathering-node sprites come with TID-760 / TID-762.
 ## Tests
 
 `tests/unit/test_professions.gd` checks that the tables are valid, the XP curve round-trips and the bands behave, and covers the craft flow (inputs, outputs, refusals, level-up) and the v49 migration.
+
+## Stations & panel (GID-182 / TID-762)
+
+- **Stations** are the cooking fire (`cooking_fire`), alchemy table (`alchemy_table`) and workbench (`workbench`) kinds. Each station's profession comes from `ProfessionDefs.PROFESSIONS` through `StationSites.profession_for(kind)`, never a second list.
+- **Placement** (`game_logic/professions/StationSites.gd`, pure): `SITES` rows `{id, kind, town, tile}`. Town rows (`madrian`: cooking fire, alchemy table, workbench in the square, clear of the fountain) use town-local tiles, translated by `RealmLayout.to_world_tile()`. Home rows (`town` = "") use player-home interior tiles. `test_crafting_stations` checks each tile is open ground, clear of entities, the set pieces and the home fixtures.
+- **Entity** `scenes/world/entities/CraftingStation.gd`: a `CampfireVisual` fire, or a plank table in the profession colour, with a name tag. Static scenery: not saved, not synced, no collision.
+- **Module** `scenes/world/modules/CraftingStations.gd` (`crafting_stations`): `spawn_overworld()` (on "main") and `spawn_home()` place the nodes into `WorldScene._crafting_station_nodes`; `show_panel(station)` opens the panel. Nodes are cleared and respawned on each spawn.
+- **Interaction**: `crafting_station` in `WorldScene.INTERACT_PRIORITY`, after `garden_plot` and before the hostiles. Prompt verb `CRAFT`. Reached by the HUD interact button, so touch and keyboard share it. Not gated on learned abilities yet (TID-766).
+- **Panel** `scenes/ui/ProfessionPanel.gd` (BaseOverlay): opened with `crafting_stations.show_panel(node)`, or directly with `ProfessionPanel.new()` then `setup(profession, save_manager)` and `add_child`. It shows the level and XP bar, then each recipe in its band colour (grey and disabled when the skill or inputs are missing), with inputs owned/needed and Craft x1 / Craft x All. `craft_recipe(recipe_id, all) -> int` drives `SaveProfessions.craft()` and reports on the HUD. Esc or Close dismisses it.
+- **Not yet**: the Cooking/Alchemy/Crafting unlocks (TID-766), the wilderness camp fires as cooking fires, and the old potion panel in `CraftPanel.gd` (TID-764 moves it).
+- **Asset note**: the stations are procedural (no sprites). The fire reuses `CampfireVisual`.
