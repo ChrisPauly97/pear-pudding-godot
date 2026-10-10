@@ -477,6 +477,18 @@ Notes for the build tasks:
   existing keys. If the build task wants to avoid it, Displacer becomes a plain `shroud` 2/4 at cost 4.
 - **Drop biomes** are TID-770's call; the roster does not set them.
 
+**Distribution (TID-770).** Every new Ally reaches the player three ways. Enemy decks are unchanged; only `drop_pool`s moved.
+
+| Ally school | Where it drops (`EnemyRegistry` `drop_pool`) | Cost 1–2 | Cost 3 | Cost 4–5 |
+|---|---|---|---|---|
+| Verdant (Bloom + Thorn) | `wolf_pack` (t1), `cactus_worm` (t1), `imbued_stag` (t2), `forest_shade` (t2), `bog_hag` (t2) | `bloom_sprout`, `thorn_briar_sprite` | `bloom_grove_mother`, `thorn_bramble_warden` | `bloom_rootweaver`, `thorn_thornback`; `bloom_elder_root`, `thorn_briarwall` (bog_hag only: no forest type is tier 3+) |
+| Rift (Flux + Fracture) | `spectre_wisp` (t1), `wraith` (t1), `scarab_swarm` (t2), `spectre_haunt` (t2), `ember_cultist` (t3), `scorched_revenant` (t3), `rift_echo` (t3), `spectre_dread` (t3), `roaming_terror` (t4) | `flux_skitter`, `fracture_shardling`, `flux_blinkfox` | `flux_warp_adept`, `fracture_mirror_wight` | `fracture_displacer`, `flux_temporal_rider`, `fracture_unmaker` |
+
+- **Packs:** `PackDefs.roll_pack` draws from every `is_craftable()` card, so all 16 are in both Standard and Premium packs with no table change.
+- **Shop:** `ShopScene` lists every unlocked, non-signature card at every town, so all 16 are sold there. Maykalene's dockmaster (Rift) and Blancogov's herbalist-trader (Verdant) pay the +25 % favoured-school sell bonus (`VendorPrefs`).
+- **Traveling merchant:** `WorldEvents._MERCHANT_CARD_POOL` gains the four cost-5 Allies (`bloom_elder_root`, `thorn_briarwall`, `flux_temporal_rider`, `fracture_unmaker`).
+- **Test:** `tests/unit/test_ally_distribution.gd` asserts every new Ally is in a drop pool and has a pack/shop/merchant route.
+
 ---
 
 ## Card Stat Proposals

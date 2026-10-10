@@ -316,7 +316,7 @@ needed.
 
 Spawned by `WorldEventManager` via `game_logic/WorldEvents.gd` on a 10–20 minute randomised interval of overworld play. Only fires when no other world event is active.
 
-**Spawn:** `WorldEvents._spawn_traveling_merchant()` calls `WorldEventManager.find_spawn_tile()` to find a walkable grass tile 15–30 world-units from the player. The merchant's stock of 3 cards is seeded from `hash(Time.get_unix_time_from_system())` at spawn time, picked without replacement from `_MERCHANT_CARD_POOL` (18 rare/high-impact cards). The NPC is instantiated with `is_traveling=true` so it renders with a violet robe and "Traveling Merchant" label in purple.
+**Spawn:** `WorldEvents._spawn_traveling_merchant()` calls `WorldEventManager.find_spawn_tile()` to find a walkable grass tile 15–30 world-units from the player. The merchant's stock of 3 cards is seeded from `hash(Time.get_unix_time_from_system())` at spawn time, picked without replacement from `_MERCHANT_CARD_POOL` (22 rare/high-impact cards; TID-770 added four cost-5 Allies). The NPC is instantiated with `is_traveling=true` so it renders with a violet robe and "Traveling Merchant" label in purple.
 
 **Interaction flow:**
 1. Player presses E / taps interact prompt within `INTERACT_RANGE`

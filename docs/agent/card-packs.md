@@ -125,7 +125,7 @@ Called in `_apply_migrations()` when `ver < 25`. `CURRENT_SAVE_VERSION` is now 2
 | System | Integration |
 |---|---|
 | `CardDropUtil` | `roll_rarity(tier)` and `roll_stats(template_id, rarity)` provide weighted drops |
-| `CardRegistry` | Pack pool is filtered to `is_craftable()` cards |
+| `CardRegistry` | Pack pool is filtered to `is_craftable()` cards (GID-183 Allies are included automatically) |
 | `SaveManager` | `add_card_instance()` persists rolled cards; pity counter fields |
 | `ShopScene` | "— Packs —" section added above cards; `_on_buy_pack()` triggers the flow |
 | `SceneManager` | Listens to `pack_purchased`; manages `PackOpenScene` overlay lifecycle |

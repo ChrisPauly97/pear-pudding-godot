@@ -728,6 +728,9 @@ vendor bonuses). `price_for` / `prefers` are Callables the shop sets (TID-746). 
 - **Buyback shelf**: `SaveManager.buyback_cards` (persisted, newest first, `BUYBACK_CAP` 8, each with `_sold_for`);
   `sell_card_instance` shelves a copy, `buy_back(index)` returns the exact card (uid, rolls, history) for what it sold
   for (needs coins and bag room). Shown on the counter as small priced tiles.
+- **Ally stock (TID-770):** the town shop sells every unlocked, non-signature card regardless of town, so the
+  verdant and rift Allies are sold in all towns. Vendor tastes change only the sell price (Verdant at Blancogov,
+  Rift at Maykalene). The traveling merchant's premium `_MERCHANT_CARD_POOL` carries the four cost-5 Allies.
 
 ### World loop: new cards, HUD badge, campfire (TID-747)
 
