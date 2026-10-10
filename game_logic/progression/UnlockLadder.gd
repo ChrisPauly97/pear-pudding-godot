@@ -55,6 +55,31 @@ const FEAT_COOKING: String = "feat_cooking"
 const FEAT_ALCHEMY: String = "feat_alchemy"
 const FEAT_CRAFTING: String = "feat_crafting"
 
+## GID-185 / TID-774: every feature row also grants cards (spec Identity: progression grants
+## cards). Learning the row deals one copy of each into the collection, once
+## (`SaveManager.ladder_cards_granted`). FEAT_SKILLS grants its card by the chosen magic type
+## (MAGIC_STARTER_CARDS), so it waits until a type is picked. Skill rows grant their technique
+## card through TechniqueDefs instead.
+const FEATURE_CARDS: Dictionary = {
+	FEAT_MINIONS: ["wolf", "treant"],
+	FEAT_SPELLS: ["dagger_throw", "insight"],
+	FEAT_COMPANION: ["rally"],
+	FEAT_BOUNTIES: ["scarab"],
+	FEAT_NIGHT_HUNTS: ["shrouded_wraith"],
+	FEAT_DIG: ["skeleton", "skeleton"],
+	FEAT_COOKING: ["restore"],
+	FEAT_PHASE: ["ghost", "ghost"],
+	FEAT_ALCHEMY: ["siphon"],
+	FEAT_SPIRE: ["flicker"],
+	FEAT_PACKS: ["spark"],
+	FEAT_CRAFTING: ["bulwark"],
+	FEAT_MOUNT: ["flux_blinkfox"],
+}
+## FEAT_SKILLS: magic type → the starter card of that type.
+const MAGIC_STARTER_CARDS: Dictionary = {
+	"light": "ember_cinder", "dark": "wither", "verdant": "bloom_sprout", "rift": "flux_skitter",
+}
+
 ## Profession id (ProfessionDefs.PROFESSIONS keys) → the feature row that gates its
 ## crafting station. Gathering is never gated; only the stations are.
 const PROFESSION_FEATURES: Dictionary = {
@@ -164,6 +189,17 @@ static func station_block(profession: String, learned: Array) -> String:
 	return "Learn %s from the %s (level %d) to use this station." % [
 		str(def(id).get("title", id)), trainer_name(trainer_for(id)), level_req(id)]
 
+
+## The cards learning feature row `id` grants (TID-774); [] for skill rows, unknown ids, and
+## FEAT_SKILLS before a magic type is chosen.
+static func cards_for(id: String, magic_type: String) -> Array[String]:
+	var out: Array[String] = []
+	if id == FEAT_SKILLS:
+		if MAGIC_STARTER_CARDS.has(magic_type):
+			out.append(str(MAGIC_STARTER_CARDS[magic_type]))
+		return out
+	out.assign(FEATURE_CARDS.get(id, []))
+	return out
 
 static func all() -> Array[Dictionary]:
 	return LADDER

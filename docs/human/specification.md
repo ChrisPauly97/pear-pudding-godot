@@ -74,7 +74,7 @@ Pear Pudding TCG is a 3D isometric open-world RPG built in Godot 4 where the pla
 - **Card roster:** ~160 cards — minions/Allies, spells, legendaries and techniques across four magic types
   (light, dark, verdant, rift) with eight branches. The skill tree modifies cards rather than granting flat stats
 - **Captures:** defeated enemies can be soulbound into the deck as cards
-- **Deck:** 5–30 cards, built at the Deck Table; cards earn ranks and titles from their history
+- **Deck:** 8–20 cards (`IsoConst.DECK_MIN` / `DECK_MAX`), built at the Deck Table; cards earn ranks and titles from their history
 - Enemy strength comes from the zone's level (hero HP, card tier), never from the player's level
 
 ### Damage Schools & Horizontal Progression

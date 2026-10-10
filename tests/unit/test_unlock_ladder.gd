@@ -146,3 +146,54 @@ func test_training_quest_points_at_trainers() -> void:
 	assert_eq((q["targets"] as Array).size(), 2, "combat trainer + bounty master")
 	var mark: Dictionary = QuestLog.npc_mark({}, null, false, false, "", true)
 	assert_eq(str(mark["kind"]), "training")
+
+
+## GID-185 / TID-774: every feature row grants real, non-technique cards.
+func test_every_feature_row_grants_cards() -> void:
+	var CardRegistry: GDScript = preload("res://autoloads/CardRegistry.gd")
+	for row: Dictionary in UnlockLadder.all():
+		var id: String = str(row["id"])
+		if str(row["kind"]) != "feature":
+			assert_true(UnlockLadder.cards_for(id, "light").is_empty(), "skill row %s grants via TechniqueDefs" % id)
+			continue
+		var cards: Array[String] = UnlockLadder.cards_for(id, "dark")
+		assert_false(cards.is_empty(), "%s grants a card" % id)
+		for card_id: String in cards:
+			assert_false((CardRegistry.call("get_template", card_id) as Dictionary).is_empty(), "%s exists" % card_id)
+			assert_false(TechniqueDefs.is_technique(card_id), "%s is not a technique" % card_id)
+	assert_true(UnlockLadder.cards_for(UnlockLadder.FEAT_SKILLS, "").is_empty(), "skills card waits for a type")
+
+
+func _count(sm: SaveManagerScript, card_id: String) -> int:
+	var n: int = 0
+	for inst: Dictionary in sm.owned_cards + sm.mailbox_cards:
+		if str(inst.get("template_id", "")) == card_id:
+			n += 1
+	return n
+
+
+func test_learning_a_feature_grants_its_cards_once() -> void:
+	var sm: SaveManagerScript = SaveManagerScript.new()
+	sm.new_game(false)
+	sm.coins = 1000
+	var before: int = _count(sm, "wolf")
+	assert_true(sm.learn_ability(UnlockLadder.FEAT_MINIONS, 40))
+	assert_eq(_count(sm, "wolf"), before + 1, "wolf granted")
+	sm._grant_ladder_cards()
+	assert_eq(_count(sm, "wolf"), before + 1, "not granted twice")
+
+
+func test_old_save_gets_learned_row_cards_once_and_skills_card_follows_type() -> void:
+	var sm: SaveManagerScript = SaveManagerScript.new()
+	sm.new_game(false)
+	sm.learned_abilities.assign([UnlockLadder.FEAT_DIG, UnlockLadder.FEAT_SKILLS])
+	sm.ladder_cards_granted = []
+	var skel: int = _count(sm, "skeleton")
+	var dealt: Array[String] = sm._grant_ladder_cards()
+	assert_eq(_count(sm, "skeleton"), skel + 2, "Dig's two skeletons on load")
+	assert_false(dealt.has("wither"), "no magic type yet")
+	assert_false(sm.ladder_cards_granted.has(UnlockLadder.FEAT_SKILLS), "skills row stays pending")
+	sm.set_magic_type("dark")
+	assert_eq(_count(sm, "wither"), 1, "dark starter card once a type is chosen")
+	sm._grant_ladder_cards()
+	assert_eq(_count(sm, "skeleton"), skel + 2, "still once")

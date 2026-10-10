@@ -15,6 +15,9 @@ const _GearRolls = preload("res://game_logic/items/GearRolls.gd")
 const _SaveQuests = preload("res://autoloads/save_manager/SaveQuests.gd")
 const _UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
+const _CardInspectOverlay = preload("res://scenes/battle/CardInspectOverlay.gd")
+const _CardInstance = preload("res://game_logic/battle/CardInstance.gd")
+const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 
 const _DUEL_PANEL_BG := Color(0.08, 0.08, 0.18, 0.96)
@@ -385,6 +388,9 @@ func _trainer_row(id: String, trainer: String, service_npc: Dictionary, sm: Save
 	var name_lbl := _UiUtil.make_label("%s  —  Level %d · %d gold" % [str(row_def.get("title", id)), level_req, cost],
 			int(vh * 0.024), name_col, HORIZONTAL_ALIGNMENT_LEFT, head)
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var cards: Array[String] = _UnlockLadder.cards_for(id, sm.magic_type)
+	if not cards.is_empty():
+		_trainer_card_row(cards, layer, vh, box)
 	if learned:
 		_UiUtil.make_label("Learned ✓", int(vh * 0.02), Color(0.5, 0.9, 0.55), HORIZONTAL_ALIGNMENT_RIGHT, head)
 		return box
@@ -406,10 +412,33 @@ func _trainer_row(id: String, trainer: String, service_npc: Dictionary, sm: Save
 				if sm.learn_ability(id, cost):
 					if _TechniqueDefs.card_for(id) != "":
 						_world._show_tip("%s card added to your collection." % str(row_def.get("title", id)))
+					elif not cards.is_empty():
+						_world._show_tip("%s added to your collection." % _card_names(cards))
 					layer.queue_free()
 					show_trainer_panel(trainer, service_npc), btn_row)
 	learn_btn.disabled = not can
 	return box
+
+## GID-185 / TID-774: the cards a ladder row grants, one tappable chip each that opens
+## the card's face (spec: cards are always visible).
+func _trainer_card_row(cards: Array[String], layer: CanvasLayer, vh: float, parent: Control) -> void:
+	var row := _UiUtil.make_hbox(int(vh * 0.01), parent)
+	_UiUtil.make_label("Grants:", int(vh * 0.019), Color(0.8, 0.8, 0.85), HORIZONTAL_ALIGNMENT_LEFT, row)
+	for card_id: String in cards:
+		var tmpl: Dictionary = _CardRegistry.get_template(card_id)
+		if tmpl.is_empty():
+			continue
+		_UiUtil.make_button("🂠 " + str(tmpl.get("name", card_id)), Vector2(vh * 0.16, vh * 0.045), int(vh * 0.018),
+				func() -> void:
+					var overlay := _CardInspectOverlay.new()
+					overlay.present(layer, _CardInstance.new(tmpl), func() -> void: pass), row)
+
+## "Wolf, Treant" — the display names of `cards`.
+static func _card_names(cards: Array[String]) -> String:
+	var names: PackedStringArray = []
+	for card_id: String in cards:
+		names.append(str(_CardRegistry.get_template(card_id).get("name", card_id)))
+	return ", ".join(names)
 
 ## True when `trainer` has something the player could learn now (level reached,
 ## not yet learned) — the "!" over them and the reason talking opens the panel.

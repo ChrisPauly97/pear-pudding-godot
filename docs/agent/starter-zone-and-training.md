@@ -47,6 +47,30 @@ visit that thing's trainer, read what it does and pay gold to learn it. Nothing 
 - API: `def`, `has`, `level_req`, `cost`, `trainer_for`, `trainer_name`, `is_learned` (non-ladder ids are always
   on), `can_learn`, `available_at(level)`, `pending(level, learned)`, `for_trainer`, `ids_up_to`, `all_ids`.
 
+### Feature rows grant cards (GID-185 / TID-774)
+
+Spec Identity: *progression grants cards*. Every `feature` row also grants cards (`UnlockLadder.FEATURE_CARDS`,
+read through `cards_for(id, magic_type)`); skill rows keep granting their technique card through `TechniqueDefs`.
+
+| Row | Cards | Row | Cards |
+|---|---|---|---|
+| Summoning Allies | Wolf, Treant | Cooking | Restore |
+| Casting Spell Cards | Dagger Throw, Insight | Ghost Phase | Ghost ×2 |
+| Fighting Beside Maiteln | Rally | Alchemy | Siphon |
+| Your Magic & Skill Tree | by magic type: Cinder (light) / Wither (dark) / Sprout (verdant) / Skitter (rift) | The Rifts | Flicker |
+| Bounty Contracts | Scarab | Card Packs | Spark |
+| Night Hunts | Shrouded Wraith | Crafting | Bulwark |
+| Skeleton Dig | Skeleton ×2 (towards Dig's 4-skeleton gate) | Riding | Blinkfox |
+
+- `SaveManager._grant_ladder_cards()` deals each learned row's cards once (common rarity, `grant_card_reward`, so a
+  full bag routes them to the mailbox) and records the row in `ladder_cards_granted` (persisted). It runs on
+  `learn_ability`, after load (`_restore_derived_fields`, so an old save gets its learned rows' cards once), at the end
+  of `new_game` (head start) and in `set_magic_type` (the skills row waits for a type).
+- Trainer panel (`NpcInteractions._trainer_row`): a "Grants:" chip per card, tapping opens `CardInspectOverlay` on the
+  modal layer; learning shows "Wolf, Treant added to your collection."
+- Tests: `test_unlock_ladder` (every feature row grants real non-technique cards, once, skills card follows the type),
+  `test_technique_learning`.
+
 ### Save
 
 - Learned entries live in `SaveManager.learned_abilities` (already persisted). `SaveManager.has_learned(id)` is the
