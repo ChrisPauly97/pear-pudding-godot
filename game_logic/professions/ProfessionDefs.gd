@@ -96,6 +96,16 @@ const BAND_COLORS: Dictionary = {
 }
 
 
+## Cooked food → the well-fed buff it sets when eaten (WellFed.gd, TID-763).
+## `amount` max HP for `fights` ordinary solo fights. Foods not listed give none.
+const WELL_FED: Dictionary = {
+	"roast_fowl": {"stat": "max_hp", "amount": 4, "fights": 3},
+	"trout_fillet": {"stat": "max_hp", "amount": 3, "fights": 2},
+	"herb_stew": {"stat": "max_hp", "amount": 5, "fights": 3},
+	"bog_pie": {"stat": "max_hp", "amount": 8, "fights": 4},
+}
+
+
 ## Total XP needed to reach `level` (level 1 = 0).
 static func xp_for_level(level: int) -> int:
 	var n: int = clampi(level, 1, MAX_LEVEL) - 1
@@ -164,13 +174,3 @@ static func output_valid(output: Dictionary) -> bool:
 		"potion":
 			return GardenDefs.POTIONS.has(id)
 	return false
-
-
-## Cooked food → the well-fed buff it sets when eaten (WellFed.gd, TID-763).
-## `amount` max HP for `fights` ordinary solo fights. Foods not listed give none.
-const WELL_FED: Dictionary = {
-	"roast_fowl": {"stat": "max_hp", "amount": 4, "fights": 3},
-	"trout_fillet": {"stat": "max_hp", "amount": 3, "fights": 2},
-	"herb_stew": {"stat": "max_hp", "amount": 5, "fights": 3},
-	"bog_pie": {"stat": "max_hp", "amount": 8, "fights": 4},
-}
