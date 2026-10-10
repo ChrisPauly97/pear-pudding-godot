@@ -58,7 +58,8 @@ const FEAT_CRAFTING: String = "feat_crafting"
 const FEAT_TECH_SLOT: String = "feat_tech_slot"
 const FEAT_HAND_SIZE: String = "feat_hand_size"
 const FEAT_QUICK_DRAW: String = "feat_quick_draw"
-const DECK_RULE_ROWS: Array[String] = [FEAT_TECH_SLOT, FEAT_HAND_SIZE, FEAT_QUICK_DRAW]
+const FEAT_REDRAW: String = "feat_redraw"  # TID-776: one mulligan per real-time fight
+const DECK_RULE_ROWS: Array[String] = [FEAT_REDRAW, FEAT_TECH_SLOT, FEAT_HAND_SIZE, FEAT_QUICK_DRAW]
 ## Real-time draw interval multiplier once FEAT_QUICK_DRAW is learned.
 const QUICK_DRAW_MULT: float = 0.85
 
@@ -84,6 +85,7 @@ const FEATURE_CARDS: Dictionary = {
 	FEAT_TECH_SLOT: ["dagger_throw"],
 	FEAT_HAND_SIZE: ["insight"],
 	FEAT_QUICK_DRAW: ["spark"],
+	FEAT_REDRAW: ["arcane_seal"],
 }
 ## FEAT_SKILLS: magic type → the starter card of that type.
 const MAGIC_STARTER_CARDS: Dictionary = {
@@ -153,6 +155,11 @@ const LADDER: Array[Dictionary] = [
 		"title": "Ghost Phase",
 		"how_to": ("Carry four or more Ghost-family cards and a Phase button appears (G on a keyboard): for a few "
 			+ "seconds you can walk straight through walls. Old ruins hide rooms nobody else can reach.")},
+	{"id": FEAT_REDRAW, "kind": "feature", "trainer": "combat", "level_req": 13, "cost": 110,
+		"title": "Redraw",
+		"how_to": ("A bad opening hand no longer sinks you. In the first few seconds of a real-time fight, tap "
+			+ "Redraw (R on a keyboard) once: every card in your hand except techniques goes back into your deck, "
+			+ "and you draw that many fresh ones.")},
 	{"id": "ember_lance", "kind": "skill", "trainer": "combat", "title": "Ember Lance",
 		"how_to": "A technique card: a heavier strike for 9 with a 1 second cast."},
 	{"id": FEAT_ALCHEMY, "kind": "feature", "trainer": "crafter", "level_req": 14, "cost": 120,

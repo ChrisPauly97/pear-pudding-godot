@@ -249,6 +249,7 @@ static func configure_realtime(rt: RealtimeCombat, player_level: int, enemy_type
 static func apply_deck_rules(rt: RealtimeCombat, learned: Array) -> void:
 	rt.player_draw_mult = UnlockLadder.draw_interval_mult(learned)
 	rt.player_hand_bonus = UnlockLadder.hand_cap_bonus(learned)
+	rt.redraw_ready = learned.has(UnlockLadder.FEAT_REDRAW)
 
 ## Adds `bonus` attack to every minion an enemy side has (board, hand, deck), so
 ## reinforcements hit as hard as the opening pack (per-type tuning, BID-095).

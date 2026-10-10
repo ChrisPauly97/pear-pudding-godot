@@ -576,6 +576,15 @@ and a test still keeps every value ≤ 9.
 - `skill_bar` left `PERSISTED_FIELDS` in TID-710; v46 erases it from old saves.
 - Tests: `tests/unit/test_technique_learning.gd`, `test_unlock_ladder.gd`.
 
+## Deck-rule unlocks (GID-185 / TID-775 / TID-776)
+
+Ladder rows that change the player's deck rules in real time (detail in `starter-zone-and-training.md` →
+Deck-rule rows): `BattleSetup.apply_deck_rules(rt, learned)` sets `RealtimeCombat.player_draw_mult` (Quick Draw
+× 0.85), `player_hand_bonus` (A Fuller Hand +1) and `redraw_ready` (Redraw); A Fourth Technique raises the
+technique cap via `UnlockLadder.technique_slots`. **Redraw**: `Redraw.can_redraw(rt)` while unused and
+`fight_time < redraw_window` (6 s); `Redraw.redraw(rt)` returns non-technique hand cards to the deck, shuffles, and
+draws as many. The button (`RedrawButton.gd`, owned by BattleRealtime as `redraw`) shows only while it can act.
+
 ## Skill bar — retired (GID-175 / TID-710)
 
 The fixed 3-slot bar (TID-550), its loadout picker (`SkillBarScene`, TID-556), `SkillBar.gd`, `BattleSkillBar.gd`,

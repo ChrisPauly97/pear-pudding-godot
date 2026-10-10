@@ -66,6 +66,11 @@ var weapon_speed: Array[float] = []
 ## draw interval multiplier and extra hand cap. Enemies use the plain knobs.
 var player_draw_mult: float = 1.0
 var player_hand_bonus: int = 0
+## GID-185 / TID-776: the Redraw unlock — one mulligan in the fight's first
+## `redraw_window` seconds (rules in Redraw.gd). Set by apply_deck_rules.
+var redraw_ready: bool = false
+## Seconds of fight clock advanced so far.
+var fight_time: float = 0.0
 ## GID-139 / TID-579: enemies wind up a telegraphed heavy blow every `heavy_every`
 ## seconds — it rides the cast bar (a pseudo card of class HEAVY_CLASS), so Kick
 ## interrupts it and Guard / armor soaks it. Off until the player can answer it
@@ -297,6 +302,7 @@ func advance(delta: float) -> Array[Dictionary]:
 	var events: Array[Dictionary] = []
 	if state.is_game_over():
 		return events
+	fight_time += delta
 	for side in range(state.players.size()):
 		gcd[side] = maxf(0.0, gcd[side] - delta)
 		if is_alive(side):

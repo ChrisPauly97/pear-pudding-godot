@@ -24,6 +24,7 @@ const DEFS: Array = [
 	["draw_interval", "Draw a card every (s)", 9.0, 1.0, 20.0, 0.5, "Mana & cards"],
 	["tech_recycle_mult", "Technique return-to-hand time (x)", 1.0, 0.1, 5.0, 0.1, "Mana & cards"],
 	["hand_cap", "Hand size cap", 5.0, 3.0, 10.0, 1.0, "Mana & cards"],
+	["redraw_window", "Redraw allowed for the first (s)", 6.0, 1.0, 20.0, 0.5, "Mana & cards"],
 	["hero_swing", "Unarmed swing speed (s)", 3.0, 1.0, 5.0, 0.1, "Auto-attack"],
 	["offhand_swing", "Off-hand swing speed (s)", 2.0, 1.0, 5.0, 0.1, "Auto-attack"],
 	["crit_chance", "Your crit chance per swing (heroes + Allies)", 0.05, 0.0, 1.0, 0.01, "Auto-attack"],

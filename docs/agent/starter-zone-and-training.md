@@ -74,10 +74,11 @@ read through `cards_for(id, magic_type)`); skill rows keep granting their techni
 ### Deck-rule rows (GID-185 / TID-775)
 
 Spec Identity: unlocks *expand what a deck can do, never bypass it*. Three feature rows change the deck's rules
-(`UnlockLadder.DECK_RULE_ROWS`), each also granting a card:
+(`UnlockLadder.DECK_RULE_ROWS`), each also granting a card. Redraw (TID-776) is the fourth:
 
 | Row | Level / trainer / gold | Rule | Read by |
 |---|---|---|---|
+| Redraw (`feat_redraw`) | 13 / combat / 110 | one mulligan per real-time fight in the first `redraw_window` s (CombatTuning, 6 s): non-technique hand cards back into the deck, shuffle, draw as many | `RealtimeCombat.redraw_ready` / `fight_time`, rules in `game_logic/battle/Redraw.gd`; button `scenes/battle/modules/RedrawButton.gd` in the action strip (R key via `BattleRealtime._unhandled_key_input`). Turn-based fights have no Redraw |
 | A Fourth Technique (`feat_tech_slot`) | 20 / combat / 250 | technique cards per deck 3 → 4 | `UnlockLadder.technique_slots(learned)` → `TechniqueDefs.deck_violation(ids, max_total)` (InventoryScene, `SaveManager._add_technique_to_deck`), `BattleSetup.level_deck` |
 | A Fuller Hand (`feat_hand_size`) | 22 / maiteln / 260 | real-time hand cap +1 | `hand_cap_bonus` → `RealtimeCombat.player_hand_bonus` |
 | Quick Draw (`feat_quick_draw`) | 25 / maiteln / 300 | real-time draw interval × 0.85 | `draw_interval_mult` → `RealtimeCombat.player_draw_mult` |
