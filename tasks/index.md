@@ -186,7 +186,7 @@
 | [GID-180](goals/GID-180--deck-table/goal.md) | Deck Table — Fun, Tactile Deck & Bag Management | done | 12 / 12 |
 | [GID-181](goals/GID-181--damage-schools/goal.md) | Damage Schools & Matchups (Horizontal Progression) | done | 11 / 11 |
 | [GID-182](goals/GID-182--professions/goal.md) | Professions — Alchemy, Cooking, Crafting | done | 8 / 8 |
-| [GID-183](goals/GID-183--magic-school-allies/goal.md) | Magic-school Allies (Verdant & Rift) | in progress | 4 / 5 |
+| [GID-183](goals/GID-183--magic-school-allies/goal.md) | Magic-school Allies (Verdant & Rift) | done | 5 / 5 |
 
 ## Backlog
 
@@ -203,6 +203,7 @@ files in `tasks/archive/backlog/`.
 | [BID-089](backlog/BID-089--no-battle-ui-profiler.md) | No profiler for battle / UI / save paths | doc-gap | GID-164 research |
 | [BID-097](backlog/BID-097--spell-resolver-in-scenes.md) | `SpellEffectResolver` is core logic living in `scenes/` (used by balance sim) | code-smell | GID-181 research |
 | [BID-100](backlog/BID-100--env-school-boost-resume.md) | Battlefield school boost lost on resumed mid-fight battles | code-smell | GID-181 / TID-755 |
+| [BID-101](backlog/BID-101--light-school-and-mono-decks-weak.md) | Light school trails 20–35 pp; mono-school decks not viable (band (a) report-only) | design-inconsistency | GID-183 / TID-771 |
 | [BID-090](backlog/BID-090--remaining-world-frame-costs.md) | Remaining per-frame world costs after GID-164 (enemy walk cycles, NPC marks) | code-smell | GID-164 / TID-685 |
 | [BID-091](backlog/BID-091--infinite-world-gen-not-s-safe.md) | Landmark ruin-roll replica masks the seed; RuinGen doesn't (`-s` compile half fixed in TID-699) | code-smell | GID-173 / TID-699 |
 | [BID-092](backlog/BID-092--spec-battle-section-stale.md) | Spec battle section describes the old turn-based model only | spec-gap | GID-175 |
