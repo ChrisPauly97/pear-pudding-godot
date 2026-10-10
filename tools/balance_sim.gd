@@ -17,7 +17,8 @@
 ##   --boss              fight it as a boss (tier 4, boss HP)
 ##   --tune k=v,k=v      CombatTuning overrides (clamped to each knob's range)
 ##   --policy k=v,…      BalanceBot knobs: heal_below, summon, interrupt, focus
-##   --sweep key=v1,v2   one case per value; key = level | enemy_level | a tuning knob | a policy knob
+##   --sweep key=v1,v2   one case per value; key = level | enemy_level | school | a tuning knob | a policy knob
+##                       school = physical,light,dark,verdant,rift: a mono-school deck (TID-757)
 ##   --csv PATH          per-fight CSV (default user://balance/<time>.csv; "none" to skip)
 ##   --max-seconds S     per-fight cap, counted as a timeout (300)
 ##   --write-baseline    measure the CI balance bands (BalanceBands) and rewrite
@@ -26,6 +27,8 @@
 ## It measures a fixed bot, not a skilled human: compare settings against
 ## each other. See docs/agent/balance-sim.md.
 extends SceneTree
+
+const _BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
 
 var _opts: Dictionary = {
 	"fights": "200", "seed": "1", "level": "1", "learned": "ladder", "deck": "starter", "weapon": "",
@@ -141,6 +144,10 @@ func _config(enemy: String, sweep_key: String, v: String) -> Dictionary:
 		cfg["enemy_level"] = maxi(1, level + int(_opts["enemy-offset"]))
 	if sweep_key == "enemy_level":
 		cfg["enemy_level"] = int(v)
+	if sweep_key == "school":
+		cfg["deck"] = _BattleSetup.school_deck(v, cfg["learned"])
+	if sweep_key == "matched":
+		cfg["deck"] = _BattleSetup.school_matched_deck(v, cfg["learned"])
 	var tune: Dictionary = _kv(str(_opts["tune"]))
 	var knobs: GDScript = load("res://game_logic/battle/CombatTuning.gd")
 	if sweep_key != "" and (knobs.call("row_for", sweep_key) as Array).size() > 0:
