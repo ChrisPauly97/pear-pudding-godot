@@ -13,6 +13,7 @@ const _Rivers = preload("res://game_logic/world/Rivers.gd")
 const _RuinGen = preload("res://game_logic/world/RuinGen.gd")
 const _CaveSites = preload("res://game_logic/world/CaveSites.gd")
 const _WaterMath = preload("res://game_logic/world/WaterMath.gd")
+const _GatherDefs = preload("res://game_logic/professions/GatherDefs.gd")
 
 const NOISE_FREQ: float = 0.08  # base noise frequency; biome freq_scale multiplies the sampling coordinates
 
@@ -411,4 +412,19 @@ static func _gen_entities(chunk: ChunkData, p_cx: int, p_cz: int, world_seed: in
 			"tz": best_wtz,
 			"x": well_wx,
 			"z": well_wz,
+		})
+
+	# Gathering nodes (GID-182 / TID-760): herbs, ore and fish, planned from the chunk seed.
+	# Fishing needs water beside the chunk. Towns are already excluded from grass_tiles.
+	var water_near: bool = _Rivers.touches_chunk(p_cx, p_cz, 2.0) or _Coast.touches_chunk(p_cx, p_cz)
+	var gather_plan: Array[Dictionary] = _GatherDefs.plan_chunk(_chunk_seed(p_cx, p_cz, world_seed), biome, water_near)
+	for gi: int in range(gather_plan.size()):
+		var plan: Dictionary = gather_plan[gi]
+		var gtile: Vector2i = grass_tiles[int(plan["pick"]) % grass_tiles.size()]
+		chunk.gather_nodes.append({
+			"id": "g_%d_%d_%d" % [p_cx, p_cz, gi],
+			"x": IsoConst.tile_center(p_cx * IsoConst.CHUNK_SIZE + gtile.x),
+			"z": IsoConst.tile_center(p_cz * IsoConst.CHUNK_SIZE + gtile.y),
+			"kind": str(plan["kind"]),
+			"material": str(plan["material"]),
 		})

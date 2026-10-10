@@ -76,6 +76,7 @@ const _SunRaysFx = preload("res://scenes/world/SunRaysFx.gd")
 const _TapToMove = preload("res://scenes/world/modules/TapToMove.gd")
 const _StoryCast = preload("res://scenes/world/modules/StoryCast.gd")
 const _HomeGarden = preload("res://scenes/world/modules/HomeGarden.gd")
+const _GatherNodes = preload("res://scenes/world/modules/GatherNodes.gd")  # GID-182 / TID-760
 const _Cantrips = preload("res://scenes/world/modules/Cantrips.gd")
 const _NocturnalSpawner = preload("res://scenes/world/modules/NocturnalSpawner.gd")
 const _CoopSocial = preload("res://scenes/world/coop/CoopSocial.gd")
@@ -138,7 +139,7 @@ const INTERACT_INTERVAL: float = 0.15  # check interactions at ~7 Hz, not 60
 const INTERACT_PRIORITY: PackedStringArray = [
 	"downed_peer",
 	"door", "chest", "npc", "scroll", "wilderness_camp", "maiteln", "shrine",
-	"digspot", "burial_mound", "riddle_spot", "mana_well", "waystone", "mailbox", "garden_plot",
+	"digspot", "burial_mound", "riddle_spot", "gather_node", "mana_well", "waystone", "mailbox", "garden_plot",
 	"blight_heart", "scout_ambush", "enemy",
 ]
 
@@ -203,6 +204,7 @@ var town_life: _TownLife = null   # modules/TownLife.gd (GID-156)
 var world_clock: _WorldClock = null   # modules/WorldClock.gd (BID-055)
 var shortcuts: _WorldShortcuts = null   # modules/WorldShortcuts.gd (BID-055)
 var hero_health: _HeroHealth = null   # modules/HeroHealth.gd (TID-543)
+var gather_nodes: _GatherNodes = null  # modules/GatherNodes.gd (GID-182 / TID-760)
 var current_town: String = ""  # stitched town the player is in; see story_place()
 var chest_loot: _ChestLoot = null    # modules/ChestLoot.gd
 var night_lights: _NightLights = null  # modules/NightLights.gd (TID-489)
@@ -781,6 +783,7 @@ func _ensure_world_modules() -> void:
 	world_clock = _ensure_world_module(world_clock, _WorldClock, "WorldClock") as _WorldClock
 	shortcuts = _ensure_world_module(shortcuts, _WorldShortcuts, "WorldShortcuts") as _WorldShortcuts
 	hero_health = _ensure_world_module(hero_health, _HeroHealth, "HeroHealth") as _HeroHealth
+	gather_nodes = _ensure_world_module(gather_nodes, _GatherNodes, "GatherNodes") as _GatherNodes
 
 func _ensure_world_module(existing: Node, script: GDScript, node_name: String) -> Node:
 	if existing != null and is_instance_valid(existing):
@@ -1146,6 +1149,10 @@ func register_mana_well(wid: String, node: Node3D) -> void:
 func _find_nearby_mana_well(px: float, pz: float, range_dist: float) -> Node3D:
 	return _first_node_in_range(_mana_well_nodes, px, pz, range_dist)
 
+## Gathering node in reach that can be harvested now (GID-182 / TID-760); see modules/GatherNodes.gd.
+func _find_nearby_gather_node(px: float, pz: float, range_dist: float) -> Node3D:
+	return gather_nodes.find_nearby(px, pz, range_dist)
+
 func _find_nearby_blight_heart(px: float, pz: float, range_dist: float) -> Node3D:
 	return _first_node_in_range(_blight_heart_nodes, px, pz, range_dist)
 
@@ -1446,6 +1453,8 @@ func _interact_prompt_label(px: float, pz: float) -> String:
 		return "DIG"
 	if _find_nearby_riddle_spot(px, pz, r) != null:
 		return "EXAMINE"
+	if _find_nearby_gather_node(px, pz, r) != null:
+		return "GATHER"
 	if _find_nearby_mana_well(px, pz, r) != null:
 		return "FILL"
 	if not _find_nearby_waystone(px, pz, r).is_empty():
@@ -1554,6 +1563,7 @@ func _try_simple_interaction(px: float, pz: float) -> bool:
 		[_find_nearby_digspot, "dig"],
 		[_find_nearby_burial_mound, "interact"],
 		[_find_nearby_riddle_spot, "interact"],
+		[_find_nearby_gather_node, "interact"],
 	]:
 		var finder: Callable = entry[0]
 		var method: String = entry[1]

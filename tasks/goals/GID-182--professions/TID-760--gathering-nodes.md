@@ -2,7 +2,7 @@
 
 **Goal:** GID-182
 **Type:** agent
-**Status:** pending
+**Status:** blocked (WorldScene line ceiling, see Changes Made)
 **Depends On:** TID-759
 
 ## Lock
@@ -26,12 +26,24 @@ Gives materials a place in the world: herb patches, ore veins and fishing spots 
 
 ## Plan
 
-_Written during Plan phase._
+- Pure `game_logic/professions/GatherDefs.gd`: kinds (herb / ore / fish), per-biome yields, `plan_chunk(chunk_seed, biome, water_near)` (deterministic, worker-safe), profession mapping, respawn seconds, XP.
+- `ChunkData.gather_nodes` filled at the end of `InfiniteWorldGen._gen_entities`; ChunkRenderer spawns `GatherNode` entities.
+- `GatherNode` (placeholder mound): `harvest()` hides it for its respawn time; `interact()` grants the material and XP.
+- Interact via `INTERACT_PRIORITY` (`gather_node`, after `riddle_spot`) and the `_try_simple_interaction` table; registry in `scenes/world/modules/GatherNodes.gd`.
+- Tests in `tests/unit/test_gathering.gd`; docs in `docs/agent/professions.md`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New: `game_logic/professions/GatherDefs.gd` (+ `.uid`), `scenes/world/entities/GatherNode.gd` / `.tscn`, `scenes/world/modules/GatherNodes.gd` (+ `.uid`), `tests/unit/test_gathering.gd`.
+- `game_logic/world/ChunkData.gd`: `gather_nodes` field.
+- `game_logic/world/InfiniteWorldGen.gd`: plants gather nodes at the end of `_gen_entities`.
+- `scenes/world/ChunkRenderer.gd`: spawns gather nodes and registers them with `world_scene.gather_nodes`.
+- `scenes/world/WorldScene.gd`: `gather_node` in `INTERACT_PRIORITY` (after `riddle_spot`), `gather_nodes` module field, `_find_nearby_gather_node` forwarder, a `GATHER` prompt, and a table row in `_try_simple_interaction`.
+- `autoloads/save_manager/SaveProfessions.gd`: `add_xp(profession, n)`.
+- Validation: compile, unsafe-hits and gdlint are clean. `tests/runner.gd` passes 3243 / fails 1: `test_worldscene_line_ceiling_guardrail` (WorldScene.gd is 1897-1898 lines against the 1890 ceiling, which main already sits at 1887). `world_scene_smoke` exits 0 with no SCRIPT ERROR.
+- **Blocker:** the ceiling needs a decision. Raise it with review, or extract a cluster from WorldScene (for example the mana-well interaction). The ceiling was not raised here.
+- Not done: co-op harvest broadcast, hold-time harvesting, bog moss planting, in-game-minute respawn (uses real seconds).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/professions.md`: new "Gathering (TID-760)" subsection, the Integrations line moved off "Planned", and the Tests paragraph mentions `test_gathering.gd`.

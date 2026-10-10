@@ -12,6 +12,7 @@ var waystones: Array[Dictionary] = []
 var burial_mounds: Array[Dictionary] = []
 var landmarks: Array[Dictionary] = []
 var mana_wells: Array[Dictionary] = []
+var gather_nodes: Array[Dictionary] = []  # herb / ore / fish nodes (GID-182 / TID-760)
 var is_generated: bool = false
 var has_entities: bool = false
 var has_ruin: bool = false  # RuinGen stamped a ruin here (its courtyard stays dry: ChunkRenderer)
