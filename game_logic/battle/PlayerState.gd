@@ -26,6 +26,10 @@ var is_ai: bool = false
 ## immune tags, see DamageSchools. Empty = neutral. Filled per enemy type (TID-750)
 ## and per player (TID-751); never serialized, re-derived at battle setup.
 var school_profile: Dictionary = {}
+## Battlefield school boosts (GID-181 / TID-755): school → multiplier for hits of that school
+## on this battle, from BattlefieldRules.school_env_table. Set at battle start (same table on
+## both sides via GameState.set_school_environment); empty = neutral. Not serialized.
+var env_school_mult: Dictionary = {}
 var bonus_draw: int = 0
 var fatigue_counter: int = 0
 var skip_next_draw: bool = false

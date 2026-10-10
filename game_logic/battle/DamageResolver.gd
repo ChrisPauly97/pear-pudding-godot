@@ -26,7 +26,7 @@ static func deal(defender: _PlayerState, target: Variant, amount: int, school: S
 		tune: _CombatTuning = null) -> Dictionary:
 	var profile: Dictionary = profile_of(defender)
 	var outcome: String = _DamageSchools.outcome(school, profile)
-	var scaled: int = _DamageSchools.scale(amount, school, profile, tune)
+	var scaled: int = scaled_amount(defender, amount, school, tune)
 	var dealt: int = 0
 	if target is _HeroState:
 		var hero: _HeroState = target as _HeroState
@@ -42,9 +42,19 @@ static func deal(defender: _PlayerState, target: Variant, amount: int, school: S
 
 ## Scaled amount for HP loss that does not go through `take_damage` (Curse-style
 ## direct health hits that ignore armor). Same profile and rules as `deal()`.
+## GID-181 / TID-755: the hit's school is also multiplied by the battlefield boost
+## (`PlayerState.env_school_mult`, the same table on both sides, so it is the attacker's
+## school's boost whichever side is hit). The matchup and boost multiply, rounded once.
 static func scaled_amount(defender: _PlayerState, amount: int, school: String,
 		tune: _CombatTuning = null) -> int:
-	return _DamageSchools.scale(amount, school, profile_of(defender), tune)
+	var m: float = _DamageSchools.mult(school, profile_of(defender), tune) * env_mult(defender, school)
+	return _DamageSchools.apply_mult(amount, m)
+
+## Battlefield boost for a hit of `school` on `defender`'s side; 1.0 when none is set.
+static func env_mult(defender: _PlayerState, school: String) -> float:
+	if defender == null:
+		return 1.0
+	return float(defender.env_school_mult.get(school, 1.0))
 
 ## The school profile a side takes damage against; empty (neutral) when there is no side.
 static func profile_of(defender: _PlayerState) -> Dictionary:

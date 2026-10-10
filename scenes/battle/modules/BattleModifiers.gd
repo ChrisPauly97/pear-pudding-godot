@@ -23,6 +23,8 @@ const Gambits = preload("res://game_logic/battle/Gambits.gd")
 const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
+const _GameState = preload("res://game_logic/battle/GameState.gd")
+const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
 
 var _battle: _BattleScene
 ## Enemy type + tier the fight traits apply for (set with the pack).
@@ -125,6 +127,15 @@ func _apply_weather_battle_init() -> void:
 	match _battle._battle_weather:
 		"ash_fall", "volcanic":
 			_battle._state.players[1].hero.apply_status("poison", 2)
+
+## GID-181 / TID-755: stores this battlefield's school boosts (biome, weather, night) on
+## both sides. Call after set_battlefield_context, which stamps the biome and night.
+func _apply_school_environment() -> void:
+	var st: _GameState = _battle._state
+	var table: Dictionary = BattlefieldRules.school_env_table(
+			st.battlefield_biome, _battle._battle_weather, st.is_night)
+	for p: PlayerState in st.players:
+		p.env_school_mult = table.duplicate()
 
 ## Apply weather modifier to a newly summoned card (rain ghost bonus, sandstorm debuff).
 func _apply_weather_to_summoned(card: CardInstance, _player_idx: int) -> void:

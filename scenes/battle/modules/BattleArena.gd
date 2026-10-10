@@ -115,6 +115,13 @@ func _show_battlefield_banner() -> void:
 	rule_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(title_lbl)
 	vbox.add_child(rule_lbl)
+	# GID-181 / TID-755: the school boosts this field gives (weather, time, terrain).
+	var env_txt: String = BattlefieldRules.school_env_text(biome, _battle._battle_weather, night)
+	if env_txt != "":
+		var env_lbl := _UiUtil.make_label("Schools: " + env_txt, int(_battle._font(0.021)))
+		env_lbl.add_theme_color_override("font_color", Color(0.95, 0.8, 0.5))
+		env_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vbox.add_child(env_lbl)
 	panel.add_child(vbox)
 	panel.custom_minimum_size = Vector2(vp.x * 0.55, _battle._vh * 0.12)
 	panel.position = Vector2((vp.x - panel.custom_minimum_size.x) * 0.5, _battle._vh * 0.3)
