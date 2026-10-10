@@ -62,6 +62,10 @@ var unarmed: Array[int] = []
 ## Main-hand swing speed per side (s). 0 = the unarmed speed from `tune`; a weapon
 ## sets its own (WoW-style: slower weapons hit proportionally harder per swing).
 var weapon_speed: Array[float] = []
+## Player deck-rule unlocks (GID-185 / TID-775, `BattleSetup.apply_deck_rules`):
+## draw interval multiplier and extra hand cap. Enemies use the plain knobs.
+var player_draw_mult: float = 1.0
+var player_hand_bonus: int = 0
 ## GID-139 / TID-579: enemies wind up a telegraphed heavy blow every `heavy_every`
 ## seconds — it rides the cast bar (a pseudo card of class HEAVY_CLASS), so Kick
 ## interrupts it and Guard / armor soaks it. Off until the player can answer it
@@ -329,9 +333,10 @@ func _tick_resources(side: int, delta: float, events: Array[Dictionary]) -> void
 		_mana_carry[side] = 0.0
 	_last_mana[side] = h.mana
 	_draw_timer[side] += delta
-	if _draw_timer[side] >= tune.get_f("draw_interval"):
-		_draw_timer[side] -= tune.get_f("draw_interval")
-		if p.hand.size() < tune.get_i("hand_cap"):
+	var interval: float = tune.get_f("draw_interval") * (player_draw_mult if side == PLAYER else 1.0)
+	if _draw_timer[side] >= interval:
+		_draw_timer[side] -= interval
+		if p.hand.size() < tune.get_i("hand_cap") + (player_hand_bonus if side == PLAYER else 0):
 			p.draw_card(false)
 			events.append({"type": "draw", "side": side})
 

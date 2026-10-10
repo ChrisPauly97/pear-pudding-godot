@@ -19,12 +19,12 @@ deck's rules instead of adding non-card systems.
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-774 | Feature rows grant cards | agent | done | — |
-| TID-775 | Deck-rule rows: technique slot, hand size, draw speed | agent | pending | TID-774 |
+| TID-775 | Deck-rule rows: technique slot, hand size, draw speed | agent | done | TID-774 |
 | TID-776 | Redraw (mulligan) row | agent | pending | TID-775 |
 
 ## Acceptance Criteria
 
 - [x] Learning any feature row grants its cards once (old saves get them once on load); the trainer row names them and opens their faces
-- [ ] Technique slot, hand size and draw speed rows change the deck's rules in real-time fights and the balance sim
+- [x] Technique slot, hand size and draw speed rows change the deck's rules in real-time fights and the balance sim
 - [ ] Redraw: once per fight at the start, swap the opening hand (touch + keyboard)
 - [ ] Docs (`starter-zone-and-training.md`, `combat-model.md`) and the spec-facing rule hold; tests and balance bands pass

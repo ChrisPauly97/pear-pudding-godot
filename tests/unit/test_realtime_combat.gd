@@ -500,3 +500,19 @@ func test_trim_hand_returns_extras_to_deck() -> void:
 	assert_eq(p.draw_deck.size(), deck + 2)
 	rt.set_ally_cap(1)
 	assert_eq(p.max_units, 1)
+
+## GID-185 / TID-775: Quick Draw draws sooner, A Fuller Hand holds one more (player only).
+func test_deck_rule_unlocks_draw_sooner_and_hold_more() -> void:
+	var UnlockLadder: GDScript = preload("res://game_logic/progression/UnlockLadder.gd")
+	var BattleSetup: GDScript = preload("res://game_logic/battle/BattleSetup.gd")
+	var rt := _rt()
+	BattleSetup.call("apply_deck_rules", rt, [UnlockLadder.get("FEAT_QUICK_DRAW"), UnlockLadder.get("FEAT_HAND_SIZE")])
+	var p := rt.state.players[0]
+	rt.state.players[1].hero.health = 100000
+	rt.state.players[0].hero.health = 100000
+	for i in range(12):
+		p.draw_deck.append(_card())
+	_run(rt, _tune.get_f("draw_interval") * 0.9)
+	assert_eq(p.hand.size(), 1, "drew before the plain interval")
+	_run(rt, _tune.get_f("draw_interval") * 20.0)
+	assert_eq(p.hand.size(), _tune.get_i("hand_cap") + 1, "one more card held")

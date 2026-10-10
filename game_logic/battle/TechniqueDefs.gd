@@ -142,8 +142,9 @@ static func mana_value(card_id: String) -> int:
 	return int(def(card_id).get("mana_value", 1))
 
 ## Why a deck's technique mix is illegal, or "" when fine: more than
-## MAX_COPIES of one technique, or more than DECK_MAX techniques in total.
-static func deck_violation(card_ids: Array) -> String:
+## MAX_COPIES of one technique, or more than `max_total` techniques in total
+## (DECK_MAX, or UnlockLadder.technique_slots for a player's learned rows).
+static func deck_violation(card_ids: Array, max_total: int = DECK_MAX) -> String:
 	var counts: Dictionary = {}
 	var total: int = 0
 	for v: Variant in card_ids:
@@ -154,6 +155,6 @@ static func deck_violation(card_ids: Array) -> String:
 		counts[id] = int(counts.get(id, 0)) + 1
 		if int(counts[id]) > MAX_COPIES:
 			return "Only %d copy of each technique per deck." % MAX_COPIES
-	if total > DECK_MAX:
-		return "At most %d techniques per deck." % DECK_MAX
+	if total > max_total:
+		return "At most %d techniques per deck." % max_total
 	return ""

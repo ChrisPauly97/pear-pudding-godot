@@ -130,9 +130,15 @@ static func load_baseline() -> Dictionary:
 	return cells as Dictionary if cells is Dictionary else {}
 
 ## Every school deck of TID-757 is measured with the whole unlock ladder learned
-## (spells and Allies both open, so a school's cards are playable), same seeds.
+## (spells and Allies both open, so a school's cards are playable), same seeds —
+## except the deck-rule rows (GID-185 / TID-775: levels 20-25), which the level 4-9
+## school cells could never have; with them every deck wins every cell.
 static func all_learned() -> Array:
-	return UnlockLadder.all_ids()
+	var out: Array = []
+	for id: String in UnlockLadder.all_ids():
+		if not UnlockLadder.DECK_RULE_ROWS.has(id):
+			out.append(id)
+	return out
 
 ## One school cell: win rate over `fights` seeded fights. `school` "" = the default deck
 ## (`BattleSetup.level_deck`); otherwise the school-matched deck.

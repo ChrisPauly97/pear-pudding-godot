@@ -54,6 +54,13 @@ const FEAT_MOUNT: String = "feat_mount"
 const FEAT_COOKING: String = "feat_cooking"
 const FEAT_ALCHEMY: String = "feat_alchemy"
 const FEAT_CRAFTING: String = "feat_crafting"
+## GID-185 / TID-775: deck-rule rows — unlocks that expand what the deck can do.
+const FEAT_TECH_SLOT: String = "feat_tech_slot"
+const FEAT_HAND_SIZE: String = "feat_hand_size"
+const FEAT_QUICK_DRAW: String = "feat_quick_draw"
+const DECK_RULE_ROWS: Array[String] = [FEAT_TECH_SLOT, FEAT_HAND_SIZE, FEAT_QUICK_DRAW]
+## Real-time draw interval multiplier once FEAT_QUICK_DRAW is learned.
+const QUICK_DRAW_MULT: float = 0.85
 
 ## GID-185 / TID-774: every feature row also grants cards (spec Identity: progression grants
 ## cards). Learning the row deals one copy of each into the collection, once
@@ -74,6 +81,9 @@ const FEATURE_CARDS: Dictionary = {
 	FEAT_PACKS: ["spark"],
 	FEAT_CRAFTING: ["bulwark"],
 	FEAT_MOUNT: ["flux_blinkfox"],
+	FEAT_TECH_SLOT: ["dagger_throw"],
+	FEAT_HAND_SIZE: ["insight"],
+	FEAT_QUICK_DRAW: ["spark"],
 }
 ## FEAT_SKILLS: magic type → the starter card of that type.
 const MAGIC_STARTER_CARDS: Dictionary = {
@@ -168,6 +178,18 @@ const LADDER: Array[Dictionary] = [
 			+ "Your skill sets the quality of what you make, up to epic. Higher skill unlocks harder recipes.")},
 	{"id": "daze", "kind": "skill", "trainer": "combat", "title": "Daze",
 		"how_to": "A weak stun that briefly delays the enemy. Off the global cooldown — a second Kick in a pinch."},
+	{"id": FEAT_TECH_SLOT, "kind": "feature", "trainer": "combat", "level_req": 20, "cost": 250,
+		"title": "A Fourth Technique",
+		"how_to": ("Your deck can now carry four technique cards instead of three. Add another from your "
+			+ "collection at the Deck Table — a second interrupt, a heal, or more damage. It still takes a deck slot.")},
+	{"id": FEAT_HAND_SIZE, "kind": "feature", "trainer": "maiteln", "level_req": 22, "cost": 260,
+		"title": "A Fuller Hand",
+		"how_to": ("Maiteln teaches you to hold more at once: in real-time fights your hand holds one more card "
+			+ "before draws stop, so a held Kick no longer crowds out your next play.")},
+	{"id": FEAT_QUICK_DRAW, "kind": "feature", "trainer": "maiteln", "level_req": 25, "cost": 300,
+		"title": "Quick Draw",
+		"how_to": ("Your hands learn the deck's rhythm: in real-time fights you draw a card 15% sooner. "
+			+ "A thin, fast deck now cycles its best cards even faster.")},
 	{"id": FEAT_MOUNT, "kind": "feature", "trainer": "stable", "level_req": 40, "cost": 1000,
 		"title": "Riding",
 		"how_to": ("You've the seat for a proper mount now. Buy a horse at the stable, then tap Mount to ride "
@@ -200,6 +222,18 @@ static func cards_for(id: String, magic_type: String) -> Array[String]:
 		return out
 	out.assign(FEATURE_CARDS.get(id, []))
 	return out
+
+## Deck rules for a player who knows `learned` (TID-775): technique cards per deck.
+static func technique_slots(learned: Array) -> int:
+	return TechniqueDefs.DECK_MAX + (1 if learned.has(FEAT_TECH_SLOT) else 0)
+
+## Extra real-time hand cap.
+static func hand_cap_bonus(learned: Array) -> int:
+	return 1 if learned.has(FEAT_HAND_SIZE) else 0
+
+## Real-time draw interval multiplier.
+static func draw_interval_mult(learned: Array) -> float:
+	return QUICK_DRAW_MULT if learned.has(FEAT_QUICK_DRAW) else 1.0
 
 static func all() -> Array[Dictionary]:
 	return LADDER

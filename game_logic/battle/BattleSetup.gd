@@ -16,6 +16,7 @@ const RealtimeCombat = preload("res://game_logic/battle/RealtimeCombat.gd")
 const CombatTuning = preload("res://game_logic/battle/CombatTuning.gd")
 const CombatOnboarding = preload("res://game_logic/battle/CombatOnboarding.gd")
 const TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
+const UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const EnemyTraits = preload("res://game_logic/battle/EnemyTraits.gd")
 const ZoneLevels = preload("res://game_logic/world/ZoneLevels.gd")
 const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
@@ -244,6 +245,11 @@ static func configure_realtime(rt: RealtimeCombat, player_level: int, enemy_type
 	scale_enemy_hp(rt.state.players[RealtimeCombat.ENEMY], EnemyRegistry.rt_hp_mult(enemy_type))
 	add_enemy_attack(rt.state.players[RealtimeCombat.ENEMY], EnemyRegistry.rt_attack_bonus(enemy_type))
 
+## GID-185 / TID-775: the player's deck-rule unlocks (UnlockLadder) on a fresh fight.
+static func apply_deck_rules(rt: RealtimeCombat, learned: Array) -> void:
+	rt.player_draw_mult = UnlockLadder.draw_interval_mult(learned)
+	rt.player_hand_bonus = UnlockLadder.hand_cap_bonus(learned)
+
 ## Adds `bonus` attack to every minion an enemy side has (board, hand, deck), so
 ## reinforcements hit as hard as the opening pack (per-type tuning, BID-095).
 static func add_enemy_attack(p: PlayerState, bonus: int) -> void:
@@ -337,6 +343,7 @@ static func build(cfg: Dictionary) -> Dictionary:
 		rt.rng.seed = s
 	configure_realtime(rt, player_level, enemy_type, weapon_speed_for_item(str(cfg.get("weapon", ""))),
 			offhand_damage_for_item(str(cfg.get("offhand", ""))))
+	apply_deck_rules(rt, learned)
 	apply_live_tuning(rt, type_tier)
 	return {"state": state, "rt": rt, "tier": tier}
 
@@ -346,13 +353,13 @@ static func starter_deck() -> Array[String]:
 		"ghost", "skeleton", "zombie", "ghoul", "tech_strike"]
 
 ## What a player who knows `learned` fights with by default: the starter deck
-## plus each known technique card in learn order, up to TechniqueDefs.DECK_MAX
+## plus each known technique card in learn order, up to UnlockLadder.technique_slots
 ## (as `SaveManager.learn_ability` deals them in).
 static func level_deck(learned: Array) -> Array[String]:
 	var deck: Array[String] = starter_deck()
 	deck.erase("tech_strike")
 	var known: Array[String] = TechniqueDefs.known_cards(learned)
-	for i: int in mini(known.size(), TechniqueDefs.DECK_MAX):
+	for i: int in mini(known.size(), UnlockLadder.technique_slots(learned)):
 		deck.append(known[i])
 	return deck
 

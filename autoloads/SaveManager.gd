@@ -1468,7 +1468,7 @@ func _add_technique_to_deck(uid: String) -> bool:
 		return false
 	var ids: Array = get_deck_template_ids()
 	ids.append(str(get_instance_by_uid(uid).get("template_id", "")))
-	if _TechniqueDefs.deck_violation(ids) != "":
+	if _TechniqueDefs.deck_violation(ids, _UnlockLadder.technique_slots(learned_abilities)) != "":
 		return false
 	var deck: Array[String] = player_deck.duplicate()
 	deck.append(uid)

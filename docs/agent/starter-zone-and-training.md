@@ -71,6 +71,26 @@ read through `cards_for(id, magic_type)`); skill rows keep granting their techni
 - Tests: `test_unlock_ladder` (every feature row grants real non-technique cards, once, skills card follows the type),
   `test_technique_learning`.
 
+### Deck-rule rows (GID-185 / TID-775)
+
+Spec Identity: unlocks *expand what a deck can do, never bypass it*. Three feature rows change the deck's rules
+(`UnlockLadder.DECK_RULE_ROWS`), each also granting a card:
+
+| Row | Level / trainer / gold | Rule | Read by |
+|---|---|---|---|
+| A Fourth Technique (`feat_tech_slot`) | 20 / combat / 250 | technique cards per deck 3 → 4 | `UnlockLadder.technique_slots(learned)` → `TechniqueDefs.deck_violation(ids, max_total)` (InventoryScene, `SaveManager._add_technique_to_deck`), `BattleSetup.level_deck` |
+| A Fuller Hand (`feat_hand_size`) | 22 / maiteln / 260 | real-time hand cap +1 | `hand_cap_bonus` → `RealtimeCombat.player_hand_bonus` |
+| Quick Draw (`feat_quick_draw`) | 25 / maiteln / 300 | real-time draw interval × 0.85 | `draw_interval_mult` → `RealtimeCombat.player_draw_mult` |
+
+`BattleSetup.apply_deck_rules(rt, learned)` sets both RealtimeCombat fields (player side only) from
+`BattleRealtime.maybe_start` and `BattleSetup.build` (balance sim). `BalanceBands.all_learned()` leaves the
+deck-rule rows out: the school cells sit at levels 4–9, where those rows are out of reach (with them every deck won
+every cell).
+
+Measured (`balance_sim`, player 7 vs enemy 9, 60 fights, scout / bog hag): base 70 / 22 %; + fourth technique
+97 / 92 %; + hand size 70 / 22 %; + quick draw 65 / 20 %; all three 97 / 93 %. The fourth slot (Ember Lance in the
+default deck) is a large power step; tracked in BID-103. Hand size and quick draw are near-neutral for the bot.
+
 ### Save
 
 - Learned entries live in `SaveManager.learned_abilities` (already persisted). `SaveManager.has_learned(id)` is the

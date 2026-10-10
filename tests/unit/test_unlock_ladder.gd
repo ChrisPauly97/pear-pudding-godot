@@ -197,3 +197,19 @@ func test_old_save_gets_learned_row_cards_once_and_skills_card_follows_type() ->
 	assert_eq(_count(sm, "wither"), 1, "dark starter card once a type is chosen")
 	sm._grant_ladder_cards()
 	assert_eq(_count(sm, "skeleton"), skel + 2, "still once")
+
+
+## GID-185 / TID-775: the technique-slot row lets a deck hold a fourth technique.
+func test_technique_slot_row_allows_a_fourth() -> void:
+	var BattleSetup: GDScript = preload("res://game_logic/battle/BattleSetup.gd")
+	var four: Array = ["tech_strike", "tech_kick", "tech_mend", "tech_guard"]
+	assert_ne(TechniqueDefs.deck_violation(four, UnlockLadder.technique_slots([])), "")
+	var learned: Array = ["mend", "kick", "guard", UnlockLadder.FEAT_TECH_SLOT]
+	assert_eq(UnlockLadder.technique_slots(learned), 4)
+	assert_eq(TechniqueDefs.deck_violation(four, UnlockLadder.technique_slots(learned)), "")
+	var deck: Array[String] = BattleSetup.call("level_deck", learned)
+	var n: int = 0
+	for id: String in deck:
+		if TechniqueDefs.is_technique(id):
+			n += 1
+	assert_eq(n, 4, "the default deck fills the fourth slot")
