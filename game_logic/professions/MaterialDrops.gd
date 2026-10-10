@@ -8,6 +8,7 @@
 extends RefCounted
 
 const ProfessionDefs = preload("res://game_logic/professions/ProfessionDefs.gd")
+const HeroVitality = preload("res://game_logic/HeroVitality.gd")
 
 const FAMILY_BEAST: String = "beast"
 const FAMILY_MAGICAL: String = "magical"
@@ -73,6 +74,17 @@ static func roll(enemy_type: String, tier: int, rng: RandomNumberGenerator, allo
 		var n: int = rng.randi_range(int(entry["min"]), int(entry["max"])) + floori(float(t - TIER_MIN) / 2.0)
 		out[str(entry["material"])] = n
 	return out
+
+
+## Rolls one defeated enemy into `bag` ({material: count}). Consequence-free
+## fights (practice, friendly duels) drop nothing, as `HeroVitality.carries_over`.
+static func roll_into(bag: Dictionary, enemy_data: Dictionary, enemy_type: String, tier: int,
+		rng: RandomNumberGenerator) -> void:
+	var duel: bool = str(enemy_data.get("duel_npc_id", "")) != ""
+	var allowed: bool = HeroVitality.carries_over(enemy_data, false, false, duel)
+	var drops: Dictionary = roll(enemy_type, tier, rng, allowed)
+	for id: String in drops:
+		bag[id] = int(bag.get(id, 0)) + int(drops[id])
 
 
 ## Human-readable summary of a drop, e.g. "+2 Game Meat, +1 Rough Hide" ("" when empty).

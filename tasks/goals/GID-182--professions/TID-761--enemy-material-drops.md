@@ -2,7 +2,7 @@
 
 **Goal:** GID-182
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-759
 
 ## Lock
@@ -25,12 +25,17 @@ Gives cooking and crafting a combat-fed source: beasts drop meat and hide, magic
 
 ## Plan
 
-_Written during Plan phase._
+- Pure `game_logic/professions/MaterialDrops.gd`: family map (beast → game_meat + rough_hide, magical → arcane_core), tier-scaled seeded `roll`, `roll_into` (consequence gate via `HeroVitality.carries_over` + `duel_npc_id`), `describe`.
+- `BattleVictory._on_battle_won` rolls the main kill and each joined enemy, banks via `professions.add_material`, shows the text in the reward toast.
+- Test `tests/unit/test_material_drops.gd`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `game_logic/professions/MaterialDrops.gd` (+ `.uid`): `FAMILY_BY_ENEMY`, `TABLES`, `roll`, `roll_into`, `family_of`, `describe`.
+- `autoloads/scene_manager/BattleVictory.gd`: rolls main + joined enemies, grants via `_sm.save_manager.professions.add_material`, `_show_reward_toasts` gains a `materials_text` argument (in-world toast), HUD message on the result card path. `_reward_joined_enemies` takes the bag and RNG.
+- New `tests/unit/test_material_drops.gd` (10 tests): seeded determinism, family mapping, beast vs magical tables, enemy ids exist in EnemyRegistry, tier scaling, tier clamp, excluded fights drop nothing, `roll_into` duel/practice gate and stacking, unmapped enemies, `describe`.
+- `BattleVictory.gd` went over 500 lines (498 → ~515); added the `max-file-lines` tracked-debt pragma with a note to shrink by extraction.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/professions.md`: added an "Enemy drops" subsection (appended before Integrations).

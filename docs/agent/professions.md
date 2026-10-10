@@ -38,6 +38,20 @@ The fields live on SaveManager (`PERSISTED_FIELDS`, migration v49): `profession_
 
 Signals: `GameBus.profession_level_up(profession, level)` on a level-up, and `inventory_changed` after a craft or a material gain.
 
+### Enemy drops (`game_logic/professions/MaterialDrops.gd`, TID-761)
+
+Pure static data and a seeded roll (no autoloads). Beasts drop meat and hide, magical foes drop cores.
+
+| Table / function | Purpose |
+|---|---|
+| `FAMILY_BY_ENEMY` | Enemy type id → family (`beast` or `magical`). EnemyRegistry has no family field, so it is listed here. Unlisted types (undead, humanoids, bosses, rivals, training dummy) drop nothing |
+| `TABLES` | Family → entries `{material, chance, min, max}`: `game_meat` and `rough_hide` for beasts, `arcane_core` for magical |
+| `roll(enemy_type, tier, rng, allowed)` | `{material: count}`. Tier 1..4 (clamped) adds `CHANCE_PER_TIER` (0.1) per tier above 1 to each chance, and one piece per two tiers above 1 |
+| `roll_into(bag, enemy_data, enemy_type, tier, rng)` | Adds one fight's roll to a bag. `allowed` comes from `HeroVitality.carries_over`, so practice fights and friendly duels (`duel_npc_id` set) drop nothing |
+| `describe(drops)` | Toast text, e.g. `+2 Game Meat, +1 Rough Hide` |
+
+`BattleVictory._on_battle_won` rolls the main kill at the fight's drop tier (boss = 4, night and gambit bonuses included), and each joined enemy at its own tier (`_reward_joined_enemies`). The bag is banked with `save_manager.professions.add_material` and the text rides the in-world reward toast (or a HUD message on the result card path). Spire, siege and mimic wins return before the roll, so they drop nothing. Each peer rolls its own materials locally, with no need/greed.
+
 ## Integrations
 
 - The garden (`GardenDefs`): plants are inputs. Potions share `SaveManager.potions` with the battle quick slots.

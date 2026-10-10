@@ -1,3 +1,5 @@
+# gdlint: disable=max-file-lines
+# TID-761 pushed this past 500 lines (material drops). Tracked debt: shrink by extraction, don't add to it.
 ## Battle victory: the standard reward flow, plus the Spire, siege and mimic handlers
 ## that each replace it wholesale, the siege stage interstitial and the Chapter 2
 ## cliffhanger.
@@ -28,7 +30,6 @@ const _EnemyNPC = preload("res://scenes/world/entities/EnemyNPC.gd")
 const _GearRolls = preload("res://game_logic/items/GearRolls.gd")
 const _VeterancyUtil = preload("res://game_logic/VeterancyUtil.gd")
 const _SaveGear = preload("res://autoloads/save_manager/SaveGear.gd")
-const _HeroVitality = preload("res://game_logic/HeroVitality.gd")
 const _MaterialDrops = preload("res://game_logic/professions/MaterialDrops.gd")
 
 ## Chain pulls (GID-135 / TID-532): a pursuing enemy this close to the hero when an
@@ -155,10 +156,12 @@ func _on_battle_won(result: Dictionary) -> void:
 	var drop_rng := RandomNumberGenerator.new()
 	drop_rng.randomize()
 	var materials: Dictionary = {}
-	_roll_materials(materials, _sm.save_manager.pending_battle_enemy_data, enemy_type, drop_tier, drop_rng)
+	_MaterialDrops.roll_into(materials, _sm.save_manager.pending_battle_enemy_data, enemy_type, drop_tier, drop_rng)
 	# Joined enemies' coins/XP ride the same floating toast as the main kill.
 	var joined: Vector2i = _reward_joined_enemies(gambit_id, materials, drop_rng)
-	var material_text: String = _grant_materials(materials)
+	for mat_id: String in materials:
+		_sm.save_manager.professions.add_material(mat_id, int(materials[mat_id]))
+	var material_text: String = _MaterialDrops.describe(materials)
 	# Rival encounter win: don't count as standard kill; update rival progress instead.
 	if is_rival:
 		if enemy_type == "rival_isfig_3":
@@ -276,24 +279,6 @@ func _start_chain(enemy: _EnemyNPC) -> void:
 			_sm._thaw_world(world))
 
 
-## Adds one defeated enemy's material roll into `bag` ({material: count}). Fights
-## that carry no consequence (practice, friendly duels) drop nothing.
-func _roll_materials(bag: Dictionary, enemy_data: Dictionary, enemy_type: String, tier: int,
-		rng: RandomNumberGenerator) -> void:
-	var duel: bool = str(enemy_data.get("duel_npc_id", "")) != ""
-	var allowed: bool = _HeroVitality.carries_over(enemy_data, false, false, duel)
-	var drops: Dictionary = _MaterialDrops.roll(enemy_type, tier, rng, allowed)
-	for id: String in drops:
-		bag[id] = int(bag.get(id, 0)) + int(drops[id])
-
-
-## Banks the rolled materials in the profession bag; returns the summary text.
-func _grant_materials(bag: Dictionary) -> String:
-	for id: String in bag:
-		_sm.save_manager.professions.add_material(id, int(bag[id]))
-	return _MaterialDrops.describe(bag)
-
-
 func _show_reward_toasts(coins_won: int, xp_won: int, reward_card_id: String, tip: String = "",
 		materials_text: String = "") -> void:
 	if tip != "":
@@ -355,7 +340,7 @@ func _reward_joined_enemies(gambit_id: String, materials: Dictionary, drop_rng: 
 		_sm._bump_session_stat("xp_earned", xp)
 		total.y += xp
 		var jtier: int = 4 if bool(data.get("is_boss", false)) else EnemyRegistry.get_difficulty_tier(jtype)
-		_roll_materials(materials, data, jtype, jtier, drop_rng)
+		_MaterialDrops.roll_into(materials, data, jtype, jtier, drop_rng)
 	_sm._joined_enemies.clear()
 	return total
 

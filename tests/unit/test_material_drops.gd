@@ -80,6 +80,22 @@ func test_excluded_fights_drop_nothing() -> void:
 	assert_false(HeroVitality.carries_over({"enemy_type": "wolf_pack"}, false, false, true), "friendly duel")
 
 
+func test_roll_into_skips_duels_and_practice_and_stacks() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4
+	var duel_bag: Dictionary = {}
+	for i: int in 50:
+		MaterialDrops.roll_into(duel_bag, {"enemy_type": "wolf_pack", "duel_npc_id": "npc_a"}, "wolf_pack", 4, rng)
+	assert_true(duel_bag.is_empty(), "a friendly duel drops nothing")
+	var practice_bag: Dictionary = {}
+	MaterialDrops.roll_into(practice_bag, {"enemy_type": "training_dummy"}, "training_dummy", 4, rng)
+	assert_true(practice_bag.is_empty(), "practice drops nothing")
+	var bag: Dictionary = {}
+	for i: int in 50:
+		MaterialDrops.roll_into(bag, {"enemy_type": "wolf_pack"}, "wolf_pack", 4, rng)
+	assert_true(int(bag.get("game_meat", 0)) > 0, "fights stack into one bag")
+
+
 func test_unmapped_enemy_drops_nothing() -> void:
 	assert_true(MaterialDrops.roll("undead_basic", 4, RandomNumberGenerator.new()).is_empty())
 
