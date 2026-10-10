@@ -22,8 +22,20 @@ var leaderless: bool = false
 # Status effects: key = effect_id ("poison","armor","freeze","stun"), value = duration/stacks int
 var status_effects: Dictionary = {}
 
+# Last damage this unit took (GID-181 / TID-752): the school and matchup outcome that
+# DamageResolver.deal recorded, and a serial that advances on every hit so the battle
+# UI can label a hit that dealt 0 (Immune). Serialized so PvP / co-op viewers see it.
+var hit_school: String = ""
+var hit_outcome: String = ""
+var hit_serial: int = 0
+
 func _init(pid: int) -> void:
 	player_id = pid
+
+func note_hit(school: String, outcome: String) -> void:
+	hit_school = school
+	hit_outcome = outcome
+	hit_serial += 1
 
 func is_alive() -> bool:
 	return health > 0
@@ -93,6 +105,9 @@ func to_dict() -> Dictionary:
 		"attack": attack,
 		"status_effects": status_effects.duplicate(),
 		"leaderless": leaderless,
+		"hit_school": hit_school,
+		"hit_outcome": hit_outcome,
+		"hit_serial": hit_serial,
 	}
 
 func from_dict(d: Dictionary) -> void:
@@ -105,5 +120,8 @@ func from_dict(d: Dictionary) -> void:
 	mana_scale = maxi(1, int(d.get("mana_scale", 1)))
 	attack = int(d.get("attack", 0))
 	leaderless = bool(d.get("leaderless", false))
+	hit_school = str(d.get("hit_school", ""))
+	hit_outcome = str(d.get("hit_outcome", ""))
+	hit_serial = int(d.get("hit_serial", 0))
 	var se = d.get("status_effects", {})
 	status_effects = se if se is Dictionary else {}

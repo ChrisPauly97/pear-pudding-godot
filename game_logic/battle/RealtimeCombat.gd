@@ -799,9 +799,10 @@ func _level_of(side: int) -> int:
 
 func _land_heavy(side: int, events: Array[Dictionary]) -> void:
 	var hero := state.players[PLAYER].hero
-	var before: int = hero.health
-	DamageResolver.deal(state.players[PLAYER], hero, heavy_damage(side), DamageSchools.PHYSICAL, tune)
-	events.append({"type": "enemy_heavy_hit", "side": side, "damage": before - hero.health})
+	var res: Dictionary = DamageResolver.deal(state.players[PLAYER], hero, heavy_damage(side),
+			DamageSchools.PHYSICAL, tune)
+	events.append({"type": "enemy_heavy_hit", "side": side, "damage": int(res["dealt"]),
+			"outcome": str(res["outcome"])})
 
 ## An enemy picks the most expensive card it can afford — units or spells (spells
 ## resolve at the player in BattleRealtime._after_enemy_play, BID-078). Heuristic

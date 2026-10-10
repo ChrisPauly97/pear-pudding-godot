@@ -184,15 +184,48 @@ rows use the rain, ash and sand weathers.
   sim fights stay neutral and the bands do not move. Opt in only by calling it deliberately.
 - **Known gap:** a battle resumed from a mid-fight save does not re-run the setup path, so its
   `env_school_mult` is empty (neutral) and the weather part cannot be restored (weather is not saved).
-  Logged as `tasks/backlog/BID-098.md`.
+  Logged as `tasks/backlog/BID-098--env-school-boost-resume.md`.
+
+## Combat feedback (TID-752)
+
+Players see why a hit was big or small. Three presentation pieces, all reading the same record.
+
+- **Last-hit record.** `DamageResolver.deal` calls `note_hit(school, outcome)` on the target
+  (`HeroState` or `CardInstance`) before applying damage. Each unit keeps `hit_school`,
+  `hit_outcome` and `hit_serial` (+1 per hit, so a 0-damage immune hit is still an event). The
+  three fields are in `to_dict` / `from_dict`, so they ride the battle state mirror to PvP and
+  co-op viewers with no protocol change.
+- **Pure rules:** `game_logic/battle/SchoolFeedback.gd` (no autoloads, unit-tested).
+  `school_color(school)` is the MagicTypes colour, neutral off-white for physical.
+  `outcome_word` gives "Weak!" / "Resisted" / "Immune". `damage_text(amount, outcome)` gives
+  "-7 Weak!", "-3 Resisted" or "Immune". `pips_for(profile)` lists one entry per tagged school in
+  `all_schools()` order. `pip_tooltip(school, outcome)` states the multiplier.
+  `hit_record(unit)` reads the record above.
+- **Damage numbers:** `BattleFx.spawn_float_labels` (every turn-based and real-time HP loss, PvP
+  viewers included, since they run the same snapshot diff) colours and suffixes each loss from the
+  unit's record. A unit that died this action is read from the snapshot's `unit` reference, and
+  only if it took a new hit (serial advanced), so a stale outcome never leaks onto a label. An
+  immune unit that lost no HP gets an "Immune" label when its serial advanced. The real-time
+  heavy blow reads the `outcome` that `RealtimeCombat._land_heavy` gets from `deal()`.
+- **Enemy pips:** `scenes/battle/modules/SchoolPips.gd` builds a chip row under each enemy's hero
+  strip in `RealtimeVisuals` (the real-time token, for the base enemy and joined enemies). Weak =
+  filled chip in the school colour, Resists = dark with a coloured rim, Immune = thick rim.
+  Hover shows the tooltip on desktop; a tap calls `toast()` with the same line, which is the
+  mobile path. `known_profile(enemy_type)` is the one accessor, currently the full
+  `EnemyRegistry.get_school_profile`. TID-753 gates it on bestiary knowledge, so that is the
+  only change needed there. The pips come from the enemy type, so PvP players (no enemy type)
+  show none.
+
+Turn-based enemy strips get no pips yet; they are not in the real-time token.
 
 ## Integrations
 
 - **CombatTuning:** the three matchup knobs and the three boost knobs (`env_time_mult`,
   `env_biome_mult`, `env_weather_mult`). Knob reads go through `tune.get_f(...)`.
+- **Combat UI (TID-752):** `SchoolFeedback` (pure text / colour / pips), `BattleFx` labels, `SchoolPips` on the real-time enemy tokens.
 - **MagicTypes:** the source of truth for magic type names and validity.
 - **Planned (later GID-181 tasks):** enemy profiles (TID-750); enemy attack schools and hero
-  resistances (TID-751); combat UI feedback (TID-752); bestiary reveal (TID-753); player school
+  resistances (TID-751); combat UI feedback (TID-752, done); bestiary reveal (TID-753); player school
   sources (TID-754); balance sim sweeps (TID-757).
 
 ## Asset Requirements
@@ -215,3 +248,6 @@ the `take_damage(` source scan.
 `tests/unit/test_school_env.gd` (TID-755): per-condition boost rows, stacking, the banner table and text,
 knob overrides, branch affinity still resolving through the shared condition, the resolver applying the
 attacker's school boost once with matchup (`10 x 1.5 x 1.15 -> 17`), immunity staying 0, and a null defender.
+
+`tests/unit/test_school_feedback.gd` (TID-752): outcome words, damage text, school colour, pip
+data and tooltips, and the last-hit record (set by `deal`, kept through `to_dict` / `from_dict`).
