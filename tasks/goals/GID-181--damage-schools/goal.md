@@ -19,7 +19,7 @@ Starting tuning: resist ×0.5, weak ×1.5, immune only on boss phases; all knobs
 | TID-750 | Enemy school profiles + guardrail test | agent | done | TID-748 |
 | TID-751 | Enemy attack schools + hero school resistances | agent | done | TID-749, TID-750 |
 | TID-752 | Combat UI: school-coloured numbers, Weak!/Resisted, nameplate icons | agent | done | TID-749, TID-750 |
-| TID-753 | Bestiary reveals school profiles | agent | pending | TID-750, TID-752 |
+| TID-753 | Bestiary reveals school profiles | agent | done | TID-750, TID-752 |
 | TID-754 | Player school sources: skill-tree nodes, gear affixes, conversion | agent | pending | TID-749, TID-751 |
 | TID-755 | Weather / battlefield / night school boosts | agent | done | TID-749 |
 | TID-756 | Matchup loadouts: quick deck swap before a fight | agent | pending | TID-753 |
