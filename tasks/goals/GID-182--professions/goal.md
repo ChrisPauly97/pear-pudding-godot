@@ -17,7 +17,7 @@ User request 2026-10-09: "we should add professions like crafting, potion making
 | TID-761 | Material drops from enemies | agent | done | TID-759 |
 | TID-762 | Crafting station panel + stations | agent | done | TID-759 |
 | TID-763 | Cooking recipes + well-fed buffs | agent | done | TID-761, TID-762 |
-| TID-764 | Alchemy: potions move to profession recipes | agent | pending | TID-760, TID-762 |
+| TID-764 | Alchemy: potions move to profession recipes | agent | done | TID-760, TID-762 |
 | TID-765 | Crafting: gear from ore and hide | agent | done | TID-760, TID-761, TID-762 |
 | TID-766 | Profession trainers, unlocks, Character tab, docs | agent | pending | TID-763, TID-764, TID-765 |
 
