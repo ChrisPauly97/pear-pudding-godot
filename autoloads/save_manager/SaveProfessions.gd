@@ -99,3 +99,18 @@ func craft(recipe_id: String) -> Dictionary:
 	GameBus.inventory_changed.emit()
 	return {"ok": true, "reason": "", "id": out_id, "count": n, "xp": gained,
 			"level": after if after > before else 0}
+
+
+## Grants raw profession XP (gathering, TID-760). Returns the new level when it
+## rose, else 0; emits `profession_level_up` on a level-up like `craft` does.
+func add_xp(profession: String, n: int) -> int:
+	if n <= 0 or not ProfessionDefs.PROFESSIONS.has(profession):
+		return 0
+	var before: int = level(profession)
+	_save.profession_xp[profession] = xp(profession) + n
+	_save._dirty = true
+	var after: int = level(profession)
+	if after > before:
+		GameBus.profession_level_up.emit(profession, after)
+		return after
+	return 0
