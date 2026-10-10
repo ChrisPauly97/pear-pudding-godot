@@ -15,7 +15,7 @@ const RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
 const TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
 const XpCurve = preload("res://game_logic/progression/XpCurve.gd")
 
-const CURRENT_VERSION: int = 50
+const CURRENT_VERSION: int = 51
 
 
 ## Upgrades `data` in place. `up_to` stops after that version's row. The game
@@ -124,6 +124,18 @@ static func _m47_slow_xp_curve(d: Dictionary) -> void:
 ## GID-138: the outdoor story towns moved into the overworld. A save standing in
 ## one moves to "main" at the same spot; stack entries for a stitched town become
 ## the overworld with a `pos:` return token at the door into the next map down.
+## GID-182 / TID-766: the three profession features are learned from the Master
+## Artisan. A save from before them had its stations open, so it keeps them: every
+## older save is granted Cooking, Alchemy and Crafting. Newer saves learn them.
+static func _m51_profession_trainers(d: Dictionary) -> void:
+	var learned: Array = d.get("learned_abilities", [])
+	for id: String in [UnlockLadder.FEAT_COOKING, UnlockLadder.FEAT_ALCHEMY, UnlockLadder.FEAT_CRAFTING]:
+		if not learned.has(id):
+			learned.append(id)
+	d["learned_abilities"] = learned
+	d["version"] = 51
+
+
 static func _m43_stitched_towns(d: Dictionary) -> void:
 	var cur: String = str(d.get("current_map", ""))
 	if RealmLayout.is_stitched(cur):
@@ -280,5 +292,6 @@ static func table() -> Array:
 		[48, _m48_skill_techniques],
 		[49, {"profession_xp": {}, "materials": {}}],
 		[50, {"well_fed": {}}],
+		[51, _m51_profession_trainers],
 	]
 	return rows

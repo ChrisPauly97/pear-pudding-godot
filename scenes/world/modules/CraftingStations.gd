@@ -10,6 +10,7 @@ const _StationSites = preload("res://game_logic/professions/StationSites.gd")
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
 const _CraftingStation = preload("res://scenes/world/entities/CraftingStation.gd")
 const _ProfessionPanel = preload("res://scenes/ui/ProfessionPanel.gd")
+const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 
 var _world: _WorldScene = null
 var _panel: Control = null
@@ -32,10 +33,15 @@ func spawn_home() -> void:
 		_spawn(site, site["tile"] as Vector2i)
 
 
-## Opens the profession panel for a station node. One panel at a time.
+## Opens the profession panel for a station node. One panel at a time. A station
+## stays shut until its profession is learned from the trainer (UnlockLadder).
 func show_panel(station: Node3D) -> void:
 	var node: _CraftingStation = station as _CraftingStation
 	if node == null or _panel != null:
+		return
+	var block: String = _UnlockLadder.station_block(node.profession, SceneManager.save_manager.learned_abilities)
+	if block != "":
+		GameBus.hud_message_requested.emit(block)
 		return
 	var panel: _ProfessionPanel = _ProfessionPanel.new()
 	panel.setup(node.profession, SceneManager.save_manager)
