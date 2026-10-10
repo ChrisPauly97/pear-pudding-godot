@@ -197,8 +197,6 @@ files in `tasks/archive/backlog/`.
 |----|---------|----------|-------------------|
 | [BID-015](backlog/BID-015--no-localization-infrastructure.md) | No localization / translation infrastructure; all UI strings hardcoded — **out of scope for v1** | spec-gap | GID-070 research |
 | [BID-055](backlog/BID-055--worldscene-god-object.md) | `WorldScene.gd` god-object decomposition, slice 1/3 done (co-op/net cluster folded into `CoopSession.gd`, line-ceiling guardrail added); original 9154/401 census was stale — see file's Progress section for real numbers and slices 2-3 (`_spawn_*`, `_start_*`); spawn position now in `SpawnPoint.gd` | code-smell | GID-123 research |
-| [BID-061](backlog/BID-061--spec-says-no-xp-system.md) | Spec says "No XP system planned" but XP/levels/skill points shipped (GID-030) | spec-gap | Tracked by TID-539 |
-| [BID-079](backlog/BID-079--spec-four-card-types.md) | Spec still lists four card types | spec-gap | GID-151 research |
 | [BID-081](backlog/BID-081--no-water-in-towns.md) | No water in named maps / towns; no bridges | content-gap | GID-152 research |
 | [BID-089](backlog/BID-089--no-battle-ui-profiler.md) | No profiler for battle / UI / save paths | doc-gap | GID-164 research |
 | [BID-097](backlog/BID-097--spell-resolver-in-scenes.md) | `SpellEffectResolver` is core logic living in `scenes/` (used by balance sim) | code-smell | GID-181 research |
@@ -206,7 +204,6 @@ files in `tasks/archive/backlog/`.
 | [BID-101](backlog/BID-101--light-school-and-mono-decks-weak.md) | Light school trails 20–35 pp; mono-school decks not viable (band (a) report-only) | design-inconsistency | GID-183 / TID-771 |
 | [BID-090](backlog/BID-090--remaining-world-frame-costs.md) | Remaining per-frame world costs after GID-164 (enemy walk cycles, NPC marks) | code-smell | GID-164 / TID-685 |
 | [BID-091](backlog/BID-091--infinite-world-gen-not-s-safe.md) | Landmark ruin-roll replica masks the seed; RuinGen doesn't (`-s` compile half fixed in TID-699) | code-smell | GID-173 / TID-699 |
-| [BID-092](backlog/BID-092--spec-battle-section-stale.md) | Spec battle section describes the old turn-based model only | spec-gap | GID-175 |
 | [BID-093](backlog/BID-093--session-starter-no-strike.md) | Multiplayer session starter character has no Strike technique | design-inconsistency | GID-175 / TID-708 |
 | [BID-094](backlog/BID-094--battle-setup-scattered.md) | Battle setup scattered across scene modules, reads autoloads | code-smell | GID-176 |
 | [BID-095](backlog/BID-095--chapter1-type-spread.md) | Chapter 1 enemy types spread widely one level up — resolved (TID-727, TID-729) | balance | GID-176 |
@@ -217,6 +214,9 @@ files in `tasks/archive/backlog/`.
 
 | ID | Summary | Category | Discovered During |
 |----|---------|----------|-------------------|
+| [BID-061](archive/backlog/BID-061--spec-says-no-xp-system.md) | Spec says "No XP system planned" but XP/levels/skill points shipped (GID-030) | spec-gap | Resolved: spec rewritten 2026-10-10 (user-approved) |
+| [BID-079](archive/backlog/BID-079--spec-four-card-types.md) | Spec still lists four card types | spec-gap | Resolved: spec rewritten 2026-10-10 (user-approved) |
+| [BID-092](archive/backlog/BID-092--spec-battle-section-stale.md) | Spec battle section describes the old turn-based model only | spec-gap | Resolved: spec rewritten 2026-10-10 (user-approved) |
 | [BID-096](archive/backlog/BID-096--shop-town-name-stitched.md) | Shop `town_name` was `main` in stitched towns | design-inconsistency | Resolved: GID-180 TID-746 (story place) |
 | [BID-088](archive/backlog/BID-088--chunk-gen-on-main-thread.md) | Chunk data generation on the main thread | perf | Resolved: GID-163 TID-671 (worker-side generation) |
 | [BID-086](archive/backlog/BID-086--stray-high-gid-refs.md) | Stray GID-361/368 refs in TID-369 | doc-gap | Resolved: relabelled TID-361 / TID-368 |

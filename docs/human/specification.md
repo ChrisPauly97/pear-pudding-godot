@@ -59,12 +59,23 @@ Pear Pudding TCG is a 3D isometric open-world RPG built in Godot 4 where the pla
 - WASD movement mapped to isometric world directions; virtual joystick on mobile
 
 ### Card Battle System
-- Turn-based TCG: player vs AI enemy
-- Four card types: Ghost, Skeleton, Zombie, Ghoul — with mana cost, attack, and health
-- 5-slot board zones per player; mana grows 1/turn capped at 10
-- Summoning sickness, one attack per minion per turn, hero HP (30)
-- Drag-to-play card UI; BasicAI plays and attacks automatically on enemy turn
-- Card collection: earn cards from chests and battles; build/manage deck in Inventory scene
+*(Rewritten 2026-10-10 with explicit user permission; detail in `docs/agent/combat-model.md`.)*
+- **Real-time by default** (WoW-style): each side acts on its own clock. Player GCD 1.5 s, spells have cast
+  bars, enemies cast on their own GCD with an interruptible cast bar. Settings > Battle Mode offers Turn-based,
+  Real-time and Real-time (slow). Puzzles, scripted story battles, PvP, co-op, team duels and resumed saves stay turn-based
+- **Hero & Allies:** the player is the hero; creature cards are **Allies** (max 5 per deck, 3 on the board) that
+  auto-attack the focused target. Enemies field up to 2 **Minions**. A **Mentor** (e.g. Maiteln) is an equipped passive helper
+- **Hero HP persists** between fights: slow out-of-combat regen, food and potions, full heal in towns and beds
+- **Mana:** fixed pool per fight that grows with level (400 + 35/level, cap 1000 points; a 1-cost card = 100), regen 20/s
+- **Hand & draw:** draw 1 card every 6 s while the hand is under 7; heroes auto-attack with their weapon (main + off hand)
+- **Technique cards** replace the old skill bar: Strike, Mend, Kick, Guard, Ember Lance, Mana Tap, Sweep, Daze.
+  Max 3 per deck, start in the opening hand and return after a per-card cooldown. Learned from trainers
+- **Momentum:** hits build combo pips that empower the next card
+- **Card roster:** ~160 cards — minions/Allies, spells, legendaries and techniques across four magic types
+  (light, dark, verdant, rift) with eight branches. The skill tree modifies cards rather than granting flat stats
+- **Captures:** defeated enemies can be soulbound into the deck as cards
+- **Deck:** 5–30 cards, built at the Deck Table; cards earn ranks and titles from their history
+- Enemy strength comes from the zone's level (hero HP, card tier), never from the player's level
 
 ### Damage Schools & Horizontal Progression
 *(Added 2026-10-10 with explicit user permission, GID-181 / TID-758.)*
@@ -72,7 +83,13 @@ Pear Pudding TCG is a 3D isometric open-world RPG built in Godot 4 where the pla
 - Enemies resist (×0.5) or are weak (×1.5) to schools, themed by biome and lore (e.g. bog creatures resist verdant, undead are weak to light); immunities only on boss phases; no enemy resists every school
 - Enemy attacks carry a school; the player gains school power and resistance from the skill tree and from gear school affixes, which sit on top of item-level stat rolls
 - Weather, battlefield and time of day boost schools; the bestiary reveals an enemy's school profile once encountered/defeated
-- Progression is horizontal: breadth of schools, cards and matchup loadouts matters more than raw stats. No level cap; no scaling of the player or enemies to each other's level
+- Progression is horizontal: breadth of schools, cards and matchup loadouts matters more than raw stats. No scaling of the player or enemies to each other's level
+
+### Levels & XP
+*(Added 2026-10-10 with explicit user permission.)*
+- XP from kills and quests; **level cap 60** (`XpCurve.MAX_LEVEL`), zone levels 1–60 (`ZoneLevels`)
+- Each level is paced in minutes of play (10 min at L1, +5 min per level); enemies well below your level give no XP
+- Levels raise max mana, grant skill points, and gate trainer unlocks (`UnlockLadder`)
 
 ### Named Maps & Story Mode
 - Text-file map format (`.txt`) with tile grid and entity directives (SPAWN, NPC, ENEMY, CHEST, DOOR)
@@ -145,7 +162,6 @@ tasks/              — goal and task tracking (agent-managed)
 ## Out of Scope (for now)
 
 - Ranked matchmaking, global server browser, and NAT-punch relay/matchmaking service
-- More than 4 card types in v1 battle system
 - Voice acting (voiced character dialogue — lip-sync, real-time conversation VO)
 - Complex branching dialogue trees (single NPC line per state for now)
 - Mac / iOS export (Android + desktop only)
@@ -165,7 +181,7 @@ tasks/              — goal and task tracking (agent-managed)
 
 The following questions from the initial spec have been answered by completed goals:
 
-- **Battle rewards beyond card drops:** Coins awarded via `coin_reward` in EnemyData (GID-007). No XP system planned.
+- **Battle rewards beyond card drops:** Coins awarded via `coin_reward` in EnemyData (GID-007). ~~No XP system planned.~~ **Amended 2026-10-10:** XP and levels shipped (GID-030, GID-177); see Levels & XP.
 - **Enemy respawn:** Defeated enemies stay dead per save via `SaveManager.defeated_enemies` (GID-009). No time-based respawn.
 - **Deck size constraints:** Minimum 5, maximum 30 cards enforced in deck builder (GID-003).
 - **Chapter count:** Chapter 1 is the target for v1 release. ~~Chapter 2 is out of scope.~~
