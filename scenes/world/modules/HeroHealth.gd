@@ -12,6 +12,7 @@ extends Node
 const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const _HeroVitality = preload("res://game_logic/HeroVitality.gd")
 const _WorldHUD = preload("res://scenes/world/WorldHUD.gd")
+const _WellFed = preload("res://game_logic/professions/WellFed.gd")
 
 ## Save-dirty granularity for regen (fraction steps), so it isn't written every frame.
 const _SAVE_STEP: float = 0.05
@@ -43,6 +44,7 @@ func _process(delta: float) -> void:
 	elif _meal_left > 0.0:
 		_stop_meal()
 	_world._world_hud.set_hero_hp(sm.hero_hp_frac, _meal_left > 0.0)
+	_world._world_hud.set_well_fed(_WellFed.describe(sm.well_fed))
 	_world._world_hud.set_action_visible("eat", _can_use())
 
 
@@ -81,6 +83,10 @@ func use_quick() -> void:
 		_meal_rate = _HeroVitality.meal_rate(id)
 		_meal_left = float(food.get("seconds", 0.0))
 		GameBus.hud_message_requested.emit("Eating %s…" % str(food.get("display_name", id)))
+		var buff: Dictionary = _WellFed.make(id)
+		if not buff.is_empty():
+			sm.well_fed = buff
+			GameBus.hud_message_requested.emit(_WellFed.describe(buff))
 	elif sm.garden.remove_potions(id, 1):
 		sm.hero_hp_frac = minf(1.0, sm.hero_hp_frac + float(_HeroVitality.WORLD_POTION_HEAL[id]))
 		GameBus.hud_message_requested.emit("You drink a healing draught.")

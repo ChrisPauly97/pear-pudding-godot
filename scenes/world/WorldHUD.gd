@@ -54,6 +54,7 @@ var _coord_tile := Vector2i(2147483647, 0)  # last shown tile; sentinel forces t
 var _level_label: Label
 var _xp_bar: ProgressBar
 var _hp_bar: ProgressBar  # persistent hero HP (TID-543), above the XP bar
+var _well_fed_label: Label  # cooked-food buff line (TID-763)
 var _xp_label: Label
 var _ley_indicator: Label = null
 var _mount_btn: Button = null
@@ -422,6 +423,11 @@ func _create_xp_bar(vh: float) -> void:
 	_hp_bar.add_theme_stylebox_override("fill", _UiUtil.make_style(Color(0.78, 0.2, 0.2), int(vh * 0.006)))
 	_hp_bar.tooltip_text = "Hero HP — carries between fights; regenerates out of combat"
 	rows.add_child(_hp_bar)
+	_well_fed_label = Label.new()
+	_well_fed_label.add_theme_font_size_override("font_size", int(vh * 0.02 * _ts))
+	_well_fed_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.5))
+	_well_fed_label.visible = false
+	rows.add_child(_well_fed_label)
 	var xp_row := _UiUtil.make_hbox(int(vh * 0.008), rows)
 
 	_level_label = Label.new()
@@ -553,6 +559,13 @@ func set_hero_hp(frac: float, eating: bool) -> void:
 		return
 	_hp_bar.value = frac
 	_hp_bar.modulate = Color(0.75, 1.0, 0.75) if eating else Color.WHITE
+
+## Well-fed buff line under the HP bar (TID-763); "" hides it.
+func set_well_fed(text: String) -> void:
+	if _well_fed_label == null:
+		return
+	_well_fed_label.text = text
+	_well_fed_label.visible = text != ""
 
 func update_xp_label() -> void:
 	if _xp_label == null:

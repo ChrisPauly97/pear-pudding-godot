@@ -15,7 +15,7 @@ const RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
 const TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
 const XpCurve = preload("res://game_logic/progression/XpCurve.gd")
 
-const CURRENT_VERSION: int = 49
+const CURRENT_VERSION: int = 50
 
 
 ## Upgrades `data` in place. `up_to` stops after that version's row. The game
@@ -279,5 +279,6 @@ static func table() -> Array:
 		[47, _m47_slow_xp_curve],
 		[48, _m48_skill_techniques],
 		[49, {"profession_xp": {}, "materials": {}}],
+		[50, {"well_fed": {}}],
 	]
 	return rows

@@ -95,7 +95,7 @@ const PERSISTED_FIELDS: Dictionary = {
 	"rival_encounters_won": 0, "rival_defeated": false,
 	"garden_plots": [{}, {}, {}], "seeds": {}, "plants": {}, "potions": {},
 	"quick_slots": ["", ""], "hero_hp_frac": 1.0, "foods": {},
-	"profession_xp": {}, "materials": {},
+	"profession_xp": {}, "materials": {}, "well_fed": {},
 	"captured_signatures": [], "cantrip_cooldowns": {}, "dug_mounds": [],
 	"blight_cleansed_hearts": [], "discovered_landmarks": [],
 	"collected_mana_wells": [], "last_saved": "",
@@ -366,6 +366,7 @@ var hero_hp_frac: float = 1.0
 var foods: Dictionary = {}  # food_id -> count (HeroVitality.FOODS)
 var profession_xp: Dictionary = {}  # profession id -> xp (ProfessionDefs, GID-182)
 var materials: Dictionary = {}  # material id -> count (ProfessionDefs.MATERIALS)
+var well_fed: Dictionary = {}  # active cooked-food buff, {} = none (WellFed.gd, TID-763)
 
 var last_saved: String = ""
 
@@ -637,6 +638,7 @@ func new_game(head_start: bool = false) -> void:
 	foods = _HeroVitality.STARTER_FOODS.duplicate()
 	profession_xp = {}
 	materials = {}
+	well_fed = {}
 	captured_signatures = []
 	cantrip_cooldowns = {}
 	dug_mounds = []
