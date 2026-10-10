@@ -76,7 +76,7 @@ const PERSISTED_FIELDS: Dictionary = {
 	"achievement_progress": {}, "unlocked_achievements": [],
 	"visited_biomes": [], "visited_dungeon_rooms": [],
 	"xp": 0, "skill_points": 0, "unlocked_skills": [], "realtime_fights": 0,
-	"learned_abilities": [],
+	"learned_abilities": [], "ladder_cards_granted": [],
 	"magic_type": "", "corruption_points": 0, "redemption_points": 0,
 	"spire_run": {"active": false}, "spire_best_floor": 0, "solved_puzzles": [],
 	"rift_best_tiers": {}, "rift_first_clears": [],
@@ -247,6 +247,9 @@ var realtime_fights: int = 0
 ## technique ability ids ("mend" → the `tech_mend` card, GID-175). Strike is
 ## always known and never listed here.
 var learned_abilities: Array[String] = []
+## GID-185 / TID-774: ladder rows whose cards (UnlockLadder.cards_for) were already dealt,
+## so each row grants once — and an old save gets a learned row's cards once on load.
+var ladder_cards_granted: Array[String] = []
 
 # Magic progression
 ## "light", "dark", or "" (not yet chosen)
@@ -592,6 +595,7 @@ func new_game(head_start: bool = false) -> void:
 	# GID-141: a new game knows only Strike; everything else is taught by trainers.
 	# Head start (debug) learns the whole unlock ladder.
 	learned_abilities.assign(_UnlockLadder.all_ids() if head_start else [])
+	ladder_cards_granted = []
 	magic_type = ""
 	corruption_points = 0
 	redemption_points = 0
@@ -654,6 +658,7 @@ func new_game(head_start: bool = false) -> void:
 	# before new_game() is called, so do not reset them here.
 	_achievement_slot = active_slot
 	_loaded = true
+	_grant_ladder_cards()  # head start learns every row
 	save()
 
 ## Seeds a transient starter deck for a cold co-op session that was launched straight
@@ -837,6 +842,7 @@ func _restore_derived_fields(data: Dictionary) -> void:
 	active_loadout = clampi(active_loadout, 0, loadouts.size() - 1)
 	player_deck.assign(loadouts[active_loadout].get("cards", []))
 	_restore_technique_cards(data)
+	_grant_ladder_cards()
 
 	level = maxi(1, _compute_level(xp))
 	skill_points = mini(skill_points, _XpCurve.skill_points_at(level))
@@ -1418,6 +1424,7 @@ static func _compute_level(current_xp: int) -> int:
 func set_magic_type(t: String) -> void:
 	magic_type = t
 	_dirty = true
+	_grant_ladder_cards()  # FEAT_SKILLS' card follows the chosen type
 
 func has_skill(id: String) -> bool:
 	return unlocked_skills.has(id)
@@ -1461,7 +1468,7 @@ func _add_technique_to_deck(uid: String) -> bool:
 		return false
 	var ids: Array = get_deck_template_ids()
 	ids.append(str(get_instance_by_uid(uid).get("template_id", "")))
-	if _TechniqueDefs.deck_violation(ids) != "":
+	if _TechniqueDefs.deck_violation(ids, _UnlockLadder.technique_slots(learned_abilities)) != "":
 		return false
 	var deck: Array[String] = player_deck.duplicate()
 	deck.append(uid)
@@ -1492,11 +1499,31 @@ func learn_ability(id: String, cost: int) -> bool:
 	var tech: String = _TechniqueDefs.card_for(id)
 	if tech != "":
 		_add_technique_to_deck(_own_technique(tech))
+	_grant_ladder_cards()
 	_dirty = true
 	coins_changed.emit(coins)
 	quests.progress_event("learn", id)
 	GameBus.feature_learned.emit(id)
 	return true
+
+## GID-185 / TID-774: deals the cards of every learned ladder row not yet granted
+## (UnlockLadder.cards_for) into the collection; returns the card ids dealt. A row
+## with no cards yet (FEAT_SKILLS before a magic type) stays pending.
+func _grant_ladder_cards() -> Array[String]:
+	var dealt: Array[String] = []
+	for id: String in learned_abilities:
+		if ladder_cards_granted.has(id):
+			continue
+		var cards: Array[String] = _UnlockLadder.cards_for(id, magic_type)
+		if cards.is_empty() and id == _UnlockLadder.FEAT_SKILLS:
+			continue
+		for card_id: String in cards:
+			if not CardRegistry.get_template(card_id).is_empty():
+				grant_card_reward(card_id, "common")
+				dealt.append(card_id)
+		ladder_cards_granted.append(id)
+		_dirty = true
+	return dealt
 
 ## The Battle Mode to fight in: the setting, except that a player who hasn't
 ## learned minions yet (no hand) always fights in real time (GID-141 / TID-588).

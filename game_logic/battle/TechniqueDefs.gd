@@ -31,7 +31,7 @@ const DEFS: Dictionary = {
 	# skill tree, never taught by a trainer. Branch-typed, so branch modifiers reach them.
 	"tech_pyroblast": {"rt_value": 4, "recycle": 10.0, "cast": 1.5,
 		"off_gcd": false, "skill": "ember_pyroblast"},
-	"tech_blazing_draw": {"rt_value": 2, "recycle": 20.0, "cast": 0.0,
+	"tech_blazing_draw": {"rt_value": 3, "recycle": 12.0, "cast": 0.0,
 		"off_gcd": false, "skill": "ember_blazing_draw"},
 	"tech_restoration": {"rt_value": 9, "recycle": 18.0, "cast": 1.5,
 		"off_gcd": false, "skill": "dawn_restoration"},
@@ -55,7 +55,7 @@ const DEFS: Dictionary = {
 		"off_gcd": false, "skill": "thorn_second_bloom"},
 	"tech_reweave": {"rt_value": 2, "recycle": 15.0, "cast": 0.0,
 		"off_gcd": false, "skill": "flux_reweave"},
-	"tech_mana_surge": {"rt_value": 2, "recycle": 18.0, "cast": 0.0,
+	"tech_mana_surge": {"rt_value": 4, "recycle": 18.0, "cast": 0.0,
 		"off_gcd": false, "skill": "flux_mana_surge", "mana_value": 2},
 	"tech_shatterwave": {"rt_value": 4, "recycle": 12.0, "cast": 1.5,
 		"off_gcd": false, "skill": "fracture_shatterwave"},
@@ -142,8 +142,9 @@ static func mana_value(card_id: String) -> int:
 	return int(def(card_id).get("mana_value", 1))
 
 ## Why a deck's technique mix is illegal, or "" when fine: more than
-## MAX_COPIES of one technique, or more than DECK_MAX techniques in total.
-static func deck_violation(card_ids: Array) -> String:
+## MAX_COPIES of one technique, or more than `max_total` techniques in total
+## (DECK_MAX, or UnlockLadder.technique_slots for a player's learned rows).
+static func deck_violation(card_ids: Array, max_total: int = DECK_MAX) -> String:
 	var counts: Dictionary = {}
 	var total: int = 0
 	for v: Variant in card_ids:
@@ -154,6 +155,6 @@ static func deck_violation(card_ids: Array) -> String:
 		counts[id] = int(counts.get(id, 0)) + 1
 		if int(counts[id]) > MAX_COPIES:
 			return "Only %d copy of each technique per deck." % MAX_COPIES
-	if total > DECK_MAX:
-		return "At most %d techniques per deck." % DECK_MAX
+	if total > max_total:
+		return "At most %d techniques per deck." % max_total
 	return ""

@@ -131,6 +131,22 @@ func test_mana_tap_hits_hero_and_returns_mana() -> void:
 	assert_eq(gs.players[1].hero.health, hp - 2)
 	assert_eq(me.mana, mana + 100, "one unit, scaled")
 
+## GID-184 / TID-772: Blazing Draw is light single-target damage + draw one.
+func test_blazing_draw_smites_and_draws() -> void:
+	var gs := _state()
+	var foe := _minion()
+	gs.players[1].board.add_card(foe)
+	gs.players[0].draw_deck.append(_minion())
+	_cast(gs, _tech("tech_blazing_draw"), {"type": "minion", "card": foe})
+	assert_eq(foe.health, 7, "turn-based 3 to the minion")
+	assert_eq(gs.players[0].hand.size(), 1, "drew one")
+	var rt := _state(100)
+	var hp: int = rt.players[1].hero.health
+	_cast(rt, _tech("tech_blazing_draw"), {"type": "hero"})
+	assert_eq(rt.players[1].hero.health, hp - int(TechniqueDefs.def("tech_blazing_draw")["rt_value"]),
+		"real-time value at the hero")
+	assert_true(SpellEffectResolver.HERO_TARGETABLE_EFFECTS.has("smite_draw"))
+
 func test_deck_rules() -> void:
 	assert_eq(TechniqueDefs.deck_violation(["ghost", "tech_strike", "tech_kick", "tech_mend"]), "")
 	assert_ne(TechniqueDefs.deck_violation(["tech_strike", "tech_strike"]), "", "one copy each")

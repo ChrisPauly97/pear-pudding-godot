@@ -990,7 +990,7 @@ func _technique_violation_with(uid: String) -> String:
 	var ids: Array = []
 	for u: String in _working_deck + [uid]:
 		ids.append(str(sm.get_instance_by_uid(u).get("template_id", "")))
-	return _TechniqueDefs.deck_violation(ids)
+	return _TechniqueDefs.deck_violation(ids, _UnlockLadder.technique_slots(sm.learned_abilities))
 
 # Remove a specific instance by UID.
 func _on_remove_by_uid(uid: String) -> void:

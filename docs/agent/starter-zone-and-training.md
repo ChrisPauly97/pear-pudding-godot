@@ -47,6 +47,51 @@ visit that thing's trainer, read what it does and pay gold to learn it. Nothing 
 - API: `def`, `has`, `level_req`, `cost`, `trainer_for`, `trainer_name`, `is_learned` (non-ladder ids are always
   on), `can_learn`, `available_at(level)`, `pending(level, learned)`, `for_trainer`, `ids_up_to`, `all_ids`.
 
+### Feature rows grant cards (GID-185 / TID-774)
+
+Spec Identity: *progression grants cards*. Every `feature` row also grants cards (`UnlockLadder.FEATURE_CARDS`,
+read through `cards_for(id, magic_type)`); skill rows keep granting their technique card through `TechniqueDefs`.
+
+| Row | Cards | Row | Cards |
+|---|---|---|---|
+| Summoning Allies | Wolf, Treant | Cooking | Restore |
+| Casting Spell Cards | Dagger Throw, Insight | Ghost Phase | Ghost ×2 |
+| Fighting Beside Maiteln | Rally | Alchemy | Siphon |
+| Your Magic & Skill Tree | by magic type: Cinder (light) / Wither (dark) / Sprout (verdant) / Skitter (rift) | The Rifts | Flicker |
+| Bounty Contracts | Scarab | Card Packs | Spark |
+| Night Hunts | Shrouded Wraith | Crafting | Bulwark |
+| Skeleton Dig | Skeleton ×2 (towards Dig's 4-skeleton gate) | Riding | Blinkfox |
+
+- `SaveManager._grant_ladder_cards()` deals each learned row's cards once (common rarity, `grant_card_reward`, so a
+  full bag routes them to the mailbox) and records the row in `ladder_cards_granted` (persisted). It runs on
+  `learn_ability`, after load (`_restore_derived_fields`, so an old save gets its learned rows' cards once), at the end
+  of `new_game` (head start) and in `set_magic_type` (the skills row waits for a type).
+- Trainer panel (`NpcInteractions._trainer_row`): a "Grants:" chip per card, tapping opens `CardInspectOverlay` on the
+  modal layer; learning shows "Wolf, Treant added to your collection."
+- Tests: `test_unlock_ladder` (every feature row grants real non-technique cards, once, skills card follows the type),
+  `test_technique_learning`.
+
+### Deck-rule rows (GID-185 / TID-775)
+
+Spec Identity: unlocks *expand what a deck can do, never bypass it*. Three feature rows change the deck's rules
+(`UnlockLadder.DECK_RULE_ROWS`), each also granting a card. Redraw (TID-776) is the fourth:
+
+| Row | Level / trainer / gold | Rule | Read by |
+|---|---|---|---|
+| Redraw (`feat_redraw`) | 13 / combat / 110 | one mulligan per real-time fight in the first `redraw_window` s (CombatTuning, 6 s): non-technique hand cards back into the deck, shuffle, draw as many | `RealtimeCombat.redraw_ready` / `fight_time`, rules in `game_logic/battle/Redraw.gd`; button `scenes/battle/modules/RedrawButton.gd` in the action strip (R key via `BattleRealtime._unhandled_key_input`). Turn-based fights have no Redraw |
+| A Fourth Technique (`feat_tech_slot`) | 20 / combat / 250 | technique cards per deck 3 → 4 | `UnlockLadder.technique_slots(learned)` → `TechniqueDefs.deck_violation(ids, max_total)` (InventoryScene, `SaveManager._add_technique_to_deck`), `BattleSetup.level_deck` |
+| A Fuller Hand (`feat_hand_size`) | 22 / maiteln / 260 | real-time hand cap +1 | `hand_cap_bonus` → `RealtimeCombat.player_hand_bonus` |
+| Quick Draw (`feat_quick_draw`) | 25 / maiteln / 300 | real-time draw interval × 0.85 | `draw_interval_mult` → `RealtimeCombat.player_draw_mult` |
+
+`BattleSetup.apply_deck_rules(rt, learned)` sets both RealtimeCombat fields (player side only) from
+`BattleRealtime.maybe_start` and `BattleSetup.build` (balance sim). `BalanceBands.all_learned()` leaves the
+deck-rule rows out: the school cells sit at levels 4–9, where those rows are out of reach (with them every deck won
+every cell).
+
+Measured (`balance_sim`, player 7 vs enemy 9, 60 fights, scout / bog hag): base 70 / 22 %; + fourth technique
+97 / 92 %; + hand size 70 / 22 %; + quick draw 65 / 20 %; all three 97 / 93 %. The fourth slot (Ember Lance in the
+default deck) is a large power step; tracked in BID-103. Hand size and quick draw are near-neutral for the bot.
+
 ### Save
 
 - Learned entries live in `SaveManager.learned_abilities` (already persisted). `SaveManager.has_learned(id)` is the

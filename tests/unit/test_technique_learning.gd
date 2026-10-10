@@ -25,13 +25,14 @@ func test_ladder_prices_come_from_technique_defs() -> void:
 	assert_eq(UnlockLadder.cost("daze"), int(TechniqueDefs.def("tech_daze")["learn_cost"]))
 	assert_eq(UnlockLadder.cost("feat_dig"), 175, "feature rows keep their own price")
 
-func test_learning_a_feature_grants_no_card() -> void:
+## GID-185 / TID-774: a feature grants its UnlockLadder.cards_for cards, never a technique.
+func test_learning_a_feature_grants_its_cards_not_a_technique() -> void:
 	var sm := SaveManagerScript.new()
 	sm.new_game(false)
 	var before: int = sm.owned_cards.size()
 	sm.coins = 1000
 	assert_true(sm.learn_ability(UnlockLadder.FEAT_MINIONS, 40))
-	assert_eq(sm.owned_cards.size(), before)
+	assert_eq(sm.owned_cards.size(), before + UnlockLadder.cards_for(UnlockLadder.FEAT_MINIONS, "").size())
 
 func test_fourth_technique_is_owned_but_not_dealt_in() -> void:
 	var sm := SaveManagerScript.new()

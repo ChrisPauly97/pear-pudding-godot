@@ -50,7 +50,7 @@ Full node table: `combat-model.md` → "Skill tree modifies cards".
 
 | Branch | Magic | Skills |
 |---|---|---|
-| Ember | light | Searing Focus (+1 atk), Torch Bearer (+1 mana), Inferno Surge (+2 atk), Flame Tempo (+1 draw), **Pyroblast** (AoE 3, cross★), Blazing Draw (draw 3) |
+| Ember | light | Searing Focus (+1 atk), Torch Bearer (+1 mana), Inferno Surge (+2 atk), Flame Tempo (+1 draw), **Pyroblast** (AoE 3, cross★), Blazing Draw (3 light dmg + draw 1, GID-184) |
 | Dawn | light | Inner Light (+8 hp), Wellspring (+1 mana), Radiant Shield (+15 hp), Clarity (+1 draw), **Restoration** (heal 8, cross★), **Arcane Clarity** (draw 2, cross★) |
 | Dusk | dark | Dark Pact (+1 atk), Shadow Well (+1 mana), Lifetap (+10 hp), Void Tempo (+1 draw), **Soul Siphon** (heal 6, cross★), Mana Drain (steal 3 mana) |
 | Ash | dark | Cinderheart (+8 hp), Entropy (+1 atk), Bone Armour (+15 hp), Brittle Edge (+2 atk), **Brittle Curse** (AoE 2, cross★), Grave Call (draw 2) |

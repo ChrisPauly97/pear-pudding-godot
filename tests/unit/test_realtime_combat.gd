@@ -500,3 +500,44 @@ func test_trim_hand_returns_extras_to_deck() -> void:
 	assert_eq(p.draw_deck.size(), deck + 2)
 	rt.set_ally_cap(1)
 	assert_eq(p.max_units, 1)
+
+## GID-185 / TID-775: Quick Draw draws sooner, A Fuller Hand holds one more (player only).
+func test_deck_rule_unlocks_draw_sooner_and_hold_more() -> void:
+	var UnlockLadder: GDScript = preload("res://game_logic/progression/UnlockLadder.gd")
+	var BattleSetup: GDScript = preload("res://game_logic/battle/BattleSetup.gd")
+	var rt := _rt()
+	BattleSetup.call("apply_deck_rules", rt, [UnlockLadder.get("FEAT_QUICK_DRAW"), UnlockLadder.get("FEAT_HAND_SIZE")])
+	var p := rt.state.players[0]
+	rt.state.players[1].hero.health = 100000
+	rt.state.players[0].hero.health = 100000
+	for i in range(12):
+		p.draw_deck.append(_card())
+	_run(rt, _tune.get_f("draw_interval") * 0.9)
+	assert_eq(p.hand.size(), 1, "drew before the plain interval")
+	_run(rt, _tune.get_f("draw_interval") * 20.0)
+	assert_eq(p.hand.size(), _tune.get_i("hand_cap") + 1, "one more card held")
+
+## GID-185 / TID-776: Redraw swaps non-technique hand cards once, inside the window.
+func test_redraw_mulligan_once_in_window() -> void:
+	var Redraw: GDScript = preload("res://game_logic/battle/Redraw.gd")
+	var CardRegistry: GDScript = preload("res://autoloads/CardRegistry.gd")
+	var rt := _rt()
+	var p := rt.state.players[0]
+	var tech := CardInstance.new(CardRegistry.call("get_template", "tech_strike") as Dictionary)
+	var a := _card()
+	var b := _card()
+	p.hand.assign([tech, a, b])
+	for i in range(6):
+		p.draw_deck.append(_card(5, 5))
+	assert_false(Redraw.call("can_redraw", rt), "not learned")
+	rt.redraw_ready = true
+	assert_eq(Redraw.call("redraw", rt), 2, "two non-technique cards swapped")
+	assert_true(p.hand.has(tech), "technique kept")
+	assert_eq(p.hand.size(), 3)
+	assert_eq(Redraw.call("redraw", rt), 0, "once per fight")
+	var late := _rt()
+	late.redraw_ready = true
+	late.state.players[1].hero.health = 100000
+	late.state.players[0].hero.health = 100000
+	_run(late, late.tune.get_f("redraw_window") + 0.5)
+	assert_false(Redraw.call("can_redraw", late), "window closed")

@@ -33,6 +33,7 @@ const _MentorBarks = preload("res://scenes/battle/modules/MentorBarks.gd")
 const _BarkRules = preload("res://game_logic/battle/BarkRules.gd")
 const FightStats = preload("res://game_logic/battle/FightStats.gd")
 const _MomentumHud = preload("res://scenes/battle/modules/MomentumHud.gd")
+const _RedrawButton = preload("res://scenes/battle/modules/RedrawButton.gd")
 const PlayerCaster = preload("res://game_logic/battle/PlayerCaster.gd")
 const _BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
 const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
@@ -50,6 +51,7 @@ var caster: PlayerCaster = null
 var techniques: _RealtimeTechniques = null
 ## Combo pips, free-cast glow (GID-139); null outside real time.
 var momentum: _MomentumHud = null
+var redraw: _RedrawButton = null  # GID-185 / TID-776
 ## New-player ramp + first-time tips (TID-552 / TID-553); null outside real time.
 var onboarding: _BattleOnboarding = null
 ## Maiteln's coaching barks (GID-135 / TID-558) — only built for an eligible
@@ -94,6 +96,7 @@ func maybe_start(is_fresh: bool) -> void:
 	_BattleSetup.configure_realtime(rt, player_level, enemy_type, equipped_weapon_speed(),
 			offhand_damage_for_item(str(sm.equipped_offhand), sm.gear.mult(str(sm.equipped_offhand))),
 			_battle._state.puzzle_mode)
+	_BattleSetup.apply_deck_rules(rt, sm.learned_abilities)  # GID-185 / TID-775
 	# Skill-tree card modifiers and spell crits (GID-179) — real time only.
 	_BattleSetup.apply_skill_mods(_battle._state.players[RealtimeCombat.PLAYER], sm.unlocked_skills)
 	caster = PlayerCaster.new(rt)
@@ -110,6 +113,8 @@ func maybe_start(is_fresh: bool) -> void:
 	techniques = _RealtimeTechniques.new(_battle, self)
 	momentum = _MomentumHud.new(_battle, self)
 	momentum.build(_strip)
+	redraw = _RedrawButton.new(_battle, self)
+	redraw.build(_strip)
 	fight_stats = FightStats.new()
 	if _BarkRules.is_eligible(modifiers_companion(), SceneManager.save_manager.level):
 		mentor_barks = _MentorBarks.new(_battle, self)
@@ -185,6 +190,9 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		return
 	if k.keycode == KEY_T:
 		open_tuning()
+		get_viewport().set_input_as_handled()
+	elif k.keycode == KEY_R and redraw != null and redraw.can_press():
+		redraw.press()
 		get_viewport().set_input_as_handled()
 
 ## Saves the tuning panel's overrides and applies them from the next tick.
@@ -422,6 +430,7 @@ func _process(delta: float) -> void:
 	techniques.pulse_reactive()
 	_battle.consumables.tick_quick(dt)
 	momentum.update()
+	redraw.update()
 	onboarding.update(dt)
 	caster.tick(dt)
 	if _battle._state.is_game_over():

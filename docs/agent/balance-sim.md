@@ -199,7 +199,29 @@ Decks by damage school (`docs/agent/damage-schools.md`). Both use the whole unlo
 |---|---|---|
 | (b) matchup | **gating** | weak school beats its resisted school by ≥ 20 pp (`check_schools`) |
 | (c) best school | **gating** | no school within 2 pp of the top in every biome (`check_schools` / `best_everywhere`) |
-| (a) roster | report only | each school deck within ±25 pp of the default, per biome (`report_schools`) |
+| (a) roster | **gating** (GID-184) | each school deck within ±25 pp of the default in a **neutral** matchup (`neutral_school_fails`): a school the biome enemy resists / is weak / immune to is skipped (band (b)'s job), and a biome whose enemy profiles physical (desert cactus worm, mountain troll) is skipped whole since the default deck is not neutral there. `report_schools` still prints every deviation as a NOTE |
+
+### GID-184 / TID-773 measurements (win %, 14 fights per cell, default = physical)
+
+BID-101's cause was deck shape: the light matched fill is the first two light techniques in `TechniqueDefs` order,
+`tech_pyroblast` + `tech_blazing_draw`, and Blazing Draw only drew cards. Rift had the same shape (Reweave draw +
+Mana Surge). Changes:
+- `tech_blazing_draw` → new effect `smite_draw` (single-target damage of the card's school, then draw 1): turn-based
+  3, real time 3, recycle 20 → 12 s. First try (real time 6, recycle 8) made light best everywhere (93–100 %).
+- `tech_mana_surge` real-time hit 2 → 4.
+- `SpellEffectResolver.HERO_TARGETABLE_EFFECTS` replaces four hard-coded `== "deal_damage_single"` checks
+  (BattleTargeting ×2, BattleInput, BalanceBot), so a new hero-hitting effect is one list entry.
+
+| Biome (cell) | default | light | dark | verdant | rift | profiled schools |
+|---|---|---|---|---|---|---|
+| grasslands (scout 9/7) | 79 | 100 | 71 | 100 | 100 | dark, verdant |
+| forest (bog hag 8/6) | 50 | 50 | 50 | 43 | 43 | verdant, dark |
+| desert (cactus 5/4) | 64 | 100 | 100 | 100 | 93 | physical (cell skipped), verdant, dark |
+| scorched (revenant 6/5) | 43 | 71 | 64 | 64 | 43 | dark, light, verdant |
+| mountains (troll 8/6) | 50 | 57 | 64 | 57 | 29 | rift, light, physical (cell skipped), dark |
+
+Neutral checks all within ±25 (largest: grasslands light / rift +21). Matchup cactus worm weak 45 vs resisted 0. No
+school is best everywhere. Baseline cells unchanged (no `--write-baseline`).
 
 ### TID-771 measurements (win %, `tests/balance_bands.gd`, 14 fights per cell, default = physical)
 
@@ -242,6 +264,12 @@ Why (c) gates now: verdant leads grasslands outright (100 %) but is tied with da
 the default in forest, so no school is best in every biome. Band (c) is the one the tuning earned.
 
 ### Mono-school decks (report only, not in any band)
+
+GID-184 re-check (`--sweep school=`, level 6, enemy +1, 14 fights, physical / light / dark / verdant / rift):
+scout 100 / 93 / 64 / 100 / 100; bog hag 100 / 36 / 43 / 36 / 79; revenant 14 / 0 / 0 / 36 / 14.
+Better than TID-771 but still uneven (light 36 % on bog hag, a neutral matchup); tracked in BID-102.
+
+TID-771:
 
 `--sweep school=` per roster cell, 60 fights, win %: physical / light / dark / verdant / rift.
 scout 9/7: 48 / 0 / 12 / 62 / 38. bog 8/6: 30 / 0 / 0 / 5 / 20. cactus 5/4: 63 / 17 / 32 / 55 / 67.

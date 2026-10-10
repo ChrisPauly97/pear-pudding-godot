@@ -137,7 +137,7 @@ func _enemy_target(c: CardInstance, rt: RealtimeCombat) -> Dictionary:
 	if not foes.is_empty():
 		return {"type": "minion", "card": _weakest(foes)}
 	# Only plain damage can go at the hero; a minion-only spell waits.
-	return {"type": "hero"} if c.spell_effect == "deal_damage_single" else {}
+	return {"type": "hero"} if SpellEffectResolver.HERO_TARGETABLE_EFFECTS.has(c.spell_effect) else {}
 
 func _weakest(cards: Array[CardInstance]) -> CardInstance:
 	var w: CardInstance = cards[0]
