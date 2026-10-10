@@ -24,7 +24,7 @@ Starting tuning: resist ×0.5, weak ×1.5, immune only on boss phases; all knobs
 | TID-755 | Weather / battlefield / night school boosts | agent | pending | TID-749 |
 | TID-756 | Matchup loadouts: quick deck swap before a fight | agent | pending | TID-753 |
 | TID-757 | Balance sim school sweeps + bands + baseline | agent | pending | TID-750, TID-754, TID-755 |
-| TID-758 | Add damage schools to specification.md | human-action | pending | — |
+| TID-758 | Add damage schools to specification.md | human-action | done | — |
 
 ## Acceptance Criteria
 

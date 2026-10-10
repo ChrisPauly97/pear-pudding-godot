@@ -2,7 +2,7 @@
 
 **Goal:** GID-181
 **Type:** human-action
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -27,7 +27,7 @@ _Written during Plan phase._
 
 ## Changes Made
 
-_Filled after Build phase._
+Added a "Damage Schools & Horizontal Progression" section under Key Features in `docs/human/specification.md` (user asked the agent to edit it, 2026-10-10).
 
 ## Documentation Updates
 

@@ -19,7 +19,7 @@ The horizontal reward: players collect ways to deal and resist different schools
 
 - Skill tree: `game_logic/battle/SkillMods.gd` (GID-179) builds per-fight card modifiers from unlocked skills (`add(effect_type, value, filter)`, `matches(card, filter)`). Add effect types `school_power` (+% to cards of a school) and `school_resist`; nodes in skill .tres files under data/skills (preload rule for Android). Real-time only (skill_mods is null in turn-based) — check whether turn-based needs parity.
 - Gear: rolls in `game_logic/items/GearRolls.gd` `roll(tier, level, rng)` L37, stored via `autoloads/save_manager/SaveGear.gd` (`roll_of`, `mult`, `grant`); applied in `BattleSetup` equipment effects (~L49–85 `UpgradeDefs.effective_stat(weapon, level, gm)`). Add an affix slot to the roll dict: `{school_dmg: {school, pct}}`, `{school_resist: {school, pct}}`, rare `{convert: school}` (weapon auto-attack / Strike deals that school). Old saves: missing affix = none (SaveMigrations row only if shape changes).
-- Decision for Plan (flagged to user at goal creation): keep flat item-level stat rolls but smaller, or replace them with affixes. Default: affixes replace part of the stat budget; levels uncapped, no enemy scaling.
+- **User decision 2026-10-10:** school affixes sit **on top of** the existing item-level stat rolls — do not shrink or replace the stat rolls. Levels uncapped, no enemy scaling.
 - Gear tooltip/paper doll: `game_logic/character/PaperDollGear.gd`, drop message `SaveGear.drop_message`.
 
 ## Plan
