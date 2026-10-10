@@ -38,6 +38,13 @@ func _init(battle: _BattleScene) -> void:
 
 func _apply_equipment_effects(player: PlayerState) -> void:
 	var sm := SceneManager.save_manager
+	var items: Array[Dictionary] = _equipped_items()
+	_BattleSetup.apply_gear(player, items, sm.battle_mode().begins_with("realtime"))
+	_BattleSetup.apply_school_power(player, items, sm.unlocked_skills)  # GID-181 / TID-754
+
+## The equipped items for this fight, each with its level, rarity mult and school affix.
+func _equipped_items() -> Array[Dictionary]:
+	var sm := SceneManager.save_manager
 	var items: Array[Dictionary] = []
 	for item_id: String in [sm.equipped_weapon, sm.equipped_armor, sm.equipped_ring, sm.equipped_trinket,
 			sm.equipped_offhand, sm.equipped_shoulders, sm.equipped_helmet, sm.equipped_boots]:
@@ -47,8 +54,10 @@ func _apply_equipment_effects(player: PlayerState) -> void:
 		var level: int = 0
 		if weapon != null and weapon.slot == "weapon":
 			level = int(sm.get_owned_weapon_by_id(item_id).get("upgrade_level", 0))
-		items.append({"id": item_id, "level": level, "mult": sm.gear.mult(item_id)})  # rarity roll (TID-538)
-	_BattleSetup.apply_gear(player, items, sm.battle_mode().begins_with("realtime"))
+		var roll: Dictionary = sm.gear.roll_of(item_id)
+		items.append({"id": item_id, "level": level, "mult": sm.gear.mult(item_id),  # rarity roll (TID-538)
+				"affix": roll.get("affix", {})})  # school affix (TID-754), {} when none
+	return items
 
 ## Apply once-per-battle companion passives (extra_mana, hero_armor).
 ## Call after start_turn(1) so the base mana is already established.
@@ -263,13 +272,14 @@ func _hp_carries() -> bool:
 
 ## Solo setup, after every max-HP modifier: start at the saved fraction.
 ## Hero school resistances for this fight (GID-181 / TID-751): the player's hero gets the
-## capped fractions from `_school_resist_sources()`. Sources (gear, skills, companion) are
-## fed by TID-754; until one exists the hero resists nothing.
+## capped fractions from `_school_resist_sources()` (gear affixes and skill nodes, TID-754).
 func _apply_school_resists(player: PlayerState) -> void:
 	player.hero.school_resist = DamageSchools.capped_resists(_school_resist_sources())
 
+## The hero's resistance sources: equipped school_resist affixes and skill nodes (TID-754).
 func _school_resist_sources() -> Dictionary:
-	return {}
+	var sm := SceneManager.save_manager
+	return _BattleSetup.school_resist_sources(_equipped_items(), sm.unlocked_skills)
 
 func _apply_persistent_hp() -> void:
 	if not _hp_carries():

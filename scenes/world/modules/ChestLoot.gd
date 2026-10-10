@@ -150,7 +150,7 @@ func _maybe_drop_equipment(chance: float, tier: int = 1, level: int = 1) -> void
 	var picked: String = pool[randi() % pool.size()]
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
-	var roll: Dictionary = _GearRolls.roll(tier, level, rng)
+	var roll: Dictionary = _SaveGear.roll_for(picked, tier, level, rng)
 	var result: String = sm.gear.grant(picked, roll)
 	if result == "":
 		return

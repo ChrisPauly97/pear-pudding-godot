@@ -191,6 +191,15 @@ three items with their rolled stats). `SaveManager.gear.grant(id, roll)` adds a 
 item names by rarity and shows "Rare · ilvl 7". Co-op session characters (BID-033) carry their own `gear_rolls`,
 and need/greed loot is rolled on the authority (BID-075).
 
+**School affixes (GID-181 / TID-754):** a roll may also carry `"affix": {"kind", "school", "pct"}`, on top of the
+rarity and item level (never replacing them). Kinds: `school_dmg` (outgoing power for that school),
+`school_resist` (a hero resist fraction) and `convert` (weapons only: the auto-attack and Strike hit as that
+school). `GearRolls.roll(tier, level, rng, weapon)` rolls it by tier; `SaveGear.roll_for(item, tier, level, rng)`
+is the drop entry point and passes `weapon` from the item's slot. The affix rides in `gear_rolls`, so
+`normalize` drops a malformed one and an old save reads as no affix (no migration). `GearRolls.affix_label`
+names it in the CharacterScene gear picker and in `SaveGear.drop_message`. Battle effects are read in
+`BattleSetup.apply_school_power` and `school_resist_sources`; see `damage-schools.md`.
+
 **Visuals (GID-137):** equipping emits `GameBus.equipment_changed(slot, id)` and the hero sprite redraws in the new gear. Every armour/shoulders/helmet/boots/weapon/offhand/trinket item needs a `PaperDoll.GEAR_VISUALS` entry (see `camera-and-player.md` → Paper-doll hero); rings are not drawn.
 
 Mana cap invariant: max_mana never permanently exceeds 10. The `starting_mana` effect grants a one-time turn-1 burst; `PlayerState.gain_mana_for_turn(turn)` resets `max_mana = min(10, turn)` on every subsequent turn, naturally undoing the boost.

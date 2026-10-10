@@ -135,7 +135,7 @@ func resolve_emergence(card: CardInstance, caster_pid: int) -> void:
 		"emergence_deal_damage":
 			DamageResolver.deal(opponent, opponent.hero,
 					BattlefieldRules.modify_damage(card.emergence_power, _state.battlefield_biome),
-					DamageSchools.school_of(card))
+					DamageSchools.school_of(card), null, caster)
 		"emergence_heal_hero":
 			caster.hero.health = mini(caster.hero.max_health, caster.hero.health + card.emergence_power)
 		"emergence_draw":
@@ -188,6 +188,8 @@ func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Diction
 	var _spell_dmg: int = BattlefieldRules.modify_damage(power, _state.battlefield_biome)
 	# A spell hits as its card's school (GID-181 / TID-749); a physical card is neutral.
 	var _spell_school: String = DamageSchools.school_of(card)
+	if card.template_id == "tech_strike":
+		_spell_school = caster.weapon_school()  # TID-754: a convert weapon's Strike hits as its school
 	# Single-target arms resolve their subject once here; `null` means the
 	# relevant board was empty, which every arm below treats as a no-op.
 	var foe: CardInstance = _pick(explicit_target, opponent)
@@ -198,11 +200,11 @@ func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Diction
 				var hero_owner: PlayerState = opponent
 				if explicit_target.has("pidx"):
 					hero_owner = _state.players[int(explicit_target["pidx"])]
-				DamageResolver.deal(hero_owner, hero_owner.hero, _spell_dmg, _spell_school)
+				DamageResolver.deal(hero_owner, hero_owner.hero, _spell_dmg, _spell_school, null, caster)
 			elif foe == null:
-				DamageResolver.deal(opponent, opponent.hero, _spell_dmg, _spell_school)
+				DamageResolver.deal(opponent, opponent.hero, _spell_dmg, _spell_school, null, caster)
 			else:
-				DamageResolver.deal(opponent, foe, _spell_dmg, _spell_school)
+				DamageResolver.deal(opponent, foe, _spell_dmg, _spell_school, null, caster)
 				_bury_if_dead(foe, opponent)
 		"deal_damage_all", "deal_damage_all_full":
 			# Hits every living enemy side in an adds/team fight, not just opponent()'s
@@ -210,17 +212,17 @@ func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Diction
 			# where enemy_sides() is always just [opponent()].
 			for side: PlayerState in _state.enemy_sides(caster_pid):
 				for t in side.board.get_cards():
-					DamageResolver.deal(side, t, _spell_dmg, _spell_school)
+					DamageResolver.deal(side, t, _spell_dmg, _spell_school, null, caster)
 				_sweep_dead(side)
 				if card.spell_effect == "deal_damage_all_full":
-					DamageResolver.deal(side, side.hero, _spell_dmg, _spell_school)
+					DamageResolver.deal(side, side.hero, _spell_dmg, _spell_school, null, caster)
 		"deal_damage_random":
 			var targets := opponent.board.get_cards()
 			if targets.is_empty():
-				DamageResolver.deal(opponent, opponent.hero, _spell_dmg, _spell_school)
+				DamageResolver.deal(opponent, opponent.hero, _spell_dmg, _spell_school, null, caster)
 			else:
 				var hit: CardInstance = targets[randi() % targets.size()]
-				DamageResolver.deal(opponent, hit, _spell_dmg, _spell_school)
+				DamageResolver.deal(opponent, hit, _spell_dmg, _spell_school, null, caster)
 				_bury_if_dead(hit, opponent)
 		"debuff_attack":
 			for side: PlayerState in _state.enemy_sides(caster_pid):
@@ -248,7 +250,7 @@ func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Diction
 				friend.attack += power
 		"lifesteal_hit":
 			if foe != null:
-				DamageResolver.deal(opponent, foe, _spell_dmg, _spell_school)
+				DamageResolver.deal(opponent, foe, _spell_dmg, _spell_school, null, caster)
 				caster.hero.health = mini(caster.hero.max_health, caster.hero.health + _spell_dmg)
 				_bury_if_dead(foe, opponent)
 		"mana_drain":
@@ -256,7 +258,7 @@ func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Diction
 		"curse_minion":
 			if foe != null:
 				foe.attack = maxi(0, foe.attack - power)
-				foe.health -= DamageResolver.scaled_amount(opponent, _spell_dmg, _spell_school)
+				foe.health -= DamageResolver.scaled_amount(opponent, _spell_dmg, _spell_school, null, caster)
 				_bury_if_dead(foe, opponent)
 		"draw_card":
 			for _i in range(power):
@@ -279,7 +281,7 @@ func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Diction
 				caster.draw_card()
 		# ── 20 new effects (TID-279) ──────────────────────────────────────
 		"deal_damage_hero":
-			DamageResolver.deal(opponent, opponent.hero, _spell_dmg, _spell_school)
+			DamageResolver.deal(opponent, opponent.hero, _spell_dmg, _spell_school, null, caster)
 		"apply_poison_single":
 			if foe != null:
 				foe.apply_status("poison", power)
@@ -301,7 +303,7 @@ func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Diction
 		"heal_hero":
 			caster.hero.heal(power)
 		"mana_tap":
-			DamageResolver.deal(opponent, opponent.hero, _spell_dmg, _spell_school)
+			DamageResolver.deal(opponent, opponent.hero, _spell_dmg, _spell_school, null, caster)
 			caster.hero.gain_mana(TechniqueDefs.mana_value(card.template_id))
 		"armor_hero":
 			caster.hero.apply_status("armor", power)
@@ -335,7 +337,7 @@ func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Diction
 				for t in side.board.get_cards():
 					t.apply_status("freeze", 1)
 		"drain_hero":
-			DamageResolver.deal(opponent, opponent.hero, _spell_dmg, _spell_school)
+			DamageResolver.deal(opponent, opponent.hero, _spell_dmg, _spell_school, null, caster)
 			caster.hero.heal(_spell_dmg)
 		"stun_single":
 			if foe != null:

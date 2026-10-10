@@ -52,12 +52,23 @@ func grant(item_id: String, roll: Dictionary) -> String:
 	return result
 
 
-## HUD line for a granted drop: "Found: Rare Iron Helm (ilvl 5)!" etc.
+## A fresh drop roll for `item_id` from a source of `tier`. A convert affix (GID-181 / TID-754)
+## can only roll on a weapon.
+static func roll_for(item_id: String, tier: int, level: int, rng: RandomNumberGenerator) -> Dictionary:
+	var w: _WeaponData = _WeaponRegistry.get_weapon(item_id)
+	return _GearRolls.roll(tier, level, rng, w != null and w.slot == "weapon")
+
+
+## HUD line for a granted drop: "Found: Rare Iron Helm (ilvl 5)!" etc. A school affix
+## (GID-181 / TID-754) is named after the stats: "... (ilvl 5), +15% Dark damage".
 static func drop_message(item_id: String, roll: Dictionary, result: String) -> String:
 	var w: _WeaponData = _WeaponRegistry.get_weapon(item_id)
 	var item_name: String = w.display_name if w != null else item_id
 	var r: Dictionary = _GearRolls.normalize(roll)
 	var what: String = "%s %s (ilvl %d)" % [str(r["rarity"]).capitalize(), item_name, int(r["ilvl"])]
+	var affix_text: String = _GearRolls.affix_label(r)
+	if affix_text != "":
+		what += ", " + affix_text
 	match result:
 		"new":
 			return "Found: %s!" % what

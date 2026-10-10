@@ -4,7 +4,7 @@ const SkillRegistry = preload("res://autoloads/SkillRegistry.gd")
 const SkillData = preload("res://data/SkillData.gd")
 const MagicTypes = preload("res://game_logic/MagicTypes.gd")
 
-const _ROWS: int = 3
+const _ROWS: int = 4  # GID-181 / TID-754: row 3 holds the school nodes
 
 var hub_mode: bool = false
 
