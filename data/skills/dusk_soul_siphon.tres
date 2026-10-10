@@ -6,7 +6,7 @@
 script = ExtResource("1_dusk_soul_siphon")
 id = "dusk_soul_siphon"
 display_name = "Soul Siphon"
-description = "Grants the Soul Siphon technique card: Drain 3 HP from the enemy hero (5 in real time, 1 s cast). Returns to the bottom of your deck."
+description = "Grants the Soul Siphon technique card: Drain 2 HP from the enemy hero (3 in real time, 1 s cast). Returns to the bottom of your deck."
 skill_type = "active"
 effect_type = "grant_technique"
 effect_value = 0

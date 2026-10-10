@@ -34,13 +34,15 @@ const DRIFT_SECONDS: float = 0.25
 ## TID-757 school bands. Decks are the shape-matched decks (`BattleSetup.school_matched_deck`):
 ## the default deck with its last two Allies swapped for the school's own cards. Every deck is
 ## measured with the whole unlock ladder learned, at the same seeds.
-## Roster cells: [biome, [[enemy type, enemy level, player level], ...]], chosen where the default
-## deck is not saturated at 100 % (a two-level gap).
+## Roster cells: [biome, [[enemy type, enemy level, player level], ...]]. TID-771: one cell per
+## biome, chosen from a 60-fight grid where the default deck is neither saturated nor dead (the old
+## pooled cells paired a 100 % cell with a 0 % cell, so a pooled rate said nothing). Each is the
+## biome's most informative enemy at its level gap.
 const BIOME_ROSTERS: Array = [
-	["grasslands", [["undead_basic", 3, 1], ["martarquas_scout", 10, 7]]],
-	["forest", [["forest_shade", 7, 5], ["bog_hag", 8, 6]]],
-	["desert", [["cactus_worm", 6, 4], ["sand_stalker", 6, 4]]],
-	["scorched", [["ember_cultist", 7, 5], ["scorched_revenant", 7, 5]]],
+	["grasslands", [["martarquas_scout", 9, 7]]],
+	["forest", [["bog_hag", 8, 6]]],
+	["desert", [["cactus_worm", 5, 4]]],
+	["scorched", [["scorched_revenant", 6, 5]]],
 	["mountains", [["mountain_troll", 8, 6]]],
 ]
 ## Matchup cells: [enemy type, enemy level, player level, weak school, resisted school]
@@ -49,10 +51,11 @@ const MATCHUPS: Array = [
 	["cactus_worm", 6, 4, "dark", "verdant"],
 ]
 ## Fights per roster enemy / per matchup side (fixed seeds 1..n, same for every deck).
-const SCHOOL_FIGHTS: int = 6
+const SCHOOL_FIGHTS: int = 14
 const MATCHUP_FIGHTS: int = 20
-## Band (a): a school deck's biome win rate within this many points of the default deck.
-const SCHOOL_BAND: float = 0.15
+## Band (a): a school deck's biome win rate within this many points of the default deck (report only:
+## see `report_schools` for why it is not gating).
+const SCHOOL_BAND: float = 0.25
 ## Band (b): the weak school beats the resisted school by at least this many points.
 const MATCHUP_MIN: float = 0.20
 
@@ -179,8 +182,9 @@ static func measure_schools() -> Dictionary:
 		}
 	return {"roster": roster, "matchup": matchup}
 
-## GATING failures (empty = pass) of `measured` (from `measure_schools`): band (b) only. Each
-## matchup's weak school must beat its resisted school by MATCHUP_MIN.
+## GATING failures (empty = pass) of `measured` (from `measure_schools`): band (b), each matchup's
+## weak school beats its resisted school by MATCHUP_MIN; band (c), no school is the best (within
+## 2 points of the biome's top) in every biome.
 static func check_schools(measured: Dictionary) -> Array[String]:
 	var fails: Array[String] = []
 	var matchup: Dictionary = measured.get("matchup", {}) as Dictionary
@@ -190,31 +194,39 @@ static func check_schools(measured: Dictionary) -> Array[String]:
 		if gap < MATCHUP_MIN - 0.001:
 			fails.append("%s: weak school +%.0f pp over resisted, need +%.0f pp" % [k, gap * 100.0,
 				MATCHUP_MIN * 100.0])
+	var best: Array[String] = best_everywhere(measured.get("roster", {}) as Dictionary)
+	if not (measured.get("roster", {}) as Dictionary).is_empty() and not best.is_empty():
+		fails.append("(c) school %s is best in every biome" % ", ".join(PackedStringArray(best)))
 	return fails
 
-## REPORT ONLY (not gating; tightened in GID-183 / TID-771): band (a) each school-matched deck
-## within SCHOOL_BAND of the default deck in every biome, and band (c) no school best (within 2
-## points of the biome's top) in every biome. Returns the messages; never fails a run.
+## Band (c) helper: the schools within 2 points of the top in every biome of `roster` ({biome: {school: wr}}).
+static func best_everywhere(roster: Dictionary) -> Array[String]:
+	var best: Array[String] = DamageSchools.all_schools()
+	for biome: String in roster:
+		var rates: Dictionary = roster[biome] as Dictionary
+		var top: float = 0.0
+		for s: String in DamageSchools.all_schools():
+			top = maxf(top, float(rates.get(s, 0.0)))
+		var kept: Array[String] = []
+		for s: String in best:
+			if float(rates.get(s, 0.0)) >= top - 0.02 - 0.001:
+				kept.append(s)
+		best = kept
+	return best
+
+## REPORT ONLY: band (a), each school-matched deck within SCHOOL_BAND of the default deck in every
+## biome. Not gating after TID-771: a biome's school decks spread about 20-40 points around the
+## default by design (the matchup profiles and the draw-only light fill), and a 14-fight cell is
+## about +-13 points of noise, so no single N gates it cleanly. Returns the messages; never fails.
 static func report_schools(measured: Dictionary) -> Array[String]:
 	var notes: Array[String] = []
 	var roster: Dictionary = measured.get("roster", {}) as Dictionary
-	var schools: Array[String] = DamageSchools.all_schools()
-	var best_everywhere: Array[String] = schools.duplicate()
 	for biome: String in roster:
 		var rates: Dictionary = roster[biome] as Dictionary
 		var base: float = float(rates.get("default", 0.0))
-		var top: float = 0.0
-		for s: String in schools:
+		for s: String in DamageSchools.all_schools():
 			var wr: float = float(rates.get(s, 0.0))
-			top = maxf(top, wr)
 			if absf(wr - base) > SCHOOL_BAND + 0.001:
 				notes.append("(a) %s: %s deck %.0f%% vs default %.0f%% (band +-%.0f pp)" % [biome, s,
 					wr * 100.0, base * 100.0, SCHOOL_BAND * 100.0])
-		var kept: Array[String] = []
-		for s: String in best_everywhere:
-			if float(rates.get(s, 0.0)) >= top - 0.02:
-				kept.append(s)
-		best_everywhere = kept
-	if not roster.is_empty() and not best_everywhere.is_empty():
-		notes.append("(c) school %s is best in every biome" % ", ".join(PackedStringArray(best_everywhere)))
 	return notes
