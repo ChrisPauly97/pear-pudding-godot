@@ -65,6 +65,11 @@ const DEFS: Array = [
 	["resist_mult", "Damage multiplier vs a resisted school (x)", 0.5, 0.0, 1.0, 0.05, "Damage schools"],
 	["weak_mult", "Damage multiplier vs a weak school (x)", 1.5, 1.0, 3.0, 0.1, "Damage schools"],
 	["immune_mult", "Damage multiplier vs an immune school (x)", 0.0, 0.0, 1.0, 0.05, "Damage schools"],
+	# GID-181 / TID-755: battlefield school boosts (BattlefieldRules.SCHOOL_ENV), applied to
+	# the attacker's school at battle start. Read at setup; 1.0 turns the boosts off.
+	["env_time_mult", "Night / day school boost (x)", 1.15, 1.0, 1.5, 0.05, "Damage schools"],
+	["env_biome_mult", "Biome school boost (x)", 1.1, 1.0, 1.5, 0.05, "Damage schools"],
+	["env_weather_mult", "Weather school boost (x)", 1.1, 1.0, 1.5, 0.05, "Damage schools"],
 ]
 
 var _values: Dictionary = {}
@@ -126,6 +131,12 @@ func level_scale(level: int) -> float:
 ## +`gap_damage` per level above, less below (never under half) (TID-718).
 func gap_mult(enemy_level: int, player_level: int) -> float:
 	return maxf(0.5, 1.0 + get_f("gap_damage") * float(enemy_level - player_level))
+
+## Default value of `key` (its DEFS row), without building a table. Used by pure callers
+## that receive no tuning instance.
+static func default_f(key: String) -> float:
+	var row: Array = row_for(key)
+	return float(row[2]) if not row.is_empty() else 0.0
 
 static func row_for(key: String) -> Array:
 	for row: Array in DEFS:

@@ -142,9 +142,54 @@ Damage sites routed: SpellEffectResolver (emergence and all spell arms), Realtim
 poison, scorch, heavy blow), BattleInput and BattleNet (attacks and counters), BattleFx (status
 ticks), BattleModifiers (desert scorch), BasicAI (AI attacks), PlayerState (fatigue).
 
+## Battlefield School Boosts (TID-755)
+
+The field lends schools a small edge, read from the same battlefield facts the rules already use.
+Module: `game_logic/battle/BattlefieldRules.gd`, table `SCHOOL_ENV` (same row shape as
+`BRANCH_AFFINITY`; both use the shared `_condition_met(kind, value, biome, weather, is_night)`).
+
+| School | Condition | Knob (default) |
+|---|---|---|
+| `dark` | night | `env_time_mult` x1.15 |
+| `light` | day | `env_time_mult` x1.15 |
+| `verdant` | Forest biome | `env_biome_mult` x1.1 |
+| `rift` | Scorched biome | `env_biome_mult` x1.1 |
+| `physical` | Mountains biome | `env_biome_mult` x1.1 |
+| `verdant` | rain, heavy rain | `env_weather_mult` x1.1 |
+| `rift` | ash fall, volcanic | `env_weather_mult` x1.1 |
+| `light` | snow, blizzard | `env_weather_mult` x1.1 |
+| `physical` | sandstorm, dust devil | `env_weather_mult` x1.1 |
+
+Every matching row multiplies in (Forest in the rain: verdant x1.21). Day always boosts light,
+so a battle is never fully neutral by time. WeatherManager has no "storm" weather; the storm-like
+rows use the rain, ash and sand weathers.
+
+| Function | Returns |
+|---|---|
+| `school_env_mult(school, biome, weather, is_night, tune = null) -> float` | product of the matching rows for one school; 1.0 when none |
+| `school_env_table(biome, weather, is_night, tune = null) -> Dictionary` | `{school: mult}` for every non-neutral school |
+| `school_env_text(biome, weather, is_night) -> String` | banner line, e.g. `"Light x1.15"` |
+
+- **Stored once at battle start:** `BattleModifiers._apply_school_environment()` (called from
+  `BattleScene` right after `set_battlefield_context`) computes the table from the battle's biome,
+  `_battle_weather` and night, and copies it to each `PlayerState.env_school_mult`. Both sides get the
+  same table, so the boost follows the **attacker's school** whichever side is hit. Not serialized.
+- **Resolver:** `DamageResolver.scaled_amount` (which `deal()` uses) multiplies the matchup mult by
+  `env_mult(defender, school)` and rounds once through `DamageSchools.apply_mult`. Armor, shroud and
+  immunity are unchanged: an immune hit stays at 0.
+- **Knobs:** read at battle start with `CombatTuning` defaults (`BattlefieldRules._env_knob`). Live
+  edits in the tuning panel apply to the next battle, not the current one.
+- **Banner:** `BattleArena._show_battlefield_banner` adds a "Schools: ..." line under the rule text.
+- **Balance sim:** `BalanceFight` / `tools/balance_sim.gd` never call `_apply_school_environment`, so
+  sim fights stay neutral and the bands do not move. Opt in only by calling it deliberately.
+- **Known gap:** a battle resumed from a mid-fight save does not re-run the setup path, so its
+  `env_school_mult` is empty (neutral) and the weather part cannot be restored (weather is not saved).
+  Logged as `tasks/backlog/BID-GID181-env-school-resume.md`.
+
 ## Integrations
 
-- **CombatTuning:** the three knobs above. Knob reads go through `tune.get_f(...)`.
+- **CombatTuning:** the three matchup knobs and the three boost knobs (`env_time_mult`,
+  `env_biome_mult`, `env_weather_mult`). Knob reads go through `tune.get_f(...)`.
 - **MagicTypes:** the source of truth for magic type names and validity.
 - **Planned (later GID-181 tasks):** enemy profiles (TID-750); enemy attack schools and hero
   resistances (TID-751); combat UI feedback (TID-752); bestiary reveal (TID-753); player school
@@ -166,3 +211,7 @@ roster has a weak target for every school.
 `tests/unit/test_damage_resolver.gd`: neutral behaviour with empty profiles, resist / weak / immune
 scaling, armor and shroud, null defender, knob overrides. `tests/unit/test_damage_resolver_guardrail.gd`:
 the `take_damage(` source scan.
+
+`tests/unit/test_school_env.gd` (TID-755): per-condition boost rows, stacking, the banner table and text,
+knob overrides, branch affinity still resolving through the shared condition, the resolver applying the
+attacker's school boost once with matchup (`10 x 1.5 x 1.15 -> 17`), immunity staying 0, and a null defender.

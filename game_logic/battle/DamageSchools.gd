@@ -75,10 +75,12 @@ static func mult(school: String, profile: Dictionary, tune: _CombatTuning = null
 ## never below 1 for a positive hit. A zero multiplier (immune at the default knob)
 ## deals nothing; a non-positive `damage` stays 0.
 static func scale(damage: int, school: String, profile: Dictionary, tune: _CombatTuning = null) -> int:
-	if damage <= 0:
-		return 0
-	var m: float = mult(school, profile, tune)
-	if m <= 0.0:
+	return apply_mult(damage, mult(school, profile, tune))
+
+## `damage * m` with the same rounding and floor as `scale()`. The resolver multiplies the
+## matchup and the battlefield boost together and rounds once through here.
+static func apply_mult(damage: int, m: float) -> int:
+	if damage <= 0 or m <= 0.0:
 		return 0
 	return maxi(1, roundi(float(damage) * m))
 

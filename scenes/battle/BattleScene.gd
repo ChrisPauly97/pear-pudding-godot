@@ -555,6 +555,7 @@ func _setup_solo_battle() -> void:
 	var _bf_biome: int = int(enemy_data.get("battlefield_biome", -1))
 	var _bf_night: bool = bool(enemy_data.get("battlefield_is_night", false))
 	_state.set_battlefield_context(_bf_biome, _bf_night)
+	modifiers._apply_school_environment()  # GID-181 / TID-755: school boosts from biome/weather/night
 
 	# Companion passive: battle-start effects (extra_mana, hero_armor) and
 	# first turn-start draw (draw_card). Excluded in puzzle and duel modes.
