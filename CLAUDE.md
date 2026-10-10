@@ -395,7 +395,7 @@ created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
 | `PlayerHome.gd` (`player_home`) | House purchase door, bed respawn, trophy pedestals (`make_trophy_pedestal` shared with guildhall) |
 | `Mounts.gd` (`mounts`) | Stable purchase panel, mount toggle, battle auto-dismount (price from `MountRegistry`) |
 | `TownSiege.gd` (`town_siege`) | Single-player siege raiders + banner, Chapter 2 marsax_hold trigger, siege music (`music_for` / `refresh_music`, solo and co-op — GID-145) |
-| `NamedMapProps.gd` (`named_props`) | Named-map scrolls, shrines, waystones (incl. injected town waystone), injected mailbox, fast-travel panel |
+| `NamedMapProps.gd` (`named_props`) | Lore scroll pickup (`on_scroll_collected`) + narration overlay (`show_narration_overlay`), named-map scrolls, shrines, waystones (incl. injected town waystone), injected mailbox, fast-travel panel |
 | `ChestLoot.gd` (`chest_loot`) | Chest open (mimic, co-op sync, need/greed hand-off), card/coin scatter, equipment drop |
 | `NightLights.gd` (`night_lights`) | Night light rigs: lantern/waystone/mana-well/campfire glow dots + depth-based light pools, flicker, tier caps |
 | `AmbientTouches.gd` (`ambient`) | Weather visuals (particle rig, sky/fog look, grass wind; Settings > Weather Effects filter via `WeatherManager.shown()`), night fireflies, forest leaves, ground mist, player dust knobs + wet-ground footstep splashes |
@@ -411,6 +411,8 @@ created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
 | `WorldShortcuts.gd` (`shortcuts`) | Keyboard shortcuts forwarded from `_unhandled_input`: pause, map view, menu actions, G/D cantrips, chat focus, then tap-to-move (BID-055) |
 | `TownLife.gd` (`town_life`) | Walking townsfolk on `TownLife` street loops, role hours (indoors at night, lantern guard), talk hold, interaction x/z sync, hide-flag NPC despawn (GID-156) |
 | `BuildingSigns.gd` (`building_signs`) | Signpost beside every building door in the stitched towns (`TownSigns`: authored `NAMES`, else NPC role, else "House"); the name pops up (Label3D fade) within 6 units (GID-168) |
+| `GatherNodes.gd` (`gather_nodes`) | Gathering-node registry (herb / ore / fish from `GatherDefs.plan_chunk` in chunk gen): `register`, `find_nearby`, session-only depletion + respawn (GID-182 / TID-760) |
+| `CraftingStations.gd` (`crafting_stations`) | Cooking fire / alchemy table / workbench from `StationSites` in the stitched towns and the player home; `show_panel` opens `ProfessionPanel` (GID-182 / TID-762) |
 | `Legend.gd` (`legend`) | Pear Pudding legend riddle spots (`RiddleSpots`): unmarked overworld props, look / Dig resolution, `try_dig` from Cantrips (GID-153) |
 | `Coastline.gd` (`coastline`) | Maykalene's waterfront on the eastern sea (`game_logic/world/Coast.gd`: coastline, depth, piers, boats) and the river bridges (`scenes/world/RiverBridges.gd`, GID-172): swimming in deep water (sea + rivers via `Rivers.deep_water` → `Player.set_swimming`, `Swimming.gd` tuning), swim stamina + river current + `SwimMeter`, wash ashore at 1 HP when exhausted, railed piers (lamps via `street_lamps_world`), quay kerb, bobbing boats, cargo, beach clutter; the sandy beach is stamped path; runs its own `_process` (GID-171) |
 

@@ -1124,7 +1124,7 @@ func _on_world_snapshot_received(payload: Array) -> void:
 
 ## Co-op (GID-108 / TID-408, design rule 5): mirror the GID-096 shared-chest model —
 ## a scroll pickup is granted to every session member. Called from
-## WorldScene._on_scroll_collected via the local player's own pickup.
+## NamedMapProps.on_scroll_collected via the local player's own pickup.
 
 func _broadcast_scroll_collected_coop(scroll_id: String) -> void:
 	if not _world._coop_active or _world._net_sync == null or not NetworkManager.is_active():
@@ -1148,7 +1148,7 @@ func _coop_record_scroll_collected(scroll_id: String) -> void:
 
 ## Apply a scroll pickup that originated elsewhere (a teammate, or a snapshot
 ## replay) to this peer's own SaveManager, re-running the same tip/flag/
-## completion logic in WorldScene._on_scroll_collected as a real local pickup would.
+## completion logic in NamedMapProps.on_scroll_collected as a real local pickup would.
 
 func _coop_apply_scroll_collected(scroll_id: String) -> void:
 	_world._coop_collected_scrolls[scroll_id] = true

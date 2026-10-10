@@ -2,7 +2,7 @@
 
 **Goal:** GID-182
 **Type:** agent
-**Status:** blocked (WorldScene line ceiling, see Changes Made)
+**Status:** done
 **Depends On:** TID-759
 
 ## Lock
@@ -43,6 +43,8 @@ Gives materials a place in the world: herb patches, ore veins and fishing spots 
 - Validation: compile, unsafe-hits and gdlint are clean. `tests/runner.gd` passes 3243 / fails 1: `test_worldscene_line_ceiling_guardrail` (WorldScene.gd is 1897-1898 lines against the 1890 ceiling, which main already sits at 1887). `world_scene_smoke` exits 0 with no SCRIPT ERROR.
 - **Blocker:** the ceiling needs a decision. Raise it with review, or extract a cluster from WorldScene (for example the mana-well interaction). The ceiling was not raised here.
 - Not done: co-op harvest broadcast, hold-time harvesting, bog moss planting, in-game-minute respawn (uses real seconds).
+
+- Merge (orchestrator): the WorldScene line ceiling (1890) was cleared by moving `_on_scroll_collected` / `_show_narration_overlay` into `NamedMapProps` (`on_scroll_collected`, `show_narration_overlay`); crafting stations now interact through `_try_simple_interaction` (`CraftingStation.interact()` → `on_interact`), and `crafting_station` sits right after `gather_node` in INTERACT_PRIORITY. WorldScene is 1872 lines. Full suite 3265 passed, world smoke clean.
 
 ## Documentation Updates
 

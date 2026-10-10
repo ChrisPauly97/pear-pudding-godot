@@ -14,6 +14,7 @@ const _MailboxScene = preload("res://scenes/world/entities/MailboxNPC.tscn")
 const _PuzzleShrineScene = preload("res://scenes/world/entities/PuzzleShrine.tscn")
 const _StoryScrollScene = preload("res://scenes/world/entities/StoryScroll.tscn")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
+const _ChapterEndingOverlay = preload("res://scenes/ui/ChapterEndingOverlay.gd")
 const _WaystoneScene = preload("res://scenes/world/entities/Waystone.tscn")
 
 ## Town maps that get a waystone injected near spawn when their .tres has none.
@@ -208,3 +209,45 @@ func open_fast_travel_panel() -> void:
 func _note(text: String, font_size: int, tint: Color, parent: Node) -> void:
 	var lbl := _UiUtil.make_label(text, font_size, tint, HORIZONTAL_ALIGNMENT_CENTER, parent)
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+
+
+## Lore scroll pickup: tip, Chapter 2 story beats, completion check, co-op share (moved from WorldScene).
+func on_scroll_collected(scroll_id: String) -> void:
+	var scroll: Dictionary = ScrollRegistry.get_scroll(scroll_id)
+	var title: String = scroll.get("title", scroll_id) if not scroll.is_empty() else scroll_id
+	_world._show_tip("Lore scroll found: " + title)
+	# Chapter 2 beats 2 & 5 (GID-108 / TID-407): these two scrolls are also story
+	# beats. A generic flag-on-collect field doesn't exist on MapScroll/
+	# ScrollRegistry — two one-off hooks don't justify adding one.
+	if scroll_id == "scroll_larik_letter":
+		SceneManager.save_manager.set_story_flag("chapter2_found_letter")
+	elif scroll_id == "scroll_traitor_seal":
+		SceneManager.save_manager.set_story_flag("chapter2_traitor_seal")
+	if SceneManager.save_manager.collected_scrolls.size() >= ScrollRegistry.SCROLL_COUNT:
+		GameBus.all_scrolls_collected.emit()
+	# Co-op (GID-108 / TID-408, design rule 5): mirror the GID-096 shared-chest
+	# model — the collector's pickup (this tip/flags/completion check) is granted
+	# to every session member. Skipped when this call is itself the result of
+	# applying a co-op-received pickup, to avoid re-broadcasting a broadcast.
+	if not _world._coop_scroll_syncing:
+		_world.coop_session._broadcast_scroll_collected_coop(scroll_id)
+
+
+## Full-screen narration pages; sets `completion_flag` when closed (moved from WorldScene).
+func show_narration_overlay(pages: Array, title: String, completion_flag: String) -> void:
+	var typed_pages: Array[String] = []
+	typed_pages.assign(pages)
+	var overlay := _ChapterEndingOverlay.new()
+	if title.is_empty():
+		overlay.setup(typed_pages)
+	else:
+		overlay.setup(typed_pages, title)
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var layer := CanvasLayer.new()
+	layer.layer = 999
+	_world.get_tree().root.add_child(layer)
+	layer.add_child(overlay)
+	overlay.closed.connect(func() -> void:
+		layer.queue_free()
+		if not completion_flag.is_empty():
+			SceneManager.save_manager.set_story_flag(completion_flag))

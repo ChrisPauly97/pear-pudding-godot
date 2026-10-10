@@ -13,9 +13,9 @@ User request 2026-10-09: "we should add professions like crafting, potion making
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-759 | Profession core: defs, save fields, module | agent | done | — |
-| TID-760 | Gathering nodes in the world | agent | pending | TID-759 |
+| TID-760 | Gathering nodes in the world | agent | done | TID-759 |
 | TID-761 | Material drops from enemies | agent | done | TID-759 |
-| TID-762 | Crafting station panel + stations | agent | pending | TID-759 |
+| TID-762 | Crafting station panel + stations | agent | done | TID-759 |
 | TID-763 | Cooking recipes + well-fed buffs | agent | pending | TID-761, TID-762 |
 | TID-764 | Alchemy: potions move to profession recipes | agent | pending | TID-760, TID-762 |
 | TID-765 | Crafting: gear from ore and hide | agent | pending | TID-760, TID-761, TID-762 |
