@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://qiw49c8d710f"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_thorn_thornback"]
+
+[resource]
+script = ExtResource("1_thorn_thornback")
+id = "thorn_thornback"
+card_name = "Thornback Briarhound"
+cost = 4
+attack = 2
+health = 4
+card_class = "minion"
+description = "Its spines grow back faster than you can take them."
+color = Color(0.75, 0.85, 0.3, 1)
+magic_type = "verdant"
+magic_branch = "thorn"
+emergence_effect = "emergence_apply_poison"
+emergence_power = 1
+keywords = PackedStringArray("ward")

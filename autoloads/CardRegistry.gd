@@ -27,6 +27,14 @@ const _C_BLOOM_BLOOMING_WARD   := preload("res://data/cards/bloom_blooming_ward.
 const _C_THORN_BRAMBLE_SNARE   := preload("res://data/cards/thorn_bramble_snare.tres")
 const _C_THORN_THORN_VOLLEY    := preload("res://data/cards/thorn_thorn_volley.tres")
 const _C_THORN_WILD_GROWTH     := preload("res://data/cards/thorn_wild_growth.tres")
+const _C_BLOOM_SPROUT          := preload("res://data/cards/bloom_sprout.tres")
+const _C_BLOOM_GROVE_MOTHER    := preload("res://data/cards/bloom_grove_mother.tres")
+const _C_BLOOM_ROOTWEAVER      := preload("res://data/cards/bloom_rootweaver.tres")
+const _C_BLOOM_ELDER_ROOT      := preload("res://data/cards/bloom_elder_root.tres")
+const _C_THORN_BRIAR_SPRITE    := preload("res://data/cards/thorn_briar_sprite.tres")
+const _C_THORN_BRAMBLE_WARDEN  := preload("res://data/cards/thorn_bramble_warden.tres")
+const _C_THORN_THORNBACK       := preload("res://data/cards/thorn_thornback.tres")
+const _C_THORN_BRIARWALL       := preload("res://data/cards/thorn_briarwall.tres")
 const _C_FLUX_DISPLACE         := preload("res://data/cards/flux_displace.tres")
 const _C_FLUX_KINETIC_BOLT     := preload("res://data/cards/flux_kinetic_bolt.tres")
 const _C_FLUX_MOMENTUM         := preload("res://data/cards/flux_momentum.tres")
@@ -208,6 +216,8 @@ static func _ensure_loaded() -> void:
 		_C_COOP_AEGIS, _C_COOP_MEND, _C_COOP_RALLY, _C_COOP_MANA_TITHE, _C_COOP_SECOND_WIND,
 		_C_BLOOM_GERMINATE, _C_BLOOM_VERDANT_BULWARK, _C_BLOOM_BLOOMING_WARD,
 		_C_THORN_BRAMBLE_SNARE, _C_THORN_THORN_VOLLEY, _C_THORN_WILD_GROWTH,
+		_C_BLOOM_SPROUT, _C_BLOOM_GROVE_MOTHER, _C_BLOOM_ROOTWEAVER, _C_BLOOM_ELDER_ROOT,
+		_C_THORN_BRIAR_SPRITE, _C_THORN_BRAMBLE_WARDEN, _C_THORN_THORNBACK, _C_THORN_BRIARWALL,
 		_C_FLUX_DISPLACE, _C_FLUX_KINETIC_BOLT, _C_FLUX_MOMENTUM,
 		_C_FRACTURE_UNMAKE, _C_FRACTURE_FAULT, _C_FRACTURE_SHARDFALL,
 		_C_TECH_STRIKE, _C_TECH_MEND, _C_TECH_KICK, _C_TECH_GUARD,

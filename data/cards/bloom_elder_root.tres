@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://o2otqa9460r1"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_bloom_elder_root"]
+
+[resource]
+script = ExtResource("1_bloom_elder_root")
+id = "bloom_elder_root"
+card_name = "Elder Root"
+cost = 5
+attack = 2
+health = 6
+card_class = "minion"
+description = "It was here before the road, and it means to be here after."
+color = Color(0.45, 0.9, 0.5, 1)
+magic_type = "verdant"
+magic_branch = "bloom"
+emergence_effect = "emergence_heal_hero"
+emergence_power = 3
+keywords = PackedStringArray("ward")

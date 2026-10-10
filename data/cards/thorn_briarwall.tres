@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://b1n0yj7dqzdz"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_thorn_briarwall"]
+
+[resource]
+script = ExtResource("1_thorn_briarwall")
+id = "thorn_briarwall"
+card_name = "Briarwall Colossus"
+cost = 5
+attack = 2
+health = 6
+card_class = "minion"
+description = "Walk into the thorns and the thorns walk into you."
+color = Color(0.75, 0.85, 0.3, 1)
+magic_type = "verdant"
+magic_branch = "thorn"
+emergence_effect = "emergence_deal_damage"
+emergence_power = 2

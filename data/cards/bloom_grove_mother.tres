@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://iy3l8x7yimsc"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_bloom_grove_mother"]
+
+[resource]
+script = ExtResource("1_bloom_grove_mother")
+id = "bloom_grove_mother"
+card_name = "Grove Mother"
+cost = 3
+attack = 1
+health = 5
+card_class = "minion"
+description = "Every wound in the grove is somebody's nursery."
+color = Color(0.45, 0.9, 0.5, 1)
+magic_type = "verdant"
+magic_branch = "bloom"
+emergence_effect = "emergence_heal_hero"
+emergence_power = 3
