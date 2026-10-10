@@ -15,6 +15,7 @@ const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const BattleNetProtocol = preload("res://game_logic/net/BattleNetProtocol.gd")
 const _QuickSlots = preload("res://game_logic/battle/QuickSlots.gd")
 const _LegendaryPotions = preload("res://game_logic/battle/LegendaryPotions.gd")
+const _PotionEffects = preload("res://game_logic/battle/PotionEffects.gd")
 
 var quick: _QuickSlots = _QuickSlots.new()
 ## Legendary potions refill per battle: this module is rebuilt with each BattleScene.
@@ -122,20 +123,19 @@ func _apply_potion_effect(potion_id: String) -> void:
 	var player: PlayerState = _battle._state.players[_battle._my_idx()]
 	var snap_pot := _battle._fx.snapshot()
 	match potion_id:
-		"healing_draught":
-			player.hero.health = mini(player.hero.health + 8, player.hero.max_health)
-			_battle._fx.spawn_float_labels(snap_pot)
-			_battle._fx.spawn_float_label(_battle._fx.pos_of_hero(false), "+8 HP", Color(0.267, 1.0, 0.533))
 		"clarity_brew":
 			player.draw_card()
 			player.draw_card()
-		"ember_tonic":
-			player.hero.gain_mana(1)
-			_battle._fx.spawn_float_label(_battle._fx.pos_of_hero(false), "+1 Mana", Color(0.4, 0.8, 1.0))
 		_LegendaryPotions.PEAR_PUDDING:
 			_LegendaryPotions.apply_pear_pudding(player.hero)
 			_battle._fx.spawn_float_labels(snap_pot)
 			_battle._fx.spawn_float_label(_battle._fx.pos_of_hero(false), "Pear Pudding!", Color(1.0, 0.85, 0.35))
+		_:
+			if _PotionEffects.apply_hero(potion_id, player.hero):
+				_battle._fx.spawn_float_labels(snap_pot)
+				var ft: Dictionary = _PotionEffects.FLOATS.get(potion_id, {})
+				var col: Color = ft.get("color", Color.WHITE)
+				_battle._fx.spawn_float_label(_battle._fx.pos_of_hero(false), str(ft.get("text", "")), col)
 	GameBus.potion_used.emit(potion_id)
 	_battle._refresh_all()
 	_refresh_potion_button()

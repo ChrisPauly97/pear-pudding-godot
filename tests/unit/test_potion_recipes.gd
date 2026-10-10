@@ -1,13 +1,17 @@
-## Unit tests for potion recipe data and crafting logic (GID-056 TID-205).
+## Unit tests for the potion stock and the alchemy recipes that brew it (GID-056 TID-205,
+## moved to ProfessionDefs by GID-182 / TID-764).
 ##
-## Covers: POTION_RECIPES data integrity, plant consumption, essence spending,
-## insufficient-ingredient rejection, insufficient-essence rejection, and
-## potion inventory accumulation.
+## Covers: alchemy recipe data (every potion brewable, garden plants accepted as
+## the alternative input set, no essence price), plant consumption, essence
+## spending (a generic SaveManager helper), potion inventory accumulation.
 extends "res://tests/framework/test_case.gd"
 
 const GardenDefs        = preload("res://game_logic/GardenDefs.gd")
+const ProfessionDefs    = preload("res://game_logic/professions/ProfessionDefs.gd")
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
-const CraftingRegistry  = preload("res://autoloads/CraftingRegistry.gd")
+
+const ALCHEMY_POTIONS: Array[String] = ["healing_draught", "clarity_brew", "ember_tonic",
+		"stoneskin_tonic", "cleansing_salve", "mana_draught"]
 
 var _sm: SaveManagerScript
 
@@ -27,61 +31,51 @@ func after_each() -> void:
 	_sm.free()
 
 # ---------------------------------------------------------------------------
-# POTION_RECIPES data integrity
+# Alchemy recipe data (ProfessionDefs.RECIPES)
 # ---------------------------------------------------------------------------
 
-func test_potion_recipes_has_healing_draught() -> void:
-	assert_true(GardenDefs.POTION_RECIPES.has("healing_draught"))
+## The alchemy recipe id that brews `potion_id`, or "" when none does.
+func _brew_for(potion_id: String) -> String:
+	for id: String in ProfessionDefs.RECIPES:
+		var out: Dictionary = ProfessionDefs.RECIPES[id]["output"]
+		if str(out["id"]) == potion_id:
+			return id
+	return ""
 
-func test_potion_recipes_has_clarity_brew() -> void:
-	assert_true(GardenDefs.POTION_RECIPES.has("clarity_brew"))
+func test_every_alchemy_potion_has_a_brew_recipe() -> void:
+	for potion_id: String in ALCHEMY_POTIONS:
+		assert_ne(_brew_for(potion_id), "", "no recipe brews " + potion_id)
 
-func test_potion_recipes_has_ember_tonic() -> void:
-	assert_true(GardenDefs.POTION_RECIPES.has("ember_tonic"))
+func test_healing_draught_takes_silverleaf_or_sunpetal() -> void:
+	var sets: Array[Dictionary] = ProfessionDefs.input_sets(ProfessionDefs.def("brew_healing_draught"))
+	assert_eq(sets.size(), 2)
+	assert_eq(int(sets[0]["silverleaf"]), 2)
+	assert_eq(int(sets[1]["sunpetal_plant"]), 2)
 
-func test_healing_draught_ingredient_is_sunpetal() -> void:
-	var recipe: Dictionary = GardenDefs.POTION_RECIPES["healing_draught"]
-	assert_true(recipe.has("ingredients"))
-	var ingredients: Dictionary = recipe["ingredients"]
-	assert_true(ingredients.has("sunpetal_plant"))
+func test_clarity_brew_takes_duskbloom_or_moonroot() -> void:
+	var sets: Array[Dictionary] = ProfessionDefs.input_sets(ProfessionDefs.def("brew_clarity_brew"))
+	assert_eq(int(sets[0]["duskbloom"]), 2)
+	assert_eq(int(sets[1]["moonroot_plant"]), 2)
 
-func test_healing_draught_requires_2_sunpetal() -> void:
-	var recipe: Dictionary = GardenDefs.POTION_RECIPES["healing_draught"]
-	assert_eq(int(recipe["ingredients"]["sunpetal_plant"]), 2)
+func test_ember_tonic_takes_emberwort_or_embercap() -> void:
+	var sets: Array[Dictionary] = ProfessionDefs.input_sets(ProfessionDefs.def("brew_ember_tonic"))
+	assert_eq(int(sets[0]["emberwort"]), 2)
+	assert_eq(int(sets[1]["embercap_plant"]), 2)
 
-func test_clarity_brew_ingredient_is_moonroot() -> void:
-	var recipe: Dictionary = GardenDefs.POTION_RECIPES["clarity_brew"]
-	var ingredients: Dictionary = recipe["ingredients"]
-	assert_true(ingredients.has("moonroot_plant"))
+func test_no_alchemy_recipe_has_an_essence_price() -> void:
+	for id: String in ProfessionDefs.recipes_for(ProfessionDefs.ALCHEMY):
+		assert_false(ProfessionDefs.def(id).has("essence_cost"), id)
 
-func test_clarity_brew_requires_2_moonroot() -> void:
-	var recipe: Dictionary = GardenDefs.POTION_RECIPES["clarity_brew"]
-	assert_eq(int(recipe["ingredients"]["moonroot_plant"]), 2)
+func test_potion_definitions_carry_no_essence_price() -> void:
+	for potion_id: String in ALCHEMY_POTIONS:
+		assert_false(GardenDefs.POTIONS[potion_id].has("essence_cost"), potion_id)
 
-func test_ember_tonic_ingredient_is_embercap() -> void:
-	var recipe: Dictionary = GardenDefs.POTION_RECIPES["ember_tonic"]
-	var ingredients: Dictionary = recipe["ingredients"]
-	assert_true(ingredients.has("embercap_plant"))
+func test_potion_recipes_outputs_are_potions() -> void:
+	for potion_id: String in ALCHEMY_POTIONS:
+		var out: Dictionary = ProfessionDefs.def(_brew_for(potion_id))["output"]
+		assert_eq(str(out["kind"]), "potion", potion_id)
 
-func test_ember_tonic_requires_2_embercap() -> void:
-	var recipe: Dictionary = GardenDefs.POTION_RECIPES["ember_tonic"]
-	assert_eq(int(recipe["ingredients"]["embercap_plant"]), 2)
-
-func test_all_recipes_have_essence_cost() -> void:
-	for potion_id: String in GardenDefs.POTION_RECIPES:
-		var recipe: Dictionary = GardenDefs.POTION_RECIPES[potion_id]
-		assert_true(recipe.has("essence_cost"), "missing essence_cost for %s" % potion_id)
-
-func test_all_recipes_essence_cost_is_5() -> void:
-	for potion_id: String in GardenDefs.POTION_RECIPES:
-		assert_eq(int(GardenDefs.POTION_RECIPES[potion_id]["essence_cost"]), 5, "wrong essence_cost for %s" % potion_id)
-
-func test_all_recipes_have_display_name() -> void:
-	for potion_id: String in GardenDefs.POTION_RECIPES:
-		var recipe: Dictionary = GardenDefs.POTION_RECIPES[potion_id]
-		var name_val: String = str(recipe.get("display_name", ""))
-		assert_true(name_val.length() > 0, "missing display_name for %s" % potion_id)
-
+# ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 # Plant consumption (SaveManager.remove_plants)
 # ---------------------------------------------------------------------------
@@ -152,17 +146,3 @@ func test_remove_potions_does_not_deduct_when_insufficient() -> void:
 	_sm.garden.add_potions("clarity_brew", 1)
 	_sm.garden.remove_potions("clarity_brew", 2)
 	assert_eq(int(_sm.potions.get("clarity_brew", 0)), 1)
-
-# ---------------------------------------------------------------------------
-# CraftingRegistry.get_potion_recipes roundtrip
-# ---------------------------------------------------------------------------
-
-func test_crafting_registry_returns_potion_recipes() -> void:
-	var recipes: Dictionary = CraftingRegistry.get_potion_recipes()
-	assert_true(recipes.has("healing_draught"))
-	assert_true(recipes.has("clarity_brew"))
-	assert_true(recipes.has("ember_tonic"))
-
-func test_crafting_registry_recipe_matches_garden_defs() -> void:
-	var recipes: Dictionary = CraftingRegistry.get_potion_recipes()
-	assert_eq(recipes, GardenDefs.POTION_RECIPES)
