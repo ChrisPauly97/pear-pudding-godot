@@ -109,3 +109,14 @@ None yet. The station and gathering-node sprites come with TID-760 / TID-762.
 ## Tests (gear)
 
 `tests/unit/test_gear_crafting.gd` checks that gear recipes name real equipment, that skill maps to tier in steps, that epic is the cap (seeded, 2000 rolls), that item level follows the recipe, that a craft grants the item and roll, and that a duplicate keeps the better roll (both ways).
+
+## Cooking (GID-182 / TID-763)
+
+- **Recipes** (`ProfessionDefs.RECIPES`, block `# Cooking (TID-763)` at the end): Trout Fillet (skill 1, 2 river trout → 2), Herb Stew (skill 3, game meat + wild grain + 2 silverleaf), Bog Pie (skill 8, 2 game meat + 2 bog moss + 2 wild grain). With the starters (Travel Bread, Roast Fowl) cooking has five recipes. Foods are `HeroVitality.FOODS` entries.
+- **Foods**: the cooked foods have `price` 0, so `ShopScene` skips them (merchants still sell Travel Bread and Roast Fowl). Eating works as before: a meal heals over time, and a fight interrupts it. Heal and time are in `FOODS`.
+- **Well fed** (`game_logic/professions/WellFed.gd`, pure): `ProfessionDefs.WELL_FED` maps a food to `{stat, amount, fights}`. Currently only `max_hp`: Roast Fowl +4 for 3 fights, Trout Fillet +3 for 2, Herb Stew +5 for 3, Bog Pie +8 for 4.
+- **Save**: `SaveManager.well_fed` (`{food, stat, amount, fights}`, `{}` = none), PERSISTED_FIELDS default `{}`, migration v50. Eating a food with a buff replaces the current one; a plain food leaves it alone.
+- **Eating** (`HeroHealth.use_quick`): sets `well_fed` and shows the buff in a HUD message. `WorldHUD.set_well_fed` shows a text line under the HP bar ("Well fed: +4 max HP, 2 fights left"), hidden when there is no buff.
+- **Applying** (`BattleModifiers._apply_well_fed`, called from `_apply_equipment_effects`): an ordinary solo fight (the same test as persistent HP, `_hp_carries`, with no puzzle or scripted fight) takes one charge and adds `amount` to max HP and current HP. It runs before `_apply_persistent_hp`, so the saved HP fraction is read against the raised max. The charge is spent when the fight starts, so a lost fight also uses it.
+- **Not done**: the buff is not shown in battle, and only max HP is a stat (auto-attack damage and mana regen were left out). Eating does not wait for the meal to finish, so a buff is set even if a fight interrupts the meal. The balance sim and balance bands run unbuffed (`BattleSetup.build` never goes through `BattleModifiers`).
+- **Tests**: `tests/unit/test_cooking.gd` checks the recipes, the cooked foods' shop status, the WELL_FED table, the pure buff math (set, apply, expire, describe), the v50 migration and that the field is persisted.

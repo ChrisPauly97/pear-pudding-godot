@@ -9,6 +9,7 @@ extends Node
 const _RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
 const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const _HeroVitality = preload("res://game_logic/HeroVitality.gd")
+const _WellFed = preload("res://game_logic/professions/WellFed.gd")
 const _BattleScene = preload("res://scenes/battle/BattleScene.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
@@ -45,6 +46,23 @@ func _apply_equipment_effects(player: PlayerState) -> void:
 			level = int(sm.get_owned_weapon_by_id(item_id).get("upgrade_level", 0))
 		items.append({"id": item_id, "level": level, "mult": sm.gear.mult(item_id)})  # rarity roll (TID-538)
 	_BattleSetup.apply_gear(player, items, sm.battle_mode().begins_with("realtime"))
+	_apply_well_fed(player)
+
+## Well fed (TID-763): an ordinary solo fight that starts with a buff takes one of
+## its charges and adds its max HP. Runs before `_apply_persistent_hp`, so the
+## saved HP fraction is read against the raised max.
+func _apply_well_fed(player: PlayerState) -> void:
+	if _battle._state.puzzle_mode or _battle._state.scripted_battle or not _hp_carries():
+		return
+	var sm := SceneManager.save_manager
+	var buff: Dictionary = sm.well_fed
+	if not _WellFed.active(buff):
+		return
+	var bonus: int = _WellFed.hp_bonus(buff)
+	player.hero.max_health += bonus
+	player.hero.health += bonus
+	sm.well_fed = _WellFed.after_fight(buff)
+	sm.mark_dirty()
 
 ## Apply once-per-battle companion passives (extra_mana, hero_armor).
 ## Call after start_turn(1) so the base mana is already established.

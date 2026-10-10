@@ -89,6 +89,16 @@ const RECIPES: Dictionary = {
 	"forge_berserker_axe": {"profession": CRAFTING, "display_name": "Berserker Axe", "skill_req": 15,
 			"inputs": {"iron_ore": 5, "copper_ore": 2}, "output": {"kind": "gear", "id": "berserker_axe", "count": 1},
 			"xp": 24},
+	# Cooking (TID-763)
+	"cook_trout_fillet": {"profession": COOKING, "display_name": "Trout Fillet", "skill_req": 1,
+			"inputs": {"river_trout": 2}, "output": {"kind": "food", "id": "trout_fillet", "count": 2},
+			"xp": 8},
+	"cook_herb_stew": {"profession": COOKING, "display_name": "Herb Stew", "skill_req": 3,
+			"inputs": {"game_meat": 1, "wild_grain": 1, "silverleaf": 2},
+			"output": {"kind": "food", "id": "herb_stew", "count": 1}, "xp": 12},
+	"cook_bog_pie": {"profession": COOKING, "display_name": "Bog Pie", "skill_req": 8,
+			"inputs": {"game_meat": 2, "bogmoss": 2, "wild_grain": 2},
+			"output": {"kind": "food", "id": "bog_pie", "count": 1}, "xp": 18},
 }
 
 const MAX_LEVEL: int = 50
@@ -104,6 +114,16 @@ const BAND_GREY: int = 15
 const BAND_COLORS: Dictionary = {
 	"locked": Color(0.9, 0.3, 0.3), "orange": Color(1.0, 0.55, 0.2), "yellow": Color(1.0, 0.9, 0.3),
 	"green": Color(0.4, 0.9, 0.4), "grey": Color(0.6, 0.6, 0.6),
+}
+
+
+## Cooked food → the well-fed buff it sets when eaten (WellFed.gd, TID-763).
+## `amount` max HP for `fights` ordinary solo fights. Foods not listed give none.
+const WELL_FED: Dictionary = {
+	"roast_fowl": {"stat": "max_hp", "amount": 4, "fights": 3},
+	"trout_fillet": {"stat": "max_hp", "amount": 3, "fights": 2},
+	"herb_stew": {"stat": "max_hp", "amount": 5, "fights": 3},
+	"bog_pie": {"stat": "max_hp", "amount": 8, "fights": 4},
 }
 
 
