@@ -84,6 +84,15 @@ as `roaming_terror` (also `is_boss = true` and world-spawnable, via
 story bosses (`hollow_steward`, `martarquas_vanguard`, see "Chapter 1 Story
 Bosses" below) are named-map-only, never in a biome pool.
 
+### Damage School Profiles (GID-181 / TID-750)
+
+Each enemy type has a `schools` entry in `EnemyRegistry._ensure_loaded()`: `resist` and `weak`
+lists of damage schools. Bosses with a `phase2_deck` may add `schools_phase2`, the only place
+an `immune` school can appear. `EnemyRegistry.get_school_profile(type_id, phase := 1)` returns
+the `{"resist", "weak", "immune"}` dict that `DamageSchools.outcome()` / `mult()` read. Nothing
+consumes it yet. The full table and the guardrail rules are in
+[damage-schools.md](damage-schools.md) (`tests/unit/test_enemy_school_profiles.gd`).
+
 ### AI Personas (GID-112)
 
 Every entry in `EnemyRegistry._enemies` carries an `ai_persona` field, read back

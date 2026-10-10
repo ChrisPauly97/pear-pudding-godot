@@ -2,7 +2,7 @@
 
 **Goal:** GID-181
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-748
 
 ## Lock
@@ -25,12 +25,18 @@ Gives every enemy type a lore/biome-themed resist/weak profile so different matc
 
 ## Plan
 
-_Written during Plan phase._
+- Per-enemy `schools` entry (`resist`, `weak` lists) in `EnemyRegistry._ensure_loaded()`; bosses with a phase 2 deck may add `schools_phase2` (full replacement, the only place `immune` appears).
+- `get_school_profile(type_id, phase := 1)` builds the `{"resist", "weak", "immune"}` dict `DamageSchools` reads. Pure, no state.
+- Themes by lore/biome: undead resist dark / weak light; forest and bog resist verdant; living beasts weak dark; rift-touched resist rift; armoured or spectral resist physical. Biome rosters checked per school.
+- Guardrail test in `tests/unit/test_enemy_school_profiles.gd`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/EnemyRegistry.gd`: `schools` on all 39 enemy types; `schools_phase2` on `barrow_king` (immune dark); new `get_school_profile()`.
+- `tests/unit/test_enemy_school_profiles.gd`: new guardrail suite (profile per enemy, valid school names, no all-school block, immunity only in boss phase 2, non-boss phase 2 unchanged, per-biome and whole-roster weak/resist coverage, theme spot checks).
+- No damage resolution code touched; nothing consumes the profiles yet.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/damage-schools.md`: enemy profile theme list, accessor, guardrail summary, full profile table, tests section.
+- `docs/agent/enemies-and-npcs.md`: "Damage School Profiles" section linking to the above.

@@ -37,6 +37,7 @@ static func _ensure_loaded() -> void:
 	_enemies = {
 		"undead_basic": {
 			"display_name": "Undead Wanderer",
+			"schools": {"resist": ["dark"], "weak": ["light"]},
 			"deck": ["ghost", "ghost", "ghost", "skeleton", "skeleton", "skeleton", "zombie", "zombie", "zombie",
 					"ghoul"],
 			"drop_pool": ["ghost", "skeleton", "mend", "wither", "surge_spirit", "ember_imp"],
@@ -55,6 +56,7 @@ static func _ensure_loaded() -> void:
 		"undead_horde": {
 			"rt_attack_bonus": 2,  # BID-095: a horde hits as a horde (with its 4-unit pack)
 			"display_name": "Horde Shambler",
+			"schools": {"resist": ["dark"], "weak": ["light"]},
 			"deck": ["ghost", "ghost", "ghost", "ghost", "skeleton", "skeleton", "skeleton", "zombie", "zombie",
 					"ghoul", "ghoul"],
 			"drop_pool": ["skeleton", "zombie", "dawn_acolyte", "dusk_wraith", "shrouded_wraith", "dusk_seer",
@@ -76,6 +78,7 @@ static func _ensure_loaded() -> void:
 		},
 		"undead_elite": {
 			"display_name": "Undead Warlord",
+			"schools": {"resist": ["dark"], "weak": ["light", "rift"]},
 			"deck": ["ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "zombie", "zombie", "zombie", "zombie", "skeleton",
 					"skeleton", "skeleton"],
 			"drop_pool": ["ghoul", "restore", "drain", "blitz_ghoul", "veiled_paladin", "ash_warden"],
@@ -94,6 +97,7 @@ static func _ensure_loaded() -> void:
 		"ghoul_pack": {
 			"rt_hp_mult": 0.95,  # BID-095: real-time balance vs its level band
 			"display_name": "Ghoul Pack Leader",
+			"schools": {"resist": ["dark"], "weak": ["light", "verdant"]},
 			"deck": ["ghoul", "ghoul", "ghoul", "ghoul", "zombie", "zombie", "zombie", "zombie", "skeleton", "skeleton",
 					"skeleton", "skeleton"],
 			"drop_pool": ["zombie", "ghoul", "dawn_paladin", "dusk_vampire", "iron_revenant", "dawn_guardian",
@@ -114,6 +118,7 @@ static func _ensure_loaded() -> void:
 		},
 		"wraith": {
 			"display_name": "Wraith",
+			"schools": {"resist": ["physical", "dark"], "weak": ["light", "rift"]},
 			"deck": ["ghost", "ghost", "ghost", "ghost", "ghost", "ghost", "skeleton", "skeleton", "ember_imp",
 					"ember_imp"],
 			"drop_pool": ["ghost", "ember_imp", "spark", "surge_spirit"],
@@ -129,6 +134,7 @@ static func _ensure_loaded() -> void:
 		},
 		"forest_shade": {
 			"display_name": "Forest Shade",
+			"schools": {"resist": ["verdant", "physical"], "weak": ["light", "rift"]},
 			"deck": ["skeleton", "skeleton", "skeleton", "zombie", "zombie", "dusk_wraith", "dusk_wraith", "insight",
 					"insight", "dusk_seer"],
 			"drop_pool": ["skeleton", "dusk_wraith", "insight", "dusk_seer", "shrouded_wraith"],
@@ -144,6 +150,7 @@ static func _ensure_loaded() -> void:
 		},
 		"sand_stalker": {
 			"display_name": "Sand Stalker",
+			"schools": {"resist": ["dark"], "weak": ["physical"]},
 			"deck": ["skeleton", "skeleton", "skeleton", "skeleton", "zombie", "zombie", "zombie", "ghoul", "ghoul",
 					"dagger_throw"],
 			"drop_pool": ["zombie", "ghoul", "dagger_throw", "blitz_ghoul"],
@@ -158,6 +165,7 @@ static func _ensure_loaded() -> void:
 		},
 		"cactus_worm": {
 			"display_name": "Cactus Worm",
+			"schools": {"resist": ["physical", "verdant"], "weak": ["dark"]},
 			"deck": ["skeleton", "skeleton", "skeleton", "zombie", "zombie", "zombie", "thorn_bramble_snare",
 					"thorn_bramble_snare", "thorn_thorn_volley", "dagger_throw"],
 			"drop_pool": ["skeleton", "zombie", "thorn_bramble_snare", "thorn_thorn_volley", "dagger_throw"],
@@ -173,6 +181,7 @@ static func _ensure_loaded() -> void:
 		"imbued_stag": {
 			"rt_hp_mult": 0.9,  # BID-095: real-time balance vs its level band
 			"display_name": "Imbued Stag",
+			"schools": {"resist": ["verdant"], "weak": ["dark"]},
 			"deck": ["ghost", "ghost", "ghoul", "ghoul", "flux_kinetic_bolt", "flux_kinetic_bolt", "flux_momentum",
 					"flux_momentum", "thorn_thorn_volley", "bloom_germinate", "bloom_germinate"],
 			"drop_pool": ["flux_kinetic_bolt", "flux_momentum", "bloom_germinate", "thorn_thorn_volley",
@@ -188,6 +197,7 @@ static func _ensure_loaded() -> void:
 		},
 		"scorched_revenant": {
 			"display_name": "Scorched Revenant",
+			"schools": {"resist": ["dark"], "weak": ["light", "verdant"]},
 			"deck": ["zombie", "zombie", "zombie", "ghoul", "ghoul", "scorch", "scorch", "char", "char", "alight",
 					"alight", "ember"],
 			"drop_pool": ["ghoul", "scorch", "char", "ember_imp", "ash_warden"],
@@ -202,6 +212,7 @@ static func _ensure_loaded() -> void:
 		},
 		"mountain_troll": {
 			"display_name": "Mountain Troll",
+			"schools": {"resist": ["rift"], "weak": ["light", "physical", "dark"]},
 			"deck": ["ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "zombie", "zombie", "zombie", "restore",
 					"restore", "wither"],
 			"drop_pool": ["ghoul", "restore", "wither", "iron_revenant", "veiled_paladin"],
@@ -217,6 +228,7 @@ static func _ensure_loaded() -> void:
 		},
 		"stone_golem": {
 			"display_name": "Stone Golem",
+			"schools": {"resist": ["physical", "light"], "weak": ["verdant", "rift"]},
 			"deck": ["ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "zombie", "zombie", "zombie",
 					"ash_bone_wall", "ash_bone_wall", "ash_arbiter"],
 			"drop_pool": ["ghoul", "ash_arbiter", "ash_defile", "iron_revenant", "ancient_guardian"],
@@ -233,6 +245,7 @@ static func _ensure_loaded() -> void:
 		},
 		"hollow_steward": {
 			"display_name": "The Hollow Steward",
+			"schools": {"resist": ["dark"], "weak": ["light"]},
 			"deck": ["skeleton", "skeleton", "skeleton", "skeleton", "dusk_wraith", "dusk_wraith", "dusk_wraith",
 					"dusk_seer", "dusk_seer", "wither", "wither", "drain"],
 			"drop_pool": ["dusk_wraith", "shrouded_wraith", "dark_pact", "dusk_seer", "void_creeper"],
@@ -249,6 +262,7 @@ static func _ensure_loaded() -> void:
 		},
 		"martarquas_vanguard": {
 			"display_name": "Martarquas Vanguard",
+			"schools": {"resist": ["physical"], "weak": ["light", "dark"]},
 			"deck": ["skeleton", "skeleton", "skeleton", "zombie", "zombie", "zombie", "ghoul", "ghoul", "ghoul",
 					"ember_imp", "ember_imp", "ember"],
 			"drop_pool": ["ghoul", "blitz_ghoul", "ember_imp", "iron_revenant", "duel_crown"],
@@ -272,6 +286,7 @@ static func _ensure_loaded() -> void:
 		# engage/duel record paths, so it's never marked defeated.
 		"training_dummy": {
 			"display_name": "Training Dummy",
+			"schools": {"resist": ["dark"], "weak": ["verdant"]},
 			"deck": [],
 			"drop_pool": [],
 			"coin_reward": 0,
@@ -285,6 +300,7 @@ static func _ensure_loaded() -> void:
 		},
 		"duelist_novice": {
 			"display_name": "Novice Duelist",
+			"schools": {"resist": ["rift"], "weak": ["dark"]},
 			"deck": ["ghost", "ghost", "ghost", "skeleton", "skeleton", "skeleton", "zombie", "zombie", "ghoul",
 					"mend"],
 			"drop_pool": [],
@@ -299,6 +315,7 @@ static func _ensure_loaded() -> void:
 		},
 		"duelist_adept": {
 			"display_name": "Adept Duelist",
+			"schools": {"resist": ["light"], "weak": ["dark"]},
 			"deck": ["ghost", "ghost", "skeleton", "skeleton", "zombie", "zombie", "ghoul", "ghoul", "mend", "wither",
 					"surge_spirit", "ember_imp"],
 			"drop_pool": [],
@@ -313,6 +330,7 @@ static func _ensure_loaded() -> void:
 		},
 		"duelist_champion": {
 			"display_name": "Champion of Blancogov",
+			"schools": {"resist": ["light", "rift"], "weak": ["dark"]},
 			"deck": ["ghoul", "ghoul", "blitz_ghoul", "blitz_ghoul", "shrouded_wraith", "void_wyrm", "wither", "wither",
 					"soul_rend", "dark_pact"],
 			"drop_pool": [],
@@ -328,6 +346,7 @@ static func _ensure_loaded() -> void:
 		},
 		"roaming_terror": {
 			"display_name": "Roaming Terror",
+			"schools": {"resist": ["rift"], "weak": ["light"]},
 			"deck": ["ghoul", "ghoul", "ghoul", "ghoul", "blitz_ghoul", "blitz_ghoul", "soul_harvest", "soul_harvest",
 					"drain", "drain", "void_creeper", "void_creeper", "dusk_wraith", "dusk_wraith", "wither", "wither"],
 			"drop_pool": ["blitz_ghoul", "soul_harvest", "void_wyrm", "dusk_vampire", "dark_pact", "shrouded_wraith",
@@ -346,6 +365,7 @@ static func _ensure_loaded() -> void:
 		},
 		"martarquas_raider_1": {
 			"display_name": "Martarquas Raider",
+			"schools": {"resist": ["dark"], "weak": ["physical"]},
 			"deck": ["ghost", "ghost", "zombie", "zombie", "ghoul"],
 			"drop_pool": [],
 			"coin_reward": 0,
@@ -359,6 +379,7 @@ static func _ensure_loaded() -> void:
 		},
 		"martarquas_raider_2": {
 			"display_name": "Martarquas Veteran",
+			"schools": {"resist": ["dark"], "weak": ["physical"]},
 			"deck": ["ghost", "skeleton", "zombie", "zombie", "ghoul", "ghoul"],
 			"drop_pool": [],
 			"coin_reward": 0,
@@ -372,6 +393,7 @@ static func _ensure_loaded() -> void:
 		},
 		"martarquas_raider_3": {
 			"display_name": "Martarquas Warlord",
+			"schools": {"resist": ["dark", "physical"], "weak": ["light"]},
 			"deck": ["ghost", "skeleton", "skeleton", "zombie", "zombie", "ghoul", "ghoul"],
 			"drop_pool": [],
 			"coin_reward": 0,
@@ -385,6 +407,7 @@ static func _ensure_loaded() -> void:
 		},
 		"martarquas_warleader": {
 			"display_name": "Martarquas War-Leader",
+			"schools": {"resist": ["dark"], "weak": ["physical", "light"]},
 			"deck": ["ghost", "skeleton", "skeleton", "zombie", "zombie", "ghoul", "ghoul", "ghoul"],
 			"drop_pool": ["ghost", "skeleton", "zombie", "ghoul"],
 			"coin_reward": 0,
@@ -399,6 +422,7 @@ static func _ensure_loaded() -> void:
 		# ── GID-149 new enemy roster ──────────────────────────────────────────
 		"wolf_pack": {
 			"display_name": "Grey Wolf Alpha",
+			"schools": {"resist": ["verdant"], "weak": ["dark", "physical"]},
 			"deck": ["wolf", "wolf", "wolf", "wolf", "wolf", "wolf", "wolf", "wolf", "dagger_throw", "dagger_throw"],
 			"pack": ["wolf", "wolf", "wolf"],  # starts on the board; circles the Alpha in the world
 			"drop_pool": ["wolf", "dagger_throw", "surge_spirit"],
@@ -411,6 +435,7 @@ static func _ensure_loaded() -> void:
 		},
 		"bog_hag": {
 			"display_name": "Bog Hag",
+			"schools": {"resist": ["verdant", "dark"], "weak": ["physical"]},
 			"deck": ["thorn_bramble_snare", "thorn_bramble_snare", "thorn_thorn_volley", "thorn_thorn_volley",
 					"bloom_germinate", "bloom_germinate", "wither", "wither", "treant", "treant", "drain"],
 			"drop_pool": ["treant", "thorn_bramble_snare", "bloom_germinate", "wither"],
@@ -423,6 +448,7 @@ static func _ensure_loaded() -> void:
 		"martarquas_scout": {
 			"rt_hp_mult": 0.85,  # BID-095: real-time balance vs its level band
 			"display_name": "Martarquas Scout",
+			"schools": {"resist": ["dark"], "weak": ["verdant"]},
 			"deck": ["dagger_throw", "dagger_throw", "dagger_throw", "shadow_bolt", "shadow_bolt", "brittle",
 					"brittle", "skeleton", "skeleton", "ghost", "ghost"],
 			"drop_pool": ["dagger_throw", "shadow_bolt", "brittle", "shrouded_wraith"],
@@ -434,6 +460,7 @@ static func _ensure_loaded() -> void:
 		},
 		"scarab_swarm": {
 			"display_name": "Scarab Queen",
+			"schools": {"resist": ["physical"], "weak": ["verdant", "rift"]},
 			"deck": ["scarab", "scarab", "scarab", "scarab", "scarab", "scarab", "scarab", "scarab",
 					"thorn_thorn_volley", "thorn_thorn_volley", "flux_momentum"],
 			"pack": ["scarab", "scarab", "scarab", "scarab", "scarab"],
@@ -447,6 +474,7 @@ static func _ensure_loaded() -> void:
 		},
 		"ember_cultist": {
 			"display_name": "Ember Cultist",
+			"schools": {"resist": ["rift"], "weak": ["physical", "dark"]},
 			"deck": ["ember_imp", "ember_imp", "ember_imp", "ember_imp", "ember_heat_wave", "ember_heat_wave",
 					"ember_cinder", "ember_cinder", "ember_cinder", "ember_flame_lance", "ember_flame_lance"],
 			"drop_pool": ["ember_imp", "ember_cinder", "ember_flame_lance", "ember_heat_wave"],
@@ -458,6 +486,7 @@ static func _ensure_loaded() -> void:
 		},
 		"frost_wendigo": {
 			"display_name": "Frost Wendigo",
+			"schools": {"resist": ["physical"], "weak": ["light"]},
 			"deck": ["ghoul", "ghoul", "ghoul", "ghoul", "zombie", "zombie", "ash_bone_spear", "ash_bone_spear",
 					"brittle", "brittle", "shadow_bolt", "shadow_bolt"],
 			"drop_pool": ["ghoul", "ash_bone_spear", "brittle", "shadow_bolt"],
@@ -470,6 +499,7 @@ static func _ensure_loaded() -> void:
 		},
 		"rift_echo": {
 			"display_name": "Riftborn Echo",
+			"schools": {"resist": ["rift"], "weak": ["light"]},
 			"deck": ["flux_kinetic_bolt", "flux_kinetic_bolt", "flux_momentum", "flux_displace", "fracture_fault",
 					"ghost", "ghost", "skeleton", "skeleton", "zombie"],
 			"drop_pool": ["flux_kinetic_bolt", "flux_displace", "fracture_fault", "fracture_shardfall"],
@@ -482,6 +512,8 @@ static func _ensure_loaded() -> void:
 		},
 		"barrow_king": {
 			"display_name": "The Barrow King",
+			"schools": {"resist": ["dark"], "weak": ["light"]},
+			"schools_phase2": {"resist": ["physical"], "weak": ["light"], "immune": ["dark"]},
 			"deck": ["skeleton", "skeleton", "skeleton", "skeleton", "ghost", "ghost", "ghoul", "ghoul", "zombie",
 					"zombie"],
 			"drop_pool": ["ghoul", "ash_bone_spear", "soul_rend", "shrouded_wraith"],
@@ -496,6 +528,7 @@ static func _ensure_loaded() -> void:
 		},
 		"rival_isfig_1": {
 			"display_name": "Isfig",
+			"schools": {"resist": ["rift"], "weak": ["dark"]},
 			"deck": ["ghost", "ghost", "ghost", "skeleton", "skeleton", "skeleton", "mend", "wither"],
 			"drop_pool": [],
 			"coin_reward": 10,
@@ -509,6 +542,7 @@ static func _ensure_loaded() -> void:
 		},
 		"rival_isfig_2": {
 			"display_name": "Isfig the Pursuing",
+			"schools": {"resist": ["rift"], "weak": ["dark", "physical"]},
 			"deck": ["skeleton", "skeleton", "skeleton", "zombie", "zombie", "zombie", "ghost", "mend", "wither",
 					"surge_spirit"],
 			"drop_pool": [],
@@ -524,6 +558,7 @@ static func _ensure_loaded() -> void:
 		},
 		"rival_isfig_3": {
 			"display_name": "Isfig, Maiteln's Shadow",
+			"schools": {"resist": ["light", "rift"], "weak": ["dark"]},
 			"deck": ["zombie", "zombie", "zombie", "ghoul", "ghoul", "blitz_ghoul", "drain", "wither", "soul_rend",
 					"dusk_wraith"],
 			"drop_pool": [],
@@ -539,6 +574,7 @@ static func _ensure_loaded() -> void:
 		},
 		"spectre_wisp": {
 			"display_name": "Wisp",
+			"schools": {"resist": ["dark"], "weak": ["light"]},
 			"deck": ["ghost", "ghost", "ghost", "ghost", "shadow_bolt", "shadow_bolt", "soul_rend", "wither",
 					"surge_spirit", "void_creeper"],
 			"drop_pool": ["ghost", "shadow_bolt", "soul_rend", "wither", "dusk_wraith", "void_creeper"],
@@ -554,6 +590,7 @@ static func _ensure_loaded() -> void:
 		},
 		"spectre_haunt": {
 			"display_name": "Phantom",
+			"schools": {"resist": ["dark", "physical"], "weak": ["light", "rift"]},
 			"deck": ["ghost", "ghost", "ghost", "shadow_bolt", "shadow_bolt", "soul_rend", "soul_rend", "wither",
 					"wither", "dusk_wraith", "void_creeper", "void_creeper"],
 			"drop_pool": ["shadow_bolt", "soul_rend", "dusk_wraith", "shrouded_wraith", "void_creeper", "dark_pact"],
@@ -569,6 +606,7 @@ static func _ensure_loaded() -> void:
 		},
 		"spectre_dread": {
 			"display_name": "Wraith",
+			"schools": {"resist": ["dark", "physical"], "weak": ["light"]},
 			"deck": ["ghost", "ghost", "shadow_bolt", "shadow_bolt", "soul_rend", "soul_rend", "soul_harvest",
 					"soul_harvest", "dusk_wraith", "dusk_wraith", "void_creeper", "void_creeper", "dark_pact",
 					"wither"],
@@ -587,6 +625,7 @@ static func _ensure_loaded() -> void:
 		},
 		"mimic": {
 			"display_name": "Mimic",
+			"schools": {"resist": ["verdant"], "weak": ["rift"]},
 			"deck": ["ghost", "skeleton", "zombie", "ghoul", "ghost", "skeleton", "zombie", "ghoul"],
 			"drop_pool": ["ghost", "skeleton", "zombie", "ghoul"],
 			"coin_reward": 25,
@@ -600,6 +639,7 @@ static func _ensure_loaded() -> void:
 		},
 		"blight_heart": {
 			"display_name": "The Blight Heart",
+			"schools": {"resist": ["dark"], "weak": ["light", "verdant"]},
 			"deck": ["void_creeper", "void_creeper", "void_creeper", "soul_harvest", "soul_harvest", "soul_harvest",
 					"dusk_wraith", "dusk_wraith", "wither", "wither", "dark_pact", "dark_pact", "drain", "drain",
 					"void_wyrm", "void_wyrm"],
@@ -633,6 +673,25 @@ static func get_traits(type_id: String) -> Array[String]:
 	_ensure_loaded()
 	var out: Array[String] = []
 	out.assign((_enemies.get(type_id, {}) as Dictionary).get("traits", []))
+	return out
+
+## Damage-school profile (GID-181 / TID-750) in the shape game_logic/battle/DamageSchools.gd reads:
+## {"resist": {school: true}, "weak": {...}, "immune": {...}}. Every key is present (possibly empty).
+## `phase` 2 uses a boss's `schools_phase2` (a full replacement) when it has one; every other
+## enemy, and phase 1, uses `schools`. Unknown types give an all-empty profile (neutral).
+static func get_school_profile(type_id: String, phase: int = 1) -> Dictionary:
+	_ensure_loaded()
+	var data: Dictionary = _enemies.get(type_id, {})
+	var src: Dictionary = data.get("schools", {})
+	if phase >= 2 and data.has("schools_phase2"):
+		src = data["schools_phase2"]
+	var out: Dictionary = {}
+	for kind: String in ["resist", "weak", "immune"]:
+		var tags: Dictionary = {}
+		var names: Array = src.get(kind, [])
+		for school: Variant in names:
+			tags[str(school)] = true
+		out[kind] = tags
 	return out
 
 ## Pack encounters (GID-135 / TID-541): the units that start on the enemy board —
