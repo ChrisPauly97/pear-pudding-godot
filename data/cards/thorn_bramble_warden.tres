@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://fwgpb35wgk6b"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_thorn_bramble_warden"]
+
+[resource]
+script = ExtResource("1_thorn_bramble_warden")
+id = "thorn_bramble_warden"
+card_name = "Bramble Warden"
+cost = 3
+attack = 1
+health = 4
+card_class = "minion"
+description = "It never attacks. It has never needed to."
+color = Color(0.75, 0.85, 0.3, 1)
+magic_type = "verdant"
+magic_branch = "thorn"
+keywords = PackedStringArray("ward")

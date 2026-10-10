@@ -80,6 +80,14 @@ const _CARD_ART: Dictionary = {
 	"void_creeper": _CARD_WORM,
 	"void_wyrm": _CARD_TERROR,
 	"wolf": _CARD_WOLF,
+	"bloom_sprout": _CARD_HERBALIST,
+	"bloom_grove_mother": _CARD_STAG,
+	"bloom_rootweaver": _CARD_TREANT,
+	"bloom_elder_root": _CARD_TREANT,
+	"thorn_briar_sprite": _CARD_WORM,
+	"thorn_bramble_warden": _CARD_TREANT,
+	"thorn_thornback": _CARD_WOLF_PACK,
+	"thorn_briarwall": _CARD_TERROR,
 }
 
 ## Maps a card illustration key + magic branch to its texture.
