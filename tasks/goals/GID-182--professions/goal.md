@@ -19,14 +19,14 @@ User request 2026-10-09: "we should add professions like crafting, potion making
 | TID-763 | Cooking recipes + well-fed buffs | agent | done | TID-761, TID-762 |
 | TID-764 | Alchemy: potions move to profession recipes | agent | done | TID-760, TID-762 |
 | TID-765 | Crafting: gear from ore and hide | agent | done | TID-760, TID-761, TID-762 |
-| TID-766 | Profession trainers, unlocks, Character tab, docs | agent | pending | TID-763, TID-764, TID-765 |
+| TID-766 | Profession trainers, unlocks, Character tab, docs | agent | done | TID-763, TID-764, TID-765 |
 
 ## Acceptance Criteria
 
-- [ ] One data table (`ProfessionDefs`) defines professions, materials and recipes; tests validate it
-- [ ] Materials come from world gathering nodes and enemy drops; both are deterministic and co-op safe
-- [ ] Each profession levels through crafting; recipes are gated by skill
-- [ ] Cooking yields foods with well-fed battle buffs; Alchemy owns all potions; Crafting makes rolled gear
-- [ ] Professions unlock through trainers (UnlockLadder) and show on the Character screen
-- [ ] Persisted via `PERSISTED_FIELDS` + migration; full test suite, gdlint and unsafe-hits clean
-- [ ] `docs/agent/professions.md` written and indexed
+- [x] One data table (`ProfessionDefs`) defines professions, materials and recipes; tests validate it
+- [ ] Materials come from world gathering nodes and enemy drops; both are deterministic and co-op safe (not yet: gathering harvests are not broadcast in co-op, so two peers can harvest the same node)
+- [x] Each profession levels through crafting; recipes are gated by skill
+- [x] Cooking yields foods with well-fed battle buffs; Alchemy owns all potions; Crafting makes rolled gear
+- [x] Professions unlock through trainers (UnlockLadder) and show on the Character screen
+- [x] Persisted via `PERSISTED_FIELDS` + migration; full test suite, gdlint and unsafe-hits clean
+- [x] `docs/agent/professions.md` written and indexed

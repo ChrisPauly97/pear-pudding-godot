@@ -28,12 +28,15 @@ visit that thing's trainer, read what it does and pay gold to learn it. Nothing 
 | 8 | `feat_bounties` | bounty | 120 |
 | 9 | `feat_night_hunts` | bounty | 140 |
 | 10 | `feat_dig` (Skeleton Dig) | gravedigger | 175 |
+| 11 | `feat_cooking` (cooking fires, GID-182 / TID-766) | crafter | 90 |
 | 11 | `guard` | combat | 60 |
 | 12 | `feat_phase` (Ghost Phase) | gravedigger | 220 |
 | 13 | `ember_lance` | combat | 90 |
+| 14 | `feat_alchemy` (alchemy tables) | crafter | 120 |
 | 14 | `mana_tap` | combat | 90 |
 | 15 | `feat_spire` (Rifts, GID-142), `feat_packs` | combat, merchant | 300, 200 |
 | 16 | `sweep` | combat | 120 |
+| 17 | `feat_crafting` (workbench, gear) | crafter | 150 |
 | 18 | `daze` | combat | 150 |
 | 40 | `feat_mount` (riding) | stable | 1000 |
 
@@ -54,6 +57,8 @@ visit that thing's trainer, read what it does and pay gold to learn it. Nothing 
 - `new_game()` resets `learned_abilities` and deals Strike into the starter deck; **Head Start (debug)** learns the whole ladder.
 - Migration v44 (`SaveMigrations._m44_unlock_ladder`): existing saves get every ladder *feature* plus Mend/Kick;
   riding only if they own a mount; unbought trainer skills stay unlearned.
+- Migration v51 (`SaveMigrations._m51_profession_trainers`): every save older than v51 is granted Cooking, Alchemy
+  and Crafting, so its stations stay open. Newer saves learn them from the Master Artisan.
 - (Skill-bar slot padding is gone: techniques are cards, GID-175.)
 
 ### XP pacing
@@ -89,6 +94,8 @@ Every gate calls `save_manager.has_learned(UnlockLadder.FEAT_X)`; a blocked acti
 | Night hunts | `NocturnalSpawner.tick` spawns nothing until `feat_night_hunts` |
 | Spire / Rifts | `SceneManager.enter_spire` refuses until `feat_spire` |
 | Card packs | `ShopScene` packs section hidden until `feat_packs` |
+| Cooking / Alchemy / Crafting stations | `CraftingStations.show_panel` refuses until the feature is learned (`UnlockLadder.station_block`), toasting "Learn X from the Master Artisan (level N)". Gathering is never gated (TID-766) |
+| Character block | Professions section shows the "learn it" hint instead of levels until learned (`CharacterProfessions`) |
 
 Co-op / PvP stay reachable from the main menu (not on the ladder). Night hunts are a local spawner, so each peer's
 own ladder decides what it sees.
@@ -97,7 +104,8 @@ own ladder decides what it sees.
 
 - **Trainers** (`UnlockLadder.TRAINER_NPCS`, `trainer_at(npc_id)`): combat → `trainer_madrian`, bounty →
   `bounty_master_madrian` (by the board), gravedigger → `gravedigger_madrian`, merchant → `merchant_8`,
-  stable → `stable_master`; **Maiteln** teaches through his follower node (`MaitelnFollower.interact`).
+  stable → `stable_master`, crafter (**Master Artisan**: Cooking, Alchemy, Crafting) → `crafter_madrian` (Madrian
+  square, town tile 38,30); **Maiteln** teaches through his follower node (`MaitelnFollower.interact`).
 - **Panel** `NpcInteractions.show_trainer_panel(trainer, service_npc = {})`: every row the trainer teaches —
   learned ✓, locked (grey "Come back at level N"), or available: full `how_to` + **Learn — N gold** (disabled with
   "Need N more gold" when short). Learning rebuilds the panel. A service NPC (merchant, stable…) gets
