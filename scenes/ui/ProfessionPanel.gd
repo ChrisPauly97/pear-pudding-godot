@@ -107,7 +107,7 @@ func _build_recipe_row(id: String, list: VBoxContainer, font_body: int, btn_h: f
 		gained], font_body, band_col, HORIZONTAL_ALIGNMENT_LEFT, row)
 
 	var inputs_row := _UiUtil.make_hbox(int(_vh * 0.02), row)
-	var inputs: Dictionary = r.get("inputs", {})
+	var inputs: Dictionary = _save.professions.inputs_for(id) if _save != null else r.get("inputs", {})
 	for input_id: String in inputs:
 		var need: int = int(inputs[input_id])
 		var have: int = _save.professions.count(input_id) if _save != null else 0

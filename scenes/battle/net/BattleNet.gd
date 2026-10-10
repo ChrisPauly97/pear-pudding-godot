@@ -19,6 +19,7 @@ const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const GameState = preload("res://game_logic/battle/GameState.gd")
 const HeroState = preload("res://game_logic/battle/HeroState.gd")
 const _LegendaryPotions = preload("res://game_logic/battle/LegendaryPotions.gd")
+const _PotionEffects = preload("res://game_logic/battle/PotionEffects.gd")
 const Keywords = preload("res://game_logic/battle/Keywords.gd")
 const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const SpellEffectResolver = preload("res://scenes/battle/SpellEffectResolver.gd")
@@ -511,16 +512,14 @@ func _resolve_remote_attack(attacker: CardInstance, target: CardInstance, attack
 func _apply_potion_state_effect(player_idx: int, potion_id: String) -> void:
 	var player: PlayerState = _battle._state.players[player_idx]
 	match potion_id:
-		"healing_draught":
-			player.hero.health = mini(player.hero.health + 8, player.hero.max_health)
 		"clarity_brew":
 			player.draw_card()
 			player.draw_card()
-		"ember_tonic":
-			player.hero.gain_mana(1)
 		_LegendaryPotions.PEAR_PUDDING:
 			# The client gates one sip per battle; the host trusts it like every other potion.
 			_LegendaryPotions.apply_pear_pudding(player.hero)
+		_:
+			_PotionEffects.apply_hero(potion_id, player.hero)
 
 # ── Client intent builders ────────────────────────────────────────────────────
 

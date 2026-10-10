@@ -5,6 +5,7 @@
 extends VBoxContainer
 
 const GardenDefs = preload("res://game_logic/GardenDefs.gd")
+const _ProfessionDefs = preload("res://game_logic/professions/ProfessionDefs.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _QuickSlots = preload("res://game_logic/battle/QuickSlots.gd")
 
@@ -48,15 +49,12 @@ func refresh() -> void:
 			btn.tooltip_text = "Put on quick slot %s" % _QuickSlots.KEY_LABELS[i]
 			btn.disabled = on
 
-	_header("Herbs  ·  grown in your home garden, brewed on the Craft tab")
+	_header("Herbs  ·  grown in your home garden, brewed at an alchemy table")
 	for plant_id: String in GardenDefs.PLANTS:
 		var info: Dictionary = GardenDefs.PLANTS[plant_id]
 		var used_in: Array[String] = []
-		for potion_id: String in GardenDefs.POTION_RECIPES:
-			var recipe: Dictionary = GardenDefs.POTION_RECIPES[potion_id]
-			var ingredients: Dictionary = recipe.get("ingredients", {})
-			if ingredients.has(plant_id):
-				used_in.append(str(recipe.get("display_name", potion_id)))
+		for recipe_id: String in _ProfessionDefs.recipes_using(plant_id):
+			used_in.append(str(_ProfessionDefs.def(recipe_id).get("display_name", recipe_id)))
 		var text: String = str(info.get("description", ""))
 		if not used_in.is_empty():
 			text += "  Used in: %s." % ", ".join(used_in)

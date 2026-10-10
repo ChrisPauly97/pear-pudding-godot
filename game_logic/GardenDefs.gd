@@ -29,32 +29,22 @@ const PLANTS: Dictionary = {
 	"embercap_plant": {"display_name": "Embercap",  "sell_value": 25, "description": "A mushroom that smoulders."},
 }
 
+## Potion id → {display_name, description}. Brewed by the Alchemy profession
+## (`ProfessionDefs.RECIPES`, TID-764); the battle effects live in
+## `game_logic/battle/PotionEffects.gd` (hero-only) and `BattleConsumables`.
 const POTIONS: Dictionary = {
-	"healing_draught": {"display_name": "Healing Draught", "essence_cost": 0, "description": "Battle: restore 8 HP."},
-	"clarity_brew":    {"display_name": "Clarity Brew",    "essence_cost": 0, "description": "Battle: draw 2 cards."},
-	"ember_tonic":     {"display_name": "Ember Tonic",     "essence_cost": 0, "description": "Battle: gain 1 mana."},
+	"healing_draught": {"display_name": "Healing Draught", "description": "Battle: restore 8 HP."},
+	"clarity_brew": {"display_name": "Clarity Brew", "description": "Battle: draw 2 cards."},
+	"ember_tonic": {"display_name": "Ember Tonic", "description": "Battle: gain 1 mana."},
+	"stoneskin_tonic": {"display_name": "Stoneskin Tonic",
+		"description": "Battle: gain 4 armor, soaking the next 4 damage."},
+	"cleansing_salve": {"display_name": "Cleansing Salve",
+		"description": "Battle: cure poison, freeze and stun."},
+	"mana_draught": {"display_name": "Mana Draught", "description": "Battle: gain 2 mana."},
 	# GID-153: the one legendary potion, from the secret Pear Pudding legend. Never brewed
 	# here (no recipe), never consumed — refills every battle, one sip each (LegendaryPotions).
 	"pear_pudding": {"display_name": "Perrine's Bottomless Pudding", "essence_cost": 0, "legendary": true,
 		"description": "Legendary. Never empties: one sip per battle restores full HP, clears ailments, +1 mana."},
-}
-
-const POTION_RECIPES: Dictionary = {
-	"healing_draught": {
-		"display_name": "Healing Draught",
-		"essence_cost": 5,
-		"ingredients": {"sunpetal_plant": 2},
-	},
-	"clarity_brew": {
-		"display_name": "Clarity Brew",
-		"essence_cost": 5,
-		"ingredients": {"moonroot_plant": 2},
-	},
-	"ember_tonic": {
-		"display_name": "Ember Tonic",
-		"essence_cost": 5,
-		"ingredients": {"embercap_plant": 2},
-	},
 }
 
 ## True for a potion that is never consumed (GID-153).

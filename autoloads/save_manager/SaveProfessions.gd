@@ -52,6 +52,23 @@ func remove_material(id: String, n: int) -> bool:
 	return true
 
 
+## The input set a craft of `recipe_id` would use now: the first set the recipe
+## accepts (primary, then `alt_inputs`) that is fully owned, else the primary set.
+func inputs_for(recipe_id: String) -> Dictionary:
+	var sets: Array[Dictionary] = ProfessionDefs.input_sets(ProfessionDefs.def(recipe_id))
+	for input_set: Dictionary in sets:
+		if _can_pay(input_set):
+			return input_set
+	return sets[0]
+
+
+func _can_pay(inputs: Dictionary) -> bool:
+	for id: String in inputs:
+		if count(id) < int(inputs[id]):
+			return false
+	return true
+
+
 ## "" when `recipe_id` can be crafted now, else the reason it can't:
 ## "unknown", "unsupported" (an output that names no real item), "skill" or "inputs".
 func craft_block(recipe_id: String) -> String:
@@ -62,10 +79,8 @@ func craft_block(recipe_id: String) -> String:
 		return "unsupported"
 	if level(str(r["profession"])) < int(r["skill_req"]):
 		return "skill"
-	var inputs: Dictionary = r["inputs"]
-	for id: String in inputs:
-		if count(id) < int(inputs[id]):
-			return "inputs"
+	if not _can_pay(inputs_for(recipe_id)):
+		return "inputs"
 	return ""
 
 
@@ -80,7 +95,7 @@ func craft(recipe_id: String, rng: RandomNumberGenerator = null) -> Dictionary:
 		return {"ok": false, "reason": reason}
 	var r: Dictionary = ProfessionDefs.def(recipe_id)
 	var prof: String = str(r["profession"])
-	var inputs: Dictionary = r["inputs"]
+	var inputs: Dictionary = inputs_for(recipe_id)
 	for id: String in inputs:
 		if GardenDefs.PLANTS.has(id):
 			_save.garden.remove_plants(id, int(inputs[id]))
@@ -106,6 +121,7 @@ func craft(recipe_id: String, rng: RandomNumberGenerator = null) -> Dictionary:
 				GameBus.equipment_dropped.emit(out_id)
 	else:
 		_save.garden.add_potions(out_id, n)
+		GameBus.potion_crafted.emit(out_id)
 	var gained: int = ProfessionDefs.recipe_xp(recipe_id, before)
 	_save.profession_xp[prof] = xp(prof) + gained
 	_save._dirty = true

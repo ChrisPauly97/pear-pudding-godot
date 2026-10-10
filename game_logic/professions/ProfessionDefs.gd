@@ -50,19 +50,27 @@ const MATERIALS: Dictionary = {
 			"description": "A scraped animal hide, ready for tanning."},
 	"arcane_core": {"display_name": "Arcane Core", "sell_value": 20, "source": "core",
 			"description": "A humming crystal left behind by magical foes."},
+	# Alchemy herbs (TID-764)
+	"ironbark": {"display_name": "Ironbark Sprig", "sell_value": 9, "source": "herb",
+			"description": "Bark-tough leaves that harden the skin."},
+	"starsage": {"display_name": "Starsage", "sell_value": 12, "source": "herb",
+			"description": "Silver-grey sage that only opens under the stars."},
+	"emberwort": {"display_name": "Emberwort", "sell_value": 10, "source": "herb",
+			"description": "A warm red herb that tingles on the tongue."},
 }
 
 ## Recipe id → {profession, display_name, skill_req, inputs {material/plant id: n},
 ## output {kind: food|potion|gear, id, count}, xp}. Food outputs are
 ## `HeroVitality.FOODS` ids, potion outputs `GardenDefs.POTIONS` ids.
 ## Starter set; Cooking (TID-763), Alchemy (TID-764) and Crafting (TID-765) extend it.
+## `alt_inputs` lists further input sets (garden plants for herbs); see `input_sets`.
 const RECIPES: Dictionary = {
 	"brew_healing_draught": {"profession": ALCHEMY, "display_name": "Healing Draught", "skill_req": 1,
-			"inputs": {"silverleaf": 2}, "output": {"kind": "potion", "id": "healing_draught", "count": 1},
-			"xp": 10},
+			"inputs": {"silverleaf": 2}, "alt_inputs": [{"sunpetal_plant": 2}],
+			"output": {"kind": "potion", "id": "healing_draught", "count": 1}, "xp": 10},
 	"brew_clarity_brew": {"profession": ALCHEMY, "display_name": "Clarity Brew", "skill_req": 5,
-			"inputs": {"duskbloom": 2}, "output": {"kind": "potion", "id": "clarity_brew", "count": 1},
-			"xp": 14},
+			"inputs": {"duskbloom": 2}, "alt_inputs": [{"moonroot_plant": 2}],
+			"output": {"kind": "potion", "id": "clarity_brew", "count": 1}, "xp": 14},
 	"cook_travel_bread": {"profession": COOKING, "display_name": "Travel Bread", "skill_req": 1,
 			"inputs": {"wild_grain": 3}, "output": {"kind": "food", "id": "travel_bread", "count": 2},
 			"xp": 8},
@@ -99,6 +107,19 @@ const RECIPES: Dictionary = {
 	"cook_bog_pie": {"profession": COOKING, "display_name": "Bog Pie", "skill_req": 8,
 			"inputs": {"game_meat": 2, "bogmoss": 2, "wild_grain": 2},
 			"output": {"kind": "food", "id": "bog_pie", "count": 1}, "xp": 18},
+	# Alchemy (TID-764)
+	"brew_ember_tonic": {"profession": ALCHEMY, "display_name": "Ember Tonic", "skill_req": 3,
+			"inputs": {"emberwort": 2}, "alt_inputs": [{"embercap_plant": 2}],
+			"output": {"kind": "potion", "id": "ember_tonic", "count": 1}, "xp": 12},
+	"brew_stoneskin_tonic": {"profession": ALCHEMY, "display_name": "Stoneskin Tonic", "skill_req": 3,
+			"inputs": {"ironbark": 2}, "output": {"kind": "potion", "id": "stoneskin_tonic", "count": 1},
+			"xp": 12},
+	"brew_cleansing_salve": {"profession": ALCHEMY, "display_name": "Cleansing Salve", "skill_req": 7,
+			"inputs": {"starsage": 2}, "output": {"kind": "potion", "id": "cleansing_salve", "count": 1},
+			"xp": 16},
+	"brew_mana_draught": {"profession": ALCHEMY, "display_name": "Mana Draught", "skill_req": 9,
+			"inputs": {"emberwort": 1, "starsage": 1}, "output": {"kind": "potion", "id": "mana_draught", "count": 1},
+			"xp": 18},
 }
 
 const MAX_LEVEL: int = 50
@@ -173,6 +194,29 @@ static func recipes_for(profession: String) -> Array[String]:
 	for id: String in RECIPES:
 		if str((RECIPES[id] as Dictionary)["profession"]) == profession:
 			out.append(id)
+	return out
+
+
+## Every input set a recipe accepts: the primary `inputs`, then each `alt_inputs`
+## entry (a garden plant standing in for a herb). Any one set may be paid in full.
+static func input_sets(recipe: Dictionary) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var primary: Dictionary = recipe.get("inputs", {})
+	out.append(primary)
+	var alts: Array = recipe.get("alt_inputs", [])
+	for alt: Dictionary in alts:
+		out.append(alt)
+	return out
+
+
+## Recipe ids that take `input_id` in any input set (for "Used in" hints).
+static func recipes_using(input_id: String) -> Array[String]:
+	var out: Array[String] = []
+	for id: String in RECIPES:
+		for input_set: Dictionary in input_sets(RECIPES[id]):
+			if input_set.has(input_id):
+				out.append(id)
+				break
 	return out
 
 

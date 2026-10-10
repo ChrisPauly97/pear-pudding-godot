@@ -29,11 +29,11 @@ const CHANCE: Dictionary = {HERB: 0.35, ORE: 0.3, FISH: 0.4}
 ## kind never plants that kind. Fishing needs water beside the chunk (see plan_chunk).
 const YIELDS: Array = [
 	# GRASSLANDS
-	{HERB: ["silverleaf", "wild_grain"], FISH: ["river_trout"]},
+	{HERB: ["silverleaf", "wild_grain", "ironbark"], FISH: ["river_trout"]},
 	# FOREST
-	{HERB: ["duskbloom", "silverleaf"], FISH: ["river_trout"]},
+	{HERB: ["duskbloom", "silverleaf", "starsage"], FISH: ["river_trout"]},
 	# DESERT
-	{HERB: ["wild_grain"]},
+	{HERB: ["wild_grain", "emberwort"]},
 	# SCORCHED
 	{ORE: ["copper_ore"]},
 	# MOUNTAINS
