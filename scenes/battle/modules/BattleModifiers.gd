@@ -262,6 +262,15 @@ func _hp_carries() -> bool:
 
 
 ## Solo setup, after every max-HP modifier: start at the saved fraction.
+## Hero school resistances for this fight (GID-181 / TID-751): the player's hero gets the
+## capped fractions from `_school_resist_sources()`. Sources (gear, skills, companion) are
+## fed by TID-754; until one exists the hero resists nothing.
+func _apply_school_resists(player: PlayerState) -> void:
+	player.hero.school_resist = DamageSchools.capped_resists(_school_resist_sources())
+
+func _school_resist_sources() -> Dictionary:
+	return {}
+
 func _apply_persistent_hp() -> void:
 	if not _hp_carries():
 		return

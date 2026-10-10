@@ -135,6 +135,8 @@ static func setup_enemy(enemy: PlayerState, player: PlayerState, enemy_type: Str
 		enemy.build_deck(mirror_deck(enemy_type, deck, player), tier)
 		enemy.draw_opening_hand(OPENING_HAND)
 	place_pack(enemy, enemy_type, tier)
+	# GID-181 / TID-751: what this enemy resists / is weak to (phase 2 swaps it at a boss's turn).
+	enemy.school_profile = EnemyRegistry.get_school_profile(enemy_type, 1)
 	if boss_hp > 0:
 		enemy.hero.health = boss_hp
 		enemy.hero.max_health = boss_hp
@@ -194,6 +196,7 @@ static func configure_realtime(rt: RealtimeCombat, player_level: int, enemy_type
 	rt.offhand_damage[RealtimeCombat.PLAYER] = offhand_damage
 	if EnemyRegistry.is_passive(enemy_type):
 		rt.set_passive(RealtimeCombat.ENEMY)
+	rt.enemy_attack_school = EnemyRegistry.get_attack_school(enemy_type)  # GID-181 / TID-751
 	scale_enemy_hp(rt.state.players[RealtimeCombat.ENEMY], EnemyRegistry.rt_hp_mult(enemy_type))
 	add_enemy_attack(rt.state.players[RealtimeCombat.ENEMY], EnemyRegistry.rt_attack_bonus(enemy_type))
 

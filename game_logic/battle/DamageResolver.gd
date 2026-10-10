@@ -24,8 +24,9 @@ const _PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 ## (neutral). A null `defender` is treated as a profile-less side.
 static func deal(defender: _PlayerState, target: Variant, amount: int, school: String,
 		tune: _CombatTuning = null) -> Dictionary:
-	var profile: Dictionary = profile_of(defender)
-	var outcome: String = _DamageSchools.outcome(school, profile)
+	var outcome: String = _DamageSchools.outcome(school, profile_of(defender))
+	if outcome == "" and resist_fraction(defender, school) > 0.0:
+		outcome = _DamageSchools.RESIST  # a hero resistance reads as "Resisted" too (TID-751)
 	var scaled: int = scaled_amount(defender, amount, school, tune)
 	var dealt: int = 0
 	if target is _HeroState:
@@ -49,7 +50,10 @@ static func deal(defender: _PlayerState, target: Variant, amount: int, school: S
 ## school's boost whichever side is hit). The matchup and boost multiply, rounded once.
 static func scaled_amount(defender: _PlayerState, amount: int, school: String,
 		tune: _CombatTuning = null) -> int:
-	var m: float = _DamageSchools.mult(school, profile_of(defender), tune) * env_mult(defender, school)
+	var frac: float = resist_fraction(defender, school)
+	# Matchup x battlefield boost (TID-755) x hero school resistance (TID-751), rounded once.
+	var m: float = (_DamageSchools.mult(school, profile_of(defender), tune) * env_mult(defender, school)
+			* (1.0 - frac))
 	return _DamageSchools.apply_mult(amount, m)
 
 ## Battlefield boost for a hit of `school` on `defender`'s side; 1.0 when none is set.
@@ -57,6 +61,12 @@ static func env_mult(defender: _PlayerState, school: String) -> float:
 	if defender == null:
 		return 1.0
 	return float(defender.env_school_mult.get(school, 1.0))
+
+## The hero resistance fraction `defender` has against `school` (0 for none or a null side).
+static func resist_fraction(defender: _PlayerState, school: String) -> float:
+	if defender == null or defender.hero == null:
+		return 0.0
+	return _DamageSchools.resist_of(defender.hero.school_resist, school)
 
 ## The school profile a side takes damage against; empty (neutral) when there is no side.
 static func profile_of(defender: _PlayerState) -> Dictionary:

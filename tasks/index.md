@@ -184,7 +184,7 @@
 | [GID-178](goals/GID-178--combat-pacing-feel/goal.md) | Combat Pacing & Feel | done | 4 / 4 |
 | [GID-179](goals/GID-179--skill-tree-card-mods/goal.md) | Skill Tree Modifies Cards | done | 6 / 6 |
 | [GID-180](goals/GID-180--deck-table/goal.md) | Deck Table — Fun, Tactile Deck & Bag Management | done | 12 / 12 |
-| [GID-181](goals/GID-181--damage-schools/goal.md) | Damage Schools & Matchups (Horizontal Progression) | in progress | 6 / 11 |
+| [GID-181](goals/GID-181--damage-schools/goal.md) | Damage Schools & Matchups (Horizontal Progression) | in progress | 7 / 11 |
 
 ## Backlog
 

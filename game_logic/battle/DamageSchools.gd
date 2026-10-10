@@ -84,6 +84,27 @@ static func apply_mult(damage: int, m: float) -> int:
 		return 0
 	return maxi(1, roundi(float(damage) * m))
 
+## Hero school resistances (GID-181 / TID-751): `raw` is school → fraction of incoming
+## damage of that school soaked. Keeps only known schools and clamps each fraction to
+## 0..`max_player_resist` (CombatTuning). Returns a new Dictionary; zero entries dropped.
+static func capped_resists(raw: Dictionary, tune: _CombatTuning = null) -> Dictionary:
+	var t: _CombatTuning = tune if tune != null else _CombatTuning.new()
+	var cap: float = t.get_f("max_player_resist")
+	var out: Dictionary = {}
+	for k: Variant in raw.keys():
+		var school: String = str(k)
+		if not is_school(school):
+			continue
+		var frac: float = clampf(float(raw[k]), 0.0, cap)
+		if frac > 0.0:
+			out[school] = frac
+	return out
+
+## The resistance fraction `resists` gives `school` (0 when none).
+static func resist_of(resists: Dictionary, school: String) -> float:
+	var v: Variant = resists.get(school, 0.0)
+	return clampf(float(v), 0.0, 1.0)
+
 static func _tagged(profile: Dictionary, kind: String, school: String) -> bool:
 	var tags: Variant = profile.get(kind, {})
 	if not (tags is Dictionary):

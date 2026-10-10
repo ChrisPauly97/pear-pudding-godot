@@ -118,3 +118,45 @@ func test_scaled_amount_matches_deal_scaling() -> void:
 	assert_eq(_DamageResolver.scaled_amount(side, 10, "dark"), 15)
 	assert_eq(_DamageResolver.scaled_amount(side, 10, "rift"), 10)
 	assert_eq(_DamageResolver.scaled_amount(null, 10, "dark"), 10)
+
+# ---------------------------------------------------------------------------
+# Hero school resistance (TID-751): a fraction soaked on top of the profile
+# ---------------------------------------------------------------------------
+
+func _resisting_side(resists: Dictionary) -> _PlayerState:
+	var p := _PlayerState.new(0, false)
+	p.hero.school_resist = resists
+	return p
+
+func test_hero_resist_soaks_a_fraction_and_reads_resisted() -> void:
+	var h := _hero(30)
+	var r: Dictionary = _DamageResolver.deal(_resisting_side({"dark": 0.5}), h, 10, "dark")
+	assert_eq(int(r["dealt"]), 5)
+	assert_eq(str(r["outcome"]), "resist")
+
+func test_hero_resist_stacks_with_a_weak_profile() -> void:
+	var p := _resisting_side({"dark": 0.5})
+	p.school_profile = {"weak": {"dark": true}}
+	# 10 × weak 1.5 = 15, then × (1 - 0.5) = 7.5 → 8
+	assert_eq(_DamageResolver.scaled_amount(p, 10, "dark"), 8)
+	assert_eq(str(_DamageResolver.deal(p, _hero(30), 10, "dark")["outcome"]), "weak")
+
+func test_hero_resist_only_affects_its_school() -> void:
+	var p := _resisting_side({"dark": 0.5})
+	assert_eq(_DamageResolver.scaled_amount(p, 10, "verdant"), 10)
+	assert_eq(_DamageResolver.resist_fraction(p, "dark"), 0.5)
+	assert_eq(_DamageResolver.resist_fraction(null, "dark"), 0.0)
+
+func test_capped_resists_clamps_and_drops_unknown_schools() -> void:
+	var out: Dictionary = _DamageSchools.capped_resists({"dark": 0.9, "verdant": 0.2, "nope": 0.5, "rift": 0.0})
+	assert_eq(float(out.get("dark", -1.0)), _CombatTuning.new().get_f("max_player_resist"))
+	assert_eq(float(out.get("verdant", -1.0)), 0.2)
+	assert_false(out.has("nope"))
+	assert_false(out.has("rift"))
+
+func test_hero_school_resist_round_trips_through_to_dict() -> void:
+	var h := _hero(30)
+	h.school_resist = {"dark": 0.25}
+	var restored := _HeroState.new(0)
+	restored.from_dict(h.to_dict())
+	assert_eq(float(restored.school_resist.get("dark", 0.0)), 0.25)

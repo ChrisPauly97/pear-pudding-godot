@@ -153,3 +153,24 @@ func test_rift_beings_resist_rift_and_are_weak_to_light() -> void:
 
 func test_armoured_golems_resist_physical() -> void:
 	assert_eq(_DamageSchools.outcome("physical", EnemyRegistry.get_school_profile("stone_golem")), "resist")
+
+# TID-751: enemy hero swings and heavy blows carry a school (default physical).
+
+func test_attack_schools_are_valid_and_default_physical() -> void:
+	for id: String in EnemyRegistry.get_all_enemy_ids():
+		assert_true(_DamageSchools.is_school(EnemyRegistry.get_attack_school(id)), "bad attack school: " + id)
+	assert_eq(EnemyRegistry.get_attack_school("wolf_pack"), "physical")
+	assert_eq(EnemyRegistry.get_attack_school("no_such_enemy"), "physical")
+
+func test_undead_and_forest_enemies_strike_with_their_school() -> void:
+	assert_eq(EnemyRegistry.get_attack_school("undead_basic"), "dark")
+	assert_eq(EnemyRegistry.get_attack_school("bog_hag"), "verdant")
+
+func test_setup_enemy_fills_the_enemy_school_profile() -> void:
+	const _PlayerState = preload("res://game_logic/battle/PlayerState.gd")
+	const _BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
+	var foe := _PlayerState.new(1, true)
+	var me := _PlayerState.new(0, false)
+	var deck: Array[String] = []
+	_BattleSetup.setup_enemy(foe, me, "undead_basic", deck, 1, 1)
+	assert_eq(foe.school_profile, EnemyRegistry.get_school_profile("undead_basic", 1))

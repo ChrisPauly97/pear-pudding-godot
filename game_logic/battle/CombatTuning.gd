@@ -70,6 +70,8 @@ const DEFS: Array = [
 	["env_time_mult", "Night / day school boost (x)", 1.15, 1.0, 1.5, 0.05, "Damage schools"],
 	["env_biome_mult", "Biome school boost (x)", 1.1, 1.0, 1.5, 0.05, "Damage schools"],
 	["env_weather_mult", "Weather school boost (x)", 1.1, 1.0, 1.5, 0.05, "Damage schools"],
+	# GID-181 / TID-751: cap on a hero's resistance to one school (fraction of damage soaked).
+	["max_player_resist", "Hero resistance cap per school (fraction)", 0.75, 0.0, 0.95, 0.05, "Damage schools"],
 ]
 
 var _values: Dictionary = {}
