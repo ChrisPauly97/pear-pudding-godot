@@ -91,7 +91,7 @@ func _board_drop(local_pos: Vector2, data: Variant) -> void:
 			and _battle._state.players[_battle._my_idx()].can_play(played_card)):
 		if is_friendly_targeted and _battle._state.players[_battle._my_idx()].board.get_cards().is_empty():
 			return
-		if (is_enemy_targeted and played_card.spell_effect != "deal_damage_single"
+		if (is_enemy_targeted and not SpellEffectResolver.HERO_TARGETABLE_EFFECTS.has(played_card.spell_effect)
 				and _battle._state.players[_battle._opp_idx()].board.get_cards().is_empty()):
 			return
 		_enter_targeting_mode(played_card, is_friendly_targeted)
@@ -160,7 +160,7 @@ func auto_target(card: CardInstance, friendly: bool) -> Dictionary:
 		return {"card": mine[0]} if mine.size() == 1 else {}
 	if _battle._team_pvp or _battle._coop_pve:
 		return {}
-	var hero_ok: bool = card.spell_effect == "deal_damage_single"
+	var hero_ok: bool = SpellEffectResolver.HERO_TARGETABLE_EFFECTS.has(card.spell_effect)
 	var enemies: Array[int] = [_battle._opp_idx()]
 	if _battle.realtime.is_active():
 		var rt := _battle.realtime.rt

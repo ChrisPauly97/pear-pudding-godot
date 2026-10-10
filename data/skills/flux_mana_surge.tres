@@ -6,7 +6,7 @@
 script = ExtResource("1_flux_mana_surge")
 id = "flux_mana_surge"
 display_name = "Mana Surge"
-description = "Grants the Mana Surge technique card: Hit for 2 and gain 2 mana (2 in real time). Returns to the bottom of your deck."
+description = "Grants the Mana Surge technique card: Hit for 2 and gain 2 mana (hit 4 in real time). Returns to the bottom of your deck."
 skill_type = "active"
 effect_type = "grant_technique"
 effect_value = 0

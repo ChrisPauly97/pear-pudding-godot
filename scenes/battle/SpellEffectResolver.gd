@@ -13,9 +13,12 @@ const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
 
 # Co-located with resolver so match arms and targeting UI stay in sync.
 const ENEMY_TARGETED_EFFECTS: Array[String] = [
-	"deal_damage_single", "curse_minion", "lifesteal_hit",
+	"deal_damage_single", "smite_draw", "curse_minion", "lifesteal_hit",
 	"apply_poison_single", "freeze_single", "bind_minion", "stun_single",
 ]
+## Enemy-targeted effects that may also hit the enemy hero (plain damage), so they
+## can be played onto an empty enemy board.
+const HERO_TARGETABLE_EFFECTS: Array[String] = ["deal_damage_single", "smite_draw"]
 const FRIENDLY_TARGETED_EFFECTS: Array[String] = [
 	"heal_single", "shield_minion", "buff_attack",
 	"grant_surge", "grant_ward", "grant_shroud", "double_attack",
@@ -199,7 +202,7 @@ func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Diction
 	var foe: CardInstance = _pick(explicit_target, opponent)
 	var friend: CardInstance = _pick(explicit_target, caster)
 	match card.spell_effect:
-		"deal_damage_single":
+		"deal_damage_single", "smite_draw":
 			if explicit_target.get("card", null) == null and explicit_target.get("type", "") == "hero":
 				var hero_owner: PlayerState = opponent
 				if explicit_target.has("pidx"):
@@ -210,6 +213,8 @@ func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Diction
 			else:
 				DamageResolver.deal(opponent, foe, _spell_dmg, _spell_school, null, caster)
 				_bury_if_dead(foe, opponent)
+			if card.spell_effect == "smite_draw":
+				caster.draw_card()  # GID-184: Blazing Draw hits, then draws one
 		"deal_damage_all", "deal_damage_all_full":
 			# Hits every living enemy side in an adds/team fight, not just opponent()'s
 			# single auto-target (TID-554) — a no-op change for 2-player/duel fights,

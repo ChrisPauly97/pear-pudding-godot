@@ -43,9 +43,9 @@ func _go() -> void:
 		var mu: Dictionary = schools["matchup"][mk]
 		print("matchup %s  weak %3.0f  resisted %3.0f" % [mk, 100.0 * float(mu["weak"]), 100.0 * float(mu["resist"])])
 	fails.append_array(bands.call("check_schools", schools))
-	print("school bands (b) matchup and (c) best school: gating; (a) roster: report only")
+	print("school bands (a) neutral roster, (b) matchup and (c) best school: gating")
 	for note: Variant in bands.call("report_schools", schools):
-		print("REPORT ONLY (a): " + str(note))
+		print("NOTE (any matchup): " + str(note))
 	print("school bands in %.1f s" % ((Time.get_ticks_msec() - t1) / 1000.0))
 	for f: Variant in fails:
 		printerr("BAND FAIL: " + str(f))

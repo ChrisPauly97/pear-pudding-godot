@@ -150,7 +150,7 @@ func _on_hand_card_tap(card: CardInstance) -> void:
 			if is_friendly_targeted and _battle._state.players[_battle._my_idx()].board.get_cards().is_empty():
 				_battle._show_card_inspect(card)
 				return
-			if is_enemy_targeted and card.spell_effect != "deal_damage_single" \
+			if is_enemy_targeted and not SpellEffectResolver.HERO_TARGETABLE_EFFECTS.has(card.spell_effect) \
 					and _battle._state.players[_battle._opp_idx()].board.get_cards().is_empty():
 				_battle._show_card_inspect(card)
 				return

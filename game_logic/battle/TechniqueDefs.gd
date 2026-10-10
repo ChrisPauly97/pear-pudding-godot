@@ -31,7 +31,7 @@ const DEFS: Dictionary = {
 	# skill tree, never taught by a trainer. Branch-typed, so branch modifiers reach them.
 	"tech_pyroblast": {"rt_value": 4, "recycle": 10.0, "cast": 1.5,
 		"off_gcd": false, "skill": "ember_pyroblast"},
-	"tech_blazing_draw": {"rt_value": 2, "recycle": 20.0, "cast": 0.0,
+	"tech_blazing_draw": {"rt_value": 3, "recycle": 12.0, "cast": 0.0,
 		"off_gcd": false, "skill": "ember_blazing_draw"},
 	"tech_restoration": {"rt_value": 9, "recycle": 18.0, "cast": 1.5,
 		"off_gcd": false, "skill": "dawn_restoration"},
@@ -55,7 +55,7 @@ const DEFS: Dictionary = {
 		"off_gcd": false, "skill": "thorn_second_bloom"},
 	"tech_reweave": {"rt_value": 2, "recycle": 15.0, "cast": 0.0,
 		"off_gcd": false, "skill": "flux_reweave"},
-	"tech_mana_surge": {"rt_value": 2, "recycle": 18.0, "cast": 0.0,
+	"tech_mana_surge": {"rt_value": 4, "recycle": 18.0, "cast": 0.0,
 		"off_gcd": false, "skill": "flux_mana_surge", "mana_value": 2},
 	"tech_shatterwave": {"rt_value": 4, "recycle": 12.0, "cast": 1.5,
 		"off_gcd": false, "skill": "fracture_shatterwave"},

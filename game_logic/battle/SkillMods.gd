@@ -10,7 +10,7 @@ const SkillRegistry = preload("res://autoloads/SkillRegistry.gd")
 const TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
 
 const DAMAGE_EFFECTS: Array[String] = [
-	"deal_damage_single", "deal_damage_all", "deal_damage_all_full", "deal_damage_random",
+	"deal_damage_single", "smite_draw", "deal_damage_all", "deal_damage_all_full", "deal_damage_random",
 	"deal_damage_hero", "drain_hero", "lifesteal_hit", "mana_tap",
 ]
 const HEAL_EFFECTS: Array[String] = ["heal_hero", "heal_single", "heal_all"]

@@ -55,7 +55,8 @@ func _school_measure(matchup_gap: float) -> Dictionary:
 	var forest: Dictionary = {"default": 0.5, "physical": 0.5, "light": 0.5, "dark": 0.9, "verdant": 0.5, "rift": 0.5}
 	var desert: Dictionary = {"default": 0.5, "physical": 0.5, "light": 0.5, "dark": 0.5, "verdant": 0.9, "rift": 0.5}
 	return {"roster": {"forest": forest, "desert": desert},
-		"matchup": {"cactus_worm@6/4": {"weak": 0.9, "resist": 0.9 - matchup_gap}}}
+		"matchup": {"cactus_worm@6/4": {"weak": 0.9, "resist": 0.9 - matchup_gap}},
+		"profiles": {"forest": {"dark": true}, "desert": {"verdant": true, "dark": true}}}
 
 func test_school_matchup_band_gates() -> void:
 	assert_eq(BalanceBands.check_schools(_school_measure(0.5)).size(), 0)
@@ -67,11 +68,17 @@ func test_school_best_everywhere_gates() -> void:
 	(m["roster"]["desert"] as Dictionary)["dark"] = 0.95  # dark now leads both biomes
 	assert_eq(BalanceBands.check_schools(m).size(), 1)
 
-func test_school_roster_deviation_is_report_only() -> void:
+func test_school_roster_band_gates_neutral_matchups_only() -> void:
 	var m: Dictionary = _school_measure(0.5)
-	(m["roster"]["forest"] as Dictionary)["light"] = 0.1  # far outside the band: a note, not a failure
-	assert_eq(BalanceBands.check_schools(m).size(), 0)
-	assert_true(BalanceBands.report_schools(m).size() >= 1, "the light deviation is noted")
+	(m["roster"]["forest"] as Dictionary)["light"] = 0.1  # neutral school far outside the band
+	assert_eq(BalanceBands.check_schools(m).size(), 1, "neutral deviation fails (a)")
+	assert_true(BalanceBands.report_schools(m).size() >= 1, "and is noted")
+	m = _school_measure(0.5)
+	(m["roster"]["forest"] as Dictionary)["dark"] = 0.1  # forest's enemy profiles dark: a matchup
+	assert_eq(BalanceBands.neutral_school_fails(m).size(), 0, "profiled school skipped")
+	(m["profiles"] as Dictionary)["desert"] = {"physical": true}
+	(m["roster"]["desert"] as Dictionary)["light"] = 1.0
+	assert_eq(BalanceBands.neutral_school_fails(m).size(), 0, "physical-profiled biome skipped whole")
 
 func test_school_matched_deck_is_the_default_with_school_cards() -> void:
 	var learned: Array = BalanceBands.all_learned()

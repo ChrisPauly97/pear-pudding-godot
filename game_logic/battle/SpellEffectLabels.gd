@@ -24,6 +24,7 @@ const SPELL: Dictionary = {
 	"mana_drain":          "Remove [power] mana from the enemy hero",
 	"curse_minion":        "Reduce an enemy minion's attack and HP by [power]",
 	"draw_card":           "Draw [power] card(s)",
+	"smite_draw":          "Deal [power] damage to one target and draw a card",
 	"bless_slot":          "Bless a board slot — the next ally placed there gains +[power] ATK",
 	"ward_slot":           "Ward a board slot — the next ally placed there gains Shroud",
 	"deal_damage_hero":    "Deal [power] damage to the enemy hero",

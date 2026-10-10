@@ -738,13 +738,13 @@ Ids and tree positions are unchanged, so existing saves keep their nodes.
 
 | Branch | Col 0 row 0 | Col 0 row 1 | Col 0 row 2 (technique) | Col 3 row 0 | Col 3 row 1 | Col 3 row 2 (technique) |
 |---|---|---|---|---|---|---|
-| ember | Searing Focus: ember +20% power | Inferno Surge: ember +10% crit | Pyroblast: 4 to all, 1.5 s cast, ↻ 10 s | Torch Bearer: ember −1 cost | Flame Tempo: ember crit → next card instant | Blazing Draw: draw 2, ↻ 20 s |
+| ember | Searing Focus: ember +20% power | Inferno Surge: ember +10% crit | Pyroblast: 4 to all, 1.5 s cast, ↻ 10 s | Torch Bearer: ember −1 cost | Flame Tempo: ember crit → next card instant | Blazing Draw: 3 light dmg to one target + draw 1 (`smite_draw`), instant, ↻ 12 s (GID-184) |
 | dawn | Inner Light: `heal` +25% power | Radiant Shield: dawn casts 25% faster | Restoration: heal 9, 1.5 s, ↻ 18 s | Wellspring: dawn −1 cost | Clarity: techniques recycle 10% faster | Arcane Clarity: draw 2, ↻ 20 s |
 | dusk | Dark Pact: dusk +20% power | Lifetap: dusk crit → refund 1 mana | Soul Siphon: drain 5, 1 s, ↻ 12 s | Shadow Well: dusk casts 25% faster | Void Tempo: dusk recycle 15% faster | Mana Drain: hit 2 + 1 mana, ↻ 15 s |
 | ash | Cinderheart: Allies −1 cost | Bone Armour: ash casts 25% faster | Grave Call: draw 2, ↻ 20 s | Entropy: ash +10% crit | Brittle Edge: ash crit → next card instant | Brittle Curse: 3 to all, 1 s, ↻ 10 s |
 | bloom | Seedling: `heal` +20% power | Deep Roots: `heal` casts 25% faster | Overgrowth: heal 8, 1 s, ↻ 16 s | First Shoots: Allies cast 25% faster | Sunward Reach: `heal` +15% crit | Bountiful Harvest: hit 2 + 2 mana, ↻ 20 s |
 | thorn | Barbed Growth: `damage` +15% power | Bramble Wall: techniques +10% crit | Thornburst: 3 to all, instant, ↻ 8 s | Wild Sap: techniques recycle 10% faster | Rampant Vines: `damage` crit → refund 1 mana | Second Bloom: heal 7, instant, ↻ 15 s |
-| flux | Leyward Focus: techniques recycle 10% faster | Phase Shift: technique crit → next card instant | Reweave: draw 2, ↻ 15 s | Unstable Form: spells cast 20% faster | Kinetic Charge: spells +10% crit | Mana Surge: hit 2 + 2 mana, ↻ 18 s |
+| flux | Leyward Focus: techniques recycle 10% faster | Phase Shift: technique crit → next card instant | Reweave: draw 2, ↻ 15 s | Unstable Form: spells cast 20% faster | Kinetic Charge: spells +10% crit | Mana Surge: hit 4 + 2 mana, ↻ 18 s (GID-184) |
 | fracture | Hairline Crack: `damage` +10% crit | Splintering: `damage` crit → refund 1 mana | Shatterwave: 4 to all, 1.5 s, ↻ 12 s | Hollow Core: spells −1 cost | Fault Line: techniques recycle 10% faster | Scavenged Shards: draw 2, ↻ 15 s |
 
 Skill points start at level 10 (`XpCurve.FIRST_SKILL_POINT_LEVEL`, TID-735), one per level after.

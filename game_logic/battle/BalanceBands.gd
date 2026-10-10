@@ -13,6 +13,7 @@ const BalanceStats = preload("res://game_logic/battle/BalanceStats.gd")
 const UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
 const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
+const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 
 const BASELINE_PATH: String = "res://tests/data/balance_baseline.json"
 ## [enemy type, player level]: each Chapter 1 type mid-range (EnemyRegistry.LEVEL_RANGES).
@@ -53,8 +54,8 @@ const MATCHUPS: Array = [
 ## Fights per roster enemy / per matchup side (fixed seeds 1..n, same for every deck).
 const SCHOOL_FIGHTS: int = 14
 const MATCHUP_FIGHTS: int = 20
-## Band (a): a school deck's biome win rate within this many points of the default deck (report only:
-## see `report_schools` for why it is not gating).
+## Band (a): a school deck's biome win rate within this many points of the default deck, in neutral
+## matchups only (GID-184 / TID-773; see `neutral_school_fails`).
 const SCHOOL_BAND: float = 0.25
 ## Band (b): the weak school beats the resisted school by at least this many points.
 const MATCHUP_MIN: float = 0.20
@@ -154,6 +155,7 @@ static func school_win_rate(enemy: String, enemy_level: int, player_level: int, 
 ## every enemy of its biome (the same seeds for each deck, so the comparison is paired).
 static func measure_schools() -> Dictionary:
 	var roster: Dictionary = {}
+	var profiles: Dictionary = {}
 	var decks: Array[String] = ["default"]
 	decks.append_array(DamageSchools.all_schools())
 	for biome: Array in BIOME_ROSTERS:
@@ -172,6 +174,7 @@ static func measure_schools() -> Dictionary:
 				n += SCHOOL_FIGHTS
 			rates[deck] = wins / float(maxi(1, n))
 		roster[str(biome[0])] = rates
+		profiles[str(biome[0])] = _profiled_schools(biome[1] as Array)
 	var matchup: Dictionary = {}
 	for m: Array in MATCHUPS:
 		var level: int = int(m[1])
@@ -180,13 +183,24 @@ static func measure_schools() -> Dictionary:
 			"weak": school_win_rate(str(m[0]), level, player, str(m[3]), MATCHUP_FIGHTS),
 			"resist": school_win_rate(str(m[0]), level, player, str(m[4]), MATCHUP_FIGHTS),
 		}
-	return {"roster": roster, "matchup": matchup}
+	return {"roster": roster, "matchup": matchup, "profiles": profiles}
 
-## GATING failures (empty = pass) of `measured` (from `measure_schools`): band (b), each matchup's
+## Every school any enemy of `cells` resists, is weak to or is immune to: {school: true}.
+static func _profiled_schools(cells: Array) -> Dictionary:
+	var out: Dictionary = {}
+	for cell: Array in cells:
+		var prof: Dictionary = EnemyRegistry.get_school_profile(str(cell[0]), 1)
+		for kind: String in ["resist", "weak", "immune"]:
+			for school: String in (prof.get(kind, {}) as Dictionary):
+				out[school] = true
+	return out
+
+## GATING failures (empty = pass) of `measured` (from `measure_schools`): band (a) in neutral
+## matchups (`neutral_school_fails`); band (b), each matchup's
 ## weak school beats its resisted school by MATCHUP_MIN; band (c), no school is the best (within
 ## 2 points of the biome's top) in every biome.
 static func check_schools(measured: Dictionary) -> Array[String]:
-	var fails: Array[String] = []
+	var fails: Array[String] = neutral_school_fails(measured)
 	var matchup: Dictionary = measured.get("matchup", {}) as Dictionary
 	for k: String in matchup:
 		var m: Dictionary = matchup[k] as Dictionary
@@ -214,10 +228,32 @@ static func best_everywhere(roster: Dictionary) -> Array[String]:
 		best = kept
 	return best
 
-## REPORT ONLY: band (a), each school-matched deck within SCHOOL_BAND of the default deck in every
-## biome. Not gating after TID-771: a biome's school decks spread about 20-40 points around the
-## default by design (the matchup profiles and the draw-only light fill), and a 14-fight cell is
-## about +-13 points of noise, so no single N gates it cleanly. Returns the messages; never fails.
+## GATING band (a) (GID-184 / TID-773): in a neutral matchup every school-matched deck is within
+## SCHOOL_BAND of the default deck. A school the biome's enemy resists, is weak to or is immune to
+## is a matchup (band (b)'s job), so it is skipped; a biome whose enemy profiles physical is skipped
+## whole, because the default deck itself is then not neutral (desert's cactus worm resists physical,
+## the mountain troll is weak to it). `measured.profiles` = {biome: {school: true}}.
+static func neutral_school_fails(measured: Dictionary) -> Array[String]:
+	var fails: Array[String] = []
+	var roster: Dictionary = measured.get("roster", {}) as Dictionary
+	var profiles: Dictionary = measured.get("profiles", {}) as Dictionary
+	for biome: String in roster:
+		var profiled: Dictionary = profiles.get(biome, {}) as Dictionary
+		if profiled.has(DamageSchools.PHYSICAL):
+			continue
+		var rates: Dictionary = roster[biome] as Dictionary
+		var base: float = float(rates.get("default", 0.0))
+		for s: String in DamageSchools.all_schools():
+			if profiled.has(s):
+				continue
+			var wr: float = float(rates.get(s, 0.0))
+			if absf(wr - base) > SCHOOL_BAND + 0.001:
+				fails.append("(a) %s: %s deck %.0f%% vs default %.0f%% in a neutral matchup (band +-%.0f pp)"
+					% [biome, s, wr * 100.0, base * 100.0, SCHOOL_BAND * 100.0])
+	return fails
+
+## REPORT ONLY: every school deck outside SCHOOL_BAND of the default, matchups included (the profiled
+## ones are expected: a weakness should win more, a resistance less). Returns the messages; never fails.
 static func report_schools(measured: Dictionary) -> Array[String]:
 	var notes: Array[String] = []
 	var roster: Dictionary = measured.get("roster", {}) as Dictionary

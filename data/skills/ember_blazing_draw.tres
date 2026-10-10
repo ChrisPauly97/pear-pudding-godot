@@ -6,7 +6,7 @@
 script = ExtResource("1_ember_blazing_draw")
 id = "ember_blazing_draw"
 display_name = "Blazing Draw"
-description = "Grants the Blazing Draw technique card: Draw 2 cards (2 in real time). Returns to the bottom of your deck."
+description = "Grants the Blazing Draw technique card: Deal 3 light damage to one target and draw a card (6 in real time). Returns to the bottom of your deck."
 skill_type = "active"
 effect_type = "grant_technique"
 effect_value = 0
