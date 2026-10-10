@@ -60,6 +60,11 @@ const DEFS: Array = [
 	["auto_proc_chance", "Free-cast chance per auto-attack hit", 0.025, 0.0, 1.0, 0.01, "Momentum"],
 	["round_seconds", "Status/upkeep pulse per side (s)", 6.0, 1.0, 15.0, 0.5, "Status effects"],
 	["potion_cooldown", "Quick-slot potion cooldown (s)", 20.0, 0.0, 90.0, 1.0, "Consumables"],
+	# GID-181 / TID-748: damage-school matchup multipliers (DamageSchools.mult). Read by
+	# every damage event; the defaults are the starting tuning, not yet wired into fights.
+	["resist_mult", "Damage multiplier vs a resisted school (x)", 0.5, 0.0, 1.0, 0.05, "Damage schools"],
+	["weak_mult", "Damage multiplier vs a weak school (x)", 1.5, 1.0, 3.0, 0.1, "Damage schools"],
+	["immune_mult", "Damage multiplier vs an immune school (x)", 0.0, 0.0, 1.0, 0.05, "Damage schools"],
 ]
 
 var _values: Dictionary = {}

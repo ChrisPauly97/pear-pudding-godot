@@ -741,4 +741,5 @@ Agent-owned feature docs. Each covers Key Features, How It Works, Integrations, 
 | [docs/agent/starter-zone-and-training.md](docs/agent/starter-zone-and-training.md) | Unlock ladder (one system per level), trainer-taught unlocks for gold, starter zone + quest chain (GID-141) |
 | [docs/agent/balance-sim.md](docs/agent/balance-sim.md) | Headless seeded balance simulator: BattleSetup / PlayerCaster / BalanceBot / BalanceFight, `tools/balance_sim.gd` CLI, sweeps, balance targets (GID-176) |
 | [docs/agent/legends-pear-pudding.md](docs/agent/legends-pear-pudding.md) | Secret Pear Pudding legend: townsfolk tales, Old Tales journal, riddle spots, Bottomless Pudding (GID-153) |
+| [docs/agent/damage-schools.md](docs/agent/damage-schools.md) | Damage schools (physical + magic types), resist/weak/immune profiles, DamageSchools.mult knobs in CombatTuning (GID-181) |
 | [docs/human/story.md](docs/human/story.md) | Story bible: characters, chapters, NPC dialogue, map specs (human-owned) |
