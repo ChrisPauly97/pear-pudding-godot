@@ -20,7 +20,7 @@ Pure static tables (no autoloads; safe on chunk-gen worker threads). It is the s
 | `xp_for_level(lv)` / `level_for_xp(xp)` | Total XP to reach a level: `n·XP_BASE + XP_STEP·n(n−1)/2` with n = lv−1, capped at `MAX_LEVEL` 50 |
 | `band(recipe, lv)` / `recipe_xp(recipe, lv)` | Gap = lv − skill_req: <0 locked, <5 orange, <10 yellow (full XP), <15 green (half), else grey (0). Colours in `BAND_COLORS` |
 | `is_input(id)` / `input_name(id)` | A material or a `GardenDefs.PLANTS` id |
-| `output_valid(output)` | `food` → `HeroVitality.FOODS`, `potion` → `GardenDefs.POTIONS` (`gear` lands with TID-765) |
+| `output_valid(output)` | `food` → `HeroVitality.FOODS`, `potion` → `GardenDefs.POTIONS`, `gear` → `WeaponRegistry.has_weapon` |
 
 The starter recipes are Healing Draught and Clarity Brew (alchemy), and Travel Bread and Roast Fowl (cooking).
 
@@ -33,8 +33,8 @@ The fields live on SaveManager (`PERSISTED_FIELDS`, migration v49): `profession_
 | `xp(prof)` / `level(prof)` | Level derived from XP, never stored |
 | `count(id)` | Material count, or the garden plant count for a plant id |
 | `add_material(id, n)` / `remove_material(id, n)` | Unknown ids are ignored; an emptied stack is erased |
-| `craft_block(recipe)` | `""` or `unknown` / `unsupported` / `skill` / `inputs` |
-| `craft(recipe)` | Consumes inputs (plants via `garden.remove_plants`), grants food → `foods`, potion → `garden.add_potions`, adds XP. Returns `{ok, reason, id, count, xp, level}`; `level` is the new level on a level-up, else 0 |
+| `craft_block(recipe)` | `""` or `unknown` / `unsupported` (output names no real item) / `skill` / `inputs` |
+| `craft(recipe, rng = null)` | Consumes inputs (plants via `garden.remove_plants`), grants food → `foods`, potion → `garden.add_potions`, gear → `gear.grant` (TID-765), adds XP. Returns `{ok, reason, id, count, xp, level, roll, grant}`; `level` is the new level on a level-up, else 0; `roll` / `grant` are set for gear only |
 
 Signals: `GameBus.profession_level_up(profession, level)` on a level-up, and `inventory_changed` after a craft or a material gain.
 
@@ -96,3 +96,16 @@ None yet. The station and gathering-node sprites come with TID-760 / TID-762.
 - **Panel** `scenes/ui/ProfessionPanel.gd` (BaseOverlay): opened with `crafting_stations.show_panel(node)`, or directly with `ProfessionPanel.new()` then `setup(profession, save_manager)` and `add_child`. It shows the level and XP bar, then each recipe in its band colour (grey and disabled when the skill or inputs are missing), with inputs owned/needed and Craft x1 / Craft x All. `craft_recipe(recipe_id, all) -> int` drives `SaveProfessions.craft()` and reports on the HUD. Esc or Close dismisses it.
 - **Not yet**: the Cooking/Alchemy/Crafting unlocks (TID-766), the wilderness camp fires as cooking fires, and the old potion panel in `CraftPanel.gd` (TID-764 moves it).
 - **Asset note**: the stations are procedural (no sprites). The fire reuses `CampfireVisual`.
+
+## Crafting (gear, TID-765)
+
+- **Recipes**: the `# Crafting (TID-765)` block at the end of `ProfessionDefs.RECIPES`. Each has `output {kind: "gear", id, count: 1}` naming a real `WeaponRegistry` item. Leather (rough hide): cap, vest, pauldrons, travel boots. Metal (iron ore, plus copper for the axe): iron helm, pauldrons, greaves, shield, berserker axe. `skill_req` runs 1 to 15.
+- **Item level** is the recipe's `skill_req`, so the item level tracks the recipe's difficulty.
+- **Roll** (`game_logic/professions/CraftedGear.gd`, pure): crafting skill → source tier (`SKILL_TIERS`: 1 to 14 → tier 1, 15 to 29 → 2, 30 to 44 → 3, 45+ → 4). The tier's `GearRolls.TIER_WEIGHTS` row is used with legendary folded into epic, so crafted gear caps at epic. Legendary stays drop-only. `roll(skill, item_level, rng)` returns `{rarity, ilvl}`.
+- **Grant**: `SaveProfessions.craft` calls `save.gear.grant(id, roll)`, the same path as chest and battle drops. A duplicate keeps the better roll (`upgraded` / `kept`). `GameBus.equipment_dropped` fires on `new` or `upgraded`, as in `ChestLoot`. `GameBus.equipment_changed` fires on an upgrade of an equipped piece, which co-op appearance picks up. No save migration: `gear_rolls` already exists.
+- **Panel**: the existing `ProfessionPanel` lists gear recipes like any other recipe. The toast reads `Crafted 1 x <recipe name>.`
+- **Not yet**: the Crafting unlock and trainers (TID-766).
+
+## Tests (gear)
+
+`tests/unit/test_gear_crafting.gd` checks that gear recipes name real equipment, that skill maps to tier in steps, that epic is the cap (seeded, 2000 rolls), that item level follows the recipe, that a craft grants the item and roll, and that a duplicate keeps the better roll (both ways).

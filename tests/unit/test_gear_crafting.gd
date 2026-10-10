@@ -147,6 +147,8 @@ func test_duplicate_craft_upgrades_a_weaker_roll() -> void:
 
 
 func test_gear_craft_refused_without_inputs() -> void:
-	assert_eq(_sm.professions.craft_block("forge_iron_helm"), "inputs")
-	assert_false(bool(_sm.professions.craft("forge_iron_helm")["ok"]))
-	assert_false(_sm.get_owned_by_slot("helmet").has("iron_helm"))
+	assert_eq(_sm.professions.craft_block("stitch_leather_cap"), "inputs")
+	assert_false(bool(_sm.professions.craft("stitch_leather_cap")["ok"]))
+	assert_false(_sm.get_owned_by_slot("helmet").has("leather_cap"))
+	_sm.profession_xp[ProfessionDefs.CRAFTING] = ProfessionDefs.xp_for_level(15)
+	assert_eq(_sm.professions.craft_block("forge_iron_helm"), "inputs", "skill met, inputs missing")
