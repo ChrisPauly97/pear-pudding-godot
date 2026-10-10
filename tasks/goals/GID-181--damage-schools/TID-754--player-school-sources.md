@@ -55,7 +55,7 @@ The horizontal reward: players collect ways to deal and resist different schools
 **Deviations.** (1) The gear tooltip is the CharacterScene picker row; `PaperDollGear` draws sprites and has no
 text labels. (2) The affix `pct` is a fraction (0.15 = 15 %), as in the task spec; skill node values are whole
 percent. (3) Sources are read at solo battle start only (like equipment), so PvP and co-op fights have none, and
-a resumed mid-fight save loses them (same gap as `env_school_mult`, BID-098). (4) `BattleNet` replay passes no
+a resumed mid-fight save loses them (same gap as `env_school_mult`, BID-100). (4) `BattleNet` replay passes no
 attacker, so PvP replays stay neutral. (5) The `school_resist` skill nodes are placed on a new row 3, so
 `SkillTreeScene._ROWS` went from 3 to 4 instead of reusing a slot (all 6 existing slots per branch are taken).
 

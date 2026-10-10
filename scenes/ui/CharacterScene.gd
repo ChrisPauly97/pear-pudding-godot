@@ -10,6 +10,7 @@ const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const _GearRolls = preload("res://game_logic/items/GearRolls.gd")
 const _PaperDoll = preload("res://game_logic/character/PaperDoll.gd")
 const _HeroAppearanceScene = preload("res://scenes/ui/HeroAppearanceScene.gd")
+const _CharacterProfessions = preload("res://scenes/ui/CharacterProfessions.gd")
 
 ## Laid out two per row (TID-563: eight slots no longer fit one column).
 const _SLOTS: Array[String] = [
@@ -138,6 +139,9 @@ func _build_ui() -> void:
 	var has_companion: bool = SceneManager.save_manager.has_learned(_UnlockLadder.FEAT_COMPANION)
 	companion_hdr.visible = has_companion
 	_companion_btn.visible = has_companion
+
+	# GID-182 / TID-766: profession levels, XP and known recipes.
+	_CharacterProfessions.build(left_vbox, SceneManager.save_manager, _vh)
 
 	if not is_portrait:
 		content.add_child(VSeparator.new())

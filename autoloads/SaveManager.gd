@@ -27,6 +27,7 @@ const _SaveLoadouts = preload("res://autoloads/save_manager/SaveLoadouts.gd")
 const _SaveSpire = preload("res://autoloads/save_manager/SaveSpire.gd")
 const _SaveSiege = preload("res://autoloads/save_manager/SaveSiege.gd")
 const _SaveMailbox = preload("res://autoloads/save_manager/SaveMailbox.gd")
+const _SaveProfessions = preload("res://autoloads/save_manager/SaveProfessions.gd")
 
 const LEGACY_SAVE_PATH := "user://save.json"
 const NUM_SAVE_SLOTS: int = 3
@@ -94,6 +95,7 @@ const PERSISTED_FIELDS: Dictionary = {
 	"rival_encounters_won": 0, "rival_defeated": false,
 	"garden_plots": [{}, {}, {}], "seeds": {}, "plants": {}, "potions": {},
 	"quick_slots": ["", ""], "hero_hp_frac": 1.0, "foods": {},
+	"profession_xp": {}, "materials": {}, "well_fed": {},
 	"captured_signatures": [], "cantrip_cooldowns": {}, "dug_mounds": [],
 	"blight_cleansed_hearts": [], "discovered_landmarks": [],
 	"collected_mana_wells": [], "last_saved": "",
@@ -122,6 +124,7 @@ var decks: _SaveLoadouts
 var spire: _SaveSpire
 var town_siege: _SaveSiege
 var mailbox: _SaveMailbox
+var professions: _SaveProfessions  # profession skill + materials (GID-182)
 
 var active_slot: int = 1
 
@@ -361,6 +364,9 @@ var quick_slots: Array[String] = ["", ""]
 ## Hero HP as a fraction of max, carried between ordinary fights (game_logic/HeroVitality.gd, TID-543).
 var hero_hp_frac: float = 1.0
 var foods: Dictionary = {}  # food_id -> count (HeroVitality.FOODS)
+var profession_xp: Dictionary = {}  # profession id -> xp (ProfessionDefs, GID-182)
+var materials: Dictionary = {}  # material id -> count (ProfessionDefs.MATERIALS)
+var well_fed: Dictionary = {}  # active cooked-food buff, {} = none (WellFed.gd, TID-763)
 
 var last_saved: String = ""
 
@@ -393,6 +399,7 @@ func _init() -> void:
 	spire = _SaveSpire.new(self)
 	town_siege = _SaveSiege.new(self)
 	mailbox = _SaveMailbox.new(self)
+	professions = _SaveProfessions.new(self)
 
 func _ready() -> void:
 	var timer := Timer.new()
@@ -629,6 +636,9 @@ func new_game(head_start: bool = false) -> void:
 	quick_slots = ["", ""]
 	hero_hp_frac = 1.0
 	foods = _HeroVitality.STARTER_FOODS.duplicate()
+	profession_xp = {}
+	materials = {}
+	well_fed = {}
 	captured_signatures = []
 	cantrip_cooldowns = {}
 	dug_mounds = []

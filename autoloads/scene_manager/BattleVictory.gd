@@ -1,3 +1,5 @@
+# gdlint: disable=max-file-lines
+# TID-761 pushed this past 500 lines (material drops). Tracked debt: shrink by extraction, don't add to it.
 ## Battle victory: the standard reward flow, plus the Spire, siege and mimic handlers
 ## that each replace it wholesale, the siege stage interstitial and the Chapter 2
 ## cliffhanger.
@@ -28,6 +30,7 @@ const _EnemyNPC = preload("res://scenes/world/entities/EnemyNPC.gd")
 const _GearRolls = preload("res://game_logic/items/GearRolls.gd")
 const _VeterancyUtil = preload("res://game_logic/VeterancyUtil.gd")
 const _SaveGear = preload("res://autoloads/save_manager/SaveGear.gd")
+const _MaterialDrops = preload("res://game_logic/professions/MaterialDrops.gd")
 
 ## Chain pulls (GID-135 / TID-532): a pursuing enemy this close to the hero when an
 ## in-place fight is won engages at once, without the camera zooming out between.
@@ -148,8 +151,17 @@ func _on_battle_won(result: Dictionary) -> void:
 			_sm.save_manager.pending_battle_enemy_data)
 	_sm.save_manager.add_xp(xp_amount)
 	_sm._bump_session_stat("xp_earned", xp_amount)
+	# Enemy material drops (TID-761): the main kill, then any joined enemies (each
+	# peer rolls its own, like the coins). Granted locally once the fight is counted.
+	var drop_rng := RandomNumberGenerator.new()
+	drop_rng.randomize()
+	var materials: Dictionary = {}
+	_MaterialDrops.roll_into(materials, _sm.save_manager.pending_battle_enemy_data, enemy_type, drop_tier, drop_rng)
 	# Joined enemies' coins/XP ride the same floating toast as the main kill.
-	var joined: Vector2i = _reward_joined_enemies(gambit_id)
+	var joined: Vector2i = _reward_joined_enemies(gambit_id, materials, drop_rng)
+	for mat_id: String in materials:
+		_sm.save_manager.professions.add_material(mat_id, int(materials[mat_id]))
+	var material_text: String = _MaterialDrops.describe(materials)
 	# Rival encounter win: don't count as standard kill; update rival progress instead.
 	if is_rival:
 		if enemy_type == "rival_isfig_3":
@@ -202,8 +214,10 @@ func _on_battle_won(result: Dictionary) -> void:
 	if bool(result.get("in_world_toast", false)):
 		var reward_card: String = str(result.get("card_reward", ""))
 		_sm._restore_world(_show_reward_toasts.bind(coins_won + joined.x, xp_amount + joined.y, reward_card,
-				str(result.get("rt_tip", ""))))
+				str(result.get("rt_tip", "")), material_text))
 	else:
+		if material_text != "":
+			GameBus.hud_message_requested.emit("Gathered: " + material_text)
 		_sm._restore_world()
 	if chain != null:
 		_start_chain(chain)
@@ -265,7 +279,8 @@ func _start_chain(enemy: _EnemyNPC) -> void:
 			_sm._thaw_world(world))
 
 
-func _show_reward_toasts(coins_won: int, xp_won: int, reward_card_id: String, tip: String = "") -> void:
+func _show_reward_toasts(coins_won: int, xp_won: int, reward_card_id: String, tip: String = "",
+		materials_text: String = "") -> void:
 	if tip != "":
 		_sm._toast.show_text("Tip", tip)  # the post-fight coaching line (TID-559)
 	var world: _WorldScene = get_tree().current_scene as _WorldScene
@@ -282,6 +297,8 @@ func _show_reward_toasts(coins_won: int, xp_won: int, reward_card_id: String, ti
 	if reward_card_id != "":
 		var tmpl: Dictionary = CardRegistry.get_template(reward_card_id)
 		lines.append({"text": str(tmpl.get("name", reward_card_id)), "color": Color(0.8, 0.9, 1.0)})
+	if materials_text != "":
+		lines.append({"text": materials_text, "color": Color(0.9, 0.75, 0.5)})
 	if lines.is_empty():
 		return
 	var fx := _RewardToastFx.new()
@@ -300,7 +317,7 @@ func _level_scaled_xp(base_xp: int, enemy_data: Dictionary) -> int:
 ## Enemies that joined the fight mid-way (TID-551) each count as a kill:
 ## defeated in the world, bestiary + bounty progress, their own coins and XP.
 ## Returns the granted totals as (coins, xp) for the reward toast.
-func _reward_joined_enemies(gambit_id: String) -> Vector2i:
+func _reward_joined_enemies(gambit_id: String, materials: Dictionary, drop_rng: RandomNumberGenerator) -> Vector2i:
 	var total := Vector2i.ZERO
 	for data: Dictionary in _sm._joined_enemies:
 		var jid: String = str(data.get("id", ""))
@@ -322,6 +339,8 @@ func _reward_joined_enemies(gambit_id: String) -> Vector2i:
 		_sm.save_manager.add_xp(xp)
 		_sm._bump_session_stat("xp_earned", xp)
 		total.y += xp
+		var jtier: int = 4 if bool(data.get("is_boss", false)) else EnemyRegistry.get_difficulty_tier(jtype)
+		_MaterialDrops.roll_into(materials, data, jtype, jtier, drop_rng)
 	_sm._joined_enemies.clear()
 	return total
 

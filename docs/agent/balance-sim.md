@@ -179,3 +179,7 @@ build `SkillMods`. Skill points start at level 10, so the L1–9 bands never inc
 - `tests/unit/test_battle_determinism.gd`, `test_player_caster.gd`, `test_battle_setup.gd`, `test_balance_bot.gd`
   and `test_balance_stats.gd` cover the pieces.
 - `realtime_battle_smoke` checks `BattleSetup.build` against the live scene.
+
+## Well-fed buffs (GID-182 / TID-763)
+
+Cooked-food buffs (`game_logic/professions/WellFed.gd`, +max HP for a few fights) are not in the sim. `BattleSetup.build` never reaches `BattleModifiers`, so the sim and the CI bands always run unbuffed. Keep it that way: a buff should change how a fight feels, not the balance baseline.

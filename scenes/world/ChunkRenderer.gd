@@ -30,6 +30,7 @@ const _WaystoneScene     = preload("res://scenes/world/entities/Waystone.tscn")
 const _BurialMoundScene  = preload("res://scenes/world/entities/BurialMound.tscn")
 const _BlightHeartScene  = preload("res://scenes/world/entities/BlightHeart.tscn")
 const _ManaWellScene     = preload("res://scenes/world/entities/ManaWell.tscn")
+const _GatherNodeScene   = preload("res://scenes/world/entities/GatherNode.tscn")
 const _DigSpot           = preload("res://scenes/world/entities/DigSpot.gd")
 const _StoryScroll       = preload("res://scenes/world/entities/StoryScroll.gd")
 const _BlightHeart       = preload("res://scenes/world/entities/BlightHeart.gd")
@@ -661,6 +662,12 @@ func _spawn_entities(world_scene: _WorldScene) -> void:
 		var wnode: Node3D = TerrainMath.spawn_entity(_ManaWellScene, w_data, 0.0, entity_root, world_scene)
 		_set_visibility_range(wnode)
 		world_scene.register_mana_well(wid, wnode)
+
+	# ── Gathering nodes (herb / ore / fish, GID-182 / TID-760) ────────────────
+	for g_data in _chunk_data.gather_nodes:
+		var gnode: Node3D = TerrainMath.spawn_entity(_GatherNodeScene, g_data, 0.0, entity_root, world_scene)
+		_set_visibility_range(gnode)
+		world_scene.gather_nodes.register(str(g_data.get("id", "")), gnode)
 
 	# ── Active treasure dig site ───────────────────────────────────────────────
 	var sm := SceneManager.save_manager

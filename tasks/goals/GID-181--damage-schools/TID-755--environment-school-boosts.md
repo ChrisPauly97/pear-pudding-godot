@@ -42,7 +42,7 @@ Stored once per side at battle start as `PlayerState.env_school_mult`; `DamageRe
 - `scenes/battle/modules/BattleModifiers.gd`: `_apply_school_environment()` fills both sides' table; `BattleScene.gd` calls it after `set_battlefield_context`.
 - `scenes/battle/modules/BattleArena.gd`: banner line "Schools: ..." when a boost applies.
 - `tests/unit/test_school_env.gd` (new): table, stacking, text, knob overrides, branch affinity regression, resolver boost and rounding, immunity, null side.
-- Backlog: `tasks/backlog/BID-098.md`. Resumed battles lose the boost (neutral), since setup does not re-run and weather is not saved.
+- Backlog: `tasks/backlog/BID-100--env-school-boost-resume.md`. Resumed battles lose the boost (neutral), since setup does not re-run and weather is not saved.
 
 Validation: editor parse check clean; `scripts/unsafe-hits.sh` no hits; gdlint clean on changed files; `tests/runner.gd` exit 0 with 0 SCRIPT ERROR; all 24 `tests/*smoke*.gd` exit 0 with 0 SCRIPT ERROR; `tests/balance_bands.gd` exit 0.
 

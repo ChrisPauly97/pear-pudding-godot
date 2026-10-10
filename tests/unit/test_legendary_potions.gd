@@ -5,6 +5,7 @@ const GardenDefs        = preload("res://game_logic/GardenDefs.gd")
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 const LegendaryPotions  = preload("res://game_logic/battle/LegendaryPotions.gd")
 const QuickSlots        = preload("res://game_logic/battle/QuickSlots.gd")
+const ProfessionDefs    = preload("res://game_logic/professions/ProfessionDefs.gd")
 const HeroState         = preload("res://game_logic/battle/HeroState.gd")
 
 const PUDDING: String = LegendaryPotions.PEAR_PUDDING
@@ -26,7 +27,9 @@ func test_pudding_is_a_legendary_potion_without_recipe() -> void:
 	assert_true(GardenDefs.POTIONS.has(PUDDING))
 	assert_true(GardenDefs.is_legendary(PUDDING))
 	assert_false(GardenDefs.is_legendary("healing_draught"))
-	assert_false(GardenDefs.POTION_RECIPES.has(PUDDING), "never brewable at the craft bench")
+	for id: String in ProfessionDefs.RECIPES:
+		var out: Dictionary = ProfessionDefs.RECIPES[id]["output"]
+		assert_ne(str(out["id"]), PUDDING, "never brewable (" + id + ")")
 
 func test_grant_is_once_only() -> void:
 	assert_true(_sm.garden.grant_legendary(PUDDING))

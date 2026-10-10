@@ -1,4 +1,4 @@
-# BID-098: Battlefield school boost lost on resumed battles
+# BID-100: Battlefield school boost lost on resumed battles
 
 **Category:** code-smell
 **Discovered During:** TID-755 (GID-181)

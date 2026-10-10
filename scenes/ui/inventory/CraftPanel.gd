@@ -1,7 +1,7 @@
 ## Craft tab of the backpack (GID-148; split out of InventoryScene). Each
 ## recipe row shows what the card actually is — cost gem, class, rolled-base
 ## stats, rules text and how many you already own — with the essence price on
-## the Craft button itself. Potion rows show have/need per ingredient.
+## the Craft button itself. Potions are brewed at an alchemy table (TID-764).
 extends VBoxContainer
 
 ## Fired after anything is crafted, so the owner can refresh its wallet line.
@@ -9,7 +9,6 @@ signal crafted
 
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const CraftingRegistry = preload("res://autoloads/CraftingRegistry.gd")
-const GardenDefs = preload("res://game_logic/GardenDefs.gd")
 const BagOps = preload("res://game_logic/inventory/BagOps.gd")
 const _CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
 const _CraftingRecipe = preload("res://data/CraftingRecipe.gd")
@@ -90,11 +89,6 @@ func refresh() -> void:
 		_UiUtil.make_label("No recipes match", int(_ref * 0.020), Color(0.6, 0.6, 0.6),
 				HORIZONTAL_ALIGNMENT_CENTER, _list)
 
-	_header("Potions  ·  brewed from garden herbs")
-	for potion_id: String in GardenDefs.POTION_RECIPES:
-		var data: Dictionary = GardenDefs.POTION_RECIPES[potion_id]
-		if _query == "" or str(data.get("display_name", "")).to_lower().contains(_query.strip_edges().to_lower()):
-			_list.add_child(_potion_row(potion_id, data, sm.essence))
 
 func _select_rarity(rarity: String) -> void:
 	_rarity = rarity
@@ -170,52 +164,6 @@ func _do_craft(template_id: String, rarity: String, cost: int) -> void:
 		return
 	var nm: String = str(CardRegistry.get_template(template_id).get("name", template_id))
 	_flash("Crafted %s (%s)" % [nm, rarity.capitalize()], _GOOD)
-	crafted.emit()
-	refresh()
-
-func _potion_row(potion_id: String, data: Dictionary, essence: int) -> Control:
-	var sm := SceneManager.save_manager
-	var ess_cost: int = int(data.get("essence_cost", 0))
-	var ingredients: Dictionary = data.get("ingredients", {})
-	var parts: Array = _row_panel()
-	var row: HBoxContainer = parts[1]
-
-	var info := _UiUtil.make_vbox(0, row)
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var pinfo: Dictionary = GardenDefs.POTIONS.get(potion_id, {})
-	_UiUtil.make_label("%s   (have %d)" % [str(data.get("display_name", potion_id)), int(sm.potions.get(potion_id, 0))],
-			int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, info)
-	_UiUtil.make_label(str(pinfo.get("description", "")), int(_ref * 0.017), Color(0.7, 0.7, 0.7),
-			HORIZONTAL_ALIGNMENT_LEFT, info)
-	var needs := _UiUtil.make_hbox(int(_ref * 0.010), info)
-	var have_all: bool = true
-	for ing: String in ingredients:
-		var need: int = int(ingredients[ing])
-		var have: int = int(sm.plants.get(ing, 0))
-		have_all = have_all and have >= need
-		var nm: String = str((GardenDefs.PLANTS.get(ing, {}) as Dictionary).get("display_name", ing))
-		_UiUtil.make_label("%s %d/%d" % [nm, have, need], int(_ref * 0.018), _GOOD if have >= need else _BAD,
-				HORIZONTAL_ALIGNMENT_LEFT, needs)
-
-	var btn := _UiUtil.make_button("Brew  %de" % ess_cost, Vector2(_ref * 0.15, _ref * 0.06), int(_ref * 0.020),
-			_do_craft_potion.bind(potion_id, ess_cost, ingredients), row)
-	btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	btn.disabled = not have_all or essence < ess_cost
-	return parts[0]
-
-func _do_craft_potion(potion_id: String, ess_cost: int, ingredients: Dictionary) -> void:
-	var sm := SceneManager.save_manager
-	for ing: String in ingredients:
-		if not sm.garden.remove_plants(ing, int(ingredients[ing])):
-			return
-	if not sm.spend_essence(ess_cost):
-		for ing: String in ingredients:
-			sm.garden.add_plants(ing, int(ingredients[ing]))
-		return
-	sm.garden.add_potions(potion_id, 1)
-	GameBus.potion_crafted.emit(potion_id)
-	var pdata: Dictionary = GardenDefs.POTION_RECIPES.get(potion_id, {})
-	_flash("Brewed %s" % str(pdata.get("display_name", potion_id)), _GOOD)
 	crafted.emit()
 	refresh()
 

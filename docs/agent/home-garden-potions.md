@@ -4,9 +4,9 @@
 
 - Three garden plots in the player home interior grow seeds into harvestable plants over 2–3 in-game days.
 - Growth advances on every day rollover via `days_elapsed`, so plants ripen even while the player is away.
-- Three seed types (sunpetal, moonroot, embercap) produce three plant types and three craftable potions.
-- Seeds are purchased from merchants (30 coins each); plants are crafted into potions via the Inventory crafting tab.
-- In battle, potions are drunk from two quick slots (Q / E) sharing one cooldown (TID-542); three effects are available (heal, draw, mana).
+- Three seed types (sunpetal, moonroot, embercap) produce three plant types. Plants and gathered herbs are brewed into potions by the Alchemy profession (TID-764).
+- Seeds are purchased from merchants (30 coins each). Potions are brewed at an alchemy table (see **Alchemy Brewing** below), not in the Inventory Craft tab.
+- In battle, potions are drunk from two quick slots (Q / E) sharing one cooldown (TID-542). Six potions: heal, draw, two mana, armor and a cure.
 
 ## How It Works
 
@@ -24,15 +24,9 @@ Static-only class (extends Object). Source of truth for all garden constants.
 
 **`PLANTS: Dictionary`** — plant_id → `{display_name, sell_value}`
 
-**`POTIONS: Dictionary`** — potion_id → `{display_name, essence_cost}` (static metadata; essence cost is 0 here since cost lives in POTION_RECIPES)
+**`POTIONS: Dictionary`** — potion_id → `{display_name, description}` (`pear_pudding` also has `legendary: true`). Brewing recipes live in `ProfessionDefs.RECIPES` (see Alchemy Brewing).
 
-**`POTION_RECIPES: Dictionary`** — potion_id → `{display_name, essence_cost: 5, ingredients: {plant_id: count}}`
-
-| potion_id | ingredient | effect |
-|---|---|---|
-| `healing_draught` | 2× sunpetal_plant | +8 hero HP (capped at max) |
-| `clarity_brew` | 2× moonroot_plant | draw 2 cards |
-| `ember_tonic` | 2× embercap_plant | +1 mana this turn |
+**`POTION_RECIPES` is gone (TID-764).** The essence-priced recipes moved to `ProfessionDefs.RECIPES`; see **Alchemy Brewing**.
 
 **`growth_stage(planted_day, growth_days, current_days_elapsed) -> int`**
 
@@ -101,9 +95,31 @@ SaveManager.garden.get_plot_growth_stage(plot_idx) -> int      # 0 = empty, 1–
 
 A "— Seeds —" section is appended after Trinkets in `_refresh()`. `_make_seed_row()` shows the seed name, owned count, and a "Buy" button (30 coins, disabled if insufficient funds). `_on_buy_seed()` deducts coins and calls `SaveManager.garden.add_seeds(seed_id, 1)`.
 
-### Potion Crafting in InventoryScene (`scenes/ui/InventoryScene.gd`)
+### Alchemy Brewing (TID-764)
 
-`_refresh_craft()` appends a "— Potions —" section after card recipes, iterating `GardenDefs.POTION_RECIPES`. `_make_potion_craft_row()` shows ingredient requirements (plant counts + essence), highlighting shortfalls in red. `_do_craft_potion()` removes plants, spends essence (with rollback if essence is insufficient), calls `SaveManager.garden.add_potions(potion_id, 1)`, and emits `GameBus.potion_crafted(potion_id)`.
+Potions are brewed by the Alchemy profession (`ProfessionDefs.RECIPES`, profession `alchemy`) at an alchemy table
+(station panel, GID-182 / TID-762). No essence is spent. The Inventory Craft tab is card crafting only.
+
+| Potion | Recipe | Skill | Inputs (or alternative set) | Battle effect |
+|---|---|---|---|---|
+| Healing Draught | `brew_healing_draught` | 1 | 2 Silverleaf, or 2 Sunpetal | heal 8 HP |
+| Ember Tonic | `brew_ember_tonic` | 3 | 2 Emberwort, or 2 Embercap | +1 mana |
+| Stoneskin Tonic | `brew_stoneskin_tonic` | 3 | 2 Ironbark Sprig | +4 armor (soaks damage) |
+| Clarity Brew | `brew_clarity_brew` | 5 | 2 Duskbloom, or 2 Moonroot | draw 2 cards |
+| Cleansing Salve | `brew_cleansing_salve` | 7 | 2 Starsage | clears poison, freeze, stun (armor kept) |
+| Mana Draught | `brew_mana_draught` | 9 | 1 Emberwort + 1 Starsage | +2 mana |
+
+- **Herbs** are gathered (TID-760): Ironbark in grassland, Starsage in forest, Emberwort in desert (`GatherDefs.YIELDS`).
+- **Alternative inputs** (`alt_inputs`): a garden plant can stand in for the herb. `SaveProfessions.inputs_for(recipe)`
+  picks the first set that is fully owned (primary first), so a craft consumes one whole set. `ProfessionDefs.input_sets`
+  and `recipes_using(id)` expose them (the ItemsPanel "Used in" hints use the latter).
+- **Output:** potions go to `SaveManager.potions` through `garden.add_potions`, and every potion craft emits
+  `GameBus.potion_crafted`.
+- **Effects** are pure in `game_logic/battle/PotionEffects.gd` (`apply_hero`, `FLOATS`). `BattleConsumables` (local drink) and
+  `BattleNet._apply_potion_state_effect` (PvP host applying a client's drink) both call it, so the new potions work in PvP.
+  Clarity Brew (draws, needs the deck) and Pear Pudding (legendary gate) stay in the callers.
+- **Not built:** a haste potion. A real-time GCD or cooldown effect needs its own tuning pass in `CombatTuning`.
+- Removed: `GardenDefs.POTION_RECIPES`, `CraftingRegistry.get_potion_recipes()`, and the potion section of `CraftPanel`.
 
 ### Potion Use in Battle — Quick Slots (`scenes/battle/modules/BattleConsumables.gd`, TID-542)
 
@@ -122,15 +138,18 @@ A "— Seeds —" section is appended after Trinkets in `_refresh()`. `_make_see
   Not persisted: a resumed battle starts ready.
 - Hidden in puzzle and scripted battles.
 - `_apply_potion_effect(potion_id)` applies the effect, decrements the potion count, starts the cooldown, emits `GameBus.potion_used(potion_id)`:
-  - `healing_draught` — `hero.health = mini(hero.health + 8, hero.max_health)`
-  - `clarity_brew` — calls `player_state.draw_card()` twice
-  - `ember_tonic` — `hero.mana = mini(hero.mana + 1, hero.max_mana)` (resets at next turn normally)
+  - `healing_draught` — `PotionEffects.apply_hero`: `hero.health = mini(hero.health + 8, hero.max_health)`
+  - `clarity_brew` — calls `player_state.draw_card()` twice (stays in the caller)
+  - `ember_tonic` — `hero.gain_mana(1)` (resets at next turn normally)
+  - `mana_draught` — `hero.gain_mana(2)`
+  - `stoneskin_tonic` — `hero.add_armor(4)`; armor is absorbed by the next damage
+  - `cleansing_salve` — `StatusEffects.clear_ailments` (poison, freeze, stun; armor kept)
 - AI never uses potions (v1 constraint).
 
 ### Legendary Potion — Perrine's Bottomless Pudding (GID-153 / TID-656)
 
 - `GardenDefs.POTIONS["pear_pudding"]` carries `"legendary": true` (`GardenDefs.is_legendary(id)`); no
-  `POTION_RECIPES` entry, so it is never craftable. Granted once by the secret Pear Pudding legend via
+  brewing recipe, so it is never craftable. Granted once by the secret Pear Pudding legend via
   `SaveManager.garden.grant_legendary(id)` (`potions[id] = 1`, returns false if already owned).
 - Never consumed: `BattleConsumables._apply_potion_effect` skips `remove_potions` for legendaries and instead
   gates on `consumables.legendary` (`game_logic/battle/LegendaryPotions.gd`, fresh per BattleScene = refill):
@@ -171,7 +190,7 @@ A "— Seeds —" section is appended after Trinkets in `_refresh()`. `_make_see
 - **Player home (GID-046):** Garden plots are spawned exclusively in the `player_home` interior map. Requires `home_owned = true` to be reachable (GID-046 gate).
 - **Day/night cycle:** `SaveManager.days_elapsed` drives growth. Incremented by `WorldScene` at midnight. Growth stages update whenever the player re-enters the home — no real-time tick needed.
 - **Bounty system:** Uses the same `days_elapsed` counter as the garden (no coupling — purely shared save field).
-- **Crafting system (GID-028):** The existing InventoryScene crafting tab gains a Potions section; the card-recipe path is unchanged. `CraftingRegistry.get_potion_recipes()` delegates to `GardenDefs.POTION_RECIPES`.
+- **Crafting system (GID-028):** The Inventory Craft tab is card crafting only. Potions moved to the Alchemy profession (TID-764).
 - **Battle system:** Potion effects integrate with `HeroState.health`/`mana` and `PlayerState.draw_card()`. Float labels and `_refresh_all()` follow the same pattern as other battle events.
 - **GameBus signals:** Four new signals added:
 
@@ -179,7 +198,7 @@ A "— Seeds —" section is appended after Trinkets in `_refresh()`. `_make_see
 |---|---|---|
 | `plant_harvested(plot_idx, plants_count)` | WorldScene on harvest; plot_idx set, count 0 on plant | GardenPlot auto-refresh; toast |
 | `inventory_changed` | SaveManager.garden.add_seeds | General inventory toast hook |
-| `potion_crafted(potion_id)` | InventoryScene._do_craft_potion | Toast notification |
+| `potion_crafted(potion_id)` | SaveProfessions.craft (potion outputs) | Toast notification |
 | `potion_used(potion_id)` | BattleScene.consumables._apply_potion_effect | Battle log / toast |
 
 ## Asset Requirements

@@ -112,6 +112,9 @@ The batched flush is **asynchronous** — a full save is a multi-hundred-KB JSON
 | v15 | `defeated_duelists` |
 | v16 | `spire_run` |
 | v30 | `owned_weapons` converted from `Array[String]` to `Array[Dictionary]` `{weapon_id, upgrade_level}` (GID-052) |
+| v49 | `profession_xp`, `materials` (professions, GID-182 / TID-759; API: `SaveManager.professions`) |
+| v50 | `well_fed` (`{food, stat, amount, fights}`, `{}` = none; cooked-food buff, GID-182 / TID-763) |
+| v51 | no new field; `learned_abilities` gains `feat_cooking`, `feat_alchemy`, `feat_crafting` (`_m51_profession_trainers`, GID-182 / TID-766) |
 
 ### Migration
 
@@ -205,6 +208,8 @@ No textures, shaders, or scene files are required by the save system itself.
   skip the townsfolk opening (`town_quests_done`).
 - v45 `_m45_rifts`: `spire_best_floor / 5` → Grasslands rift best tier; an active legacy run becomes Grasslands T1.
 - v46 `_m46_technique_cards` (GID-175): the old `skill_bar` → `technique_deck_pending` card ids; `skill_bar` erased.
+- v51 `_m51_profession_trainers` (GID-182 / TID-766): every older save is granted the three profession features, so
+  stations it already had stay open. Newer saves learn them from the Master Artisan.
 - v47 `_m47_slow_xp_curve` (GID-177): `xp` rescaled to `XpCurve` with `XpCurve.migrate_xp` (same level, same
   fraction toward the next). The slot list (`_slot_level`) migrates a copy first, so an old save shows its real level;
   a session character (`adopt_session_character`) has its XP raised to at least `xp_to_reach(level)`.

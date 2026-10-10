@@ -26,6 +26,7 @@ const TRAINERS: Dictionary = {
 	"gravedigger": "Gravedigger",
 	"merchant": "Merchant",
 	"stable": "Stablemaster",
+	"crafter": "Master Artisan",
 }
 
 ## Trainer id → the stitched-town NPC entity id that teaches it (TID-590).
@@ -36,6 +37,7 @@ const TRAINER_NPCS: Dictionary = {
 	"gravedigger": "gravedigger_madrian",
 	"merchant": "merchant_8",
 	"stable": "stable_master",
+	"crafter": "crafter_madrian",
 }
 
 const FEAT_MINIONS: String = "feat_minions"
@@ -49,6 +51,17 @@ const FEAT_PHASE: String = "feat_phase"
 const FEAT_SPIRE: String = "feat_spire"
 const FEAT_PACKS: String = "feat_packs"
 const FEAT_MOUNT: String = "feat_mount"
+const FEAT_COOKING: String = "feat_cooking"
+const FEAT_ALCHEMY: String = "feat_alchemy"
+const FEAT_CRAFTING: String = "feat_crafting"
+
+## Profession id (ProfessionDefs.PROFESSIONS keys) → the feature row that gates its
+## crafting station. Gathering is never gated; only the stations are.
+const PROFESSION_FEATURES: Dictionary = {
+	"cooking": FEAT_COOKING,
+	"alchemy": FEAT_ALCHEMY,
+	"crafting": FEAT_CRAFTING,
+}
 
 ## Level order. Strike (a starter-deck technique card) and auto-attack are known from the start.
 const LADDER: Array[Dictionary] = [
@@ -95,6 +108,10 @@ const LADDER: Array[Dictionary] = [
 		"how_to": ("Your deck shapes the world. Carry four or more Skeleton-family cards and a Dig button "
 			+ "appears (D on a keyboard): use it standing on a burial mound to unearth what lies beneath. "
 			+ "Build your deck around it, and the world opens up.")},
+	{"id": FEAT_COOKING, "kind": "feature", "trainer": "crafter", "level_req": 11, "cost": 90,
+		"title": "Cooking",
+		"how_to": ("Build a cooking fire in the town square or at your home. Cook the river trout, herbs and game "
+			+ "you gather into foods; a cooked meal heals you and some carry a well-fed buff into your next fights.")},
 	{"id": "guard", "kind": "skill", "trainer": "combat", "title": "Guard",
 		"how_to": "Raise your guard to absorb the next 6 damage. Cast it just before a telegraphed heavy blow."},
 	{"id": FEAT_PHASE, "kind": "feature", "trainer": "gravedigger", "level_req": 12, "cost": 220,
@@ -103,6 +120,10 @@ const LADDER: Array[Dictionary] = [
 			+ "seconds you can walk straight through walls. Old ruins hide rooms nobody else can reach.")},
 	{"id": "ember_lance", "kind": "skill", "trainer": "combat", "title": "Ember Lance",
 		"how_to": "A technique card: a heavier strike for 9 with a 1 second cast."},
+	{"id": FEAT_ALCHEMY, "kind": "feature", "trainer": "crafter", "level_req": 14, "cost": 120,
+		"title": "Alchemy",
+		"how_to": ("Brew potions at an alchemy table in the square or at your home. Herbs from the wilds and the "
+			+ "garden make healing draughts, tonics and salves for your quick slots and your fights.")},
 	{"id": "mana_tap", "kind": "skill", "trainer": "combat", "title": "Mana Tap",
 		"how_to": "A light hit that siphons mana back. Use it when you're one short of a card."},
 	{"id": FEAT_SPIRE, "kind": "feature", "trainer": "combat", "level_req": 15, "cost": 300,
@@ -116,6 +137,10 @@ const LADDER: Array[Dictionary] = [
 			+ "rarity; every pack without a legendary makes the next one likelier.")},
 	{"id": "sweep", "kind": "skill", "trainer": "combat", "title": "Sweep",
 		"how_to": "A wide strike that clips every enemy minion for 3. Clears a crowded board."},
+	{"id": FEAT_CRAFTING, "kind": "feature", "trainer": "crafter", "level_req": 17, "cost": 150,
+		"title": "Crafting",
+		"how_to": ("Forge and stitch gear at the workbench from the ore and hide you gather and win from beasts. "
+			+ "Your skill sets the quality of what you make, up to epic. Higher skill unlocks harder recipes.")},
 	{"id": "daze", "kind": "skill", "trainer": "combat", "title": "Daze",
 		"how_to": "A weak stun that briefly delays the enemy. Off the global cooldown — a second Kick in a pinch."},
 	{"id": FEAT_MOUNT, "kind": "feature", "trainer": "stable", "level_req": 40, "cost": 1000,
@@ -123,6 +148,21 @@ const LADDER: Array[Dictionary] = [
 		"how_to": ("You've the seat for a proper mount now. Buy a horse at the stable, then tap Mount to ride "
 			+ "much faster through the wilds. You dismount for battle and climb back on after.")},
 ]
+
+
+## The feature that gates `profession`'s station, or "" when it has none.
+static func profession_feature(profession: String) -> String:
+	return str(PROFESSION_FEATURES.get(profession, ""))
+
+
+## "" when a player who has `learned` may use `profession`'s station, else the
+## message to show instead: which trainer teaches it and at what level.
+static func station_block(profession: String, learned: Array) -> String:
+	var id: String = profession_feature(profession)
+	if id == "" or is_learned(id, learned):
+		return ""
+	return "Learn %s from the %s (level %d) to use this station." % [
+		str(def(id).get("title", id)), trainer_name(trainer_for(id)), level_req(id)]
 
 
 static func all() -> Array[Dictionary]:

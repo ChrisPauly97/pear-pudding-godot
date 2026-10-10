@@ -28,7 +28,14 @@ const FOODS: Dictionary = {
 	"travel_bread": {"display_name": "Travel Bread", "price": 8, "heal": 0.4, "seconds": 10.0,
 			"description": "Out of combat: eat to restore 40% HP over 10 s."},
 	"roast_fowl": {"display_name": "Roast Fowl", "price": 20, "heal": 1.0, "seconds": 15.0,
-			"description": "Out of combat: eat to restore all HP over 15 s."},
+			"description": "Out of combat: eat to restore all HP over 15 s. Well fed: +4 max HP for 3 fights."},
+	# Cooked by the Cooking profession (TID-763); price 0 = made, not bought.
+	"trout_fillet": {"display_name": "Trout Fillet", "price": 0, "heal": 0.5, "seconds": 8.0,
+			"description": "Out of combat: eat to restore 50% HP over 8 s. Well fed: +3 max HP for 2 fights."},
+	"herb_stew": {"display_name": "Herb Stew", "price": 0, "heal": 0.8, "seconds": 12.0,
+			"description": "Out of combat: eat to restore 80% HP over 12 s. Well fed: +5 max HP for 3 fights."},
+	"bog_pie": {"display_name": "Bog Pie", "price": 0, "heal": 1.0, "seconds": 15.0,
+			"description": "Out of combat: eat to restore all HP over 15 s. Well fed: +8 max HP for 4 fights."},
 }
 
 ## Enemy types whose fights never touch persistent HP (practice).

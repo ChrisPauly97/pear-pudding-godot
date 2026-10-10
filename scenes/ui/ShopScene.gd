@@ -194,7 +194,9 @@ func _refresh() -> void:
 	# ---- Food section (TID-543): eaten out of combat to heal over time ---
 	_shop_list.add_child(_make_section_header("— Food —"))
 	for food_id: String in _HeroVitality.FOODS:
-		_shop_list.add_child(_make_food_row(food_id, coins))
+		var food_price: int = int((_HeroVitality.FOODS[food_id] as Dictionary).get("price", 0))
+		if food_price > 0:  # cooked foods (TID-763) are made, not bought
+			_shop_list.add_child(_make_food_row(food_id, coins))
 
 	# ---- Seeds section ---------------------------------------------------
 	_shop_list.add_child(_make_section_header("— Seeds —"))

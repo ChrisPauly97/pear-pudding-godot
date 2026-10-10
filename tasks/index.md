@@ -185,6 +185,7 @@
 | [GID-179](goals/GID-179--skill-tree-card-mods/goal.md) | Skill Tree Modifies Cards | done | 6 / 6 |
 | [GID-180](goals/GID-180--deck-table/goal.md) | Deck Table — Fun, Tactile Deck & Bag Management | done | 12 / 12 |
 | [GID-181](goals/GID-181--damage-schools/goal.md) | Damage Schools & Matchups (Horizontal Progression) | in progress | 10 / 11 |
+| [GID-182](goals/GID-182--professions/goal.md) | Professions — Alchemy, Cooking, Crafting | done | 8 / 8 |
 
 ## Backlog
 
@@ -200,13 +201,15 @@ files in `tasks/archive/backlog/`.
 | [BID-081](backlog/BID-081--no-water-in-towns.md) | No water in named maps / towns; no bridges | content-gap | GID-152 research |
 | [BID-089](backlog/BID-089--no-battle-ui-profiler.md) | No profiler for battle / UI / save paths | doc-gap | GID-164 research |
 | [BID-097](backlog/BID-097--spell-resolver-in-scenes.md) | `SpellEffectResolver` is core logic living in `scenes/` (used by balance sim) | code-smell | GID-181 research |
-| [BID-098](backlog/BID-098--env-school-boost-resume.md) | Battlefield school boost lost on resumed mid-fight battles | code-smell | GID-181 / TID-755 |
+| [BID-100](backlog/BID-100--env-school-boost-resume.md) | Battlefield school boost lost on resumed mid-fight battles | code-smell | GID-181 / TID-755 |
 | [BID-090](backlog/BID-090--remaining-world-frame-costs.md) | Remaining per-frame world costs after GID-164 (enemy walk cycles, NPC marks) | code-smell | GID-164 / TID-685 |
 | [BID-091](backlog/BID-091--infinite-world-gen-not-s-safe.md) | Landmark ruin-roll replica masks the seed; RuinGen doesn't (`-s` compile half fixed in TID-699) | code-smell | GID-173 / TID-699 |
 | [BID-092](backlog/BID-092--spec-battle-section-stale.md) | Spec battle section describes the old turn-based model only | spec-gap | GID-175 |
 | [BID-093](backlog/BID-093--session-starter-no-strike.md) | Multiplayer session starter character has no Strike technique | design-inconsistency | GID-175 / TID-708 |
 | [BID-094](backlog/BID-094--battle-setup-scattered.md) | Battle setup scattered across scene modules, reads autoloads | code-smell | GID-176 |
 | [BID-095](backlog/BID-095--chapter1-type-spread.md) | Chapter 1 enemy types spread widely one level up — resolved (TID-727, TID-729) | balance | GID-176 |
+| [BID-098](backlog/BID-098--battle-victory-over-500.md) | `BattleVictory.gd` over the 500-line cap (max-file-lines pragma) | code-smell | GID-182 TID-761 |
+| [BID-099](backlog/BID-099--coop-gather-sync.md) | Gathering harvests not synced in co-op (plus hold / respawn-clock gaps) | design-inconsistency | GID-182 TID-760 |
 
 ## Resolved Backlog
 

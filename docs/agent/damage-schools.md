@@ -190,7 +190,7 @@ rows use the rain, ash and sand weathers.
   sim fights stay neutral and the bands do not move. Opt in only by calling it deliberately.
 - **Known gap:** a battle resumed from a mid-fight save does not re-run the setup path, so its
   `env_school_mult` is empty (neutral) and the weather part cannot be restored (weather is not saved).
-  Logged as `tasks/backlog/BID-098--env-school-boost-resume.md`. The TID-754 player sources
+  Logged as `tasks/backlog/BID-100--env-school-boost-resume.md`. The TID-754 player sources
   (`school_power`, `convert_school`, hero resists) share that gap: a resumed fight has none of them.
 
 ## Combat feedback (TID-752)

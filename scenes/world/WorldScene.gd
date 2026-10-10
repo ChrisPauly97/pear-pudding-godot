@@ -77,6 +77,8 @@ const _SunRaysFx = preload("res://scenes/world/SunRaysFx.gd")
 const _TapToMove = preload("res://scenes/world/modules/TapToMove.gd")
 const _StoryCast = preload("res://scenes/world/modules/StoryCast.gd")
 const _HomeGarden = preload("res://scenes/world/modules/HomeGarden.gd")
+const _GatherNodes = preload("res://scenes/world/modules/GatherNodes.gd")  # GID-182 / TID-760
+const _CraftingStations = preload("res://scenes/world/modules/CraftingStations.gd")
 const _Cantrips = preload("res://scenes/world/modules/Cantrips.gd")
 const _NocturnalSpawner = preload("res://scenes/world/modules/NocturnalSpawner.gd")
 const _CoopSocial = preload("res://scenes/world/coop/CoopSocial.gd")
@@ -108,7 +110,6 @@ const _CHALLENGE_RANGE: float = 3.0      # tiles; proximity to show the prompt
 const TOURNAMENT_ANTE_COINS: int = 25  # flat per-player entry fee; pot = ante * players
 # GID-102 / TID-376: Shared party stash
 # GID-102 / TID-378: Async card auction house
-const _ChapterEndingOverlay = preload("res://scenes/ui/ChapterEndingOverlay.gd")
 
 const _BIOME_MUSIC: Array = [
 	"res://assets/audio/music/grasslands.ogg",
@@ -139,8 +140,8 @@ const INTERACT_INTERVAL: float = 0.15  # check interactions at ~7 Hz, not 60
 const INTERACT_PRIORITY: PackedStringArray = [
 	"downed_peer",
 	"door", "chest", "npc", "scroll", "wilderness_camp", "maiteln", "shrine",
-	"digspot", "burial_mound", "riddle_spot", "mana_well", "waystone", "mailbox", "garden_plot",
-	"blight_heart", "scout_ambush", "enemy",
+	"digspot", "burial_mound", "riddle_spot", "gather_node", "crafting_station", "mana_well", "waystone",
+	"mailbox", "garden_plot", "blight_heart", "scout_ambush", "enemy",
 ]
 
 ## HUD prompt verb per NPC type; anything unlisted falls back to "TALK".
@@ -182,6 +183,7 @@ var coop_session: _CoopSession = null
 var nocturnal: _NocturnalSpawner = null
 var cantrips: _Cantrips = null   # modules/Cantrips.gd (GID-065)
 var home_garden: _HomeGarden = null   # modules/HomeGarden.gd (GID-059)
+var crafting_stations: _CraftingStations = null   # modules/CraftingStations.gd (GID-182 / TID-762)
 var story_cast: _StoryCast = null    # modules/StoryCast.gd (GID-108)
 
 var world_seed: int = 42  # overwritten in _ready() for infinite worlds
@@ -204,6 +206,7 @@ var town_life: _TownLife = null   # modules/TownLife.gd (GID-156)
 var world_clock: _WorldClock = null   # modules/WorldClock.gd (BID-055)
 var shortcuts: _WorldShortcuts = null   # modules/WorldShortcuts.gd (BID-055)
 var hero_health: _HeroHealth = null   # modules/HeroHealth.gd (TID-543)
+var gather_nodes: _GatherNodes = null  # modules/GatherNodes.gd (GID-182 / TID-760)
 var current_town: String = ""  # stitched town the player is in; see story_place()
 var chest_loot: _ChestLoot = null    # modules/ChestLoot.gd
 var night_lights: _NightLights = null  # modules/NightLights.gd (TID-489)
@@ -337,6 +340,7 @@ var _active_waystone_data: Dictionary = {}  # id -> Dictionary
 var _mailbox_nodes: Dictionary = {}    # id -> Node3D
 var _active_mailbox_data: Dictionary = {}  # id -> Dictionary
 var _garden_plot_nodes: Array[Node3D] = []  # ordered by plot_idx
+var _crafting_station_nodes: Array[Node3D] = []  # CraftingStation entities (CraftingStations module)
 # Guildhall garden (GID-106 / TID-393): SessionStore is authority-only, so this
 # cache mirrors _pve_leaderboards' pattern — kept current via request/broadcast
 # RPCs, then pushed into each spawned GardenPlot (session_mode = true) node.
@@ -560,6 +564,7 @@ func _populate_world(server_ref_pos: Vector3) -> void:
 		if not NetworkManager.is_dedicated_server():
 			story_cast.spawn_open_world_beats()
 			named_props.spawn_realm()
+			crafting_stations.spawn_overworld()
 	else:
 		# Named map: load all chunks covering the 100×100 tile map synchronously
 		var max_cx: int = (WorldMap.MAP_WIDTH + IsoConst.CHUNK_SIZE - 1) / IsoConst.CHUNK_SIZE
@@ -571,6 +576,7 @@ func _populate_world(server_ref_pos: Vector3) -> void:
 		if map_name == "player_home":
 			player_home.spawn_trophies()
 			home_garden.spawn_home_plots()
+			crafting_stations.spawn_home()
 		town_siege.on_map_entered(map_name)
 		# Set chapter1_reached_blancogov when the player enters blancogov
 		if map_name == "blancogov" or map_name == "blancogov_temple":
@@ -621,7 +627,7 @@ func _build_player_hud() -> void:
 	_minimap.tapped.connect(_open_map_view)
 
 	GameBus.hud_message_requested.connect(func(text: String) -> void: _world_hud.show_dialogue(text))
-	GameBus.story_scroll_collected.connect(_on_scroll_collected)
+	GameBus.story_scroll_collected.connect(named_props.on_scroll_collected)
 	GameBus.waystone_activated.connect(named_props.on_waystone_activated)
 	GameBus.narration_overlay_requested.connect(_on_narration_overlay_requested)
 
@@ -757,6 +763,8 @@ func _ensure_world_modules() -> void:
 	nocturnal = _ensure_world_module(nocturnal, _NocturnalSpawner, "NocturnalSpawner") as _NocturnalSpawner
 	cantrips = _ensure_world_module(cantrips, _Cantrips, "Cantrips") as _Cantrips
 	home_garden = _ensure_world_module(home_garden, _HomeGarden, "HomeGarden") as _HomeGarden
+	crafting_stations = _ensure_world_module(
+		crafting_stations, _CraftingStations, "CraftingStations") as _CraftingStations
 	story_cast = _ensure_world_module(story_cast, _StoryCast, "StoryCast") as _StoryCast
 	tap_move = _ensure_world_module(tap_move, _TapToMove, "TapToMove") as _TapToMove
 	mounts = _ensure_world_module(mounts, _Mounts, "Mounts") as _Mounts
@@ -783,6 +791,7 @@ func _ensure_world_modules() -> void:
 	shortcuts = _ensure_world_module(shortcuts, _WorldShortcuts, "WorldShortcuts") as _WorldShortcuts
 	hero_health = _ensure_world_module(hero_health, _HeroHealth, "HeroHealth") as _HeroHealth
 	_ensure_world_module(get_node_or_null("SwapDeckPrompt"), _SwapDeckPrompt, "SwapDeckPrompt")  # TID-756
+	gather_nodes = _ensure_world_module(gather_nodes, _GatherNodes, "GatherNodes") as _GatherNodes
 
 func _ensure_world_module(existing: Node, script: GDScript, node_name: String) -> Node:
 	if existing != null and is_instance_valid(existing):
@@ -1096,6 +1105,9 @@ func _data_in_range(d: Dictionary, px: float, pz: float, range_dist: float) -> b
 func _find_nearby_garden_plot(px: float, pz: float, range_dist: float) -> Node3D:
 	return _first_node_in_range(_garden_plot_nodes, px, pz, range_dist)
 
+func _find_nearby_crafting_station(px: float, pz: float, range_dist: float) -> Node3D:
+	return _first_node_in_range(_crafting_station_nodes, px, pz, range_dist)
+
 ## Stitched town the player walks through, else the map itself (GID-138).
 ## Use this — not `map_name` — for "is the player in Maykalene?" checks.
 func story_place() -> String:
@@ -1147,6 +1159,10 @@ func register_mana_well(wid: String, node: Node3D) -> void:
 
 func _find_nearby_mana_well(px: float, pz: float, range_dist: float) -> Node3D:
 	return _first_node_in_range(_mana_well_nodes, px, pz, range_dist)
+
+## Gathering node in reach that can be harvested now (GID-182 / TID-760); see modules/GatherNodes.gd.
+func _find_nearby_gather_node(px: float, pz: float, range_dist: float) -> Node3D:
+	return gather_nodes.find_nearby(px, pz, range_dist)
 
 func _find_nearby_blight_heart(px: float, pz: float, range_dist: float) -> Node3D:
 	return _first_node_in_range(_blight_heart_nodes, px, pz, range_dist)
@@ -1448,6 +1464,10 @@ func _interact_prompt_label(px: float, pz: float) -> String:
 		return "DIG"
 	if _find_nearby_riddle_spot(px, pz, r) != null:
 		return "EXAMINE"
+	if _find_nearby_gather_node(px, pz, r) != null:
+		return "GATHER"
+	if _find_nearby_crafting_station(px, pz, r) != null:
+		return "CRAFT"
 	if _find_nearby_mana_well(px, pz, r) != null:
 		return "FILL"
 	if not _find_nearby_waystone(px, pz, r).is_empty():
@@ -1556,6 +1576,8 @@ func _try_simple_interaction(px: float, pz: float) -> bool:
 		[_find_nearby_digspot, "dig"],
 		[_find_nearby_burial_mound, "interact"],
 		[_find_nearby_riddle_spot, "interact"],
+		[_find_nearby_gather_node, "interact"],
+		[_find_nearby_crafting_station, "interact"],
 	]:
 		var finder: Callable = entry[0]
 		var method: String = entry[1]
@@ -1664,6 +1686,7 @@ func _handle_interact() -> void:
 	if garden_plot != null:
 		home_garden.show_panel(garden_plot)
 
+
 	# Hostile entities are probed last, so anything peaceful in reach wins: you can
 	# take a door, open a chest or read a scroll with an enemy standing next to you
 	# instead of being forced into the fight. See INTERACT_PRIORITY.
@@ -1748,7 +1771,7 @@ func _show_dialogue(text: String) -> void:
 ## same time. Late-join/absent members simply never receive it and inherit the
 ## shared completion flag on the next story-flag sync instead (rule 1).
 func _on_narration_overlay_requested(pages: Array, title: String, completion_flag: String) -> void:
-	_show_narration_overlay(pages, title, completion_flag)
+	named_props.show_narration_overlay(pages, title, completion_flag)
 	if _coop_active and _net_sync != null and NetworkManager.is_active():
 		_net_sync.rpc("recv_narration_overlay", pages, title, completion_flag)
 
@@ -1756,25 +1779,7 @@ func _on_narration_overlay_requested(pages: Array, title: String, completion_fla
 func _on_narration_overlay_received(pages: Array, title: String, completion_flag: String) -> void:
 	if not _coop_active:
 		return
-	_show_narration_overlay(pages, title, completion_flag)
-
-func _show_narration_overlay(pages: Array, title: String, completion_flag: String) -> void:
-	var typed_pages: Array[String] = []
-	typed_pages.assign(pages)
-	var overlay := _ChapterEndingOverlay.new()
-	if title.is_empty():
-		overlay.setup(typed_pages)
-	else:
-		overlay.setup(typed_pages, title)
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var layer := CanvasLayer.new()
-	layer.layer = 999
-	get_tree().root.add_child(layer)
-	layer.add_child(overlay)
-	overlay.closed.connect(func() -> void:
-		layer.queue_free()
-		if not completion_flag.is_empty():
-			SceneManager.save_manager.set_story_flag(completion_flag))
+	named_props.show_narration_overlay(pages, title, completion_flag)
 
 ## The lightweight accept/decline prompt the co-op request panels use: a
 ## CanvasLayer at `layer_index` on this scene, a dimming backdrop, and a
@@ -1841,26 +1846,6 @@ func _build_modal(w_frac: float, h_frac: float, bg: Color, sep_frac: float,
 
 func _show_tip(text: String) -> void:
 	_world_hud.show_tip(text)
-
-func _on_scroll_collected(scroll_id: String) -> void:
-	var scroll: Dictionary = ScrollRegistry.get_scroll(scroll_id)
-	var title: String = scroll.get("title", scroll_id) if not scroll.is_empty() else scroll_id
-	_show_tip("Lore scroll found: " + title)
-	# Chapter 2 beats 2 & 5 (GID-108 / TID-407): these two scrolls are also story
-	# beats. A generic flag-on-collect field doesn't exist on MapScroll/
-	# ScrollRegistry — two one-off hooks don't justify adding one.
-	if scroll_id == "scroll_larik_letter":
-		SceneManager.save_manager.set_story_flag("chapter2_found_letter")
-	elif scroll_id == "scroll_traitor_seal":
-		SceneManager.save_manager.set_story_flag("chapter2_traitor_seal")
-	if SceneManager.save_manager.collected_scrolls.size() >= ScrollRegistry.SCROLL_COUNT:
-		GameBus.all_scrolls_collected.emit()
-	# Co-op (GID-108 / TID-408, design rule 5): mirror the GID-096 shared-chest
-	# model — the collector's pickup (this tip/flags/completion check) is granted
-	# to every session member. Skipped when this call is itself the result of
-	# applying a co-op-received pickup, to avoid re-broadcasting a broadcast.
-	if not _coop_scroll_syncing:
-		coop_session._broadcast_scroll_collected_coop(scroll_id)
 
 # ── Weather visuals ────────────────────────────────────────────────────────
 
