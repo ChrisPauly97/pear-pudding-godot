@@ -342,6 +342,44 @@ and each one stacks on top of the normal item-level stat rolls rather than repla
 - **Knobs:** the caps stay where they were (`max_player_resist`). The affix chances, kind weights and pct
   tables are data in `GearRolls`, not tuning knobs.
 
+## Matchup Loadouts (TID-756)
+
+Swapping to the right deck before a fight is one tap. The engage prompt and the world offer the
+player's saved loadouts (`save_manager.decks`, see `inventory-and-deck.md`) ranked against the enemy's
+**known** profile.
+
+- **Pure scorer:** `game_logic/battle/LoadoutMatchup.gd`. `weak_hits(schools, weak)` counts cards whose
+  school the enemy is weak to; `resist_hits` counts resisted ones. `rank(entries, weak, resist)` sorts
+  loadout entries `{index, name, schools, valid}`: valid first, then most weak hits, then fewer resist
+  hits, then index. `best_index(ranked)` is the top valid loadout with at least one weak hit, or -1
+  (an unknown profile highlights nothing; an invalid, too-small loadout is never best).
+- **Known only:** the weak and resist lists come from `SchoolKnowledge.journal_view` over the enemy's
+  bestiary entry, so a seen-but-not-defeated enemy shows "Defeat one to learn its weaknesses" and no star.
+- **Row:** `scenes/ui/LoadoutSwapRow.gd` (RefCounted, `attach(parent)`). One button per loadout (the best
+  marked with a star and tinted; the active one and too-small ones disabled), and the enemy's weak
+  schools as colour chips (`SchoolFeedback.school_color`). Card ids map to schools through
+  `DamageSchools.school_of(CardRegistry.get_template(id))`. Tapping a loadout calls
+  `save_manager.decks.set_active_loadout(i)`, which syncs `player_deck` before the battle reads it, then
+  rebuilds the row. A swap changes only the active loadout, never a battle.
+- **Engage prompt:** `GambitPickerOverlay.matchup_enemy_type` (set by `SceneManager._on_enemy_engaged`
+  before the overlay enters the tree) shows the row above the gambit list. The picker stays open after a
+  swap, so the player still picks a gambit or "No Gambit" to start the fight.
+- **Auto-skip (no prompt):** `scenes/world/modules/SwapDeckPrompt.gd` (`swap_deck`, created by
+  `WorldScene._ensure_world_modules`). When auto-skip is on and a hostile, not-yet-defeated enemy is within
+  `IsoConst.ENEMY_AWARENESS_RANGE`, a "Swap deck" action appears in `WorldHUD.ZONE_CONTEXT` (registered
+  through `register_action`, refreshed about every 0.25 s with `set_action_visible`). Tapping it opens the
+  row in a `_build_prompt` modal with a Close button. It is off in co-op and outside the plain world state.
+- **Engage safety:** the modal holds engage with `SceneManager.hold_engage()` / `release_engage()`
+  (a counter read by `accepts_engage()`), so no enemy can start a fight behind it. The hold is released
+  when the modal's layer leaves the tree, whichever way it closes. The row never starts a battle, and
+  `_enter_battle` still refuses a second one.
+- **Controls:** every swap is a button (mouse, touch, keyboard focus); no new key binding.
+- **Not built:** tagging a loadout with a school in the deck builder (the research note's optional item).
+  A player with an invalid active deck still hits the "Deck too small" refusal before any prompt.
+
+Tests: `tests/unit/test_loadout_matchup.gd` (weak / resist counting, tie-breaks, invalid loadouts,
+unknown profile).
+
 ## Integrations
 
 - **CombatTuning:** the three matchup knobs, the three boost knobs (`env_time_mult`,
@@ -350,7 +388,7 @@ and each one stacks on top of the normal item-level stat rolls rather than repla
   the real-time enemy tokens.
 - **MagicTypes:** the source of truth for magic type names and validity.
 - **Resolver order:** `scaled_amount` = amount x matchup x battlefield boost x (1 - hero resist) x (1 + attacker power), rounded once.
-- **Planned (later GID-181 tasks):** matchup loadouts (TID-756); balance sim
+- **Planned (later GID-181 tasks):** balance sim
   sweeps (TID-757).
 
 ## Asset Requirements
