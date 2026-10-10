@@ -1,9 +1,9 @@
-# TID-753: Alchemy: potions move to profession recipes
+# TID-764: Alchemy: potions move to profession recipes
 
-**Goal:** GID-181
+**Goal:** GID-182
 **Type:** agent
 **Status:** pending
-**Depends On:** TID-749, TID-751
+**Depends On:** TID-760, TID-762
 
 ## Lock
 

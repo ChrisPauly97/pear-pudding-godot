@@ -124,7 +124,7 @@ var decks: _SaveLoadouts
 var spire: _SaveSpire
 var town_siege: _SaveSiege
 var mailbox: _SaveMailbox
-var professions: _SaveProfessions  # profession skill + materials (GID-181)
+var professions: _SaveProfessions  # profession skill + materials (GID-182)
 
 var active_slot: int = 1
 
@@ -364,7 +364,7 @@ var quick_slots: Array[String] = ["", ""]
 ## Hero HP as a fraction of max, carried between ordinary fights (game_logic/HeroVitality.gd, TID-543).
 var hero_hp_frac: float = 1.0
 var foods: Dictionary = {}  # food_id -> count (HeroVitality.FOODS)
-var profession_xp: Dictionary = {}  # profession id -> xp (ProfessionDefs, GID-181)
+var profession_xp: Dictionary = {}  # profession id -> xp (ProfessionDefs, GID-182)
 var materials: Dictionary = {}  # material id -> count (ProfessionDefs.MATERIALS)
 
 var last_saved: String = ""

@@ -112,7 +112,7 @@ The batched flush is **asynchronous** — a full save is a multi-hundred-KB JSON
 | v15 | `defeated_duelists` |
 | v16 | `spire_run` |
 | v30 | `owned_weapons` converted from `Array[String]` to `Array[Dictionary]` `{weapon_id, upgrade_level}` (GID-052) |
-| v49 | `profession_xp`, `materials` (professions, GID-181 / TID-748; API: `SaveManager.professions`) |
+| v49 | `profession_xp`, `materials` (professions, GID-182 / TID-759; API: `SaveManager.professions`) |
 
 ### Migration
 

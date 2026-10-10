@@ -1,4 +1,4 @@
-# GID-181: Professions — Alchemy, Cooking, Crafting
+# GID-182: Professions — Alchemy, Cooking, Crafting
 
 ## Objective
 
@@ -12,14 +12,14 @@ User request 2026-10-09: "we should add professions like crafting, potion making
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-748 | Profession core: defs, save fields, module | agent | done | — |
-| TID-749 | Gathering nodes in the world | agent | pending | TID-748 |
-| TID-750 | Material drops from enemies | agent | pending | TID-748 |
-| TID-751 | Crafting station panel + stations | agent | pending | TID-748 |
-| TID-752 | Cooking recipes + well-fed buffs | agent | pending | TID-750, TID-751 |
-| TID-753 | Alchemy: potions move to profession recipes | agent | pending | TID-749, TID-751 |
-| TID-754 | Crafting: gear from ore and hide | agent | pending | TID-749, TID-750, TID-751 |
-| TID-755 | Profession trainers, unlocks, Character tab, docs | agent | pending | TID-752, TID-753, TID-754 |
+| TID-759 | Profession core: defs, save fields, module | agent | done | — |
+| TID-760 | Gathering nodes in the world | agent | pending | TID-759 |
+| TID-761 | Material drops from enemies | agent | pending | TID-759 |
+| TID-762 | Crafting station panel + stations | agent | pending | TID-759 |
+| TID-763 | Cooking recipes + well-fed buffs | agent | pending | TID-761, TID-762 |
+| TID-764 | Alchemy: potions move to profession recipes | agent | pending | TID-760, TID-762 |
+| TID-765 | Crafting: gear from ore and hide | agent | pending | TID-760, TID-761, TID-762 |
+| TID-766 | Profession trainers, unlocks, Character tab, docs | agent | pending | TID-763, TID-764, TID-765 |
 
 ## Acceptance Criteria
 

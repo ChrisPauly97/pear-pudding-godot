@@ -1,9 +1,9 @@
-# TID-749: Gathering nodes in the world
+# TID-760: Gathering nodes in the world
 
-**Goal:** GID-181
+**Goal:** GID-182
 **Type:** agent
 **Status:** pending
-**Depends On:** TID-748
+**Depends On:** TID-759
 
 ## Lock
 

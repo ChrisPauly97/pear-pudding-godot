@@ -1,4 +1,4 @@
-## Profession skill and the material bag (GID-181 / TID-748).
+## Profession skill and the material bag (GID-182 / TID-759).
 ##
 ## Owned by SaveManager (`SaveManager.professions`), created in its `_init`. The
 ## state (`profession_xp`, `materials`) stays on SaveManager because
@@ -52,7 +52,7 @@ func remove_material(id: String, n: int) -> bool:
 
 
 ## "" when `recipe_id` can be crafted now, else the reason it can't:
-## "unknown", "unsupported" (gear, until TID-754), "skill" or "inputs".
+## "unknown", "unsupported" (gear, until TID-765), "skill" or "inputs".
 func craft_block(recipe_id: String) -> String:
 	var r: Dictionary = ProfessionDefs.def(recipe_id)
 	if r.is_empty():

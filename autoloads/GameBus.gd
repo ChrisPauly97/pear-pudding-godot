@@ -163,7 +163,7 @@ signal inventory_changed
 # Count of bag cards the player hasn't looked at yet (GID-180 / TID-747): HUD badge + fly-in.
 signal new_cards_changed(count: int)
 signal potion_crafted(potion_id: String)
-# Professions (GID-181): a craft pushed `profession` to `level`.
+# Professions (GID-182): a craft pushed `profession` to `level`.
 signal profession_level_up(profession: String, level: int)
 signal potion_used(potion_id: String)
 

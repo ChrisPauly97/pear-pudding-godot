@@ -1,4 +1,4 @@
-## Professions: Alchemy, Cooking, Crafting (GID-181 / TID-748).
+## Professions: Alchemy, Cooking, Crafting (GID-182 / TID-759).
 ##
 ## The single source of truth for every profession, gatherable / dropped
 ## material and recipe. Stations, the crafting panel, gathering nodes and enemy
@@ -23,8 +23,8 @@ const PROFESSIONS: Dictionary = {
 	CRAFTING: {"display_name": "Crafting", "color": Color(0.7, 0.75, 0.85), "station": "workbench"},
 }
 
-## Material sources. herb / ore / fish come from gathering nodes (TID-749),
-## meat / hide / core from enemy drops (TID-750).
+## Material sources. herb / ore / fish come from gathering nodes (TID-760),
+## meat / hide / core from enemy drops (TID-761).
 const SOURCES: Array[String] = ["herb", "ore", "fish", "meat", "hide", "core"]
 
 ## Material id → {display_name, sell_value, source, description}.
@@ -54,7 +54,7 @@ const MATERIALS: Dictionary = {
 ## Recipe id → {profession, display_name, skill_req, inputs {material/plant id: n},
 ## output {kind: food|potion|gear, id, count}, xp}. Food outputs are
 ## `HeroVitality.FOODS` ids, potion outputs `GardenDefs.POTIONS` ids.
-## Starter set; Cooking (TID-752), Alchemy (TID-753) and Crafting (TID-754) extend it.
+## Starter set; Cooking (TID-763), Alchemy (TID-764) and Crafting (TID-765) extend it.
 const RECIPES: Dictionary = {
 	"brew_healing_draught": {"profession": ALCHEMY, "display_name": "Healing Draught", "skill_req": 1,
 			"inputs": {"silverleaf": 2}, "output": {"kind": "potion", "id": "healing_draught", "count": 1},

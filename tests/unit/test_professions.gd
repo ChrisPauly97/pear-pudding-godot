@@ -1,6 +1,6 @@
 # gdlint: disable=max-public-methods
 # Test suite: every test_* case is a public method, so max-public-methods doesn't apply.
-## Unit tests for ProfessionDefs and SaveManager.professions (GID-181 / TID-748).
+## Unit tests for ProfessionDefs and SaveManager.professions (GID-182 / TID-759).
 extends "res://tests/framework/test_case.gd"
 
 const _SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
@@ -50,7 +50,7 @@ func test_every_material_has_a_known_source() -> void:
 func test_every_profession_has_a_recipe_or_is_crafting() -> void:
 	for p: String in ProfessionDefs.PROFESSIONS:
 		if p == ProfessionDefs.CRAFTING:
-			continue  # gear recipes arrive with TID-754
+			continue  # gear recipes arrive with TID-765
 		assert_false(ProfessionDefs.recipes_for(p).is_empty(), p)
 
 

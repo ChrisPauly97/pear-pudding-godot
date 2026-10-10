@@ -1,9 +1,9 @@
-# TID-752: Cooking recipes + well-fed buffs
+# TID-763: Cooking recipes + well-fed buffs
 
-**Goal:** GID-181
+**Goal:** GID-182
 **Type:** agent
 **Status:** pending
-**Depends On:** TID-750, TID-751
+**Depends On:** TID-761, TID-762
 
 ## Lock
 

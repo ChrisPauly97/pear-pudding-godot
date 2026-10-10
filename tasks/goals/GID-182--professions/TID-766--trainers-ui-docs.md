@@ -1,9 +1,9 @@
-# TID-755: Profession trainers, unlocks, Character tab, docs
+# TID-766: Profession trainers, unlocks, Character tab, docs
 
-**Goal:** GID-181
+**Goal:** GID-182
 **Type:** agent
 **Status:** pending
-**Depends On:** TID-752, TID-753, TID-754
+**Depends On:** TID-763, TID-764, TID-765
 
 ## Lock
 

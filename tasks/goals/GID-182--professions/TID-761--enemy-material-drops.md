@@ -1,9 +1,9 @@
-# TID-750: Material drops from enemies
+# TID-761: Material drops from enemies
 
-**Goal:** GID-181
+**Goal:** GID-182
 **Type:** agent
 **Status:** pending
-**Depends On:** TID-748
+**Depends On:** TID-759
 
 ## Lock
 

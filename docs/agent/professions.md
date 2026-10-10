@@ -1,9 +1,9 @@
-# Professions — Alchemy, Cooking, Crafting (GID-181)
+# Professions — Alchemy, Cooking, Crafting (GID-182)
 
 ## Key Features
 
-- Three levelled professions: **Alchemy** (potions), **Cooking** (foods), **Crafting** (gear, TID-754).
-- Materials come from gathering nodes (herb / ore / fish, TID-749) and enemy drops (meat / hide / core, TID-750). Garden plants also count as recipe inputs.
+- Three levelled professions: **Alchemy** (potions), **Cooking** (foods), **Crafting** (gear, TID-765).
+- Materials come from gathering nodes (herb / ore / fish, TID-760) and enemy drops (meat / hide / core, TID-761). Garden plants also count as recipe inputs.
 - Each profession levels 1–50 by crafting. A recipe has a `skill_req`; its XP falls off as you outlevel it (WoW-style orange → yellow → green → grey bands).
 
 ## How It Works
@@ -20,7 +20,7 @@ Pure static tables (no autoloads; safe on chunk-gen worker threads). It is the s
 | `xp_for_level(lv)` / `level_for_xp(xp)` | Total XP to reach a level: `n·XP_BASE + XP_STEP·n(n−1)/2` with n = lv−1, capped at `MAX_LEVEL` 50 |
 | `band(recipe, lv)` / `recipe_xp(recipe, lv)` | Gap = lv − skill_req: <0 locked, <5 orange, <10 yellow (full XP), <15 green (half), else grey (0). Colours in `BAND_COLORS` |
 | `is_input(id)` / `input_name(id)` | A material or a `GardenDefs.PLANTS` id |
-| `output_valid(output)` | `food` → `HeroVitality.FOODS`, `potion` → `GardenDefs.POTIONS` (`gear` lands with TID-754) |
+| `output_valid(output)` | `food` → `HeroVitality.FOODS`, `potion` → `GardenDefs.POTIONS` (`gear` lands with TID-765) |
 
 The starter recipes are Healing Draught and Clarity Brew (alchemy), and Travel Bread and Roast Fowl (cooking).
 
@@ -42,11 +42,11 @@ Signals: `GameBus.profession_level_up(profession, level)` on a level-up, and `in
 
 - The garden (`GardenDefs`): plants are inputs. Potions share `SaveManager.potions` with the battle quick slots.
 - Foods (`HeroVitality.FOODS`): crafted foods share `SaveManager.foods` with the world quick use.
-- Planned: gathering nodes (TID-749), enemy drops (TID-750), station panel (TID-751), cooking buffs (TID-752), alchemy migration (TID-753), gear (TID-754), trainers + Character tab (TID-755).
+- Planned: gathering nodes (TID-760), enemy drops (TID-761), station panel (TID-762), cooking buffs (TID-763), alchemy migration (TID-764), gear (TID-765), trainers + Character tab (TID-766).
 
 ## Asset Requirements
 
-None yet. The station and gathering-node sprites come with TID-749 / TID-751.
+None yet. The station and gathering-node sprites come with TID-760 / TID-762.
 
 ## Tests
 
