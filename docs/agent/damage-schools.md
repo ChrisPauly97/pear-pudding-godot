@@ -142,12 +142,45 @@ Damage sites routed: SpellEffectResolver (emergence and all spell arms), Realtim
 poison, scorch, heavy blow), BattleInput and BattleNet (attacks and counters), BattleFx (status
 ticks), BattleModifiers (desert scorch), BasicAI (AI attacks), PlayerState (fatigue).
 
+## Combat feedback (TID-752)
+
+Players see why a hit was big or small. Three presentation pieces, all reading the same record.
+
+- **Last-hit record.** `DamageResolver.deal` calls `note_hit(school, outcome)` on the target
+  (`HeroState` or `CardInstance`) before applying damage. Each unit keeps `hit_school`,
+  `hit_outcome` and `hit_serial` (+1 per hit, so a 0-damage immune hit is still an event). The
+  three fields are in `to_dict` / `from_dict`, so they ride the battle state mirror to PvP and
+  co-op viewers with no protocol change.
+- **Pure rules:** `game_logic/battle/SchoolFeedback.gd` (no autoloads, unit-tested).
+  `school_color(school)` is the MagicTypes colour, neutral off-white for physical.
+  `outcome_word` gives "Weak!" / "Resisted" / "Immune". `damage_text(amount, outcome)` gives
+  "-7 Weak!", "-3 Resisted" or "Immune". `pips_for(profile)` lists one entry per tagged school in
+  `all_schools()` order. `pip_tooltip(school, outcome)` states the multiplier.
+  `hit_record(unit)` reads the record above.
+- **Damage numbers:** `BattleFx.spawn_float_labels` (every turn-based and real-time HP loss, PvP
+  viewers included, since they run the same snapshot diff) colours and suffixes each loss from the
+  unit's record. A unit that died this action is read from the snapshot's `unit` reference, and
+  only if it took a new hit (serial advanced), so a stale outcome never leaks onto a label. An
+  immune unit that lost no HP gets an "Immune" label when its serial advanced. The real-time
+  heavy blow reads the `outcome` that `RealtimeCombat._land_heavy` gets from `deal()`.
+- **Enemy pips:** `scenes/battle/modules/SchoolPips.gd` builds a chip row under each enemy's hero
+  strip in `RealtimeVisuals` (the real-time token, for the base enemy and joined enemies). Weak =
+  filled chip in the school colour, Resists = dark with a coloured rim, Immune = thick rim.
+  Hover shows the tooltip on desktop; a tap calls `toast()` with the same line, which is the
+  mobile path. `known_profile(enemy_type)` is the one accessor, currently the full
+  `EnemyRegistry.get_school_profile`. TID-753 gates it on bestiary knowledge, so that is the
+  only change needed there. The pips come from the enemy type, so PvP players (no enemy type)
+  show none.
+
+Turn-based enemy strips get no pips yet; they are not in the real-time token.
+
 ## Integrations
 
 - **CombatTuning:** the three knobs above. Knob reads go through `tune.get_f(...)`.
+- **Combat UI (TID-752):** `SchoolFeedback` (pure text / colour / pips), `BattleFx` labels, `SchoolPips` on the real-time enemy tokens.
 - **MagicTypes:** the source of truth for magic type names and validity.
 - **Planned (later GID-181 tasks):** enemy profiles (TID-750); enemy attack schools and hero
-  resistances (TID-751); combat UI feedback (TID-752); bestiary reveal (TID-753); player school
+  resistances (TID-751); combat UI feedback (TID-752, done); bestiary reveal (TID-753); player school
   sources (TID-754); balance sim sweeps (TID-757).
 
 ## Asset Requirements
@@ -166,3 +199,6 @@ roster has a weak target for every school.
 `tests/unit/test_damage_resolver.gd`: neutral behaviour with empty profiles, resist / weak / immune
 scaling, armor and shroud, null defender, knob overrides. `tests/unit/test_damage_resolver_guardrail.gd`:
 the `take_damage(` source scan.
+
+`tests/unit/test_school_feedback.gd` (TID-752): outcome words, damage text, school colour, pip
+data and tooltips, and the last-hit record (set by `deal`, kept through `to_dict` / `from_dict`).

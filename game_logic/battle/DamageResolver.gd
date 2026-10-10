@@ -31,11 +31,13 @@ static func deal(defender: _PlayerState, target: Variant, amount: int, school: S
 	if target is _HeroState:
 		var hero: _HeroState = target as _HeroState
 		var hp_before: int = hero.health
+		hero.note_hit(school, outcome)
 		hero.take_damage(scaled)
 		dealt = maxi(0, hp_before - hero.health)
 	elif target is _CardInstance:
 		var card: _CardInstance = target as _CardInstance
 		var card_hp_before: int = card.health
+		card.note_hit(school, outcome)
 		card.take_damage(scaled)
 		dealt = maxi(0, card_hp_before - card.health)
 	return {"dealt": dealt, "outcome": outcome}

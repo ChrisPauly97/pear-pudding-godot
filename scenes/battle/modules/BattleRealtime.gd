@@ -35,6 +35,8 @@ const FightStats = preload("res://game_logic/battle/FightStats.gd")
 const _MomentumHud = preload("res://scenes/battle/modules/MomentumHud.gd")
 const PlayerCaster = preload("res://game_logic/battle/PlayerCaster.gd")
 const _BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
+const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
+const _SchoolFeedback = preload("res://game_logic/battle/SchoolFeedback.gd")
 ## Settings key holding the tuning panel's overrides (per device).
 const TUNING_SETTING: String = "combat_tuning"
 ## Hit feel per strength: [hit-stop seconds, shake pixels] (TID-580).
@@ -457,8 +459,11 @@ func _process(delta: float) -> void:
 			"enemy_heavy_start":
 				_visuals.toast("Heavy Blow incoming — Kick it or Guard!")
 			"enemy_heavy_hit":
+				var heavy_dmg: int = int(ev.get("damage", 0))
+				var heavy_outcome: String = str(ev.get("outcome", ""))
 				_battle._fx.spawn_float_label(hero_screen_pos(RealtimeCombat.PLAYER),
-						"-%d" % int(ev.get("damage", 0)), Color(1.0, 0.35, 0.3))
+						_SchoolFeedback.damage_text(-heavy_dmg, heavy_outcome),
+						_SchoolFeedback.school_color(DamageSchools.PHYSICAL))
 				_battle._fx.trigger_shake(10.0, 0.25)
 	if not swings.is_empty():
 		AudioManager.play_sfx("attack")
