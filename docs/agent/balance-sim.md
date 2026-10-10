@@ -174,6 +174,53 @@ GID-179 / TID-732: player spells and techniques crit now (scout L9+1 60 → 75 %
 build `SkillMods`. Skill points start at level 10, so the L1–9 bands never include skill nodes. Measured at L9 +1
 (scout / bog hag / stag, 80 fights): none 79 / 51 / 68 %, four Thorn nodes 86 / 63 / 73 %.
 
+## School bands (TID-757)
+
+Decks by damage school (`docs/agent/damage-schools.md`). Both use the whole unlock ladder learned
+(`BalanceBands.all_learned()`), so a school's cards are playable, at the same seeds for every deck.
+
+- **Shape-matched decks** (`BattleSetup.school_matched_deck(school, learned)`): the default deck
+  (`level_deck`) with its last `MATCHED_SWAP` (2) Allies replaced by the school's own techniques, then
+  its spells. Strike, Mend and Kick stay, so the bot keeps its interrupts and heals and the school is the
+  only difference. Physical is the default deck itself.
+- **Sweep keys** in `tools/balance_sim.gd`: `--sweep matched=light,dark,...` (the shape-matched deck,
+  the one the bands use) and `--sweep school=...` (`BattleSetup.school_deck`, a **pure mono-school**
+  deck of every card of that school, cycled to 12). The mono deck is a diagnostic only; no band uses it.
+  Mono decks are spell-only for magic schools (few Allies), so they lose badly and show card-pool shape,
+  not school strength.
+- **Roster cells** (`BalanceBands.BIOME_ROSTERS`): two enemies per biome at a two-level gap, where the
+  default deck is not saturated at 100 %. Each cell: 6 seeded fights per deck; a biome pools its cells.
+- **Matchup cell** (`BalanceBands.MATCHUPS`): cactus worm (weak to dark, resists verdant) at level 6 vs
+  player 4, 20 fights per side.
+
+| Check | Status | Rule |
+|---|---|---|
+| (b) matchup | **gating** | weak school beats its resisted school by ≥ 20 pp (`check_schools`) |
+| (a) roster | report only | each school deck within ±15 pp of the default, per biome (`report_schools`) |
+| (c) best school | report only | no school best (within 2 pp of top) in every biome (`report_schools`) |
+
+Report-only means the message prints as `REPORT ONLY, tightened in GID-183 / TID-771`; it never fails
+CI. Tightened in GID-183 / TID-771 once the numbers are in band.
+
+Measured (`tests/balance_bands.gd`, 6 fights per cell, default = physical), win %:
+
+| Biome | default | light | dark | verdant | rift |
+|---|---|---|---|---|---|
+| grasslands | 58 | 50 | 58 | 58 | 58 |
+| forest | 50 | 25 | 83 | 92 | 50 |
+| desert | 50 | 50 | 100 | 67 | 50 |
+| scorched | 50 | 42 | 50 | 50 | 50 |
+| mountains | 50 | 17 | 100 | 83 | 33 |
+
+Matchup: cactus worm weak dark 95 % vs resisted verdant 45 % (+50 pp; passes the +20 pp gate).
+
+Known gaps, reported not gated:
+- **Dark outlier.** `dark` is best in every biome with the matched deck (soul_siphon and mana_drain);
+  the desert 100 % is partly the cactus worm's dark weakness in its profile.
+- **Noise.** 6-fight cells are ±20 pp each; the (a) notes at ±15 pp are partly noise. Raise
+  `SCHOOL_FIGHTS` to tighten, at CI cost.
+- Cost: the school section runs about 20 s on top of the ~23 s cell measure.
+
 ## Integrations
 
 - `tests/unit/test_battle_determinism.gd`, `test_player_caster.gd`, `test_battle_setup.gd`, `test_balance_bot.gd`

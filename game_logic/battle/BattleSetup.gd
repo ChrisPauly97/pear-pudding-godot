@@ -25,6 +25,8 @@ const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
 const SkillMods = preload("res://game_logic/battle/SkillMods.gd")
 const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
+## TID-757: how many default Allies a school-matched deck swaps for the school's own cards.
+const MATCHED_SWAP: int = 2
 
 const OPENING_HAND: int = 4
 
@@ -352,4 +354,72 @@ static func level_deck(learned: Array) -> Array[String]:
 	var known: Array[String] = TechniqueDefs.known_cards(learned)
 	for i: int in mini(known.size(), TechniqueDefs.DECK_MAX):
 		deck.append(known[i])
+	return deck
+
+## TID-757: a mono-school deck for the balance sim (`school=` sweep). Every
+## non-technique, non-legendary, non-signature card whose school (magic_type, or
+## physical when empty) is `school`, cycled to the starter's size (duplicates
+## allowed, as in the starter), plus the starter techniques: Strike and the
+## known techniques `level_deck` would add.
+static func school_deck(school: String, learned: Array) -> Array[String]:
+	var pool: Array[String] = _school_cards(school, false)
+	var deck: Array[String] = []
+	if pool.is_empty():
+		return deck
+	for i: int in starter_deck().size() - 1:
+		deck.append(pool[i % pool.size()])
+	deck.append("tech_strike")
+	for id: String in level_deck(learned):
+		if TechniqueDefs.is_technique(id) and not deck.has(id):
+			deck.append(id)
+	return deck
+
+## TID-757 school field of one loaded card id: its magic_type, physical when empty; "" when unknown.
+static func _card_school(id: String) -> String:
+	var t: Dictionary = CardRegistry.get_template(id)
+	if t.is_empty():
+		return ""
+	var mt: String = str(t.get("magic_type", ""))
+	return mt if mt != "" else DamageSchools.PHYSICAL
+
+## Sorted ids of `school`'s cards: every non-legendary, non-signature card of that school.
+## `spells_only` keeps the non-Ally cards (card_class != minion).
+static func _school_cards(school: String, spells_only: bool) -> Array[String]:
+	var out: Array[String] = []
+	for id: String in CardRegistry.get_all_ids():
+		if id.begins_with("sig_") or id.begins_with("coop_") or id.begins_with("duel_"):
+			continue
+		var t: Dictionary = CardRegistry.get_template(id)
+		var cls: String = str(t.get("card_class", ""))
+		if cls == "legendary" or (spells_only and cls == "minion"):
+			continue
+		if _card_school(id) == school:
+			out.append(id)
+	out.sort()
+	return out
+
+## TID-757: the shape-matched deck for the school bands. The default deck (level_deck) keeps every
+## card except its last MATCHED_SWAP Allies, which are replaced by `school`'s own cards: its
+## techniques first (e.g. tech_pyroblast), then its spells. Starter techniques (Strike, Mend,
+## Kick) and the rest of the board stay the same, so the school is the only thing that differs.
+## Physical is the default deck itself (the starter Allies are physical).
+static func school_matched_deck(school: String, learned: Array) -> Array[String]:
+	var deck: Array[String] = level_deck(learned)
+	if school == DamageSchools.PHYSICAL:
+		return deck
+	var allies: Array[int] = []
+	for i: int in deck.size():
+		if not TechniqueDefs.is_technique(deck[i]):
+			allies.append(i)
+	var drop: int = mini(MATCHED_SWAP, allies.size())
+	var fill: Array[String] = []
+	for id: String in TechniqueDefs.ids():
+		if fill.size() < drop and _card_school(id) == school and not deck.has(id) and not fill.has(id):
+			fill.append(id)
+	for id: String in _school_cards(school, true):
+		if fill.size() < drop and not deck.has(id) and not fill.has(id):
+			fill.append(id)
+	for k: int in drop:
+		deck.remove_at(allies[allies.size() - 1 - k])  # largest index first: earlier indices stay valid
+	deck.append_array(fill)
 	return deck

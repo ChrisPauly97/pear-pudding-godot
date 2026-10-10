@@ -388,8 +388,10 @@ unknown profile).
   the real-time enemy tokens.
 - **MagicTypes:** the source of truth for magic type names and validity.
 - **Resolver order:** `scaled_amount` = amount x matchup x battlefield boost x (1 - hero resist) x (1 + attacker power), rounded once.
-- **Planned (later GID-181 tasks):** balance sim
-  sweeps (TID-757).
+- **Balance sim (TID-757):** `BattleSetup.school_matched_deck` (the default deck with two Allies swapped for
+  the school's cards) drives the school bands in `BalanceBands`. The weak-vs-resisted matchup gates CI;
+  the per-biome spread and the best-school-everywhere check are report-only until GID-183 / TID-771
+  rebalances the magic cards. See `docs/agent/balance-sim.md` ("School bands").
 
 ## Asset Requirements
 
