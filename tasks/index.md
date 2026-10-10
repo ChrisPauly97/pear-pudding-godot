@@ -186,6 +186,7 @@
 | [GID-180](goals/GID-180--deck-table/goal.md) | Deck Table — Fun, Tactile Deck & Bag Management | done | 12 / 12 |
 | [GID-181](goals/GID-181--damage-schools/goal.md) | Damage Schools & Matchups (Horizontal Progression) | in progress | 10 / 11 |
 | [GID-182](goals/GID-182--professions/goal.md) | Professions — Alchemy, Cooking, Crafting | done | 8 / 8 |
+| [GID-183](goals/GID-183--magic-school-allies/goal.md) | Magic-school Allies (Verdant & Rift) | pending | 0 / 5 |
 
 ## Backlog
 
