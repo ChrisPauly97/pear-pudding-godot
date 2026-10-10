@@ -202,6 +202,8 @@ const _NAMED_NPC_TEXTURES: Dictionary = {
 	"bounty_master_madrian": _NPC_BOUNTY_MASTER,
 	"gravedigger_madrian": _NPC_GRAVEDIGGER,
 	"rift_warden_madrian": _NPC_RIFT_WARDEN,
+	# GID-182 / TID-766: the Master Artisan has no sprite of its own yet.
+	"crafter_madrian": _NPC_TOWNSPERSON_2,
 }
 
 ## Maps an EnemyRegistry type id to its archetype texture.
