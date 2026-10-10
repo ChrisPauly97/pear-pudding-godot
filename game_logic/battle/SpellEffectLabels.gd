@@ -63,6 +63,7 @@ const EMERGENCE: Dictionary = {
 	"emergence_draw":          "Emergence: Draw [power] card(s)",
 	"emergence_buff_friendly": "Emergence: Give an ally +[power] attack",
 	"emergence_apply_poison":  "Emergence: Poison a random enemy minion for [power]",
+	"emergence_freeze_random": "Emergence: Freeze a random enemy minion for [power] turn(s)",
 }
 
 ## The spell line for `effect` with [power] substituted. An unlabelled effect

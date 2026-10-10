@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://f5n5avvwgehy"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_fracture_mirror_wight"]
+
+[resource]
+script = ExtResource("1_fracture_mirror_wight")
+id = "fracture_mirror_wight"
+card_name = "Mirror Wight"
+cost = 3
+attack = 1
+health = 4
+card_class = "minion"
+description = "It shows you the wound before you have taken it."
+color = Color(0.9, 0.45, 0.75, 1)
+magic_type = "rift"
+magic_branch = "fracture"
+emergence_effect = "emergence_apply_poison"
+emergence_power = 1

@@ -426,7 +426,13 @@ These reach shops, drafts, drops and crafting through the normal
 
 ### Ally Roster — Verdant & Rift (GID-183 / TID-767)
 
-Design only. Every Ally below uses a keyword that exists (`ward`, `surge`, `shroud`) and/or an
+**Rift half built (TID-769):** the eight rift Allies below are `data/cards/flux_skitter`,
+`flux_blinkfox`, `flux_warp_adept`, `flux_temporal_rider`, `fracture_shardling`,
+`fracture_mirror_wight`, `fracture_displacer`, `fracture_unmaker` (`.tres` + `.uid`), registered in
+`CardRegistry._ensure_loaded()` and mapped in `CardArtRegistry._CARD_ART` (families as listed).
+`fracture_displacer` is the only card with a new effect: `emergence_freeze_random` (see battle-system.md).
+
+Design notes below. Every Ally below uses a keyword that exists (`ward`, `surge`, `shroud`) and/or an
 emergence effect that `SpellEffectResolver.resolve_emergence` already runs, except one flagged
 new mechanic. Stat budget is matched to the light/dark Allies: cost 1 ≈ 3 stat points, cost 2 ≈ 4,
 cost 3 ≈ 5–6, cost 4 ≈ 6–7 (a keyword or emergence buys roughly one stat point), cost 5 ≈ 8.

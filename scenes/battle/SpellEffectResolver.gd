@@ -152,6 +152,10 @@ func resolve_emergence(card: CardInstance, caster_pid: int) -> void:
 			var enemies := opponent.board.get_cards()
 			if not enemies.is_empty():
 				enemies[randi() % enemies.size()].apply_status("poison", card.emergence_power)
+		"emergence_freeze_random":
+			var frozen_pool: Array[CardInstance] = opponent.board.get_cards()
+			if not frozen_pool.is_empty():
+				frozen_pool[randi() % frozen_pool.size()].apply_status("freeze", card.emergence_power)
 
 ## Resolves the effect of a spell card played by caster_pid against the opponent.
 ## explicit_target: optional dict with "type" ("minion"/"hero") and "card" (CardInstance).

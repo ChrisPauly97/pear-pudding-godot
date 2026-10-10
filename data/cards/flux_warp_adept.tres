@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://md48zaxn1itn"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_flux_warp_adept"]
+
+[resource]
+script = ExtResource("1_flux_warp_adept")
+id = "flux_warp_adept"
+card_name = "Warp Adept"
+cost = 3
+attack = 1
+health = 3
+card_class = "minion"
+description = "She is already where she said she would be, which is rude."
+color = Color(0.4, 0.8, 1, 1)
+magic_type = "rift"
+magic_branch = "flux"
+emergence_effect = "emergence_buff_friendly"
+emergence_power = 2

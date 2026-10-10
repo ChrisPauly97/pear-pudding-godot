@@ -161,6 +161,14 @@ const _C_TECH_REWEAVE := preload("res://data/cards/tech_reweave.tres")
 const _C_TECH_MANA_SURGE := preload("res://data/cards/tech_mana_surge.tres")
 const _C_TECH_SHATTERWAVE := preload("res://data/cards/tech_shatterwave.tres")
 const _C_TECH_SCAVENGED_SHARDS := preload("res://data/cards/tech_scavenged_shards.tres")
+const _C_FLUX_SKITTER          := preload("res://data/cards/flux_skitter.tres")
+const _C_FLUX_BLINKFOX         := preload("res://data/cards/flux_blinkfox.tres")
+const _C_FLUX_WARP_ADEPT       := preload("res://data/cards/flux_warp_adept.tres")
+const _C_FLUX_TEMPORAL_RIDER   := preload("res://data/cards/flux_temporal_rider.tres")
+const _C_FRACTURE_SHARDLING    := preload("res://data/cards/fracture_shardling.tres")
+const _C_FRACTURE_MIRROR_WIGHT := preload("res://data/cards/fracture_mirror_wight.tres")
+const _C_FRACTURE_DISPLACER    := preload("res://data/cards/fracture_displacer.tres")
+const _C_FRACTURE_UNMAKER      := preload("res://data/cards/fracture_unmaker.tres")
 
 static var _cards: Dictionary = {}  # id -> CardData
 static var _loaded: bool = false
@@ -218,6 +226,8 @@ static func _ensure_loaded() -> void:
 		_C_TECH_BOUNTIFUL_HARVEST, _C_TECH_THORNBURST, _C_TECH_SECOND_BLOOM,
 		_C_TECH_REWEAVE, _C_TECH_MANA_SURGE, _C_TECH_SHATTERWAVE,
 		_C_TECH_SCAVENGED_SHARDS,
+		_C_FLUX_SKITTER, _C_FLUX_BLINKFOX, _C_FLUX_WARP_ADEPT, _C_FLUX_TEMPORAL_RIDER,
+		_C_FRACTURE_SHARDLING, _C_FRACTURE_MIRROR_WIGHT, _C_FRACTURE_DISPLACER, _C_FRACTURE_UNMAKER,
 	]
 	for preloaded in all:
 		if preloaded == null:
