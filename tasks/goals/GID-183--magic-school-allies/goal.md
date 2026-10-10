@@ -13,7 +13,7 @@ GID-181 / TID-757 measured mono-school decks: verdant and rift lose almost every
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-767 | Verdant + rift Ally roster design | agent | done | — |
-| TID-768 | Verdant Allies: cards, registry, art | agent | pending | TID-767 |
+| TID-768 | Verdant Allies: cards, registry, art | agent | done | TID-767 |
 | TID-769 | Rift Allies: cards, registry, art | agent | pending | TID-767 |
 | TID-770 | Distribution: drop pools, vendors, packs | agent | pending | TID-768, TID-769 |
 | TID-771 | Mono-school re-measure, tune, tighten bands | agent | pending | TID-770, TID-757 |
