@@ -1,6 +1,7 @@
 extends "res://scenes/ui/BaseOverlay.gd"
 
 const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
+const _SchoolFeedback = preload("res://game_logic/battle/SchoolFeedback.gd")
 const LandmarkNames  = preload("res://game_logic/world/LandmarkNames.gd")
 const _QuestLog = preload("res://game_logic/quests/QuestLog.gd")
 const _StoryQuests = preload("res://game_logic/quests/StoryQuests.gd")
@@ -392,6 +393,11 @@ func _get_bestiary_tier(type_id: String) -> int:
 		return 2
 	return 1
 
+## The school rows on an enemy's bestiary page (TID-753): '?' until the player has learned them.
+func _school_lines(type_id: String) -> String:
+	return _SchoolFeedback.bestiary_lines(_EnemyRegistry.get_attack_school(type_id),
+			_EnemyRegistry.get_school_profile(type_id), SaveManager.get_bestiary_entry(type_id))
+
 func _update_bestiary_header() -> void:
 	var all_ids: Array[String] = _EnemyRegistry.get_all_enemy_ids()
 	var total: int = all_ids.size()
@@ -448,8 +454,9 @@ func _show_bestiary_detail(type_id: String) -> void:
 			var diff: int = _EnemyRegistry.get_difficulty_tier(type_id)
 			var coins: int = _EnemyRegistry.get_coin_reward(type_id)
 			var remaining: int = max(0, 3 - defeated)
-			_lore_label.text = ("Deck size: %d cards\nDifficulty: %d / 4\nReward: %d coins\n\n[Defeat %d more time(s) "
-					+ "to reveal lore]") % [deck.size(), diff, coins, remaining]
+			_lore_label.text = ("Deck size: %d cards\nDifficulty: %d / 4\nReward: %d coins\n\n%s\n\n"
+					+ "[Defeat %d more time(s) to reveal lore]") % [deck.size(), diff, coins,
+					_school_lines(type_id), remaining]
 		2:
 			_title_label.text = _EnemyRegistry.get_display_name(type_id)
 			_title_label.modulate = Color(1, 1, 1)
@@ -457,8 +464,8 @@ func _show_bestiary_detail(type_id: String) -> void:
 			var diff2: int = _EnemyRegistry.get_difficulty_tier(type_id)
 			var coins2: int = _EnemyRegistry.get_coin_reward(type_id)
 			var lore: String = _EnemyRegistry.get_lore_text(type_id)
-			_lore_label.text = "Deck size: %d cards\nDifficulty: %d / 4\nReward: %d coins\n\n%s" % [deck2.size(), diff2,
-					coins2, lore]
+			_lore_label.text = "Deck size: %d cards\nDifficulty: %d / 4\nReward: %d coins\n\n%s\n\n%s" % [deck2.size(),
+					diff2, coins2, _school_lines(type_id), lore]
 
 func _input(event: InputEvent) -> void:
 	if hub_mode:

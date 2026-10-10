@@ -41,6 +41,18 @@
 
 The coin and card rewards are granted directly in `_check_bestiary_complete()` before setting the flag, so the achievement toast appears after the rewards are applied.
 
+### School Knowledge (GID-181 / TID-753)
+
+Damage-school knowledge is read from the same entry, with no new field. Seen once: the enemy's
+attack school shows. Defeated once: its Weak to and Resists rows show. Until then they read "?".
+
+- `game_logic/battle/SchoolKnowledge.gd` holds the pure rule (`attack_school_known`,
+  `profile_known`, `known_profile`, `journal_view`).
+- `SchoolFeedback.bestiary_lines(attack, profile, entry)` builds the BBCode for the page, with a
+  colour-dot chip per school (`school_bbcode`).
+- `JournalScene._school_lines(type_id)` adds those lines to tier 1 and tier 2 detail. Tier 0 is unchanged.
+- The battle pips (`SchoolPips.known_profile(enemy_type, entry)`) use the same defeat rule.
+
 ## Integrations with Other Features
 
 - **SceneManager:** `_on_enemy_engaged()` calls `save_manager.record_enemy_seen(enemy_type)`; `_on_battle_won()` calls `save_manager.record_enemy_defeated(enemy_type)` for both the regular and Spire battle paths.

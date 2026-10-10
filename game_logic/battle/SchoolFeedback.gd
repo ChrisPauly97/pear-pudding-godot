@@ -9,6 +9,7 @@ const _CombatTuning = preload("res://game_logic/battle/CombatTuning.gd")
 const _MagicTypes = preload("res://game_logic/MagicTypes.gd")
 const _HeroState = preload("res://game_logic/battle/HeroState.gd")
 const _CardInstance = preload("res://game_logic/battle/CardInstance.gd")
+const _SchoolKnowledge = preload("res://game_logic/battle/SchoolKnowledge.gd")
 
 ## Physical is not a magic type, so it has no MagicTypes colour: neutral off-white.
 const NEUTRAL_COLOR: Color = Color(0.92, 0.92, 0.95)
@@ -72,3 +73,27 @@ static func hit_record(unit: Variant) -> Dictionary:
 		var c: _CardInstance = unit as _CardInstance
 		return {"school": c.hit_school, "outcome": c.hit_outcome, "serial": c.hit_serial}
 	return {"school": "", "outcome": "", "serial": -1}
+
+## One school as BBCode: a dot in the school colour, then its name (Physical is neutral).
+static func school_bbcode(school: String) -> String:
+	var school_name: String = _MagicTypes.display_name(school) if _MagicTypes.is_valid_type(school) else "Physical"
+	return "[color=#%s]●[/color] %s" % [school_color(school).to_html(false), school_name]
+
+## Bestiary page text for an enemy's schools (TID-753), BBCode: the attack school, then the
+## weak and resist rows. What the player has not learned reads "?". `entry` is the bestiary entry.
+static func bestiary_lines(attack_school: String, profile: Dictionary, entry: Dictionary) -> String:
+	var view: Dictionary = _SchoolKnowledge.journal_view(attack_school, profile, entry)
+	var attack: String = school_bbcode(str(view["attack"])) if bool(view["attack_known"]) else "?"
+	return "Attack school: %s\nWeak to: %s\nResists: %s" % [
+		attack, _school_list(view, "weak"), _school_list(view, "resist")]
+
+static func _school_list(view: Dictionary, kind: String) -> String:
+	if not bool(view["profile_known"]):
+		return "?"
+	var names: Array = view[kind]
+	if names.is_empty():
+		return "None"
+	var parts: PackedStringArray = []
+	for school: Variant in names:
+		parts.append(school_bbcode(str(school)))
+	return ", ".join(parts)

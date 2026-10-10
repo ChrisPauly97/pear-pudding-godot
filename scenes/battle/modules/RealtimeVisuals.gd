@@ -220,7 +220,7 @@ func _make_token(tex: Texture2D, hero_view: PanelContainer, side: int, enemy_typ
 	vbox.add_child(pic)
 	hero_view.reparent(vbox, false)
 	hero_view.custom_minimum_size = Vector2(0.0, vh * 0.09)
-	_SchoolPips.build(enemy_type, vbox, vh, func(text: String) -> void: toast(text))
+	_SchoolPips.build(enemy_type, SaveManager.get_bestiary_entry(enemy_type), vbox, vh, toast)
 	var bar := _make_bar(vh * 0.012, ENEMY_BAR_COLOR if side != RealtimeCombat.PLAYER else Color(1.0, 0.75, 0.45))
 	vbox.add_child(bar)
 	_token_bars[side] = bar

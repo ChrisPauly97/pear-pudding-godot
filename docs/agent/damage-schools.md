@@ -214,10 +214,10 @@ Players see why a hit was big or small. Three presentation pieces, all reading t
   strip in `RealtimeVisuals` (the real-time token, for the base enemy and joined enemies). Weak =
   filled chip in the school colour, Resists = dark with a coloured rim, Immune = thick rim.
   Hover shows the tooltip on desktop; a tap calls `toast()` with the same line, which is the
-  mobile path. `known_profile(enemy_type)` is the one accessor, currently the full
-  `EnemyRegistry.get_school_profile`. TID-753 gates it on bestiary knowledge, so that is the
-  only change needed there. The pips come from the enemy type, so PvP players (no enemy type)
-  show none.
+  mobile path. `known_profile(enemy_type, entry)` is the one accessor: the enemy's
+  `EnemyRegistry.get_school_profile` gated on its bestiary entry (TID-753, below). `build` takes
+  the same entry as its second argument. The pips come from the enemy type, so PvP players (no
+  enemy type) show none.
 
 Turn-based enemy strips get no pips yet; they are not in the real-time token.
 
@@ -263,6 +263,33 @@ and bog hag not yet, and 83 % after both tunes (band 65–85 %). Forest shade lo
 too strong). Baseline regenerated with `--write-baseline` (measured at `b320079`); only the two
 wolf pack medians changed.
 
+## Bestiary School Knowledge (TID-753)
+
+Knowledge is progression. What a player sees of an enemy's schools depends on its bestiary entry
+(`SaveManager.bestiary[type] = {seen, defeated}`, read through `get_bestiary_entry`). No new save
+field: the rule derives everything from the two counters.
+
+| Knowledge | Rule |
+|---|---|
+| Attack school | `seen >= 1` |
+| Weak and resist profile | `defeated >= 1` (the whole profile, at once) |
+
+Module: `game_logic/battle/SchoolKnowledge.gd` (pure, unit-tested). `attack_school_known`,
+`profile_known`, `known_attack_school(attack, entry)` ("" when unknown), `known_profile(profile,
+entry)` (empty until defeated, else a copy), and `journal_view(attack, profile, entry)` (the gated
+Journal data). `SchoolFeedback.bestiary_lines(attack, profile, entry)` turns that view into the
+Journal's BBCode text. `SchoolFeedback.school_bbcode(school)` is one colour-dot chip plus name.
+
+- **Battle pips:** `SchoolPips.known_profile(enemy_type, entry)` gates the enemy profile on
+  `profile_known`, so a seen-but-not-defeated enemy shows no pips. `RealtimeVisuals` passes
+  `SaveManager.get_bestiary_entry(enemy_type)` into `SchoolPips.build`.
+- **Floating labels stay always-on:** the Weak! / Resisted / Immune damage text is never gated
+  (that is how a player learns the matchup). Only the pre-fight pips and the bestiary read the rule.
+- **Journal:** the bestiary tab's tier 1 and tier 2 detail gain an "Attack school" row and
+  "Weak to" / "Resists" rows, with "?" for anything not yet learned. Immunity is phase-2 only and
+  is not listed on the page.
+- **Not built:** revealing one school on a Weak! / Resisted hit (would need a new persisted field).
+
 ## Integrations
 
 - **CombatTuning:** the three matchup knobs, the three boost knobs (`env_time_mult`,
@@ -271,7 +298,7 @@ wolf pack medians changed.
   the real-time enemy tokens.
 - **MagicTypes:** the source of truth for magic type names and validity.
 - **Resolver order:** `scaled_amount` = amount x matchup x battlefield boost x (1 - hero resist), rounded once.
-- **Planned (later GID-181 tasks):** bestiary reveal (TID-753); player school sources that feed
+- **Planned (later GID-181 tasks):** player school sources that feed
   `_school_resist_sources` (TID-754); matchup loadouts (TID-756); balance sim sweeps (TID-757).
 
 ## Asset Requirements
