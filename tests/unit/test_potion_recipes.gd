@@ -68,7 +68,8 @@ func test_no_alchemy_recipe_has_an_essence_price() -> void:
 
 func test_potion_definitions_carry_no_essence_price() -> void:
 	for potion_id: String in ALCHEMY_POTIONS:
-		assert_false(GardenDefs.POTIONS[potion_id].has("essence_cost"), potion_id)
+		var info: Dictionary = GardenDefs.POTIONS[potion_id]
+		assert_false(info.has("essence_cost"), potion_id)
 
 func test_potion_recipes_outputs_are_potions() -> void:
 	for potion_id: String in ALCHEMY_POTIONS:

@@ -113,11 +113,11 @@ func test_every_alchemy_recipe_output_is_a_known_potion() -> void:
 
 func test_every_input_set_is_valid_and_non_empty() -> void:
 	for id: String in ProfessionDefs.recipes_for(ProfessionDefs.ALCHEMY):
-		for set_: Dictionary in ProfessionDefs.input_sets(ProfessionDefs.def(id)):
-			assert_false(set_.is_empty(), id + " has an input set")
-			for inp: String in set_:
+		for input_set: Dictionary in ProfessionDefs.input_sets(ProfessionDefs.def(id)):
+			assert_false(input_set.is_empty(), id + " has an input set")
+			for inp: String in input_set:
 				assert_true(ProfessionDefs.is_input(inp), id + " input " + inp)
-				assert_gt(int(set_[inp]), 0, id + " count")
+				assert_gt(int(input_set[inp]), 0, id + " count")
 
 
 func test_new_herbs_are_materials_from_the_herb_source() -> void:

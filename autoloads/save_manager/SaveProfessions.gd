@@ -55,9 +55,9 @@ func remove_material(id: String, n: int) -> bool:
 ## accepts (primary, then `alt_inputs`) that is fully owned, else the primary set.
 func inputs_for(recipe_id: String) -> Dictionary:
 	var sets: Array[Dictionary] = ProfessionDefs.input_sets(ProfessionDefs.def(recipe_id))
-	for set_: Dictionary in sets:
-		if _can_pay(set_):
-			return set_
+	for input_set: Dictionary in sets:
+		if _can_pay(input_set):
+			return input_set
 	return sets[0]
 
 

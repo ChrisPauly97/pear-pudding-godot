@@ -22,7 +22,7 @@ Pure static tables (no autoloads; safe on chunk-gen worker threads). It is the s
 | `is_input(id)` / `input_name(id)` | A material or a `GardenDefs.PLANTS` id |
 | `output_valid(output)` | `food` → `HeroVitality.FOODS`, `potion` → `GardenDefs.POTIONS` (`gear` lands with TID-765) |
 
-The starter recipes are Healing Draught and Clarity Brew (alchemy), and Travel Bread and Roast Fowl (cooking).
+The starter recipes are Healing Draught and Clarity Brew (alchemy), and Travel Bread and Roast Fowl (cooking). Alchemy (TID-764) adds Ember Tonic, Stoneskin Tonic, Cleansing Salve and Mana Draught.
 
 ### Save (`autoloads/save_manager/SaveProfessions.gd` → `SaveManager.professions`)
 
@@ -74,15 +74,26 @@ Not done yet: co-op harvests are not broadcast (each peer can harvest the same n
 
 - The garden (`GardenDefs`): plants are inputs. Potions share `SaveManager.potions` with the battle quick slots.
 - Foods (`HeroVitality.FOODS`): crafted foods share `SaveManager.foods` with the world quick use.
-- Gathering nodes (TID-760) are described above. Planned: enemy drops (TID-761), station panel (TID-762), cooking buffs (TID-763), alchemy migration (TID-764), gear (TID-765), trainers + Character tab (TID-766).
+- Gathering nodes (TID-760) are described above. Planned: enemy drops (TID-761), station panel (TID-762), cooking buffs (TID-763), gear (TID-765), trainers + Character tab (TID-766).
 
 ## Asset Requirements
 
 None yet. The station and gathering-node sprites come with TID-760 / TID-762.
 
+## Alchemy (GID-182 / TID-764)
+
+Alchemy owns every potion. The six recipes (Healing Draught, Ember Tonic, Stoneskin Tonic, Clarity Brew, Cleansing Salve,
+Mana Draught) live in `ProfessionDefs.RECIPES` with no essence cost. The full table, the alternative input sets and the
+battle effects are in `home-garden-potions.md` → **Alchemy Brewing**.
+
+- Recipes may take a garden plant instead of the herb: `alt_inputs` lists extra input sets. `SaveProfessions.inputs_for` picks the first one fully owned; `craft_block` reports `inputs` only when none is.
+- Herbs `ironbark`, `starsage` and `emberwort` were appended to `MATERIALS` and to the grassland / forest / desert herb yields in `GatherDefs`.
+- Pure potion effects are in `game_logic/battle/PotionEffects.gd`, shared by the local drink and the PvP host.
+- Potion crafts emit `GameBus.potion_crafted`. The Inventory Craft tab no longer lists potions.
+
 ## Tests
 
-`tests/unit/test_professions.gd` checks that the tables are valid, the XP curve round-trips and the bands behave, and covers the craft flow (inputs, outputs, refusals, level-up) and the v49 migration. `tests/unit/test_gathering.gd` covers gathering: deterministic planning per chunk seed, biome and water gating, yields that are valid materials of the matching source, `add_xp`, and the harvest-then-depleted cycle.
+`tests/unit/test_professions.gd` checks that the tables are valid, the XP curve round-trips and the bands behave, and covers the craft flow (inputs, outputs, refusals, level-up) and the v49 migration. `tests/unit/test_alchemy.gd` covers the potion effects (pure), the recipe tables, alternative inputs and the new herbs. `tests/unit/test_gathering.gd` covers gathering: deterministic planning per chunk seed, biome and water gating, yields that are valid materials of the matching source, `add_xp`, and the harvest-then-depleted cycle.
 
 `tests/unit/test_professions.gd` checks that the tables are valid, the XP curve round-trips and the bands behave, and covers the craft flow (inputs, outputs, refusals, level-up) and the v49 migration.
 

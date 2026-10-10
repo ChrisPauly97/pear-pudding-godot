@@ -172,8 +172,8 @@ static func input_sets(recipe: Dictionary) -> Array[Dictionary]:
 static func recipes_using(input_id: String) -> Array[String]:
 	var out: Array[String] = []
 	for id: String in RECIPES:
-		for set_: Dictionary in input_sets(RECIPES[id]):
-			if set_.has(input_id):
+		for input_set: Dictionary in input_sets(RECIPES[id]):
+			if input_set.has(input_id):
 				out.append(id)
 				break
 	return out
