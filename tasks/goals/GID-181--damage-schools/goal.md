@@ -16,7 +16,7 @@ Starting tuning: resist ×0.5, weak ×1.5, immune only on boss phases; all knobs
 |----|------|------|--------|------------|
 | TID-748 | DamageSchools pure module + CombatTuning knobs | agent | done | — |
 | TID-749 | Single school-aware damage resolver | agent | pending | TID-748 |
-| TID-750 | Enemy school profiles + guardrail test | agent | pending | TID-748 |
+| TID-750 | Enemy school profiles + guardrail test | agent | done | TID-748 |
 | TID-751 | Enemy attack schools + hero school resistances | agent | pending | TID-749, TID-750 |
 | TID-752 | Combat UI: school-coloured numbers, Weak!/Resisted, nameplate icons | agent | pending | TID-749, TID-750 |
 | TID-753 | Bestiary reveals school profiles | agent | pending | TID-750, TID-752 |
