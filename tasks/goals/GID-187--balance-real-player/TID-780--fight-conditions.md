@@ -2,7 +2,7 @@
 
 **Goal:** GID-187
 **Type:** agent
-**Status:** todo
+**Status:** done
 **Depends On:** TID-778
 
 ## Lock
@@ -28,6 +28,34 @@ at most ±20 pp, and a school's favoured biome/time helps it).
 
 ## Plan
 
+1. Pure `game_logic/battle/FightConditions.gd`: weather start poison, school env stamp, summon weather, blight,
+   ambush side + apply, gambit handicaps + emboldened bonus, scorch (`scorch_active`, `scorch_leftmost`).
+2. `BattleSetup.build` cfg keys `weather`, `biome`, `is_night`, `blighted`, `ambush`, `gambit_id`, in BattleScene order.
+   Battlefield context only when a context key is named (bare cfg unchanged).
+3. Game call sites (BattleModifiers, BattleScene, RealtimeCombat) delegate; BalanceFight applies summon weather.
+4. `BalanceCoverage` `conditions` section: 18 conditions + 5 school envs on two cells, gates from measurement.
+5. Unit tests, docs, validation.
+
 ## Changes Made
 
+- New `game_logic/battle/FightConditions.gd` (+ `.uid`): the moved rules, no autoload or scene access.
+- `game_logic/battle/BattleSetup.gd`: cfg keys above; `FightConditions` order matches BattleScene.
+- `scenes/battle/modules/BattleModifiers.gd`: thin wrappers over FightConditions; removed unused preloads.
+- `scenes/battle/BattleScene.gd`: removed `_AMBUSH_HP_*` constants; emboldened / blight / scorch gate call FightConditions.
+- `game_logic/battle/RealtimeCombat.gd`: `_scorch_leftmost` replaced by `FightConditions.scorch_leftmost` (same
+  per-side round tick, focus cleared on a kill).
+- `game_logic/battle/BalanceFight.gd`: summon weather on enemy minions (as BattleRealtime does).
+- `game_logic/battle/BalanceCoverage.gd`: `conditions` section (`SECTIONS`, `measure_conditions`, `check_conditions`).
+  Not added to the CI workflow (parent does that).
+- Tests: `tests/unit/test_fight_conditions.gd` (new, rules); `tests/unit/test_battle_setup.gd` (cfg-key tests, moved
+  there to stay under gdlint's 30-method limit).
+- Measured (`--section conditions`, 32 fights per cell, duelist adept 14 and rift echo 20, same level): all conditions
+  and school envs 97–100 %; largest swing 3 pp (desert day, duelist adept, 96.9 vs 100). Gates: condition swing
+  ±25 pp, school env not lower than its matched deck by more than 7 pp. Runtime about 175 s.
+- Caveat: same-level cells sit at the ceiling, so the gates are weak there. The +1 cell (67 % base, 24 fights) was
+  noisy (single conditions up to +33 / -17 pp), so it was not gated. Recorded in balance-sim.md.
+- Default bands unchanged (`tests/balance_bands.gd` PASS, baseline not rewritten).
+
 ## Documentation Updates
+- `docs/agent/balance-sim.md`: "Battlefield conditions (GID-187 / TID-780)" section (cfg keys, context switch,
+  conditions gates and measurements, ceiling caveat); "Not simulated" list updated.

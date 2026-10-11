@@ -18,6 +18,7 @@ const GameState = preload("res://game_logic/battle/GameState.gd")
 const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const FightStats = preload("res://game_logic/battle/FightStats.gd")
+const FightConditions = preload("res://game_logic/battle/FightConditions.gd")
 const SpellEffectResolver = preload("res://scenes/battle/SpellEffectResolver.gd")
 
 const DT: float = 0.05
@@ -30,6 +31,7 @@ static func run(cfg: Dictionary, policy: Dictionary = {}) -> Dictionary:
 	var rt: RealtimeCombat = built["rt"]
 	var tier: int = int(built["tier"])
 	var enemy_type: String = str(cfg.get("enemy_type", "undead_basic"))
+	var weather: String = str(cfg.get("weather", ""))
 	var resolver := SpellEffectResolver.new()
 	resolver.setup(state)
 	var caster := PlayerCaster.new(rt)
@@ -68,8 +70,12 @@ static func run(cfg: Dictionary, policy: Dictionary = {}) -> Dictionary:
 				"enemy_cast":
 					stats["enemy_casts"] = int(stats["enemy_casts"]) + 1
 					var side: int = int(ev.get("side", RealtimeCombat.ENEMY))
-					resolver.resolve_enemy_play(ev["card"] as CardInstance, side, RealtimeCombat.PLAYER,
+					var played_card: CardInstance = ev["card"] as CardInstance
+					resolver.resolve_enemy_play(played_card, side, RealtimeCombat.PLAYER,
 							BattleSetup.enemy_spell_scale(rt, side))
+					# As BattleRealtime._after_enemy_play: a summoned minion takes the weather.
+					if played_card.card_class != "spell":
+						FightConditions.apply_summon_weather(played_card, weather, state.turn_number)
 				"round":
 					if int(ev.get("side", -1)) == RealtimeCombat.ENEMY:
 						rounds += 1

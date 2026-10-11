@@ -24,7 +24,7 @@ const BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
 const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 
-const SECTIONS: Array[String] = ["range", "world_low", "world_high", "schools", "bosses"]
+const SECTIONS: Array[String] = ["range", "world_low", "world_high", "schools", "bosses", "conditions"]
 ## Regular world types past Chapter 1 (no bosses, no training dummy), by authored tier:
 ## `world_low` = tiers 1-2, `world_high` = tiers 3-4.
 const WORLD_LOW: Array[String] = [
@@ -89,6 +89,48 @@ const BOSSES: Array[String] = [
 const BOSS_FIGHTS: int = 8
 ## Bosses are meant to be hard, but a same-level boss is beatable.
 const BOSS_MIN: float = 0.40
+
+## Battlefield conditions (GID-187 / TID-780). Neutral mid-level cells, the default deck (school
+## schools use their matched deck): each condition vs no battlefield at all (the bare cfg), same
+## seeds, paired. A condition may not move the win rate by more than CONDITION_MAX_SWING.
+## Each school's favoured environment may not lower that school's matched-deck win rate.
+## [enemy type, player level, enemy level].
+const CONDITION_CELLS: Array = [["duelist_adept", 14, 14], ["rift_echo", 20, 20]]
+const CONDITION_FIGHTS: int = 32
+## Largest allowed swing (win rate, either way) of one condition against no battlefield.
+const CONDITION_MAX_SWING: float = 0.25
+## One school's favoured environment may lower its matched-deck win rate by at most this.
+const CONDITION_SCHOOL_SLACK: float = 0.07
+## [label, cfg keys the condition sets] (BattleSetup.build cfg).
+const CONDITIONS: Array = [
+	["rain", {"weather": "rain"}],
+	["heavy_rain", {"weather": "heavy_rain"}],
+	["ash_fall", {"weather": "ash_fall"}],
+	["sandstorm", {"weather": "sandstorm"}],
+	["snow", {"weather": "snow"}],
+	["forest", {"biome": 1}],
+	["desert_day", {"biome": 2, "is_night": false}],
+	["desert_night", {"biome": 2, "is_night": true}],
+	["scorched", {"biome": 3}],
+	["mountains", {"biome": 4}],
+	["night", {"is_night": true}],
+	["blighted", {"blighted": true}],
+	["ambush_player", {"ambush": "player"}],
+	["ambush_enemy", {"ambush": "enemy"}],
+	["gambit_wounded_pride", {"gambit_id": "wounded_pride"}],
+	["gambit_slow_start", {"gambit_id": "slow_start"}],
+	["gambit_emboldened_foe", {"gambit_id": "emboldened_foe"}],
+	["gambit_iron_veil", {"gambit_id": "iron_veil"}],
+]
+## [school, cfg keys of its favoured environment] (BattlefieldRules.SCHOOL_ENV): light by day,
+## dark by night, verdant in forest, rift in scorched, physical in mountains.
+const SCHOOL_ENVS: Array = [
+	["light", {"is_night": false}],
+	["dark", {"is_night": true}],
+	["verdant", {"biome": 1}],
+	["rift", {"biome": 3}],
+	["physical", {"biome": 4}],
+]
 
 ## [enemy type, player level] for `section` ("range", "world_low", "world_high").
 static func ladder_cells(section: String) -> Array:
@@ -256,6 +298,50 @@ static func check_bosses(measured: Dictionary) -> Array[String]:
 			fails.append("bosses %s: win rate %.0f%% < %.0f%%" % [k, wr * 100.0, BOSS_MIN * 100.0])
 	return fails
 
+## Runs the condition cells: {"condition/<label>/<type>@<level>": cell, "school/<school>/<env>/<type>@<level>": cell}.
+## Each cell has its win rate (`win_rate`), the bare rate at the same seeds (`base`), and `median_s`.
+static func measure_conditions(tune: Dictionary = {}) -> Dictionary:
+	var out: Dictionary = {}
+	for c: Array in CONDITION_CELLS:
+		var t: String = str(c[0])
+		var pl: int = int(c[1])
+		var el: int = int(c[2])
+		var base: Dictionary = run_cell(t, pl, el, CONDITION_FIGHTS, "", tune)
+		for cond: Array in CONDITIONS:
+			var r: Dictionary = run_cell(t, pl, el, CONDITION_FIGHTS, "", tune, cond[1] as Dictionary)
+			out["condition/%s/%s@%d" % [str(cond[0]), t, el]] = {"kind": "condition", "win_rate": r["win_rate"],
+				"median_s": r["median_s"], "base": base["win_rate"], "n": r["n"]}
+		for se: Array in SCHOOL_ENVS:
+			var school: String = str(se[0])
+			var school_base: Dictionary = run_cell(t, pl, el, CONDITION_FIGHTS, school, tune, {}, BattleSetup.MATCHED_SWAP)
+			var r2: Dictionary = run_cell(t, pl, el, CONDITION_FIGHTS, school, tune, se[1] as Dictionary,
+				BattleSetup.MATCHED_SWAP)
+			out["school/%s/%s/%s@%d" % [school, _env_label(se[1] as Dictionary), t, el]] = {"kind": "school",
+				"win_rate": r2["win_rate"], "median_s": r2["median_s"], "base": school_base["win_rate"], "n": r2["n"]}
+	return out
+
+## A short label for an environment cfg ("day", "night", "biome2"...).
+static func _env_label(env: Dictionary) -> String:
+	if env.has("is_night"):
+		return "night" if bool(env["is_night"]) else "day"
+	return "biome%d" % int(env.get("biome", -1))
+
+## Failures of the condition cells (empty = pass).
+static func check_conditions(measured: Dictionary) -> Array[String]:
+	var fails: Array[String] = []
+	for k: String in measured:
+		var m: Dictionary = measured[k]
+		var rate: float = float(m["win_rate"])
+		var base: float = float(m["base"])
+		if str(m["kind"]) == "condition":
+			if absf(rate - base) > CONDITION_MAX_SWING + 0.001:
+				fails.append("conditions %s: %.0f%% vs %.0f%% with no battlefield (swing over %.0f pp)" % [k,
+					rate * 100.0, base * 100.0, CONDITION_MAX_SWING * 100.0])
+		elif rate < base - CONDITION_SCHOOL_SLACK - 0.001:
+			fails.append("conditions %s: favoured environment %.0f%% lowers the matched deck from %.0f%%" % [k,
+				rate * 100.0, base * 100.0])
+	return fails
+
 ## Measures and checks one section: {"measured": Dictionary, "fails": Array[String]}.
 static func run_section(section: String, tune: Dictionary = {}) -> Dictionary:
 	var measured: Dictionary = {}
@@ -267,6 +353,9 @@ static func run_section(section: String, tune: Dictionary = {}) -> Dictionary:
 		"bosses":
 			measured = measure_bosses(tune)
 			fails = check_bosses(measured)
+		"conditions":
+			measured = measure_conditions(tune)
+			fails = check_conditions(measured)
 		_:
 			measured = measure_ladder(section, tune)
 			fails = check_ladder(section, measured)

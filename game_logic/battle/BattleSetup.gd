@@ -4,8 +4,10 @@
 ## values read from the save; `build()` assembles a whole real-time fight from
 ## a plain config for `tools/balance_sim.gd`.
 ##
-## Not covered (scene-only, see BID-094): spire / siege HP carry-over, gambits,
-## ambush, blight, weather, battlefield biome, companions, persistent hero HP.
+## Battlefield conditions (weather, biome / night school boosts, scorch, blight, ambush,
+## gambits) live in `FightConditions`, shared with the game (GID-187 / TID-780).
+## Not covered (scene-only, see BID-094): spire / siege HP carry-over, companions,
+## persistent hero HP.
 extends RefCounted
 
 const GameState = preload("res://game_logic/battle/GameState.gd")
@@ -27,6 +29,8 @@ const WeaponData = preload("res://data/WeaponData.gd")
 const SkillMods = preload("res://game_logic/battle/SkillMods.gd")
 const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
 const GearStats = preload("res://game_logic/items/GearStats.gd")
+const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
+const FightConditions = preload("res://game_logic/battle/FightConditions.gd")
 ## TID-757: how many default Allies a school-matched deck swaps for the school's own cards.
 const MATCHED_SWAP: int = 2
 
@@ -318,7 +322,11 @@ static func apply_live_tuning(rt: RealtimeCombat, base_tier: int) -> void:
 ##   offhand (item ids), skills (passive skill ids), enemy_type ("undead_basic"),
 ##   enemy_level (1 = no zone scaling), is_boss (false), untag_school ("": a school
 ##   whose resist / weak / immune tags the enemy loses), tuning ({knob: value}),
-##   seed (0 = leave the RNGs as they are).
+##   seed (0 = leave the RNGs as they are). Battlefield conditions (FightConditions,
+##   GID-187 / TID-780): weather ("" = clear: ash_fall, rain, sandstorm, snow...), biome
+##   (BattlefieldRules.BIOME_*, -1 = dungeon), is_night (false), blighted (false: +5 foe HP),
+##   ambush ("" / "player" / "enemy"), gambit_id (""). Naming `biome`, `is_night` or `weather`
+##   turns the battlefield context on (school boosts, scorch); otherwise none applies.
 ## Returns {state: GameState, rt: RealtimeCombat, tier: int}.
 static func build(cfg: Dictionary) -> Dictionary:
 	var s: int = int(cfg.get("seed", 0))
@@ -348,6 +356,8 @@ static func build(cfg: Dictionary) -> Dictionary:
 	me.hero.school_resist = DamageSchools.capped_resists(school_resist_sources(gear, skill_ids, me.gear))
 	apply_skill_mods(me, skill_ids)
 	me.draw_opening_hand(OPENING_HAND)
+	var gambit_id: String = str(cfg.get("gambit_id", ""))
+	foe.minion_attack_bonus = FightConditions.enemy_minion_attack_bonus(gambit_id)  # before its deck is built
 	var tier: int = enemy_tier(enemy_type, is_boss, enemy_level)
 	var boss_hp: int = EnemyRegistry.get_boss_hp(enemy_type) if is_boss else 0
 	setup_enemy(foe, me, enemy_type, EnemyRegistry.get_deck(enemy_type), tier, enemy_level, boss_hp)
@@ -355,7 +365,21 @@ static func build(cfg: Dictionary) -> Dictionary:
 	if untag != "":  # GID-186: one school's matchup switched off, for the paired school checks
 		for kind: String in foe.school_profile:
 			(foe.school_profile[kind] as Dictionary).erase(untag)
+	# Same order as BattleScene: blight, gambit handicaps, ambush, then the turn-1 start.
+	if bool(cfg.get("blighted", false)):
+		FightConditions.apply_blight(foe)
+	FightConditions.apply_gambit_handicaps(state, gambit_id)
+	FightConditions.apply_ambush(state, str(cfg.get("ambush", "")))
 	me.start_turn(1)
+	var weather: String = str(cfg.get("weather", ""))
+	FightConditions.apply_weather_start(state, weather)
+	# The battlefield context (biome, night, weather school boosts) is set only when the cfg names
+	# one, so a bare cfg keeps the no-battlefield fight the bands were measured on (no dungeon-day
+	# light boost). `biome: -1, is_night: false` is the dungeon-by-day context the game uses.
+	if cfg.has("biome") or cfg.has("is_night") or cfg.has("weather"):
+		state.set_battlefield_context(int(cfg.get("biome", BattlefieldRules.BIOME_NONE)),
+				bool(cfg.get("is_night", false)))
+		FightConditions.apply_school_environment(state, weather)
 	var type_tier: int = base_tier(enemy_type)
 	var rt_enemy_level: int = enemy_level if cfg.has("enemy_level") else default_enemy_level(enemy_type)
 	var rt := RealtimeCombat.new(state, [player_level, rt_enemy_level], tuning)

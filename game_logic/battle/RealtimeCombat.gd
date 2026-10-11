@@ -21,6 +21,7 @@ const CombatTuning = preload("res://game_logic/battle/CombatTuning.gd")
 const DamageResolver = preload("res://game_logic/battle/DamageResolver.gd")
 const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
 const GearStats = preload("res://game_logic/items/GearStats.gd")
+const FightConditions = preload("res://game_logic/battle/FightConditions.gd")
 
 const PLAYER: int = 0
 ## The first (original) enemy. Adds get later indices.
@@ -381,8 +382,10 @@ func _run_round_upkeep(side: int) -> void:
 		c.start_turn()
 		_tick_card_status(p, c)
 	_tick_hero_status(p)
-	if state.battlefield_biome == BattlefieldRules.BIOME_DESERT and not state.is_night:
-		_scorch_leftmost(p)
+	if FightConditions.scorch_active(state):
+		var dead: CardInstance = FightConditions.scorch_leftmost(p, tune)
+		if dead != null and focus_target == dead:
+			focus_target = null
 
 ## Poison damage-then-decay and freeze decay, mirroring BattleFx._tick_statuses_on_card.
 ## Unlike the turn-based original, a card poisoned to 0 HP is swept off the board —
@@ -420,21 +423,6 @@ func _tick_hero_status(p: PlayerState) -> void:
 			hero.clear_status("poison")
 		else:
 			hero.apply_status("poison", nv)
-
-## Desert biome rule: damage `p`'s own leftmost minion, mirroring
-## BattleModifiers._apply_desert_scorch() for this side only (each side pulses on
-## its own round timer in real time, rather than both boards on every turn end).
-func _scorch_leftmost(p: PlayerState) -> void:
-	for si in range(5):
-		var c: CardInstance = p.board.slots[si]
-		if c != null:
-			DamageResolver.deal(p, c, 1, DamageSchools.PHYSICAL, tune)
-			if not c.is_alive():
-				p.board.remove_card(c)
-				p.discard.append(c)
-				if focus_target == c:
-					focus_target = null
-			return
 
 func _tick_swings(delta: float, events: Array[Dictionary]) -> void:
 	var live: Dictionary = {}

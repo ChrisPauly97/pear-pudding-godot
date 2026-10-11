@@ -14,7 +14,6 @@ const _BattleScene = preload("res://scenes/battle/BattleScene.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
-const DamageResolver = preload("res://game_logic/battle/DamageResolver.gd")
 const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
@@ -24,8 +23,7 @@ const Gambits = preload("res://game_logic/battle/Gambits.gd")
 const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
-const _GameState = preload("res://game_logic/battle/GameState.gd")
-const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
+const FightConditions = preload("res://game_logic/battle/FightConditions.gd")
 
 var _battle: _BattleScene
 ## Enemy type + tier the fight traits apply for (set with the pack).
@@ -149,35 +147,20 @@ func _add_companion_hud() -> void:
 	passive_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 ## Apply init-time weather modifiers (ash_fall poison) and reset snow discount tracking.
+## Battle-start weather (ash poison) and the snow discount's per-side tracking reset.
+## The rules live in FightConditions (GID-187 / TID-780).
 func _apply_weather_battle_init() -> void:
 	_battle._snow_discount_used = [false, false]
-	match _battle._battle_weather:
-		"ash_fall", "volcanic":
-			_battle._state.players[1].hero.apply_status("poison", 2)
+	FightConditions.apply_weather_start(_battle._state, _battle._battle_weather)
 
 ## GID-181 / TID-755: stores this battlefield's school boosts (biome, weather, night) on
 ## both sides. Call after set_battlefield_context, which stamps the biome and night.
 func _apply_school_environment() -> void:
-	var st: _GameState = _battle._state
-	var table: Dictionary = BattlefieldRules.school_env_table(
-			st.battlefield_biome, _battle._battle_weather, st.is_night)
-	for p: PlayerState in st.players:
-		p.env_school_mult = table.duplicate()
+	FightConditions.apply_school_environment(_battle._state, _battle._battle_weather)
 
 ## Apply weather modifier to a newly summoned card (rain ghost bonus, sandstorm debuff).
 func _apply_weather_to_summoned(card: CardInstance, _player_idx: int) -> void:
-	match _battle._battle_weather:
-		"rain":
-			if card.template_id == "ghost":
-				card.health += 1
-				card.max_health += 1
-		"heavy_rain":
-			if card.template_id == "ghost":
-				card.health += 2
-				card.max_health += 2
-		"sandstorm", "dust_devil":
-			if _battle._state.turn_number <= 2:
-				card.attack = maxi(0, card.attack - 1)
+	FightConditions.apply_summon_weather(card, _battle._battle_weather, _battle._state.turn_number)
 
 ## GID-142 / TID-598: a rift run fights with the player's own deck (collection
 ## instances, ranks and all) plus the run's temporary picks, and applies its
@@ -222,33 +205,14 @@ func _active_companion() -> String:
 	return sm.active_companion if sm.has_learned(_UnlockLadder.FEAT_COMPANION) else ""
 
 func _apply_ambush_modifiers(edata: Dictionary) -> void:
-	if bool(edata.get("player_ambush", false)):
-		var enemy_hero: HeroState = _battle._state.players[1].hero
-		var new_hp: int = maxi(_battle._AMBUSH_HP_MIN,
-				int(round(enemy_hero.max_health * (1.0 - _battle._AMBUSH_HP_PCT))))
-		enemy_hero.health = new_hp
-		enemy_hero.max_health = new_hp
-		_battle._result_ui.show_ambush_banner(true)
-	elif bool(edata.get("enemy_ambush", false)):
-		var player_hero: HeroState = _battle._state.players[0].hero
-		var new_hp: int = maxi(_battle._AMBUSH_HP_MIN,
-				int(round(player_hero.max_health * (1.0 - _battle._AMBUSH_HP_PCT))))
-		player_hero.health = new_hp
-		player_hero.max_health = new_hp
-		_battle._result_ui.show_ambush_banner(false)
+	var side: String = FightConditions.ambush_side(edata)
+	FightConditions.apply_ambush(_battle._state, side)
+	if side != "":
+		_battle._result_ui.show_ambush_banner(side == FightConditions.AMBUSH_PLAYER)
 
+## Gambit handicaps (FightConditions). "emboldened_foe" is a deck bonus, set before build_deck.
 func _apply_gambit_handicaps(gambit_id: String) -> void:
-	if gambit_id.is_empty():
-		return
-	match gambit_id:
-		"wounded_pride":
-			_battle._state.players[0].hero.health = 25
-			_battle._state.players[0].hero.max_health = 25
-		"slow_start":
-			_battle._state.players[0].skip_next_draw = true
-		"iron_veil":
-			_battle._state.players[1].hero.apply_status("armor", 5)
-		# "emboldened_foe" is handled before build_deck via minion_attack_bonus.
+	FightConditions.apply_gambit_handicaps(_battle._state, gambit_id)
 
 func _add_gambit_badge() -> void:
 	var gambit_id: String = str(_battle.enemy_data.get("gambit_id", ""))
@@ -268,15 +232,7 @@ func _add_gambit_badge() -> void:
 ## Desert biome rule: damage the leftmost minion on each board at turn start.
 ## Does NOT use the Scorched modifier — this is a separate status tick.
 func _apply_desert_scorch() -> void:
-	for pid in range(2):
-		for si in range(5):
-			var c: CardInstance = _battle._state.players[pid].board.slots[si]
-			if c != null:
-				DamageResolver.deal(_battle._state.players[pid], c, 1, DamageSchools.PHYSICAL)
-				if not c.is_alive():
-					_battle._state.players[pid].board.remove_card(c)
-					_battle._state.players[pid].discard.append(c)
-				break
+	FightConditions.apply_desert_scorch(_battle._state)
 
 
 # ── Persistent hero HP (GID-136 / TID-543) ──────────────────────────────────

@@ -5,6 +5,7 @@ extends Control
 const _ZoneLevels = preload("res://game_logic/world/ZoneLevels.gd")
 const GameState = preload("res://game_logic/battle/GameState.gd")
 const _BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
+const _FightConditions = preload("res://game_logic/battle/FightConditions.gd")
 const _BattleNet = preload("res://scenes/battle/net/BattleNet.gd")
 const _BattleNetSync = preload("res://scenes/battle/BattleNetSync.gd")
 const _BattleModifiers = preload("res://scenes/battle/modules/BattleModifiers.gd")
@@ -65,14 +66,6 @@ const _PVP_RECONNECT_GRACE_SECONDS: float = 45.0
 const _BATTLEFIELD_BANNER_DURATION: float = 3.0
 const TUTORIAL_DURATION: float = 8.0
 
-## World-encounter ambush handicaps (GID-113 / TID-421, TID-422). Mirrors
-## `wounded_pride`'s shape: sets both `health` and `max_health` so the
-## handicap survives the whole match instead of being healed away by the
-## first heal card. `player_ambush`/`enemy_ambush` are mutually exclusive by
-## construction (EnemyNPC.engage() derives them from different alert-state
-## values) so only one branch below ever fires.
-const _AMBUSH_HP_PCT: float = 0.2
-const _AMBUSH_HP_MIN: int = 10
 
 var enemy_data: Dictionary = {}
 ## Set by SceneManager when the battle is fought over the live (frozen) world
@@ -514,8 +507,7 @@ func _setup_solo_battle() -> void:
 	# Emboldened Foe gambit: set bonus before build_deck so it is applied to the draw_deck
 	# and persists for boss phase-2 rebuild via PlayerState.minion_attack_bonus.
 	var _gambit_id: String = str(enemy_data.get("gambit_id", ""))
-	if _gambit_id == "emboldened_foe":
-		_state.players[1].minion_attack_bonus = 1
+	_state.players[1].minion_attack_bonus = _FightConditions.enemy_minion_attack_bonus(_gambit_id)
 	# Deck (trait-shaped, tier-scaled) + opening hand, pack on the board (TID-541),
 	# boss HP and zone-level HP — shared with the balance sim (GID-176 / TID-714).
 	var enemy_deck: Array[String] = []
@@ -529,8 +521,7 @@ func _setup_solo_battle() -> void:
 
 	# Blighted zone buff: non-blight-heart enemies get +5 HP in blighted chunks.
 	if bool(enemy_data.get("is_blighted", false)) and not enemy_data.has("blight_heart_id"):
-		_state.players[1].hero.health += 5
-		_state.players[1].hero.max_health += 5
+		_FightConditions.apply_blight(_state.players[1])
 		GameBus.hud_message_requested.emit("The blight empowers your foe…")
 
 	# Apply remaining gambit handicaps now that all decks and HP are set.
@@ -943,7 +934,7 @@ func _on_turn_ended(player_idx: int) -> void:
 	var snap_sot := _fx.snapshot()
 	_fx.process_start_of_turn_statuses(player_idx)
 	# Desert biome rule: leftmost minion on each board takes 1 damage at turn start (daytime only).
-	if _state.battlefield_biome == BattlefieldRules.BIOME_DESERT and not _state.is_night:
+	if _FightConditions.scorch_active(_state):
 		modifiers._apply_desert_scorch()
 	# Grow snow-discount tracking array to match player count.
 	while _snow_discount_used.size() <= player_idx:

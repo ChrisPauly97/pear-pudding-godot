@@ -65,8 +65,9 @@ Determinism: `BattleSetup.build` calls `seed(n)` (global RNG: shuffles, resolver
 - **A bot, not a human.** Compare settings against each other; absolute win rates are only a proxy for
   "average play".
 - **Coverage:** see "Wide coverage" — every level 1–60, school matchups and bosses (GID-186).
-- **Not simulated:** weather, gambits, ambush, blight, companions, persistent / carried-over HP, potions and the
-  hero power, boss phase 2, commanded Ally attacks, focus changes, snow discount.
+- **Not simulated:** companions, persistent / carried-over HP, potions and the hero power, boss phase 2,
+  commanded Ally attacks, focus changes, snow discount and blizzard freeze (both turn-based or player-side only).
+  Weather, biome / night, blight, ambush and gambits are simulated since GID-187 (below).
 - **Real time only** (user decision); turn-based fights aren't simulated.
 
 ## Balance targets (user, 2026-10-08)
@@ -336,6 +337,45 @@ spectre haunt 88 / 69, resist duelist champion 44 / 63; dark weak troll 44 / 38,
 weak scout 25 / 13, resist forest shade 56 / 63; rift weak mimic 63 / 56, resist duelist novice 38 / 56.
 Bosses: barrow king 88, blight heart 50, hollow steward 100, vanguard 63, warleader 75, roaming terror 88,
 stone golem 75 %.
+
+## Battlefield conditions (GID-187 / TID-780)
+
+Weather, biome / night school boosts, desert scorch, blight, ambush and gambit handicaps live in
+`game_logic/battle/FightConditions.gd` (pure). The game (`BattleScene`, `BattleModifiers`, `BattleRealtime`,
+`RealtimeCombat`) and `BattleSetup.build` call the same functions, so a condition means the same thing in both.
+`BalanceFight` applies the summon weather to enemy minions as `BattleRealtime._after_enemy_play` does.
+
+New `BattleSetup.build` cfg keys: `weather` (`rain`, `heavy_rain`, `ash_fall`, `sandstorm`, `snow`...), `biome`
+(`BattlefieldRules.BIOME_*`, -1 = dungeon), `is_night`, `blighted` (+5 foe HP), `ambush` (`player` / `enemy`),
+`gambit_id` (`wounded_pride`, `slow_start`, `emboldened_foe`, `iron_veil`).
+
+- **Context switch:** the battlefield context (biome, night, school boosts) is set only when the cfg names
+  `biome`, `is_night` or `weather`. A bare cfg keeps the no-battlefield fight, so the default bands and their
+  baseline do not move. Naming any of them is the game's behaviour, including the dungeon's day light boost
+  (`biome: -1, is_night: false`).
+- **Realtime only:** the sim's scorch runs in `RealtimeCombat` (per side, per round). Blizzard freeze and the
+  snow discount stay turn-based (not in the sim).
+
+### `conditions` section (`BalanceCoverage`, `--section conditions`)
+
+Cells: `duelist_adept` at 14 vs 14 and `rift_echo` at 20 vs 20, default deck, 32 paired seeds. Each of 18
+conditions is measured against no battlefield (bare cfg), and each school's favoured environment (light by day,
+dark by night, verdant in forest, rift in scorched, physical in mountains) against no battlefield on its
+matched deck.
+
+| Gate | Value | Why |
+|---|---|---|
+| Condition swing vs none | ±25 pp (`CONDITION_MAX_SWING`) | task gate |
+| School favoured env may not lower its matched deck | 7 pp (`CONDITION_SCHOOL_SLACK`) | one 32-fight cell moves in ~3 pp steps; 7 pp allows for chaos |
+
+Measured (win %, 32 fights per cell, `--section conditions`): every condition and every school env is 97–100 %
+on both cells (largest swing 3 pp: desert day on duelist adept, 96.9 vs 100). Section PASS, runtime ~175 s.
+
+Caveat: these cells sit at the ceiling. Earlier, at one level up (`duelist_adept` 14 vs 15, base 67 %, 24 fights)
+single conditions swung up to +33 / -17 pp and school envs -17 pp, which is sampling noise, not signal (a
+condition that changes a fight perturbs its RNG stream, so each seed decorrelates). So the ±25 gate is
+meaningful only once the cells are measured with enough fights to resolve it. A neutral mid-rate cell with 100+
+fights would tighten it; not done here (runtime).
 
 ## Integrations
 

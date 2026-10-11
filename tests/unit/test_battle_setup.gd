@@ -10,8 +10,16 @@ const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const ZoneLevels = preload("res://game_logic/world/ZoneLevels.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const CombatTuning = preload("res://game_logic/battle/CombatTuning.gd")
+const FightConditions = preload("res://game_logic/battle/FightConditions.gd")
+const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
 
 const ALL: Array = ["mend", "kick", "feat_minions", "feat_spells"]
+
+func _minion(id: String = "skeleton", atk: int = 2, hp: int = 3) -> CardInstance:
+	return CardInstance.new({
+		"id": id, "name": id.capitalize(), "cost": 1,
+		"attack": atk, "health": hp, "card_class": "minion", "description": "",
+	})
 
 func _ids(cards: Array[CardInstance]) -> Array[String]:
 	var out: Array[String] = []
@@ -166,3 +174,56 @@ func test_horde_reinforces_and_hits_harder() -> void:
 	BattleSetup.add_enemy_attack(p, 1)
 	assert_eq(unit.attack, 3)
 	assert_gt(EnemyRegistry.rt_attack_bonus("undead_horde"), 0)
+
+# --- Battlefield conditions through the cfg (GID-187 / TID-780) ----------------
+
+func test_bare_cfg_has_no_battlefield_context() -> void:
+	var f: Dictionary = BattleSetup.build({"seed": 3, "enemy_type": "undead_basic", "enemy_level": 3})
+	var st: GameState = f["state"]
+	assert_eq(st.battlefield_biome, BattlefieldRules.BIOME_NONE)
+	assert_true(st.players[0].env_school_mult.is_empty(), "no school boosts without the keys")
+
+func test_build_blight_key_adds_hp() -> void:
+	var plain: GameState = BattleSetup.build({"seed": 3, "enemy_type": "undead_basic", "enemy_level": 3})["state"]
+	var blight: GameState = BattleSetup.build({"seed": 3, "enemy_type": "undead_basic", "enemy_level": 3,
+		"blighted": true})["state"]
+	# The +BLIGHT_HP lands before the per-type HP multiplier (configure_realtime), as in the game, so the
+	# gain is scaled by it: assert it adds HP, not the exact amount.
+	assert_gt(blight.players[1].hero.max_health, plain.players[1].hero.max_health, "blight adds HP")
+
+func test_build_ambush_key_hurts_the_enemy() -> void:
+	var plain: GameState = BattleSetup.build({"seed": 3, "enemy_type": "undead_basic", "enemy_level": 3})["state"]
+	var amb: GameState = BattleSetup.build({"seed": 3, "enemy_type": "undead_basic", "enemy_level": 3,
+		"ambush": "player"})["state"]
+	assert_lt(amb.players[1].hero.max_health, plain.players[1].hero.max_health)
+
+func test_build_gambit_keys_set_both_sides() -> void:
+	var wp: GameState = BattleSetup.build({"seed": 3, "gambit_id": "wounded_pride"})["state"]
+	assert_eq(wp.players[0].hero.max_health, 25)
+	var em: GameState = BattleSetup.build({"seed": 3, "gambit_id": "emboldened_foe"})["state"]
+	assert_eq(em.players[1].minion_attack_bonus, 1)
+	assert_eq(em.players[0].minion_attack_bonus, 0)
+
+func test_build_weather_key_poisons_the_foe() -> void:
+	var st: GameState = BattleSetup.build({"seed": 3, "weather": "ash_fall"})["state"]
+	assert_eq(st.players[1].hero.get_status_value("poison"), FightConditions.ASH_POISON)
+
+func test_build_biome_and_night_keys_set_the_context() -> void:
+	var st: GameState = BattleSetup.build({"seed": 3, "biome": BattlefieldRules.BIOME_DESERT,
+		"is_night": true})["state"]
+	assert_eq(st.battlefield_biome, BattlefieldRules.BIOME_DESERT)
+	assert_true(st.is_night)
+	assert_true(st.players[0].is_night)
+	assert_true(st.players[0].env_school_mult.has("dark"), "night boosts dark on both sides")
+
+func test_build_biome_key_drives_realtime_scorch() -> void:
+	var f: Dictionary = BattleSetup.build({"seed": 3, "biome": BattlefieldRules.BIOME_DESERT, "is_night": false})
+	var st: GameState = f["state"]
+	var rt: RealtimeCombat = f["rt"]
+	var foe: PlayerState = st.players[1]
+	for c: CardInstance in foe.board.get_cards():
+		foe.board.remove_card(c)
+	var minion := _minion("skeleton", 1, 5)
+	foe.board.add_card_at_slot(minion, 0)
+	rt._run_round_upkeep(RealtimeCombat.ENEMY)
+	assert_eq(minion.health, 4, "the daytime desert scorches the enemy's leftmost minion each round")
