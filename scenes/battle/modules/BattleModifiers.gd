@@ -40,7 +40,7 @@ func _init(battle: _BattleScene) -> void:
 func _apply_equipment_effects(player: PlayerState) -> void:
 	var sm := SceneManager.save_manager
 	var items: Array[Dictionary] = _equipped_items()
-	_BattleSetup.apply_gear(player, items, sm.battle_mode().begins_with("realtime"))
+	_BattleSetup.apply_gear(player, items, sm.battle_mode().begins_with("realtime"), sm.level)
 	_BattleSetup.apply_school_power(player, items, sm.unlocked_skills)  # GID-181 / TID-754
 	_apply_well_fed(player)
 
@@ -297,7 +297,8 @@ func _apply_school_resists(player: PlayerState) -> void:
 ## The hero's resistance sources: equipped school_resist affixes and skill nodes (TID-754).
 func _school_resist_sources() -> Dictionary:
 	var sm := SceneManager.save_manager
-	return _BattleSetup.school_resist_sources(_equipped_items(), sm.unlocked_skills)
+	return _BattleSetup.school_resist_sources(_equipped_items(), sm.unlocked_skills,
+			_battle._state.players[0].gear)  # GID-187 / TID-788: resist:<school> gear stats
 
 func _apply_persistent_hp() -> void:
 	if not _hp_carries():

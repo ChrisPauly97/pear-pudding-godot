@@ -26,6 +26,7 @@ const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
 const SkillMods = preload("res://game_logic/battle/SkillMods.gd")
 const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
+const GearStats = preload("res://game_logic/items/GearStats.gd")
 ## TID-757: how many default Allies a school-matched deck swaps for the school's own cards.
 const MATCHED_SWAP: int = 2
 
@@ -53,8 +54,17 @@ static func unlock_filter(deck: Array[CardInstance], learned: Array) -> Array[Ca
 ## Equipped items' battle effects. `items`: [{id, level (weapon upgrade), mult (gear roll)}].
 ## Off-hand attack gear swings on its own timer in real time (RealtimeCombat.offhand_damage,
 ## see `offhand_damage_for_item`); turn-based gets a smaller always-on attack bonus instead.
-static func apply_gear(player: PlayerState, items: Array[Dictionary], realtime: bool) -> void:
+static func apply_gear(player: PlayerState, items: Array[Dictionary], realtime: bool, player_level: int = 1,
+		tune: CombatTuning = null) -> void:
 	var injected_any: bool = false
+	# GID-187 / TID-788: stat ratings from the item data and each item's hand-made `stats`.
+	var stat_items: Array[Dictionary] = []
+	for item: Dictionary in items:
+		stat_items.append(item)
+		var w: WeaponData = WeaponRegistry.get_weapon(str(item.get("id", "")))
+		if w != null and not w.stats.is_empty():
+			stat_items.append({"stats": w.stats})
+	GearStats.apply(player, GearStats.totals(stat_items), player_level, tune)
 	for item: Dictionary in items:
 		var weapon: WeaponData = WeaponRegistry.get_weapon(str(item.get("id", "")))
 		if weapon == null:
@@ -113,8 +123,8 @@ static func apply_school_power(player: PlayerState, items: Array[Dictionary], sk
 ## GID-181 / TID-754: the hero's school resistance sources, uncapped: school → summed
 ## fraction from equipped school_resist affixes and school_resist nodes. Pass the result
 ## through `DamageSchools.capped_resists`, which clamps it to `max_player_resist`.
-static func school_resist_sources(items: Array[Dictionary], skill_ids: Array) -> Dictionary:
-	var out: Dictionary = {}
+static func school_resist_sources(items: Array[Dictionary], skill_ids: Array, gear_conv: Dictionary = {}) -> Dictionary:
+	var out: Dictionary = GearStats.resist_sources(gear_conv)  # GID-187 / TID-788: resist:<school> stats
 	for item: Dictionary in items:
 		var affix: Dictionary = _affix_of(item)
 		if str(affix.get("kind", "")) == "school_resist":
@@ -331,10 +341,11 @@ static func build(cfg: Dictionary) -> Dictionary:
 	for key: String in ["weapon", "offhand"]:
 		if str(cfg.get(key, "")) != "":
 			gear.append({"id": str(cfg[key])})
-	apply_gear(me, gear, true)
+	var tuning := CombatTuning.new(cfg.get("tuning", {}) as Dictionary)
+	apply_gear(me, gear, true, player_level, tuning)
 	var skill_ids: Array = cfg.get("skills", [])
 	apply_school_power(me, gear, skill_ids)  # GID-181 / TID-754
-	me.hero.school_resist = DamageSchools.capped_resists(school_resist_sources(gear, skill_ids))
+	me.hero.school_resist = DamageSchools.capped_resists(school_resist_sources(gear, skill_ids, me.gear))
 	apply_skill_mods(me, skill_ids)
 	me.draw_opening_hand(OPENING_HAND)
 	var tier: int = enemy_tier(enemy_type, is_boss, enemy_level)
@@ -347,7 +358,6 @@ static func build(cfg: Dictionary) -> Dictionary:
 	me.start_turn(1)
 	var type_tier: int = base_tier(enemy_type)
 	var rt_enemy_level: int = enemy_level if cfg.has("enemy_level") else default_enemy_level(enemy_type)
-	var tuning := CombatTuning.new(cfg.get("tuning", {}) as Dictionary)
 	var rt := RealtimeCombat.new(state, [player_level, rt_enemy_level], tuning)
 	if s != 0:
 		rt.rng.seed = s

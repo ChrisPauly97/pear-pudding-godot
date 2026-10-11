@@ -245,6 +245,35 @@ WeaponRegistry.get_by_slot(slot: String) -> Array[String] # filter by slot field
 | `starting_armor` | Grants `battle_effect_value` armor (`hero.apply_status("armor", value)`) at battle start. Shares the single `"armor"` status key with the Maiteln companion's `hero_armor` passive — whichever applies later (equipment before companion) overwrites rather than stacks. |
 | `offhand_atk` (off-hand slot only, GID-135 / TID-545) | **Real time:** sets `RealtimeCombat.offhand_damage[PLAYER]` to `battle_effect_value` — the off-hand swings on its own `offhand_swing` `CombatTuning` timer, independent of the main hand. **Turn-based:** there is no off-hand swing timer, so it instead adds a smaller always-on bonus, `UpgradeDefs.offhand_turnbased_bonus(value)` = `max(1, value / 2)`, to `hero.attack` for the whole fight. `BattleModifiers._apply_equipment_effects` picks the turn-based path only when `battle_mode` doesn't start with `"realtime"`, so the two never double-count. |
 
+### Gear Stats (GID-187 / TID-788)
+
+Items can carry hand-made stat ratings in `WeaponData.stats` (and an item dict's `stats`), summed and converted by
+pure `game_logic/items/GearStats.gd`. **Stats are boosts to the cards** (spec Identity "not a stat bar"; user
+2026-10-11) — only Stamina / Armor / Intellect touch the hero directly.
+
+| Stat id | Effect | Mode | Hook |
+|---|---|---|---|
+| `stamina` | + max HP (points) | both | `GearStats.apply` |
+| `armor` | + hero armor (points) | both | `GearStats.apply` (`add_armor`) |
+| `intellect` | + max mana (cost units, `hero.bonus_mana`) | both | `GearStats.apply` |
+| `spell_power` | + % power of magic damage / heal cards | real time | `PlayerCaster.modify_power` |
+| `attack_power` | + % hero swings, Strike and physical damage / heal cards | real time | `modify_power`, `RealtimeCombat._resolve_swing` |
+| `spell_crit` / `phys_crit` | + crit chance of magic / physical cards (phys: also hero swings) | real time | same |
+| `haste` | draws and technique returns ÷ (1 + haste) | real time | `RealtimeCombat` draw timer, `PlayerCaster._after_technique` |
+| `spirit` | × (1 + spirit) mana regen | real time | `RealtimeCombat._regen_mult` |
+| `command` | + % Ally swing damage | real time | `_resolve_swing` |
+| `leech` | heal the hero for % of damage dealt (fractions carry) | both | `DamageResolver.leech` |
+| `block` | chance a hit on the hero keeps `block_mult` (0.5) | both | `DamageResolver.blocked` |
+| `mastery:<school>` | + % that school's damage (`school_power`) | both | `GearStats.apply` |
+| `resist:<school>` | − % that school's damage taken (capped with other sources) | both | `BattleSetup.school_resist_sources` |
+
+Percent stats convert at the fight's player level: `stat_rating_base` (1.0) × (1 + `stat_rating_growth` (0.1) ×
+(level − 1)) rating per 1 %, each capped at `stat_pct_cap` (0.5) — CombatTuning "Gear stats" group. So 10 rating
+is 10 % at level 1 but ~3.4 % at level 30: old gear fades. `BattleSetup.apply_gear(player, items, realtime,
+player_level, tune)` applies stats for the sim and the game (`BattleModifiers` passes `sm.level`; the game uses
+default tuning for the conversion). Converted values live on `PlayerState.gear` (`gear_stat(id)`).
+The legacy single `battle_effect_type` still applies alongside; TID-789 moves items onto `stats`.
+
 ### SaveManager Equipment Fields
 
 | Field | Type | Description |

@@ -81,6 +81,11 @@ const DEFS: Array = [
 	["env_biome_mult", "Biome school boost (x)", 1.1, 1.0, 1.5, 0.05, "Damage schools"],
 	["env_weather_mult", "Weather school boost (x)", 1.1, 1.0, 1.5, 0.05, "Damage schools"],
 	# GID-181 / TID-751: cap on a hero's resistance to one school (fraction of damage soaked).
+	# GID-187 / TID-788: gear stat ratings → percent (GearStats). Rating per 1 % grows with level.
+	["stat_rating_base", "Gear rating per 1 % at level 1", 1.0, 0.1, 10.0, 0.1, "Gear stats"],
+	["stat_rating_growth", "Gear rating per 1 %: growth per level (x)", 0.1, 0.0, 0.5, 0.01, "Gear stats"],
+	["stat_pct_cap", "Cap on any one gear percent stat", 0.5, 0.05, 1.0, 0.05, "Gear stats"],
+	["block_mult", "Damage a blocked hit keeps (x)", 0.5, 0.0, 1.0, 0.05, "Gear stats"],
 	["max_player_resist", "Hero resistance cap per school (fraction)", 0.75, 0.0, 0.95, 0.05, "Damage schools"],
 ]
 

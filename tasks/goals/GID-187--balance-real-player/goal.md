@@ -29,7 +29,7 @@ and co-op — and retune against that player instead.
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-788 | Gear stat system (WoW-style stats wired into combat) | agent | todo | — |
+| TID-788 | Gear stat system (card-framed stats wired into combat) | agent | done | — |
 | TID-789 | Item model, bands and stat budget | agent | todo | TID-788 |
 | TID-790 | Author the item catalogue | agent | todo | TID-789 |
 | TID-791 | Gear sources follow the curve | agent | todo | TID-790 |

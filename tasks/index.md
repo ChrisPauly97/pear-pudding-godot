@@ -190,7 +190,7 @@
 | [GID-184](goals/GID-184--light-school-balance/goal.md) | Light School Damage & School Balance (BID-101) | done | 2 / 2 |
 | [GID-185](goals/GID-185--unlocks-grant-cards/goal.md) | Unlocks Grant Cards & Expand the Deck | done | 3 / 3 |
 | [GID-186](goals/GID-186--balance-coverage/goal.md) | Balance Coverage — Every Level, School and Resistance | done | 1 / 1 |
-| [GID-187](goals/GID-187--balance-real-player/goal.md) | Balance the Real Player | todo | 0 / 15 |
+| [GID-187](goals/GID-187--balance-real-player/goal.md) | Balance the Real Player | in-progress | 1 / 15 |
 
 ## Backlog
 
@@ -207,6 +207,7 @@ files in `tasks/archive/backlog/`.
 | [BID-100](backlog/BID-100--env-school-boost-resume.md) | Battlefield school boost lost on resumed mid-fight battles | code-smell | GID-181 / TID-755 |
 | [BID-102](backlog/BID-102--mono-school-decks-uneven.md) | Pure mono-school decks still uneven (light/verdant 36 % on bog hag) | balance | GID-184 / TID-773 |
 | [BID-103](backlog/BID-103--fourth-technique-power-step.md) | Fourth technique slot is a large power step (bog hag 22 → 92 %) | balance | GID-185 / TID-775 |
+| [BID-104](backlog/BID-104--spec-gear-stat-wording.md) | Spec still calls gear "item-level stat rolls"; needs the card-boost stat wording (human edit) | spec-gap | GID-187 / TID-788 |
 | [BID-090](backlog/BID-090--remaining-world-frame-costs.md) | Remaining per-frame world costs after GID-164 (enemy walk cycles, NPC marks) | code-smell | GID-164 / TID-685 |
 | [BID-091](backlog/BID-091--infinite-world-gen-not-s-safe.md) | Landmark ruin-roll replica masks the seed; RuinGen doesn't (`-s` compile half fixed in TID-699) | code-smell | GID-173 / TID-699 |
 | [BID-093](backlog/BID-093--session-starter-no-strike.md) | Multiplayer session starter character has no Strike technique | design-inconsistency | GID-175 / TID-708 |

@@ -16,3 +16,6 @@ extends Resource
 ## Real-time main-hand swing interval in seconds (0 = unarmed speed from the
 ## combat tuning). Slower weapons hit proportionally harder per swing (GID-135).
 @export var swing_speed: float = 0.0
+## Hand-made stat ratings (GID-187 / TID-788, `game_logic/items/GearStats.gd`), e.g.
+## {"stamina": 6, "haste": 4, "mastery:dark": 3}. Empty for legacy single-effect items.
+@export var stats: Dictionary = {}

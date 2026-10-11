@@ -32,6 +32,8 @@ static func deal(defender: _PlayerState, target: Variant, amount: int, school: S
 	var dealt: int = 0
 	if target is _HeroState:
 		var hero: _HeroState = target as _HeroState
+		if defender != null and defender.hero == hero:
+			scaled = blocked(defender, scaled, tune)
 		var hp_before: int = hero.health
 		hero.note_hit(school, outcome)
 		hero.take_damage(scaled)
@@ -42,7 +44,31 @@ static func deal(defender: _PlayerState, target: Variant, amount: int, school: S
 		card.note_hit(school, outcome)
 		card.take_damage(scaled)
 		dealt = maxi(0, card_hp_before - card.health)
+	leech(attacker, dealt)
 	return {"dealt": dealt, "outcome": outcome}
+
+## GID-187 / TID-788: a hit on a hero whose gear has Block is, by that chance, cut to
+## `block_mult` of itself (global seeded RNG, like the resolver's other rolls).
+static func blocked(defender: _PlayerState, amount: int, tune: _CombatTuning = null) -> int:
+	var chance: float = defender.gear_stat("block")
+	if amount <= 0 or chance <= 0.0 or randf() >= chance:
+		return amount
+	var t: _CombatTuning = tune if tune != null else _CombatTuning.new()
+	return maxi(1, roundi(float(amount) * t.get_f("block_mult")))
+
+## GID-187 / TID-788: the attacking side's Leech heals its hero for that share of `dealt`;
+## fractions carry to the next hit.
+static func leech(attacker: _PlayerState, dealt: int) -> void:
+	if attacker == null or dealt <= 0 or attacker.hero == null:
+		return
+	var frac: float = attacker.gear_stat("leech")
+	if frac <= 0.0:
+		return
+	attacker.leech_carry += float(dealt) * frac
+	var whole: int = int(attacker.leech_carry)
+	if whole > 0:
+		attacker.leech_carry -= float(whole)
+		attacker.hero.heal(whole)
 
 ## Scaled amount for HP loss that does not go through `take_damage` (Curse-style
 ## direct health hits that ignore armor). Same profile and rules as `deal()`.
