@@ -774,7 +774,8 @@ func heavy_damage(side: int = ENEMY) -> int:
 func _gap_scaled(dmg: int, side: int) -> int:
 	if dmg <= 0:
 		return dmg
-	var x: float = float(dmg) * tune.gap_mult(_level_of(side), _level_of(PLAYER))
+	var x: float = float(dmg) * tune.gap_mult(_level_of(side), _level_of(PLAYER)) \
+			* tune.enemy_dmg_growth(_level_of(side))
 	var whole: int = floori(x)
 	return whole + (1 if rng.randf() < x - float(whole) else 0)
 

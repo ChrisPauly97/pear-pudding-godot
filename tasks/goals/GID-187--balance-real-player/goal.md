@@ -44,7 +44,8 @@ and co-op — and retune against that player instead.
 | TID-784 | Bot variety (second policy) | agent | done | TID-778 |
 | TID-785 | Turn-based sim and bands | agent | cancelled | — |
 | TID-786 | Real-time co-op scaling (2-4 heroes) | agent | todo | TID-778 |
-| TID-787 | Retune against profiles | agent | todo | TID-779, TID-780, TID-781, TID-782, TID-784 |
+| TID-787 | Retune against profiles | agent | done | TID-779, TID-780, TID-781, TID-782, TID-784 |
+| TID-793 | Enemy threat scaling and the 60 % gear share | agent | todo | TID-787 |
 
 Order: gear curve 788 → 789 → 790 → 791 (792 alongside), then 778 → 779 → 787 (biggest effect), then 780-782,
 784, then 783 and 786.

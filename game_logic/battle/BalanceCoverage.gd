@@ -65,6 +65,11 @@ const SAME_MIN: float = 0.87
 const UP_MEAN_MIN: float = 0.65
 const UP_MEAN_MAX: float = 0.90
 const UP_CELL_MIN: float = 0.25
+## GID-187 / TID-787 (user, 2026-10-11: "split the difference"): world cells fight as the typical
+## player (UP_MEAN_* above); the `range` section is the bare hero, a floor: it must still win at the
+## same level, and one level up only its mean is held (no per-cell wall check).
+const BARE_UP_MEAN_MIN: float = 0.45
+const BARE_UP_MEAN_MAX: float = 0.80
 ## Levelling up never makes a fight worse: +0 wins at least the +1 rate minus this.
 const MONOTONIC_SLACK: float = 0.15
 
@@ -187,9 +192,12 @@ static func measure_ladder(section: String, tune: Dictionary = {}) -> Dictionary
 	for cell: Array in ladder_cells(section):
 		var t: String = str(cell[0])
 		var lv: int = int(cell[1])
-		var school: String = "" if section == "range" else neutral_school(t)
-		out[BalanceBands.key(t, lv, 0)] = run_cell(t, lv, lv, FIGHTS_SAME, school, tune)
-		out[BalanceBands.key(t, lv, 1)] = run_cell(t, lv, lv + 1, FIGHTS_UP, school, tune)
+		if section == "range":  # the bare hero: the floor (TID-787)
+			out[BalanceBands.key(t, lv, 0)] = run_cell(t, lv, lv, FIGHTS_SAME, "", tune)
+			out[BalanceBands.key(t, lv, 1)] = run_cell(t, lv, lv + 1, FIGHTS_UP, "", tune)
+		else:  # GID-187 / TID-787: world cells fight as the typical player of their level
+			out[BalanceBands.key(t, lv, 0)] = BalanceProfiles.run_cell(t, lv, lv, FIGHTS_SAME, "typical", tune)
+			out[BalanceBands.key(t, lv, 1)] = BalanceProfiles.run_cell(t, lv, lv + 1, FIGHTS_UP, "typical", tune)
 	return out
 
 ## Failures of a ladder section's measurement (empty = pass).
@@ -211,14 +219,16 @@ static func check_ladder(section: String, measured: Dictionary) -> Array[String]
 			continue
 		up_sum += wr
 		up_n += 1
-		if wr < UP_CELL_MIN - 0.001:
+		if section != "range" and wr < UP_CELL_MIN - 0.001:
 			fails.append("%s %s: one level up win rate %.0f%% < %.0f%% (a wall)" % [section, k, wr * 100.0,
 				UP_CELL_MIN * 100.0])
 	if up_n > 0:
 		var mean: float = up_sum / float(up_n)
-		if mean < UP_MEAN_MIN or mean > UP_MEAN_MAX:
+		var lo: float = BARE_UP_MEAN_MIN if section == "range" else UP_MEAN_MIN
+		var hi: float = BARE_UP_MEAN_MAX if section == "range" else UP_MEAN_MAX
+		if mean < lo or mean > hi:
 			fails.append("%s one level up: mean %.0f%% outside %.0f-%.0f%%" % [section, mean * 100.0,
-				UP_MEAN_MIN * 100.0, UP_MEAN_MAX * 100.0])
+				lo * 100.0, hi * 100.0])
 	return fails
 
 ## Runs the school matrix: {"school/kind/enemy@level": {school, kind, enemy, same, rate, untagged}}.
@@ -275,7 +285,7 @@ static func measure_bosses(tune: Dictionary = {}) -> Dictionary:
 	for t: String in BOSSES:
 		var levels: Array[int] = boss_levels(t)
 		for lv: int in levels:
-			var cell: Dictionary = run_cell(t, lv, lv, BOSS_FIGHTS, neutral_school(t), tune, {"is_boss": true})
+			var cell: Dictionary = BalanceProfiles.run_cell(t, lv, lv, BOSS_FIGHTS, "typical", tune, {"is_boss": true})
 			var top: bool = lv > levels[0] and lv == levels[levels.size() - 1]
 			cell["floor"] = float(BOSS_HIGH_FLOORS[t]) if top and BOSS_HIGH_FLOORS.has(t) else BOSS_MIN
 			out[BalanceBands.key(t, lv, 0)] = cell

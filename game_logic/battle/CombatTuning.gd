@@ -25,6 +25,8 @@ const DEFS: Array = [
 	["hp_per_level", "Your max HP per level (next fight)", 5.0, 0.0, 10.0, 0.5, "Mana & cards"],
 	["power_track", "Your damage keeps pace with enemy HP past power_from_level (exponent)", 0.8, 0.0, 1.5, 0.05,
 		"Mana & cards"],
+	["enemy_dmg_per_level", "Enemy swing / spell damage per level past power_from_level (x)", 0.0, 0.0, 0.5,
+		0.01, "Enemy"],
 	["power_from_level", "Level your damage starts growing from (next fight)", 8.0, 1.0, 60.0, 1.0, "Mana & cards"],
 	["draw_interval", "Draw a card every (s)", 9.0, 1.0, 20.0, 0.5, "Mana & cards"],
 	["tech_recycle_mult", "Technique return-to-hand time (x)", 1.0, 0.1, 5.0, 0.1, "Mana & cards"],
@@ -55,8 +57,8 @@ const DEFS: Array = [
 	["enemy_full_level", "Enemy level at full heavy / spell strength", 15.0, 2.0, 30.0, 1.0, "Enemy"],
 	["enemy_low_scale", "Heavy / spell strength at the lowest level", 0.3, 0.1, 1.0, 0.05, "Enemy"],
 	["enemy_hp_per_level", "Extra enemy HP per level above 1 (x)", 0.18, 0.0, 0.5, 0.01, "Enemy"],
-	["gap_hp", "Enemy HP per level it is above you (x)", 0.12, 0.0, 1.0, 0.05, "Enemy"],
-	["gap_damage", "Enemy damage per level it is above you (x)", 0.1, 0.0, 1.0, 0.05, "Enemy"],
+	["gap_hp", "Enemy HP per level it is above you (x)", 0.2, 0.0, 1.0, 0.05, "Enemy"],
+	["gap_damage", "Enemy damage per level it is above you (x)", 0.3, 0.0, 1.0, 0.05, "Enemy"],
 	["enemy_two_minions_level", "Enemy level fielding 2 minions", 5.0, 1.0, 20.0, 1.0, "Enemy"],
 	["siphon_per_damage", "Mana siphoned per damage you deal", 15.0, 0.0, 60.0, 1.0, "Momentum"],
 	["fighting_regen_mult", "Regen multiplier while fighting", 0.4, 0.0, 2.0, 0.05, "Momentum"],
@@ -160,6 +162,12 @@ func hero_level_power(level: int) -> float:
 	if level <= from:
 		return 1.0
 	return pow(enemy_hp_growth(level) / enemy_hp_growth(from), get_f("power_track"))
+
+## GID-187 / TID-787: an enemy's swing / spell damage growth with its level past `power_from_level`
+## (the hero's HP grows with level and Stamina gear; without this, late enemies cannot threaten a
+## geared hero). Heavy blows already scale with the hero's max HP and skip it.
+func enemy_dmg_growth(level: int) -> float:
+	return 1.0 + get_f("enemy_dmg_per_level") * float(maxi(0, level - get_i("power_from_level")))
 
 ## Damage multiplier for an enemy `enemy_level` hitting a `player_level` hero:
 ## +`gap_damage` per level above, less below (never under half) (TID-718).

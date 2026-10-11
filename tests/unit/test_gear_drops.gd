@@ -81,3 +81,13 @@ func test_price_grows_with_the_curve() -> void:
 	var low: WeaponData = WeaponRegistry.get_weapon(GearDrops.best_for("armor", 5))
 	var high: WeaponData = WeaponRegistry.get_weapon(GearDrops.best_for("armor", 50))
 	assert_gt(GearDrops.price(high), GearDrops.price(low))
+
+func test_build_fit_prefers_own_school_mastery() -> void:
+	var w := WeaponData.new()
+	w.stats = {"spell_power": 10, "mastery:dark": 10}
+	assert_gt(GearDrops.fit(w, "dark"), GearDrops.fit(w, "light"), "another school's Mastery is worth nothing")
+	var loadout: Dictionary = GearDrops.expected_loadout(40, "light")
+	for s: String in loadout:
+		var item: WeaponData = WeaponRegistry.get_weapon(str(loadout[s]))
+		var top: WeaponData = WeaponRegistry.get_weapon(GearDrops.best_for(s, 40))
+		assert_gte(item.item_level, top.item_level - GearDrops.FIT_WINDOW, s)

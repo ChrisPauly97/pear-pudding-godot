@@ -18,6 +18,16 @@ const DROP_BELOW: int = 4
 const SHOP_BELOW: int = 9
 ## The free starter weapon never drops or sells.
 const STARTER_WEAPON: String = "rusty_dagger"
+## How much a player of `magic_type` values one rating point of each stat when choosing gear
+## (TID-787): the decks are weapon-heavy (Strike, swings, Allies), so weapon-side stats lead; their
+## own school's Mastery counts, another school's does not. "" = no preference (all 1).
+const FIT_WEIGHTS: Dictionary = {
+	"attack_power": 1.0, "phys_crit": 1.0, "haste": 1.0, "command": 0.6, "spell_power": 0.6,
+	"spell_crit": 0.6, "leech": 0.5, "spirit": 0.3, "intellect": 1.5, "stamina": 0.3, "armor": 0.5,
+	"block": 0.3, "resist": 0.2, "mastery": 0.8,
+}
+## Items within this many item levels of the slot's best wearable one are considered.
+const FIT_WINDOW: int = 5
 
 ## Every item that can drop or sell (all registered items but the starter weapon).
 static func _all_items() -> Array[_WeaponData]:
@@ -66,14 +76,42 @@ static func _better(a: _WeaponData, b: _WeaponData) -> bool:
 		return ra > rb
 	return a.id < b.id
 
-## {slot: item id} a typical level-`level` player wears: the best wearable item per slot.
-static func expected_loadout(level: int) -> Dictionary:
+## {slot: item id} a typical level-`level` player wears: per slot, among the wearable items within
+## FIT_WINDOW item levels of the best, the one that fits `magic_type` best (`fit`); "" = the
+## highest-level item.
+static func expected_loadout(level: int, magic_type: String = "") -> Dictionary:
 	var out: Dictionary = {}
 	for s: String in SLOTS:
-		var id: String = best_for(s, level)
-		if id != "":
-			out[s] = id
+		var top: String = best_for(s, level)
+		if top == "":
+			continue
+		if magic_type == "":
+			out[s] = top
+			continue
+		var top_il: int = _WeaponRegistry.get_weapon(top).item_level
+		var pick: _WeaponData = null
+		var pick_fit: float = -1.0
+		for w: _WeaponData in _all_items():
+			if _GearCurve.slot_of(w) != s or w.level_req > level or w.item_level < top_il - FIT_WINDOW:
+				continue
+			var f: float = fit(w, magic_type)
+			if f > pick_fit + 0.0001 or (absf(f - pick_fit) <= 0.0001 and pick != null and _better(w, pick)):
+				pick = w
+				pick_fit = f
+		out[s] = pick.id if pick != null else top
 	return out
+
+## Weighted rating of `w`'s stats for a `magic_type` player (FIT_WEIGHTS; another school's
+## Mastery is worth nothing).
+static func fit(w: _WeaponData, magic_type: String) -> float:
+	var total: float = 0.0
+	for k: Variant in w.stats:
+		var id: String = str(k)
+		var kind: String = _GearCurve.stat_kind(id)
+		if kind == "mastery" and id.get_slice(":", 1) != magic_type:
+			continue
+		total += float(FIT_WEIGHTS.get(kind, 0.5)) * float(w.stats[k])
+	return total
 
 ## Index of a band id in GearCurve.BANDS (-1 unknown).
 static func band_index(band_id: String) -> int:

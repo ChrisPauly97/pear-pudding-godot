@@ -533,3 +533,17 @@ chain carry-over and the default-off paths.
 `profiles` coverage section (`tests/balance_coverage.gd -- --section profiles`, ~4 min): 9 cells from level 2 to 59, every
 magic type × kind, +0 / +1; gates progression order (typical ≥ modest ≥ bare − 15 pp). `power_of(results)` (DPS ×
 time to die) and `gear_share(level, enemy)` (ln full / no gear over ln full / base) measure the gear share for TID-787.
+
+## Retune (GID-187 / TID-787)
+
+User decision (2026-10-11, "split the difference"): the **typical profile** gates world, boss and one-level-up
+checks; the **bare hero** is a floor.
+
+| Section | Player | Same level | One level up (mean) |
+|---|---|---|---|
+| `BalanceBands` core, `range` | bare | ≥ 97 % / ≥ 87 % per cell | 45-80 % (measured ~52-60 %) |
+| `world_low`, `world_high` | typical (`BalanceProfiles.run_cell`) | ≥ 87 % per cell | 65-90 %, no cell < 25 % (measured 81 / 90 %) |
+| `bosses` | typical | ≥ 40 % (high-end floors) | — |
+
+Tuning: `gap_damage` 0.3, `gap_hp` 0.2. Gear is picked for the build (`GearDrops.expected_loadout(level,
+magic_type)`). Gear share at level 30 is ~7 % (target 60 %): enemy threat does not scale, see TID-793.

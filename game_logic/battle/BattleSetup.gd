@@ -312,7 +312,8 @@ static func techniques_to_hand(p: PlayerState) -> void:
 ## just softer — TID-720) and its level gap over the player (TID-718). Pass to `SpellEffectResolver.resolve_enemy_play`.
 static func enemy_spell_scale(rt: RealtimeCombat, side: int) -> float:
 	var level: int = rt.side_levels[side] if side < rt.side_levels.size() else 1
-	return rt.tune.level_scale(level) * rt.tune.gap_mult(level, rt.side_levels[RealtimeCombat.PLAYER])
+	return rt.tune.level_scale(level) * rt.tune.gap_mult(level, rt.side_levels[RealtimeCombat.PLAYER]) \
+			* rt.tune.enemy_dmg_growth(level)
 
 ## Knobs RealtimeCombat caches rather than reads each tick (base damage).
 static func apply_live_tuning(rt: RealtimeCombat, base_tier: int) -> void:

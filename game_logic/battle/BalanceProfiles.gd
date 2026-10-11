@@ -33,9 +33,10 @@ const CELLS: Array = [
 	["duelist_champion", 26], ["rival_isfig_3", 35], ["undead_elite", 45], ["undead_elite", 59],
 ]
 const FIGHTS: int = 8
-## Progression never makes a player worse: typical ≥ modest ≥ bare, minus this slack, per cell (mean
-## over the magic types, one level up).
-const ORDER_SLACK: float = 0.15
+## Progression never makes a player worse: typical ≥ modest ≥ bare, minus this slack, per cell (pooled
+## over the neutral magic types, one level up). 25 pp: a cell is 8-32 fights, and the profiles swap
+## weapon speed between bands (BID-108), which moves single cells by ~20 pp.
+const ORDER_SLACK: float = 0.25
 
 ## A `BattleSetup.build` cfg fragment for a level-`level` player of `magic_type`. `kind` "bare" is
 ## the old bare hero (default deck, no gear, no skills), kept as the floor check.
@@ -52,7 +53,7 @@ static func cfg(level: int, magic_type: String, kind: String = "typical") -> Dic
 	var skills: Array[String] = skill_build(magic_type, points)
 	out["skills"] = skills
 	out["deck"] = deck(magic_type, learned, skills)
-	var loadout: Dictionary = GearDrops.expected_loadout(gear_level)
+	var loadout: Dictionary = GearDrops.expected_loadout(gear_level, magic_type)
 	var gear: Array = []
 	for slot: String in loadout:
 		var id: String = str(loadout[slot])
@@ -214,3 +215,20 @@ static func gear_share(level: int, enemy: String, fights: int = 8, tune: Diction
 	var denom: float = log(full / maxf(0.0001, float(p["base"])))
 	var share: float = log(full / maxf(0.0001, float(p["no_gear"]))) / denom if absf(denom) > 0.0001 else 0.0
 	return {"share": share, "power": p}
+
+## One cell fought as a `kind` profile (GID-187 / TID-787): fight f uses the enemy's neutral magic
+## types in turn (`neutral_types`), so every cell covers them all at the same seeds. `extra` keys
+## (e.g. `is_boss`) are merged last. Returns {win_rate, median_s, n}.
+static func run_cell(enemy: String, player_level: int, enemy_level: int, fights: int, kind: String = "typical",
+		tune: Dictionary = {}, extra: Dictionary = {}) -> Dictionary:
+	var types: Array[String] = neutral_types(enemy)
+	var results: Array[Dictionary] = []
+	for f: int in fights:
+		var c: Dictionary = cfg(player_level, types[f % types.size()], kind)
+		c.merge({"seed": 1 + f, "enemy_type": enemy, "enemy_level": enemy_level}, true)
+		if not tune.is_empty():
+			c["tuning"] = tune
+		c.merge(extra, true)
+		results.append(BalanceFight.run(c))
+	var s: Dictionary = BalanceStats.summarize(results)
+	return {"win_rate": float(s["win_rate"]), "median_s": float(s["median_s"]), "n": int(s["n"])}
