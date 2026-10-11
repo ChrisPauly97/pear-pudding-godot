@@ -86,6 +86,8 @@ const DEFS: Array = [
 	["stat_rating_growth", "Gear rating per 1 %: growth per level (x)", 0.1, 0.0, 0.5, 0.01, "Gear stats"],
 	["stat_pct_cap", "Cap on any one gear percent stat", 0.5, 0.05, 1.0, 0.05, "Gear stats"],
 	["block_mult", "Damage a blocked hit keeps (x)", 0.5, 0.0, 1.0, 0.05, "Gear stats"],
+	["stamina_hp", "Max HP per Stamina point", 1.0, 0.0, 3.0, 0.05, "Gear stats"],
+	["armor_per_point", "Armor per Armor point", 1.0, 0.0, 3.0, 0.05, "Gear stats"],
 	["max_player_resist", "Hero resistance cap per school (fraction)", 0.75, 0.0, 0.95, 0.05, "Damage schools"],
 ]
 

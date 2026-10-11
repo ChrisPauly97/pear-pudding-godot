@@ -81,7 +81,13 @@ static func convert_ratings(ratings: Dictionary, level: int, tune: _CombatTuning
 ## is stored on `player.gear` for the combat hooks. Resist goes through
 ## `BattleSetup.school_resist_sources` (it is capped with the other sources).
 static func apply(player: _PlayerState, ratings: Dictionary, level: int, tune: _CombatTuning = null) -> void:
-	var conv: Dictionary = convert_ratings(ratings, level, tune)
+	var t: _CombatTuning = tune if tune != null else _CombatTuning.new()
+	var conv: Dictionary = convert_ratings(ratings, level, t)
+	# Flat stats convert at a tuning rate (TID-787): Stamina → HP, Armor → armor points.
+	if conv.has("stamina"):
+		conv["stamina"] = roundi(float(conv["stamina"]) * t.get_f("stamina_hp"))
+	if conv.has("armor"):
+		conv["armor"] = roundi(float(conv["armor"]) * t.get_f("armor_per_point"))
 	player.gear = conv
 	var hp: int = int(conv.get("stamina", 0))
 	if hp > 0:

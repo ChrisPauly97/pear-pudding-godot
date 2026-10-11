@@ -21,6 +21,7 @@ const SkillRegistry = preload("res://autoloads/SkillRegistry.gd")
 const SkillData = preload("res://data/SkillData.gd")
 const BalanceFight = preload("res://game_logic/battle/BalanceFight.gd")
 const BalanceStats = preload("res://game_logic/battle/BalanceStats.gd")
+const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 
 const KINDS: Array[String] = ["typical", "modest", "bare"]
 ## The modest profile's gear is the expected loadout of this many levels lower (one band).
@@ -119,6 +120,20 @@ static func deck(magic_type: String, learned: Array, skills: Array[String]) -> A
 			techs += 1
 	return out
 
+## Magic types `enemy` neither resists, is weak to nor is immune to (matchups are the school matrix's
+## job; a profile cell pools only neutral pairings). Every type when the enemy tags all of them.
+static func neutral_types(enemy: String) -> Array[String]:
+	var prof: Dictionary = EnemyRegistry.get_school_profile(enemy, 1)
+	var out: Array[String] = []
+	for mt: String in MagicTypes.all_types():
+		var tagged: bool = false
+		for kind: String in ["resist", "weak", "immune"]:
+			if (prof.get(kind, {}) as Dictionary).has(mt):
+				tagged = true
+		if not tagged:
+			out.append(mt)
+	return out if not out.is_empty() else MagicTypes.all_types()
+
 ## Runs the `profiles` section: {"<type>@<level>+<offset>/<kind>": {win_rate, median_s, n}} (pooled over magic types).
 static func measure(tune: Dictionary = {}) -> Dictionary:
 	var out: Dictionary = {}
@@ -128,7 +143,7 @@ static func measure(tune: Dictionary = {}) -> Dictionary:
 		for kind: String in KINDS:
 			for off: int in [0, 1]:
 				var results: Array[Dictionary] = []
-				for mt: String in MagicTypes.all_types():
+				for mt: String in neutral_types(t):
 					for f: int in FIGHTS:
 						var c: Dictionary = cfg(lv, mt, kind)
 						c.merge({"seed": 1 + f, "enemy_type": t, "enemy_level": lv + off}, true)
