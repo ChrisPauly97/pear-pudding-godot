@@ -36,6 +36,7 @@ const _MomentumHud = preload("res://scenes/battle/modules/MomentumHud.gd")
 const _RedrawButton = preload("res://scenes/battle/modules/RedrawButton.gd")
 const PlayerCaster = preload("res://game_logic/battle/PlayerCaster.gd")
 const _BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
+const _EncounterSetup = preload("res://game_logic/battle/EncounterSetup.gd")
 const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
 const _SchoolFeedback = preload("res://game_logic/battle/SchoolFeedback.gd")
 ## Settings key holding the tuning panel's overrides (per device).
@@ -375,25 +376,12 @@ func can_join() -> bool:
 func join_enemy(enemy_data: Dictionary) -> bool:
 	if not can_join():
 		return false
-	var etype: String = str(enemy_data.get("enemy_type", "undead_basic"))
-	var is_boss: bool = bool(enemy_data.get("is_boss", false))
-	# GID-186: a joiner fights at its own level (its data's, else its authored tier's), tier from that.
-	var level: int = int(enemy_data.get("enemy_level", _BattleSetup.default_enemy_level(etype)))
-	var tier: int = _BattleSetup.enemy_tier(etype, is_boss, level)
-	var ps := PlayerState.new(_battle._state.players.size(), true)
-	var deck: Array[String] = []
-	deck.assign(enemy_data.get("enemy_deck", _EnemyRegistry.get_deck(etype)))
-	ps.build_deck(deck, tier)
-	ps.draw_opening_hand(3)
-	var bhp: int = int(enemy_data.get("boss_hp", 0))
-	if is_boss and bhp > 0:
-		ps.hero.health = bhp
-		ps.hero.max_health = bhp
-	_BattleSetup.scale_enemy_hp(ps, _EnemyRegistry.rt_hp_mult(etype))  # BID-095 per-type tuning
-	var side: int = rt.add_enemy(ps, level)
+	# GID-187 / TID-782: the pure setup (deck, hand, HP, add at its level) is shared with the balance sim.
+	var side: int = _EncounterSetup.make_joiner(rt, enemy_data)
 	if side < 0:
 		return false
-	rt.unarmed[side] = rt.tune.get_i("enemy_unarmed") + maxi(0, tier - 1)
+	var etype: String = str(enemy_data.get("enemy_type", "undead_basic"))
+	var is_boss: bool = bool(enemy_data.get("is_boss", false))
 	_visuals.add_enemy_view(side, etype, is_boss, card_input_hero(side))
 	_visuals.toast("%s joins the fight!" % etype.capitalize())
 	onboarding.on_add(side)

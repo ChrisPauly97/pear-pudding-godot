@@ -71,6 +71,10 @@ Determinism: `BattleSetup.build` calls `seed(n)` (global RNG: shuffles, resolver
   Weather, biome / night, blight, ambush and gambits are simulated since GID-187 (below). Starting HP, quick-slot
   potions, well-fed food and fight chains are simulated only when a config names them (TID-781, below); the
   default bot and the CI bands never do.
+- **Not simulated:** companions, persistent / carried-over HP, potions and the hero power,
+  commanded Ally attacks, focus changes, snow discount and blizzard freeze (both turn-based or player-side only).
+  Boss phase 2 and mid-fight joiners are simulated since TID-782 (see "Encounter shapes").
+  Weather, biome / night, blight, ambush and gambits are simulated since GID-187 (below).
 - **Real time only** (user decision); turn-based fights aren't simulated.
 
 ## Balance targets (user, 2026-10-08)
@@ -298,7 +302,8 @@ godot --headless --path . -s tests/balance_coverage.gd -- --section world_high -
 | `range` | every Chapter 1 type at **every** level of its range, +0 (8 fights) and +1 (16) | same ≥ 87 % per cell; +1 mean 65–90 %, no +1 cell < 25 %; +1 never beats +0 by > 15 pp |
 | `world_low` / `world_high` | every regular type past Chapter 1 (`WORLD_LOW` tiers 1–2, `WORLD_HIGH` tiers 3–4) at the low, middle and high level of its range, from level 5 (spells) to 59 | same as `range` |
 | `schools` | `SCHOOL_MATRIX`: each school vs an enemy weak to it and one that resists it, the same deck against the same enemy with only that school's tag removed (`untag_school`), 16 paired fights | per cell never the wrong way by > 7 pp; mean gain / cost ≥ 5 pp per kind; a same-level resisted fight ≥ 40 % |
-| `bosses` | every boss at the low end of its range, same level, as a boss | ≥ 40 % |
+| `bosses` | every boss at the low, middle and high level of its range, same level, as a boss, with its phase 2 (TID-782) | ≥ 40 %; the high end has a measured floor (`BOSS_HIGH_FLOORS`) |
+| `joiners` (TID-782) | `JOINER_CELLS`: five Chapter 1 / world cells, same level, a same-type joiner at 10 s (16 fights) | joined ≥ 40 % and never above the solo rate (+7 pp slack) |
 | `casual` (GID-187) | `range` cells at the same level only, fought by the `casual` preset (8 fights) | same-level mean ≥ 75 %, no cell < 10 % (see "Bot variety") |
 
 - World cells bring a deck the enemy is neutral to (`neutral_school`): the default deck, or the matched deck of
@@ -409,6 +414,63 @@ Mean **91 %** (gate 75 %); lowest 12.5 %. Every cell is at or above 75 % except 
 ghoul pack 3 / 4 / 5 = 50 / 25 / 12.5 %. The casual bot never swaps focus, and packs need that swap: ghoul
 pack L4 with the same knobs and `--policy focus=1` goes 23 % → 100 % (default bot: 100 %). So the casual bot is a
 wall on packs by design (no focus swaps). Not retuned here; packs are the open item for a casual policy.
+
+## Encounter shapes (GID-187 / TID-782)
+
+The game's mid-fight joiner and boss phase 2 now run through shared pure code, so the sim and the game build the
+same fight.
+
+- **Joiners.** `EncounterSetup.make_joiner(rt, enemy_data)` is the setup `BattleRealtime.join_enemy` runs (deck built at
+  the joiner's tier, a 3-card opening hand, boss HP, `rt_hp_mult`, `rt.add_enemy` at its level, its unarmed damage).
+  `join_enemy` keeps only the visuals, toast and onboarding. Game behaviour is unchanged. The sim takes a cfg key
+  `joiner: {enemy_type, enemy_level, at_seconds}` and adds the enemy once at that time. It is a cfg key, not a CLI
+  flag. A joiner gets no zone HP scaling of its own (that is `add_enemy`'s level gap only), no pack, no school
+  profile and no `rt_attack_bonus`. That matches the game's `join_enemy`, so it is not a sim-only gap.
+- **Boss phase 2.** `EncounterSetup.boss_phase2_due(foe, is_boss, phase2_deck)` (hero at half health or less) and
+  `enter_boss_phase2(foe, type, deck)` (phase 2 deck at boss tier, `schools_phase2` profile, a 4-card hand) are what
+  `BattleScene._check_boss_phase2` calls. Real-time fights reach it through `_check_game_over`. `BalanceFight` checks
+  them every tick for `is_boss` fights. Its cfg key `boss_phase2: false` turns the swap off, for measurement only.
+  The sim's `stats["phase2"]` is 1 when a fight swapped. In the probe, barrow king at its low end swapped in 4 of 4
+  fights. At level 40 and 60 the swap changed no outcome, because the hero dies before the boss reaches half health.
+- **Boss levels.** `BalanceCoverage.boss_levels(type)` is the low, middle and high level of the boss's range
+  (`EnemyRegistry.level_range`, tier 4 = 20–60 for most bosses). The top level uses `BOSS_HIGH_FLOORS`, measured
+  at 8 fights less 2.5 pp, instead of the 40 % gate. Not retuned.
+
+### TID-782 measurements (`--section joiners,bosses`)
+
+Joiners (16 fights, same level, joiner at 10 s, solo 100 % at every candidate):
+
+| Cell | Joined win | Gate |
+|---|---|---|
+| `undead_horde@2` | 87.5 % | ✓ |
+| `undead_horde@4` | 100 % | ✓ |
+| `wolf_pack@4` | 68.8 % | ✓ |
+| `wraith@5` | 93.8 % | ✓ |
+| `wraith@7` | 43.8 % | ✓ (small margin) |
+
+Measured and excluded from the gate (joined win below 40 %): `undead_basic@1` and `@2` 0 %, `ghoul_pack@3` and `@5`
+0 %, `forest_shade@5` 31 % and `@8` 0 %, `bog_hag@6` 19 % and `@8` 0 %, `imbued_stag@7` 12 % and `@9` 0 %,
+`wolf_pack@6` 19 %, `spectre_wisp@5` 25 % and `@10` 0 %, `martarquas_scout@8` 12 % and `@10` 6 %, `mimic@14` 0 %,
+`duelist_adept@14` 0 %, `spectre_haunt@12` 0 %, `mountain_troll@20` 0 %. A same-type joiner at 10 s doubles the
+swing rate for the rest of the fight, and the hero's damage does not grow. Most Chapter 1 types at their low level
+are walls against a second copy. This is a balance finding for a design decision, not a sim artefact. The gate is not
+relaxed for it.
+
+Bosses (8 fights, same level, as a boss, phase 2 on):
+
+| Boss | Low | Middle | High |
+|---|---|---|---|
+| `stone_golem` | 50 % | **12.5 %** | 0 % (floor 0) |
+| `hollow_steward` | 100 % | 87.5 % | 50 % |
+| `martarquas_vanguard` | 62.5 % | **0 %** | 0 % (floor 0) |
+| `roaming_terror` | 87.5 % | **12.5 %** | 12.5 % (floor 10) |
+| `barrow_king` | 62.5 % | **12.5 %** | 0 % (floor 0) |
+| `blight_heart` | 50 % | **25 %** | 0 % (floor 0) |
+| `martarquas_warleader` | 75 % | **37.5 %** | 12.5 % (floor 10) |
+
+The **middle** level misses the 40 % gate for six bosses (bold). It is not covered by the high-end floor rule, so the
+`bosses` section fails until someone decides on it: retune the bosses, or set measured middle floors. Phase 2 is not the
+cause: with it off, every middle and high cell is identical.
 
 ## Integrations
 

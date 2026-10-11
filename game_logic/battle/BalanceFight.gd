@@ -9,14 +9,22 @@
 ## hero_hp_frac, plays: {template_id: n}, actions (cards played), actions_10s
 ## (cards played per 10 s, GID-178), dealt_cards, dealt_auto, interrupts,
 ## enemy_casts, procs, full_mana_s, crits_dealt, crits_taken (GID-178 / TID-728),
-## potions_used, potions_left, well_fed (GID-187 / TID-781: the buff after this fight's charge)}.
+## potions_used, potions_left, well_fed (GID-187 / TID-781: the buff after this fight's charge), joins
+## (joiners that arrived), phase2 (1 when a boss swapped to phase 2)}.
 ##
 ## `chain(cfg, fights, policy, rest_seconds)` (TID-781): fights in a row, the hero's HP carried from
 ## one to the next (a loss ends the chain), out-of-combat regen between them (`HeroVitality.regen`
 ## over `rest_seconds`), and the potions and well-fed charges carried too. Returns how far it got.
+##
+## cfg `joiner: {enemy_type, enemy_level, at_seconds}` (GID-187 / TID-782) adds a second enemy
+## to the fight once, at `at_seconds`, through `EncounterSetup.make_joiner` (the game's
+## `BattleRealtime.join_enemy` setup). `is_boss` fights swap to phase 2 at half HP
+## (`EncounterSetup.boss_phase2_due` / `enter_boss_phase2`, shared with `BattleScene`); `boss_phase2: false`
+## turns the swap off (measurement only).
 extends RefCounted
 
 const BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
+const EncounterSetup = preload("res://game_logic/battle/EncounterSetup.gd")
 const HeroVitality = preload("res://game_logic/HeroVitality.gd")
 const BalanceBot = preload("res://game_logic/battle/BalanceBot.gd")
 const PlayerCaster = preload("res://game_logic/battle/PlayerCaster.gd")
@@ -27,6 +35,7 @@ const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const FightStats = preload("res://game_logic/battle/FightStats.gd")
 const FightConditions = preload("res://game_logic/battle/FightConditions.gd")
 const SpellEffectResolver = preload("res://scenes/battle/SpellEffectResolver.gd")
+const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 
 const DT: float = 0.05
 const MAX_SECONDS: float = 300.0
@@ -47,7 +56,8 @@ static func run(cfg: Dictionary, policy: Dictionary = {}) -> Dictionary:
 	var bot := BalanceBot.new(policy)
 	bot.stock(built["potion_ids"], built["potion_counts"])
 	var stats: Dictionary = {"plays": {}, "dealt_cards": 0, "dealt_auto": 0, "interrupts": 0,
-		"enemy_casts": 0, "procs": 0, "full_mana_s": 0.0, "crits_dealt": 0, "crits_taken": 0}
+		"enemy_casts": 0, "procs": 0, "full_mana_s": 0.0, "crits_dealt": 0, "crits_taken": 0,
+		"joins": 0, "phase2": 0}
 	caster.notify = func(kind: String, data: Dictionary) -> void:
 		match kind:
 			"resolved":
@@ -63,7 +73,17 @@ static func run(cfg: Dictionary, policy: Dictionary = {}) -> Dictionary:
 	var rounds: int = 0
 	var t: float = 0.0
 	var max_seconds: float = float(cfg.get("max_seconds", MAX_SECONDS))
+	var joiner: Dictionary = cfg.get("joiner", {}) as Dictionary
+	var joiner_at: float = float(joiner.get("at_seconds", INF))
+	var joined: bool = joiner.is_empty()
+	var is_boss: bool = bool(cfg.get("is_boss", false))
+	var p2_deck: Array = EnemyRegistry.get_phase2_deck(enemy_type) if bool(cfg.get("boss_phase2", true)) else []
+	var foe: PlayerState = state.players[RealtimeCombat.ENEMY]
 	while t < max_seconds and not state.is_game_over():
+		if not joined and t >= joiner_at:
+			joined = true
+			if EncounterSetup.make_joiner(rt, joiner) >= 0:
+				stats["joins"] = int(stats["joins"]) + 1
 		var played: String = bot.act(caster, resolver, DT)
 		if played != "":
 			var plays: Dictionary = stats["plays"]
@@ -92,6 +112,10 @@ static func run(cfg: Dictionary, policy: Dictionary = {}) -> Dictionary:
 				"proc":
 					stats["procs"] = int(stats["procs"]) + 1
 		stats["dealt_auto"] = int(stats["dealt_auto"]) + maxi(0, foe_hp - FightStats.enemy_health(rt))
+		# As BattleScene._check_game_over after each batch of events: a boss swaps at half HP, once.
+		if int(stats["phase2"]) == 0 and EncounterSetup.boss_phase2_due(foe, is_boss, p2_deck):
+			EncounterSetup.enter_boss_phase2(foe, enemy_type, p2_deck)
+			stats["phase2"] = 1
 		if me.hero.mana >= me.hero.max_mana:
 			stats["full_mana_s"] = float(stats["full_mana_s"]) + DT
 		t += DT

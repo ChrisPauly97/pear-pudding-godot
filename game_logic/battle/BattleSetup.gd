@@ -37,6 +37,10 @@ const FightStart = preload("res://game_logic/battle/FightStart.gd")
 const MATCHED_SWAP: int = 2
 
 const OPENING_HAND: int = 4
+## GID-187 / TID-782: a joiner (a second enemy arriving mid-fight) opens with 3 cards.
+const JOINER_OPENING_HAND: int = 3
+## Boss cards fight at this tier (and a boss's phase 2 deck is built at it too).
+const BOSS_TIER: int = 4
 
 # --- Player ---------------------------------------------------------------
 
@@ -179,7 +183,7 @@ static func base_tier(_enemy_type: String) -> int:
 static func enemy_tier(enemy_type: String, is_boss: bool, enemy_level: int) -> int:
 	var tier: int = base_tier(enemy_type)
 	if is_boss:
-		tier = 4
+		tier = BOSS_TIER
 	return ZoneLevels.scaled_tier(tier, enemy_level)
 
 ## The level an enemy fights at when its data names none: its authored difficulty

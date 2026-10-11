@@ -5,6 +5,7 @@ extends Control
 const _ZoneLevels = preload("res://game_logic/world/ZoneLevels.gd")
 const GameState = preload("res://game_logic/battle/GameState.gd")
 const _BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
+const _EncounterSetup = preload("res://game_logic/battle/EncounterSetup.gd")
 const _FightConditions = preload("res://game_logic/battle/FightConditions.gd")
 const _BattleNet = preload("res://scenes/battle/net/BattleNet.gd")
 const _BattleNetSync = preload("res://scenes/battle/BattleNetSync.gd")
@@ -1083,22 +1084,12 @@ func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 func _check_boss_phase2() -> void:
 	if _boss_phase2_triggered:
 		return
-	if not bool(enemy_data.get("is_boss", false)):
-		return
 	var p2_raw: Array = enemy_data.get("phase2_deck", [])
-	if p2_raw.is_empty():
-		return
-	var enemy_hero := _state.players[1].hero
-	if enemy_hero.health > enemy_hero.max_health / 2:
+	# GID-187 / TID-782: the swap itself is shared with the balance sim (BattleSetup).
+	if not _EncounterSetup.boss_phase2_due(_state.players[1], bool(enemy_data.get("is_boss", false)), p2_raw):
 		return
 	_boss_phase2_triggered = true
-	var p2_deck: Array[String] = []
-	p2_deck.assign(p2_raw)
-	var p2_enemy_type: String = str(enemy_data.get("enemy_type", ""))
-	var p2_tier: int = 4 if bool(enemy_data.get("is_boss", false)) else EnemyRegistry.get_difficulty_tier(p2_enemy_type)
-	_state.players[1].build_deck(p2_deck, p2_tier)
-	_state.players[1].school_profile = EnemyRegistry.get_school_profile(p2_enemy_type, 2)  # TID-751
-	_state.players[1].draw_opening_hand(4)
+	_EncounterSetup.enter_boss_phase2(_state.players[1], str(enemy_data.get("enemy_type", "")), p2_raw)
 	_refresh_all()
 	_result_ui.show_phase2_banner()
 
