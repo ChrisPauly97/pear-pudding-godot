@@ -35,7 +35,7 @@ godot --headless --path . -s tools/balance_sim.gd -- --enemy all --level 10 --sw
 | `--boss` | fight as a boss (tier 4, boss HP) |
 | `--tune k=v,…` | `CombatTuning` overrides (clamped to each knob's range) |
 | `--bot NAME` | `BalanceBot` preset: `default` (the CI policy) or `casual` (GID-187, see "Bot variety") |
-| `--policy k=v,…` | `BalanceBot` knobs over the preset: `heal_below` (0.4), `summon` (1), `interrupt` (1), `focus` (1), `react` (0), `kick_miss` (0), `think` (0) |
+| `--policy k=v,…` | `BalanceBot` knobs over the preset: `heal_below` (0.4), `summon` (1), `interrupt` (1), `focus` (1), `react` (0), `kick_miss` (0), `think` (0), `potion_below` (0 = never drink) |
 | `--sweep key=v1,v2` | one case per value: `level`, `enemy_level`, a tuning knob, or a policy knob |
 | `--csv PATH` | per-fight CSV (default `user://balance/<time>.csv`; `none` skips) |
 | `--max-seconds S` | per-fight cap, counted as a timeout (300) |
@@ -66,9 +66,11 @@ Determinism: `BattleSetup.build` calls `seed(n)` (global RNG: shuffles, resolver
 - **A bot, not a human.** Compare settings against each other; absolute win rates are only a proxy for
   "average play". Two presets (`default`, `casual`) bracket the spread (see "Bot variety").
 - **Coverage:** see "Wide coverage" — every level 1–60, school matchups and bosses (GID-186).
-- **Not simulated:** companions, persistent / carried-over HP, potions and the hero power, boss phase 2,
+- **Not simulated:** companions, the spire / siege carried HP, the hero power, boss phase 2,
   commanded Ally attacks, focus changes, snow discount and blizzard freeze (both turn-based or player-side only).
-  Weather, biome / night, blight, ambush and gambits are simulated since GID-187 (below).
+  Weather, biome / night, blight, ambush and gambits are simulated since GID-187 (below). Starting HP, quick-slot
+  potions, well-fed food and fight chains are simulated only when a config names them (TID-781, below); the
+  default bot and the CI bands never do.
 - **Real time only** (user decision); turn-based fights aren't simulated.
 
 ## Balance targets (user, 2026-10-08)
@@ -410,10 +412,47 @@ wall on packs by design (no focus swaps). Not retuned here; packs are the open i
 
 ## Integrations
 
+- `tests/unit/test_wounded_fights.gd` (TID-781) covers start HP, well fed, potions, the chain carry-over.
 - `tests/unit/test_battle_determinism.gd`, `test_player_caster.gd`, `test_battle_setup.gd`, `test_balance_bot.gd`
   and `test_balance_stats.gd` cover the pieces.
 - `realtime_battle_smoke` checks `BattleSetup.build` against the live scene.
 
 ## Well-fed buffs (GID-182 / TID-763)
 
-Cooked-food buffs (`game_logic/professions/WellFed.gd`, +max HP for a few fights) are not in the sim. `BattleSetup.build` never reaches `BattleModifiers`, so the sim and the CI bands always run unbuffed. Keep it that way: a buff should change how a fight feels, not the balance baseline.
+Cooked-food buffs (`game_logic/professions/WellFed.gd`, +max HP for a few fights) are not in the default sim. The CI bands and the default bot always run unbuffed. Keep it that way: a buff should change how a fight feels, not the balance baseline. Since TID-781 a config can name one (`well_fed`, below), and the game and the sim share `FightStart.apply_well_fed`.
+
+## Wounded fights, potions, food and chains (GID-187 / TID-781)
+
+A real player often starts a fight hurt. Each piece is a config key or a bot knob, all off by default:
+
+| Key | Where | Meaning |
+|---|---|---|
+| `start_hp_frac` | `BattleSetup.build` cfg | 0..1 start HP, applied after every max-HP modifier (gear, well fed), the same `FightStart.apply_start_hp` that `BattleModifiers._apply_persistent_hp` calls. Default 1.0 |
+| `well_fed` | cfg | a food id (`roast_fowl`, `bog_pie`…, its `ProfessionDefs.WELL_FED` buff) or a buff dict; adds max HP and current HP, takes one charge (`FightStart.apply_well_fed`, the same call as `BattleModifiers._apply_well_fed`). The result's `well_fed` is the buff left after the fight |
+| `potions` / `quick_slots` | cfg | `{id: count}` and optional `[id, id]`; `QuickSlots.resolve` (the game's own top-up) gives the two quick-slot potions, legendary ones excluded. Result: `potion_ids`, `potion_counts` |
+| `potion_below` | `BalanceBot` policy | drink the first ready quick-slot potion when hero HP is under this fraction (0 = never). It uses the game's `QuickSlots` cooldown (`potion_cooldown`, seconds) and `PotionEffects.apply_hero` (clarity brew draws two cards) |
+| `BalanceFight.chain(cfg, fights, policy, rest_seconds)` | code | `fights` fights in a row, seeds `seed + i`, HP carried from one to the next, `HeroVitality.regen` over `rest_seconds` between them (the game's out-of-combat rate for the player's level), potions and the well-fed charge carried too. A loss ends it. Returns `{cleared, fights, won_all, results}` |
+
+Run stats gained `start_hp_frac`, `potions_used`, `potions_left` and `well_fed`. The CLI has no flag for these; use the
+config in code (`BalanceCoverage` does).
+
+### `wounded` section (`tests/balance_coverage.gd -- --section wounded`)
+
+Three gates, measured first, all at the same seeds:
+
+- (a) **Same-level from 60 % HP**: the `range` cells (24 cells, 8 fights each) at `start_hp_frac` 0.6. Gate: mean ≥ **65 %**.
+  Measured **69.3 %** (1662.5 / 24). The brief asked for 70 %; the 8-fight cells carry about 3 pp of sampling noise, so
+  70 % would fail on noise. The gate sits 4 pp under the measurement. Per cell, the same-level win rates run from 12.5 %
+  (forest shade 8, bog hag 8) to 100 %.
+- (b) **Potions help**: `POTION_CELLS` one level up (enemy = player + 1) from 60 % HP, 16 fights, kit `healing_draught` ×3
+  and `stoneskin_tonic` ×2, `potion_below` 0.5, against the same cell with no potions. Gate: with ≥ without, every cell.
+  Measured (without → with): undead horde 3 → 56 → 100 %, wolf pack 5 → 25 → 100 %, bog hag 7 → 0 → 94 %.
+- (c) **A 3-fight chain at the same level** from 60 % HP, 30 s of regen between fights, 32 chains per cell. Gate: each
+  gated cell cleared in full ≥ **50 %**. Measured: undead basic 2 → 100 %, undead horde 3 → 56 %. Not gated, a
+  measured miss: wolf pack 4 → 44 %. Screened and missed at 16 chains (all below 50 %): ghoul pack 3 → 6 %, ghoul
+  pack 4 → 6 %, wolf pack 6 → 0 %, bog hag 6 → 6 %, forest shade 6 → 6 %, imbued stag 7 → 0 %, martarquas scout 9 → 0 %,
+  undead basic 1 → 44 %. So a 3-fight chain from 60 % is a hard target, met only at the low levels of the Chapter 1 range.
+
+The default bot, the default policy and `tests/balance_bands.gd` are unchanged by all of this (the bands still pass
+at the same baseline). `tests/unit/test_wounded_fights.gd` covers the keys, the bot's potion gate and cooldown, the
+chain carry-over and the default-off paths.

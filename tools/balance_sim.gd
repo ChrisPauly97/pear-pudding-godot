@@ -96,7 +96,7 @@ func _go() -> void:
 		for v: String in sweep_vals:
 			var cfg: Dictionary = _config(enemy, sweep_key, v)
 			var policy: Dictionary = base_policy.duplicate()
-			if sweep_key in ["heal_below", "summon", "interrupt", "focus", "react", "kick_miss", "think"]:
+			if sweep_key in ["heal_below", "summon", "interrupt", "focus", "react", "kick_miss", "think", "potion_below"]:
 				policy[sweep_key] = float(v)
 			var label: String = enemy + ("" if sweep_key == "" else " %s=%s" % [sweep_key, v])
 			var results: Array[Dictionary] = []

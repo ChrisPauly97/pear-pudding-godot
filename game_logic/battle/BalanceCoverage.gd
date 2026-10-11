@@ -15,6 +15,11 @@
 ## - `casual` (GID-187 / TID-784): the `range` cells at the same level only, fought by the
 ##   `casual` BalanceBot preset (a second policy, so the targets hold for a slower player too).
 ##
+## - `wounded` (GID-187 / TID-781): a real player often starts wounded. (a) the `range` cells at the
+##   same level from 60 % HP (mean gate); (b) potions: `POTION_CELLS` at +1 from 60 % HP, with and
+##   without a quick-slot kit drunk below half HP; (c) `CHAIN_CELLS`: a 3-fight chain at the same
+##   level, HP carried between fights with some rest, cleared in full at least `CHAIN_MIN` of the time.
+##
 ## Pure except the `measure_*` functions running fights. `tests/balance_coverage.gd` drives
 ## it; `tests/unit/test_balance_coverage.gd` covers the checks and the cell tables.
 extends RefCounted
@@ -27,7 +32,8 @@ const BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
 const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 
-const SECTIONS: Array[String] = ["range", "world_low", "world_high", "schools", "bosses", "conditions", "casual"]
+const SECTIONS: Array[String] = ["range", "world_low", "world_high", "schools", "bosses", "conditions", "casual",
+	"wounded"]
 ## Regular world types past Chapter 1 (no bosses, no training dummy), by authored tier:
 ## `world_low` = tiers 1-2, `world_high` = tiers 3-4.
 const WORLD_LOW: Array[String] = [
@@ -142,6 +148,31 @@ const SCHOOL_ENVS: Array = [
 	["rift", {"biome": 3}],
 	["physical", {"biome": 4}],
 ]
+
+## Wounded (GID-187 / TID-781). Starting HP as a fraction of max (the save's `hero_hp_frac`).
+const WOUNDED_HP_FRAC: float = 0.6
+const WOUNDED_FIGHTS: int = 8
+## Same-level mean over the `range` cells from WOUNDED_HP_FRAC. Measured 69 % (24 cells x 8 fights,
+## about 3.6 pp of sampling noise), so 70 % would fail on noise: the gate sits 4 pp under it.
+const WOUNDED_MEAN_MIN: float = 0.65
+## Potion cells: [type, player level] fought one level up from WOUNDED_HP_FRAC. The kit is what the
+## player carries; the bot drinks its first ready potion below POTION_BELOW of max HP.
+const POTION_CELLS: Array = [["undead_horde", 3], ["wolf_pack", 5], ["bog_hag", 7]]
+const POTION_KIT: Dictionary = {"healing_draught": 3, "stoneskin_tonic": 2}
+const POTION_BELOW: float = 0.5
+const POTION_FIGHTS: int = 16
+## Chain cells: [type, level] (same level). Each chain is CHAIN_FIGHTS fights with CHAIN_REST seconds
+## of out-of-combat regen between them, CHAIN_CHAINS chains from WOUNDED_HP_FRAC. Measured (32 chains):
+## undead_basic@2 100 %, undead_horde@3 56 %, wolf_pack@4 44 % (a miss, not gated). Screened and
+## missed at 16 chains: ghoul_pack@4 6 %, wolf_pack@6 0 %, bog_hag@6 6 %, forest_shade@6 6 %,
+## ghoul_pack@3 6 %, imbued_stag@7 0 %, martarquas_scout@9 0 %, undead_basic@1 44 %. Only the two
+## that clear the bar are gated; a 3-fight chain from 60 % HP is a hard target, not a general one.
+const CHAIN_CELLS: Array = [["undead_basic", 2], ["undead_horde", 3]]
+const CHAIN_FIGHTS: int = 3
+const CHAIN_CHAINS: int = 32
+const CHAIN_REST: float = 30.0
+## A same-level 3-fight chain is cleared at least this often on each chain cell.
+const CHAIN_MIN: float = 0.5
 
 ## [enemy type, player level] for `section` ("range", "world_low", "world_high").
 static func ladder_cells(section: String) -> Array:
@@ -380,6 +411,65 @@ static func check_casual(measured: Dictionary) -> Array[String]:
 			fails.append("casual: same-level mean %.0f%% < %.0f%%" % [mean * 100.0, CASUAL_MEAN_MIN * 100.0])
 	return fails
 
+## Runs the wounded cells: {"range/<type@lv+0>": cell, "potion/<type@lv+1>/off|on": cell,
+## "chain/<type@lv+0>": cell (win_rate = share of chains cleared in full, cleared = mean fights won)}.
+static func measure_wounded(tune: Dictionary = {}) -> Dictionary:
+	var out: Dictionary = {}
+	var wounded: Dictionary = {"start_hp_frac": WOUNDED_HP_FRAC}
+	for cell: Array in ladder_cells("range"):
+		var t: String = str(cell[0])
+		var lv: int = int(cell[1])
+		out["range/" + BalanceBands.key(t, lv, 0)] = run_cell(t, lv, lv, WOUNDED_FIGHTS, "", tune, wounded)
+	for cell: Array in POTION_CELLS:
+		var t: String = str(cell[0])
+		var pl: int = int(cell[1])
+		var key: String = BalanceBands.key(t, pl, 1)
+		out["potion/%s/off" % key] = run_cell(t, pl, pl + 1, POTION_FIGHTS, "", tune, wounded)
+		var kit: Dictionary = {"start_hp_frac": WOUNDED_HP_FRAC, "potions": POTION_KIT.duplicate()}
+		out["potion/%s/on" % key] = run_cell(t, pl, pl + 1, POTION_FIGHTS, "", tune, kit, BattleSetup.MATCHED_SWAP,
+			{"potion_below": POTION_BELOW})
+	for cell: Array in CHAIN_CELLS:
+		var t: String = str(cell[0])
+		var lv: int = int(cell[1])
+		var cleared: int = 0
+		var won_all: int = 0
+		var fights: Array[Dictionary] = []
+		for k: int in CHAIN_CHAINS:
+			var cfg: Dictionary = cell_cfg(t, lv, lv, 1 + k * CHAIN_FIGHTS, "", tune, wounded)
+			var r: Dictionary = BalanceFight.chain(cfg, CHAIN_FIGHTS, {}, CHAIN_REST)
+			cleared += int(r["cleared"])
+			won_all += 1 if bool(r["won_all"]) else 0
+			fights.append_array(r["results"])
+		var s: Dictionary = BalanceStats.summarize(fights)
+		out["chain/" + BalanceBands.key(t, lv, 0)] = {"win_rate": float(won_all) / float(CHAIN_CHAINS),
+			"median_s": float(s["median_s"]), "n": CHAIN_CHAINS, "cleared": float(cleared) / float(CHAIN_CHAINS)}
+	return out
+
+## Failures of the wounded measurement (empty = pass).
+static func check_wounded(measured: Dictionary) -> Array[String]:
+	var fails: Array[String] = []
+	var sum: float = 0.0
+	var n: int = 0
+	for k: String in measured:
+		var wr: float = float((measured[k] as Dictionary)["win_rate"])
+		if k.begins_with("range/"):
+			sum += wr
+			n += 1
+		elif k.begins_with("chain/") and wr < CHAIN_MIN - 0.001:
+			fails.append("wounded %s: %d-fight chain cleared %.0f%% < %.0f%%" % [k, CHAIN_FIGHTS, wr * 100.0,
+				CHAIN_MIN * 100.0])
+	if n > 0 and sum / float(n) < WOUNDED_MEAN_MIN - 0.001:
+		fails.append("wounded range: same-level mean %.0f%% at %.0f%% HP < %.0f%%" % [sum / float(n) * 100.0,
+			WOUNDED_HP_FRAC * 100.0, WOUNDED_MEAN_MIN * 100.0])
+	for k: String in measured:
+		if not k.begins_with("potion/") or not k.ends_with("/on"):
+			continue
+		var on: float = float((measured[k] as Dictionary)["win_rate"])
+		var off: float = float((measured[k.trim_suffix("on") + "off"] as Dictionary)["win_rate"])
+		if on < off - 0.001:
+			fails.append("wounded %s: potions win %.0f%% < %.0f%% without" % [k, on * 100.0, off * 100.0])
+	return fails
+
 ## Measures and checks one section: {"measured": Dictionary, "fails": Array[String]}.
 static func run_section(section: String, tune: Dictionary = {}) -> Dictionary:
 	var measured: Dictionary = {}
@@ -397,6 +487,9 @@ static func run_section(section: String, tune: Dictionary = {}) -> Dictionary:
 		"casual":
 			measured = measure_casual(tune)
 			fails = check_casual(measured)
+		"wounded":
+			measured = measure_wounded(tune)
+			fails = check_wounded(measured)
 		_:
 			measured = measure_ladder(section, tune)
 			fails = check_ladder(section, measured)

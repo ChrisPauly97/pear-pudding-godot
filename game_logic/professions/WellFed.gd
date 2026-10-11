@@ -3,8 +3,9 @@
 ## A buff is `{food, stat, amount, fights}`, or `{}` for none, stored in
 ## `SaveManager.well_fed`. Eating a food with a `ProfessionDefs.WELL_FED` entry sets
 ## it. Each ordinary solo fight that starts while it is active takes one charge and
-## adds `amount` max HP (`BattleModifiers._apply_well_fed`). The balance sim and
-## the balance bands never apply it.
+## adds `amount` max HP (`BattleModifiers._apply_well_fed`, shared with the sim through
+## `FightStart.apply_well_fed`). The balance bands never apply it; the sim only when a config
+## names `well_fed` (TID-781).
 extends RefCounted
 
 const ProfessionDefs = preload("res://game_logic/professions/ProfessionDefs.gd")

@@ -6,8 +6,9 @@
 ##
 ## Battlefield conditions (weather, biome / night school boosts, scorch, blight, ambush,
 ## gambits) live in `FightConditions`, shared with the game (GID-187 / TID-780).
-## Not covered (scene-only, see BID-094): spire / siege HP carry-over, companions,
-## persistent hero HP.
+## Persistent hero HP (`start_hp_frac`), well-fed buffs and quick-slot potions (GID-187 / TID-781) are
+## applied here too, through `FightStart`, the helpers the game's BattleModifiers calls.
+## Not covered (scene-only, see BID-094): spire / siege HP carry-over, companions.
 extends RefCounted
 
 const GameState = preload("res://game_logic/battle/GameState.gd")
@@ -31,6 +32,7 @@ const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
 const GearStats = preload("res://game_logic/items/GearStats.gd")
 const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
 const FightConditions = preload("res://game_logic/battle/FightConditions.gd")
+const FightStart = preload("res://game_logic/battle/FightStart.gd")
 ## TID-757: how many default Allies a school-matched deck swaps for the school's own cards.
 const MATCHED_SWAP: int = 2
 
@@ -327,7 +329,12 @@ static func apply_live_tuning(rt: RealtimeCombat, base_tier: int) -> void:
 ##   (BattlefieldRules.BIOME_*, -1 = dungeon), is_night (false), blighted (false: +5 foe HP),
 ##   ambush ("" / "player" / "enemy"), gambit_id (""). Naming `biome`, `is_night` or `weather`
 ##   turns the battlefield context on (school boosts, scorch); otherwise none applies.
-## Returns {state: GameState, rt: RealtimeCombat, tier: int}.
+##   Hero HP (GID-187 / TID-781): start_hp_frac (1.0 = full, applied after every max-HP
+##   modifier), well_fed (a food id or a WellFed buff dict; one charge is taken, see
+##   `well_fed` in the result), potions ({potion id: count}) and quick_slots ([id, id], else
+##   the top-up `QuickSlots.resolve` gives). Legendary potions are left out of `potion_ids`.
+## Returns {state: GameState, rt: RealtimeCombat, tier: int, well_fed: Dictionary (buff after
+## this fight), potion_ids: Array[String] (the quick-slot potions), potion_counts: Dictionary}.
 static func build(cfg: Dictionary) -> Dictionary:
 	var s: int = int(cfg.get("seed", 0))
 	if s != 0:
@@ -356,6 +363,12 @@ static func build(cfg: Dictionary) -> Dictionary:
 	me.hero.school_resist = DamageSchools.capped_resists(school_resist_sources(gear, skill_ids, me.gear))
 	apply_skill_mods(me, skill_ids)
 	me.draw_opening_hand(OPENING_HAND)
+	# Same order as BattleModifiers: max-HP modifiers (gear above, well fed), then the start HP.
+	var well_fed: Dictionary = FightStart.apply_well_fed(me, FightStart.well_fed_buff(cfg.get("well_fed", "")))
+	FightStart.apply_start_hp(me, float(cfg.get("start_hp_frac", 1.0)))
+	# Quick-slot potions (TID-542): the slots the game would show for these potions.
+	var potion_counts: Dictionary = (cfg.get("potions", {}) as Dictionary).duplicate()
+	var potion_ids: Array[String] = FightStart.potion_ids(potion_counts, cfg.get("quick_slots", []) as Array)
 	var gambit_id: String = str(cfg.get("gambit_id", ""))
 	foe.minion_attack_bonus = FightConditions.enemy_minion_attack_bonus(gambit_id)  # before its deck is built
 	var tier: int = enemy_tier(enemy_type, is_boss, enemy_level)
@@ -389,7 +402,8 @@ static func build(cfg: Dictionary) -> Dictionary:
 			offhand_damage_for_item(str(cfg.get("offhand", ""))))
 	apply_deck_rules(rt, learned)
 	apply_live_tuning(rt, type_tier)
-	return {"state": state, "rt": rt, "tier": tier}
+	return {"state": state, "rt": rt, "tier": tier, "well_fed": well_fed, "potion_ids": potion_ids,
+		"potion_counts": potion_counts}
 
 ## The new-game starter deck (SaveManager.new_game) plus Strike.
 static func starter_deck() -> Array[String]:

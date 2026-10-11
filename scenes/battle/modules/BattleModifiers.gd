@@ -23,6 +23,7 @@ const Gambits = preload("res://game_logic/battle/Gambits.gd")
 const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
+const _FightStart = preload("res://game_logic/battle/FightStart.gd")
 const FightConditions = preload("res://game_logic/battle/FightConditions.gd")
 
 var _battle: _BattleScene
@@ -69,10 +70,7 @@ func _apply_well_fed(player: PlayerState) -> void:
 	var buff: Dictionary = sm.well_fed
 	if not _WellFed.active(buff):
 		return
-	var bonus: int = _WellFed.hp_bonus(buff)
-	player.hero.max_health += bonus
-	player.hero.health += bonus
-	sm.well_fed = _WellFed.after_fight(buff)
+	sm.well_fed = _FightStart.apply_well_fed(player, buff)  # shared with the balance sim (TID-781)
 	sm.mark_dirty()
 
 ## Apply once-per-battle companion passives (extra_mana, hero_armor).
@@ -259,9 +257,7 @@ func _school_resist_sources() -> Dictionary:
 func _apply_persistent_hp() -> void:
 	if not _hp_carries():
 		return
-	var hero: HeroState = _battle._state.players[0].hero
-	hero.health = mini(hero.health, _HeroVitality.battle_start_hp(hero.max_health,
-			SceneManager.save_manager.hero_hp_frac))
+	_FightStart.apply_start_hp(_battle._state.players[0], SceneManager.save_manager.hero_hp_frac)
 
 
 ## Game over of an ordinary solo fight: remember what's left (a loss → RESPAWN_FRAC).
