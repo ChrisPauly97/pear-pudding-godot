@@ -32,16 +32,16 @@ and co-op — and retune against that player instead.
 |----|------|------|--------|------------|
 | TID-788 | Gear stat system (card-framed stats wired into combat) | agent | done | — |
 | TID-789 | Item model, bands and stat budget | agent | done | TID-788 |
-| TID-790 | Author the item catalogue | agent | todo | TID-789 |
+| TID-790 | Author the item catalogue | agent | done | TID-789 |
 | TID-791 | Gear sources follow the curve | agent | todo | TID-790 |
-| TID-792 | Gear UI: stats, comparison, level requirement | agent | todo | TID-789 |
+| TID-792 | Gear UI: stats, comparison, level requirement | agent | done | TID-789 |
 | TID-778 | Player profiles (typical build per level) | agent | todo | TID-791 |
 | TID-779 | Progression rewards matter (gear / skills / upgrades bands) | agent | todo | TID-778 |
-| TID-780 | Fight conditions shared by sim and game | agent | todo | TID-778 |
+| TID-780 | Fight conditions shared by sim and game | agent | done | TID-778 |
 | TID-781 | Starting HP, potions and food | agent | todo | TID-778 |
 | TID-782 | Encounter shapes: joiners, boss phase 2, boss ranges | agent | todo | TID-778 |
 | TID-783 | Runs: rift / spire ladders and siege gauntlets | agent | todo | TID-781 |
-| TID-784 | Bot variety (second policy) | agent | todo | TID-778 |
+| TID-784 | Bot variety (second policy) | agent | done | TID-778 |
 | TID-785 | Turn-based sim and bands | agent | cancelled | — |
 | TID-786 | Real-time co-op scaling (2-4 heroes) | agent | todo | TID-778 |
 | TID-787 | Retune against profiles | agent | todo | TID-779, TID-780, TID-781, TID-782, TID-784 |
