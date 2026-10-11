@@ -1,9 +1,9 @@
-# TID-786: Co-op scaling (2-4 heroes, turn-based)
+# TID-786: Real-time co-op scaling (2-4 heroes)
 
 **Goal:** GID-187
 **Type:** agent
 **Status:** todo
-**Depends On:** TID-785
+**Depends On:** TID-778
 
 ## Lock
 
@@ -13,7 +13,9 @@
 
 ## Context
 
-Sim 2-4 bot heroes (typical profiles) against a co-op boss with the game's scaling, turn-based. Band: a party of N
+Turn-based combat is deprecated (user, 2026-10-11), so co-op is measured in real time: extend `RealtimeCombat` /
+`BalanceFight` to 2-4 player sides (each with its own `BalanceBot`) against a co-op boss with the game's scaling.
+The game's co-op fights are still turn-based today; moving them to real time is BID-105. Band: a party of N
 clears a same-level boss at about the solo rate (± a band), so co-op is neither a carry nor a wall; also team
 battles (`setup_team_battle`) if PvE.
 
