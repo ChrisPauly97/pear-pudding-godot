@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://wmxi2ikbfnuz"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_felt_cap"]
+
+[resource]
+script = ExtResource("1_felt_cap")
+id = "felt_cap"
+display_name = "Felt Cap"
+description = "A thick wool cap that keeps the rain off and the cold out."
+slot = "helmet"
+battle_effect_type = ""
+stats = {
+"stamina": 7
+}
+band = "basic"
+item_level = 2
+level_req = 2
+rarity = "common"

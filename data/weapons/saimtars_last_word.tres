@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://0ujtrbxmbtf0"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_saimtars_last_word"]
+
+[resource]
+script = ExtResource("1_saimtars_last_word")
+id = "saimtars_last_word"
+display_name = "Saimtar's Last Word"
+description = "The dagger that ended the first war, its edge kept honest by a promise."
+slot = "weapon"
+battle_effect_type = ""
+stats = {
+"attack_power": 45,
+"phys_crit": 14,
+"haste": 16,
+"leech": 14
+}
+swing_speed = 1.8
+band = "legendary"
+item_level = 50
+level_req = 50
+rarity = "legendary"

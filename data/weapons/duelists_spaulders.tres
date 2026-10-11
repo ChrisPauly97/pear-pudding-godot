@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://ykc7zdzyncvp"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_duelists_spaulders"]
+
+[resource]
+script = ExtResource("1_duelists_spaulders")
+id = "duelists_spaulders"
+display_name = "Duelist's Spaulders"
+description = "Light buckled plates that let the arms move quick."
+slot = "shoulders"
+battle_effect_type = ""
+stats = {
+"attack_power": 13,
+"phys_crit": 9
+}
+band = "fine"
+item_level = 18
+level_req = 18
+rarity = "rare"

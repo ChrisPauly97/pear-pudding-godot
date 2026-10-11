@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://4i2yh5t94tf0"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_lantern_staff"]
+
+[resource]
+script = ExtResource("1_lantern_staff")
+id = "lantern_staff"
+display_name = "Lantern Staff"
+description = "Iron-capped oak with a cage at the top for a witchlight."
+slot = "weapon"
+battle_effect_type = ""
+stats = {
+"spell_power": 17,
+"spirit": 11
+}
+swing_speed = 3.2
+band = "fine"
+item_level = 16
+level_req = 16
+rarity = "rare"

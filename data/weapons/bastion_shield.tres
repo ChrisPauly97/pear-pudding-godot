@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://itfuekjj0a6w"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_bastion_shield"]
+
+[resource]
+script = ExtResource("1_bastion_shield")
+id = "bastion_shield"
+display_name = "Bastion Shield"
+description = "A great shield of banded iron that rarely lets a blow through."
+slot = "offhand"
+battle_effect_type = ""
+stats = {
+"armor": 9,
+"command": 3,
+"block": 6,
+"resist:physical": 12
+}
+band = "heroic"
+item_level = 36
+level_req = 36
+rarity = "epic"

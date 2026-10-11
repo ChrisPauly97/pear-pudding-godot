@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://mf5lvj7yofwp"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_stonebark_pauldrons"]
+
+[resource]
+script = ExtResource("1_stonebark_pauldrons")
+id = "stonebark_pauldrons"
+display_name = "Stonebark Pauldrons"
+description = "Pauldrons of hardened bark and riveted slate."
+slot = "shoulders"
+battle_effect_type = ""
+stats = {
+"armor": 6,
+"spirit": 2,
+"block": 7
+}
+band = "superior"
+item_level = 21
+level_req = 21
+rarity = "rare"

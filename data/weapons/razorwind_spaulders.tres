@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://mepflv4a6v99"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_razorwind_spaulders"]
+
+[resource]
+script = ExtResource("1_razorwind_spaulders")
+id = "razorwind_spaulders"
+display_name = "Razorwind Spaulders"
+description = "Narrow, sharp-edged plates that flare when you swing."
+slot = "shoulders"
+battle_effect_type = ""
+stats = {
+"attack_power": 18,
+"phys_crit": 5,
+"haste": 13
+}
+band = "superior"
+item_level = 33
+level_req = 33
+rarity = "rare"

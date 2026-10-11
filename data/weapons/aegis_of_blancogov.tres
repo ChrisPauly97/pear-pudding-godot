@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://cs4o0ntnfdid"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_aegis_of_blancogov"]
+
+[resource]
+script = ExtResource("1_aegis_of_blancogov")
+id = "aegis_of_blancogov"
+display_name = "Aegis of Blancogov"
+description = "A shield blessed in the temple of Blancogov, bright with old prayers."
+slot = "offhand"
+battle_effect_type = ""
+stats = {
+"armor": 14,
+"command": 7,
+"block": 7,
+"resist:physical": 22
+}
+band = "legendary"
+item_level = 51
+level_req = 51
+rarity = "legendary"

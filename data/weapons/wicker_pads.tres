@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://ffuzqyid2zck"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_wicker_pads"]
+
+[resource]
+script = ExtResource("1_wicker_pads")
+id = "wicker_pads"
+display_name = "Wicker Pads"
+description = "Reed-woven shoulder guards, light as a basket and nearly as sturdy."
+slot = "shoulders"
+battle_effect_type = ""
+stats = {
+"armor": 3
+}
+band = "basic"
+item_level = 2
+level_req = 2
+rarity = "common"

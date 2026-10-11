@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://zmsptnikjylk"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_tallow_signet"]
+
+[resource]
+script = ExtResource("1_tallow_signet")
+id = "tallow_signet"
+display_name = "Tallow Signet"
+description = "A waxed signet that smells faintly of candle smoke."
+slot = "ring"
+battle_effect_type = ""
+stats = {
+"spell_power": 8
+}
+band = "basic"
+item_level = 8
+level_req = 8
+rarity = "common"

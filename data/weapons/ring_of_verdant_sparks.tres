@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://2q47ijon9glx"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_ring_of_verdant_sparks"]
+
+[resource]
+script = ExtResource("1_ring_of_verdant_sparks")
+id = "ring_of_verdant_sparks"
+display_name = "Ring of Verdant Sparks"
+description = "A green-stoned ring that sparks with leaf-bright light."
+slot = "ring"
+battle_effect_type = ""
+stats = {
+"spell_power": 19,
+"mastery:verdant": 5,
+"spell_crit": 5,
+"haste": 12
+}
+band = "heroic"
+item_level = 48
+level_req = 48
+rarity = "epic"

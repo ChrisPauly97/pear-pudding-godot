@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://6uic8p0b9it2"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_marsh_boots"]
+
+[resource]
+script = ExtResource("1_marsh_boots")
+id = "marsh_boots"
+display_name = "Marsh Boots"
+description = "Waxed boots that keep the bog out of the stitching."
+slot = "boots"
+battle_effect_type = ""
+stats = {
+"stamina": 7,
+"spirit": 4
+}
+band = "fine"
+item_level = 11
+level_req = 11
+rarity = "common"

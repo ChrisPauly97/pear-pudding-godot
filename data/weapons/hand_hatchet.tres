@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://9s6zmtujfa94"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_hand_hatchet"]
+
+[resource]
+script = ExtResource("1_hand_hatchet")
+id = "hand_hatchet"
+display_name = "Hand Hatchet"
+description = "A woodcutter's hatchet with a loose head and a good swing."
+slot = "weapon"
+battle_effect_type = ""
+stats = {
+"attack_power": 16
+}
+swing_speed = 3.6
+band = "basic"
+item_level = 9
+level_req = 9
+rarity = "common"

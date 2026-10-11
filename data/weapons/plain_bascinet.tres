@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://fidq5xt54jkb"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_plain_bascinet"]
+
+[resource]
+script = ExtResource("1_plain_bascinet")
+id = "plain_bascinet"
+display_name = "Plain Bascinet"
+description = "A pointed skull cap of riveted steel, dented once and hammered straight."
+slot = "helmet"
+battle_effect_type = ""
+stats = {
+"armor": 6
+}
+band = "basic"
+item_level = 8
+level_req = 8
+rarity = "common"

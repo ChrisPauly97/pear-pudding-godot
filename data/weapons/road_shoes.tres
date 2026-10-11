@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://yiyw7qmosxc0"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_road_shoes"]
+
+[resource]
+script = ExtResource("1_road_shoes")
+id = "road_shoes"
+display_name = "Road Shoes"
+description = "Worn but dry, laced to the ankle for long walks."
+slot = "boots"
+battle_effect_type = ""
+stats = {
+"stamina": 5
+}
+band = "basic"
+item_level = 2
+level_req = 2
+rarity = "common"

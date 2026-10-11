@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://mizdqhuhdu5z"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_rift_prism"]
+
+[resource]
+script = ExtResource("1_rift_prism")
+id = "rift_prism"
+display_name = "Rift Prism"
+description = "A prism that splits the light of the rift into colours no eye should see."
+slot = "trinket"
+battle_effect_type = ""
+stats = {
+"intellect": 3,
+"haste": 4,
+"spirit": 6,
+"command": 12
+}
+band = "heroic"
+item_level = 48
+level_req = 48
+rarity = "epic"

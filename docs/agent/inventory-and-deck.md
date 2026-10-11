@@ -285,7 +285,7 @@ Items are hand-made (fixed stats). `game_logic/items/GearCurve.gd` defines the c
 | fine | 10-19 | primary + 1 secondary |
 | superior | 20-34 | primary + 2; mastery / resist / leech / block open |
 | heroic | 35-49 | primary + 3 |
-| legendary | 50-60 | primary + 3 (unique effects: TID-790) |
+| legendary | 50-60 | primary + 3 (stats only; unique effects are out of scope) |
 
 Primary: stamina, armor, intellect, attack_power, spell_power. Secondary: spell_crit, phys_crit, haste, spirit,
 command (+ advanced from superior). Budget = `SLOT_WEIGHT[slot]` × (6 + 1.2 × item level) × `RARITY_BUDGET[rarity]`,
@@ -313,6 +313,33 @@ cost = Σ rating × `STAT_COST` (armor 2, intellect 6, mastery 0.8, resist 0.6, 
 - **BlacksmithScene**: each weapon row shows band / item level / requirement, the current stat summary and the next-level summary.
 - Upgrade level comes from `GearInspect.upgrade_level_of` (weapon slot only; other slots never upgrade). Stats use `UpgradeDefs.scaled_stats`; the roll multiplier only affects the legacy battle values.
 - Tests: `tests/unit/test_gear_tooltip.gd`.
+### Gear Catalogue (GID-187 / TID-790)
+
+Hand-made gear in `data/weapons/*.tres` (95 items; `WeaponRegistry` preloads each one). Every item passes
+`GearCurve.validate()`, checked by `tests/unit/test_gear_curve.gd`. Each slot has two items per band that differ in
+stat focus: an **A** tank / defence piece (Stamina, Armor, block, spirit, resist) and a **B** caster / striker piece
+(Intellect or Spell / Attack Power with Haste, crit, mastery). Weapons are five per band, one per swing class: dagger
+1.8, wand 2.2, blade 2.6, staff 3.2, axe 3.6. Dagger, blade and axe use Attack Power; wand and staff use Spell Power.
+A items sit at the low end of their band and B items at the high end. Weapons are spread across the band.
+
+| Band | Levels | Rarity | Weapon | Armor | Helmet | Shoulders | Boots | Offhand | Ring | Trinket | Items |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| basic | 1-9 | common | 5 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 19 |
+| fine | 10-19 | common / rare | 5 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 19 |
+| superior | 20-34 | rare | 5 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 19 |
+| heroic | 35-49 | epic | 5 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 19 |
+| legendary | 50-60 | legendary | 5 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 19 |
+
+Shape rules: Basic items carry one primary stat (Stamina or Armor for armour slots, Attack / Spell Power for weapons
+and some trinkets). Fine items add one secondary. Superior and above add two or three, and open mastery, resist,
+leech and block. Mastery of each school (light, dark, verdant, rift) appears on at least one Superior-or-higher item.
+Resist, leech and block pieces start at Superior. Legendary items have lore names (Saimtar, Maiteln, Eldar, Larik,
+Blancogov, Madrian, Farsyth) and stats only.
+
+Chest drops, shops and boss rewards draw from the whole registry, so the catalogue widens every equipment pool.
+Helmets and boots are visible on the paper doll, as are armour, shoulders, weapons, off-hands and trinkets. Each has a
+`GEAR_VISUALS` entry in `game_logic/character/PaperDollVisuals.gd` (re-exported by `PaperDoll`), which
+`test_paper_doll` requires. Rings are not drawn.
 
 ### SaveManager Equipment Fields
 

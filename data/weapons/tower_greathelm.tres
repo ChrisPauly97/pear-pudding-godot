@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://3vjg4cghms4x"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_tower_greathelm"]
+
+[resource]
+script = ExtResource("1_tower_greathelm")
+id = "tower_greathelm"
+display_name = "Tower Greathelm"
+description = "A heavy great helm with a slit like a watchtower window."
+slot = "helmet"
+battle_effect_type = ""
+stats = {
+"stamina": 23,
+"block": 4,
+"spirit": 11,
+"resist:dark": 16
+}
+band = "heroic"
+item_level = 36
+level_req = 36
+rarity = "epic"

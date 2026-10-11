@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://y3725sxx3d2g"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_greaves_of_the_long_road"]
+
+[resource]
+script = ExtResource("1_greaves_of_the_long_road")
+id = "greaves_of_the_long_road"
+display_name = "Greaves of the Long Road"
+description = "Greaves worn through a thousand leagues and still holding."
+slot = "boots"
+battle_effect_type = ""
+stats = {
+"stamina": 27,
+"spirit": 7,
+"haste": 8,
+"block": 11
+}
+band = "legendary"
+item_level = 51
+level_req = 51
+rarity = "legendary"

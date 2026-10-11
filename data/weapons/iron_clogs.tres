@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://7bf42jp6se5c"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_iron_clogs"]
+
+[resource]
+script = ExtResource("1_iron_clogs")
+id = "iron_clogs"
+display_name = "Iron-Toed Clogs"
+description = "Wooden soles with a steel cap over each toe."
+slot = "boots"
+battle_effect_type = ""
+stats = {
+"armor": 5
+}
+band = "basic"
+item_level = 8
+level_req = 8
+rarity = "common"

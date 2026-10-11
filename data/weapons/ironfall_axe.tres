@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://mdb1eai24bva"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_ironfall_axe"]
+
+[resource]
+script = ExtResource("1_ironfall_axe")
+id = "ironfall_axe"
+display_name = "Ironfall Axe"
+description = "An axe whose head is the size of a shield, forged in a single heat."
+slot = "weapon"
+battle_effect_type = ""
+stats = {
+"attack_power": 38,
+"phys_crit": 11,
+"command": 14,
+"haste": 19
+}
+swing_speed = 3.6
+band = "heroic"
+item_level = 49
+level_req = 49
+rarity = "epic"

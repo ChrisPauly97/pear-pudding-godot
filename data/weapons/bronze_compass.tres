@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://f71mdpm8dhrs"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_bronze_compass"]
+
+[resource]
+script = ExtResource("1_bronze_compass")
+id = "bronze_compass"
+display_name = "Bronze Compass"
+description = "A compass whose needle always points toward trouble."
+slot = "trinket"
+battle_effect_type = ""
+stats = {
+"attack_power": 6,
+"command": 3
+}
+band = "fine"
+item_level = 11
+level_req = 11
+rarity = "common"

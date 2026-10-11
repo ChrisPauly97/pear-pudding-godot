@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://zl32ok04p4n5"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_lightbound_circlet"]
+
+[resource]
+script = ExtResource("1_lightbound_circlet")
+id = "lightbound_circlet"
+display_name = "Lightbound Circlet"
+description = "A gold circlet that holds the glow of dawn."
+slot = "helmet"
+battle_effect_type = ""
+stats = {
+"intellect": 3,
+"mastery:light": 12,
+"haste": 13
+}
+band = "superior"
+item_level = 33
+level_req = 33
+rarity = "rare"

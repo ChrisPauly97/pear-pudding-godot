@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://0ls8996fv5j3"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_rift_shard_pendant"]
+
+[resource]
+script = ExtResource("1_rift_shard_pendant")
+id = "rift_shard_pendant"
+display_name = "Rift-Shard Pendant"
+description = "A shard of the rift on a silver chain, humming a note too low to hear."
+slot = "trinket"
+battle_effect_type = ""
+stats = {
+"intellect": 4,
+"mastery:rift": 11,
+"haste": 8,
+"spirit": 15
+}
+band = "legendary"
+item_level = 59
+level_req = 59
+rarity = "legendary"

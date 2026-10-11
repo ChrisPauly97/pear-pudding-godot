@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://eg143o3nfgav"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_walking_staff"]
+
+[resource]
+script = ExtResource("1_walking_staff")
+id = "walking_staff"
+display_name = "Walking Staff"
+description = "Knotted ash that keeps a traveller upright and a dog honest."
+slot = "weapon"
+battle_effect_type = ""
+stats = {
+"spell_power": 14
+}
+swing_speed = 3.2
+band = "basic"
+item_level = 7
+level_req = 7
+rarity = "common"

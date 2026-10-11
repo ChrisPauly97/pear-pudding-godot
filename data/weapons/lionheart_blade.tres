@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://sajnzacpgy36"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_lionheart_blade"]
+
+[resource]
+script = ExtResource("1_lionheart_blade")
+id = "lionheart_blade"
+display_name = "Lionheart Blade"
+description = "A broad blade with a lion's head at the hilt, sworn to draw blood."
+slot = "weapon"
+battle_effect_type = ""
+stats = {
+"attack_power": 34,
+"haste": 10,
+"leech": 7,
+"phys_crit": 18
+}
+swing_speed = 2.6
+band = "heroic"
+item_level = 43
+level_req = 43
+rarity = "epic"

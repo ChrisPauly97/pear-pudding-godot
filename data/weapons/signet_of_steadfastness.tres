@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://173derpcegwj"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_signet_of_steadfastness"]
+
+[resource]
+script = ExtResource("1_signet_of_steadfastness")
+id = "signet_of_steadfastness"
+display_name = "Signet of Steadfastness"
+description = "A heavy gold signet that steadies the hand under fire."
+slot = "ring"
+battle_effect_type = ""
+stats = {
+"stamina": 14,
+"spirit": 2,
+"command": 3,
+"block": 8
+}
+band = "heroic"
+item_level = 36
+level_req = 36
+rarity = "epic"

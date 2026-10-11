@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://l4p9iknl6ha8"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_sapphire_wand"]
+
+[resource]
+script = ExtResource("1_sapphire_wand")
+id = "sapphire_wand"
+display_name = "Sapphire Wand"
+description = "A blue-crystal wand, cool to hold and quick to answer."
+slot = "weapon"
+battle_effect_type = ""
+stats = {
+"spell_power": 20,
+"spell_crit": 6,
+"haste": 13
+}
+swing_speed = 2.2
+band = "superior"
+item_level = 24
+level_req = 24
+rarity = "rare"

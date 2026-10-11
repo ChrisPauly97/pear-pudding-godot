@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://upm6v5ttlhj7"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_windrunner_boots"]
+
+[resource]
+script = ExtResource("1_windrunner_boots")
+id = "windrunner_boots"
+display_name = "Windrunner Boots"
+description = "Light soles and a brisk stride for long roads."
+slot = "boots"
+battle_effect_type = ""
+stats = {
+"spell_power": 11,
+"haste": 7
+}
+band = "fine"
+item_level = 18
+level_req = 18
+rarity = "rare"

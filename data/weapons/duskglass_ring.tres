@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://lxuesqnvtzek"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_duskglass_ring"]
+
+[resource]
+script = ExtResource("1_duskglass_ring")
+id = "duskglass_ring"
+display_name = "Duskglass Ring"
+description = "A ring cut from black glass that dims the light around it."
+slot = "ring"
+battle_effect_type = ""
+stats = {
+"spell_power": 13,
+"mastery:dark": 8,
+"spell_crit": 6
+}
+band = "superior"
+item_level = 33
+level_req = 33
+rarity = "rare"

@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://mbm4eupr9l9s"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_starweave_robe"]
+
+[resource]
+script = ExtResource("1_starweave_robe")
+id = "starweave_robe"
+display_name = "Starweave Robe"
+description = "A robe woven with silver thread that catches the stars at night."
+slot = "armor"
+battle_effect_type = ""
+stats = {
+"intellect": 4,
+"haste": 10,
+"spell_crit": 17
+}
+band = "superior"
+item_level = 33
+level_req = 33
+rarity = "rare"

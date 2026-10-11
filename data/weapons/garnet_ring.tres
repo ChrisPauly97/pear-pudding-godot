@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://1dad5fzayum0"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_garnet_ring"]
+
+[resource]
+script = ExtResource("1_garnet_ring")
+id = "garnet_ring"
+display_name = "Garnet Ring"
+description = "A dull red stone set in brass, warm to the touch."
+slot = "ring"
+battle_effect_type = ""
+stats = {
+"stamina": 6,
+"spirit": 3
+}
+band = "fine"
+item_level = 11
+level_req = 11
+rarity = "common"

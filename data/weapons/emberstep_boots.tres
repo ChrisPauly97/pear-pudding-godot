@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://fkxz3x0kykbz"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_emberstep_boots"]
+
+[resource]
+script = ExtResource("1_emberstep_boots")
+id = "emberstep_boots"
+display_name = "Emberstep Boots"
+description = "Boots that leave faint warm footprints on frost."
+slot = "boots"
+battle_effect_type = ""
+stats = {
+"spell_power": 16,
+"mastery:rift": 7,
+"haste": 9
+}
+band = "superior"
+item_level = 33
+level_req = 33
+rarity = "rare"

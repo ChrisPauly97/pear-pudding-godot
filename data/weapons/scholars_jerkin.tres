@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://cztcmgb25sca"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_scholars_jerkin"]
+
+[resource]
+script = ExtResource("1_scholars_jerkin")
+id = "scholars_jerkin"
+display_name = "Scholar's Jerkin"
+description = "A blue-dyed jerkin with rune-thread at the cuffs."
+slot = "armor"
+battle_effect_type = ""
+stats = {
+"intellect": 3,
+"haste": 13
+}
+band = "fine"
+item_level = 18
+level_req = 18
+rarity = "rare"

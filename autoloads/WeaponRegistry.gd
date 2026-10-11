@@ -29,6 +29,101 @@ const _W_RING_OF_FOCUS  := preload("res://data/weapons/ring_of_focus.tres")
 const _W_RUSTY_DAGGER   := preload("res://data/weapons/rusty_dagger.tres")
 const _W_SCHOLAR_BAND   := preload("res://data/weapons/scholar_band.tres")
 const _W_WARDED_CLOAK   := preload("res://data/weapons/warded_cloak.tres")
+const _W_PADDED_JERKIN := preload("res://data/weapons/padded_jerkin.tres")
+const _W_SCALE_BIB := preload("res://data/weapons/scale_bib.tres")
+const _W_FELT_CAP := preload("res://data/weapons/felt_cap.tres")
+const _W_PLAIN_BASCINET := preload("res://data/weapons/plain_bascinet.tres")
+const _W_WICKER_PADS := preload("res://data/weapons/wicker_pads.tres")
+const _W_TANNED_MANTLE := preload("res://data/weapons/tanned_mantle.tres")
+const _W_ROAD_SHOES := preload("res://data/weapons/road_shoes.tres")
+const _W_IRON_CLOGS := preload("res://data/weapons/iron_clogs.tres")
+const _W_OAK_BOARD := preload("res://data/weapons/oak_board.tres")
+const _W_SIGIL_TILE := preload("res://data/weapons/sigil_tile.tres")
+const _W_COPPER_BAND := preload("res://data/weapons/copper_band.tres")
+const _W_TALLOW_SIGNET := preload("res://data/weapons/tallow_signet.tres")
+const _W_BRASS_KNUCKLE_CHARM := preload("res://data/weapons/brass_knuckle_charm.tres")
+const _W_RIVER_PEBBLE := preload("res://data/weapons/river_pebble.tres")
+const _W_SHARPENED_SHIV := preload("res://data/weapons/sharpened_shiv.tres")
+const _W_APPRENTICE_WAND := preload("res://data/weapons/apprentice_wand.tres")
+const _W_MILITIA_SHORTSWORD := preload("res://data/weapons/militia_shortsword.tres")
+const _W_WALKING_STAFF := preload("res://data/weapons/walking_staff.tres")
+const _W_HAND_HATCHET := preload("res://data/weapons/hand_hatchet.tres")
+const _W_QUILTED_GAMBESON := preload("res://data/weapons/quilted_gambeson.tres")
+const _W_SCHOLARS_JERKIN := preload("res://data/weapons/scholars_jerkin.tres")
+const _W_KETTLE_HAT := preload("res://data/weapons/kettle_hat.tres")
+const _W_SILVER_CIRCLET := preload("res://data/weapons/silver_circlet.tres")
+const _W_REINFORCED_PAULDRONS := preload("res://data/weapons/reinforced_pauldrons.tres")
+const _W_DUELISTS_SPAULDERS := preload("res://data/weapons/duelists_spaulders.tres")
+const _W_MARSH_BOOTS := preload("res://data/weapons/marsh_boots.tres")
+const _W_WINDRUNNER_BOOTS := preload("res://data/weapons/windrunner_boots.tres")
+const _W_OAK_KITE_SHIELD := preload("res://data/weapons/oak_kite_shield.tres")
+const _W_WARDING_TOME := preload("res://data/weapons/warding_tome.tres")
+const _W_GARNET_RING := preload("res://data/weapons/garnet_ring.tres")
+const _W_RING_OF_SPARKS := preload("res://data/weapons/ring_of_sparks.tres")
+const _W_BRONZE_COMPASS := preload("res://data/weapons/bronze_compass.tres")
+const _W_AMBER_PENDANT := preload("res://data/weapons/amber_pendant.tres")
+const _W_FERROUS_DAGGER := preload("res://data/weapons/ferrous_dagger.tres")
+const _W_ASH_WAND := preload("res://data/weapons/ash_wand.tres")
+const _W_HUNTERS_BLADE := preload("res://data/weapons/hunters_blade.tres")
+const _W_LANTERN_STAFF := preload("res://data/weapons/lantern_staff.tres")
+const _W_WOODSMANS_AXE := preload("res://data/weapons/woodsmans_axe.tres")
+const _W_IRONBOUND_HAUBERK := preload("res://data/weapons/ironbound_hauberk.tres")
+const _W_STARWEAVE_ROBE := preload("res://data/weapons/starweave_robe.tres")
+const _W_WARDED_GREATHELM := preload("res://data/weapons/warded_greathelm.tres")
+const _W_LIGHTBOUND_CIRCLET := preload("res://data/weapons/lightbound_circlet.tres")
+const _W_STONEBARK_PAULDRONS := preload("res://data/weapons/stonebark_pauldrons.tres")
+const _W_RAZORWIND_SPAULDERS := preload("res://data/weapons/razorwind_spaulders.tres")
+const _W_STONEHEEL_BOOTS := preload("res://data/weapons/stoneheel_boots.tres")
+const _W_EMBERSTEP_BOOTS := preload("res://data/weapons/emberstep_boots.tres")
+const _W_LARIK_BULWARK := preload("res://data/weapons/larik_bulwark.tres")
+const _W_WARDING_CODEX := preload("res://data/weapons/warding_codex.tres")
+const _W_GREYJADE_RING := preload("res://data/weapons/greyjade_ring.tres")
+const _W_DUSKGLASS_RING := preload("res://data/weapons/duskglass_ring.tres")
+const _W_HUNTERS_TOTEM := preload("res://data/weapons/hunters_totem.tres")
+const _W_VERDANT_LOCKET := preload("res://data/weapons/verdant_locket.tres")
+const _W_TEMPERED_DIRK := preload("res://data/weapons/tempered_dirk.tres")
+const _W_SAPPHIRE_WAND := preload("res://data/weapons/sapphire_wand.tres")
+const _W_VEILSTEEL_BLADE := preload("res://data/weapons/veilsteel_blade.tres")
+const _W_VERDANT_STAFF := preload("res://data/weapons/verdant_staff.tres")
+const _W_RIVERFALL_AXE := preload("res://data/weapons/riverfall_axe.tres")
+const _W_BULWARK_PLATE := preload("res://data/weapons/bulwark_plate.tres")
+const _W_ARCHMAGES_VESTMENT := preload("res://data/weapons/archmages_vestment.tres")
+const _W_TOWER_GREATHELM := preload("res://data/weapons/tower_greathelm.tres")
+const _W_STARCROWN_CIRCLET := preload("res://data/weapons/starcrown_circlet.tres")
+const _W_AEGIS_PAULDRONS := preload("res://data/weapons/aegis_pauldrons.tres")
+const _W_WRAITHWING_SPAULDERS := preload("res://data/weapons/wraithwing_spaulders.tres")
+const _W_GREATWARDEN_BOOTS := preload("res://data/weapons/greatwarden_boots.tres")
+const _W_WINDRUNNER_GREAVES := preload("res://data/weapons/windrunner_greaves.tres")
+const _W_BASTION_SHIELD := preload("res://data/weapons/bastion_shield.tres")
+const _W_WARDING_LEXICON := preload("res://data/weapons/warding_lexicon.tres")
+const _W_SIGNET_OF_STEADFASTNESS := preload("res://data/weapons/signet_of_steadfastness.tres")
+const _W_RING_OF_VERDANT_SPARKS := preload("res://data/weapons/ring_of_verdant_sparks.tres")
+const _W_BEHEMOTH_FANG := preload("res://data/weapons/behemoth_fang.tres")
+const _W_RIFT_PRISM := preload("res://data/weapons/rift_prism.tres")
+const _W_DAWNSTEEL_DIRK := preload("res://data/weapons/dawnsteel_dirk.tres")
+const _W_STORMGLASS_WAND := preload("res://data/weapons/stormglass_wand.tres")
+const _W_LIONHEART_BLADE := preload("res://data/weapons/lionheart_blade.tres")
+const _W_TIDEWARDEN_STAFF := preload("res://data/weapons/tidewarden_staff.tres")
+const _W_IRONFALL_AXE := preload("res://data/weapons/ironfall_axe.tres")
+const _W_OATHKEEPERS_CUIRASS := preload("res://data/weapons/oathkeepers_cuirass.tres")
+const _W_MANTLE_OF_THE_TELLERS := preload("res://data/weapons/mantle_of_the_tellers.tres")
+const _W_ELDARS_CROWN_OF_ASH := preload("res://data/weapons/eldars_crown_of_ash.tres")
+const _W_MAITELN_SEEING_CROWN := preload("res://data/weapons/maiteln_seeing_crown.tres")
+const _W_MADRIAN_BASTION_PAULDRONS := preload("res://data/weapons/madrian_bastion_pauldrons.tres")
+const _W_FARSYTHS_DUELLING_MANTLE := preload("res://data/weapons/farsyths_duelling_mantle.tres")
+const _W_GREAVES_OF_THE_LONG_ROAD := preload("res://data/weapons/greaves_of_the_long_road.tres")
+const _W_STORMSTEP_BOOTS := preload("res://data/weapons/stormstep_boots.tres")
+const _W_AEGIS_OF_BLANCOGOV := preload("res://data/weapons/aegis_of_blancogov.tres")
+const _W_TOME_OF_SAIMTAR := preload("res://data/weapons/tome_of_saimtar.tres")
+const _W_LARIK_OATH_RING := preload("res://data/weapons/larik_oath_ring.tres")
+const _W_STARFALL_BAND := preload("res://data/weapons/starfall_band.tres")
+const _W_MADRIAN_RELIQUARY := preload("res://data/weapons/madrian_reliquary.tres")
+const _W_RIFT_SHARD_PENDANT := preload("res://data/weapons/rift_shard_pendant.tres")
+const _W_SAIMTARS_LAST_WORD := preload("res://data/weapons/saimtars_last_word.tres")
+const _W_MAITELN_LANTERN_ROD := preload("res://data/weapons/maiteln_lantern_rod.tres")
+const _W_ELDARS_SUNDERBLADE := preload("res://data/weapons/eldars_sunderblade.tres")
+const _W_LARIK_STARLIGHT_STAFF := preload("res://data/weapons/larik_starlight_staff.tres")
+const _W_BLANCOGOV_THUNDERBRAND := preload("res://data/weapons/blancogov_thunderbrand.tres")
 
 static var _weapons: Dictionary = {}  # id -> WeaponData
 static var _loaded: bool = false
@@ -46,6 +141,30 @@ static func _ensure_loaded() -> void:
 		_W_LEATHER_PAULDRONS, _W_IRON_PAULDRONS, _W_SPIKED_SPAULDERS,
 		_W_LEATHER_CAP, _W_IRON_HELM, _W_HOODED_COWL,
 		_W_TRAVEL_BOOTS, _W_IRON_GREAVES, _W_SPURRED_BOOTS,
+		_W_PADDED_JERKIN, _W_SCALE_BIB, _W_FELT_CAP, _W_PLAIN_BASCINET,
+		_W_WICKER_PADS, _W_TANNED_MANTLE, _W_ROAD_SHOES, _W_IRON_CLOGS,
+		_W_OAK_BOARD, _W_SIGIL_TILE, _W_COPPER_BAND, _W_TALLOW_SIGNET,
+		_W_BRASS_KNUCKLE_CHARM, _W_RIVER_PEBBLE, _W_SHARPENED_SHIV, _W_APPRENTICE_WAND,
+		_W_MILITIA_SHORTSWORD, _W_WALKING_STAFF, _W_HAND_HATCHET, _W_QUILTED_GAMBESON,
+		_W_SCHOLARS_JERKIN, _W_KETTLE_HAT, _W_SILVER_CIRCLET, _W_REINFORCED_PAULDRONS,
+		_W_DUELISTS_SPAULDERS, _W_MARSH_BOOTS, _W_WINDRUNNER_BOOTS, _W_OAK_KITE_SHIELD,
+		_W_WARDING_TOME, _W_GARNET_RING, _W_RING_OF_SPARKS, _W_BRONZE_COMPASS,
+		_W_AMBER_PENDANT, _W_FERROUS_DAGGER, _W_ASH_WAND, _W_HUNTERS_BLADE,
+		_W_LANTERN_STAFF, _W_WOODSMANS_AXE, _W_IRONBOUND_HAUBERK, _W_STARWEAVE_ROBE,
+		_W_WARDED_GREATHELM, _W_LIGHTBOUND_CIRCLET, _W_STONEBARK_PAULDRONS, _W_RAZORWIND_SPAULDERS,
+		_W_STONEHEEL_BOOTS, _W_EMBERSTEP_BOOTS, _W_LARIK_BULWARK, _W_WARDING_CODEX,
+		_W_GREYJADE_RING, _W_DUSKGLASS_RING, _W_HUNTERS_TOTEM, _W_VERDANT_LOCKET,
+		_W_TEMPERED_DIRK, _W_SAPPHIRE_WAND, _W_VEILSTEEL_BLADE, _W_VERDANT_STAFF,
+		_W_RIVERFALL_AXE, _W_BULWARK_PLATE, _W_ARCHMAGES_VESTMENT, _W_TOWER_GREATHELM,
+		_W_STARCROWN_CIRCLET, _W_AEGIS_PAULDRONS, _W_WRAITHWING_SPAULDERS, _W_GREATWARDEN_BOOTS,
+		_W_WINDRUNNER_GREAVES, _W_BASTION_SHIELD, _W_WARDING_LEXICON, _W_SIGNET_OF_STEADFASTNESS,
+		_W_RING_OF_VERDANT_SPARKS, _W_BEHEMOTH_FANG, _W_RIFT_PRISM, _W_DAWNSTEEL_DIRK,
+		_W_STORMGLASS_WAND, _W_LIONHEART_BLADE, _W_TIDEWARDEN_STAFF, _W_IRONFALL_AXE,
+		_W_OATHKEEPERS_CUIRASS, _W_MANTLE_OF_THE_TELLERS, _W_ELDARS_CROWN_OF_ASH, _W_MAITELN_SEEING_CROWN,
+		_W_MADRIAN_BASTION_PAULDRONS, _W_FARSYTHS_DUELLING_MANTLE, _W_GREAVES_OF_THE_LONG_ROAD, _W_STORMSTEP_BOOTS,
+		_W_AEGIS_OF_BLANCOGOV, _W_TOME_OF_SAIMTAR, _W_LARIK_OATH_RING, _W_STARFALL_BAND,
+		_W_MADRIAN_RELIQUARY, _W_RIFT_SHARD_PENDANT, _W_SAIMTARS_LAST_WORD, _W_MAITELN_LANTERN_ROD,
+		_W_ELDARS_SUNDERBLADE, _W_LARIK_STARLIGHT_STAFF, _W_BLANCOGOV_THUNDERBRAND,
 	], "WeaponRegistry")
 
 ## Returns the WeaponData for the given id, or null if not found.

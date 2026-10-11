@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://rpc6e1w3qdox"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_brass_knuckle_charm"]
+
+[resource]
+script = ExtResource("1_brass_knuckle_charm")
+id = "brass_knuckle_charm"
+display_name = "Brass Knuckle Charm"
+description = "A brass knuckle-duster kept as a keepsake of a brawl you won."
+slot = "trinket"
+battle_effect_type = ""
+stats = {
+"attack_power": 4
+}
+band = "basic"
+item_level = 2
+level_req = 2
+rarity = "common"

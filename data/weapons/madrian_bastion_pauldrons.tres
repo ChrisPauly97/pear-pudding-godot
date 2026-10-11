@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://wubu7x2xmcvb"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_madrian_bastion_pauldrons"]
+
+[resource]
+script = ExtResource("1_madrian_bastion_pauldrons")
+id = "madrian_bastion_pauldrons"
+display_name = "Madrian Bastion Pauldrons"
+description = "Pauldrons forged from the gates of Madrian after the long siege."
+slot = "shoulders"
+battle_effect_type = ""
+stats = {
+"armor": 16,
+"spirit": 10,
+"block": 8,
+"resist:rift": 24
+}
+band = "legendary"
+item_level = 51
+level_req = 51
+rarity = "legendary"

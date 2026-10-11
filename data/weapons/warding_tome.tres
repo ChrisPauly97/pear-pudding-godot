@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://kwv1mz28n45f"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_warding_tome"]
+
+[resource]
+script = ExtResource("1_warding_tome")
+id = "warding_tome"
+display_name = "Warding Tome"
+description = "A brass-bound book clasped at the hip for quick reference."
+slot = "offhand"
+battle_effect_type = ""
+stats = {
+"spell_power": 11,
+"spell_crit": 7
+}
+band = "fine"
+item_level = 18
+level_req = 18
+rarity = "rare"

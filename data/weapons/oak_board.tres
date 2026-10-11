@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://p9kj2ey4u0gh"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_oak_board"]
+
+[resource]
+script = ExtResource("1_oak_board")
+id = "oak_board"
+display_name = "Oak Board"
+description = "A plank of oak with a leather loop, barely a shield."
+slot = "offhand"
+battle_effect_type = ""
+stats = {
+"stamina": 5
+}
+band = "basic"
+item_level = 2
+level_req = 2
+rarity = "common"

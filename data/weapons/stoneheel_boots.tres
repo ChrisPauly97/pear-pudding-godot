@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://cqdd7lajeg73"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_stoneheel_boots"]
+
+[resource]
+script = ExtResource("1_stoneheel_boots")
+id = "stoneheel_boots"
+display_name = "Stoneheel Boots"
+description = "Heavy boots with iron heel plates that never slip on wet stone."
+slot = "boots"
+battle_effect_type = ""
+stats = {
+"stamina": 11,
+"spirit": 1,
+"haste": 9
+}
+band = "superior"
+item_level = 21
+level_req = 21
+rarity = "rare"

@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://69tyxis7gq63"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_greyjade_ring"]
+
+[resource]
+script = ExtResource("1_greyjade_ring")
+id = "greyjade_ring"
+display_name = "Greyjade Ring"
+description = "A cool grey jade set in a steel band."
+slot = "ring"
+battle_effect_type = ""
+stats = {
+"stamina": 9,
+"spirit": 1,
+"command": 7
+}
+band = "superior"
+item_level = 21
+level_req = 21
+rarity = "rare"

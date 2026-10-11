@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://owvdkmzghuez"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_tanned_mantle"]
+
+[resource]
+script = ExtResource("1_tanned_mantle")
+id = "tanned_mantle"
+display_name = "Tanned Mantle"
+description = "A short hide cape that hangs off the shoulders and smells of smoke."
+slot = "shoulders"
+battle_effect_type = ""
+stats = {
+"stamina": 11
+}
+band = "basic"
+item_level = 8
+level_req = 8
+rarity = "common"

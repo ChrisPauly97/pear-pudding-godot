@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://m6dxu4zhqnxn"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_ironbound_hauberk"]
+
+[resource]
+script = ExtResource("1_ironbound_hauberk")
+id = "ironbound_hauberk"
+display_name = "Ironbound Hauberk"
+description = "A mail shirt with iron bands riveted across the chest."
+slot = "armor"
+battle_effect_type = ""
+stats = {
+"stamina": 18,
+"spirit": 5,
+"block": 8
+}
+band = "superior"
+item_level = 21
+level_req = 21
+rarity = "rare"

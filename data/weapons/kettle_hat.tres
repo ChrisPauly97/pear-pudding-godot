@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://n372zxphxwq5"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_kettle_hat"]
+
+[resource]
+script = ExtResource("1_kettle_hat")
+id = "kettle_hat"
+display_name = "Kettle Hat"
+description = "A round iron pot-helm with a leather brim."
+slot = "helmet"
+battle_effect_type = ""
+stats = {
+"stamina": 9,
+"spirit": 6
+}
+band = "fine"
+item_level = 11
+level_req = 11
+rarity = "common"
