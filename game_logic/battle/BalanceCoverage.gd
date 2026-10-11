@@ -27,13 +27,14 @@ extends RefCounted
 const BalanceBands = preload("res://game_logic/battle/BalanceBands.gd")
 const BalanceBot = preload("res://game_logic/battle/BalanceBot.gd")
 const BalanceFight = preload("res://game_logic/battle/BalanceFight.gd")
+const BalanceProfiles = preload("res://game_logic/battle/BalanceProfiles.gd")
 const BalanceStats = preload("res://game_logic/battle/BalanceStats.gd")
 const BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
 const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 
 const SECTIONS: Array[String] = ["range", "world_low", "world_high", "schools", "bosses", "conditions", "casual",
-	"wounded"]
+	"wounded", "profiles"]
 ## Regular world types past Chapter 1 (no bosses, no training dummy), by authored tier:
 ## `world_low` = tiers 1-2, `world_high` = tiers 3-4.
 const WORLD_LOW: Array[String] = [
@@ -487,6 +488,9 @@ static func run_section(section: String, tune: Dictionary = {}) -> Dictionary:
 		"casual":
 			measured = measure_casual(tune)
 			fails = check_casual(measured)
+		"profiles":  # GID-187 / TID-778
+			measured = BalanceProfiles.measure(tune)
+			fails = BalanceProfiles.check(measured)
 		"wounded":
 			measured = measure_wounded(tune)
 			fails = check_wounded(measured)
