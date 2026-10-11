@@ -6,9 +6,16 @@
 script = ExtResource("1_iron_pauldrons")
 id = "iron_pauldrons"
 display_name = "Iron Pauldrons"
-description = "Dented iron plates riveted over the shoulders. Your hero starts each battle with 8 extra HP."
+description = "Dented iron plates riveted over the shoulders."
 slot = "shoulders"
-battle_effect_type = "starting_hp"
+battle_effect_type = ""
 battle_effect_value = 8
 injected_card_id = ""
 injected_card_count = 0
+stats = {
+"stamina": 8
+}
+band = "basic"
+item_level = 5
+level_req = 5
+rarity = "common"

@@ -6,7 +6,14 @@
 script = ExtResource("1_arcane_focus")
 id = "arcane_focus"
 display_name = "Arcane Focus"
-description = "A softly glowing orb held in your off hand. You start each battle with 1 extra mana."
+description = "A softly glowing orb held in your off hand."
 slot = "offhand"
-battle_effect_type = "starting_mana"
+battle_effect_type = ""
 battle_effect_value = 1
+stats = {
+"intellect": 1
+}
+band = "basic"
+item_level = 3
+level_req = 3
+rarity = "common"

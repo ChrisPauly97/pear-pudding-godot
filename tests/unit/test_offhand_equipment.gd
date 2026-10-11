@@ -78,13 +78,13 @@ func test_buckler_is_starting_armor() -> void:
 	var w: WeaponData = WeaponRegistry.get_weapon("buckler")
 	assert_true(w != null)
 	assert_eq(w.slot, "offhand")
-	assert_eq(w.battle_effect_type, "starting_armor")
+	assert_true(int(w.stats.get("armor", 0)) > 0, "Armor stat (TID-789)")
 
 func test_arcane_focus_is_starting_mana() -> void:
 	var w: WeaponData = WeaponRegistry.get_weapon("arcane_focus")
 	assert_true(w != null)
 	assert_eq(w.slot, "offhand")
-	assert_eq(w.battle_effect_type, "starting_mana")
+	assert_true(int(w.stats.get("intellect", 0)) > 0, "Intellect stat (TID-789)")
 
 func test_get_by_slot_offhand_lists_all_three() -> void:
 	var ids: Array[String] = WeaponRegistry.get_by_slot("offhand")

@@ -6,9 +6,16 @@
 script = ExtResource("1_spurred_boots")
 id = "spurred_boots"
 display_name = "Spurred Boots"
-description = "Blackened boots with cruel iron spurs. Your hero gains +1 attack."
+description = "Blackened boots with cruel iron spurs."
 slot = "boots"
-battle_effect_type = "passive_atk"
+battle_effect_type = ""
 battle_effect_value = 1
 injected_card_id = ""
 injected_card_count = 0
+stats = {
+"attack_power": 10
+}
+band = "basic"
+item_level = 9
+level_req = 9
+rarity = "common"

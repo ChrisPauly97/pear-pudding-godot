@@ -6,7 +6,14 @@
 script = ExtResource("1_buckler")
 id = "buckler"
 display_name = "Buckler"
-description = "A small round shield strapped to your off hand. Your hero starts each battle with 5 armor."
+description = "A small round shield strapped to your off hand."
 slot = "offhand"
-battle_effect_type = "starting_armor"
+battle_effect_type = ""
 battle_effect_value = 5
+stats = {
+"armor": 5
+}
+band = "basic"
+item_level = 9
+level_req = 9
+rarity = "common"

@@ -6,9 +6,16 @@
 script = ExtResource("1_ring_of_focus")
 id = "ring_of_focus"
 display_name = "Ring of Focus"
-description = "A simple band that sharpens the mind. Gain 1 extra mana on the first turn."
+description = "A simple band that sharpens the mind."
 slot = "ring"
-battle_effect_type = "starting_mana"
+battle_effect_type = ""
 battle_effect_value = 1
 injected_card_id = ""
 injected_card_count = 0
+stats = {
+"intellect": 1
+}
+band = "basic"
+item_level = 5
+level_req = 5
+rarity = "common"

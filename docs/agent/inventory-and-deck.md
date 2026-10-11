@@ -274,6 +274,26 @@ player_level, tune)` applies stats for the sim and the game (`BattleModifiers` p
 default tuning for the conversion). Converted values live on `PlayerState.gear` (`gear_stat(id)`).
 The legacy single `battle_effect_type` still applies alongside; TID-789 moves items onto `stats`.
 
+### Gear Curve (GID-187 / TID-789)
+
+Items are hand-made (fixed stats). `game_logic/items/GearCurve.gd` defines the curve every item is validated against
+(`tests/unit/test_gear_curve.gd` runs `validate()` over the whole registry):
+
+| Band | Levels | Shape |
+|---|---|---|
+| basic | 1-9 | one primary stat |
+| fine | 10-19 | primary + 1 secondary |
+| superior | 20-34 | primary + 2; mastery / resist / leech / block open |
+| heroic | 35-49 | primary + 3 |
+| legendary | 50-60 | primary + 3 (unique effects: TID-790) |
+
+Primary: stamina, armor, intellect, attack_power, spell_power. Secondary: spell_crit, phys_crit, haste, spirit,
+command (+ advanced from superior). Budget = `SLOT_WEIGHT[slot]` × (6 + 1.2 × item level) × `RARITY_BUDGET[rarity]`,
+cost = Σ rating × `STAT_COST` (armor 2, intellect 6, mastery 0.8, resist 0.6, leech / block 1.5, others 1), within
+±20 %. `deck_inject` / `offhand_atk` items are weapon mechanics: stats only have a ceiling. `WeaponData` carries
+`band`, `item_level`, `level_req`, `rarity`; blacksmith upgrades scale stats +10 % per level
+(`UpgradeDefs.scaled_stats`).
+
 ### SaveManager Equipment Fields
 
 | Field | Type | Description |

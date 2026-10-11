@@ -10,3 +10,7 @@ description = "A short off-hand blade. In real-time battle it swings on its own 
 slot = "offhand"
 battle_effect_type = "offhand_atk"
 battle_effect_value = 4
+band = "basic"
+item_level = 5
+level_req = 5
+rarity = "common"

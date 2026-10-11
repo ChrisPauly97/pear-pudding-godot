@@ -19,3 +19,10 @@ extends Resource
 ## Hand-made stat ratings (GID-187 / TID-788, `game_logic/items/GearStats.gd`), e.g.
 ## {"stamina": 6, "haste": 4, "mastery:dark": 3}. Empty for legacy single-effect items.
 @export var stats: Dictionary = {}
+## Gear curve (GID-187 / TID-789, `game_logic/items/GearCurve.gd`): band id (basic, fine, superior,
+## heroic, legendary), item level (sets the stat budget), the level needed to wear it, and the
+## authored rarity (budget multiplier).
+@export var band: String = "basic"
+@export var item_level: int = 1
+@export var level_req: int = 1
+@export var rarity: String = "common"

@@ -62,8 +62,8 @@ static func apply_gear(player: PlayerState, items: Array[Dictionary], realtime: 
 	for item: Dictionary in items:
 		stat_items.append(item)
 		var w: WeaponData = WeaponRegistry.get_weapon(str(item.get("id", "")))
-		if w != null and not w.stats.is_empty():
-			stat_items.append({"stats": w.stats})
+		if w != null and not w.stats.is_empty():  # hand-made stats, scaled by blacksmith upgrades (TID-789)
+			stat_items.append({"stats": UpgradeDefs.scaled_stats(w, int(item.get("level", 0)))})
 	GearStats.apply(player, GearStats.totals(stat_items), player_level, tune)
 	for item: Dictionary in items:
 		var weapon: WeaponData = WeaponRegistry.get_weapon(str(item.get("id", "")))

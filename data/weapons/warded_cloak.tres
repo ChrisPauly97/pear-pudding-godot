@@ -6,9 +6,16 @@
 script = ExtResource("1_warded_cloak")
 id = "warded_cloak"
 display_name = "Warded Cloak"
-description = "A cloak woven with protective sigils. Your hero starts with 4 extra HP."
+description = "A cloak woven with protective sigils."
 slot = "armor"
-battle_effect_type = "starting_hp"
+battle_effect_type = ""
 battle_effect_value = 4
 injected_card_id = ""
 injected_card_count = 0
+stats = {
+"stamina": 7
+}
+band = "basic"
+item_level = 1
+level_req = 1
+rarity = "common"

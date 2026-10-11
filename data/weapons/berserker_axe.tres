@@ -6,9 +6,16 @@
 script = ExtResource("1_berserker_axe")
 id = "berserker_axe"
 display_name = "Berserker Axe"
-description = "A heavy war axe. Your hero's attack is increased by 3."
-battle_effect_type = "passive_atk"
+description = "A heavy war axe."
+battle_effect_type = ""
 battle_effect_value = 3
 injected_card_id = ""
 injected_card_count = 0
 swing_speed = 3.6
+stats = {
+"attack_power": 30
+}
+band = "superior"
+item_level = 20
+level_req = 20
+rarity = "common"

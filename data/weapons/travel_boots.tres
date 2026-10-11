@@ -6,9 +6,16 @@
 script = ExtResource("1_travel_boots")
 id = "travel_boots"
 display_name = "Travel Boots"
-description = "Worn road boots, resoled more than once. Your hero starts each battle with 3 extra HP."
+description = "Worn road boots, resoled more than once."
 slot = "boots"
-battle_effect_type = "starting_hp"
+battle_effect_type = ""
 battle_effect_value = 3
 injected_card_id = ""
 injected_card_count = 0
+stats = {
+"stamina": 4
+}
+band = "basic"
+item_level = 1
+level_req = 1
+rarity = "common"

@@ -6,9 +6,16 @@
 script = ExtResource("1_iron_greaves")
 id = "iron_greaves"
 display_name = "Iron Greaves"
-description = "Plated shins strapped over the boots. Your hero starts each battle with 2 armor."
+description = "Plated shins strapped over the boots."
 slot = "boots"
-battle_effect_type = "starting_armor"
+battle_effect_type = ""
 battle_effect_value = 2
 injected_card_id = ""
 injected_card_count = 0
+stats = {
+"armor": 2
+}
+band = "basic"
+item_level = 1
+level_req = 1
+rarity = "common"

@@ -6,9 +6,16 @@
 script = ExtResource("1_leather_pauldrons")
 id = "leather_pauldrons"
 display_name = "Leather Pauldrons"
-description = "Boiled leather caps, scuffed from use. Your hero starts each battle with 4 extra HP."
+description = "Boiled leather caps, scuffed from use."
 slot = "shoulders"
-battle_effect_type = "starting_hp"
+battle_effect_type = ""
 battle_effect_value = 4
 injected_card_id = ""
 injected_card_count = 0
+stats = {
+"stamina": 5
+}
+band = "basic"
+item_level = 1
+level_req = 1
+rarity = "common"
