@@ -3,7 +3,7 @@
 **Goal:** GID-187
 **Type:** agent
 **Status:** todo
-**Depends On:** —
+**Depends On:** TID-791
 
 ## Lock
 
@@ -24,7 +24,8 @@ kind)` → a `BattleSetup.build` cfg fragment (deck, gear, skills, learned). `ki
   crafting (`CraftedGear`, professions), card upgrades (`UpgradeDefs.MAX_LEVEL`, `BlacksmithScene`). Magic-type cards
   via `MagicTypes` + `CardRegistry` (`card.magic_type`). Deck rules: `TechniqueDefs.DECK_MAX`, `UnlockLadder`
   (technique slots, hand size, draw rows — `BattleSetup.apply_deck_rules`).
-- Gear: `game_logic/items/GearRolls.gd` (`roll(tier, level, rng, weapon)`, `mult`, affixes); `BattleSetup.apply_gear`
+- Gear: the typical profile wears `GearCurve.expected_loadout(level)` (TID-791); the modest profile one band
+  behind. Legacy notes: `game_logic/items/GearRolls.gd` (`roll(tier, level, rng, weapon)`, `mult`, affixes); `BattleSetup.apply_gear`
   takes `[{id, level, mult, affix}]`; weapon speed / off-hand via `weapon_speed_for_item` / `offhand_damage_for_item`.
 - Skills: `cfg.skills` → `SkillMods` + school nodes (`apply_school_power`, `school_resist_sources`); skill points from
   level 10 (`SaveManager._restore_derived_fields`). Pick a deterministic "typical" spend per magic type.
