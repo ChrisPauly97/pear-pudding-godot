@@ -35,11 +35,11 @@ and co-op — and retune against that player instead.
 | TID-790 | Author the item catalogue | agent | done | TID-789 |
 | TID-791 | Gear sources follow the curve | agent | done | TID-790 |
 | TID-792 | Gear UI: stats, comparison, level requirement | agent | done | TID-789 |
-| TID-778 | Player profiles (typical build per level) | agent | todo | TID-791 |
+| TID-778 | Player profiles (typical build per level) | agent | done | TID-791 |
 | TID-779 | Progression rewards matter (gear / skills / upgrades bands) | agent | todo | TID-778 |
 | TID-780 | Fight conditions shared by sim and game | agent | done | TID-778 |
-| TID-781 | Starting HP, potions and food | agent | todo | TID-778 |
-| TID-782 | Encounter shapes: joiners, boss phase 2, boss ranges | agent | todo | TID-778 |
+| TID-781 | Starting HP, potions and food | agent | done | TID-778 |
+| TID-782 | Encounter shapes: joiners, boss phase 2, boss ranges | agent | done | TID-778 |
 | TID-783 | Runs: rift / spire ladders and siege gauntlets | agent | todo | TID-781 |
 | TID-784 | Bot variety (second policy) | agent | done | TID-778 |
 | TID-785 | Turn-based sim and bands | agent | cancelled | — |

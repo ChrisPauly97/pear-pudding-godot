@@ -518,3 +518,18 @@ Three gates, measured first, all at the same seeds:
 The default bot, the default policy and `tests/balance_bands.gd` are unchanged by all of this (the bands still pass
 at the same baseline). `tests/unit/test_wounded_fights.gd` covers the keys, the bot's potion gate and cooldown, the
 chain carry-over and the default-off paths.
+
+## Player profiles (GID-187 / TID-778)
+
+`game_logic/battle/BalanceProfiles.gd` builds who the bands fight as: `cfg(level, magic_type, kind)` merges into a
+`BattleSetup.build` config.
+
+| Kind | Deck | Gear | Skills |
+|---|---|---|---|
+| `typical` | magic type's matched deck + skill-granted techniques (free slots) | `GearDrops.expected_loadout(level)` | every point (`XpCurve.skill_points_at`) |
+| `modest` | same | loadout of level − 10 (one band behind) | half the points |
+| `bare` | default deck | none | none |
+
+`profiles` coverage section (`tests/balance_coverage.gd -- --section profiles`, ~4 min): 9 cells from level 2 to 59, every
+magic type × kind, +0 / +1; gates progression order (typical ≥ modest ≥ bare − 15 pp). `power_of(results)` (DPS ×
+time to die) and `gear_share(level, enemy)` (ln full / no gear over ln full / base) measure the gear share for TID-787.

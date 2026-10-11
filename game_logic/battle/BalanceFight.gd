@@ -10,7 +10,8 @@
 ## (cards played per 10 s, GID-178), dealt_cards, dealt_auto, interrupts,
 ## enemy_casts, procs, full_mana_s, crits_dealt, crits_taken (GID-178 / TID-728),
 ## potions_used, potions_left, well_fed (GID-187 / TID-781: the buff after this fight's charge), joins
-## (joiners that arrived), phase2 (1 when a boss swapped to phase 2)}.
+## (joiners that arrived), phase2 (1 when a boss swapped to phase 2), taken (HP the hero lost, before
+## heals), hero_max_hp (GID-187 / TID-787: for the power / gear-share measurement)}.
 ##
 ## `chain(cfg, fights, policy, rest_seconds)` (TID-781): fights in a row, the hero's HP carried from
 ## one to the next (a loss ends the chain), out-of-combat regen between them (`HeroVitality.regen`
@@ -80,6 +81,7 @@ static func run(cfg: Dictionary, policy: Dictionary = {}) -> Dictionary:
 	var p2_deck: Array = EnemyRegistry.get_phase2_deck(enemy_type) if bool(cfg.get("boss_phase2", true)) else []
 	var foe: PlayerState = state.players[RealtimeCombat.ENEMY]
 	while t < max_seconds and not state.is_game_over():
+		var hp_before: int = me.hero.health
 		if not joined and t >= joiner_at:
 			joined = true
 			if EncounterSetup.make_joiner(rt, joiner) >= 0:
@@ -118,6 +120,7 @@ static func run(cfg: Dictionary, policy: Dictionary = {}) -> Dictionary:
 			stats["phase2"] = 1
 		if me.hero.mana >= me.hero.max_mana:
 			stats["full_mana_s"] = float(stats["full_mana_s"]) + DT
+		stats["taken"] = int(stats.get("taken", 0)) + maxi(0, hp_before - me.hero.health)
 		t += DT
 	var result: String = "timeout"
 	if state.is_game_over():
@@ -130,6 +133,7 @@ static func run(cfg: Dictionary, policy: Dictionary = {}) -> Dictionary:
 	stats["actions"] = actions
 	stats["actions_10s"] = 10.0 * float(actions) / maxf(DT, t)
 	stats["hero_hp"] = me.hero.health
+	stats["hero_max_hp"] = me.hero.max_health
 	stats["hero_hp_frac"] = float(me.hero.health) / float(maxi(1, me.hero.max_health))
 	stats["potions_used"] = bot.potions_used
 	stats["potions_left"] = bot.potions_left()

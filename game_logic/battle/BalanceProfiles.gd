@@ -20,6 +20,7 @@ const GearDrops = preload("res://game_logic/items/GearDrops.gd")
 const SkillRegistry = preload("res://autoloads/SkillRegistry.gd")
 const SkillData = preload("res://data/SkillData.gd")
 const BalanceFight = preload("res://game_logic/battle/BalanceFight.gd")
+const BalanceStats = preload("res://game_logic/battle/BalanceStats.gd")
 
 const KINDS: Array[String] = ["typical", "modest", "bare"]
 ## The modest profile's gear is the expected loadout of this many levels lower (one band).
@@ -118,7 +119,7 @@ static func deck(magic_type: String, learned: Array, skills: Array[String]) -> A
 			techs += 1
 	return out
 
-## Runs the `profiles` section: {"<type>@<level>+<offset>/<kind>": {win_rate, n}} (mean over magic types).
+## Runs the `profiles` section: {"<type>@<level>+<offset>/<kind>": {win_rate, median_s, n}} (pooled over magic types).
 static func measure(tune: Dictionary = {}) -> Dictionary:
 	var out: Dictionary = {}
 	for cell: Array in CELLS:
@@ -126,18 +127,17 @@ static func measure(tune: Dictionary = {}) -> Dictionary:
 		var lv: int = int(cell[1])
 		for kind: String in KINDS:
 			for off: int in [0, 1]:
-				var wins: int = 0
-				var n: int = 0
+				var results: Array[Dictionary] = []
 				for mt: String in MagicTypes.all_types():
 					for f: int in FIGHTS:
 						var c: Dictionary = cfg(lv, mt, kind)
 						c.merge({"seed": 1 + f, "enemy_type": t, "enemy_level": lv + off}, true)
 						if not tune.is_empty():
 							c["tuning"] = tune
-						if str(BalanceFight.run(c)["result"]) == "win":
-							wins += 1
-						n += 1
-				out["%s@%d+%d/%s" % [t, lv, off, kind]] = {"win_rate": float(wins) / float(maxi(1, n)), "n": n}
+						results.append(BalanceFight.run(c))
+				var s: Dictionary = BalanceStats.summarize(results)
+				out["%s@%d+%d/%s" % [t, lv, off, kind]] = {"win_rate": float(s["win_rate"]),
+					"median_s": float(s["median_s"]), "n": int(s["n"])}
 	return out
 
 ## Failures of a `profiles` measurement (empty = pass): progression order only for now; the level
@@ -156,3 +156,46 @@ static func check(measured: Dictionary) -> Array[String]:
 			fails.append("profiles %s: modest %.0f%% below bare %.0f%%" % [key, 100.0 * float(rates["modest"]),
 				100.0 * float(rates["bare"])])
 	return fails
+
+## GID-187 / TID-787: a player's power over `results` (fights against the same enemy): damage per
+## second times time to die (max HP over damage taken per second), averaged over the fights.
+static func power_of(results: Array[Dictionary]) -> float:
+	var total: float = 0.0
+	for r: Dictionary in results:
+		var secs: float = maxf(0.05, float(r["seconds"]))
+		var dps: float = float(int(r["dealt_cards"]) + int(r["dealt_auto"])) / secs
+		var taken_ps: float = maxf(0.05, float(r.get("taken", 0)) / secs)
+		total += dps * float(r.get("hero_max_hp", 1)) / taken_ps
+	return total / float(maxi(1, results.size()))
+
+## Share of a level-`level` typical player's power (`power_of`, vs a same-level `enemy`, pooled over
+## the magic types) that comes from gear, on a log scale: ln(full / no gear) / ln(full / base),
+## where base is the bare hero with no level growth (`power_track` 0, `hp_per_level` 0). The
+## user's target (2026-10-11): about 0.6 at level 30.
+static func gear_share(level: int, enemy: String, fights: int = 8, tune: Dictionary = {}) -> Dictionary:
+	var variants: Dictionary = {"full": [], "no_gear": [], "base": []}
+	for mt: String in MagicTypes.all_types():
+		for f: int in fights:
+			for v: String in variants:
+				var c: Dictionary = cfg(level, mt, "bare" if v == "base" else "typical")
+				var t: Dictionary = tune.duplicate()
+				if v != "full":
+					c.erase("gear")
+					c.erase("weapon")
+					c.erase("offhand")
+				if v == "base":
+					t["power_track"] = 0.0
+					t["hp_per_level"] = 0.0
+				c.merge({"seed": 1 + f, "enemy_type": enemy, "enemy_level": level}, true)
+				if not t.is_empty():
+					c["tuning"] = t
+				(variants[v] as Array).append(BalanceFight.run(c))
+	var p: Dictionary = {}
+	for v: String in variants:
+		var typed: Array[Dictionary] = []
+		typed.assign(variants[v])
+		p[v] = power_of(typed)
+	var full: float = maxf(0.0001, float(p["full"]))
+	var denom: float = log(full / maxf(0.0001, float(p["base"])))
+	var share: float = log(full / maxf(0.0001, float(p["no_gear"]))) / denom if absf(denom) > 0.0001 else 0.0
+	return {"share": share, "power": p}
