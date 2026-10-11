@@ -77,10 +77,12 @@ func test_quest_gear_choices_are_real_items() -> void:
 			found += 1
 	assert_true(found >= 3, "a few quests offer a gear choice")
 	var q: Dictionary = _SideQuests.def("first_spark")
-	assert_eq(str(_SaveQuests.quest_gear_roll(q)["rarity"]), _GearRolls.QUEST_RARITY)
+	# GID-187 / TID-791: hand-made gear records its authored rarity.
+	var first: String = str(((q["rewards"] as Dictionary)["gear_choice"] as Array)[0])
+	assert_eq(str(_SaveQuests.quest_gear_roll(q)["rarity"]), WeaponRegistry.get_weapon(first).rarity)
 	# The pick is granted as a quest roll; a bogus pick falls back to the first choice.
 	_sm.quests_active["first_spark"] = {"progress": [99, 99, 99, 99]}
 	if _sm.quests.is_ready("first_spark"):
 		var got: Dictionary = _sm.quests.turn_in("first_spark", "iron_greaves")
 		assert_eq(str(got.get("gear", "")), "iron_greaves")
-		assert_eq(str(_sm.gear.roll_of("iron_greaves")["rarity"]), _GearRolls.QUEST_RARITY)
+		assert_eq(str(_sm.gear.roll_of("iron_greaves")["rarity"]), WeaponRegistry.get_weapon("iron_greaves").rarity)

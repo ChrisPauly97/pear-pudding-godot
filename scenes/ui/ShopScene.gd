@@ -8,6 +8,8 @@ const PackDefs = preload("res://game_logic/PackDefs.gd")
 const GardenDefs = preload("res://game_logic/GardenDefs.gd")
 const _HeroVitality = preload("res://game_logic/HeroVitality.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
+const _GearDrops = preload("res://game_logic/items/GearDrops.gd")
+const _UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const _CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
 const _VendorCounter = preload("res://scenes/ui/shop/VendorCounter.gd")
@@ -148,13 +150,13 @@ func _refresh() -> void:
 
 	var owned_w: Array[String] = SceneManager.save_manager.get_owned_by_slot("weapon")
 	var any_weapon := false
-	for wid: String in WeaponRegistry.get_all_ids():
+	for wid: String in _GearDrops.shop_stock(SceneManager.save_manager.level, "weapon"):  # GID-187 / TID-791
 		if wid == "rusty_dagger" or owned_w.has(wid):
 			continue
 		var weapon: WeaponData = WeaponRegistry.get_weapon(wid)
 		if weapon == null:
 			continue
-		var price: int = _weapon_price(weapon)
+		var price: int = _GearDrops.price(weapon)
 		if discounted:
 			price = int(price * 0.8)
 		var row := _make_weapon_row(wid, weapon, price, coins)
@@ -210,13 +212,13 @@ func _refresh() -> void:
 
 func _add_equipment_section(slot: String, owned: Array[String], coins: int, discounted: bool = false) -> void:
 	var any_item := false
-	for eid: String in WeaponRegistry.get_by_slot(slot):
+	for eid: String in _GearDrops.shop_stock(SceneManager.save_manager.level, slot):  # GID-187 / TID-791
 		if owned.has(eid):
 			continue
 		var weapon: WeaponData = WeaponRegistry.get_weapon(eid)
 		if weapon == null:
 			continue
-		var price: int = _weapon_price(weapon)
+		var price: int = _GearDrops.price(weapon)
 		if discounted:
 			price = int(price * 0.8)
 		var row := _make_equipment_row(eid, weapon, price, coins)
@@ -231,8 +233,7 @@ func _make_equipment_row(eid: String, weapon: WeaponData, price: int, coins: int
 
 	var info_lbl := _UiUtil.make_label(
 			"%s  —  %s" % [weapon.display_name,
-					_UiUtil.effect_summary(weapon.battle_effect_type, weapon.battle_effect_value,
-							weapon.injected_card_count, weapon.injected_card_id)],
+					_item_summary(weapon)],
 			int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
 	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
@@ -271,22 +272,12 @@ func _make_section_header(text: String) -> Label:
 	var lbl := _UiUtil.make_label(text, int(_ref * 0.022), Color(0.75, 0.85, 1.0), HORIZONTAL_ALIGNMENT_CENTER)
 	return lbl
 
-func _weapon_price(weapon: WeaponData) -> int:
-	var price: int = 50
-	match weapon.battle_effect_type:
-		"deck_inject":
-			price = 35 + weapon.injected_card_count * 5
-		"starting_mana":
-			price = weapon.battle_effect_value * 30
-		"starting_hp":
-			price = weapon.battle_effect_value * 5
-		"passive_atk":
-			price = weapon.battle_effect_value * 25
-		"starting_armor":
-			price = weapon.battle_effect_value * 15
-		"offhand_atk":
-			price = weapon.battle_effect_value * 20
-	return price
+## GID-187 / TID-791: an item's stats line, or its legacy effect summary.
+func _item_summary(weapon: WeaponData) -> String:
+	if not weapon.stats.is_empty():
+		return _UpgradeDefs.stats_string(weapon, 0)
+	return _UiUtil.effect_summary(weapon.battle_effect_type, weapon.battle_effect_value,
+			weapon.injected_card_count, weapon.injected_card_id)
 
 func _make_card_row(id: String, tmpl: Dictionary, coins: int,
 		price: int = CARD_PRICE) -> HBoxContainer:
@@ -339,8 +330,7 @@ func _make_weapon_row(wid: String, weapon: WeaponData, price: int, coins: int) -
 	# Name + effect
 	var info_lbl := _UiUtil.make_label(
 			"%s  —  %s" % [weapon.display_name,
-					_UiUtil.effect_summary(weapon.battle_effect_type, weapon.battle_effect_value,
-							weapon.injected_card_count, weapon.injected_card_id)],
+					_item_summary(weapon)],
 			int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
 	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
@@ -381,7 +371,7 @@ func _on_buy_equipment(item_id: String, slot: String, price: int) -> void:
 		return
 	sm.add_coins(-price)
 	# TID-538: shop stock is common, at your level.
-	if sm.gear.grant(item_id, {"rarity": "common", "ilvl": sm.level}) == "":
+	if sm.gear.grant(item_id, _GearDrops.authored_roll(item_id)) == "":
 		sm.add_equipment(item_id, slot)
 	_refresh()
 

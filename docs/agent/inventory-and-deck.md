@@ -341,6 +341,23 @@ Helmets and boots are visible on the paper doll, as are armour, shoulders, weapo
 `GEAR_VISUALS` entry in `game_logic/character/PaperDollVisuals.gd` (re-exported by `PaperDoll`), which
 `test_paper_doll` requires. Rings are not drawn.
 
+### Gear Sources (GID-187 / TID-791)
+
+Every source asks pure `game_logic/items/GearDrops.gd` what to hand out, so a player who plays normally stays on the
+curve:
+
+| Source | Rule |
+|---|---|
+| Chests (`ChestLoot._maybe_drop_equipment`) | `pick(level)`: zone level capped at the player's; wearable (level_req ≤ level), item level ≥ level − 4; slots ≥ 2 bands behind (or empty) first; unowned first |
+| Boss weapon fallback (`BattleScene`) | weapon `candidates` at the player's level, unowned first |
+| Co-op loot roll (`CoopActivities`) | `candidates` at the winner's level |
+| Shop (`ShopScene`) | `shop_stock`: wearable, item level ≥ level − 9; priced by stat budget (`price`) |
+| Quests (`SideQuests` gear_choice) | authored picks; `test_gear_drops` asserts they are wearable at the quest's level |
+
+Grants record the item's authored rarity and item level (`authored_roll`); random rarity / ilvl / affix rolls are
+retired (old saved rolls still read; their affixes still apply). `expected_loadout(level)` is the per-slot best
+wearable item — what the balance profiles (TID-778) wear.
+
 ### SaveManager Equipment Fields
 
 | Field | Type | Description |

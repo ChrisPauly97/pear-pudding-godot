@@ -285,17 +285,10 @@ func test_drop_message_names_the_affix() -> void:
 	assert_false(plain.contains("damage"), plain)
 
 
-func test_roll_for_only_converts_weapons() -> void:
+## GID-187 / TID-791: drops record the authored roll; random affixes (convert included) are retired.
+func test_roll_for_never_rolls_an_affix() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 41
-	var helm_converts: int = 0
-	var blade_converts: int = 0
-	for _i in 3000:
-		var h: Dictionary = _SaveGear.roll_for("iron_helm", 4, 1, rng)
-		if h.has("affix") and str(h["affix"]["kind"]) == "convert":
-			helm_converts += 1
-		var b: Dictionary = _SaveGear.roll_for("dusk_blade", 4, 1, rng)
-		if b.has("affix") and str(b["affix"]["kind"]) == "convert":
-			blade_converts += 1
-	assert_eq(helm_converts, 0)
-	assert_gt(blade_converts, 0)
+	for _i in 200:
+		assert_false(_SaveGear.roll_for("iron_helm", 4, 1, rng).has("affix"))
+		assert_false(_SaveGear.roll_for("dusk_blade", 4, 1, rng).has("affix"))

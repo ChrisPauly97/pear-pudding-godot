@@ -24,6 +24,7 @@ const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
+const _GearDrops = preload("res://game_logic/items/GearDrops.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
 const SkillRegistry = preload("res://autoloads/SkillRegistry.gd")
 const SkillData = preload("res://data/SkillData.gd")
@@ -1185,11 +1186,14 @@ func _show_standard_victory() -> void:
 			if WeaponRegistry.has_weapon(pid):
 				weapon_pool.append(pid)
 		if weapon_pool.is_empty():
-			var all_ids: Array[String] = WeaponRegistry.get_all_ids()
+			# GID-187 / TID-791: a weapon on the gear curve for the player's level, unowned first.
 			var owned_w: Array[String] = SceneManager.save_manager.get_owned_by_slot("weapon")
-			for wid in all_ids:
+			var curve: Array[String] = _GearDrops.candidates(SceneManager.save_manager.level, "weapon")
+			for wid: String in curve:
 				if not owned_w.has(wid):
 					weapon_pool.append(wid)
+			if weapon_pool.is_empty():
+				weapon_pool = curve
 		var weapon_reward_id: String = ""
 		if not weapon_pool.is_empty():
 			weapon_reward_id = weapon_pool[randi() % weapon_pool.size()]

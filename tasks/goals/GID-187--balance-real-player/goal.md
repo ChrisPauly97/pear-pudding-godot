@@ -33,7 +33,7 @@ and co-op — and retune against that player instead.
 | TID-788 | Gear stat system (card-framed stats wired into combat) | agent | done | — |
 | TID-789 | Item model, bands and stat budget | agent | done | TID-788 |
 | TID-790 | Author the item catalogue | agent | done | TID-789 |
-| TID-791 | Gear sources follow the curve | agent | todo | TID-790 |
+| TID-791 | Gear sources follow the curve | agent | done | TID-790 |
 | TID-792 | Gear UI: stats, comparison, level requirement | agent | done | TID-789 |
 | TID-778 | Player profiles (typical build per level) | agent | todo | TID-791 |
 | TID-779 | Progression rewards matter (gear / skills / upgrades bands) | agent | todo | TID-778 |
