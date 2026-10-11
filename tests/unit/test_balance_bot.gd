@@ -81,3 +81,58 @@ func test_fight_finishes_and_replays_exactly() -> void:
 	assert_gt(float(a["seconds"]), 1.0)
 	assert_gt((a["plays"] as Dictionary).size(), 0, "the bot played cards")
 	assert_eq(str(a), str(b), "same seed → identical fight")
+
+## GID-187 / TID-784: the default policy is unchanged; the casual knobs are deterministic per seed.
+func test_default_preset_is_the_default_policy() -> void:
+	assert_eq(str(BalanceBot.preset("default")), str(BalanceBot.DEFAULT_POLICY), "preset default = knob defaults")
+	assert_eq(float(BalanceBot.DEFAULT_POLICY["react"]), 0.0)
+	assert_eq(float(BalanceBot.DEFAULT_POLICY["kick_miss"]), 0.0)
+	assert_eq(float(BalanceBot.DEFAULT_POLICY["think"]), 0.0)
+	var cfg: Dictionary = {"seed": 7, "learned": ALL, "player_level": 6}
+	assert_eq(str(BalanceFight.run(cfg)), str(BalanceFight.run(cfg, BalanceBot.preset("default"))),
+		"the default preset plays the same fight as no policy")
+
+func test_casual_preset_turns_the_knobs_on() -> void:
+	var p: Dictionary = BalanceBot.preset("casual")
+	assert_gt(float(p["react"]), 0.0, "casual reacts late")
+	assert_gt(float(p["kick_miss"]), 0.0, "casual misses some Kicks")
+	assert_gt(float(p["think"]), 0.0, "casual waits between plays")
+	assert_false(bool(p["focus"]), "casual never swaps focus")
+	assert_true(BalanceBot.has_preset("casual"))
+	assert_false(BalanceBot.has_preset("sharp"))
+
+func test_casual_fight_is_deterministic_per_seed() -> void:
+	var cfg: Dictionary = {"seed": 13, "learned": ALL, "player_level": 6}
+	var casual: Dictionary = BalanceBot.preset("casual")
+	assert_eq(str(BalanceFight.run(cfg, casual)), str(BalanceFight.run(cfg, casual)),
+		"same seed gives the same casual fight")
+
+func test_kick_miss_of_one_never_interrupts() -> void:
+	var cfg: Dictionary = {"seed": 3, "learned": ALL, "player_level": 6}
+	var sure: Dictionary = BalanceBot.preset("default")
+	assert_gt(int(BalanceFight.run(cfg, sure)["interrupts"]), 0, "the default bot interrupts in this fight")
+	sure["kick_miss"] = 1.0
+	assert_eq(int(BalanceFight.run(cfg, sure)["interrupts"]), 0, "every Kick whiffs")
+
+func test_reaction_delays_the_interrupt() -> void:
+	var c := _caster()
+	c.rt.state.players[1].board.slots.fill(null)
+	c.rt.state.players[0].hand.clear()
+	_give(c, "tech_kick")
+	c.rt.casting[1] = CardInstance.new(CardRegistry.get_template("ghost"))
+	var bot := BalanceBot.new({"react": 0.5})
+	assert_eq(bot.act(c, _resolver(c.rt.state), 0.0), "", "too early to react")
+	assert_eq(bot.act(c, _resolver(c.rt.state), 0.3), "", "still reacting")
+	assert_eq(bot.act(c, _resolver(c.rt.state), 0.3), "tech_kick", "answers after 0.5 s")
+
+func test_think_spaces_out_plays() -> void:
+	var c := _caster()
+	c.rt.state.players[0].hand.clear()
+	_give(c, "tech_kick")
+	_give(c, "tech_kick")
+	c.rt.casting[1] = CardInstance.new(CardRegistry.get_template("ghost"))
+	var bot := BalanceBot.new({"think": 1.0})
+	assert_eq(bot.act(c, _resolver(c.rt.state), 0.0), "tech_kick", "first play at once")
+	c.rt.casting[1] = CardInstance.new(CardRegistry.get_template("ghost"))
+	assert_eq(bot.act(c, _resolver(c.rt.state), 0.5), "", "thinking")
+	assert_eq(bot.act(c, _resolver(c.rt.state), 0.6), "tech_kick", "next play after 1 s")

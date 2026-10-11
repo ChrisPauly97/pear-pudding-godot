@@ -4,7 +4,8 @@
 ## and fight traits via `BattleSetup.enemy_round` — the same calls
 ## `BattleRealtime._process` makes, minus presentation.
 ##
-## `run(cfg, policy)` → {result: "win"|"loss"|"timeout", seconds, hero_hp,
+## `run(cfg, policy)` (policy: `BalanceBot` knobs, presets via `BalanceBot.preset`) →
+## {result: "win"|"loss"|"timeout", seconds, hero_hp,
 ## hero_hp_frac, plays: {template_id: n}, actions (cards played), actions_10s
 ## (cards played per 10 s, GID-178), dealt_cards, dealt_auto, interrupts,
 ## enemy_casts, procs, full_mana_s, crits_dealt, crits_taken (GID-178 / TID-728)}.
@@ -55,7 +56,7 @@ static func run(cfg: Dictionary, policy: Dictionary = {}) -> Dictionary:
 	var t: float = 0.0
 	var max_seconds: float = float(cfg.get("max_seconds", MAX_SECONDS))
 	while t < max_seconds and not state.is_game_over():
-		var played: String = bot.act(caster, resolver)
+		var played: String = bot.act(caster, resolver, DT)
 		if played != "":
 			var plays: Dictionary = stats["plays"]
 			plays[played] = int(plays.get(played, 0)) + 1

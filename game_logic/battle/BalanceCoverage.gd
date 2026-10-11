@@ -12,19 +12,22 @@
 ## - `schools`: per school, a paired cell vs an enemy weak to it and one that resists it,
 ##   each against the same enemy with that school's tag removed, same seeds (`SCHOOL_MATRIX`).
 ## - `bosses`: every boss at a level inside its range, same level.
+## - `casual` (GID-187 / TID-784): the `range` cells at the same level only, fought by the
+##   `casual` BalanceBot preset (a second policy, so the targets hold for a slower player too).
 ##
 ## Pure except the `measure_*` functions running fights. `tests/balance_coverage.gd` drives
 ## it; `tests/unit/test_balance_coverage.gd` covers the checks and the cell tables.
 extends RefCounted
 
 const BalanceBands = preload("res://game_logic/battle/BalanceBands.gd")
+const BalanceBot = preload("res://game_logic/battle/BalanceBot.gd")
 const BalanceFight = preload("res://game_logic/battle/BalanceFight.gd")
 const BalanceStats = preload("res://game_logic/battle/BalanceStats.gd")
 const BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
 const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 
-const SECTIONS: Array[String] = ["range", "world_low", "world_high", "schools", "bosses", "conditions"]
+const SECTIONS: Array[String] = ["range", "world_low", "world_high", "schools", "bosses", "conditions", "casual"]
 ## Regular world types past Chapter 1 (no bosses, no training dummy), by authored tier:
 ## `world_low` = tiers 1-2, `world_high` = tiers 3-4.
 const WORLD_LOW: Array[String] = [
@@ -50,6 +53,14 @@ const SAME_MIN: float = 0.87
 const UP_MEAN_MIN: float = 0.65
 const UP_MEAN_MAX: float = 0.90
 const UP_CELL_MIN: float = 0.25
+## Casual bot (GID-187 / TID-784): the `range` cells at the same level, with the casual preset.
+## Lower bar than the default bot: same-level mean at least CASUAL_MEAN_MIN, no cell below
+## CASUAL_CELL_MIN. The cell floor is set from the measurement (lowest cell 12.5 % at 8 fights,
+## ghoul pack 4-5: the casual bot never swaps focus, which packs need) minus a 2.5 pp margin;
+## it is a wall detector, not a 40 % bar. Mean measured 91 %.
+const CASUAL_FIGHTS: int = 8
+const CASUAL_MEAN_MIN: float = 0.75
+const CASUAL_CELL_MIN: float = 0.10
 ## Levelling up never makes a fight worse: +0 wins at least the +1 rate minus this.
 const MONOTONIC_SLACK: float = 0.15
 
@@ -189,10 +200,12 @@ static func cell_cfg(type: String, player_level: int, enemy_level: int, fight_se
 
 ## {win_rate, median_s, n} over `fights` seeded fights of one cell (`cell_cfg` arguments).
 static func run_cell(type: String, player_level: int, enemy_level: int, fights: int, school: String = "",
-		tune: Dictionary = {}, extra: Dictionary = {}, swap: int = BattleSetup.MATCHED_SWAP) -> Dictionary:
+		tune: Dictionary = {}, extra: Dictionary = {}, swap: int = BattleSetup.MATCHED_SWAP,
+		policy: Dictionary = {}) -> Dictionary:
 	var results: Array[Dictionary] = []
 	for f: int in fights:
-		results.append(BalanceFight.run(cell_cfg(type, player_level, enemy_level, 1 + f, school, tune, extra, swap)))
+		results.append(BalanceFight.run(cell_cfg(type, player_level, enemy_level, 1 + f, school, tune, extra, swap),
+			policy))
 	var s: Dictionary = BalanceStats.summarize(results)
 	return {"win_rate": float(s["win_rate"]), "median_s": float(s["median_s"]), "n": int(s["n"])}
 
@@ -342,6 +355,31 @@ static func check_conditions(measured: Dictionary) -> Array[String]:
 				rate * 100.0, base * 100.0])
 	return fails
 
+## Runs the casual cells: {BalanceBands.key(type, level, 0): cell}, same level only.
+static func measure_casual(tune: Dictionary = {}) -> Dictionary:
+	var out: Dictionary = {}
+	for cell: Array in ladder_cells("range"):
+		var t: String = str(cell[0])
+		var lv: int = int(cell[1])
+		out[BalanceBands.key(t, lv, 0)] = run_cell(t, lv, lv, CASUAL_FIGHTS, "", tune, {}, BattleSetup.MATCHED_SWAP,
+			BalanceBot.preset("casual"))
+	return out
+
+## Failures of the casual measurement (empty = pass).
+static func check_casual(measured: Dictionary) -> Array[String]:
+	var fails: Array[String] = []
+	var sum: float = 0.0
+	for k: String in measured:
+		var wr: float = float((measured[k] as Dictionary)["win_rate"])
+		sum += wr
+		if wr < CASUAL_CELL_MIN - 0.001:
+			fails.append("casual %s: same-level win rate %.0f%% < %.0f%%" % [k, wr * 100.0, CASUAL_CELL_MIN * 100.0])
+	if not measured.is_empty():
+		var mean: float = sum / float(measured.size())
+		if mean < CASUAL_MEAN_MIN - 0.001:
+			fails.append("casual: same-level mean %.0f%% < %.0f%%" % [mean * 100.0, CASUAL_MEAN_MIN * 100.0])
+	return fails
+
 ## Measures and checks one section: {"measured": Dictionary, "fails": Array[String]}.
 static func run_section(section: String, tune: Dictionary = {}) -> Dictionary:
 	var measured: Dictionary = {}
@@ -356,6 +394,9 @@ static func run_section(section: String, tune: Dictionary = {}) -> Dictionary:
 		"conditions":
 			measured = measure_conditions(tune)
 			fails = check_conditions(measured)
+		"casual":
+			measured = measure_casual(tune)
+			fails = check_casual(measured)
 		_:
 			measured = measure_ladder(section, tune)
 			fails = check_ladder(section, measured)

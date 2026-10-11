@@ -34,7 +34,8 @@ godot --headless --path . -s tools/balance_sim.gd -- --enemy all --level 10 --sw
 | `--enemy-level N` | zone level (default: the type's tier level-equivalent) |
 | `--boss` | fight as a boss (tier 4, boss HP) |
 | `--tune k=v,…` | `CombatTuning` overrides (clamped to each knob's range) |
-| `--policy k=v,…` | `BalanceBot` knobs: `heal_below` (0.4), `summon` (1), `interrupt` (1) |
+| `--bot NAME` | `BalanceBot` preset: `default` (the CI policy) or `casual` (GID-187, see "Bot variety") |
+| `--policy k=v,…` | `BalanceBot` knobs over the preset: `heal_below` (0.4), `summon` (1), `interrupt` (1), `focus` (1), `react` (0), `kick_miss` (0), `think` (0) |
 | `--sweep key=v1,v2` | one case per value: `level`, `enemy_level`, a tuning knob, or a policy knob |
 | `--csv PATH` | per-fight CSV (default `user://balance/<time>.csv`; `none` skips) |
 | `--max-seconds S` | per-fight cap, counted as a timeout (300) |
@@ -52,7 +53,7 @@ it on).
 |---|---|---|
 | `BattleSetup.build(cfg)` | `game_logic/battle/BattleSetup.gd` | builds `{state, rt, tier}` the way `BattleScene` + `BattleRealtime.maybe_start` do |
 | `PlayerCaster` | `game_logic/battle/PlayerCaster.gd` | GCD, cast bar, pushback, fizzle, combo, techniques; `play()` for the bot |
-| `BalanceBot` | `game_logic/battle/BalanceBot.gd` | fixed policy: Kick / Daze casts → heal when low → summon → best spell per mana |
+| `BalanceBot` | `game_logic/battle/BalanceBot.gd` | fixed policy: Kick / Daze casts → heal when low → summon → best spell per mana; `preset(name)` gives the `default` or `casual` knobs |
 | `BalanceFight.run(cfg, policy)` | `game_logic/battle/BalanceFight.gd` | one fight at a 0.05 s tick; returns result + stats |
 | `BalanceStats` | `game_logic/battle/BalanceStats.gd` | Wilson CI, percentiles, summary, table and CSV rows |
 | CLI | `tools/balance_sim.gd` | args, seed loop, sweeps, output |
@@ -63,7 +64,7 @@ Determinism: `BattleSetup.build` calls `seed(n)` (global RNG: shuffles, resolver
 ## Limits
 
 - **A bot, not a human.** Compare settings against each other; absolute win rates are only a proxy for
-  "average play".
+  "average play". Two presets (`default`, `casual`) bracket the spread (see "Bot variety").
 - **Coverage:** see "Wide coverage" — every level 1–60, school matchups and bosses (GID-186).
 - **Not simulated:** companions, persistent / carried-over HP, potions and the hero power, boss phase 2,
   commanded Ally attacks, focus changes, snow discount and blizzard freeze (both turn-based or player-side only).
@@ -296,6 +297,7 @@ godot --headless --path . -s tests/balance_coverage.gd -- --section world_high -
 | `world_low` / `world_high` | every regular type past Chapter 1 (`WORLD_LOW` tiers 1–2, `WORLD_HIGH` tiers 3–4) at the low, middle and high level of its range, from level 5 (spells) to 59 | same as `range` |
 | `schools` | `SCHOOL_MATRIX`: each school vs an enemy weak to it and one that resists it, the same deck against the same enemy with only that school's tag removed (`untag_school`), 16 paired fights | per cell never the wrong way by > 7 pp; mean gain / cost ≥ 5 pp per kind; a same-level resisted fight ≥ 40 % |
 | `bosses` | every boss at the low end of its range, same level, as a boss | ≥ 40 % |
+| `casual` (GID-187) | `range` cells at the same level only, fought by the `casual` preset (8 fights) | same-level mean ≥ 75 %, no cell < 10 % (see "Bot variety") |
 
 - World cells bring a deck the enemy is neutral to (`neutral_school`): the default deck, or the matched deck of
   the first magic school the type has no tag for — a player picks a fight's deck.
@@ -376,6 +378,35 @@ single conditions swung up to +33 / -17 pp and school envs -17 pp, which is samp
 condition that changes a fight perturbs its RNG stream, so each seed decorrelates). So the ±25 gate is
 meaningful only once the cells are measured with enough fights to resolve it. A neutral mid-rate cell with 100+
 fights would tighten it; not done here (runtime).
+## Bot variety (GID-187 / TID-784)
+
+Every number used to come from one very consistent bot, so win rates moved in cliffs. `BalanceBot` now has three
+more knobs. All three default to 0 (off), so the default policy plays exactly the fights it always did (the sim
+output and the CI bands are unchanged):
+
+- `react` (s): a telegraphed enemy cast or heavy blow is answered only this long after the bot first sees it.
+  The clock advances by the fight's tick (`act(caster, resolver, dt)`); a new cast restarts it.
+- `kick_miss` (0–1): each interrupt whiffs with this chance, rolled once per enemy cast on the fight's seeded rng
+  (so a seed still replays exactly). A whiffed cast is not retried.
+- `think` (s): minimum gap between two plays (any card, interrupts included).
+
+Presets (`BalanceBot.preset(name)`, `tools/balance_sim.gd --bot NAME`; `--policy` overrides on top):
+
+| Preset | Knobs |
+|---|---|
+| `default` | `heal_below` 0.4, `summon`, `interrupt`, `focus` on; `react`, `kick_miss`, `think` 0 |
+| `casual` | `default` but `focus` off, `react` 0.5, `kick_miss` 0.2, `think` 1.0 |
+
+`BalanceCoverage` section `casual` (`tests/balance_coverage.gd -- --section casual`) runs the Chapter 1 `range`
+cells at the same level (8 fights each) with the casual preset. Gate: same-level mean ≥ 75 % and no cell < 10 %.
+The cell floor is measured minus a 2.5 pp margin, not a target: see the measurement below.
+
+### casual measurement (TID-784, 8 fights per cell, 24 cells, same level)
+
+Mean **91 %** (gate 75 %); lowest 12.5 %. Every cell is at or above 75 % except the ghoul pack at levels 3–5:
+ghoul pack 3 / 4 / 5 = 50 / 25 / 12.5 %. The casual bot never swaps focus, and packs need that swap: ghoul
+pack L4 with the same knobs and `--policy focus=1` goes 23 % → 100 % (default bot: 100 %). So the casual bot is a
+wall on packs by design (no focus swaps). Not retuned here; packs are the open item for a casual policy.
 
 ## Integrations
 
