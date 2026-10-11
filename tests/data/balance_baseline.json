@@ -71,15 +71,15 @@
 			"win_rate": 1.0
 		},
 		"wolf_pack@5+0": {
-			"median_s": 19.8500000000001,
+			"median_s": 30.0000000000003,
 			"n": 20,
 			"win_rate": 1.0
 		},
 		"wolf_pack@5+1": {
-			"median_s": 24.0000000000002,
+			"median_s": 33.1000000000003,
 			"n": 40,
 			"win_rate": 1.0
 		}
 	},
-	"measured_at": "b320079"
+	"measured_at": "4e75fd6"
 }

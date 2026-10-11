@@ -60,11 +60,12 @@ static func scaled_amount(defender: _PlayerState, amount: int, school: String,
 	return _DamageSchools.apply_mult(amount, m)
 
 ## The attacker's outgoing multiplier for a hit of `school` (GID-181 / TID-754): 1 + the
-## school power fraction, never below 0. 1.0 for a null attacker or no power.
+## school power fraction, never below 0, times the side's `level_power`. 1.0 for a null
+## attacker or no power.
 static func power_mult(attacker: _PlayerState, school: String) -> float:
 	if attacker == null:
 		return 1.0
-	return maxf(0.0, 1.0 + float(attacker.school_power.get(school, 0.0)))
+	return maxf(0.0, 1.0 + float(attacker.school_power.get(school, 0.0))) * attacker.level_power
 
 ## Battlefield boost for a hit of `school` on `defender`'s side; 1.0 when none is set.
 static func env_mult(defender: _PlayerState, school: String) -> float:

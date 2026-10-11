@@ -64,6 +64,7 @@ Determinism: `BattleSetup.build` calls `seed(n)` (global RNG: shuffles, resolver
 
 - **A bot, not a human.** Compare settings against each other; absolute win rates are only a proxy for
   "average play".
+- **Coverage:** see "Wide coverage" — every level 1–60, school matchups and bosses (GID-186).
 - **Not simulated:** weather, gambits, ambush, blight, companions, persistent / carried-over HP, potions and the
   hero power, boss phase 2, commanded Ally attacks, focus changes, snow discount.
 - **Real time only** (user decision); turn-based fights aren't simulated.
@@ -277,6 +278,64 @@ revenant 6/5: 35 / 2 / 10 / 47 / 22. troll 8/6: 42 / 0 / 5 / 5 / 2.
 Not viable: no magic mono deck wins 50 % in more than one cell, so mono decks are not added to the bands.
 
 Cost: the school section runs about 26 s (about 15 fights per second) on top of the ~23 s cell measure.
+
+## Wide coverage (GID-186 / TID-777)
+
+`game_logic/battle/BalanceCoverage.gd` + `tests/balance_coverage.gd` extend the targets beyond the 16 Chapter 1
+cells. CI runs the four section groups side by side (~90 s wall clock on 4 cores):
+
+```bash
+godot --headless --path . -s tests/balance_coverage.gd -- --section range        # or world_low, world_high, schools,bosses
+godot --headless --path . -s tests/balance_coverage.gd -- --section world_high --tune power_track=0.9
+```
+
+| Section | Cells | Gate |
+|---|---|---|
+| `range` | every Chapter 1 type at **every** level of its range, +0 (8 fights) and +1 (16) | same ≥ 87 % per cell; +1 mean 65–90 %, no +1 cell < 25 %; +1 never beats +0 by > 15 pp |
+| `world_low` / `world_high` | every regular type past Chapter 1 (`WORLD_LOW` tiers 1–2, `WORLD_HIGH` tiers 3–4) at the low, middle and high level of its range, from level 5 (spells) to 59 | same as `range` |
+| `schools` | `SCHOOL_MATRIX`: each school vs an enemy weak to it and one that resists it, the same deck against the same enemy with only that school's tag removed (`untag_school`), 16 paired fights | per cell never the wrong way by > 7 pp; mean gain / cost ≥ 5 pp per kind; a same-level resisted fight ≥ 40 % |
+| `bosses` | every boss at the low end of its range, same level, as a boss | ≥ 40 % |
+
+- World cells bring a deck the enemy is neutral to (`neutral_school`): the default deck, or the matched deck of
+  the first magic school the type has no tag for — a player picks a fight's deck.
+- Magic matrix cells use a school-heavy matched deck (`SCHOOL_SWAP` 6): with two school cards a magic tag barely
+  moves a fight. Physical uses the default deck.
+- `test_balance_coverage.gd` asserts every enemy type sits in some section (only the training dummy is exempt) and
+  every school appears as weak and resisted in the matrix.
+
+### What the first wide measurement found (default deck, 12–30 fights)
+
+- Chapter 1 in band. Past level 12 nearly every same-level cell was 0 %: enemy HP grows ~17x by L30 (zone x
+  `enemy_hp_per_level`) while hero damage was flat, and authored tier-3/4 types fought at that tier from level 12.
+- Fights past ~55 s are lost to deck fatigue, so a slow kill is a loss and rates move in cliffs.
+- Physical tags dominated: physical-resistant types 0 %, physical-weak types 100 % one level up.
+
+### Tuning (all real time)
+
+- **Hero level power:** `CombatTuning.hero_level_power(L)` = (`enemy_hp_growth(L)` / growth(`power_from_level`))
+  ^ `power_track` past `power_from_level` (8), 1.0 up to it; `power_track` 0.8. Stored on
+  `PlayerState.level_power` by `RealtimeCombat` (player side only), multiplied into every outgoing hit in
+  `DamageResolver.power_mult` (swings, spells, Allies). About 1.4x at L12, 2.4x at L20, 5.5x at L40.
+- **Every type's fight tier comes from its level** (`BattleSetup.base_tier` = 1, `enemy_tier` raises it per 10
+  levels); `default_enemy_level` (authored tier) only when an enemy's data has no level. Turn-based fights use the
+  same tier rule.
+- **Physical matchup knobs** 0.8 / 1.15 (magic stays 0.5 / 1.5, so the school bands keep their meaning).
+- **Per-type `rt_hp_mult`** (EnemyRegistry, GID-186 comments) for what was left: physical-weak types up
+  (1.2–1.4), physical-resistant types and three bosses down (0.7–0.95).
+- School-band cells re-picked (desert cactus worm 8/6, scorched revenant 8/6, mountains troll 8/7, matchup
+  cactus worm 8/6): the old ones saturated at 100 % once types took their tier from level.
+
+| Section | same-level mean | one level up mean |
+|---|---|---|
+| range | 100 % | 84 % |
+| world_low | 100 % | 78 % |
+| world_high | 99 % | 81 % |
+
+Schools (win % vs untagged): physical weak sand stalker 63 / 6, resist scarab 69 / 94, wraith 75 / 94; light weak
+spectre haunt 88 / 69, resist duelist champion 44 / 63; dark weak troll 44 / 38, resist bog hag 56 / 63; verdant
+weak scout 25 / 13, resist forest shade 56 / 63; rift weak mimic 63 / 56, resist duelist novice 38 / 56.
+Bosses: barrow king 88, blight heart 50, hollow steward 100, vanguard 63, warleader 75, roaming terror 88,
+stone golem 75 %.
 
 ## Integrations
 

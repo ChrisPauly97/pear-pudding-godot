@@ -122,6 +122,7 @@ static func _ensure_loaded() -> void:
 			"capture_param": 0,
 		},
 		"wraith": {
+			"rt_hp_mult": 0.9,  # GID-186: real-time balance vs its level band
 			"attack_school": "dark",
 			"display_name": "Wraith",
 			"schools": {"resist": ["physical", "dark"], "weak": ["light", "rift"]},
@@ -157,6 +158,7 @@ static func _ensure_loaded() -> void:
 					+ "of the wild."),
 		},
 		"sand_stalker": {
+			"rt_hp_mult": 1.4,  # GID-186: real-time balance vs its level band
 			"display_name": "Sand Stalker",
 			"schools": {"resist": ["dark"], "weak": ["physical"]},
 			"deck": ["skeleton", "skeleton", "skeleton", "skeleton", "zombie", "zombie", "zombie", "ghoul", "ghoul",
@@ -172,6 +174,7 @@ static func _ensure_loaded() -> void:
 					+ "grit and old bone. It presses the attack immediately, giving no quarter and no time to think."),
 		},
 		"cactus_worm": {
+			"rt_hp_mult": 0.9,  # GID-186: real-time balance vs its level band
 			"display_name": "Cactus Worm",
 			"schools": {"resist": ["physical", "verdant"], "weak": ["dark"]},
 			"deck": ["skeleton", "skeleton", "skeleton", "zombie", "zombie", "zombie", "thorn_bramble_snare",
@@ -222,6 +225,7 @@ static func _ensure_loaded() -> void:
 					+ "of old fires in its ribs. It burns the field it fights on, indifferent to the cost."),
 		},
 		"mountain_troll": {
+			"rt_hp_mult": 1.2,  # GID-186: real-time balance vs its level band
 			"display_name": "Mountain Troll",
 			"schools": {"resist": ["rift"], "weak": ["light", "physical", "dark"]},
 			"deck": ["ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "zombie", "zombie", "zombie", "restore",
@@ -357,6 +361,7 @@ static func _ensure_loaded() -> void:
 					+ "seasons."),
 		},
 		"roaming_terror": {
+			"rt_hp_mult": 0.85,  # GID-186: real-time balance vs its level band
 			"attack_school": "rift",
 			"display_name": "Roaming Terror",
 			"schools": {"resist": ["rift"], "weak": ["light"]},
@@ -391,6 +396,7 @@ static func _ensure_loaded() -> void:
 					+ "confidence hides a lack of experience — overcome them and the tribe's advance falters."),
 		},
 		"martarquas_raider_2": {
+			"rt_hp_mult": 1.35,  # GID-186: real-time balance vs its level band
 			"display_name": "Martarquas Veteran",
 			"schools": {"resist": ["dark"], "weak": ["physical"]},
 			"deck": ["ghost", "skeleton", "zombie", "zombie", "ghoul", "ghoul"],
@@ -405,6 +411,7 @@ static func _ensure_loaded() -> void:
 					+ "guard has already fallen back — it falls to you to hold the gate."),
 		},
 		"martarquas_raider_3": {
+			"rt_hp_mult": 0.85,  # GID-186: real-time balance vs its level band
 			"display_name": "Martarquas Warlord",
 			"schools": {"resist": ["dark", "physical"], "weak": ["light"]},
 			"deck": ["ghost", "skeleton", "skeleton", "zombie", "zombie", "ghoul", "ghoul"],
@@ -474,6 +481,7 @@ static func _ensure_loaded() -> void:
 			"signature_card": "sig_pathfinder", "capture_condition": "win_by_turn", "capture_param": 5,
 		},
 		"scarab_swarm": {
+			"rt_hp_mult": 0.75,  # GID-186: real-time balance vs its level band
 			"display_name": "Scarab Queen",
 			"schools": {"resist": ["physical"], "weak": ["verdant", "rift"]},
 			"deck": ["scarab", "scarab", "scarab", "scarab", "scarab", "scarab", "scarab", "scarab",
@@ -488,6 +496,7 @@ static func _ensure_loaded() -> void:
 			"signature_card": "sig_scarab_matriarch", "capture_condition": "spell_final_blow", "capture_param": 0,
 		},
 		"ember_cultist": {
+			"rt_hp_mult": 1.3,  # GID-186: real-time balance vs its level band
 			"attack_school": "rift",
 			"display_name": "Ember Cultist",
 			"schools": {"resist": ["rift"], "weak": ["physical", "dark"]},
@@ -502,6 +511,7 @@ static func _ensure_loaded() -> void:
 			"signature_card": "sig_cinder_acolyte", "capture_condition": "no_minion_hero_attacks", "capture_param": 0,
 		},
 		"frost_wendigo": {
+			"rt_hp_mult": 0.9,  # GID-186: real-time balance vs its level band
 			"display_name": "Frost Wendigo",
 			"schools": {"resist": ["physical"], "weak": ["light"]},
 			"deck": ["ghoul", "ghoul", "ghoul", "ghoul", "zombie", "zombie", "ash_bone_spear", "ash_bone_spear",
@@ -530,6 +540,7 @@ static func _ensure_loaded() -> void:
 			"signature_card": "sig_echo_shard", "capture_condition": "hero_hp_at_least", "capture_param": 15,
 		},
 		"barrow_king": {
+			"rt_hp_mult": 0.75,  # GID-186: real-time balance vs its level band
 			"attack_school": "dark",
 			"display_name": "The Barrow King",
 			"schools": {"resist": ["dark"], "weak": ["light"]},
@@ -562,6 +573,7 @@ static func _ensure_loaded() -> void:
 					+ "smiles as he challenges you to a duel — not out of malice, but to measure you."),
 		},
 		"rival_isfig_2": {
+			"rt_hp_mult": 1.4,  # GID-186: real-time balance vs its level band
 			"attack_school": "rift",
 			"display_name": "Isfig the Pursuing",
 			"schools": {"resist": ["rift"], "weak": ["dark", "physical"]},
@@ -614,6 +626,7 @@ static func _ensure_loaded() -> void:
 					+ "wisp drifts, the veil between worlds has grown thin."),
 		},
 		"spectre_haunt": {
+			"rt_hp_mult": 0.85,  # GID-186: real-time balance vs its level band
 			"attack_school": "dark",
 			"display_name": "Phantom",
 			"schools": {"resist": ["dark", "physical"], "weak": ["light", "rift"]},
@@ -632,6 +645,7 @@ static func _ensure_loaded() -> void:
 					+ "with cold malice and retreats into shadow before the blow can be answered."),
 		},
 		"spectre_dread": {
+			"rt_hp_mult": 0.7,  # GID-186: real-time balance vs its level band
 			"attack_school": "dark",
 			"display_name": "Wraith",
 			"schools": {"resist": ["dark", "physical"], "weak": ["light"]},
@@ -667,6 +681,7 @@ static func _ensure_loaded() -> void:
 					+ "indistinguishable from its surroundings — until you reach inside."),
 		},
 		"blight_heart": {
+			"rt_hp_mult": 0.95,  # GID-186: real-time balance vs its level band
 			"attack_school": "dark",
 			"display_name": "The Blight Heart",
 			"schools": {"resist": ["dark"], "weak": ["light", "verdant"]},

@@ -152,13 +152,12 @@ static func weapon_speed_for_item(item_id: String) -> float:
 
 # --- Enemy ----------------------------------------------------------------
 
-## A type's base fight tier. Types with an authored level range (Chapter 1)
-## fight at tier 1 and take their strength from their level (GID-176 / TID-718);
-## the rest keep their difficulty tier. Drops / bestiary still read the authored tier.
-static func base_tier(enemy_type: String) -> int:
-	if enemy_type == "" or EnemyRegistry.LEVEL_RANGES.has(enemy_type):
-		return 1
-	return EnemyRegistry.get_difficulty_tier(enemy_type)
+## A type's base fight tier: 1 for every type. Each fights at tier 1 and takes its
+## strength from its level (`enemy_tier` raises it by level) — Chapter 1 types since
+## GID-176 / TID-718, every type since GID-186 (an authored tier-3 type at level 12 was
+## a wall). Drops / bestiary / `default_enemy_level` still read the authored tier.
+static func base_tier(_enemy_type: String) -> int:
+	return 1
 
 ## Enemy card tier: the type's base fight tier (boss → 4), raised by zone level.
 static func enemy_tier(enemy_type: String, is_boss: bool, enemy_level: int) -> int:
@@ -166,6 +165,11 @@ static func enemy_tier(enemy_type: String, is_boss: bool, enemy_level: int) -> i
 	if is_boss:
 		tier = 4
 	return ZoneLevels.scaled_tier(tier, enemy_level)
+
+## The level an enemy fights at when its data names none: its authored difficulty
+## tier's level-equivalent.
+static func default_enemy_level(enemy_type: String) -> int:
+	return enemy_level_for_tier(EnemyRegistry.get_difficulty_tier(enemy_type) if enemy_type != "" else 1)
 
 ## Real-time enemy level-equivalent for mana (TID-536): tier 1 → 1, each tier +3.
 static func enemy_level_for_tier(tier: int) -> int:
@@ -302,7 +306,8 @@ static func apply_live_tuning(rt: RealtimeCombat, base_tier: int) -> void:
 ##   player_level (1), learned (Array of ladder ids), deck (Array of card ids;
 ##   default = `level_deck(learned)`), gear ([{id, level, mult}]), weapon /
 ##   offhand (item ids), skills (passive skill ids), enemy_type ("undead_basic"),
-##   enemy_level (1 = no zone scaling), is_boss (false), tuning ({knob: value}),
+##   enemy_level (1 = no zone scaling), is_boss (false), untag_school ("": a school
+##   whose resist / weak / immune tags the enemy loses), tuning ({knob: value}),
 ##   seed (0 = leave the RNGs as they are).
 ## Returns {state: GameState, rt: RealtimeCombat, tier: int}.
 static func build(cfg: Dictionary) -> Dictionary:
@@ -335,9 +340,13 @@ static func build(cfg: Dictionary) -> Dictionary:
 	var tier: int = enemy_tier(enemy_type, is_boss, enemy_level)
 	var boss_hp: int = EnemyRegistry.get_boss_hp(enemy_type) if is_boss else 0
 	setup_enemy(foe, me, enemy_type, EnemyRegistry.get_deck(enemy_type), tier, enemy_level, boss_hp)
+	var untag: String = str(cfg.get("untag_school", ""))
+	if untag != "":  # GID-186: one school's matchup switched off, for the paired school checks
+		for kind: String in foe.school_profile:
+			(foe.school_profile[kind] as Dictionary).erase(untag)
 	me.start_turn(1)
 	var type_tier: int = base_tier(enemy_type)
-	var rt_enemy_level: int = enemy_level if cfg.has("enemy_level") else enemy_level_for_tier(type_tier)
+	var rt_enemy_level: int = enemy_level if cfg.has("enemy_level") else default_enemy_level(enemy_type)
 	var tuning := CombatTuning.new(cfg.get("tuning", {}) as Dictionary)
 	var rt := RealtimeCombat.new(state, [player_level, rt_enemy_level], tuning)
 	if s != 0:
@@ -410,8 +419,9 @@ static func _school_cards(school: String, spells_only: bool) -> Array[String]:
 ## card except its last MATCHED_SWAP Allies, which are replaced by `school`'s own cards: its
 ## techniques first (e.g. tech_pyroblast), then its spells. Starter techniques (Strike, Mend,
 ## Kick) and the rest of the board stay the same, so the school is the only thing that differs.
-## Physical is the default deck itself (the starter Allies are physical).
-static func school_matched_deck(school: String, learned: Array) -> Array[String]:
+## Physical is the default deck itself (the starter Allies are physical). `swap` replaces that
+## many Allies instead (GID-186: the school matrix uses a school-heavy deck).
+static func school_matched_deck(school: String, learned: Array, swap: int = MATCHED_SWAP) -> Array[String]:
 	var deck: Array[String] = level_deck(learned)
 	if school == DamageSchools.PHYSICAL:
 		return deck
@@ -419,7 +429,7 @@ static func school_matched_deck(school: String, learned: Array) -> Array[String]
 	for i: int in deck.size():
 		if not TechniqueDefs.is_technique(deck[i]):
 			allies.append(i)
-	var drop: int = mini(MATCHED_SWAP, allies.size())
+	var drop: int = mini(swap, allies.size())
 	var fill: Array[String] = []
 	for id: String in TechniqueDefs.ids():
 		if fill.size() < drop and _card_school(id) == school and not deck.has(id) and not fill.has(id):

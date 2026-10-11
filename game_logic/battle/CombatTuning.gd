@@ -6,6 +6,8 @@
 ## Add a knob: one DEFS row + read `tune.get_f(key)` / `get_i(key)` where used.
 extends RefCounted
 
+const _ZoneLevels = preload("res://game_logic/world/ZoneLevels.gd")
+
 ## key → [label, default, min, max, step, group]. Ints are rows whose step is 1.0
 ## and whose default is whole; read them with get_i.
 const DEFS: Array = [
@@ -21,6 +23,9 @@ const DEFS: Array = [
 	["base_max_mana", "Max mana at level 1 (next fight)", 400.0, 100.0, 1000.0, 25.0, "Mana & cards"],
 	["mana_per_level", "Max mana per level (next fight)", 35.0, 0.0, 100.0, 5.0, "Mana & cards"],
 	["hp_per_level", "Your max HP per level (next fight)", 5.0, 0.0, 10.0, 0.5, "Mana & cards"],
+	["power_track", "Your damage keeps pace with enemy HP past power_from_level (exponent)", 0.8, 0.0, 1.5, 0.05,
+		"Mana & cards"],
+	["power_from_level", "Level your damage starts growing from (next fight)", 8.0, 1.0, 60.0, 1.0, "Mana & cards"],
 	["draw_interval", "Draw a card every (s)", 9.0, 1.0, 20.0, 0.5, "Mana & cards"],
 	["tech_recycle_mult", "Technique return-to-hand time (x)", 1.0, 0.1, 5.0, 0.1, "Mana & cards"],
 	["hand_cap", "Hand size cap", 5.0, 3.0, 10.0, 1.0, "Mana & cards"],
@@ -66,6 +71,10 @@ const DEFS: Array = [
 	["resist_mult", "Damage multiplier vs a resisted school (x)", 0.5, 0.0, 1.0, 0.05, "Damage schools"],
 	["weak_mult", "Damage multiplier vs a weak school (x)", 1.5, 1.0, 3.0, 0.1, "Damage schools"],
 	["immune_mult", "Damage multiplier vs an immune school (x)", 0.0, 0.0, 1.0, 0.05, "Damage schools"],
+	# GID-186: physical is every kit's base channel (auto-attacks, Strike, Allies), so a physical
+	# tag moves a whole fight where a magic tag moves a few cards; it gets milder multipliers.
+	["physical_resist_mult", "Damage multiplier vs resisted physical (x)", 0.8, 0.0, 1.0, 0.05, "Damage schools"],
+	["physical_weak_mult", "Damage multiplier vs weak-to-physical (x)", 1.15, 1.0, 3.0, 0.05, "Damage schools"],
 	# GID-181 / TID-755: battlefield school boosts (BattlefieldRules.SCHOOL_ENV), applied to
 	# the attacker's school at battle start. Read at setup; 1.0 turns the boosts off.
 	["env_time_mult", "Night / day school boost (x)", 1.15, 1.0, 1.5, 0.05, "Damage schools"],
@@ -129,6 +138,21 @@ func level_scale(level: int) -> float:
 	var full: float = maxf(2.0, get_f("enemy_full_level"))
 	var k: float = clampf((float(level) - 1.0) / (full - 1.0), 0.0, 1.0)
 	return lerpf(get_f("enemy_low_scale"), 1.0, k)
+
+## How much a same-level enemy's HP has grown at `level`: the zone scaling
+## (ZoneLevels.scaled_hero_hp) times `enemy_hp_per_level` (GID-186).
+func enemy_hp_growth(level: int) -> float:
+	var zone: float = float(_ZoneLevels.scaled_hero_hp(10000, level)) / 10000.0
+	return zone * (1.0 + get_f("enemy_hp_per_level") * float(maxi(0, level - 1)))
+
+## Real time: the player's outgoing damage multiplier at `level` (GID-186). Chapter 1
+## (up to `power_from_level`) is flat; past it the hero's hits grow with enemy HP,
+## (growth(level) / growth(from)) ^ `power_track`, so a level-L fight stays a level-L fight.
+func hero_level_power(level: int) -> float:
+	var from: int = get_i("power_from_level")
+	if level <= from:
+		return 1.0
+	return pow(enemy_hp_growth(level) / enemy_hp_growth(from), get_f("power_track"))
 
 ## Damage multiplier for an enemy `enemy_level` hitting a `player_level` hero:
 ## +`gap_damage` per level above, less below (never under half) (TID-718).

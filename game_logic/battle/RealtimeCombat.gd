@@ -170,6 +170,7 @@ func _init_side(i: int, level: int) -> void:
 	h.mana_scale = MANA_SCALE
 	if i == PLAYER:
 		_grow_hero_hp(h, level)
+		p.level_power = tune.hero_level_power(level)
 	else:
 		_gap_enemy_hp(h, level)
 	h.max_mana = max_mana_for(level, h.bonus_mana, tune)

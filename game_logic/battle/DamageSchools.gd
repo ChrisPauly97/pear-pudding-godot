@@ -59,16 +59,17 @@ static func outcome(school: String, profile: Dictionary) -> String:
 	return ""
 
 ## Damage multiplier for a hit of `school` on a target with `profile`. `tune` supplies
-## the knobs; null uses the defaults. Neutral is 1.0.
+## the knobs; null uses the defaults. Neutral is 1.0. Physical has its own resist / weak
+## knobs (GID-186).
 static func mult(school: String, profile: Dictionary, tune: _CombatTuning = null) -> float:
 	var t: _CombatTuning = tune if tune != null else _CombatTuning.new()
 	match outcome(school, profile):
 		IMMUNE:
 			return t.get_f("immune_mult")
 		RESIST:
-			return t.get_f("resist_mult")
+			return t.get_f("physical_resist_mult" if school == PHYSICAL else "resist_mult")
 		WEAK:
-			return t.get_f("weak_mult")
+			return t.get_f("physical_weak_mult" if school == PHYSICAL else "weak_mult")
 	return 1.0
 
 ## Scaled damage for a hit: `damage * mult`, rounded to the nearest whole point and

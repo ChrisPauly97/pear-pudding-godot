@@ -122,6 +122,27 @@ jobs:
             exit 1
           fi
 
+      # GID-186: wide balance coverage — every Chapter 1 level, world types over levels 5-60,
+      # the school x weak / resist matrix and the bosses. Four sections in parallel (~90 s).
+      - name: Run balance coverage
+        run: |
+          pids=()
+          for s in range world_low world_high schools,bosses; do
+            godot --headless --path . -s tests/balance_coverage.gd -- --section $s > /tmp/coverage_$s.log 2>&1 &
+            pids+=($!)
+          done
+          FAIL=0
+          for p in "${pids[@]}"; do wait $p || FAIL=1; done
+          for s in range world_low world_high schools,bosses; do
+            grep -E "^(range|world|schools|bosses|COVERAGE|RESULT)" /tmp/coverage_$s.log
+            if grep -q "SCRIPT ERROR" /tmp/coverage_$s.log; then
+              echo "::error::balance_coverage $s logged runtime script errors:"
+              grep -A2 "SCRIPT ERROR" /tmp/coverage_$s.log
+              FAIL=1
+            fi
+          done
+          exit $FAIL
+
   lint:
     name: gdlint
     runs-on: ubuntu-latest
