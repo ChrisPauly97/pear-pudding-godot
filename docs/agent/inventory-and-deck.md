@@ -294,6 +294,26 @@ cost = Σ rating × `STAT_COST` (armor 2, intellect 6, mastery 0.8, resist 0.6, 
 `band`, `item_level`, `level_req`, `rarity`; blacksmith upgrades scale stats +10 % per level
 (`UpgradeDefs.scaled_stats`).
 
+### Gear Tooltips and Comparison (GID-187 / TID-792)
+
+`game_logic/items/GearTooltip.gd` is the pure formatter; the scene side is `scenes/ui/GearInspect.gd`.
+
+| Function | Returns |
+|---|---|
+| `build(w, upgrade_level, player_level, rarity = "", mult = 1.0)` | Dict: `name` (+N suffix), `rarity` (roll id, else authored), `band_line` ("Fine · item level 12"), `level_req`, `level_ok`, `requires_line` ("Requires level 10 (you are level 8)" when unmet), `stat_lines`, `stats`, `mechanic_line`, `lines` |
+| `stat_line(id, rating, player_level)` | "+12 Haste (3.1 %)" (percent via `GearStats.pct` at the level) or "+6 Stamina (+6 max HP)" (flat) |
+| `summary(w, upgrade_level, player_level, mult)` | One-line stat summary for compact rows, legacy mechanic line appended |
+| `compare(candidate, cand_lvl, equipped, eq_lvl, player_level)` | Per-stat delta in display units (% points / points), zero deltas dropped; `null` equipped = all gains |
+| `delta_rows(deltas)` | `[{"text": "+1.5 % Haste", "gain": bool}]` for green / red lines |
+| `sheet_lines(entries, player_level)` | Character-sheet totals: ratings summed across equipped items, % of the total (cap applies to the total) |
+
+- The mechanic line shows for any non-empty `battle_effect_type` (deck_inject, offhand_atk, and the legacy starting-* types, so no effect goes unshown).
+- The level requirement is flagged red in the picker row, the inspect popup and the Blacksmith row.
+- **CharacterScene**: the picker row shows `summary` and the requirement; hover (Shift) and long-press on every row (equipped ones too) open the inspect popup (`GearInspect.fill`): the item's details, and for an unworn item the equipped item plus green / red deltas. The "Gear stats" block under the slots is `GearInspect.fill_sheet`. Equipping an item above the player's level (`level_req > SaveManager.level`) is refused with a toast ("Too advanced"); the Equip button stays enabled so the refusal is explained.
+- **BlacksmithScene**: each weapon row shows band / item level / requirement, the current stat summary and the next-level summary.
+- Upgrade level comes from `GearInspect.upgrade_level_of` (weapon slot only; other slots never upgrade). Stats use `UpgradeDefs.scaled_stats`; the roll multiplier only affects the legacy battle values.
+- Tests: `tests/unit/test_gear_tooltip.gd`.
+
 ### SaveManager Equipment Fields
 
 | Field | Type | Description |

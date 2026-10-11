@@ -11,6 +11,8 @@ const _GearRolls = preload("res://game_logic/items/GearRolls.gd")
 const _PaperDoll = preload("res://game_logic/character/PaperDoll.gd")
 const _HeroAppearanceScene = preload("res://scenes/ui/HeroAppearanceScene.gd")
 const _CharacterProfessions = preload("res://scenes/ui/CharacterProfessions.gd")
+const _GearTooltip = preload("res://game_logic/items/GearTooltip.gd")
+const _GearInspect = preload("res://scenes/ui/GearInspect.gd")
 
 ## Laid out two per row (TID-563: eight slots no longer fit one column).
 const _SLOTS: Array[String] = [
@@ -48,6 +50,7 @@ var _picker_panel: Control
 var _compare_popup: PopupPanel = null
 var _hovered_compare_item: String = ""
 var _hovered_compare_row: Control = null
+var _sheet_vbox: VBoxContainer = null   # GID-187 / TID-792: character-sheet stat totals
 
 func _ready() -> void:
 	super._ready()
@@ -128,6 +131,10 @@ func _build_ui() -> void:
 		btn.clip_text = true
 		btn.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		_slot_btns[slot] = btn
+
+	# GID-187 / TID-792: every stat across the equipped gear, at the player's level.
+	_UiUtil.make_label("Gear stats", int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, left_vbox)
+	_sheet_vbox = _UiUtil.make_vbox(int(_ref * 0.003), left_vbox)
 
 	var companion_hdr := _UiUtil.make_label("Mentor", int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER,
 			left_vbox)
@@ -210,6 +217,16 @@ func _refresh_slot_buttons() -> void:
 			_companion_btn.modulate = Color(1.0, 1.0, 1.0)
 		if _selected_slot == "companion":
 			_companion_btn.modulate = Color(1.0, 1.0, 0.5)
+	_refresh_sheet()
+
+## GID-187 / TID-792: the character sheet's stat totals across every equipped item.
+func _refresh_sheet() -> void:
+	if _sheet_vbox != null:
+		_GearInspect.fill_sheet(_sheet_vbox, _ref, SceneManager.save_manager, _SLOTS)
+
+## Blacksmith upgrade level of an owned item (weapons only; other slots never upgrade).
+func _upgrade_level_of(item_id: String, slot: String) -> int:
+	return _GearInspect.upgrade_level_of(SceneManager.save_manager, item_id, slot)
 
 func _refresh_picker() -> void:
 	_hide_compare_tooltip()
@@ -332,39 +349,41 @@ func _make_picker_row(item_id: String, w: WeaponData, is_equipped: bool) -> HBox
 		var eq_lbl := _UiUtil.make_label("[E]", int(_ref * 0.022), Color(0.4, 1.0, 0.5), HORIZONTAL_ALIGNMENT_LEFT,
 				name_row)
 
-	var effect_lbl := Label.new()
 	var sm := SceneManager.save_manager
-	var upgrade_level: int = 0
-	if w.slot == "weapon":
-		var winst: Dictionary = sm.get_owned_weapon_by_id(item_id)
-		upgrade_level = int(winst.get("upgrade_level", 0))
-	effect_lbl.text = UpgradeDefs.get_display_string(w, upgrade_level, sm.gear.mult(item_id))
+	var upgrade_level: int = _upgrade_level_of(item_id, w.slot)
+	var mult: float = sm.gear.mult(item_id)
+	var effect_lbl := Label.new()
+	effect_lbl.text = _GearTooltip.summary(w, upgrade_level, sm.level, mult)
 	effect_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	effect_lbl.modulate = Color(0.9, 1.0, 0.7)
+	effect_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	info_vbox.add_child(effect_lbl)
+	# GID-187 / TID-792: the level requirement, flagged when the player is below it.
+	if w.level_req > sm.level:
+		_UiUtil.make_label("Requires level %d (you are level %d)" % [w.level_req, sm.level],
+				int(_ref * 0.019), Color(1.0, 0.45, 0.4), HORIZONTAL_ALIGNMENT_LEFT, info_vbox)
 
 	var equip_btn := _UiUtil.make_button("Equipped" if is_equipped else "Equip", Vector2(_ref * 0.14, _ref * 0.065),
 			int(_ref * 0.022), _on_equip.bind(item_id), row)
 	equip_btn.disabled = is_equipped
 
-	# Compare against the currently equipped item in this slot: hold Shift while
+	# Inspect (details, and the comparison against the equipped item in this slot): hold Shift while
 	# hovering on desktop, or tap-and-hold on mobile (no Shift key there).
-	if not is_equipped:
-		row.mouse_filter = Control.MOUSE_FILTER_PASS
-		row.mouse_entered.connect(func() -> void:
-			_hovered_compare_item = item_id
-			_hovered_compare_row = row
-			if Input.is_key_pressed(KEY_SHIFT):
-				_show_compare_tooltip(item_id, w, row))
-		row.mouse_exited.connect(func() -> void:
-			if _hovered_compare_item == item_id:
-				_hovered_compare_item = ""
-				_hovered_compare_row = null
-				_hide_compare_tooltip())
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
+	row.mouse_entered.connect(func() -> void:
+		_hovered_compare_item = item_id
+		_hovered_compare_row = row
+		if Input.is_key_pressed(KEY_SHIFT):
+			_show_compare_tooltip(item_id, w, row))
+	row.mouse_exited.connect(func() -> void:
+		if _hovered_compare_item == item_id:
+			_hovered_compare_item = ""
+			_hovered_compare_row = null
+			_hide_compare_tooltip())
 
-		var lpd := LongPressDetector.new()
-		row.add_child(lpd)
-		lpd.long_pressed.connect(func() -> void: _show_compare_tooltip(item_id, w, row))
+	var lpd := LongPressDetector.new()
+	row.add_child(lpd)
+	lpd.long_pressed.connect(func() -> void: _show_compare_tooltip(item_id, w, row))
 
 	return row
 
@@ -378,7 +397,14 @@ func _on_slot_pressed(slot: String) -> void:
 	_refresh_picker()
 
 func _on_equip(item_id: String) -> void:
-	SceneManager.save_manager.equip_item(item_id, _selected_slot)
+	var sm := SceneManager.save_manager
+	var w: WeaponData = WeaponRegistry.get_weapon(item_id)
+	# GID-187 / TID-792: an item above the player's level is refused (touch and mouse alike).
+	if w != null and w.level_req > sm.level:
+		SceneManager.show_toast("Too advanced", "%s needs level %d (you are level %d)." % [
+			w.display_name, w.level_req, sm.level])
+		return
+	sm.equip_item(item_id, _selected_slot)
 	_refresh_slot_buttons()
 	_refresh_picker()
 
@@ -420,60 +446,37 @@ func _hide_compare_tooltip() -> void:
 		_compare_popup.queue_free()
 	_compare_popup = null
 
+## GID-187 / TID-792: the item's details (name, band, level requirement, stat lines) and, for an item
+## not yet worn, the comparison against the equipped item in its slot (green / red stat deltas).
 func _show_compare_tooltip(item_id: String, candidate: WeaponData, anchor: Control) -> void:
 	_hide_compare_tooltip()
 
 	var sm := SceneManager.save_manager
+	var player_lvl: int = sm.level
 	var equipped_id: String = sm.get_equipped_by_slot(candidate.slot)
 	var equipped: WeaponData = WeaponRegistry.get_weapon(equipped_id) if equipped_id != "" else null
-
-	var candidate_lvl: int = 0
-	var equipped_lvl: int = 0
-	if candidate.slot == "weapon":
-		candidate_lvl = int(sm.get_owned_weapon_by_id(item_id).get("upgrade_level", 0))
-		if equipped_id != "":
-			equipped_lvl = int(sm.get_owned_weapon_by_id(equipped_id).get("upgrade_level", 0))
+	var is_worn: bool = equipped_id == item_id
+	var candidate_lvl: int = _upgrade_level_of(item_id, candidate.slot)
+	var equipped_lvl: int = _upgrade_level_of(equipped_id, candidate.slot)
+	var cand_tip: Dictionary = _GearTooltip.build(candidate, candidate_lvl, player_lvl,
+			str(sm.gear.roll_of(item_id)["rarity"]), sm.gear.mult(item_id))
+	var eq_tip: Dictionary = {}
+	var rows: Array[Dictionary] = []
+	if equipped != null and not is_worn:
+		eq_tip = _GearTooltip.build(equipped, equipped_lvl, player_lvl,
+				str(sm.gear.roll_of(equipped_id)["rarity"]), sm.gear.mult(equipped_id))
+		var deltas: Dictionary = _GearTooltip.compare(candidate, candidate_lvl, equipped, equipped_lvl, player_lvl)
+		rows = _GearTooltip.delta_rows(deltas)
+	var slot_name: String = _SLOT_LABELS.get(candidate.slot, candidate.slot.capitalize())
+	var title: String = ("Details — %s" if is_worn else "Compare — %s") % slot_name
+	var note: String = "Nothing equipped in this slot." if (equipped == null and not is_worn) else ""
 
 	var popup := PopupPanel.new()
 	add_child(popup)
 	_compare_popup = popup
-
 	var vb := _UiUtil.make_vbox(int(_ref * 0.008), popup)
 	vb.custom_minimum_size = Vector2(_ref * 0.34, 0)
-
-	var title_lbl := _UiUtil.make_label("Compare — %s" % _SLOT_LABELS.get(candidate.slot, candidate.slot.capitalize()),
-			int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vb)
-
-	var equipped_lbl := Label.new()
-	equipped_lbl.text = "Equipped: %s\n%s" % [
-		(equipped.display_name if equipped != null else "(empty)"),
-		(UpgradeDefs.get_display_string(equipped, equipped_lvl, sm.gear.mult(equipped_id)) if equipped != null
-				else "—"),
-	]
-	equipped_lbl.add_theme_font_size_override("font_size", int(_ref * 0.020))
-	equipped_lbl.modulate = Color(0.75, 0.75, 0.75)
-	equipped_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	vb.add_child(equipped_lbl)
-
-	vb.add_child(HSeparator.new())
-
-	var candidate_lbl := Label.new()
-	candidate_lbl.text = "%s\n%s" % [
-		candidate.display_name,
-		UpgradeDefs.get_display_string(candidate, candidate_lvl, sm.gear.mult(item_id)),
-	]
-	candidate_lbl.add_theme_font_size_override("font_size", int(_ref * 0.020))
-	candidate_lbl.modulate = Color(0.6, 1.0, 0.7)
-	candidate_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	vb.add_child(candidate_lbl)
-
-	if equipped != null and equipped.battle_effect_type == candidate.battle_effect_type:
-		var delta: int = (UpgradeDefs.effective_stat(candidate, candidate_lvl, sm.gear.mult(item_id))
-				- UpgradeDefs.effective_stat(equipped, equipped_lvl, sm.gear.mult(equipped_id)))
-		if delta != 0:
-			var delta_lbl := _UiUtil.make_label("%+d vs equipped" % delta, int(_ref * 0.020),
-					Color(0.4, 1.0, 0.5) if delta > 0 else Color(1.0, 0.45, 0.4), HORIZONTAL_ALIGNMENT_LEFT, vb)
-
+	_GearInspect.fill(vb, _ref, title, cand_tip, eq_tip, rows, note)
 	popup.popup(Rect2i(anchor.get_screen_transform().origin as Vector2i, Vector2i(int(_ref * 0.34), 0)))
 
 func _input(event: InputEvent) -> void:
