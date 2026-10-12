@@ -34,6 +34,9 @@ const GearCurve = preload("res://game_logic/items/GearCurve.gd")
 const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
 const FightConditions = preload("res://game_logic/battle/FightConditions.gd")
 const FightStart = preload("res://game_logic/battle/FightStart.gd")
+const VeterancyUtil = preload("res://game_logic/VeterancyUtil.gd")
+const SchoolSources = preload("res://game_logic/battle/SchoolSources.gd")
+const RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
 ## TID-757: how many default Allies a school-matched deck swaps for the school's own cards.
 const MATCHED_SWAP: int = 2
 
@@ -116,47 +119,6 @@ static func apply_skill_mods(player: PlayerState, skill_ids: Array) -> void:
 	var mods := SkillMods.new()
 	mods.add_skills(skill_ids)
 	player.skill_mods = null if mods.is_empty() else mods
-
-## GID-181 / TID-754: the player's outgoing school power and weapon convert, from the
-## equipped items' school affixes (`items[i].affix`, see GearRolls) and the unlocked
-## school_power nodes. Any fight mode. Sets `player.school_power` (school → fraction)
-## and `player.convert_school`. Affixes add on top of the stat rolls.
-static func apply_school_power(player: PlayerState, items: Array[Dictionary], skill_ids: Array) -> void:
-	for item: Dictionary in items:
-		var affix: Dictionary = _affix_of(item)
-		match str(affix.get("kind", "")):
-			"school_dmg":
-				_add_school(player.school_power, str(affix["school"]), float(affix.get("pct", 0.0)))
-			"convert":
-				player.convert_school = str(affix["school"])
-	var nodes: Dictionary = SkillMods.school_nodes(skill_ids, "school_power")
-	for k: Variant in nodes.keys():
-		_add_school(player.school_power, str(k), float(int(nodes[k])) / 100.0)
-
-## GID-181 / TID-754: the hero's school resistance sources, uncapped: school → summed
-## fraction from equipped school_resist affixes and school_resist nodes. Pass the result
-## through `DamageSchools.capped_resists`, which clamps it to `max_player_resist`.
-static func school_resist_sources(items: Array[Dictionary], skill_ids: Array, gear_conv: Dictionary = {}) -> Dictionary:
-	var out: Dictionary = GearStats.resist_sources(gear_conv)  # GID-187 / TID-788: resist:<school> stats
-	for item: Dictionary in items:
-		var affix: Dictionary = _affix_of(item)
-		if str(affix.get("kind", "")) == "school_resist":
-			_add_school(out, str(affix["school"]), float(affix.get("pct", 0.0)))
-	var nodes: Dictionary = SkillMods.school_nodes(skill_ids, "school_resist")
-	for k: Variant in nodes.keys():
-		_add_school(out, str(k), float(int(nodes[k])) / 100.0)
-	return out
-
-static func _affix_of(item: Dictionary) -> Dictionary:
-	var v: Variant = item.get("affix", {})
-	if v is Dictionary:
-		return v
-	return {}
-
-static func _add_school(table: Dictionary, school: String, amount: float) -> void:
-	if not DamageSchools.is_school(school):
-		return
-	table[school] = float(table.get(school, 0.0)) + amount
 
 ## Off-hand swing damage for an equipped item (TID-545): 0 for none or a
 ## non-attack off-hand.
@@ -251,7 +213,7 @@ static func enemy_round(state: GameState, enemy_type: String, tier: int, round_n
 ## softer below `enemy_full_level`), a second minion from `enemy_two_minions_level`
 ## — never on what the player has learned. Player-side caps follow the player's level.
 static func configure_realtime(rt: RealtimeCombat, player_level: int, enemy_type: String,
-		weapon_speed: float, offhand_damage: int, puzzle: bool = false) -> void:
+		weapon_speed: float, offhand_damage: int, puzzle: bool = false, hp_mult: float = 1.0) -> void:
 	rt.heavy_enabled = not puzzle
 	var enemy_level: int = rt.side_levels[RealtimeCombat.ENEMY]
 	var cap: int = 1 if enemy_level < rt.tune.get_i("enemy_two_minions_level") else RealtimeCombat.MAX_ENEMY_MINIONS
@@ -269,7 +231,8 @@ static func configure_realtime(rt: RealtimeCombat, player_level: int, enemy_type
 	if EnemyRegistry.is_passive(enemy_type):
 		rt.set_passive(RealtimeCombat.ENEMY)
 	rt.enemy_attack_school = EnemyRegistry.get_attack_school(enemy_type)  # GID-181 / TID-751
-	scale_enemy_hp(rt.state.players[RealtimeCombat.ENEMY], EnemyRegistry.rt_hp_mult(enemy_type))
+	# × a rift tier's HP step (TID-783, `hp_mult`)
+	scale_enemy_hp(rt.state.players[RealtimeCombat.ENEMY], EnemyRegistry.rt_hp_mult(enemy_type) * hp_mult)
 	add_enemy_attack(rt.state.players[RealtimeCombat.ENEMY], EnemyRegistry.rt_attack_bonus(enemy_type))
 
 ## GID-185 / TID-775: the player's deck-rule unlocks (UnlockLadder) on a fresh fight.
@@ -329,9 +292,11 @@ static func apply_live_tuning(rt: RealtimeCombat, base_tier: int) -> void:
 ## setup order. Keys (all optional):
 ##   player_level (1), learned (Array of ladder ids), deck (Array of card ids;
 ##   default = `level_deck(learned)`), gear ([{id, level, mult}]), weapon /
-##   offhand (item ids), skills (passive skill ids), enemy_type ("undead_basic"),
-##   enemy_level (1 = no zone scaling), is_boss (false), untag_school ("": a school
-##   whose resist / weak / immune tags the enemy loses), tuning ({knob: value}),
+##   offhand (item ids; weapon_upgrade = blacksmith level), skills (passive skill ids), card_rank
+##   (0: deck cards at that veterancy rank), companion ({passive_type, passive_value}), boons (rift boon
+##   ids), enemy_hp_mult (a rift tier's HP step), enemy_type ("undead_basic"), enemy_level (1 = no
+##   zone scaling), is_boss (false), untag_school ("": a school whose resist / weak / immune tags the
+##   enemy loses), tuning ({knob: value}),
 ##   seed (0 = leave the RNGs as they are). Battlefield conditions (FightConditions,
 ##   GID-187 / TID-780): weather ("" = clear: ash_fall, rain, sandstorm, snow...), biome
 ##   (BattlefieldRules.BIOME_*, -1 = dungeon), is_night (false), blighted (false: +5 foe HP),
@@ -358,17 +323,20 @@ static func build(cfg: Dictionary) -> Dictionary:
 	var me: PlayerState = state.players[0]
 	var foe: PlayerState = state.players[1]
 	me.build_deck(deck)
+	if int(cfg.get("card_rank", 0)) > 0:  # TID-779: veteran Allies, through the game's instance path
+		me.build_deck_from_instances(VeterancyUtil.instances_at_rank(deck, int(cfg["card_rank"])))
 	me.draw_deck = unlock_filter(me.draw_deck, learned)
+	RiftDefs.apply_boons(me, cfg.get("boons", []) as Array)  # TID-783: a rift run's boons, as BattleModifiers
 	var gear: Array[Dictionary] = []
 	gear.assign(cfg.get("gear", []))
 	for key: String in ["weapon", "offhand"]:
 		if str(cfg.get(key, "")) != "":
-			gear.append({"id": str(cfg[key])})
+			gear.append({"id": str(cfg[key]), "level": int(cfg.get(key + "_upgrade", 0))})  # blacksmith level
 	var tuning := CombatTuning.new(cfg.get("tuning", {}) as Dictionary)
 	apply_gear(me, gear, true, player_level, tuning)
 	var skill_ids: Array = cfg.get("skills", [])
-	apply_school_power(me, gear, skill_ids)  # GID-181 / TID-754
-	me.hero.school_resist = DamageSchools.capped_resists(school_resist_sources(gear, skill_ids, me.gear))
+	SchoolSources.apply_school_power(me, gear, skill_ids)  # GID-181 / TID-754
+	me.hero.school_resist = DamageSchools.capped_resists(SchoolSources.resist_sources(gear, skill_ids, me.gear))
 	apply_skill_mods(me, skill_ids)
 	me.draw_opening_hand(OPENING_HAND)
 	# Same order as BattleModifiers: max-HP modifiers (gear above, well fed), then the start HP.
@@ -407,8 +375,10 @@ static func build(cfg: Dictionary) -> Dictionary:
 	if s != 0:
 		rt.rng.seed = s
 	configure_realtime(rt, player_level, enemy_type, weapon_speed_for_item(str(cfg.get("weapon", ""))),
-			offhand_damage_for_item(str(cfg.get("offhand", ""))))
+			offhand_damage_for_item(str(cfg.get("offhand", ""))), false, float(cfg.get("enemy_hp_mult", 1.0)))
 	apply_deck_rules(rt, learned)
+	var comp: Dictionary = cfg.get("companion", {}) as Dictionary  # TID-779: after the trim, as BattleRealtime
+	FightStart.apply_companion(me, str(comp.get("passive_type", "")), int(comp.get("passive_value", 0)))
 	apply_live_tuning(rt, type_tier)
 	return {"state": state, "rt": rt, "tier": tier, "well_fed": well_fed, "potion_ids": potion_ids,
 		"potion_counts": potion_counts}

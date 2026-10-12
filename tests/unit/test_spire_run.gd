@@ -81,9 +81,9 @@ func test_start_spire_run_stores_seed() -> void:
 	_sm.spire.start_spire_run(9999)
 	assert_eq(int(_sm.spire.get_spire_run().get("seed", 0)), 9999)
 
-func test_start_spire_run_hero_hp_is_30() -> void:
+func test_start_spire_run_at_full_health() -> void:
 	_sm.spire.start_spire_run(1)
-	assert_eq(int(_sm.spire.get_spire_run().get("hero_hp", 0)), 30)
+	assert_almost_eq(_sm.spire.hp_frac(), 1.0, 0.0001, "TID-783: HP carried as a fraction")
 
 func test_start_spire_run_draft_deck_is_empty() -> void:
 	_sm.spire.start_spire_run(1)
@@ -146,16 +146,16 @@ func test_add_drafted_card_noop_when_inactive() -> void:
 	assert_false(_sm.spire.is_spire_active())
 
 # ---------------------------------------------------------------------------
-# set_spire_hero_hp
+# set_hp_frac
 # ---------------------------------------------------------------------------
 
-func test_set_spire_hero_hp_updates_value() -> void:
+func test_set_hp_frac_updates_value() -> void:
 	_sm.spire.start_spire_run(1)
-	_sm.spire.set_spire_hero_hp(15)
-	assert_eq(int(_sm.spire.get_spire_run().get("hero_hp", -1)), 15)
+	_sm.spire.set_hp_frac(0.4)
+	assert_almost_eq(_sm.spire.hp_frac(), 0.4, 0.0001)
 
-func test_set_spire_hero_hp_noop_when_inactive() -> void:
-	_sm.spire.set_spire_hero_hp(15)
+func test_set_hp_frac_noop_when_inactive() -> void:
+	_sm.spire.set_hp_frac(0.4)
 	assert_false(_sm.spire.is_spire_active())
 
 # ---------------------------------------------------------------------------

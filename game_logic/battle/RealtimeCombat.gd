@@ -172,7 +172,9 @@ func _init_side(i: int, level: int) -> void:
 	h.mana_scale = MANA_SCALE
 	if i == PLAYER:
 		_grow_hero_hp(h, level)
-		_scale_hero_hp(h, p.gear_hp_power)
+		_scale_hero_hp(h, p.gear_hp_power * p.boon_hp_mult)
+		if p.start_armor_frac > 0.0:  # TID-783: Bulwark
+			h.add_armor(roundi(float(h.max_health) * p.start_armor_frac))
 		p.level_power = tune.hero_level_power(level)
 	else:
 		_gap_enemy_hp(h, level)
@@ -770,7 +772,7 @@ static func is_heavy(card: CardInstance) -> bool:
 ## grown like the enemy's swings (`enemy_dmg_growth`), so gear HP protects against heavies too.
 func heavy_damage(side: int = ENEMY) -> int:
 	var p: PlayerState = state.players[PLAYER]
-	var base_hp: float = float(p.hero.max_health) / maxf(0.01, p.gear_hp_power)
+	var base_hp: float = float(p.hero.max_health) / maxf(0.01, p.gear_hp_power * p.boon_hp_mult)
 	return maxi(1, roundi(base_hp * tune.get_f("heavy_frac") * tune.level_scale(_level_of(side))
 			* tune.gap_mult(_level_of(side), _level_of(PLAYER)) * tune.enemy_dmg_growth(_level_of(side))))
 

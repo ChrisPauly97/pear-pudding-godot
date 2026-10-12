@@ -31,7 +31,12 @@ func _go() -> void:
 		keys.sort()
 		for k: Variant in keys:
 			var m: Dictionary = measured[k]
-			if m.has("untagged"):
+			if m.has("without"):  # TID-779 rewards: with / without one reward
+				print("%-10s %-40s with %5.1f%%  without %5.1f%%" % [section, str(k), 100.0 * float(m["with"]),
+					100.0 * float(m["without"])])
+			elif m.has("rate") and m.has("kind"):  # TID-783 runs: clear rate
+				print("%-10s %-30s clear %5.1f%%" % [section, str(k), 100.0 * float(m["rate"])])
+			elif m.has("untagged"):
 				print("%-10s %-40s win %5.1f%%  untagged %5.1f%%" % [section, str(k), 100.0 * float(m["rate"]),
 					100.0 * float(m["untagged"])])
 			else:

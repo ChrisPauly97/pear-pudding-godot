@@ -70,7 +70,7 @@ func test_buff_expires_after_its_fights() -> void:
 
 
 func test_migration_adds_well_fed() -> void:
-	assert_eq(_SaveMigrations.CURRENT_VERSION, 51)
+	assert_true(_SaveMigrations.CURRENT_VERSION >= 51)
 	var data: Dictionary = {"version": 49}
 	_SaveMigrations.apply(data, 50)  # just the v50 step (v51 is covered in test_profession_unlocks)
 	assert_true(data.has("well_fed"), "v50 backfills well_fed")

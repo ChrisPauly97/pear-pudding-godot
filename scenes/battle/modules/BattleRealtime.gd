@@ -96,8 +96,10 @@ func maybe_start(is_fresh: bool) -> void:
 	var sm := SceneManager.save_manager
 	_BattleSetup.configure_realtime(rt, player_level, enemy_type, equipped_weapon_speed(),
 			offhand_damage_for_item(str(sm.equipped_offhand), sm.gear.mult(str(sm.equipped_offhand))),
-			_battle._state.puzzle_mode)
+			_battle._state.puzzle_mode, float(_battle.enemy_data.get("rift_hp_mult", 1.0)))  # TID-783
 	_BattleSetup.apply_deck_rules(rt, sm.learned_abilities)  # GID-185 / TID-775
+	# TID-779: the companion's draw lands after the opening-hand trim (it was trimmed away before).
+	_battle.modifiers._apply_companion_turn_start()
 	# Skill-tree card modifiers and spell crits (GID-179) — real time only.
 	_BattleSetup.apply_skill_mods(_battle._state.players[RealtimeCombat.PLAYER], sm.unlocked_skills)
 	caster = PlayerCaster.new(rt)

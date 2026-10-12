@@ -396,7 +396,7 @@ static func _ensure_loaded() -> void:
 					+ "confidence hides a lack of experience — overcome them and the tribe's advance falters."),
 		},
 		"martarquas_raider_2": {
-			"rt_hp_mult": 1.35,  # GID-186: real-time balance vs its level band
+			"rt_hp_mult": 1.2,  # GID-186 1.35; TID-779: L24 +1 wall with branch decks
 			"display_name": "Martarquas Veteran",
 			"schools": {"resist": ["dark"], "weak": ["physical"]},
 			"deck": ["ghost", "skeleton", "zombie", "zombie", "ghoul", "ghoul"],
@@ -626,7 +626,7 @@ static func _ensure_loaded() -> void:
 					+ "wisp drifts, the veil between worlds has grown thin."),
 		},
 		"spectre_haunt": {
-			"rt_hp_mult": 0.85,  # GID-186: real-time balance vs its level band
+			"rt_hp_mult": 0.75,  # GID-186 0.85; TID-779: L24 +1 wall with branch decks
 			"attack_school": "dark",
 			"display_name": "Phantom",
 			"schools": {"resist": ["dark", "physical"], "weak": ["light", "rift"]},

@@ -109,6 +109,7 @@ func _spawn_raiders(p_map_name: String, stage: int) -> void:
 			"tracking": false,
 			"enemy_type": enemy_type,
 			"enemy_deck": EnemyRegistry.get_deck(enemy_type),
+			"enemy_level": SceneManager.save_manager.town_siege.stage_level(),  # TID-783
 		}, wx, wz)
 
 ## "<Town> Under Attack!" across the top of the HUD while the siege runs.

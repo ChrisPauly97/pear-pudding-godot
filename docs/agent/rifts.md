@@ -8,8 +8,10 @@ fight floor to floor, beat the guardian, and the next tier opens. Unlocked at le
 - Five rifts (`game_logic/spire/RiftDefs.gd`), one per biome, drawing on that biome's enemies; each tracks its own
   best tier (`SaveManager.rift_best_tiers`).
 - `FLOORS_PER_TIER` (5) floors per run; the last holds the rift's guardian. Clearing it clears the tier.
-- Enemy level = `BASE_LEVEL` (14) + 2 per tier + ½ per floor (+1 guardian), fed through the zone-level scaling
-  (`ZoneLevels`: hero HP, card tier, XP con).
+- Enemy level = `BASE_LEVEL` (14) + ½ per tier (`TIERS_PER_LEVEL` 2; a level's second tier gives enemies
+  `HALF_TIER_HP` ×1.3 HP instead), the same on every floor; the guardian is tougher by being a boss. Fed through
+  the zone-level scaling (`ZoneLevels`: hero HP, card tier, XP con). `MAX_TIER` 93 = level 60. (GID-187 /
+  TID-783; was +2 per tier, +½ per floor, +1 on the guardian, which made each next tier a wall.)
 
 ## How It Works
 
@@ -36,6 +38,8 @@ fight floor to floor, beat the guardian, and the next tier opens. Unlocked at le
   (unlocked by the cleared flag) calls `SceneManager._advance_spire_floor()`, which sees `tier_complete()` and runs
   `_complete_rift_tier()`: end the run, `spire_run_ended`, walk out (`exit_map` pops back to the entry), toast.
 - **Entry:** `SceneManager.enter_spire(rift_id, tier)`.
+- **Migration v52 (TID-783):** `rift_best_tiers`, `rift_first_clears` and an active run's tier move to the tier of the
+  same enemy level (`RiftDefs.migrate_tier`: old t → 4(t−1)+1).
 - **Migration v45:** old `spire_best_floor` → Grasslands best tier (`floor / 5`); an active legacy run continues as
   Grasslands tier 1. `spire_best_floor` and the floor-5/10 achievement flags still update from floors cleared.
 
@@ -44,8 +48,15 @@ fight floor to floor, beat the guardian, and the next tier opens. Unlocked at le
 - A rift run (`SaveSpire.uses_own_deck()` — the run has a `rift`) fights with the player's **own deck**:
   `BattleModifiers._build_rift_deck()` builds collection instances (rolled stats, veteran ranks) and appends the
   run's drafted cards; legacy / co-op runs still get `run_deck()` (starter + picks).
-- **Between floors** the draft offers two temporary cards and one **buff boon** (`RiftDefs.BOONS`: Vigor +6 max HP
-  and heal 6, Bulwark 4 armor each fight, Keen Edge minions +1 attack). No draft after the guardian.
+- **Between floors** the draft offers two temporary cards and one **buff boon** (`RiftDefs.BOONS`: Vigor +15 % max
+  HP and heal 15 %, Bulwark armor worth 10 % of max HP each fight, Keen Edge minions +1 attack; TID-783 made the
+  first two percentages, a flat +6 meant nothing once gear grew HP). `RiftDefs.apply_boons(player, boons)` is the
+  one code path (game `_build_rift_deck` and the sim); Vigor / Bulwark land as `PlayerState.boon_hp_mult` /
+  `start_armor_frac`, applied by `RealtimeCombat` after the level and gear HP growth. No draft after the guardian.
+- **HP carries as a fraction** (TID-783): `spire_run.hero_hp_frac` (was an absolute `hero_hp` 30, which started
+  every geared hero's run at a sliver of its HP). `BattleModifiers._apply_persistent_hp` starts a run's fight at
+  it and `record_persistent_hp` stores it after a win, plus `RiftDefs.FLOOR_HEAL` (25 %) for the walk to the next
+  floor (`after_floor`).
 - Picks live only in `spire_run` (`draft_deck`, `boons`) — never `owned_cards` — and vanish when the run ends.
   `SaveSpire.drafted_cards()`, `boons()`, `add_boon()`; `RiftDefs.boon_total(boons, effect)`.
 - Ladder gates still apply inside a rift (spell cards need `feat_spells`, TID-588).
@@ -53,14 +64,15 @@ fight floor to floor, beat the guardian, and the next tier opens. Unlocked at le
 ### Rewards that can't be farmed + rift quests (TID-599)
 
 - **Kills in a rift give no XP** (the Spire win path never calls `add_xp`) and don't count toward `kill` quests.
-- **Per run:** `COINS_PER_FLOOR` (5) × floors cleared. **Per tier clear:** + `CLEAR_COINS_PER_TIER` (20) × tier and
-  one card from the guardian's drop pool (rarity from `clear_drop_tier(tier)`), every time.
-- **XP only once per (rift, tier):** `first_clear_xp(tier)` = 300 + 100·tier, recorded in
+- **Per run:** `COINS_PER_FLOOR` (5) × floors cleared. **Per tier clear:** + `clear_coins(tier)` (5 + 5·(tier−1)/4)
+  and one card from the guardian's drop pool (rarity from `clear_drop_tier(tier)`), every time.
+- **XP only once per (rift, tier):** `first_clear_xp(tier)` = 100 + 25·(tier−1)/4 (TID-783: a quarter of the old
+  per-tier rewards, four tiers now span what one did), recorded in
   `SaveManager.rift_first_clears` (`"<rift>:<tier>"`). Repeats pay coins and a card, never XP.
 - A clear emits `GameBus.rift_tier_cleared(rift, tier)` and progresses `rift_tier "<rift>:<tier>"` quest objectives.
 - **Rift quests** (`SideQuests`, giver `rift_warden_madrian` by Madrian's spire entrance, local (68,38)):
-  Into the Rift (L15: learn Rifts, clear Grasslands T1 — 1500 XP), one "<Rift>: Tier 3" per rift (L16, 2500 XP),
-  Grasslands Tier 5 (L20, 4000 XP). These — not repeated runs — are the rift's levelling reward.
+  Into the Rift (L15: learn Rifts, clear Grasslands T1 — 1500 XP), one "<Rift>: Tier 9" per rift (L16, 2500 XP),
+  Grasslands Tier 17 (L20, 4000 XP). (Tier 3 / 5 before TID-783; same enemy levels, ids kept.) These — not repeated runs — are the rift's levelling reward.
 - `SaveQuests.accept` now counts a `learn` objective already met (trained before taking the quest).
 - The completion toast lists coins, first-clear XP, the card and the newly opened tier.
 

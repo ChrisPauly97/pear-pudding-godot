@@ -78,9 +78,9 @@ func test_gathering_is_not_a_profession_gate() -> void:
 
 
 func test_migration_v51_grants_old_saves_only() -> void:
-	assert_eq(SaveMigrations.CURRENT_VERSION, 51)
+	assert_true(SaveMigrations.CURRENT_VERSION >= 51)
 	var old: Dictionary = {"version": 50, "learned_abilities": ["mend"]}
-	SaveMigrations.apply(old)
+	SaveMigrations.apply(old, 51)
 	for id: String in _FEATURES:
 		assert_true((old["learned_abilities"] as Array).has(id), "v50 save gets %s" % id)
 	assert_true((old["learned_abilities"] as Array).has("mend"), "existing learned kept")

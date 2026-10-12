@@ -26,7 +26,7 @@ Siege towns: `madrian`, `maykalene`, `blancogov`. Infinite world and dungeons ne
 
 | Field | Type | Purpose |
 |---|---|---|
-| `siege` | `Dictionary` | Active siege state: `{town, stage, hero_hp, day_started}` or `{}` |
+| `siege` | `Dictionary` | Active siege state: `{town, stage, hero_hp_frac, day_started, level}` or `{}` (TID-783: HP as a fraction, `level` the hero's level at the start) |
 | `last_siege_day` | `int` | `days_elapsed` when the last siege ended (win or loss) |
 | `town_discounts` | `Dictionary` | `{town_name: expiry_day}` — discount active when `expiry_day >= days_elapsed` |
 
@@ -63,7 +63,12 @@ SaveManager.increment_day()
 
 ### Hero HP Carry-Over
 
-`BattleScene._ready()` checks `save_manager.town_siege.get_active_siege()`. If a siege is active, the player's hero HP is set to `siege["hero_hp"]` instead of the default 30. After each stage victory, `set_siege_hero_hp(result.hero_hp)` preserves current HP for the next stage.
+A siege carries the hero's HP as a fraction (GID-187 / TID-783; it was an absolute `hero_hp` of 30 that also capped max HP).
+`BattleModifiers._apply_persistent_hp` starts each wave at `town_siege.hp_frac()`; `record_persistent_hp` stores the
+fraction after a won wave plus `SiegeDefs.WAVE_HEAL` (25 %, the interstitial breather, `after_wave`). Every wave's
+raiders fight at `SiegeDefs.stage_level(level, stage)` (`STAGE_LEVELS` [0, 0, 0] over the siege's `level`;
+`SaveSiege.stage_level()`), passed as `enemy_level` by `_spawn_raiders` and the interstitial chain (waves 2-3 had
+no level and fell back to their tier's 4 / 7). Balance: `BalanceRuns.siege_run` (`balance-sim.md` → Runs).
 
 ### Raider Entities (TID-198)
 
@@ -79,7 +84,7 @@ A red `Label` added to `_hud` (the world's CanvasLayer) showing `"[Town] Under A
 
 After each of stages 0 and 1, a `CanvasLayer` overlay shows:
 - `"Wave N of 3"` in large text
-- `"Hero HP: X / 30"` in smaller text (red if HP ≤ 10)
+- `"Hero HP: N%"` in smaller text (red at a third or less)
 
 After 2 seconds it auto-dismisses and calls `GameBus.enemy_engaged` with the next raider dict. This keeps the player in the battle flow without returning to the world.
 
@@ -122,7 +127,7 @@ All three have empty `drop_pool` and `coin_reward = 0` (siege has its own victor
 |---|---|---|
 | **SaveManager** | Owner | Stores `siege`, `last_siege_day`, `town_discounts`; version 31 migration |
 | **WorldScene** | Consumer | Checks for siege on named-map load; spawns raiders and banner |
-| **BattleScene** | Consumer | Reads `siege.hero_hp` to inject carry-over HP at battle start |
+| **BattleModifiers** | Consumer | `_apply_persistent_hp` / `record_persistent_hp` read and write `siege.hero_hp_frac` (TID-783) |
 | **SceneManager** | Orchestrator | Gauntlet chaining via `_on_battle_won`, defeat handling via `_on_battle_lost`, victory rewards via `_apply_siege_victory_rewards`, interstitial via `_show_siege_interstitial` |
 | **ShopScene** | Consumer | Reads `is_town_discounted(town_name)` and applies 0.8 multiplier |
 | **GameBus** | Signal hub | `siege_victory`, `siege_defeated(coins_lost: int)` |

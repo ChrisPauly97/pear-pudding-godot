@@ -305,9 +305,9 @@ and each one stacks on top of the normal item-level stat rolls rather than repla
 
 | Source | Feeds | Where it is read |
 |---|---|---|
-| Skill node `school_power` (filter = school, value = %) | `PlayerState.school_power[school]` (fraction) | `BattleSetup.apply_school_power` |
+| Skill node `school_power` (filter = school, value = %) | `PlayerState.school_power[school]` (fraction) | `SchoolSources.apply_school_power` |
 | Skill node `school_resist` (filter = school, value = %) | `HeroState.school_resist[school]` | `BattleModifiers._school_resist_sources` |
-| Gear affix `school_dmg` `{school, pct}` | `PlayerState.school_power[school]` | `BattleSetup.apply_school_power` |
+| Gear affix `school_dmg` `{school, pct}` | `PlayerState.school_power[school]` | `SchoolSources.apply_school_power` |
 | Gear affix `school_resist` `{school, pct}` | `HeroState.school_resist[school]` | `BattleModifiers._school_resist_sources` |
 | Gear affix `convert` `{school}` (weapon only) | `PlayerState.convert_school` | `PlayerState.weapon_school()` |
 
@@ -337,7 +337,7 @@ and each one stacks on top of the normal item-level stat rolls rather than repla
   clamped by `DamageSchools.capped_resists` to `max_player_resist`. Outgoing power is not capped (a
   negative total floors at 0).
 - **Where they are set.** `BattleModifiers._apply_equipment_effects` builds the equipped items (with
-  each roll's affix) and calls `BattleSetup.apply_school_power`, in every solo fight. The headless
+  each roll's affix) and calls `SchoolSources.apply_school_power`, in every solo fight. The headless
   `BattleSetup.build` (balance sim) does the same from its config, so the sim's default config (no
   gear affixes, no nodes) is neutral and the bands do not move.
 - **Display.** `GearRolls.affix_label` gives "+15% Dark damage", "+10% Rift resist" or "Strikes as

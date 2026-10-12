@@ -198,7 +198,7 @@ school). `GearRolls.roll(tier, level, rng, weapon)` rolls it by tier; `SaveGear.
 is the drop entry point and passes `weapon` from the item's slot. The affix rides in `gear_rolls`, so
 `normalize` drops a malformed one and an old save reads as no affix (no migration). `GearRolls.affix_label`
 names it in the CharacterScene gear picker and in `SaveGear.drop_message`. Battle effects are read in
-`BattleSetup.apply_school_power` and `school_resist_sources`; see `damage-schools.md`.
+`SchoolSources.apply_school_power` and `resist_sources`; see `damage-schools.md`.
 
 **Visuals (GID-137):** equipping emits `GameBus.equipment_changed(slot, id)` and the hero sprite redraws in the new gear. Every armour/shoulders/helmet/boots/weapon/offhand/trinket item needs a `PaperDoll.GEAR_VISUALS` entry (see `camera-and-player.md` → Paper-doll hero); rings are not drawn.
 
@@ -265,7 +265,7 @@ pure `game_logic/items/GearStats.gd`. **Stats are boosts to the cards** (spec Id
 | `leech` | heal the hero for % of damage dealt (fractions carry) | both | `DamageResolver.leech` |
 | `block` | chance a hit on the hero keeps `block_mult` (0.5) | both | `DamageResolver.blocked` |
 | `mastery:<school>` | + % that school's damage (`school_power`) | both | `GearStats.apply` |
-| `resist:<school>` | − % that school's damage taken (capped with other sources) | both | `BattleSetup.school_resist_sources` |
+| `resist:<school>` | − % that school's damage taken (capped with other sources) | both | `SchoolSources.resist_sources` |
 
 Percent stats convert at the fight's player level: `stat_rating_base` (1.0) × (1 + `stat_rating_growth` (0.1) ×
 (level − 1)) rating per 1 %, each capped at `stat_pct_cap` (0.5) — CombatTuning "Gear stats" group. So 10 rating

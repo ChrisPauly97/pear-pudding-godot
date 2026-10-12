@@ -190,7 +190,7 @@
 | [GID-184](goals/GID-184--light-school-balance/goal.md) | Light School Damage & School Balance (BID-101) | done | 2 / 2 |
 | [GID-185](goals/GID-185--unlocks-grant-cards/goal.md) | Unlocks Grant Cards & Expand the Deck | done | 3 / 3 |
 | [GID-186](goals/GID-186--balance-coverage/goal.md) | Balance Coverage — Every Level, School and Resistance | done | 1 / 1 |
-| [GID-187](goals/GID-187--balance-real-player/goal.md) | Balance the Real Player | in-progress | 12 / 15 |
+| [GID-187](goals/GID-187--balance-real-player/goal.md) | Balance the Real Player | in-progress | 14 / 15 |
 
 ## Backlog
 
@@ -206,7 +206,7 @@ files in `tasks/archive/backlog/`.
 | [BID-097](backlog/BID-097--spell-resolver-in-scenes.md) | `SpellEffectResolver` is core logic living in `scenes/` (used by balance sim) | code-smell | GID-181 research |
 | [BID-100](backlog/BID-100--env-school-boost-resume.md) | Battlefield school boost lost on resumed mid-fight battles | code-smell | GID-181 / TID-755 |
 | [BID-102](backlog/BID-102--mono-school-decks-uneven.md) | Pure mono-school decks still uneven (light/verdant 36 % on bog hag) | balance | GID-184 / TID-773 |
-| [BID-103](backlog/BID-103--fourth-technique-power-step.md) | Fourth technique slot is a large power step (bog hag 22 → 92 %) | balance | GID-185 / TID-775 |
+| [BID-109](backlog/BID-109--skill-branch-asymmetry.md) | Early skill builds hinge on one recycle node; branch-card nodes (Ember, Bloom) do little | balance | GID-187 / TID-779 |
 | [BID-105](backlog/BID-105--deprecate-turn-based-coop-realtime.md) | Turn-based combat deprecated: co-op / PvP / puzzle / scripted fights still turn-based; plan the move to real time | design | GID-187 |
 | [BID-108](backlog/BID-108--gear-loadout-fit-and-weapon-speed.md) | Expected loadout fit (off-school legendary pieces) and weapon-speed effect on fights | balance | GID-187 / TID-787 |
 | [BID-107](backlog/BID-107--casual-bot-packs.md) | Casual (no focus swap) player loses packs: ghoul pack L5 12.5 % | balance | GID-187 / TID-784 |
@@ -224,6 +224,7 @@ files in `tasks/archive/backlog/`.
 
 | ID | Summary | Category | Discovered During |
 |----|---------|----------|-------------------|
+| [BID-103](archive/backlog/BID-103--fourth-technique-power-step.md) | Fourth technique slot is a large power step — measured ~0 pp with typical profiles (TID-779) | balance | GID-185 / TID-775 |
 | [BID-101](archive/backlog/BID-101--light-school-and-mono-decks-weak.md) | Light school trails 20–35 pp; mono-school decks not viable (band (a) report-only) | design-inconsistency | Resolved: GID-184 (Blazing Draw smite, band (a) gating) |
 | [BID-061](archive/backlog/BID-061--spec-says-no-xp-system.md) | Spec says "No XP system planned" but XP/levels/skill points shipped (GID-030) | spec-gap | Resolved: spec rewritten 2026-10-10 (user-approved) |
 | [BID-079](archive/backlog/BID-079--spec-four-card-types.md) | Spec still lists four card types | spec-gap | Resolved: spec rewritten 2026-10-10 (user-approved) |

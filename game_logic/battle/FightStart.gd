@@ -1,6 +1,6 @@
 ## Hero state a solo PvE fight starts with (GID-187 / TID-781): the start HP fraction, the
-## well-fed buff and the quick-slot potions. Pure, and the same calls the game makes:
-## `BattleModifiers` (persistent HP, well fed) and `BattleSetup.build` (balance sim).
+## well-fed buff, the quick-slot potions and the companion's passive (TID-779). Pure, and the same
+## calls the game makes: `BattleModifiers` (persistent HP, well fed, companion) and `BattleSetup.build`.
 extends RefCounted
 
 const HeroVitality = preload("res://game_logic/HeroVitality.gd")
@@ -40,3 +40,21 @@ static func potion_ids(potions: Dictionary, quick_slots: Array) -> Array[String]
 		if id != "" and not GardenDefs.is_legendary(id):
 			out.append(id)
 	return out
+
+## GID-187 / TID-779: a companion passive at battle start (`BattleModifiers` and the sim):
+## extra_mana / hero_armor once; draw_card draws `value` cards (the game repeats the draw at every
+## turn start in turn-based fights, once in real time). `draw` false skips the draw part.
+static func apply_companion(player: PlayerState, passive_type: String, value: int, draw: bool = true) -> void:
+	match passive_type:
+		"extra_mana":
+			player.hero.gain_mana(value, true)
+		"hero_armor":
+			player.hero.add_armor(value)
+		"draw_card":
+			if draw:
+				companion_draw(player, value)
+
+## The companion's turn-start draw (`draw_card` passive).
+static func companion_draw(player: PlayerState, value: int) -> void:
+	for _i in range(value):
+		player.draw_card(false)

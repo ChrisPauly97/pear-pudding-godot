@@ -32,7 +32,7 @@ var school_profile: Dictionary = {}
 var env_school_mult: Dictionary = {}
 ## Outgoing school power (GID-181 / TID-754): school → fraction added to this side's hits of
 ## that school (gear school_dmg affixes, school_power skill nodes). Read on the attacker in
-## DamageResolver. Set at solo battle start (BattleSetup.apply_school_power); not serialized.
+## DamageResolver. Set at solo battle start (SchoolSources.apply_school_power); not serialized.
 var school_power: Dictionary = {}
 ## Outgoing damage multiplier from the hero's level, every school (real time: `CombatTuning.hero_level_power`,
 ## set by RealtimeCombat for the player side). 1.0 = none. Not serialized.
@@ -43,6 +43,10 @@ var gear_power: float = 1.0
 ## Max-HP multiplier from worn gear's item levels (`GearCurve.gear_power` on `gear_hp_track`), applied
 ## by RealtimeCombat after the level HP growth (TID-793). 1.0 = none. Not serialized.
 var gear_hp_power: float = 1.0
+## Rift boons (GID-187 / TID-783, `RiftDefs.apply_boons`): a max-HP multiplier and starting armor as a
+## fraction of max HP, both applied by RealtimeCombat after the level and gear HP growth. Not serialized.
+var boon_hp_mult: float = 1.0
+var start_armor_frac: float = 0.0
 ## Converted gear stats for this fight (GID-187 / TID-788, `GearStats.apply`): flat stats as ints,
 ## percent / school stats as fractions. Read with `gear_stat`. Not serialized.
 var gear: Dictionary = {}

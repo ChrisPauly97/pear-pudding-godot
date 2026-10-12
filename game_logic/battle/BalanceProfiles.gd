@@ -22,8 +22,11 @@ const SkillData = preload("res://data/SkillData.gd")
 const BalanceFight = preload("res://game_logic/battle/BalanceFight.gd")
 const BalanceStats = preload("res://game_logic/battle/BalanceStats.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
+const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 
 const KINDS: Array[String] = ["typical", "modest", "bare"]
+## Allies a profile swaps for its main skill branch's cards (`branch_deck`, TID-779).
+const BRANCH_SWAP: int = 2
 ## The modest profile's gear is the expected loadout of this many levels lower (one band).
 const MODEST_GEAR_LAG: int = 10
 ## `profiles` coverage cells: [enemy type, level] from Chapter 1 to the level cap, one neutral-ish
@@ -83,11 +86,14 @@ static func gear_cfg(level: int) -> Dictionary:
 
 ## The skill nodes a player of `magic_type` with `points` takes: their first branch row by row
 ## (prerequisites first), then the second; nodes that cost the other magic's currency are skipped.
-static func skill_build(magic_type: String, points: int) -> Array[String]:
+## `order` (TID-779) takes the branches in another order (e.g. the second first).
+static func skill_build(magic_type: String, points: int, order: Array[String] = []) -> Array[String]:
 	var out: Array[String] = []
 	if points <= 0 or not MagicTypes.is_valid_type(magic_type):
 		return out
-	for branch: String in MagicTypes.branches_for(magic_type):
+	var branches: Array = order if not order.is_empty() else MagicTypes.branches_for(magic_type)
+	for b: Variant in branches:
+		var branch: String = str(b)
 		var nodes: Array[SkillData] = []
 		for id: String in SkillRegistry.get_by_branch(branch):
 			var sk: SkillData = SkillRegistry.get_skill(id)
@@ -116,10 +122,11 @@ static func skill_build(magic_type: String, points: int) -> Array[String]:
 					progress = true
 	return out
 
-## The profile's deck: the magic type's matched deck plus the technique cards its skill nodes
-## grant, while the deck still has technique slots (`UnlockLadder.technique_slots`).
+## The profile's deck: the magic type's matched deck, two Allies swapped for the build's main branch
+## (`branch_deck`, TID-779), plus the technique cards its skill nodes grant while the deck still has
+## technique slots (`UnlockLadder.technique_slots`).
 static func deck(magic_type: String, learned: Array, skills: Array[String]) -> Array[String]:
-	var out: Array[String] = BattleSetup.school_matched_deck(magic_type, learned)
+	var out: Array[String] = branch_deck(BattleSetup.school_matched_deck(magic_type, learned), main_branch(skills))
 	var techs: int = 0
 	for id: String in out:
 		if TechniqueDefs.is_technique(id):
@@ -134,6 +141,44 @@ static func deck(magic_type: String, learned: Array, skills: Array[String]) -> A
 		out.append(sk.grants_card)
 		if TechniqueDefs.is_technique(sk.grants_card):
 			techs += 1
+	return out
+
+## The branch most of `skills` belong to ("" for none; ties go to the first taken).
+static func main_branch(skills: Array[String]) -> String:
+	var counts: Dictionary = {}
+	var best: String = ""
+	for sid: String in skills:
+		var sk: SkillData = SkillRegistry.get_skill(sid)
+		if sk == null or sk.magic_branch == "":
+			continue
+		counts[sk.magic_branch] = int(counts.get(sk.magic_branch, 0)) + 1
+		if best == "" or int(counts[sk.magic_branch]) > int(counts[best]):
+			best = sk.magic_branch
+	return best
+
+## TID-779: a player who invests in a branch plays its cards. `deck` with up to BRANCH_SWAP of its
+## remaining Allies (non-technique cards of no school) swapped for `branch`'s non-technique cards,
+## spells first (sorted ids), so the branch's card modifiers have cards to boost.
+static func branch_deck(deck: Array[String], branch: String) -> Array[String]:
+	var out: Array[String] = deck.duplicate()
+	if branch == "":
+		return out
+	var fill: Array[String] = []
+	for spells: bool in [true, false]:
+		for id: String in CardRegistry.get_all_ids():
+			var t: Dictionary = CardRegistry.get_template(id)
+			if fill.size() >= BRANCH_SWAP or str(t.get("magic_branch", "")) != branch or out.has(id) \
+					or fill.has(id) or TechniqueDefs.is_technique(id) or id.begins_with("sig_") \
+					or id.begins_with("coop_") or id.begins_with("duel_") or str(t.get("card_class", "")) == "legendary":
+				continue
+			if (str(t.get("card_class", "")) != "minion") == spells:
+				fill.append(id)
+	for k: int in range(out.size() - 1, -1, -1):
+		if fill.is_empty():
+			break
+		var t: Dictionary = CardRegistry.get_template(out[k])
+		if not TechniqueDefs.is_technique(out[k]) and str(t.get("magic_type", "")) == "":
+			out[k] = fill.pop_front()
 	return out
 
 ## Magic types `enemy` neither resists, is weak to nor is immune to (matchups are the school matrix's
