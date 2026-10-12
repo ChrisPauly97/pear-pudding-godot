@@ -71,7 +71,8 @@ Determinism: `BattleSetup.build` calls `seed(n)` (global RNG: shuffles, resolver
   HP, potions, food and chains (TID-781), boss phase 2 and joiners (TID-782), companions, card veterancy and weapon
   upgrades (TID-779), rift / siege runs with carried HP (TID-783) are simulated when a config names them; the
   default bot and the core CI bands never do.
-- **Real time only** (user decision); turn-based fights aren't simulated.
+- **Real time only** (user decision); turn-based fights aren't simulated. Co-op parties are simulated in real time
+  (TID-786) although the game's co-op is still turn-based (BID-105).
 
 ## Balance targets (user, 2026-10-08)
 
@@ -640,3 +641,24 @@ Game changes it took (`docs/agent/rifts.md`, `town-siege.md`):
   `start_armor_frac`.
 - Siege waves 2-3 now fight at the siege's level (`SiegeDefs.stage_level`, `siege.level` = the hero's level at the
   start); they used to fall back to their tier's level 4 / 7.
+
+## Real-time co-op (GID-187 / TID-786)
+
+`RealtimeCombat` has a party: `party` (you first), `add_ally(ps, level)` for a co-op hero (its HP and power grow
+with its level like yours), `is_party(side)`. Enemies attack `enemy_target(side)`: the only living hero, else a
+seeded random one per attack (a solo fight never rolls, so solo results are unchanged). Co-op heroes share every
+player rule but the local player's momentum (combo, procs, focus); their hits siphon mana (`siphon`).
+`PlayerCaster(rt, side)` and `BalanceBot` play any hero; `EncounterSetup.make_party_member(rt, cfg)` builds one from a
+hero cfg; `BalanceFight` cfg `party: [hero cfg, ...]` adds them with a caster and bot each.
+
+The boss scales per extra hero (`CoopBattleScaling.realtime_*`, CombatTuning): HP `coop_boss_hp` 1.1, damage
+`coop_boss_dmg` 0.7 (`RealtimeCombat.enemy_dmg_mult`, on swings, heavies and spells), cadence `coop_boss_haste`
+0.45 (`enemy_haste`: the heavy timer and the enemy GCD). No tier bump in real time.
+
+Section `coop` (`BalanceCoop`, ~3 min): five cells where the solo typical player wins 25-75 % (barrow king 30 v 31
+boss, frost wendigo 36 v 38, duelist champion 26 v 28, spectre haunt 16 v 17, undead elite 44 v 46), parties of 1-4
+mixing magic types, 16 fights. Gate: each party size's mean within ±25 pp of the solo mean. Measured: 60 / 69 / 61 / 66 %.
+
+Why cadence: with HP and damage scaling only, a party of 3-4 never lost (each hero carries a Kick, so every heavy
+and cast was interrupted). Cadence and damage are cliffs (haste 0.45 → 0.5: 95 → 35-41 % for 3-4 heroes), single
+cells swing 0-90 %, so the gate is on the per-size mean, not per cell.

@@ -1,11 +1,15 @@
 ## Encounter shapes shared by the game and the balance sim (GID-187 / TID-782): an enemy joining a
-## live real-time fight, and a boss's phase 2. Split out of `BattleSetup`. Pure: no scene tree.
+## live real-time fight, a boss's phase 2, and (TID-786) a co-op hero joining the party. Split out of
+## `BattleSetup`. Pure: no scene tree.
 extends RefCounted
 
 const BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
 const RealtimeCombat = preload("res://game_logic/battle/RealtimeCombat.gd")
 const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
+const SchoolSources = preload("res://game_logic/battle/SchoolSources.gd")
+const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
+const CombatOnboarding = preload("res://game_logic/battle/CombatOnboarding.gd")
 
 ## GID-187 / TID-782: a second enemy joins a live real-time fight (team battle). The pure
 ## setup `BattleRealtime.join_enemy` and the balance sim's joiner share: its deck built at its
@@ -33,6 +37,33 @@ static func make_joiner(rt: RealtimeCombat, enemy_data: Dictionary) -> int:
 	if side < 0:
 		return -1
 	rt.unarmed[side] = rt.tune.get_i("enemy_unarmed") + maxi(0, tier - 1)
+	return side
+
+## GID-187 / TID-786: a co-op hero joins `rt`'s party before the fight starts, built from a player cfg
+## (the `BattleSetup.build` hero keys: player_level, learned, deck, gear / weapon / offhand, skills) the
+## way the solo hero is: deck through the unlock filter, gear, school power and resists, skill mods,
+## opening hand, then the real-time trim, techniques to hand and weapon timers. Returns its side.
+static func make_party_member(rt: RealtimeCombat, cfg: Dictionary) -> int:
+	var level: int = int(cfg.get("player_level", 1))
+	var learned: Array = cfg.get("learned", [])
+	var ps := PlayerState.new(rt.state.players.size(), false)
+	var deck: Array[String] = []
+	deck.assign(cfg.get("deck", BattleSetup.level_deck(learned)))
+	ps.build_deck(deck)
+	ps.draw_deck = BattleSetup.unlock_filter(ps.draw_deck, learned)
+	var gear: Array[Dictionary] = BattleSetup.gear_items(cfg)
+	BattleSetup.apply_gear(ps, gear, true, level, rt.tune)
+	var skills: Array = cfg.get("skills", [])
+	SchoolSources.apply_school_power(ps, gear, skills)
+	ps.hero.school_resist = DamageSchools.capped_resists(SchoolSources.resist_sources(gear, skills, ps.gear))
+	BattleSetup.apply_skill_mods(ps, skills)
+	ps.draw_opening_hand(BattleSetup.OPENING_HAND)
+	ps.start_turn(1)
+	var side: int = rt.add_ally(ps, level)
+	rt.trim_hand(side, CombatOnboarding.opening_hand(level))
+	BattleSetup.techniques_to_hand(ps)
+	rt.weapon_speed[side] = BattleSetup.weapon_speed_for_item(str(cfg.get("weapon", "")))
+	rt.offhand_damage[side] = BattleSetup.offhand_damage_for_item(str(cfg.get("offhand", "")))
 	return side
 
 ## GID-187 / TID-782: a boss swaps to its phase 2 once its hero is at half health or less.

@@ -43,7 +43,7 @@ and co-op — and retune against that player instead.
 | TID-783 | Runs: rift / spire ladders and siege gauntlets | agent | done | TID-781 |
 | TID-784 | Bot variety (second policy) | agent | done | TID-778 |
 | TID-785 | Turn-based sim and bands | agent | cancelled | — |
-| TID-786 | Real-time co-op scaling (2-4 heroes) | agent | todo | TID-778 |
+| TID-786 | Real-time co-op scaling (2-4 heroes) | agent | done | TID-778 |
 | TID-787 | Retune against profiles | agent | done | TID-779, TID-780, TID-781, TID-782, TID-784 |
 | TID-793 | Enemy threat scaling and the 60 % gear share | agent | done | TID-787 |
 
@@ -60,5 +60,5 @@ Order: gear curve 788 → 789 → 790 → 791 (792 alongside), then 778 → 779 
 - [ ] Weather / biome / night / scorch / Attuned / blight run through one code path in the sim and the game, with
   bounded swings
 - [x] Partial-HP starts, potions, food, joiners, boss phase 2 and run ladders are banded
-- [ ] 2-4-hero co-op is banded in real time
+- [x] 2-4-hero co-op is banded in real time (sim; the game's co-op is still turn-based, BID-105)
 - [ ] Every band passes after the retune; docs (`balance-sim.md`) current

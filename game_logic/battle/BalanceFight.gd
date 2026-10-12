@@ -17,6 +17,9 @@
 ## one to the next (a loss ends the chain), out-of-combat regen between them (`HeroVitality.regen`
 ## over `rest_seconds`), and the potions and well-fed charges carried too. Returns how far it got.
 ##
+## cfg `party: [hero cfg, ...]` (GID-187 / TID-786): co-op heroes on your side, each played by its own
+## `BalanceBot`; the boss scales with the party (`BattleSetup.build`). The result is the party's.
+##
 ## cfg `joiner: {enemy_type, enemy_level, at_seconds}` (GID-187 / TID-782) adds a second enemy
 ## to the fight once, at `at_seconds`, through `EncounterSetup.make_joiner` (the game's
 ## `BattleRealtime.join_enemy` setup). `is_boss` fights swap to phase 2 at half HP
@@ -52,10 +55,25 @@ static func run(cfg: Dictionary, policy: Dictionary = {}) -> Dictionary:
 	var resolver := SpellEffectResolver.new()
 	resolver.setup(state)
 	var caster := PlayerCaster.new(rt)
-	resolver.power_hook = caster.modify_power
 	resolver.tune = rt.tune
 	var bot := BalanceBot.new(policy)
 	bot.stock(built["potion_ids"], built["potion_counts"])
+	# TID-786: co-op heroes, each with its own caster and bot (same policy, no potions).
+	var party_casters: Array[PlayerCaster] = []
+	var party_bots: Array[BalanceBot] = []
+	for pc: Variant in cfg.get("party", []) as Array:
+		var side: int = EncounterSetup.make_party_member(rt, pc as Dictionary)
+		party_casters.append(PlayerCaster.new(rt, side))
+		party_bots.append(BalanceBot.new(policy))
+	if party_casters.is_empty():
+		resolver.power_hook = caster.modify_power
+	else:
+		var by_side: Dictionary = {RealtimeCombat.PLAYER: caster}
+		for pc: PlayerCaster in party_casters:
+			by_side[pc.side] = pc
+		resolver.power_hook = func(card: CardInstance, pid: int, power: int) -> int:
+			var c: PlayerCaster = by_side.get(pid, null) as PlayerCaster
+			return c.modify_power(card, pid, power) if c != null else power
 	var stats: Dictionary = {"plays": {}, "dealt_cards": 0, "dealt_auto": 0, "interrupts": 0,
 		"enemy_casts": 0, "procs": 0, "full_mana_s": 0.0, "crits_dealt": 0, "crits_taken": 0,
 		"joins": 0, "phase2": 0}
@@ -86,11 +104,15 @@ static func run(cfg: Dictionary, policy: Dictionary = {}) -> Dictionary:
 			joined = true
 			if EncounterSetup.make_joiner(rt, joiner) >= 0:
 				stats["joins"] = int(stats["joins"]) + 1
-		var played: String = bot.act(caster, resolver, DT)
+		var played: String = bot.act(caster, resolver, DT) if rt.is_alive(RealtimeCombat.PLAYER) else ""
 		if played != "":
 			var plays: Dictionary = stats["plays"]
 			plays[played] = int(plays.get(played, 0)) + 1
 		caster.tick(DT)
+		for k: int in party_casters.size():
+			if rt.is_alive(party_casters[k].side):
+				party_bots[k].act(party_casters[k], resolver, DT)
+			party_casters[k].tick(DT)
 		var foe_hp: int = FightStats.enemy_health(rt)
 		for ev: Dictionary in rt.advance(DT):
 			match str(ev.get("type", "")):
@@ -102,7 +124,7 @@ static func run(cfg: Dictionary, policy: Dictionary = {}) -> Dictionary:
 					stats["enemy_casts"] = int(stats["enemy_casts"]) + 1
 					var side: int = int(ev.get("side", RealtimeCombat.ENEMY))
 					var played_card: CardInstance = ev["card"] as CardInstance
-					resolver.resolve_enemy_play(played_card, side, RealtimeCombat.PLAYER,
+					resolver.resolve_enemy_play(played_card, side, rt.enemy_target(side),  # TID-786: a party hero
 							BattleSetup.enemy_spell_scale(rt, side))
 					# As BattleRealtime._after_enemy_play: a summoned minion takes the weather.
 					if played_card.card_class != "spell":

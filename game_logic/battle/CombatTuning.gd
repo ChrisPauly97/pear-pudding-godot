@@ -35,6 +35,11 @@ const DEFS: Array = [
 	["enemy_dmg_track", "Enemy swing / spell damage keeps pace with enemy HP growth (exponent)", 0.7, 0.0, 1.5,
 		0.05, "Enemy"],
 	["enemy_dmg_lag", "Enemy damage assumes your items trail your level by (levels)", 4.0, 0.0, 10.0, 1.0, "Enemy"],
+	# GID-187 / TID-786: a real-time co-op boss splits its attacks over the party; this much more damage
+	# per extra hero keeps a party's fight close to a solo one (`CoopBattleScaling.realtime_damage_mult`).
+	["coop_boss_dmg", "Co-op boss damage per extra hero (x)", 0.7, 0.0, 3.0, 0.05, "Enemy"],
+	["coop_boss_hp", "Co-op boss HP per extra hero (x, real time)", 1.1, 0.0, 3.0, 0.05, "Enemy"],
+	["coop_boss_haste", "Co-op boss heavy / cast cadence per extra hero (x)", 0.45, 0.0, 2.0, 0.05, "Enemy"],
 	["enemy_dmg_per_level", "Enemy swing / spell damage per level past power_from_level (x)", 0.0, 0.0, 0.5,
 		0.01, "Enemy"],
 	["power_from_level", "Level your damage starts growing from (next fight)", 8.0, 1.0, 60.0, 1.0, "Mana & cards"],

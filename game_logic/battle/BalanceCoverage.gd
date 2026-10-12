@@ -19,6 +19,7 @@
 ## - `casual` (GID-187 / TID-784): the `range` cells at the same level only, fought by the
 ##   `casual` BalanceBot preset (a second policy, so the targets hold for a slower player too).
 ##
+## - `coop` (GID-187 / TID-786): real-time parties of 2-4 heroes at about the solo rate (`BalanceCoop`).
 ## - `runs` (GID-187 / TID-783): rift tier ladders and siege gauntlets with HP carried (`BalanceRuns`).
 ## - `rewards` (GID-187 / TID-779): each progression reward helps, none dominates (`BalanceRewards`).
 ## - `wounded` (GID-187 / TID-781): a real player often starts wounded. (a) the `range` cells at the
@@ -36,6 +37,7 @@ const BalanceFight = preload("res://game_logic/battle/BalanceFight.gd")
 const BalanceProfiles = preload("res://game_logic/battle/BalanceProfiles.gd")
 const BalanceRewards = preload("res://game_logic/battle/BalanceRewards.gd")
 const BalanceRuns = preload("res://game_logic/battle/BalanceRuns.gd")
+const BalanceCoop = preload("res://game_logic/battle/BalanceCoop.gd")
 const BalanceScenarios = preload("res://game_logic/battle/BalanceScenarios.gd")
 const BalanceStats = preload("res://game_logic/battle/BalanceStats.gd")
 const BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
@@ -43,7 +45,7 @@ const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 
 const SECTIONS: Array[String] = ["range", "world_low", "world_high", "schools", "bosses", "conditions", "casual",
-	"wounded", "profiles", "joiners", "rewards", "runs"]
+	"wounded", "profiles", "joiners", "rewards", "runs", "coop"]
 ## Regular world types past Chapter 1 (no bosses, no training dummy), by authored tier:
 ## `world_low` = tiers 1-2, `world_high` = tiers 3-4.
 const WORLD_LOW: Array[String] = [
@@ -344,6 +346,9 @@ static func run_section(section: String, tune: Dictionary = {}) -> Dictionary:
 		"runs":  # GID-187 / TID-783
 			measured = BalanceRuns.measure(tune)
 			fails = BalanceRuns.check(measured)
+		"coop":  # GID-187 / TID-786
+			measured = BalanceCoop.measure(tune)
+			fails = BalanceCoop.check(measured)
 		_:
 			measured = measure_ladder(section, tune)
 			fails = check_ladder(section, measured)

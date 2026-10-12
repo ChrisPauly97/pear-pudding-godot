@@ -37,6 +37,7 @@ const FightStart = preload("res://game_logic/battle/FightStart.gd")
 const VeterancyUtil = preload("res://game_logic/VeterancyUtil.gd")
 const SchoolSources = preload("res://game_logic/battle/SchoolSources.gd")
 const RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
+const CoopBattleScaling = preload("res://game_logic/battle/CoopBattleScaling.gd")
 ## TID-757: how many default Allies a school-matched deck swaps for the school's own cards.
 const MATCHED_SWAP: int = 2
 
@@ -279,7 +280,7 @@ static func techniques_to_hand(p: PlayerState) -> void:
 static func enemy_spell_scale(rt: RealtimeCombat, side: int) -> float:
 	var level: int = rt.side_levels[side] if side < rt.side_levels.size() else 1
 	return rt.tune.level_scale(level) * rt.tune.gap_mult(level, rt.side_levels[RealtimeCombat.PLAYER]) \
-			* rt.tune.enemy_dmg_growth(level)
+			* rt.tune.enemy_dmg_growth(level) * rt.enemy_dmg_mult
 
 ## Knobs RealtimeCombat caches rather than reads each tick (base damage).
 static func apply_live_tuning(rt: RealtimeCombat, base_tier: int) -> void:
@@ -294,7 +295,8 @@ static func apply_live_tuning(rt: RealtimeCombat, base_tier: int) -> void:
 ##   default = `level_deck(learned)`), gear ([{id, level, mult}]), weapon /
 ##   offhand (item ids; weapon_upgrade = blacksmith level), skills (passive skill ids), card_rank
 ##   (0: deck cards at that veterancy rank), companion ({passive_type, passive_value}), boons (rift boon
-##   ids), enemy_hp_mult (a rift tier's HP step), enemy_type ("undead_basic"), enemy_level (1 = no
+##   ids), enemy_hp_mult (a rift tier's HP step), party (co-op hero cfgs: the boss scales,
+##   `EncounterSetup.make_party_member` adds them), enemy_type ("undead_basic"), enemy_level (1 = no
 ##   zone scaling), is_boss (false), untag_school ("": a school whose resist / weak / immune tags the
 ##   enemy loses), tuning ({knob: value}),
 ##   seed (0 = leave the RNGs as they are). Battlefield conditions (FightConditions,
@@ -327,11 +329,7 @@ static func build(cfg: Dictionary) -> Dictionary:
 		me.build_deck_from_instances(VeterancyUtil.instances_at_rank(deck, int(cfg["card_rank"])))
 	me.draw_deck = unlock_filter(me.draw_deck, learned)
 	RiftDefs.apply_boons(me, cfg.get("boons", []) as Array)  # TID-783: a rift run's boons, as BattleModifiers
-	var gear: Array[Dictionary] = []
-	gear.assign(cfg.get("gear", []))
-	for key: String in ["weapon", "offhand"]:
-		if str(cfg.get(key, "")) != "":
-			gear.append({"id": str(cfg[key]), "level": int(cfg.get(key + "_upgrade", 0))})  # blacksmith level
+	var gear: Array[Dictionary] = gear_items(cfg)
 	var tuning := CombatTuning.new(cfg.get("tuning", {}) as Dictionary)
 	apply_gear(me, gear, true, player_level, tuning)
 	var skill_ids: Array = cfg.get("skills", [])
@@ -348,6 +346,10 @@ static func build(cfg: Dictionary) -> Dictionary:
 	var gambit_id: String = str(cfg.get("gambit_id", ""))
 	foe.minion_attack_bonus = FightConditions.enemy_minion_attack_bonus(gambit_id)  # before its deck is built
 	var tier: int = enemy_tier(enemy_type, is_boss, enemy_level)
+	# TID-786: a real-time co-op boss scales with the party (`party` cfgs + you) through its HP, damage and
+	# cadence (`CoopBattleScaling.realtime_*`, below); the turn-based tier bump is left out (it made 3 heroes
+	# harder than 4).
+	var party_n: int = 1 + (cfg.get("party", []) as Array).size()
 	var boss_hp: int = EnemyRegistry.get_boss_hp(enemy_type) if is_boss else 0
 	setup_enemy(foe, me, enemy_type, EnemyRegistry.get_deck(enemy_type), tier, enemy_level, boss_hp)
 	var untag: String = str(cfg.get("untag_school", ""))
@@ -377,11 +379,25 @@ static func build(cfg: Dictionary) -> Dictionary:
 	configure_realtime(rt, player_level, enemy_type, weapon_speed_for_item(str(cfg.get("weapon", ""))),
 			offhand_damage_for_item(str(cfg.get("offhand", ""))), false, float(cfg.get("enemy_hp_mult", 1.0)))
 	apply_deck_rules(rt, learned)
+	if party_n > 1:
+		scale_enemy_hp(foe, CoopBattleScaling.realtime_hp_mult(party_n, rt.tune))
+		rt.enemy_dmg_mult = CoopBattleScaling.realtime_damage_mult(party_n, rt.tune)
+		rt.enemy_haste = CoopBattleScaling.realtime_haste_mult(party_n, rt.tune)
 	var comp: Dictionary = cfg.get("companion", {}) as Dictionary  # TID-779: after the trim, as BattleRealtime
 	FightStart.apply_companion(me, str(comp.get("passive_type", "")), int(comp.get("passive_value", 0)))
 	apply_live_tuning(rt, type_tier)
 	return {"state": state, "rt": rt, "tier": tier, "well_fed": well_fed, "potion_ids": potion_ids,
 		"potion_counts": potion_counts}
+
+## The equipped items of a fight cfg: `gear` plus `weapon` / `offhand` (the weapon's blacksmith level from
+## `weapon_upgrade`), as `apply_gear` takes them.
+static func gear_items(cfg: Dictionary) -> Array[Dictionary]:
+	var gear: Array[Dictionary] = []
+	gear.assign(cfg.get("gear", []))
+	for key: String in ["weapon", "offhand"]:
+		if str(cfg.get(key, "")) != "":
+			gear.append({"id": str(cfg[key]), "level": int(cfg.get(key + "_upgrade", 0))})
+	return gear
 
 ## The new-game starter deck (SaveManager.new_game) plus Strike.
 static func starter_deck() -> Array[String]:
