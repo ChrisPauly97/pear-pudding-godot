@@ -98,7 +98,7 @@ func _try_potion(caster: PlayerCaster) -> bool:
 	var below: float = float(policy["potion_below"])
 	if below <= 0.0 or _stock.is_empty() or not _quick.is_ready(0, true):
 		return false
-	var me: PlayerState = caster.rt.state.players[RealtimeCombat.PLAYER]
+	var me: PlayerState = caster.rt.state.players[caster.side]
 	if float(me.hero.health) / float(maxi(1, me.hero.max_health)) >= below:
 		return false
 	for id: String in _stock:
@@ -142,7 +142,7 @@ func _kick_lands(rt: RealtimeCombat) -> bool:
 ## The card to play now and its target ({card, target}), or {} to wait.
 func decide(caster: PlayerCaster) -> Dictionary:
 	var rt: RealtimeCombat = caster.rt
-	var me: PlayerState = rt.state.players[RealtimeCombat.PLAYER]
+	var me: PlayerState = rt.state.players[caster.side]  # TID-786: a co-op hero's own hand
 	var ready: Array[CardInstance] = []
 	for c: CardInstance in me.hand:
 		if caster.play_blocker(c) == "" and not SKIPPED.has(c.spell_effect) \
@@ -165,7 +165,7 @@ func decide(caster: PlayerCaster) -> Dictionary:
 	if hp_frac < float(policy["heal_below"]):
 		for c: CardInstance in ready:
 			if HEALS.has(c.spell_effect):
-				return _with_target(c, rt)
+				return _with_target(c, rt, caster.side)
 	if bool(policy["summon"]):
 		var best_unit: CardInstance = null
 		for c: CardInstance in ready:
@@ -183,7 +183,7 @@ func decide(caster: PlayerCaster) -> Dictionary:
 	ranked.sort_custom(func(x: Array, y: Array) -> bool:
 		return float(x[0]) > float(y[0]) or (float(x[0]) == float(y[0]) and int(x[1]) < int(y[1])))
 	for r: Array in ranked:
-		var choice: Dictionary = _with_target(r[2] as CardInstance, rt)
+		var choice: Dictionary = _with_target(r[2] as CardInstance, rt, caster.side)
 		if not choice.is_empty():
 			return choice
 	return {}
@@ -234,10 +234,10 @@ func _unit_value(c: CardInstance) -> float:
 ## Picks a target the way a sensible player would: enemy Ward minions first,
 ## else the weakest enemy minion, else the hero; friendly spells pick your
 ## weakest Ally. {} when the card has nothing sensible to target.
-func _with_target(c: CardInstance, rt: RealtimeCombat) -> Dictionary:
+func _with_target(c: CardInstance, rt: RealtimeCombat, side: int = RealtimeCombat.PLAYER) -> Dictionary:
 	var target: Dictionary = {}
 	if SpellEffectResolver.FRIENDLY_TARGETED_EFFECTS.has(c.spell_effect):
-		var mine: Array[CardInstance] = rt.state.players[RealtimeCombat.PLAYER].board.get_cards()
+		var mine: Array[CardInstance] = rt.state.players[side].board.get_cards()
 		if mine.is_empty():
 			return {}
 		target = {"type": "minion", "card": _weakest(mine)}

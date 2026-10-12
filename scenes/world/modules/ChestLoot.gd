@@ -68,9 +68,8 @@ func open(chest: Dictionary, px: float, pz: float) -> void:
 	card_ids.assign(chest.get("card_ids", []))
 	spawn_card_items(card_ids, origin, tier)
 	spawn_coin_piles(origin)
-	var chance: float = _LootRoll.EQUIPMENT_CHANCE_TREASURE_ROOM if tier == 3 else _LootRoll.EQUIPMENT_CHANCE_DEFAULT
 	var level: int = _ZoneLevels.level_at_world(origin, IsoConst.TILE_SIZE) if _world._is_infinite else sm.level
-	_maybe_drop_equipment(chance, tier, level)
+	_maybe_drop_equipment(tier, level)
 
 func _spring_mimic(chest: Dictionary, px: float, pz: float) -> void:
 	var node: Node3D = _world._valid_node3d(_world._chest_nodes.get(str(chest.get("id", ""))))
@@ -120,12 +119,10 @@ func _spawn_item() -> _WorldItem:
 	_world._entity_root.add_child(item)
 	return item
 
-## With probability `chance`, grants one equipment piece on the gear curve (GID-187 / TID-791,
-## `GearDrops.pick`): wearable, near the zone level, a slot that has fallen behind first, unowned
-## when possible.
-func _maybe_drop_equipment(chance: float, tier: int = 1, level: int = 1) -> void:
-	if randf() >= chance:
-		return
+## With `LootRoll.equipment_chance` (doubled while a slot lags the curve, TID-793), grants one
+## equipment piece on the gear curve (GID-187 / TID-791, `GearDrops.pick`): wearable, near the zone
+## level, a slot that has fallen behind first, unowned when possible.
+func _maybe_drop_equipment(tier: int = 1, level: int = 1) -> void:
 	var sm := SceneManager.save_manager
 	# GID-187 / TID-791: an item the player can wear near their level, behind slots first.
 	var owned: Array[String] = []
@@ -133,10 +130,13 @@ func _maybe_drop_equipment(chance: float, tier: int = 1, level: int = 1) -> void
 	for slot: String in EQUIPMENT_SLOTS:
 		owned.append_array(sm.get_owned_by_slot(slot))
 		equipped[slot] = sm.get_equipped_by_slot(slot)
-	var rng := RandomNumberGenerator.new()
-	rng.randomize()
 	# The zone's level, capped at the player's (never an item they can't wear); 1 = unknown zone.
 	var drop_level: int = sm.level if level <= 1 else mini(level, sm.level)
+	# TID-793: the chance doubles while a slot lags the curve (catch-up).
+	if randf() >= _LootRoll.equipment_chance(tier, not _GearDrops.behind_slots(drop_level, equipped).is_empty()):
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
 	var picked: String = _GearDrops.pick(drop_level, owned, equipped, rng)
 	if picked == "":
 		return

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://dwziulnqo16z"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_starforged_shield"]
+
+[resource]
+script = ExtResource("1_starforged_shield")
+id = "starforged_shield"
+display_name = "Starforged Shield"
+description = "Forged under the falling stars, light as a held breath."
+slot = "offhand"
+battle_effect_type = ""
+stats = {
+"spell_power": 30,
+"spell_crit": 9,
+"haste": 10,
+"spirit": 16
+}
+band = "legendary"
+item_level = 55
+level_req = 55
+rarity = "legendary"

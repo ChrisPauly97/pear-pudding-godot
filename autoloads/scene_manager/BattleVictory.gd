@@ -345,11 +345,10 @@ func _reward_joined_enemies(gambit_id: String, materials: Dictionary, drop_rng: 
 	return total
 
 ## Spire floor cleared: no card/coin rewards, save hero HP, show the draft.
-func _spire_battle_won(result: Dictionary) -> bool:
+func _spire_battle_won(_result: Dictionary) -> bool:
 	if not _sm.save_manager.spire.is_spire_active():
 		return false
-	var hero_hp: int = int(result.get("hero_hp", 30))
-	_sm.save_manager.spire.set_spire_hero_hp(hero_hp)
+	# The run's HP fraction was stored at game over (BattleModifiers.record_persistent_hp, TID-783).
 	var spire_run: Dictionary = _sm.save_manager.spire.get_spire_run()
 	var curr_floor: int = int(spire_run.get("floor", 1))
 	var run_seed: int = int(spire_run.get("seed", 0))
@@ -377,12 +376,12 @@ func _spire_battle_won(result: Dictionary) -> bool:
 	return true
 
 ## Siege gauntlet stage cleared: chain to the next stage or apply the victory.
-func _siege_battle_won(result: Dictionary) -> bool:
+func _siege_battle_won(_result: Dictionary) -> bool:
 	var _siege: Dictionary = _sm.save_manager.town_siege.get_active_siege()
 	if _siege.is_empty():
 		return false
-	var _siege_hero_hp: int = int(result.get("hero_hp", 30))
-	_sm.save_manager.town_siege.set_siege_hero_hp(_siege_hero_hp)
+	# The siege's HP fraction was stored at game over (BattleModifiers.record_persistent_hp, TID-783).
+	var _siege_hp_frac: float = _sm.save_manager.town_siege.hp_frac()
 	var _siege_stage: int = int(_siege.get("stage", 0))
 	_sm.save_manager.increment_progress("battles_won", 1)
 	_sm._bump_session_stat("battles_won", 1)
@@ -394,7 +393,7 @@ func _siege_battle_won(result: Dictionary) -> bool:
 		_sm.save_manager.save()
 		_sm._dismiss_battle_overlay()
 		_sm._restore_world()
-		_show_siege_interstitial(_siege_stage + 1, _siege_hero_hp)
+		_show_siege_interstitial(_siege_stage + 1, _siege_hp_frac)
 		return true
 	var _siege_town: String = str(_siege.get("town", ""))
 	_apply_siege_victory_rewards(_siege_town)
@@ -482,7 +481,7 @@ func _apply_siege_victory_rewards(town: String) -> void:
 	_sm.show_toast("Siege Defeated!", "%s thanks you! +%d coins + rare card" % [town.capitalize(), SIEGE_VICTORY_COINS])
 
 ## Shows a brief overlay between gauntlet stages, then chains the next battle after 2 s.
-func _show_siege_interstitial(next_stage: int, hero_hp: int) -> void:
+func _show_siege_interstitial(next_stage: int, hp_frac: float) -> void:
 	var layer := CanvasLayer.new()
 	layer.layer = 200
 	get_tree().root.add_child(layer)
@@ -497,8 +496,8 @@ func _show_siege_interstitial(next_stage: int, hero_hp: int) -> void:
 	var title_lbl := _UiUtil.make_label(_SiegeDefs.get_stage_name(next_stage), int(vh * 0.04), Color.WHITE,
 			HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
-	var hp_lbl := _UiUtil.make_label("Hero HP: %d / 30" % hero_hp, int(vh * 0.03),
-			Color(0.9, 0.3, 0.3) if hero_hp <= 10 else Color(1.0, 1.0, 1.0), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var hp_lbl := _UiUtil.make_label("Hero HP: %d%%" % roundi(hp_frac * 100.0), int(vh * 0.03),
+			Color(0.9, 0.3, 0.3) if hp_frac <= 0.34 else Color(1.0, 1.0, 1.0), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	# Dismiss automatically and chain the next raider battle.
 	get_tree().create_timer(2.0, false).timeout.connect(func() -> void:
@@ -508,6 +507,7 @@ func _show_siege_interstitial(next_stage: int, hero_hp: int) -> void:
 		var enemy_dict: Dictionary = {
 			"enemy_type": next_type,
 			"enemy_deck": deck_ids,
+			"enemy_level": _sm.save_manager.town_siege.stage_level(),  # TID-783: the stage's level
 			"display_name": EnemyRegistry.get_display_name(next_type),
 			"is_boss": false,
 			"boss_hp": 0,

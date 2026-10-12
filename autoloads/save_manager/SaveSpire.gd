@@ -85,9 +85,9 @@ func add_boon(boon_id: String) -> void:
 	var list: Array = boons().duplicate()
 	list.append(boon_id)
 	_save.spire_run["boons"] = list
-	# Vigor heals as it raises the cap.
-	if str(_RiftDefs.BOONS[boon_id]["effect"]) == "max_hp":
-		_save.spire_run["hero_hp"] = int(_save.spire_run.get("hero_hp", 30)) + int(_RiftDefs.BOONS[boon_id]["value"])
+	# Vigor heals as it raises the cap (TID-783: by its percent, on the carried fraction).
+	if str(_RiftDefs.BOONS[boon_id]["effect"]) == "max_hp_pct":
+		_save.spire_run["hero_hp_frac"] = _RiftDefs.vigor_heal(hp_frac(), int(_RiftDefs.BOONS[boon_id]["value"]))
 	_save._dirty = true
 
 ## The deck the next Spire battle uses: the starter plus every drafted card.
@@ -139,7 +139,7 @@ func start_spire_run(seed: int, rift_id: String = _RiftDefs.DEFAULT_RIFT, tier: 
 		"tier": _RiftDefs.clamp_tier(tier if tier > 0 else _RiftDefs.max_start_tier(best), best),
 		"floor": 1,
 		"draft_deck": [],
-		"hero_hp": 30,
+		"hero_hp_frac": 1.0,  # TID-783: carried as a fraction (was an absolute 30)
 		"seed": seed,
 		"enemies_defeated": 0,
 		"cards_drafted": 0,
@@ -191,7 +191,7 @@ func end_spire_run() -> Dictionary:
 	var xp_reward: int = 0
 	var card_reward: String = ""
 	if tier_cleared:
-		coin_reward += tier * _RiftDefs.CLEAR_COINS_PER_TIER
+		coin_reward += _RiftDefs.clear_coins(tier)
 		xp_reward = _record_clear(rift_id, tier)
 		var pool: Array[String] = _EnemyRegistry.get_drop_pool(_RiftDefs.enemy_type(rift_id, _RiftDefs.FLOORS_PER_TIER))
 		if not pool.is_empty():
@@ -234,8 +234,12 @@ func end_spire_run() -> Dictionary:
 
 	return stats
 
-func set_spire_hero_hp(hp: int) -> void:
+## The run's carried HP fraction (TID-783; a run saved before it, with an absolute "hero_hp", reads 1.0).
+func hp_frac() -> float:
+	return clampf(float(_save.spire_run.get("hero_hp_frac", 1.0)), 0.0, 1.0)
+
+func set_hp_frac(frac: float) -> void:
 	if not is_spire_active():
 		return
-	_save.spire_run["hero_hp"] = hp
+	_save.spire_run["hero_hp_frac"] = clampf(frac, 0.0, 1.0)
 	_save._dirty = true

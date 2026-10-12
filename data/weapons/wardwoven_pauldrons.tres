@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://37co9ffntp5t"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_wardwoven_pauldrons"]
+
+[resource]
+script = ExtResource("1_wardwoven_pauldrons")
+id = "wardwoven_pauldrons"
+display_name = "Wardwoven Pauldrons"
+description = "Woven with faint warding threads that hum near danger."
+slot = "shoulders"
+battle_effect_type = ""
+stats = {
+"attack_power": 16,
+"phys_crit": 5,
+"haste": 12
+}
+band = "superior"
+item_level = 29
+level_req = 29
+rarity = "rare"

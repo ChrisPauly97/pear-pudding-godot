@@ -120,6 +120,7 @@ static func generate(floor: int, run_seed: int, run: Dictionary = {}) -> _WorldM
 	}
 	if rift_id != "":
 		enemy_entry["enemy_level"] = _RiftDefs.enemy_level(int(run.get("tier", 1)), floor)
+		enemy_entry["rift_hp_mult"] = _RiftDefs.hp_mult(int(run.get("tier", 1)))  # TID-783: half-level tiers
 	if (rift_id == "" and is_boss_floor(floor)) or (rift_id != "" and _RiftDefs.is_guardian_floor(floor)):
 		enemy_entry["is_boss"] = true
 		var bhp: int = _EnemyRegistry.get_boss_hp(etype)

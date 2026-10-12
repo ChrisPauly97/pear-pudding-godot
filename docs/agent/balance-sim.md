@@ -66,16 +66,13 @@ Determinism: `BattleSetup.build` calls `seed(n)` (global RNG: shuffles, resolver
 - **A bot, not a human.** Compare settings against each other; absolute win rates are only a proxy for
   "average play". Two presets (`default`, `casual`) bracket the spread (see "Bot variety").
 - **Coverage:** see "Wide coverage" — every level 1–60, school matchups and bosses (GID-186).
-- **Not simulated:** companions, the spire / siege carried HP, the hero power, boss phase 2,
-  commanded Ally attacks, focus changes, snow discount and blizzard freeze (both turn-based or player-side only).
-  Weather, biome / night, blight, ambush and gambits are simulated since GID-187 (below). Starting HP, quick-slot
-  potions, well-fed food and fight chains are simulated only when a config names them (TID-781, below); the
-  default bot and the CI bands never do.
-- **Not simulated:** companions, persistent / carried-over HP, potions and the hero power,
-  commanded Ally attacks, focus changes, snow discount and blizzard freeze (both turn-based or player-side only).
-  Boss phase 2 and mid-fight joiners are simulated since TID-782 (see "Encounter shapes").
-  Weather, biome / night, blight, ambush and gambits are simulated since GID-187 (below).
-- **Real time only** (user decision); turn-based fights aren't simulated.
+- **Not simulated:** the hero power, commanded Ally attacks, focus changes, snow discount and blizzard freeze
+  (both turn-based or player-side only). Weather, biome / night, blight, ambush and gambits (TID-780), starting
+  HP, potions, food and chains (TID-781), boss phase 2 and joiners (TID-782), companions, card veterancy and weapon
+  upgrades (TID-779), rift / siege runs with carried HP (TID-783) are simulated when a config names them; the
+  default bot and the core CI bands never do.
+- **Real time only** (user decision); turn-based fights aren't simulated. Co-op parties are simulated in real time
+  (TID-786) although the game's co-op is still turn-based (BID-105).
 
 ## Balance targets (user, 2026-10-08)
 
@@ -323,7 +320,7 @@ godot --headless --path . -s tests/balance_coverage.gd -- --section world_high -
 ### Tuning (all real time)
 
 - **Hero level power:** `CombatTuning.hero_level_power(L)` = (`enemy_hp_growth(L)` / growth(`power_from_level`))
-  ^ `power_track` past `power_from_level` (8), 1.0 up to it; `power_track` 0.8. Stored on
+  ^ `power_track` past `power_from_level` (8), 1.0 up to it; `power_track` 0.8 (0.3 since TID-793: gear carries the rest). Stored on
   `PlayerState.level_power` by `RealtimeCombat` (player side only), multiplied into every outgoing hit in
   `DamageResolver.power_mult` (swings, spells, Allies). About 1.4x at L12, 2.4x at L20, 5.5x at L40.
 - **Every type's fight tier comes from its level** (`BattleSetup.base_tier` = 1, `enemy_tier` raises it per 10
@@ -546,4 +543,122 @@ checks; the **bare hero** is a floor.
 | `bosses` | typical | ≥ 40 % (high-end floors) | — |
 
 Tuning: `gap_damage` 0.3, `gap_hp` 0.2. Gear is picked for the build (`GearDrops.expected_loadout(level,
-magic_type)`). Gear share at level 30 is ~7 % (target 60 %): enemy threat does not scale, see TID-793.
+magic_type)`). Gear share at level 30 was ~7 % (target 60 %); TID-793 below.
+
+## Gear power and enemy threat (GID-187 / TID-793)
+
+Target (user): gear ≈ 60 % of a level-30 player's power; enemy power is tied to **level, not gear** (user,
+2026-10-12): drops have to keep the player close enough to geared.
+
+| Piece | What |
+|---|---|
+| Hero level power | `power_track` 0.8 → **0.3** (damage past level 8 from levels alone) |
+| Item power | `gear_track` 0.7 (damage) and `gear_hp_track` 0.7 (max HP): `GearCurve.gear_power` by worn item level, see `inventory-and-deck.md` → Item power |
+| Enemy threat | `enemy_dmg_growth(L)` = growth(L − `enemy_dmg_lag`) ^ `enemy_dmg_track` (0.7, lag 4): enemy swings, minion swings and spells grow like the HP of a hero wearing items 4 levels below the enemy's level (the drop window). Level only. |
+| Heavy blows | a share of the hero's max HP **before** gear HP, times `enemy_dmg_growth` (`RealtimeCombat.heavy_damage`): gear HP now protects against heavies too (before, a heavy was a share of whatever max HP the hero had, so HP gear did nothing against it) |
+| Gear supply | 42 fill-in items (every slot within 4 levels of every level from 12); pity by item level; chest catch-up chance; `GearSupply` sim (4 drops / hour keeps ≥ 0.85 of the curve) |
+| Cells | `schools` and `conditions` cells wear the level's expected gear (`cell_cfg` `geared: true`, `BalanceProfiles.gear_cfg`); the school matrix levels were re-picked (8-fight screen) where the geared untagged fight is mid-rate |
+| Content | `rival_isfig_2` `rt_hp_mult` 1.4 → 1.25, `scarab_swarm` 0.7 → 0.6 (L24 walls) |
+
+Measured (`BalanceProfiles.gear_share`, 4 fights × 4 magic types): **0.66 at level 30** (duelist champion), 0.84 at 46
+(frost wendigo). Every section passes: world_low +0 100 % / +1 81 %, world_high 100 / 88 %, range (bare) +1 55 %,
+bosses 100 % (median 31-49 s), same-level medians ~30 s. Core bands pass at the existing baseline (no rewrite).
+
+Why the first attempts failed: with enemy damage on the pure level curve, the catalogue's holes (a level-30 player
+wore item level 18 armour) left typical players 30-40 % short of it, and cells at 12-14 and 24-26 became walls.
+Coupling enemy threat to the typical loadout fixed the bands but tied enemies to gear, which the user rejected.
+Filling the catalogue, adding the 4-level lag (the drop window) and fixing the heavy base made the level-only
+curve work.
+
+## Rewards (GID-187 / TID-779)
+
+`game_logic/battle/BalanceRewards.gd`, coverage section `rewards` (~150 s). Paired cells: the typical profile
+against a harder enemy (`CELLS`: duelist adept 14 +2, spectre haunt 16 +1, duelist champion 26 +2, frost wendigo
+36 +2, undead elite 40 +2, picked from a 12-fight screen at 25-75 %), with and without one reward, 24 fights at the
+same seeds over the enemy's neutral magic types.
+
+New `BattleSetup.build` keys: `weapon_upgrade` (blacksmith level on the weapon), `card_rank` (deck at that
+veterancy rank, through `PlayerState.build_deck_from_instances` and `VeterancyUtil.instances_at_rank`), `companion`
+(`{passive_type, passive_value}`, `FightStart.apply_companion`, shared with `BattleModifiers`).
+
+| Axis | Change | Mean gain (pp) | Gate |
+|---|---|---|---|
+| `skills` | the level's build + its technique cards vs none | +7.5 | ≥ 3, ≤ 40 |
+| `weapon_upgrade` | blacksmith +3 | +14 | ≥ 3, ≤ 40 |
+| `card_rank` | Allies at Veteran (rank 2) | +28 | ≥ 3, ≤ 40 |
+| `companion` | Maiteln (draw 1) | +4 | ≥ 3, ≤ 40 |
+| `gear_step` | the level's loadout vs that of 4 levels lower | +50 | ≥ 3 (uncapped: gear is meant to carry growth) |
+| `tech_slot` | the fourth technique slot (BID-103) | 0 | ≤ 40 (no minimum: a deck rule) |
+| `builds` | default build vs second branch first | mean 6 (max 33 at L14) | mean ≤ 15, cell ≤ 40 |
+
+A single cell may go the wrong way by up to 15 pp (24 fights; a change decorrelates the seeds).
+
+Found and fixed:
+- **Companions did nothing in real time.** `configure_realtime` trims the opening hand, which put Maiteln's extra
+  card back. `BattleRealtime.maybe_start` now runs the companion draw after the trim (the sim the same).
+- **The fourth technique slot** (BID-103) is ~0 pp at the levels it is learned with gear and skills: resolved.
+- **Skill builds:** `mod_recycle` nodes ("techniques return faster") decided early builds (one node: 0 → 13 of
+  16 fights). Recycle values halved (10 → 5, Void Tempo 15 → 8), and the profile deck carries two cards of its main
+  branch (`BalanceProfiles.branch_deck`), so branch-card nodes have something to boost. The rest is BID-109.
+- `spectre_haunt` `rt_hp_mult` 0.85 → 0.75 and `martarquas_raider_2` 1.35 → 1.2: L24 +1 walls the deck change
+  caused.
+- `BattleSetup` moved its school power / resist helpers to `game_logic/battle/SchoolSources.gd` (line budget).
+
+## Runs (GID-187 / TID-783)
+
+`game_logic/battle/BalanceRuns.gd`, coverage section `runs` (~130 s): multi-fight runs with HP carried the way the
+game carries it.
+
+- **Rift ladder** (`rift_run`): a tier's 5 floors (`RiftDefs.enemy_type` / `enemy_level` / `hp_mult`, the guardian
+  a boss), HP fraction carried plus `RiftDefs.after_floor`; after each non-guardian floor the bot takes the draft's
+  boon (`draft_boon`: the game's seeded offer; `RiftDefs.apply_boons`, cfg key `boons`). 20 runs per cell, rifts and
+  magic types rotating, at player levels 16 / 26 / 40 / 54 from their own tier (`own_tier`: enemies at the player's
+  level) up to +1.5 levels.
+- **Siege** (`siege_run`): waves `martarquas_raider_1..3` at `SiegeDefs.stage_level`, HP carried plus
+  `SiegeDefs.after_wave`. 24 runs at levels 12 / 20 / 32 / 48.
+
+| Gate | Value | Measured |
+|---|---|---|
+| Own tier cleared | ≥ 50 % | 95-100 % |
+| Next tier never clears more | +10 pp slack | ✓ |
+| Step between adjacent tiers (half a level) | ≤ 65 pp | 5-60 (L16 +0.5 → +1: 65 → 5) |
+| Level-appropriate siege cleared | ≥ 50 % | 87.5-100 % |
+
+Ladder (clear %, own tier / +½ / +1 / +1½ level): L16 100 / 65 / 5 / 0; L26 100 / 90 / 40 / 5; L40 100 / 95 / 70 / 30;
+L54 95 / 75 / 40 / 25.
+
+Game changes it took (`docs/agent/rifts.md`, `town-siege.md`):
+- Runs and sieges carry HP as a **fraction** (`spire_run.hero_hp_frac`, `siege.hero_hp_frac`, through
+  `BattleModifiers._apply_persistent_hp` / `record_persistent_hp`). Before, both carried an absolute 30 HP: every
+  geared hero started a run at a sliver of its HP, and a siege also capped max HP at 30.
+- A breather heal between fights: `RiftDefs.FLOOR_HEAL` / `SiegeDefs.WAVE_HEAL` 25 %. Without it each wave was won
+  from full HP but three in a row failed (0-42 %).
+- Rift tiers are **half a level** (`TIERS_PER_LEVEL` 2, the second tier of a level is `HALF_TIER_HP` ×1.3 enemy HP),
+  floors share the tier's level and the guardian is a boss at it. With +2 levels a tier (and +½ a floor, +1 on the
+  guardian) the guardian was a boss three levels up: 0 % even from full HP. Rewards per tier quartered, `MAX_TIER`
+  93, rift quests remapped (tier 3 → 9, 5 → 17), save migration v52.
+- Boons are percentages (Vigor +15 % HP, Bulwark 10 % of HP as armor) via `PlayerState.boon_hp_mult` /
+  `start_armor_frac`.
+- Siege waves 2-3 now fight at the siege's level (`SiegeDefs.stage_level`, `siege.level` = the hero's level at the
+  start); they used to fall back to their tier's level 4 / 7.
+
+## Real-time co-op (GID-187 / TID-786)
+
+`RealtimeCombat` has a party: `party` (you first), `add_ally(ps, level)` for a co-op hero (its HP and power grow
+with its level like yours), `is_party(side)`. Enemies attack `enemy_target(side)`: the only living hero, else a
+seeded random one per attack (a solo fight never rolls, so solo results are unchanged). Co-op heroes share every
+player rule but the local player's momentum (combo, procs, focus); their hits siphon mana (`siphon`).
+`PlayerCaster(rt, side)` and `BalanceBot` play any hero; `EncounterSetup.make_party_member(rt, cfg)` builds one from a
+hero cfg; `BalanceFight` cfg `party: [hero cfg, ...]` adds them with a caster and bot each.
+
+The boss scales per extra hero (`CoopBattleScaling.realtime_*`, CombatTuning): HP `coop_boss_hp` 1.1, damage
+`coop_boss_dmg` 0.7 (`RealtimeCombat.enemy_dmg_mult`, on swings, heavies and spells), cadence `coop_boss_haste`
+0.45 (`enemy_haste`: the heavy timer and the enemy GCD). No tier bump in real time.
+
+Section `coop` (`BalanceCoop`, ~3 min): five cells where the solo typical player wins 25-75 % (barrow king 30 v 31
+boss, frost wendigo 36 v 38, duelist champion 26 v 28, spectre haunt 16 v 17, undead elite 44 v 46), parties of 1-4
+mixing magic types, 16 fights. Gate: each party size's mean within ±25 pp of the solo mean. Measured: 60 / 69 / 61 / 66 %.
+
+Why cadence: with HP and damage scaling only, a party of 3-4 never lost (each hero carries a Kick, so every heavy
+and cast was interrupted). Cadence and damage are cliffs (haste 0.45 → 0.5: 95 → 35-41 % for 3-4 heroes), single
+cells swing 0-90 %, so the gate is on the per-size mean, not per cell.

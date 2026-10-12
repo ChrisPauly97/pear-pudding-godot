@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://nnkzrw4hpggn"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_steelbound_ring"]
+
+[resource]
+script = ExtResource("1_steelbound_ring")
+id = "steelbound_ring"
+display_name = "Steelbound Ring"
+description = "Banded in good steel by a Blancogov smith."
+slot = "ring"
+battle_effect_type = ""
+stats = {
+"stamina": 11,
+"spirit": 1,
+"command": 9
+}
+band = "superior"
+item_level = 25
+level_req = 25
+rarity = "rare"

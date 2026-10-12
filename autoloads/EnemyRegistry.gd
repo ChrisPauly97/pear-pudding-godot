@@ -396,7 +396,7 @@ static func _ensure_loaded() -> void:
 					+ "confidence hides a lack of experience — overcome them and the tribe's advance falters."),
 		},
 		"martarquas_raider_2": {
-			"rt_hp_mult": 1.35,  # GID-186: real-time balance vs its level band
+			"rt_hp_mult": 1.2,  # GID-186 1.35; TID-779: L24 +1 wall with branch decks
 			"display_name": "Martarquas Veteran",
 			"schools": {"resist": ["dark"], "weak": ["physical"]},
 			"deck": ["ghost", "skeleton", "zombie", "zombie", "ghoul", "ghoul"],
@@ -481,7 +481,7 @@ static func _ensure_loaded() -> void:
 			"signature_card": "sig_pathfinder", "capture_condition": "win_by_turn", "capture_param": 5,
 		},
 		"scarab_swarm": {
-			"rt_hp_mult": 0.7,  # GID-186: real-time balance vs its level band
+			"rt_hp_mult": 0.6,  # GID-186 0.7 (TID-787 0.7); TID-793: pack swings now grow with level
 			"display_name": "Scarab Queen",
 			"schools": {"resist": ["physical"], "weak": ["verdant", "rift"]},
 			"deck": ["scarab", "scarab", "scarab", "scarab", "scarab", "scarab", "scarab", "scarab",
@@ -573,7 +573,7 @@ static func _ensure_loaded() -> void:
 					+ "smiles as he challenges you to a duel — not out of malice, but to measure you."),
 		},
 		"rival_isfig_2": {
-			"rt_hp_mult": 1.4,  # GID-186: real-time balance vs its level band
+			"rt_hp_mult": 1.25,  # GID-186 1.4; TID-793: typical profiles bring magic decks it is not weak to
 			"attack_school": "rift",
 			"display_name": "Isfig the Pursuing",
 			"schools": {"resist": ["rift"], "weak": ["dark", "physical"]},
@@ -626,7 +626,7 @@ static func _ensure_loaded() -> void:
 					+ "wisp drifts, the veil between worlds has grown thin."),
 		},
 		"spectre_haunt": {
-			"rt_hp_mult": 0.85,  # GID-186: real-time balance vs its level band
+			"rt_hp_mult": 0.75,  # GID-186 0.85; TID-779: L24 +1 wall with branch decks
 			"attack_school": "dark",
 			"display_name": "Phantom",
 			"schools": {"resist": ["dark", "physical"], "weak": ["light", "rift"]},

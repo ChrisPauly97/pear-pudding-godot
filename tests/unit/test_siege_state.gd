@@ -65,9 +65,9 @@ func test_start_siege_stage_0() -> void:
 	_sm.town_siege.start_siege("madrian")
 	assert_eq(int(_sm.town_siege.get_active_siege().get("stage", -1)), 0)
 
-func test_start_siege_hero_hp_30() -> void:
+func test_start_siege_at_full_health() -> void:
 	_sm.town_siege.start_siege("madrian")
-	assert_eq(int(_sm.town_siege.get_active_siege().get("hero_hp", 0)), 30)
+	assert_almost_eq(_sm.town_siege.hp_frac(), 1.0, 0.0001, "TID-783: HP carried as a fraction")
 
 func test_start_siege_day_started_equals_days_elapsed() -> void:
 	_sm.days_elapsed = 5
@@ -101,16 +101,16 @@ func test_advance_stage_no_op_when_empty() -> void:
 	assert_true(_sm.town_siege.get_active_siege().is_empty())
 
 # ---------------------------------------------------------------------------
-# set_siege_hero_hp
+# set_hp_frac
 # ---------------------------------------------------------------------------
 
-func test_set_siege_hero_hp_updates_value() -> void:
+func test_set_hp_frac_updates_value() -> void:
 	_sm.town_siege.start_siege("madrian")
-	_sm.town_siege.set_siege_hero_hp(15)
-	assert_eq(int(_sm.town_siege.get_active_siege().get("hero_hp", 0)), 15)
+	_sm.town_siege.set_hp_frac(0.5)
+	assert_almost_eq(_sm.town_siege.hp_frac(), 0.5, 0.0001)
 
-func test_set_siege_hero_hp_no_op_when_empty() -> void:
-	_sm.town_siege.set_siege_hero_hp(10)   # should not crash
+func test_set_hp_frac_no_op_when_empty() -> void:
+	_sm.town_siege.set_hp_frac(0.3)   # should not crash
 	assert_true(_sm.town_siege.get_active_siege().is_empty())
 
 # ---------------------------------------------------------------------------

@@ -79,7 +79,7 @@ static func convert_ratings(ratings: Dictionary, level: int, tune: _CombatTuning
 ## Applies `ratings` (from `totals`) to `player` for a fight at `level`: Stamina → max HP, Armor →
 ## hero armor, Intellect → bonus mana (cost units), mastery → `school_power`; every converted value
 ## is stored on `player.gear` for the combat hooks. Resist goes through
-## `BattleSetup.school_resist_sources` (it is capped with the other sources).
+## `SchoolSources.resist_sources` (it is capped with the other sources).
 static func apply(player: _PlayerState, ratings: Dictionary, level: int, tune: _CombatTuning = null) -> void:
 	var t: _CombatTuning = tune if tune != null else _CombatTuning.new()
 	var conv: Dictionary = convert_ratings(ratings, level, t)

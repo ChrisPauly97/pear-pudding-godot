@@ -12,7 +12,7 @@ const _HeroState = preload("res://game_logic/battle/HeroState.gd")
 const _PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const _SkillMods = preload("res://game_logic/battle/SkillMods.gd")
 const _SkillRegistry = preload("res://autoloads/SkillRegistry.gd")
-const _BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
+const _SchoolSources = preload("res://game_logic/battle/SchoolSources.gd")
 const _GearRolls = preload("res://game_logic/items/GearRolls.gd")
 const _SaveGear = preload("res://autoloads/save_manager/SaveGear.gd")
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
@@ -138,7 +138,7 @@ func test_school_nodes_are_not_card_mods() -> void:
 func test_school_damage_affix_adds_power() -> void:
 	var p := _PlayerState.new(0, true)
 	var items: Array[Dictionary] = [_item("dusk_blade", _affix("school_dmg", "dark", 0.15))]
-	_BattleSetup.apply_school_power(p, items, [])
+	_SchoolSources.apply_school_power(p, items, [])
 	assert_almost_eq(float(p.school_power["dark"]), 0.15)
 	assert_eq(p.weapon_school(), _DamageSchools.PHYSICAL, "a damage affix does not convert")
 
@@ -146,7 +146,7 @@ func test_school_damage_affix_adds_power() -> void:
 func test_convert_affix_sets_weapon_school() -> void:
 	var p := _PlayerState.new(0, true)
 	var items: Array[Dictionary] = [_item("dusk_blade", _affix("convert", "light", 0.0))]
-	_BattleSetup.apply_school_power(p, items, [])
+	_SchoolSources.apply_school_power(p, items, [])
 	assert_eq(p.weapon_school(), "light")
 	assert_true(p.school_power.is_empty())
 
@@ -154,13 +154,13 @@ func test_convert_affix_sets_weapon_school() -> void:
 func test_school_power_nodes_add_to_affixes() -> void:
 	var p := _PlayerState.new(0, true)
 	var items: Array[Dictionary] = [_item("dusk_blade", _affix("school_dmg", "light", 0.05))]
-	_BattleSetup.apply_school_power(p, items, ["ember_kindled_light"])
+	_SchoolSources.apply_school_power(p, items, ["ember_kindled_light"])
 	assert_almost_eq(float(p.school_power["light"]), 0.15, 0.0001, "affix plus node")
 
 
 func test_resist_sources_sum_affixes_and_nodes_then_cap() -> void:
 	var items: Array[Dictionary] = [_item("iron_helm", _affix("school_resist", "physical", 0.1))]
-	var raw: Dictionary = _BattleSetup.school_resist_sources(items, ["bloom_rooted_ward"])
+	var raw: Dictionary = _SchoolSources.resist_sources(items, ["bloom_rooted_ward"])
 	assert_almost_eq(float(raw["physical"]), 0.2)
 	var capped: Dictionary = _DamageSchools.capped_resists({"rift": 2.0}, _CombatTuning.new())
 	assert_almost_eq(float(capped["rift"]), _CombatTuning.new().get_f("max_player_resist"))
@@ -168,19 +168,19 @@ func test_resist_sources_sum_affixes_and_nodes_then_cap() -> void:
 
 func test_no_sources_means_no_effect() -> void:
 	var p := _PlayerState.new(0, true)
-	_BattleSetup.apply_school_power(p, [], [])
+	_SchoolSources.apply_school_power(p, [], [])
 	assert_true(p.school_power.is_empty())
 	assert_eq(p.weapon_school(), _DamageSchools.PHYSICAL)
-	assert_true(_BattleSetup.school_resist_sources([], []).is_empty())
+	assert_true(_SchoolSources.resist_sources([], []).is_empty())
 
 
 func test_bad_affix_is_ignored_in_battle() -> void:
 	var p := _PlayerState.new(0, true)
 	var items: Array[Dictionary] = [_item("dusk_blade", _affix("school_dmg", "mythic", 0.5)),
 			_item("iron_helm", {"kind": "boost"})]
-	_BattleSetup.apply_school_power(p, items, [])
+	_SchoolSources.apply_school_power(p, items, [])
 	assert_true(p.school_power.is_empty())
-	assert_true(_BattleSetup.school_resist_sources(items, []).is_empty())
+	assert_true(_SchoolSources.resist_sources(items, []).is_empty())
 
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://pc4hqt3fzri1"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_wardenguard_charm"]
+
+[resource]
+script = ExtResource("1_wardenguard_charm")
+id = "wardenguard_charm"
+display_name = "Wardenguard Charm"
+description = "Gilded and blessed for the wardens of the high passes."
+slot = "trinket"
+battle_effect_type = ""
+stats = {
+"intellect": 3,
+"haste": 4,
+"spirit": 6,
+"command": 11
+}
+band = "heroic"
+item_level = 44
+level_req = 44
+rarity = "epic"

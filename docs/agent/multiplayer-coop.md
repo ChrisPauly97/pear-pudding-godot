@@ -3184,3 +3184,10 @@ State mirrors carry presentation events so every other screen sees *how* the boa
 - The authority's screen gives a remote player's attack the same lunge / deaths / numbers
   (`_show_remote_attack`).
 - Smoke: `tests/net_attack_replay_smoke.gd`.
+
+## Real-time co-op balance (GID-187 / TID-786)
+
+Co-op PvE fights are still turn-based (BID-105). The balance sim already runs real-time parties of 2-4 heroes
+(`RealtimeCombat.add_ally`, `BalanceFight` cfg `party`) with the boss scaled by `CoopBattleScaling.realtime_hp_mult`
+/ `realtime_damage_mult` / `realtime_haste_mult`; see `balance-sim.md` → Real-time co-op. Moving co-op to real time
+should reuse those, not the turn-based `scale_boss_hp` / `scale_boss_tier`.

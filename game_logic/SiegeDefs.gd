@@ -2,6 +2,10 @@
 # No instance state — call all methods as SiegeDefs.method_name().
 
 const SIEGE_SPAWN_CHANCE: int = 8   # ~8% daily probability once gating conditions are met
+## Level step of each gauntlet stage over the siege's base level (`stage_level`, TID-783).
+const STAGE_LEVELS: Array[int] = [0, 0, 0]
+## GID-187 / TID-783: share of max HP a hero recovers between waves (the "Wave 2 of 3" breather).
+const WAVE_HEAL: float = 0.25
 
 # World-space gate positions per named town (tile coords × TILE_SIZE = 2.0).
 # Raiders spawn clustered around these positions.
@@ -28,6 +32,16 @@ static func should_trigger(flags: Dictionary, days_elapsed: int, last_siege_day:
 	if days_elapsed - last_siege_day < 4:
 		return false
 	return hash(world_seed ^ days_elapsed) % 100 < SIEGE_SPAWN_CHANCE
+
+## GID-187 / TID-783: enemy level of gauntlet `stage` (0..2) for a siege started at `base` level (the
+## hero's level then): base + STAGE_LEVELS[stage]. Every stage's raiders fight at it (before, waves 2-3
+## were chained without a level and fell back to their tier's 4 and 7).
+static func stage_level(base: int, stage: int) -> int:
+	return maxi(1, base + STAGE_LEVELS[clampi(stage, 0, STAGE_LEVELS.size() - 1)])
+
+## The HP fraction a won wave carries to the next: `frac` + WAVE_HEAL, at most full.
+static func after_wave(frac: float) -> float:
+	return clampf(frac + WAVE_HEAL, 0.0, 1.0)
 
 ## Returns the card ID list for the given gauntlet stage (0, 1, or 2).
 ## Difficulty escalates: stage 0 is easiest, stage 2 is hardest.

@@ -28,8 +28,9 @@ func test_guardian_on_last_floor_and_levels_climb() -> void:
 	assert_true(RiftDefs.is_guardian_floor(RiftDefs.FLOORS_PER_TIER))
 	assert_false(RiftDefs.is_guardian_floor(RiftDefs.FLOORS_PER_TIER - 1))
 	assert_eq(RiftDefs.enemy_type("mountains", RiftDefs.FLOORS_PER_TIER), "stone_golem")
-	assert_gt(RiftDefs.enemy_level(2, 1), RiftDefs.enemy_level(1, 1), "higher tier, higher level")
-	assert_gt(RiftDefs.enemy_level(1, RiftDefs.FLOORS_PER_TIER), RiftDefs.enemy_level(1, 1), "guardian tougher")
+	assert_gt(RiftDefs.enemy_level(3, 1), RiftDefs.enemy_level(1, 1), "higher tier, higher level (two tiers a level)")
+	assert_eq(RiftDefs.enemy_level(1, RiftDefs.FLOORS_PER_TIER), RiftDefs.enemy_level(1, 1),
+		"a tier is one level band; its guardian is tougher by being a boss (TID-783)")
 
 
 func test_tier_cap_is_best_plus_one() -> void:
@@ -68,7 +69,7 @@ func test_each_rift_tracks_its_own_tier() -> void:
 
 func test_migration_maps_old_spire_best_to_grasslands() -> void:
 	var d: Dictionary = {"version": 44, "spire_best_floor": 12, "spire_run": {"active": true, "floor": 3}}
-	SaveMigrations.apply(d)
+	SaveMigrations.apply(d, 51)  # v52 then moves it to half-level tiers (test_balance_runs)
 	assert_eq(int((d["rift_best_tiers"] as Dictionary)["grasslands"]), 12 / RiftDefs.FLOORS_PER_TIER)
 	assert_eq(str((d["spire_run"] as Dictionary)["rift"]), "grasslands")
 
@@ -80,13 +81,14 @@ func test_boons_and_picks_are_run_only() -> void:
 	sm.spire.start_spire_run(3, "grasslands", 1)
 	assert_true(sm.spire.uses_own_deck(), "rift runs fight with the player's deck")
 	sm.spire.add_drafted_card("wraith")
+	sm.spire.set_hp_frac(0.5)
 	sm.spire.add_boon("boon_vigor")
 	sm.spire.add_boon("boon_edge")
 	sm.spire.add_boon("not_a_boon")
 	assert_eq(sm.owned_cards.size(), owned_before, "picks never enter the collection")
 	assert_eq(sm.spire.drafted_cards(), ["wraith"] as Array[String])
 	assert_eq(sm.spire.boons().size(), 2)
-	assert_eq(int(sm.spire.get_spire_run()["hero_hp"]), 36, "Vigor heals as it raises the cap")
+	assert_almost_eq(sm.spire.hp_frac(), 0.65, 0.0001, "Vigor heals its percent as it raises the cap")
 	assert_eq(RiftDefs.boon_total(sm.spire.boons(), "minion_attack"), 1)
 	sm.spire.end_spire_run()
 	assert_eq(sm.owned_cards.size(), owned_before)

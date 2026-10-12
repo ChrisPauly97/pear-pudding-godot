@@ -43,8 +43,8 @@ func test_new_slots_are_persisted() -> void:
 
 func test_registry_has_three_of_each() -> void:
 	# The three legacy pieces plus the TID-790 catalogue's ten (two per band).
-	assert_eq(WeaponRegistry.get_by_slot("helmet").size(), 13)
-	assert_eq(WeaponRegistry.get_by_slot("boots").size(), 13)
+	assert_eq(WeaponRegistry.get_by_slot("helmet").size(), 19)  # TID-793 fill-in tiers
+	assert_eq(WeaponRegistry.get_by_slot("boots").size(), 19)  # TID-793 fill-in tiers
 	for slot: String in ["helmet", "boots"]:
 		for id: String in WeaponRegistry.get_by_slot(slot):
 			var w: WeaponData = WeaponRegistry.get_weapon(id)

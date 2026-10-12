@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://yk2wour9k3hw"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_runecut_ring"]
+
+[resource]
+script = ExtResource("1_runecut_ring")
+id = "runecut_ring"
+display_name = "Runecut Ring"
+description = "Cut with old runes that warm when blood is spilled."
+slot = "ring"
+battle_effect_type = ""
+stats = {
+"stamina": 16,
+"spirit": 2,
+"command": 3,
+"block": 9
+}
+band = "heroic"
+item_level = 40
+level_req = 40
+rarity = "epic"

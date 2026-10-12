@@ -92,7 +92,7 @@ func test_get_by_slot_offhand_lists_all_three() -> void:
 	assert_true(ids.has("buckler"))
 	assert_true(ids.has("arcane_focus"))
 	# The three legacy off-hands plus the TID-790 catalogue's ten (two per band).
-	assert_eq(ids.size(), 13)
+	assert_eq(ids.size(), 19)  # TID-793 fill-in tiers
 
 # ---------------------------------------------------------------------------
 # UpgradeDefs: turn-based equivalent + display strings

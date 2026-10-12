@@ -1,4 +1,4 @@
-# gdlint: disable=max-file-lines
+# gdlint: disable=max-file-lines, max-public-methods
 ## Real-time combat driver (GID-135 / TID-546, multi-enemy TID-551).
 ## Runs a solo GameState without turns: every side acts on its own global
 ## cooldown (GCD), mana regenerates on a clock, cards are drawn on a clock, and
@@ -53,6 +53,15 @@ var gcd: Array[float] = []
 var focus_target: CardInstance = null
 ## Enemy hero your auto-attack goes at when no minion is focused (-1 = first alive).
 var focus_enemy: int = -1
+## GID-187 / TID-786: the hero sides fighting together (you first). A solo fight is [PLAYER]; `add_ally`
+## appends co-op heroes. Only PLAYER has the momentum state (combo, procs, focus); party members share
+## every other player rule and the enemies spread their attacks over them (`enemy_target`).
+var party: Array[int] = [PLAYER]
+## Enemy outgoing damage multiplier for a co-op party (`CoopBattleScaling.realtime_damage_mult`); 1 solo.
+var enemy_dmg_mult: float = 1.0
+## Enemy cadence multiplier for a co-op party (heavy blows and the enemy GCD run this much faster; a party
+## has a Kick per hero). 1 solo (`CoopBattleScaling.realtime_haste_mult`).
+var enemy_haste: float = 1.0
 ## Per side: card being cast (the telegraph), seconds left, pushback hits so far.
 var casting: Array = []
 var cast_remaining: Array[float] = []
@@ -155,7 +164,7 @@ func _init_side(i: int, level: int) -> void:
 	cast_remaining.append(0.0)
 	pushbacks.append(0)
 	offhand_damage.append(0)
-	unarmed.append(tune.get_i("unarmed") if i == PLAYER else tune.get_i("enemy_unarmed"))
+	unarmed.append(tune.get_i("unarmed") if is_party(i) else tune.get_i("enemy_unarmed"))
 	weapon_speed.append(0.0)
 	_mana_carry.append(0.0)
 	_draw_timer.append(0.0)
@@ -164,14 +173,17 @@ func _init_side(i: int, level: int) -> void:
 	_offhand_swing.append(_offhand_interval())
 	_hero_swing[i] = swing_speed(i)
 	# Enemy swings land a beat after the player's, so the two don't hit as one.
-	if i != PLAYER:
+	if not is_party(i):
 		_hero_swing[i] += tune.get_f("enemy_swing_delay")
 	var p: PlayerState = state.players[i]
-	p.max_units = MAX_ALLIES if i == PLAYER else enemy_minion_cap
+	p.max_units = MAX_ALLIES if is_party(i) else enemy_minion_cap
 	var h := p.hero
 	h.mana_scale = MANA_SCALE
-	if i == PLAYER:
+	if is_party(i):
 		_grow_hero_hp(h, level)
+		_scale_hero_hp(h, p.gear_hp_power * p.boon_hp_mult)
+		if p.start_armor_frac > 0.0:  # TID-783: Bulwark
+			h.add_armor(roundi(float(h.max_health) * p.start_armor_frac))
 		p.level_power = tune.hero_level_power(level)
 	else:
 		_gap_enemy_hp(h, level)
@@ -202,7 +214,7 @@ func add_enemy(ps: PlayerState, level: int = 1) -> int:
 	state.team_battle = true
 	state.player_teams.clear()
 	for i in range(state.players.size()):
-		state.player_teams.append(0 if i == PLAYER else 1)
+		state.player_teams.append(0 if is_party(i) else 1)
 	while state.player_turn_numbers.size() < state.players.size():
 		state.player_turn_numbers.append(0)
 	_init_side(idx, level)
@@ -210,6 +222,42 @@ func add_enemy(ps: PlayerState, level: int = 1) -> int:
 	_hero_swing[idx] = swing_speed(idx) * 0.5
 	start_gcd(idx)
 	return idx
+## GID-187 / TID-786: a co-op hero joins your side (before the fight starts). `ps` is a fresh PlayerState
+## with its deck, gear and opening hand set; its HP and power grow with `level` like yours. The state
+## becomes a team battle (party vs enemies); returns the new side's index.
+func add_ally(ps: PlayerState, level: int = 1) -> int:
+	var idx: int = state.players.size()
+	ps.player_id = idx
+	ps.is_ai = false
+	ps.battlefield_biome = state.battlefield_biome
+	ps.is_night = state.is_night
+	ps.gamebus_emitter = state.gamebus_emitter
+	state.players.append(ps)
+	party.append(idx)
+	state.team_battle = true
+	state.player_teams.clear()
+	for i in range(state.players.size()):
+		state.player_teams.append(0 if is_party(i) else 1)
+	while state.player_turn_numbers.size() < state.players.size():
+		state.player_turn_numbers.append(0)
+	_init_side(idx, level)
+	return idx
+
+## True for a hero side of the player's party (you or a co-op hero).
+func is_party(side: int) -> bool:
+	return party.has(side)
+
+## The party hero an enemy `side`'s attack goes at: the only living one, else a seeded random pick per
+## attack (spread over the party). A solo fight never touches the rng here, so its fights replay.
+func enemy_target(_side: int = ENEMY) -> int:
+	var alive: Array[int] = []
+	for s: int in party:
+		if is_alive(s):
+			alive.append(s)
+	if alive.size() <= 1:
+		return alive[0] if alive.size() == 1 else PLAYER
+	return alive[rng.randi_range(0, alive.size() - 1)]
+
 ## Caps the player's Allies (early-game onboarding fields fewer — CombatOnboarding).
 func set_ally_cap(cap: int) -> void:
 	state.players[PLAYER].max_units = cap
@@ -237,7 +285,8 @@ func is_passive(side: int) -> bool:
 func enemy_sides() -> Array[int]:
 	var out: Array[int] = []
 	for i in range(1, state.players.size()):
-		out.append(i)
+		if not is_party(i):
+			out.append(i)
 	return out
 
 func is_alive(side: int) -> bool:
@@ -245,7 +294,7 @@ func is_alive(side: int) -> bool:
 
 ## The enemy your hero goes at by default: `focus_enemy` if alive, else the first alive enemy.
 func target_enemy() -> int:
-	if is_alive(focus_enemy) and focus_enemy != PLAYER:
+	if is_alive(focus_enemy) and not is_party(focus_enemy):
 		return focus_enemy
 	for i: int in enemy_sides():
 		if is_alive(i):
@@ -271,7 +320,7 @@ func start_gcd(side: int) -> void:
 	gcd[side] = _gcd_total(side)
 
 func _gcd_total(side: int) -> float:
-	return tune.get_f("player_gcd") if side == PLAYER else tune.get_f("enemy_gcd")
+	return tune.get_f("player_gcd") if is_party(side) else tune.get_f("enemy_gcd")
 
 func gcd_ready(side: int) -> bool:
 	return gcd[side] <= 0.0
@@ -293,7 +342,7 @@ func swing_fraction(unit: CardInstance) -> float:
 	return clampf(1.0 - float(_swing[unit.instance_id]) / _unit_interval(side), 0.0, 1.0)
 
 func _unit_interval(side: int) -> float:
-	return tune.get_f("ally_ready") if side == PLAYER else tune.get_f("enemy_swing")
+	return tune.get_f("ally_ready") if is_party(side) else tune.get_f("enemy_swing")
 
 ## Advance the clock. Returns events in the order they happened:
 ##   {"type": "mana", "side"} / {"type": "draw", "side"} /
@@ -307,7 +356,7 @@ func advance(delta: float) -> Array[Dictionary]:
 		return events
 	fight_time += delta
 	for side in range(state.players.size()):
-		gcd[side] = maxf(0.0, gcd[side] - delta)
+		gcd[side] = maxf(0.0, gcd[side] - delta * (1.0 if is_party(side) else enemy_haste))
 		if is_alive(side):
 			_tick_resources(side, delta, events)
 			_tick_round(side, delta, events)
@@ -342,17 +391,17 @@ func _tick_resources(side: int, delta: float, events: Array[Dictionary]) -> void
 		_mana_carry[side] = 0.0
 	_last_mana[side] = h.mana
 	_draw_timer[side] += delta
-	var interval: float = tune.get_f("draw_interval") * (player_draw_mult if side == PLAYER else 1.0) \
+	var interval: float = tune.get_f("draw_interval") * (player_draw_mult if is_party(side) else 1.0) \
 			/ (1.0 + p.gear_stat("haste"))  # GID-187 / TID-788: haste draws faster
 	if _draw_timer[side] >= interval:
 		_draw_timer[side] -= interval
-		if p.hand.size() < tune.get_i("hand_cap") + (player_hand_bonus if side == PLAYER else 0):
+		if p.hand.size() < tune.get_i("hand_cap") + (player_hand_bonus if is_party(side) else 0):
 			p.draw_card(false)
 			events.append({"type": "draw", "side": side})
 
 ## Player regen scales with the auto-attack stance (GID-139); enemies regen flat.
 func _regen_mult(side: int) -> float:
-	if side != PLAYER:
+	if not is_party(side):
 		return 1.0
 	var spirit: float = 1.0 + state.players[side].gear_stat("spirit")  # GID-187 / TID-788
 	return spirit * (tune.get_f("fighting_regen_mult") if auto_attack else 1.0)
@@ -444,8 +493,8 @@ func _tick_swings(delta: float, events: Array[Dictionary]) -> void:
 				return
 			if not c.is_alive() or c.out_of_play > 0 or c.has_status("freeze"):
 				continue
-			if side == PLAYER:
-				_tick_ally(c, delta, events)
+			if is_party(side):
+				_tick_ally(c, side, delta, events)
 				continue
 			var left: float = float(_swing[c.instance_id]) - delta
 			if left > 0.0:
@@ -454,16 +503,17 @@ func _tick_swings(delta: float, events: Array[Dictionary]) -> void:
 			_swing[c.instance_id] = tune.get_f("enemy_swing") + left
 			if c.attack <= 0:
 				continue
-			var target: CardInstance = pick_minion_target(c)
-			var crit: bool = _resolve_swing(c, c.attack, target, PLAYER, side)
-			events.append({"type": "swing", "side": side, "attacker": c, "target": target, "target_side": PLAYER,
+			var ts: int = enemy_target(side)  # TID-786: a party hero (you, solo)
+			var target: CardInstance = pick_minion_target(c, ts)
+			var crit: bool = _resolve_swing(c, c.attack, target, ts, side)
+			events.append({"type": "swing", "side": side, "attacker": c, "target": target, "target_side": ts,
 				"crit": crit})
 		_tick_hero(side, delta, events)
 
 ## Allies auto-attack: every `ally_ready` seconds an Ally swings at whatever
 ## your hero is hitting (Ward first, else your focus, else the targeted enemy
 ## hero). No command needed — tapping an enemy just moves the shared focus.
-func _tick_ally(c: CardInstance, delta: float, events: Array[Dictionary]) -> void:
+func _tick_ally(c: CardInstance, side: int, delta: float, events: Array[Dictionary]) -> void:
 	var left: float = float(_swing[c.instance_id]) - delta
 	if left > 0.0:
 		_swing[c.instance_id] = left
@@ -472,10 +522,10 @@ func _tick_ally(c: CardInstance, delta: float, events: Array[Dictionary]) -> voi
 	c.summoning_sick = false
 	if c.attack <= 0:
 		return
-	var target: CardInstance = pick_target(PLAYER)
+	var target: CardInstance = pick_target(side)
 	var target_side: int = owner_of(target) if target != null else target_enemy()
-	var crit: bool = _resolve_swing(c, c.attack, target, target_side, PLAYER)
-	events.append({"type": "swing", "side": PLAYER, "attacker": c, "target": target, "target_side": target_side,
+	var crit: bool = _resolve_swing(c, c.attack, target, target_side, side)
+	events.append({"type": "swing", "side": side, "attacker": c, "target": target, "target_side": target_side,
 		"crit": crit})
 
 ## Main-hand swing interval for `side` (s): the weapon's speed, else unarmed,
@@ -509,7 +559,7 @@ func main_hand_damage(side: int) -> int:
 ## up or down by chance so the average holds (damage per second doesn't drift), at
 ## least 1. Enemy hits don't spread (a spread enemy wins more close fights).
 func _roll_swing(avg: float, side: int) -> int:
-	var s: float = tune.get_f("swing_spread") if side == PLAYER else 0.0
+	var s: float = tune.get_f("swing_spread") if is_party(side) else 0.0
 	var x: float = avg * rng.randf_range(1.0 - s, 1.0 + s)
 	var whole: int = floori(x)
 	return maxi(1, whole + (1 if rng.randf() < x - float(whole) else 0))
@@ -538,13 +588,21 @@ func _tick_hero(side: int, delta: float, events: Array[Dictionary]) -> void:
 					events)
 
 func _hero_hit(side: int, dmg: int, hand: String, events: Array[Dictionary]) -> void:
-	var target: CardInstance = pick_target(side)
-	var target_side: int = owner_of(target) if target != null else (target_enemy() if side == PLAYER else PLAYER)
+	var opp: int = target_enemy() if is_party(side) else enemy_target(side)
+	var target: CardInstance = pick_target(side, opp)
+	var target_side: int = owner_of(target) if target != null else opp
 	var crit: bool = _resolve_swing(null, dmg, target, target_side, side)
 	events.append({"type": "swing", "side": side, "attacker": null, "hand": hand, "target": target,
 		"target_side": target_side, "crit": crit})
 	if side == PLAYER and on_player_hit(dmg, false):
 		events.append({"type": "proc", "side": PLAYER})
+	elif side != PLAYER and is_party(side):
+		siphon(side, dmg)
+
+## A co-op hero's hit siphons mana like yours (TID-786; combo and procs stay yours).
+func siphon(side: int, dmg: int) -> void:
+	var h := state.players[side].hero
+	h.mana = mini(h.max_mana, h.mana + maxi(0, dmg) * tune.get_i("siphon_per_damage"))
 
 # ---------------------------------------------------------------------------
 # Momentum (GID-139): siphon, combo charges, free-cast procs
@@ -587,12 +645,14 @@ func spend_combo() -> int:
 ## Who `side`'s hero hits (null = the opposing hero). You: a Ward minion on the
 ## targeted enemy's board first; else your focused minion; else that enemy's hero.
 ## An enemy: a Ward Ally first, else your hero.
-func pick_target(side: int) -> CardInstance:
+## `opp` (TID-786): the side to hit; -1 = your target enemy, or for an enemy the party hero it attacks.
+func pick_target(side: int, opp: int = -1) -> CardInstance:
 	if side == PLAYER and focus_target != null and focus_target.is_alive():
 		var fo: int = owner_of(focus_target)
-		if fo > PLAYER and _wards(fo).is_empty() or _wards(fo).has(focus_target):
+		if fo >= 0 and not is_party(fo) and _wards(fo).is_empty() or _wards(fo).has(focus_target):
 			return focus_target
-	var opp: int = target_enemy() if side == PLAYER else PLAYER
+	if opp < 0:
+		opp = target_enemy() if is_party(side) else enemy_target(side)
 	var wards: Array[CardInstance] = _wards(opp)
 	if not wards.is_empty():
 		return wards[0]
@@ -617,11 +677,12 @@ func _wards(side: int) -> Array[CardInstance]:
 
 ## Enemy minions alternate between the player's hero and an Ally (the one with
 ## the least health), so Allies soak hits and a board of them is worth guarding.
-func pick_minion_target(minion: CardInstance) -> CardInstance:
-	var forced: Array[CardInstance] = _wards(PLAYER)
+## `side` (TID-786): the party hero whose board / hero it attacks.
+func pick_minion_target(minion: CardInstance, side: int = PLAYER) -> CardInstance:
+	var forced: Array[CardInstance] = _wards(side)
 	if not forced.is_empty():
 		return forced[0]
-	var allies: Array[CardInstance] = state.players[PLAYER].board.get_cards()
+	var allies: Array[CardInstance] = state.players[side].board.get_cards()
 	var go_ally: bool = not bool(_hit_ally_next.get(minion.instance_id, false))
 	_hit_ally_next[minion.instance_id] = go_ally
 	if not go_ally or allies.is_empty():
@@ -676,8 +737,8 @@ func _resolve_swing(attacker: CardInstance, dmg: int, target: CardInstance, targ
 	var opp: PlayerState = state.players[target_side]
 	var d: int = BattlefieldRules.modify_damage(dmg, state.battlefield_biome)
 	var src: PlayerState = state.players[from_side]  # the attacking side: its school power (TID-754)
-	var chance: float = tune.get_f("crit_chance" if from_side == PLAYER else "enemy_crit_chance")
-	if from_side != PLAYER:
+	var chance: float = tune.get_f("crit_chance" if is_party(from_side) else "enemy_crit_chance")
+	if not is_party(from_side):
 		d = _gap_scaled(d, from_side)
 	elif attacker == null:  # GID-187 / TID-788: a hero swing is the weapon side
 		d = GearStats.boost(d, src.gear_stat("attack_power"))
@@ -723,7 +784,7 @@ func _clear_fallen_enemies(events: Array[Dictionary]) -> void:
 func _tick_enemy(side: int, delta: float, events: Array[Dictionary]) -> void:
 	var ai: PlayerState = state.players[side]
 	if heavy_enabled:
-		_heavy_timer[side] -= delta
+		_heavy_timer[side] -= delta * enemy_haste
 	if casting[side] != null:
 		cast_remaining[side] -= delta
 		if cast_remaining[side] > 0.0:
@@ -765,9 +826,14 @@ static func is_heavy(card: CardInstance) -> bool:
 
 ## Damage a landed heavy blow deals (a share of your max HP; armor soaks it).
 ## Heavy blows from a low-level enemy land softer (CombatTuning.level_scale, TID-720).
-func heavy_damage(side: int = ENEMY) -> int:
-	return maxi(1, roundi(float(state.players[PLAYER].hero.max_health) * tune.get_f("heavy_frac")
-			* tune.level_scale(_level_of(side)) * tune.gap_mult(_level_of(side), _level_of(PLAYER))))
+## GID-187 / TID-793: the share is of your max HP *before* gear's item-level HP (`gear_hp_power`),
+## grown like the enemy's swings (`enemy_dmg_growth`), so gear HP protects against heavies too.
+func heavy_damage(side: int = ENEMY, target: int = PLAYER) -> int:
+	var p: PlayerState = state.players[target]
+	var base_hp: float = float(p.hero.max_health) / maxf(0.01, p.gear_hp_power * p.boon_hp_mult)
+	return maxi(1, roundi(base_hp * tune.get_f("heavy_frac") * tune.level_scale(_level_of(side))
+			* tune.gap_mult(_level_of(side), _level_of(PLAYER)) * tune.enemy_dmg_growth(_level_of(side))
+			* enemy_dmg_mult))
 
 ## An enemy side's swing damage after the level gap: the fractional part lands
 ## as a seeded chance, so small integer hits still feel the gap (TID-718).
@@ -775,7 +841,7 @@ func _gap_scaled(dmg: int, side: int) -> int:
 	if dmg <= 0:
 		return dmg
 	var x: float = float(dmg) * tune.gap_mult(_level_of(side), _level_of(PLAYER)) \
-			* tune.enemy_dmg_growth(_level_of(side))
+			* tune.enemy_dmg_growth(_level_of(side)) * enemy_dmg_mult
 	var whole: int = floori(x)
 	return whole + (1 if rng.randf() < x - float(whole) else 0)
 
@@ -787,6 +853,15 @@ func _grow_hero_hp(h: HeroState, level: int) -> void:
 		return
 	var frac: float = float(h.health) / float(h.max_health)
 	h.max_health += extra
+	h.health = clampi(roundi(frac * float(h.max_health)), 1 if h.health > 0 else 0, h.max_health)
+
+## GID-187 / TID-793: worn gear's max-HP multiplier (`PlayerState.gear_hp_power`); current HP keeps
+## its fraction, as in `_grow_hero_hp`.
+func _scale_hero_hp(h: HeroState, mult: float) -> void:
+	if is_equal_approx(mult, 1.0) or h.max_health <= 0:
+		return
+	var frac: float = float(h.health) / float(h.max_health)
+	h.max_health = maxi(1, roundi(float(h.max_health) * mult))
 	h.health = clampi(roundi(frac * float(h.max_health)), 1 if h.health > 0 else 0, h.max_health)
 
 ## An enemy's hero gains `enemy_hp_per_level` × max HP per level above 1 (on top
@@ -816,9 +891,10 @@ func _level_of(side: int) -> int:
 	return side_levels[side] if side >= 0 and side < side_levels.size() else 1
 
 func _land_heavy(side: int, events: Array[Dictionary]) -> void:
-	var hero := state.players[PLAYER].hero
+	var ts: int = enemy_target(side)  # TID-786: the party hero it lands on
+	var hero := state.players[ts].hero
 	var school: String = enemy_attack_school if side == ENEMY else DamageSchools.PHYSICAL
-	var res: Dictionary = DamageResolver.deal(state.players[PLAYER], hero, heavy_damage(side), school, tune)
+	var res: Dictionary = DamageResolver.deal(state.players[ts], hero, heavy_damage(side, ts), school, tune)
 	events.append({"type": "enemy_heavy_hit", "side": side, "damage": int(res["dealt"]),
 			"outcome": str(res["outcome"])})
 

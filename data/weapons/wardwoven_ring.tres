@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://tyxn14xzn6a6"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_wardwoven_ring"]
+
+[resource]
+script = ExtResource("1_wardwoven_ring")
+id = "wardwoven_ring"
+display_name = "Wardwoven Ring"
+description = "Woven with faint warding threads that hum near danger."
+slot = "ring"
+battle_effect_type = ""
+stats = {
+"spell_power": 12,
+"mastery:dark": 7,
+"spell_crit": 6
+}
+band = "superior"
+item_level = 29
+level_req = 29
+rarity = "rare"

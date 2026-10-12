@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://gsct8t7oo5qa"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_wardenguard_helm"]
+
+[resource]
+script = ExtResource("1_wardenguard_helm")
+id = "wardenguard_helm"
+display_name = "Wardenguard Helm"
+description = "Gilded and blessed for the wardens of the high passes."
+slot = "helmet"
+battle_effect_type = ""
+stats = {
+"intellect": 5,
+"haste": 8,
+"spell_crit": 10,
+"spirit": 15
+}
+band = "heroic"
+item_level = 44
+level_req = 44
+rarity = "epic"

@@ -7,6 +7,7 @@
 extends RefCounted
 
 const _SaveManager = preload("res://autoloads/SaveManager.gd")
+const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
 
 var _save: _SaveManager
 
@@ -15,9 +16,15 @@ func _init(save_manager: _SaveManager) -> void:
 	_save = save_manager
 
 
-## Starts a new siege for the given town. Initialises stage 0, hero_hp 30.
-func start_siege(town: String) -> void:
-	_save.siege = {"town": town, "stage": 0, "hero_hp": 30, "day_started": _save.days_elapsed}
+## Starts a new siege for the given town at stage 0, full health (TID-783: HP carried as a fraction).
+## Its raiders fight at `level` (default: the hero's level now) plus the stage's step (`SiegeDefs.stage_level`).
+func start_siege(town: String, level: int = 0) -> void:
+	_save.siege = {"town": town, "stage": 0, "hero_hp_frac": 1.0, "day_started": _save.days_elapsed,
+		"level": level if level > 0 else _save.level}
+
+## Enemy level of the current stage's raiders (TID-783). A siege saved before it uses the hero's level.
+func stage_level() -> int:
+	return _SiegeDefs.stage_level(int(_save.siege.get("level", _save.level)), int(_save.siege.get("stage", 0)))
 	_save._dirty = true
 
 ## Returns the active siege dict, or {} when no siege is in progress.
@@ -31,11 +38,15 @@ func advance_siege_stage() -> void:
 	_save.siege["stage"] = int(_save.siege.get("stage", 0)) + 1
 	_save._dirty = true
 
-## Stores the player's hero HP so it carries over to the next gauntlet stage.
-func set_siege_hero_hp(hp: int) -> void:
+## The siege's carried HP fraction (a siege saved before TID-783, with an absolute "hero_hp", reads 1.0).
+func hp_frac() -> float:
+	return clampf(float(_save.siege.get("hero_hp_frac", 1.0)), 0.0, 1.0)
+
+## Stores the hero's HP fraction so it carries over to the next gauntlet stage.
+func set_hp_frac(frac: float) -> void:
 	if _save.siege.is_empty():
 		return
-	_save.siege["hero_hp"] = hp
+	_save.siege["hero_hp_frac"] = clampf(frac, 0.0, 1.0)
 	_save._dirty = true
 
 ## Records a siege win: updates last_siege_day, applies town discount, clears active siege.

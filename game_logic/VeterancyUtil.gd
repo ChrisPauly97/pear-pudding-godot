@@ -58,3 +58,12 @@ static func rank_chevrons(rank: int) -> String:
 	for _i: int in range(rank):
 		s += "▲"
 	return s
+
+## GID-187 / TID-779: collection instances of the card ids in `deck` with the kill count that earns
+## veterancy `rank` (1..VETERANCY_RANKS.size()), for `PlayerState.build_deck_from_instances`.
+static func instances_at_rank(deck: Array[String], rank: int) -> Array[Dictionary]:
+	var row: Dictionary = IsoConst.VETERANCY_RANKS[clampi(rank, 1, IsoConst.VETERANCY_RANKS.size()) - 1]
+	var out: Array[Dictionary] = []
+	for id: String in deck:
+		out.append({"template_id": id, "kills": int(row["kills_threshold"])})
+	return out

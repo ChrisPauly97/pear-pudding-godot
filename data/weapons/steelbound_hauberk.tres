@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://ngxtham1j8h5"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_steelbound_hauberk"]
+
+[resource]
+script = ExtResource("1_steelbound_hauberk")
+id = "steelbound_hauberk"
+display_name = "Steelbound Hauberk"
+description = "Banded in good steel by a Blancogov smith."
+slot = "armor"
+battle_effect_type = ""
+stats = {
+"stamina": 21,
+"spirit": 6,
+"block": 9
+}
+band = "superior"
+item_level = 25
+level_req = 25
+rarity = "rare"

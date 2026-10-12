@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://5pigss3jcmwo"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_starforged_charm"]
+
+[resource]
+script = ExtResource("1_starforged_charm")
+id = "starforged_charm"
+display_name = "Starforged Charm"
+description = "Forged under the falling stars, light as a held breath."
+slot = "trinket"
+battle_effect_type = ""
+stats = {
+"intellect": 4,
+"mastery:rift": 11,
+"haste": 8,
+"spirit": 15
+}
+band = "legendary"
+item_level = 55
+level_req = 55
+rarity = "legendary"

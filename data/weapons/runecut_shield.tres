@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://xkdsgcifn8yk"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_runecut_shield"]
+
+[resource]
+script = ExtResource("1_runecut_shield")
+id = "runecut_shield"
+display_name = "Runecut Shield"
+description = "Cut with old runes that warm when blood is spilled."
+slot = "offhand"
+battle_effect_type = ""
+stats = {
+"armor": 10,
+"command": 3,
+"block": 7,
+"resist:physical": 14
+}
+band = "heroic"
+item_level = 40
+level_req = 40
+rarity = "epic"

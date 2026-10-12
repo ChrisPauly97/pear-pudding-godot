@@ -19,6 +19,9 @@
 ## - `casual` (GID-187 / TID-784): the `range` cells at the same level only, fought by the
 ##   `casual` BalanceBot preset (a second policy, so the targets hold for a slower player too).
 ##
+## - `coop` (GID-187 / TID-786): real-time parties of 2-4 heroes at about the solo rate (`BalanceCoop`).
+## - `runs` (GID-187 / TID-783): rift tier ladders and siege gauntlets with HP carried (`BalanceRuns`).
+## - `rewards` (GID-187 / TID-779): each progression reward helps, none dominates (`BalanceRewards`).
 ## - `wounded` (GID-187 / TID-781): a real player often starts wounded. (a) the `range` cells at the
 ##   same level from 60 % HP (mean gate); (b) potions: `POTION_CELLS` at +1 from 60 % HP, with and
 ##   without a quick-slot kit drunk below half HP; (c) `CHAIN_CELLS`: a 3-fight chain at the same
@@ -32,6 +35,9 @@ const BalanceBands = preload("res://game_logic/battle/BalanceBands.gd")
 const BalanceBot = preload("res://game_logic/battle/BalanceBot.gd")
 const BalanceFight = preload("res://game_logic/battle/BalanceFight.gd")
 const BalanceProfiles = preload("res://game_logic/battle/BalanceProfiles.gd")
+const BalanceRewards = preload("res://game_logic/battle/BalanceRewards.gd")
+const BalanceRuns = preload("res://game_logic/battle/BalanceRuns.gd")
+const BalanceCoop = preload("res://game_logic/battle/BalanceCoop.gd")
 const BalanceScenarios = preload("res://game_logic/battle/BalanceScenarios.gd")
 const BalanceStats = preload("res://game_logic/battle/BalanceStats.gd")
 const BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
@@ -39,7 +45,7 @@ const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 
 const SECTIONS: Array[String] = ["range", "world_low", "world_high", "schools", "bosses", "conditions", "casual",
-	"wounded", "profiles", "joiners"]
+	"wounded", "profiles", "joiners", "rewards", "runs", "coop"]
 ## Regular world types past Chapter 1 (no bosses, no training dummy), by authored tier:
 ## `world_low` = tiers 1-2, `world_high` = tiers 3-4.
 const WORLD_LOW: Array[String] = [
@@ -78,18 +84,19 @@ const MONOTONIC_SLACK: float = 0.15
 ## against it with `school`'s tag removed (`untag_school`), so the matchup is the only change.
 ## Magic schools bring a school-heavy deck (SCHOOL_SWAP Allies swapped for school cards: two
 ## cards barely register); physical is the default deck. Levels sit where the untagged fight is
-## neither won nor lost every time, so the matchup has room to show.
-const SCHOOL_MATRIX: Array = [
-	["physical", "weak", "sand_stalker", 15, 14],
-	["physical", "resist", "scarab_swarm", 14, 14],
-	["physical", "resist", "wraith", 9, 8],
-	["light", "weak", "spectre_haunt", 16, 14],
-	["light", "resist", "duelist_champion", 23, 20],
-	["dark", "weak", "mountain_troll", 16, 14],
-	["dark", "resist", "bog_hag", 8, 6],
-	["verdant", "weak", "martarquas_scout", 11, 9],
-	["verdant", "resist", "forest_shade", 9, 7],
-	["rift", "weak", "mimic", 17, 14],
+## neither won nor lost every time, so the matchup has room to show. Cells wear the level's expected
+## gear (`geared`, TID-793).
+const SCHOOL_MATRIX: Array = [  # levels re-picked for geared cells (TID-793, 8-fight screen)
+	["physical", "weak", "sand_stalker", 13, 12],
+	["physical", "resist", "scarab_swarm", 18, 17],
+	["physical", "resist", "wraith", 13, 11],
+	["light", "weak", "spectre_haunt", 22, 20],
+	["light", "resist", "duelist_champion", 20, 18],
+	["dark", "weak", "mountain_troll", 19, 17],
+	["dark", "resist", "bog_hag", 13, 11],
+	["verdant", "weak", "martarquas_scout", 10, 8],
+	["verdant", "resist", "forest_shade", 9, 8],
+	["rift", "weak", "mimic", 16, 14],
 	["rift", "resist", "duelist_novice", 10, 8],
 ]
 const SCHOOL_SWAP: int = 6
@@ -162,7 +169,8 @@ static func neutral_school(type: String) -> String:
 	return ""
 
 ## One fight's config. `school` "" = the default deck, else the school-matched deck with `swap`
-## Allies swapped. `extra` keys are merged in last (e.g. `untag_school`, `is_boss`).
+## Allies swapped. `extra` keys are merged in last (e.g. `untag_school`, `is_boss`); `geared: true`
+## adds the level's expected gear (`BalanceProfiles.gear_cfg`, TID-793).
 static func cell_cfg(type: String, player_level: int, enemy_level: int, fight_seed: int, school: String = "",
 		tune: Dictionary = {}, extra: Dictionary = {}, swap: int = BattleSetup.MATCHED_SWAP) -> Dictionary:
 	var learned: Array = BalanceBands.ladder_learned(player_level)
@@ -173,6 +181,9 @@ static func cell_cfg(type: String, player_level: int, enemy_level: int, fight_se
 	if not tune.is_empty():
 		cfg["tuning"] = tune
 	cfg.merge(extra, true)
+	if bool(cfg.get("geared", false)):  # TID-793: the curve's expected gear, deck unchanged
+		cfg.erase("geared")
+		cfg.merge(BalanceProfiles.gear_cfg(player_level), true)
 	return cfg
 
 ## {win_rate, median_s, n} over `fights` seeded fights of one cell (`cell_cfg` arguments).
@@ -242,9 +253,10 @@ static func measure_schools(tune: Dictionary = {}) -> Dictionary:
 		var pl: int = int(row[4])
 		out["%s/%s/%s@%d" % [school, str(row[1]), enemy, el]] = {"school": school, "kind": str(row[1]),
 			"enemy": enemy, "same": el == pl,
-			"rate": float(run_cell(enemy, pl, el, SCHOOL_FIGHTS, school, tune, {}, SCHOOL_SWAP)["win_rate"]),
-			"untagged": float(run_cell(enemy, pl, el, SCHOOL_FIGHTS, school, tune, {"untag_school": school},
-				SCHOOL_SWAP)["win_rate"])}
+			"rate": float(run_cell(enemy, pl, el, SCHOOL_FIGHTS, school, tune, {"geared": true},
+				SCHOOL_SWAP)["win_rate"]),
+			"untagged": float(run_cell(enemy, pl, el, SCHOOL_FIGHTS, school, tune, {"untag_school": school,
+				"geared": true}, SCHOOL_SWAP)["win_rate"])}
 	return out
 
 ## Failures of the school matrix (empty = pass).
@@ -328,6 +340,15 @@ static func run_section(section: String, tune: Dictionary = {}) -> Dictionary:
 		"joiners":
 			measured = BalanceScenarios.measure_joiners(tune)
 			fails = BalanceScenarios.check_joiners(measured)
+		"rewards":  # GID-187 / TID-779
+			measured = BalanceRewards.measure(tune)
+			fails = BalanceRewards.check(measured)
+		"runs":  # GID-187 / TID-783
+			measured = BalanceRuns.measure(tune)
+			fails = BalanceRuns.check(measured)
+		"coop":  # GID-187 / TID-786
+			measured = BalanceCoop.measure(tune)
+			fails = BalanceCoop.check(measured)
 		_:
 			measured = measure_ladder(section, tune)
 			fails = check_ladder(section, measured)

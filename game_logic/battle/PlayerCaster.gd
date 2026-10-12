@@ -35,6 +35,9 @@ const SkillMods = preload("res://game_logic/battle/SkillMods.gd")
 const SIDE: int = RealtimeCombat.PLAYER
 
 var rt: RealtimeCombat
+## The hero side this caster plays for (GID-187 / TID-786: a co-op hero in the sim); the combo, free-cast
+## procs and instant-cast payoffs are the local player's (`SIDE`) only.
+var side: int = SIDE
 ## Feedback sink (kind: String, data: Dictionary). Empty in the simulator.
 var notify: Callable = Callable()
 
@@ -52,12 +55,13 @@ var _last_hp: int = 0
 ## fight never loses it, and a natural draw simply cancels the return.
 var _returning: Array[Dictionary] = []
 
-func _init(combat: RealtimeCombat) -> void:
+func _init(combat: RealtimeCombat, hero_side: int = SIDE) -> void:
 	rt = combat
+	side = hero_side
 	_last_hp = _me().hero.health
 
 func _me() -> PlayerState:
-	return rt.state.players[SIDE]
+	return rt.state.players[side]
 
 func _emit(kind: String, data: Dictionary = {}) -> void:
 	if notify.is_valid():
@@ -67,7 +71,7 @@ func _emit(kind: String, data: Dictionary = {}) -> void:
 
 ## True while on global cooldown (outside the queue window) or mid-cast.
 func on_cooldown() -> bool:
-	return not rt.in_queue_window(SIDE) or _card != null
+	return not rt.in_queue_window(side) or _card != null
 
 func is_casting() -> bool:
 	return _card != null
@@ -87,7 +91,7 @@ func cast_state() -> Dictionary:
 ## already started when the cast began).
 func note_play() -> void:
 	if not _resolving:
-		rt.start_gcd(SIDE)
+		rt.start_gcd(side)
 
 ## Starts a cast of `card`; `finish` plays + resolves it when the cast bar
 ## completes. `cast_time` < 0 = the technique's own time, else the cost formula.
@@ -102,11 +106,11 @@ func begin(card: CardInstance, finish: Callable, target: CardInstance = null, ca
 	var mods := _me().skill_mods
 	if mods != null:
 		t *= mods.cast_mult(card)
-	if not TechniqueDefs.is_technique(card.template_id):
+	if not TechniqueDefs.is_technique(card.template_id) and side == SIDE:
 		finish = _with_combo(card, finish)
 		if rt.next_card_instant():
 			t = 0.0
-	if rt.instant_next and t > 0.0:
+	if side == SIDE and rt.instant_next and t > 0.0:
 		t = 0.0
 		rt.instant_next = false
 	_card = card
@@ -117,9 +121,9 @@ func begin(card: CardInstance, finish: Callable, target: CardInstance = null, ca
 	_pushbacks = 0
 	# Queued inside the spell-queue window: the cast (and its GCD) starts when
 	# the current GCD runs out; an instant play resolves on the next tick after.
-	_delay = rt.gcd[SIDE]
+	_delay = rt.gcd[side]
 	if _delay <= 0.0:
-		rt.start_gcd(SIDE)
+		rt.start_gcd(side)
 	return true
 
 ## GID-139: a hand card spends every combo charge for mana (or its banked free cast).
@@ -156,7 +160,7 @@ func tick(dt: float) -> void:
 	if _delay > 0.0:
 		_delay -= dt
 		if _delay <= 0.0:
-			rt.start_gcd(SIDE)
+			rt.start_gcd(side)
 		return
 	if hit:
 		var add: float = rt.pushback_for_hit(_pushbacks)
@@ -204,17 +208,17 @@ func technique_blocker(card: CardInstance) -> String:
 func resolve_reactive(card: CardInstance) -> bool:
 	match card.template_id:
 		"tech_kick":
-			var side: int = casting_enemy()
-			var cut: CardInstance = rt.interrupt_enemy_cast(side) if side >= 0 else null
+			var foe: int = casting_enemy()
+			var cut: CardInstance = rt.interrupt_enemy_cast(foe) if foe >= 0 else null
 			if cut != null:
 				_emit("interrupt", {"name": cut.name})
 			return true
 		"tech_daze":
-			var side: int = casting_enemy()
-			if side < 0:
-				side = rt.target_enemy()
-			rt.state.players[side].hero.apply_status("stun", 1)
-			rt.interrupt_enemy_cast(side)
+			var foe: int = casting_enemy()
+			if foe < 0:
+				foe = rt.target_enemy()
+			rt.state.players[foe].hero.apply_status("stun", 1)
+			rt.interrupt_enemy_cast(foe)
 			_emit("dazed")
 			return true
 	return false
@@ -224,9 +228,9 @@ func casting_enemy() -> int:
 	var first: int = rt.target_enemy()
 	if first < rt.casting.size() and rt.casting[first] != null:
 		return first
-	for side: int in rt.enemy_sides():
-		if rt.casting[side] != null:
-			return side
+	for foe: int in rt.enemy_sides():
+		if rt.casting[foe] != null:
+			return foe
 	return -1
 
 ## After a technique resolved: damaging ones are builder hits (siphon, combo,
@@ -236,7 +240,9 @@ func _after_technique(card: CardInstance, dealt: int) -> void:
 		return
 	if _me().hand.has(card):
 		return  # never left the hand (fizzled / refused)
-	if dealt > 0 and rt.on_player_hit(dealt, true):
+	if dealt > 0 and side != SIDE:
+		rt.siphon(side, dealt)  # a co-op hero: mana, no combo or proc (TID-786)
+	elif dealt > 0 and rt.on_player_hit(dealt, true):
 		_emit("proc")
 	_emit("technique", {"card": card, "effect": card.spell_effect})
 	var recycle: float = TechniqueDefs.recycle_time(card.template_id) * rt.tune.get_f("tech_recycle_mult") \
@@ -248,7 +254,7 @@ func _after_technique(card: CardInstance, dealt: int) -> void:
 ## SpellEffectResolver.power_hook (GID-179): a player spell / technique's power
 ## after skill-tree `mod_power`, then its crit roll and on-crit triggers.
 func modify_power(card: CardInstance, caster_pid: int, power: int) -> int:
-	if caster_pid != SIDE:
+	if caster_pid != side:
 		return power
 	var mods := _me().skill_mods
 	if mods != null:
@@ -265,7 +271,7 @@ func modify_power(card: CardInstance, caster_pid: int, power: int) -> int:
 		return power
 	var instant: bool = mods != null and mods.instant_on_crit(card)
 	var refund: int = 0 if mods == null else mods.refund_on_crit(card)
-	if instant:
+	if instant and side == SIDE:
 		rt.instant_next = true
 	if refund > 0:
 		_me().hero.gain_mana(refund)
@@ -334,14 +340,14 @@ func play(card: CardInstance, resolver: SpellEffectResolver, target: Dictionary 
 			if me.play_card_at_slot(card, slot):
 				note_play()
 				if card.emergence_effect != "":
-					resolver.resolve_emergence(card, SIDE), null, 0.0)
+					resolver.resolve_emergence(card, side), null, 0.0)
 		return ""
 	var finish := func() -> void:
 		if not me.play_card(card):
 			return
 		note_play()
 		if not resolve_reactive(card):
-			resolver.resolve_spell(card, SIDE, target)
+			resolver.resolve_spell(card, side, target)
 	if is_off_gcd(card):
 		run_off_gcd(card, finish)
 	else:

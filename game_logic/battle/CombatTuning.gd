@@ -23,8 +23,23 @@ const DEFS: Array = [
 	["base_max_mana", "Max mana at level 1 (next fight)", 400.0, 100.0, 1000.0, 25.0, "Mana & cards"],
 	["mana_per_level", "Max mana per level (next fight)", 35.0, 0.0, 100.0, 5.0, "Mana & cards"],
 	["hp_per_level", "Your max HP per level (next fight)", 5.0, 0.0, 10.0, 0.5, "Mana & cards"],
-	["power_track", "Your damage keeps pace with enemy HP past power_from_level (exponent)", 0.8, 0.0, 1.5, 0.05,
+	["power_track", "Your damage keeps pace with enemy HP past power_from_level (exponent)", 0.3, 0.0, 1.5, 0.05,
 		"Mana & cards"],
+	# GID-187 / TID-793: worn gear carries the rest of that growth by its item level
+	# (`GearCurve.gear_power`): a full on-curve loadout adds growth ^ gear_track.
+	["gear_track", "Worn gear's damage keeps pace with enemy HP by item level (exponent)", 0.7, 0.0, 1.5, 0.05,
+		"Gear stats"],
+	["gear_hp_track", "Worn gear's max HP keeps pace with enemy HP by item level (exponent)", 0.7, 0.0, 1.5, 0.05,
+		"Gear stats"],
+	# GID-187 / TID-793: enemy swings and spells grow with enemy level like a geared hero's HP.
+	["enemy_dmg_track", "Enemy swing / spell damage keeps pace with enemy HP growth (exponent)", 0.7, 0.0, 1.5,
+		0.05, "Enemy"],
+	["enemy_dmg_lag", "Enemy damage assumes your items trail your level by (levels)", 4.0, 0.0, 10.0, 1.0, "Enemy"],
+	# GID-187 / TID-786: a real-time co-op boss splits its attacks over the party; this much more damage
+	# per extra hero keeps a party's fight close to a solo one (`CoopBattleScaling.realtime_damage_mult`).
+	["coop_boss_dmg", "Co-op boss damage per extra hero (x)", 0.7, 0.0, 3.0, 0.05, "Enemy"],
+	["coop_boss_hp", "Co-op boss HP per extra hero (x, real time)", 1.1, 0.0, 3.0, 0.05, "Enemy"],
+	["coop_boss_haste", "Co-op boss heavy / cast cadence per extra hero (x)", 0.45, 0.0, 2.0, 0.05, "Enemy"],
 	["enemy_dmg_per_level", "Enemy swing / spell damage per level past power_from_level (x)", 0.0, 0.0, 0.5,
 		0.01, "Enemy"],
 	["power_from_level", "Level your damage starts growing from (next fight)", 8.0, 1.0, 60.0, 1.0, "Mana & cards"],
@@ -163,11 +178,25 @@ func hero_level_power(level: int) -> float:
 		return 1.0
 	return pow(enemy_hp_growth(level) / enemy_hp_growth(from), get_f("power_track"))
 
+## GID-187 / TID-793: ln of the growth an item of `item_level` stands for, past `power_from_level`
+## (0 at or below it): `GearCurve.gear_power` weights it by slot, rarity and upgrades.
+func item_power_log(item_level: int) -> float:
+	var from: int = get_i("power_from_level")
+	if item_level <= from:
+		return 0.0
+	return log(enemy_hp_growth(item_level) / enemy_hp_growth(from))
+
 ## GID-187 / TID-787: an enemy's swing / spell damage growth with its level past `power_from_level`
 ## (the hero's HP grows with level and Stamina gear; without this, late enemies cannot threaten a
 ## geared hero). Heavy blows already scale with the hero's max HP and skip it.
+## TID-793: times (growth(level − `enemy_dmg_lag`) / growth(from)) ^ `enemy_dmg_track`. Enemy power
+## follows level only (user, 2026-10-12); with `enemy_dmg_track` = `gear_hp_track` its hits grow as the
+## HP of a hero wearing items `enemy_dmg_lag` levels below theirs (the catalogue's step: drops reach
+## a few levels back), so the gear supply (`GearDrops`, `GearSupply`) has to keep a player that close.
 func enemy_dmg_growth(level: int) -> float:
-	return 1.0 + get_f("enemy_dmg_per_level") * float(maxi(0, level - get_i("power_from_level")))
+	var lin: float = 1.0 + get_f("enemy_dmg_per_level") * float(maxi(0, level - get_i("power_from_level")))
+	var track: float = get_f("enemy_dmg_track")
+	return lin * (exp(track * item_power_log(level - get_i("enemy_dmg_lag"))) if track > 0.0 else 1.0)
 
 ## Damage multiplier for an enemy `enemy_level` hitting a `player_level` hero:
 ## +`gap_damage` per level above, less below (never under half) (TID-718).

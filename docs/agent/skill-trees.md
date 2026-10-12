@@ -77,7 +77,7 @@ against each other.
 
 `SkillMods.school_nodes(skill_ids, effect_type) -> Dictionary` sums a `school_power` or `school_resist` node's
 `effect_value` per school (the `filter`). `add_skills` skips these, so they never set `PlayerState.skill_mods`
-or touch card costs and powers. `BattleSetup.apply_school_power` and `BattleSetup.school_resist_sources` read
+or touch card costs and powers. `SchoolSources.apply_school_power` and `SchoolSources.resist_sources` read
 them, so they work in turn-based fights too.
 
 ### SkillRegistry (`autoloads/SkillRegistry.gd`)

@@ -15,7 +15,7 @@ const RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
 const TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
 const XpCurve = preload("res://game_logic/progression/XpCurve.gd")
 
-const CURRENT_VERSION: int = 51
+const CURRENT_VERSION: int = 52
 
 
 ## Upgrades `data` in place. `up_to` stops after that version's row. The game
@@ -174,6 +174,26 @@ static func _m43_stitched_towns(d: Dictionary) -> void:
 	d["version"] = 43
 
 
+## GID-187 / TID-783: rift tiers became half a level (were two levels). Best tiers, first-clear keys and an
+## active run's tier move to the new tier of the same enemy level (`RiftDefs.migrate_tier`).
+static func _m52_half_level_rift_tiers(d: Dictionary) -> void:
+	var best: Dictionary = d.get("rift_best_tiers", {})
+	for k: Variant in best.keys():
+		best[k] = RiftDefs.migrate_tier(int(best[k])) if int(best[k]) > 0 else 0
+	d["rift_best_tiers"] = best
+	var clears: Array = []
+	for key: Variant in d.get("rift_first_clears", []):
+		var parts: PackedStringArray = str(key).split(":")
+		if parts.size() == 2:
+			clears.append("%s:%d" % [parts[0], RiftDefs.migrate_tier(int(parts[1]))])
+	d["rift_first_clears"] = clears
+	var run: Dictionary = d.get("spire_run", {})
+	if run.has("tier"):
+		run["tier"] = RiftDefs.migrate_tier(int(run["tier"]))
+		d["spire_run"] = run
+	d["version"] = 52
+
+
 static func table() -> Array:
 	var _m1: Callable = func(d: Dictionary) -> void:
 		if not d.has("owned_cards"):
@@ -293,5 +313,6 @@ static func table() -> Array:
 		[49, {"profession_xp": {}, "materials": {}}],
 		[50, {"well_fed": {}}],
 		[51, _m51_profession_trainers],
+		[52, _m52_half_level_rift_tiers],
 	]
 	return rows

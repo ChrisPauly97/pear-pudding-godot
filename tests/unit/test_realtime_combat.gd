@@ -448,7 +448,7 @@ func test_low_level_enemy_has_no_heavy_blow() -> void:
 		"below heavy_min_level the enemy never winds up")
 
 func test_heavy_blow_scales_with_enemy_level() -> void:
-	var no_gap := CombatTuning.new({"gap_damage": 0.0})
+	var no_gap := CombatTuning.new({"gap_damage": 0.0, "enemy_dmg_track": 0.0})  # level growth off (TID-793)
 	var low := _heavy_rt(1, no_gap)
 	var full := _heavy_rt(_tune.get_i("enemy_full_level"), no_gap)
 	assert_lt(low.heavy_damage(), full.heavy_damage(), "a low-level heavy hits softer")

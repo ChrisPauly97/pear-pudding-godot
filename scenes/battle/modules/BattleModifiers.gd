@@ -7,6 +7,7 @@
 extends Node
 
 const _RiftDefs = preload("res://game_logic/spire/RiftDefs.gd")
+const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
 const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const _HeroVitality = preload("res://game_logic/HeroVitality.gd")
 const _WellFed = preload("res://game_logic/professions/WellFed.gd")
@@ -23,6 +24,7 @@ const Gambits = preload("res://game_logic/battle/Gambits.gd")
 const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
+const _SchoolSources = preload("res://game_logic/battle/SchoolSources.gd")
 const _FightStart = preload("res://game_logic/battle/FightStart.gd")
 const FightConditions = preload("res://game_logic/battle/FightConditions.gd")
 
@@ -40,7 +42,7 @@ func _apply_equipment_effects(player: PlayerState) -> void:
 	var sm := SceneManager.save_manager
 	var items: Array[Dictionary] = _equipped_items()
 	_BattleSetup.apply_gear(player, items, sm.battle_mode().begins_with("realtime"), sm.level)
-	_BattleSetup.apply_school_power(player, items, sm.unlocked_skills)  # GID-181 / TID-754
+	_SchoolSources.apply_school_power(player, items, sm.unlocked_skills)  # GID-181 / TID-754
 	_apply_well_fed(player)
 
 ## The equipped items for this fight, each with its level, rarity mult and school affix.
@@ -85,11 +87,7 @@ func _apply_companion_battle_start(player: PlayerState) -> void:
 	var companion: CompanionData = CompanionRegistry.get_companion(companion_id)
 	if companion == null:
 		return
-	match companion.passive_type:
-		"extra_mana":
-			player.hero.gain_mana(companion.passive_value, true)
-		"hero_armor":
-			player.hero.add_armor(companion.passive_value)
+	_FightStart.apply_companion(player, companion.passive_type, companion.passive_value, false)  # TID-779: shared
 
 ## Draw extra card(s) from the companion's draw_card passive.
 ## Called at the start of every player turn (initial setup + each subsequent player turn).
@@ -103,8 +101,7 @@ func _apply_companion_turn_start() -> void:
 	var companion: CompanionData = CompanionRegistry.get_companion(companion_id)
 	if companion == null or companion.passive_type != "draw_card":
 		return
-	for _i in range(companion.passive_value):
-		_battle._state.players[0].draw_card(false)
+	_FightStart.companion_draw(_battle._state.players[0], companion.passive_value)
 
 ## Add a compact companion display to SidePanel (name + passive description).
 ## No-op if no companion is equipped or the companion is not unlocked.
@@ -176,17 +173,7 @@ func _build_rift_deck(player: PlayerState) -> Array[String]:
 		if not tmpl.is_empty():
 			player.draw_deck.append(CardInstance.new(tmpl))
 	player.draw_deck.shuffle()
-	var edge: int = _RiftDefs.boon_total(boons, "minion_attack")
-	if edge > 0:
-		for c: CardInstance in player.draw_deck:
-			if c.card_class == "minion":
-				c.attack += edge
-	var extra_hp: int = _RiftDefs.boon_total(boons, "max_hp")
-	player.hero.max_health += extra_hp
-	player.hero.health += extra_hp
-	var armor: int = _RiftDefs.boon_total(boons, "armor")
-	if armor > 0:
-		player.hero.add_armor(armor)
+	_RiftDefs.apply_boons(player, boons)  # TID-783: shared with the balance sim
 	return []
 
 ## GID-141 / TID-588: Allies / spells stay out of the battle deck until learned;
@@ -251,21 +238,43 @@ func _apply_school_resists(player: PlayerState) -> void:
 ## The hero's resistance sources: equipped school_resist affixes and skill nodes (TID-754).
 func _school_resist_sources() -> Dictionary:
 	var sm := SceneManager.save_manager
-	return _BattleSetup.school_resist_sources(_equipped_items(), sm.unlocked_skills,
+	return _SchoolSources.resist_sources(_equipped_items(), sm.unlocked_skills,
 			_battle._state.players[0].gear)  # GID-187 / TID-788: resist:<school> gear stats
 
 func _apply_persistent_hp() -> void:
+	var run_frac: float = _run_hp_frac()
+	if run_frac >= 0.0:  # TID-783: a rift run or siege carries its own HP fraction between its fights
+		_FightStart.apply_start_hp(_battle._state.players[0], run_frac)
+		return
 	if not _hp_carries():
 		return
 	_FightStart.apply_start_hp(_battle._state.players[0], SceneManager.save_manager.hero_hp_frac)
 
+## The HP fraction the active rift run or siege carries (-1 when neither runs). Co-op rifts keep theirs.
+func _run_hp_frac() -> float:
+	var sm := SceneManager.save_manager
+	if sm.spire.is_spire_active():
+		return sm.spire.hp_frac()
+	if not sm.town_siege.get_active_siege().is_empty():
+		return sm.town_siege.hp_frac()
+	return -1.0
+
 
 ## Game over of an ordinary solo fight: remember what's left (a loss → RESPAWN_FRAC).
+## A won rift floor or siege stage stores the run's fraction instead (TID-783).
 func record_persistent_hp(won: bool) -> void:
-	if not _hp_carries():
-		return
 	var hero: HeroState = _battle._state.players[0].hero
 	var sm := SceneManager.save_manager
+	if _run_hp_frac() >= 0.0:
+		if won:
+			var frac: float = _HeroVitality.frac_after(hero.health, hero.max_health, true)
+			if sm.spire.is_spire_active():  # plus the breather before the next floor / wave (TID-783)
+				sm.spire.set_hp_frac(_RiftDefs.after_floor(frac))
+			else:
+				sm.town_siege.set_hp_frac(_SiegeDefs.after_wave(frac))
+		return
+	if not _hp_carries():
+		return
 	sm.hero_hp_frac = _HeroVitality.frac_after(hero.health, hero.max_health, won)
 	sm.mark_dirty()
 

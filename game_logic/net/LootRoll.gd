@@ -31,6 +31,15 @@ const _ROLL_MAX: int = 100
 ## treasure-room chests (tier 3, `dtr_` ids) roll higher than the default.
 const EQUIPMENT_CHANCE_TREASURE_ROOM: float = 0.40
 const EQUIPMENT_CHANCE_DEFAULT: float = 0.15
+## GID-187 / TID-793: catch-up. While a slot has fallen behind the gear curve
+## (`GearDrops.behind_slots`), the chance is multiplied by this (capped at 1), so a player who
+## skipped chests is pulled back near the curve that enemy power assumes.
+const EQUIPMENT_CATCHUP_MULT: float = 2.0
+
+## The equipment drop chance of a `tier` chest; `behind` = the opener has a slot behind the curve.
+static func equipment_chance(tier: int, behind: bool = false) -> float:
+	var chance: float = EQUIPMENT_CHANCE_TREASURE_ROOM if tier == 3 else EQUIPMENT_CHANCE_DEFAULT
+	return minf(1.0, chance * EQUIPMENT_CATCHUP_MULT) if behind else chance
 
 
 ## Normalize a raw choice string to one of the three constants; anything else -> pass.
@@ -195,8 +204,7 @@ static func resolve_winner(choices: Dictionary, rng: RandomNumberGenerator) -> D
 ## both pools is already owned (nothing left to drop).
 static func roll_equipment_drop(tier: int, weapon_ids: Array, armor_ids: Array,
 		owned_weapon_ids: Array, owned_armor_ids: Array, rng: RandomNumberGenerator) -> String:
-	var chance: float = EQUIPMENT_CHANCE_TREASURE_ROOM if tier == 3 else EQUIPMENT_CHANCE_DEFAULT
-	if rng.randf() >= chance:
+	if rng.randf() >= equipment_chance(tier):
 		return ""
 	var candidates: Array[String] = []
 	for wid: Variant in weapon_ids:

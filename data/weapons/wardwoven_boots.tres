@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://x3g8s0e62cvx"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_wardwoven_boots"]
+
+[resource]
+script = ExtResource("1_wardwoven_boots")
+id = "wardwoven_boots"
+display_name = "Wardwoven Boots"
+description = "Woven with faint warding threads that hum near danger."
+slot = "boots"
+battle_effect_type = ""
+stats = {
+"spell_power": 15,
+"mastery:rift": 6,
+"haste": 8
+}
+band = "superior"
+item_level = 29
+level_req = 29
+rarity = "rare"

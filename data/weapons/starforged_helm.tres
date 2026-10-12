@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://8bkkq5m5sf99"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_starforged_helm"]
+
+[resource]
+script = ExtResource("1_starforged_helm")
+id = "starforged_helm"
+display_name = "Starforged Helm"
+description = "Forged under the falling stars, light as a held breath."
+slot = "helmet"
+battle_effect_type = ""
+stats = {
+"intellect": 7,
+"mastery:light": 17,
+"haste": 13,
+"spell_crit": 19
+}
+band = "legendary"
+item_level = 55
+level_req = 55
+rarity = "legendary"
