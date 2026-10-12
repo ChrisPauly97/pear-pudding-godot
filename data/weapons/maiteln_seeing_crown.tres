@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://2wwutx7npnfu"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_maiteln_seeing_crown"]
+
+[resource]
+script = ExtResource("1_maiteln_seeing_crown")
+id = "maiteln_seeing_crown"
+display_name = "Maiteln's Seeing Crown"
+description = "A crown of brass and clear glass that shows the road ahead."
+slot = "helmet"
+battle_effect_type = ""
+stats = {
+"intellect": 7,
+"mastery:light": 18,
+"haste": 13,
+"spell_crit": 20
+}
+band = "legendary"
+item_level = 59
+level_req = 59
+rarity = "legendary"

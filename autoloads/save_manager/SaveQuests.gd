@@ -8,7 +8,7 @@ extends RefCounted
 
 const _SaveManager = preload("res://autoloads/SaveManager.gd")
 const _SideQuests = preload("res://game_logic/quests/SideQuests.gd")
-const _GearRolls = preload("res://game_logic/items/GearRolls.gd")
+const _GearDrops = preload("res://game_logic/items/GearDrops.gd")
 const _RiddleSpots = preload("res://game_logic/world/RiddleSpots.gd")
 
 ## ≥ 0: use this as "now" instead of the system clock (simulations / tests).
@@ -179,7 +179,7 @@ func turn_in(id: String, gear_pick: String = "") -> Dictionary:
 	if not choice.is_empty():
 		if not choice.has(gear_pick):
 			gear_pick = str(choice[0])
-		_save.gear.grant(gear_pick, quest_gear_roll(q))
+		_save.gear.grant(gear_pick, _GearDrops.authored_roll(gear_pick))  # TID-791: the pick's own roll
 		rewards["gear"] = gear_pick
 	_save.quests_active.erase(id)
 	if _SideQuests.is_repeatable(q):
@@ -202,9 +202,9 @@ func turn_in(id: String, gear_pick: String = "") -> Dictionary:
 	GameBus.quest_turned_in.emit(id)
 	return rewards
 
-## The roll a quest's gear reward is granted at: QUEST_RARITY, item level one above the quest's.
+## The roll a quest's gear reward is recorded with: the item's authored rarity / level (TID-791).
 static func quest_gear_roll(q: Dictionary) -> Dictionary:
-	return {"rarity": _GearRolls.QUEST_RARITY, "ilvl": int(q.get("min_level", 1)) + 1}
+	return _GearDrops.authored_roll(str((q.get("rewards", {}) as Dictionary).get("gear_choice", [""])[0]))
 
 ## Active side quests as QuestLog entries.
 func log_entries() -> Array[Dictionary]:

@@ -37,6 +37,11 @@ var school_power: Dictionary = {}
 ## Outgoing damage multiplier from the hero's level, every school (real time: `CombatTuning.hero_level_power`,
 ## set by RealtimeCombat for the player side). 1.0 = none. Not serialized.
 var level_power: float = 1.0
+## Converted gear stats for this fight (GID-187 / TID-788, `GearStats.apply`): flat stats as ints,
+## percent / school stats as fractions. Read with `gear_stat`. Not serialized.
+var gear: Dictionary = {}
+## Leech healing below one HP, carried to the next hit (TID-788).
+var leech_carry: float = 0.0
 ## The weapon's convert affix (GID-181 / TID-754): the school the hero's auto-attack and Strike
 ## hit as. "" = plain physical. Set at solo battle start; not serialized.
 var convert_school: String = ""
@@ -62,6 +67,10 @@ var is_night: bool = false
 var grasslands_card_played: bool = false  # resets at start_turn(); tracks first-card discount
 ## Real time (GID-139): an essence-surge proc makes the next card free; play_card clears it.
 var next_card_free: bool = false
+
+## A converted gear stat (`GearStats`), 0 when the gear has none.
+func gear_stat(id: String) -> float:
+	return float(gear.get(id, 0.0))
 
 func _init(pid: int, ai: bool = false) -> void:
 	player_id = pid

@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://2uwrsgkknnw3"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_copper_band"]
+
+[resource]
+script = ExtResource("1_copper_band")
+id = "copper_band"
+display_name = "Copper Band"
+description = "A plain copper ring worn thin by a previous owner's thumb."
+slot = "ring"
+battle_effect_type = ""
+stats = {
+"stamina": 4
+}
+band = "basic"
+item_level = 2
+level_req = 2
+rarity = "common"

@@ -118,7 +118,7 @@ const QUESTS: Array[Dictionary] = [
 			{"type": "kill", "target": "ghoul_pack", "count": 3, "label": "Hedge Ruins ghouls put down",
 				"map": "main", "tx": 53, "tz": -27}],
 		"min_level": 5, "rewards": {"xp": 180, "coins": 80, "flag": "town_quests_done",
-			"gear_choice": ["iron_helm", "iron_greaves", "buckler"]}},
+			"gear_choice": ["iron_helm", "iron_greaves", "arcane_focus"]}},
 	# ── Optional: levels 6–12 ─────────────────────────────────────────────────
 	# GID-177 / TID-722: the level 6–9 quests send you down the south road to the
 	# road camps of their level (Madrian's own camps top out at 5). Ids kept (saves).

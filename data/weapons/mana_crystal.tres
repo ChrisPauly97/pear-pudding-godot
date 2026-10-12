@@ -6,8 +6,15 @@
 script = ExtResource("1_mana_crystal")
 id = "mana_crystal"
 display_name = "Mana Crystal"
-description = "A humming gem. You start each battle with 2 extra mana."
-battle_effect_type = "starting_mana"
+description = "A humming gem."
+battle_effect_type = ""
 battle_effect_value = 2
 injected_card_id = ""
 injected_card_count = 0
+stats = {
+"intellect": 2
+}
+band = "basic"
+item_level = 5
+level_req = 5
+rarity = "common"

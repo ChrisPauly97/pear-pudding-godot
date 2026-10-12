@@ -4,6 +4,7 @@
 ##
 ## Deliberately not clever: its job is to compare one setting against another,
 ## not to predict a skilled human's win rate. Policy, in priority order:
+##   0. A quick-slot potion when hero HP is below `potion_below` (GID-187 / TID-781).
 ##   1. Kick (else Daze) when an enemy is casting — Daze first on a heavy blow.
 ##   2. A heal when hero HP is below `heal_below`.
 ##   3. Summon an Ally when a slot is free.
@@ -12,6 +13,17 @@
 ## on their own in real time, so the bot never commands them. With `focus` on it
 ## taps the weakest enemy minion as its auto-attack focus (what a player does
 ## against a pack, TID-718), else leaves swings on the hero.
+##
+## Policy variety (GID-187 / TID-784): the knobs `react`, `kick_miss` and `think`
+## default to 0 (off), which is exactly the policy above. The `casual` preset turns
+## them on: it answers a telegraphed cast or heavy blow only `react` seconds after
+## first seeing it, whiffs `kick_miss` of its interrupts (one seeded roll per cast on
+## the fight's rng), waits `think` seconds between plays and never swaps focus.
+## `preset(name)` gives a full knob dictionary; `tools/balance_sim.gd --bot casual`.
+##
+## Potions (GID-187 / TID-781): with `potion_below` above 0 the bot drinks its first ready quick-slot
+## potion (`stock()`, the game's `QuickSlots` cooldown and `PotionEffects`) once hero HP falls below
+## that fraction. It is off by default, so the default bot plays the same fights as before.
 extends RefCounted
 
 const PlayerCaster = preload("res://game_logic/battle/PlayerCaster.gd")
@@ -21,6 +33,8 @@ const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const Keywords = preload("res://game_logic/battle/Keywords.gd")
 const TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
 const SpellEffectResolver = preload("res://scenes/battle/SpellEffectResolver.gd")
+const QuickSlots = preload("res://game_logic/battle/QuickSlots.gd")
+const PotionEffects = preload("res://game_logic/battle/PotionEffects.gd")
 
 const HEALS: Array[String] = ["heal_hero", "heal_all", "drain_hero", "lifesteal_hit"]
 ## Spells the bot never plays (need a slot / ally pick it doesn't model).
@@ -28,11 +42,102 @@ const SKIPPED: Array[String] = ["bless_slot", "ward_slot"]
 
 ## Policy knobs (sweepable). heal_below: HP fraction that triggers healing;
 ## summon: play Allies at all; interrupt: use Kick / Daze; focus: auto-attack the
-## weakest enemy minion.
-var policy: Dictionary = {"heal_below": 0.4, "summon": true, "interrupt": true, "focus": true}
+## weakest enemy minion; react: seconds to see a cast before answering it; kick_miss:
+## chance an interrupt whiffs; think: seconds between plays (0 = as fast as the GCD); potion_below:
+## HP fraction under which a ready quick-slot potion is drunk (0 = never).
+const DEFAULT_POLICY: Dictionary = {"heal_below": 0.4, "summon": true, "interrupt": true, "focus": true,
+	"react": 0.0, "kick_miss": 0.0, "think": 0.0, "potion_below": 0.0}
+## Named policies. Knobs not listed take DEFAULT_POLICY's value.
+const PRESETS: Dictionary = {
+	"default": {},
+	"casual": {"focus": false, "react": 0.5, "kick_miss": 0.2, "think": 1.0},
+}
+
+var policy: Dictionary = DEFAULT_POLICY.duplicate()
+## Quick-slot potions drunk this fight (GID-187 / TID-781).
+var potions_used: int = 0
+## Fight clock, advanced by `act(…, dt)`; drives `react` and `think`.
+var _clock: float = 0.0
+## The enemy cast first seen at `_seen_at`, and whether its interrupt roll was made.
+var _seen: CardInstance = null
+var _seen_at: float = 0.0
+var _rolled: bool = false
+var _whiffed: bool = false
+## Clock time of the bot's next play (`think`).
+var _next_play: float = 0.0
+## Quick-slot potions this fight may drink (ids, slot order), their counts, and the drinks so far.
+var _stock: Array[String] = []
+var _counts: Dictionary = {}
+var _quick: QuickSlots = QuickSlots.new()
 
 func _init(knobs: Dictionary = {}) -> void:
 	policy.merge(knobs, true)
+
+## Every knob with its value for the named policy (unknown names give the default).
+static func preset(name: String) -> Dictionary:
+	var out: Dictionary = DEFAULT_POLICY.duplicate()
+	out.merge(PRESETS.get(name, {}) as Dictionary, true)
+	return out
+
+static func has_preset(name: String) -> bool:
+	return PRESETS.has(name)
+
+## Gives the bot the quick-slot potions it may drink this fight (`ids`, from BattleSetup.build)
+## and their counts (copied; read the rest back with `potions_left()`).
+func stock(ids: Array[String], counts: Dictionary) -> void:
+	_stock = ids.duplicate()
+	_counts = counts.duplicate()
+
+## The potion counts after this fight's drinks.
+func potions_left() -> Dictionary:
+	return _counts.duplicate()
+
+## Drinks the first ready stocked potion when hero HP is under `potion_below`. Uses the game's
+## shared cooldown (`potion_cooldown`, seconds) and the game's potion effects. True if it drank.
+func _try_potion(caster: PlayerCaster) -> bool:
+	var below: float = float(policy["potion_below"])
+	if below <= 0.0 or _stock.is_empty() or not _quick.is_ready(0, true):
+		return false
+	var me: PlayerState = caster.rt.state.players[RealtimeCombat.PLAYER]
+	if float(me.hero.health) / float(maxi(1, me.hero.max_health)) >= below:
+		return false
+	for id: String in _stock:
+		if int(_counts.get(id, 0)) <= 0:
+			continue
+		_counts[id] = int(_counts[id]) - 1
+		if id == "clarity_brew":
+			me.draw_card()
+			me.draw_card()
+		else:
+			PotionEffects.apply_hero(id, me.hero)
+		_quick.start(0, caster.rt.tune.get_f("potion_cooldown"))
+		potions_used += 1
+		return true
+	return false
+
+## Records the enemy cast the bot can see now (null = none). A new cast restarts the reaction clock.
+func _sight(cast: CardInstance) -> void:
+	if cast == _seen:
+		return
+	_seen = cast
+	_seen_at = _clock
+	_rolled = false
+	_whiffed = false
+
+## True once the bot has reacted for `react` seconds to the cast it is looking at.
+func _reacted() -> bool:
+	var react: float = float(policy["react"])
+	return react <= 0.0 or _clock - _seen_at >= react - 0.001
+
+## True unless this cast's interrupt whiffs (`kick_miss`, rolled once per cast on the fight rng).
+func _kick_lands(rt: RealtimeCombat) -> bool:
+	var miss: float = float(policy["kick_miss"])
+	if miss <= 0.0:
+		return true
+	if not _rolled:
+		_rolled = true
+		_whiffed = rt.rng.randf() < miss
+	return not _whiffed
 
 ## The card to play now and its target ({card, target}), or {} to wait.
 func decide(caster: PlayerCaster) -> Dictionary:
@@ -47,11 +152,15 @@ func decide(caster: PlayerCaster) -> Dictionary:
 		return {}
 	if bool(policy["interrupt"]) and caster.casting_enemy() >= 0:
 		var side: int = caster.casting_enemy()
-		var heavy: bool = RealtimeCombat.is_heavy(rt.casting[side] as CardInstance)
+		var cast: CardInstance = rt.casting[side] as CardInstance
+		_sight(cast)
+		var heavy: bool = RealtimeCombat.is_heavy(cast)
 		for id: String in (["tech_daze", "tech_kick"] if heavy else ["tech_kick", "tech_daze"]):
 			var c: CardInstance = _find(ready, id)
 			if c != null:
-				return {"card": c, "target": {}}
+				if _reacted() and _kick_lands(rt):
+					return {"card": c, "target": {}}
+				break
 	var hp_frac: float = float(me.hero.health) / float(maxi(1, me.hero.max_health))
 	if hp_frac < float(policy["heal_below"]):
 		for c: CardInstance in ready:
@@ -79,16 +188,28 @@ func decide(caster: PlayerCaster) -> Dictionary:
 			return choice
 	return {}
 
-## Decides and plays; returns the played card's template id, or "".
-func act(caster: PlayerCaster, resolver: SpellEffectResolver) -> String:
+## Decides and plays; returns the played card's template id, or "". `dt` is the
+## seconds since the last call (the fight's tick); it advances the bot's clock.
+func act(caster: PlayerCaster, resolver: SpellEffectResolver, dt: float = 0.0) -> String:
+	_clock += dt
+	_quick.tick(dt)
+	if caster.casting_enemy() < 0:
+		_sight(null)
+	else:
+		_sight(caster.rt.casting[caster.casting_enemy()] as CardInstance)
 	if bool(policy["focus"]):
 		_focus(caster.rt)
+	if _try_potion(caster):
+		return ""  # a drink is not a card play: BalanceFight counts it in `potions_used`
+	if _clock < _next_play:
+		return ""
 	var d: Dictionary = decide(caster)
 	if d.is_empty():
 		return ""
 	var card := d["card"] as CardInstance
 	if caster.play(card, resolver, d["target"] as Dictionary) != "":
 		return ""
+	_next_play = _clock + float(policy["think"])
 	return card.template_id
 
 ## Keeps the auto-attack focus on the weakest living enemy minion (null = hero).

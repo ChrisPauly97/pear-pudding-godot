@@ -28,6 +28,8 @@ const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
 const FightStats = preload("res://game_logic/battle/FightStats.gd")
 const SpellEffectResolver = preload("res://scenes/battle/SpellEffectResolver.gd")
+const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
+const GearStats = preload("res://game_logic/items/GearStats.gd")
 const SkillMods = preload("res://game_logic/battle/SkillMods.gd")
 
 const SIDE: int = RealtimeCombat.PLAYER
@@ -237,7 +239,8 @@ func _after_technique(card: CardInstance, dealt: int) -> void:
 	if dealt > 0 and rt.on_player_hit(dealt, true):
 		_emit("proc")
 	_emit("technique", {"card": card, "effect": card.spell_effect})
-	var recycle: float = TechniqueDefs.recycle_time(card.template_id) * rt.tune.get_f("tech_recycle_mult")
+	var recycle: float = TechniqueDefs.recycle_time(card.template_id) * rt.tune.get_f("tech_recycle_mult") \
+			/ (1.0 + _me().gear_stat("haste"))  # GID-187 / TID-788: haste returns techniques sooner
 	if _me().skill_mods != null:
 		recycle *= _me().skill_mods.recycle_mult(card)
 	_returning.append({"card": card, "left": recycle})
@@ -252,8 +255,12 @@ func modify_power(card: CardInstance, caster_pid: int, power: int) -> int:
 		power = mods.power_for(card, power)
 	if not SkillMods.can_crit(card) or power <= 0:
 		return power
+	# GID-187 / TID-788: gear spell / attack power and crit by the card's school (physical = weapon side).
+	var magic: bool = DamageSchools.school_of(card) != DamageSchools.PHYSICAL
+	power = GearStats.boost(power, _me().gear_stat("spell_power" if magic else "attack_power"))
 	# The swing crit roll (TID-728) on the same seeded rng, plus `mod_crit` nodes (TID-732).
-	var chance: float = rt.tune.get_f("crit_chance") + (0.0 if mods == null else mods.crit_bonus(card))
+	var chance: float = rt.tune.get_f("crit_chance") + (0.0 if mods == null else mods.crit_bonus(card)) \
+			+ _me().gear_stat("spell_crit" if magic else "phys_crit")
 	if rt.rng.randf() >= chance:
 		return power
 	var instant: bool = mods != null and mods.instant_on_crit(card)

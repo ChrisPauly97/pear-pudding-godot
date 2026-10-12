@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://t30oyfuhuxxl"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_verdant_staff"]
+
+[resource]
+script = ExtResource("1_verdant_staff")
+id = "verdant_staff"
+display_name = "Verdant Staff"
+description = "A living staff of greenheart wood that sprouts leaves each spring."
+slot = "weapon"
+battle_effect_type = ""
+stats = {
+"spell_power": 25,
+"spirit": 8,
+"mastery:verdant": 19
+}
+swing_speed = 3.2
+band = "superior"
+item_level = 31
+level_req = 31
+rarity = "rare"

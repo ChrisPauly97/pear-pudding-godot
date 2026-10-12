@@ -2,6 +2,7 @@
 extends RefCounted
 
 const WeaponData = preload("res://data/WeaponData.gd")
+const _GearStats = preload("res://game_logic/items/GearStats.gd")
 
 ## Coin cost to upgrade from level N to N+1 (index = current level, 0-based).
 const UPGRADE_COST_COINS: Array[int] = [100, 200, 300, 400, 500]
@@ -22,6 +23,29 @@ static func effective_stat(weapon: WeaponData, level: int, mult: float = 1.0) ->
 	if is_equal_approx(mult, 1.0):
 		return int(weapon.battle_effect_value * (1.0 + 0.10 * level))
 	return maxi(weapon.battle_effect_value, roundi(weapon.battle_effect_value * (1.0 + 0.10 * level) * mult))
+
+## GID-187 / TID-789: an item's hand-made stat ratings at blacksmith upgrade `level` (+10 % per
+## level, the same step as `effective_stat`), rounded; a positive rating never drops below 1.
+static func scaled_stats(weapon: WeaponData, level: int) -> Dictionary:
+	var out: Dictionary = {}
+	if weapon == null:
+		return out
+	for k: Variant in weapon.stats:
+		var v: float = float(weapon.stats[k])
+		out[str(k)] = maxi(1, roundi(v * (1.0 + 0.10 * float(maxi(0, level))))) if v > 0.0 else 0
+	return out
+
+## "+12 Stamina, +3 Haste" for an item's stats at upgrade `level` ("" without stats).
+static func stats_string(weapon: WeaponData, level: int) -> String:
+	var parts: PackedStringArray = []
+	var stats: Dictionary = scaled_stats(weapon, level)
+	for k: String in stats:
+		var kind: String = k.get_slice(":", 0)
+		var label: String = str(_GearStats.LABELS.get(kind, kind))
+		if k.contains(":"):
+			label += " (%s)" % k.get_slice(":", 1).capitalize()
+		parts.append("+%d %s" % [int(stats[k]), label])
+	return ", ".join(parts)
 
 ## Returns the scaled injected_card_count for deck_inject weapons (base + level extra copies).
 static func effective_inject_count(weapon: WeaponData, level: int) -> int:
@@ -52,6 +76,9 @@ static func cost_essence(current_level: int) -> int:
 static func get_display_string(weapon: WeaponData, level: int, mult: float = 1.0) -> String:
 	if weapon == null:
 		return ""
+	var stat_text: String = stats_string(weapon, level)
+	if stat_text != "" and weapon.battle_effect_type == "":
+		return stat_text
 	match weapon.battle_effect_type:
 		"deck_inject":
 			return "Inject %d× %s" % [effective_inject_count(weapon, level), weapon.injected_card_id]

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://7gkj3zckpsj3"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_aegis_pauldrons"]
+
+[resource]
+script = ExtResource("1_aegis_pauldrons")
+id = "aegis_pauldrons"
+display_name = "Aegis Pauldrons"
+description = "Broad pauldrons that catch blows meant for the neck."
+slot = "shoulders"
+battle_effect_type = ""
+stats = {
+"armor": 10,
+"spirit": 6,
+"block": 6,
+"resist:rift": 14
+}
+band = "heroic"
+item_level = 36
+level_req = 36
+rarity = "epic"

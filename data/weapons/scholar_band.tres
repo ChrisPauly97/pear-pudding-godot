@@ -12,3 +12,7 @@ battle_effect_type = "deck_inject"
 battle_effect_value = 0
 injected_card_id = "insight"
 injected_card_count = 2
+band = "basic"
+item_level = 5
+level_req = 5
+rarity = "common"

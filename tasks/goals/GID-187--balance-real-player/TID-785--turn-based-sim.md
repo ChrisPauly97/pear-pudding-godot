@@ -2,7 +2,7 @@
 
 **Goal:** GID-187
 **Type:** agent
-**Status:** todo
+**Status:** cancelled (user, 2026-10-11: turn-based combat is being deprecated)
 **Depends On:** TID-778
 
 ## Lock

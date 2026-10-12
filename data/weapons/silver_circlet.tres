@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://s59tjugk8if6"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_silver_circlet"]
+
+[resource]
+script = ExtResource("1_silver_circlet")
+id = "silver_circlet"
+display_name = "Silver Circlet"
+description = "A thin silver band with a glass bead that catches lamplight."
+slot = "helmet"
+battle_effect_type = ""
+stats = {
+"intellect": 3,
+"haste": 7
+}
+band = "fine"
+item_level = 18
+level_req = 18
+rarity = "rare"

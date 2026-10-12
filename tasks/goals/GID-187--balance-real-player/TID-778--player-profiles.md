@@ -2,7 +2,7 @@
 
 **Goal:** GID-187
 **Type:** agent
-**Status:** todo
+**Status:** done
 **Depends On:** TID-791
 
 ## Lock
@@ -35,6 +35,22 @@ kind)` → a `BattleSetup.build` cfg fragment (deck, gear, skills, learned). `ki
 
 ## Plan
 
+Pure `BalanceProfiles`: `cfg(level, magic_type, kind)` for `typical` / `modest` / `bare`, a deterministic skill build,
+the magic type's matched deck plus skill-granted techniques, and the `GearDrops.expected_loadout` gear; a `profiles`
+coverage section (progression order gated now, level targets in TID-787).
+
 ## Changes Made
 
+- `game_logic/battle/BalanceProfiles.gd`: `cfg`, `skill_build` (first branch row by row, prerequisites first, then the
+  second; skips `alt_cost` nodes — a tree has ~10-11 nodes per magic type, below the 21 points of level 30), `deck`
+  (skill techniques fill free technique slots), `measure` / `check` (`profiles` section: 9 cells levels 2-59, every
+  magic type, typical / modest / bare, +0 / +1; gate: typical ≥ modest ≥ bare − 15 pp), `power_of` / `gear_share`
+  (TID-787 measurement).
+- `BalanceFight` records `taken` / `hero_max_hp` (for `power_of`). `BalanceCoverage` dispatches `profiles`.
+- Measured (8 fights × 4 types, +1): bare 50-100 %, modest 91-100 %, typical 88-100 % — profiles win nearly every
+  cell, so TID-787 retunes against them. Gear share at level 30 (rift echo): 0.48 (target 0.6).
+- Tests: `tests/unit/test_balance_profiles.gd` (6).
+
 ## Documentation Updates
+
+- `docs/agent/balance-sim.md` → Player profiles.

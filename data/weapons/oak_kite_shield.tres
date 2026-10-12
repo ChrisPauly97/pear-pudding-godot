@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://ryx3dzk5ayfb"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_oak_kite_shield"]
+
+[resource]
+script = ExtResource("1_oak_kite_shield")
+id = "oak_kite_shield"
+display_name = "Oak Kite Shield"
+description = "A long shield of oak and iron, bound at the rim."
+slot = "offhand"
+battle_effect_type = ""
+stats = {
+"armor": 3,
+"command": 5
+}
+band = "fine"
+item_level = 11
+level_req = 11
+rarity = "common"

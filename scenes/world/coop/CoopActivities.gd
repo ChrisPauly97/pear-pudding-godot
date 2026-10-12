@@ -33,6 +33,7 @@ const _SpireDraftSync    = preload("res://game_logic/net/SpireDraftSync.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _WeaponData        = preload("res://data/WeaponData.gd")
 const _WeaponRegistry    = preload("res://autoloads/WeaponRegistry.gd")
+const _GearDrops         = preload("res://game_logic/items/GearDrops.gd")
 const _WorldObjectSync   = preload("res://game_logic/net/WorldObjectSync.gd")
 
 ## The WorldScene that owns this module. Everything the module needs from
@@ -313,9 +314,14 @@ func _roll_equipment_into_loot_grant(rec: Dictionary, tier: int) -> void:
 	var owned_a: Array = rec.get("owned_armor", []) as Array
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
+	# GID-187 / TID-791: only items on the gear curve for the winner's level.
+	var lvl: int = int(rec.get("level", 1))
+	var curve_armor: Array[String] = []
+	for s: String in _GearDrops.SLOTS:
+		if s != "weapon":
+			curve_armor.append_array(_GearDrops.candidates(lvl, s))
 	var picked: String = _LootRoll.roll_equipment_drop(
-		tier, _WeaponRegistry.get_by_slot("weapon"), _WeaponRegistry.get_by_slot("armor"),
-		owned_w, owned_a, rng)
+		tier, _GearDrops.candidates(lvl, "weapon"), curve_armor, owned_w, owned_a, rng)
 	if picked == "":
 		return
 	var weapon: _WeaponData = _WeaponRegistry.get_weapon(picked)

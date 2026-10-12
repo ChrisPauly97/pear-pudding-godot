@@ -1,8 +1,8 @@
-# TID-788: Gear stat system (WoW-style stats wired into combat)
+# TID-788: Gear stat system (card-framed stats wired into combat)
 
 **Goal:** GID-187
 **Type:** agent
-**Status:** todo
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -51,6 +51,54 @@ rating-per-% that grows with level (WoW-style, so old gear fades). Proposed stat
 
 ## Plan
 
+User decision (2026-10-11, spec Identity "not a stat bar"): **stats are boosts to the cards**, not a stat bar —
+"haste for draw speed, spell crit for damage by spells, physical crit for damage with weapons / Strike". Stamina /
+Armor stay hero stats (the Basic band's "health only / armour only"). Versatility dropped (a pure stat bar);
+Command added (Allies are cards).
+
+| Stat | Card effect | Mode |
+|---|---|---|
+| stamina | + hero max HP (1 HP per point) | both |
+| armor | + hero armor | both |
+| intellect | + max mana (cost units) | both |
+| spell_power | + % power of damage / heal spells and magic techniques | real time |
+| attack_power | + % damage of hero swings, Strike and physical damage / heal cards | real time |
+| spell_crit | + crit chance of magic damage / heal cards | real time |
+| phys_crit | + crit chance of hero swings and physical damage / heal cards | real time |
+| haste | faster draws and technique returns (÷ 1 + haste) | real time |
+| spirit | + % mana regen | real time |
+| command | + % damage of Ally swings | real time |
+| leech | heal the hero for % of damage the player side deals | both |
+| block | chance to halve a hit on the hero | both |
+| mastery:<school> | + % damage of that school (school_power) | both |
+| resist:<school> | − % damage of that school taken (capped) | both |
+
+1. Pure `game_logic/items/GearStats.gd`: stat table, `totals(items)`, rating → % at a level
+   (`stat_rating_base` × (1 + `stat_rating_growth` × (L − 1)) rating per 1 %, capped `stat_pct_cap`), `apply(player,
+   totals, level, tune)` storing converted values on `PlayerState.gear` (Dictionary).
+2. `WeaponData.stats` export (hand-made stats; TID-789 fills it). `BattleSetup.apply_gear` reads item `stats` and the
+   weapon's `stats`, `apply_school_power` / `school_resist_sources` take mastery / resist stats.
+3. Hooks: `PlayerCaster.modify_power` (spell / attack power, crits), `RealtimeCombat._resolve_swing` (attack power,
+   phys crit, command), draw interval + technique recycle (haste), `_regen_mult` (spirit), `DamageResolver.deal`
+   (leech, block).
+4. Tests `test_gear_stats.gd`; docs (`balance-sim.md`, new section in `inventory-and-deck.md`).
+
 ## Changes Made
 
+- `game_logic/items/GearStats.gd` (new): stat table (`FLAT`, `PERCENT`, `SCHOOL_KINDS`, `LABELS`), `totals`,
+  `rating_per_pct` / `pct` / `convert_ratings`, `apply`, `resist_sources`, `boost`.
+- `CombatTuning` "Gear stats" knobs: `stat_rating_base` 1.0, `stat_rating_growth` 0.1, `stat_pct_cap` 0.5,
+  `block_mult` 0.5.
+- `PlayerState.gear` + `gear_stat(id)` + `leech_carry`; `WeaponData.stats` export.
+- `BattleSetup.apply_gear(…, player_level, tune)` applies stats (sim `build` passes its tuning);
+  `school_resist_sources(…, gear_conv)` adds `resist:<school>`; `BattleModifiers` passes `sm.level` and the gear.
+- Hooks: `PlayerCaster.modify_power` (spell / attack power, spell / physical crit), haste on technique returns;
+  `RealtimeCombat` draw timer (haste), `_regen_mult` (spirit), `_resolve_swing` (attack power + physical crit on hero
+  swings, command on Ally swings); `DamageResolver.blocked` / `leech`.
+- No item has stats yet, so balance is unchanged (bands pass as before).
+- Tests: `tests/unit/test_gear_stats.gd` (11 cases).
+- Backlog: BID-104 (spec wording, human edit).
+
 ## Documentation Updates
+
+- `docs/agent/inventory-and-deck.md` → Gear Stats.

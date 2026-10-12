@@ -4,8 +4,11 @@
 ## values read from the save; `build()` assembles a whole real-time fight from
 ## a plain config for `tools/balance_sim.gd`.
 ##
-## Not covered (scene-only, see BID-094): spire / siege HP carry-over, gambits,
-## ambush, blight, weather, battlefield biome, companions, persistent hero HP.
+## Battlefield conditions (weather, biome / night school boosts, scorch, blight, ambush,
+## gambits) live in `FightConditions`, shared with the game (GID-187 / TID-780).
+## Persistent hero HP (`start_hp_frac`), well-fed buffs and quick-slot potions (GID-187 / TID-781) are
+## applied here too, through `FightStart`, the helpers the game's BattleModifiers calls.
+## Not covered (scene-only, see BID-094): spire / siege HP carry-over, companions.
 extends RefCounted
 
 const GameState = preload("res://game_logic/battle/GameState.gd")
@@ -26,10 +29,18 @@ const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
 const SkillMods = preload("res://game_logic/battle/SkillMods.gd")
 const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
+const GearStats = preload("res://game_logic/items/GearStats.gd")
+const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
+const FightConditions = preload("res://game_logic/battle/FightConditions.gd")
+const FightStart = preload("res://game_logic/battle/FightStart.gd")
 ## TID-757: how many default Allies a school-matched deck swaps for the school's own cards.
 const MATCHED_SWAP: int = 2
 
 const OPENING_HAND: int = 4
+## GID-187 / TID-782: a joiner (a second enemy arriving mid-fight) opens with 3 cards.
+const JOINER_OPENING_HAND: int = 3
+## Boss cards fight at this tier (and a boss's phase 2 deck is built at it too).
+const BOSS_TIER: int = 4
 
 # --- Player ---------------------------------------------------------------
 
@@ -53,8 +64,17 @@ static func unlock_filter(deck: Array[CardInstance], learned: Array) -> Array[Ca
 ## Equipped items' battle effects. `items`: [{id, level (weapon upgrade), mult (gear roll)}].
 ## Off-hand attack gear swings on its own timer in real time (RealtimeCombat.offhand_damage,
 ## see `offhand_damage_for_item`); turn-based gets a smaller always-on attack bonus instead.
-static func apply_gear(player: PlayerState, items: Array[Dictionary], realtime: bool) -> void:
+static func apply_gear(player: PlayerState, items: Array[Dictionary], realtime: bool, player_level: int = 1,
+		tune: CombatTuning = null) -> void:
 	var injected_any: bool = false
+	# GID-187 / TID-788: stat ratings from the item data and each item's hand-made `stats`.
+	var stat_items: Array[Dictionary] = []
+	for item: Dictionary in items:
+		stat_items.append(item)
+		var w: WeaponData = WeaponRegistry.get_weapon(str(item.get("id", "")))
+		if w != null and not w.stats.is_empty():  # hand-made stats, scaled by blacksmith upgrades (TID-789)
+			stat_items.append({"stats": UpgradeDefs.scaled_stats(w, int(item.get("level", 0)))})
+	GearStats.apply(player, GearStats.totals(stat_items), player_level, tune)
 	for item: Dictionary in items:
 		var weapon: WeaponData = WeaponRegistry.get_weapon(str(item.get("id", "")))
 		if weapon == null:
@@ -113,8 +133,8 @@ static func apply_school_power(player: PlayerState, items: Array[Dictionary], sk
 ## GID-181 / TID-754: the hero's school resistance sources, uncapped: school → summed
 ## fraction from equipped school_resist affixes and school_resist nodes. Pass the result
 ## through `DamageSchools.capped_resists`, which clamps it to `max_player_resist`.
-static func school_resist_sources(items: Array[Dictionary], skill_ids: Array) -> Dictionary:
-	var out: Dictionary = {}
+static func school_resist_sources(items: Array[Dictionary], skill_ids: Array, gear_conv: Dictionary = {}) -> Dictionary:
+	var out: Dictionary = GearStats.resist_sources(gear_conv)  # GID-187 / TID-788: resist:<school> stats
 	for item: Dictionary in items:
 		var affix: Dictionary = _affix_of(item)
 		if str(affix.get("kind", "")) == "school_resist":
@@ -163,7 +183,7 @@ static func base_tier(_enemy_type: String) -> int:
 static func enemy_tier(enemy_type: String, is_boss: bool, enemy_level: int) -> int:
 	var tier: int = base_tier(enemy_type)
 	if is_boss:
-		tier = 4
+		tier = BOSS_TIER
 	return ZoneLevels.scaled_tier(tier, enemy_level)
 
 ## The level an enemy fights at when its data names none: its authored difficulty
@@ -292,7 +312,8 @@ static func techniques_to_hand(p: PlayerState) -> void:
 ## just softer — TID-720) and its level gap over the player (TID-718). Pass to `SpellEffectResolver.resolve_enemy_play`.
 static func enemy_spell_scale(rt: RealtimeCombat, side: int) -> float:
 	var level: int = rt.side_levels[side] if side < rt.side_levels.size() else 1
-	return rt.tune.level_scale(level) * rt.tune.gap_mult(level, rt.side_levels[RealtimeCombat.PLAYER])
+	return rt.tune.level_scale(level) * rt.tune.gap_mult(level, rt.side_levels[RealtimeCombat.PLAYER]) \
+			* rt.tune.enemy_dmg_growth(level)
 
 ## Knobs RealtimeCombat caches rather than reads each tick (base damage).
 static func apply_live_tuning(rt: RealtimeCombat, base_tier: int) -> void:
@@ -308,8 +329,17 @@ static func apply_live_tuning(rt: RealtimeCombat, base_tier: int) -> void:
 ##   offhand (item ids), skills (passive skill ids), enemy_type ("undead_basic"),
 ##   enemy_level (1 = no zone scaling), is_boss (false), untag_school ("": a school
 ##   whose resist / weak / immune tags the enemy loses), tuning ({knob: value}),
-##   seed (0 = leave the RNGs as they are).
-## Returns {state: GameState, rt: RealtimeCombat, tier: int}.
+##   seed (0 = leave the RNGs as they are). Battlefield conditions (FightConditions,
+##   GID-187 / TID-780): weather ("" = clear: ash_fall, rain, sandstorm, snow...), biome
+##   (BattlefieldRules.BIOME_*, -1 = dungeon), is_night (false), blighted (false: +5 foe HP),
+##   ambush ("" / "player" / "enemy"), gambit_id (""). Naming `biome`, `is_night` or `weather`
+##   turns the battlefield context on (school boosts, scorch); otherwise none applies.
+##   Hero HP (GID-187 / TID-781): start_hp_frac (1.0 = full, applied after every max-HP
+##   modifier), well_fed (a food id or a WellFed buff dict; one charge is taken, see
+##   `well_fed` in the result), potions ({potion id: count}) and quick_slots ([id, id], else
+##   the top-up `QuickSlots.resolve` gives). Legendary potions are left out of `potion_ids`.
+## Returns {state: GameState, rt: RealtimeCombat, tier: int, well_fed: Dictionary (buff after
+## this fight), potion_ids: Array[String] (the quick-slot potions), potion_counts: Dictionary}.
 static func build(cfg: Dictionary) -> Dictionary:
 	var s: int = int(cfg.get("seed", 0))
 	if s != 0:
@@ -331,12 +361,21 @@ static func build(cfg: Dictionary) -> Dictionary:
 	for key: String in ["weapon", "offhand"]:
 		if str(cfg.get(key, "")) != "":
 			gear.append({"id": str(cfg[key])})
-	apply_gear(me, gear, true)
+	var tuning := CombatTuning.new(cfg.get("tuning", {}) as Dictionary)
+	apply_gear(me, gear, true, player_level, tuning)
 	var skill_ids: Array = cfg.get("skills", [])
 	apply_school_power(me, gear, skill_ids)  # GID-181 / TID-754
-	me.hero.school_resist = DamageSchools.capped_resists(school_resist_sources(gear, skill_ids))
+	me.hero.school_resist = DamageSchools.capped_resists(school_resist_sources(gear, skill_ids, me.gear))
 	apply_skill_mods(me, skill_ids)
 	me.draw_opening_hand(OPENING_HAND)
+	# Same order as BattleModifiers: max-HP modifiers (gear above, well fed), then the start HP.
+	var well_fed: Dictionary = FightStart.apply_well_fed(me, FightStart.well_fed_buff(cfg.get("well_fed", "")))
+	FightStart.apply_start_hp(me, float(cfg.get("start_hp_frac", 1.0)))
+	# Quick-slot potions (TID-542): the slots the game would show for these potions.
+	var potion_counts: Dictionary = (cfg.get("potions", {}) as Dictionary).duplicate()
+	var potion_ids: Array[String] = FightStart.potion_ids(potion_counts, cfg.get("quick_slots", []) as Array)
+	var gambit_id: String = str(cfg.get("gambit_id", ""))
+	foe.minion_attack_bonus = FightConditions.enemy_minion_attack_bonus(gambit_id)  # before its deck is built
 	var tier: int = enemy_tier(enemy_type, is_boss, enemy_level)
 	var boss_hp: int = EnemyRegistry.get_boss_hp(enemy_type) if is_boss else 0
 	setup_enemy(foe, me, enemy_type, EnemyRegistry.get_deck(enemy_type), tier, enemy_level, boss_hp)
@@ -344,10 +383,23 @@ static func build(cfg: Dictionary) -> Dictionary:
 	if untag != "":  # GID-186: one school's matchup switched off, for the paired school checks
 		for kind: String in foe.school_profile:
 			(foe.school_profile[kind] as Dictionary).erase(untag)
+	# Same order as BattleScene: blight, gambit handicaps, ambush, then the turn-1 start.
+	if bool(cfg.get("blighted", false)):
+		FightConditions.apply_blight(foe)
+	FightConditions.apply_gambit_handicaps(state, gambit_id)
+	FightConditions.apply_ambush(state, str(cfg.get("ambush", "")))
 	me.start_turn(1)
+	var weather: String = str(cfg.get("weather", ""))
+	FightConditions.apply_weather_start(state, weather)
+	# The battlefield context (biome, night, weather school boosts) is set only when the cfg names
+	# one, so a bare cfg keeps the no-battlefield fight the bands were measured on (no dungeon-day
+	# light boost). `biome: -1, is_night: false` is the dungeon-by-day context the game uses.
+	if cfg.has("biome") or cfg.has("is_night") or cfg.has("weather"):
+		state.set_battlefield_context(int(cfg.get("biome", BattlefieldRules.BIOME_NONE)),
+				bool(cfg.get("is_night", false)))
+		FightConditions.apply_school_environment(state, weather)
 	var type_tier: int = base_tier(enemy_type)
 	var rt_enemy_level: int = enemy_level if cfg.has("enemy_level") else default_enemy_level(enemy_type)
-	var tuning := CombatTuning.new(cfg.get("tuning", {}) as Dictionary)
 	var rt := RealtimeCombat.new(state, [player_level, rt_enemy_level], tuning)
 	if s != 0:
 		rt.rng.seed = s
@@ -355,7 +407,8 @@ static func build(cfg: Dictionary) -> Dictionary:
 			offhand_damage_for_item(str(cfg.get("offhand", ""))))
 	apply_deck_rules(rt, learned)
 	apply_live_tuning(rt, type_tier)
-	return {"state": state, "rt": rt, "tier": tier}
+	return {"state": state, "rt": rt, "tier": tier, "well_fed": well_fed, "potion_ids": potion_ids,
+		"potion_counts": potion_counts}
 
 ## The new-game starter deck (SaveManager.new_game) plus Strike.
 static func starter_deck() -> Array[String]:

@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://2if4fnayhep0"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_quilted_gambeson"]
+
+[resource]
+script = ExtResource("1_quilted_gambeson")
+id = "quilted_gambeson"
+display_name = "Quilted Gambeson"
+description = "Layers of padded cloth stitched in diamonds against the blade."
+slot = "armor"
+battle_effect_type = ""
+stats = {
+"stamina": 12,
+"spirit": 7
+}
+band = "fine"
+item_level = 11
+level_req = 11
+rarity = "common"

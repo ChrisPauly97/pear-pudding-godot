@@ -16,7 +16,10 @@
 ##   --enemy-offset D    enemy level = player level + D (overrides --enemy-level)
 ##   --boss              fight it as a boss (tier 4, boss HP)
 ##   --tune k=v,k=v      CombatTuning overrides (clamped to each knob's range)
-##   --policy k=v,…      BalanceBot knobs: heal_below, summon, interrupt, focus
+##   --bot NAME          BalanceBot preset: default (the CI policy, default) | casual (GID-187:
+##                       slower, reacts late, whiffs some Kicks, no focus swaps)
+##   --policy k=v,…      BalanceBot knobs over the preset: heal_below, summon, interrupt, focus,
+##                       react, kick_miss, think
 ##   --sweep key=v1,v2   one case per value; key = level | enemy_level | school | a tuning knob | a policy knob
 ##                       school = physical,light,dark,verdant,rift: a mono-school deck (TID-757)
 ##   --csv PATH          per-fight CSV (default user://balance/<time>.csv; "none" to skip)
@@ -33,7 +36,7 @@ const _BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
 var _opts: Dictionary = {
 	"fights": "200", "seed": "1", "level": "1", "learned": "ladder", "deck": "starter", "weapon": "",
 	"offhand": "", "enemy": "undead_basic", "enemy-level": "", "enemy-offset": "", "boss": "", "tune": "", "policy": "",
-	"sweep": "", "csv": "", "max-seconds": "300", "skills": "",
+	"sweep": "", "csv": "", "max-seconds": "300", "skills": "", "bot": "default",
 }
 
 func _initialize() -> void:
@@ -69,6 +72,14 @@ func _go() -> void:
 			printerr("Unknown enemy type '%s'. Known: %s" % [e, ", ".join(PackedStringArray(known))])
 			quit(1)
 			return
+	# load(), not preload(): BalanceBot reaches the AudioManager autoload, which -s scripts see only after startup.
+	var bot_script: GDScript = load("res://game_logic/battle/BalanceBot.gd")
+	if not bool(bot_script.call("has_preset", str(_opts["bot"]))):
+		printerr("Unknown bot '%s'. Presets: default, casual" % str(_opts["bot"]))
+		quit(1)
+		return
+	var base_policy: Dictionary = bot_script.call("preset", str(_opts["bot"]))
+	base_policy.merge(_kv(str(_opts["policy"])), true)
 	var sweep_key: String = ""
 	var sweep_vals: PackedStringArray = [""]
 	if str(_opts["sweep"]) != "":
@@ -84,8 +95,8 @@ func _go() -> void:
 	for enemy: String in enemies:
 		for v: String in sweep_vals:
 			var cfg: Dictionary = _config(enemy, sweep_key, v)
-			var policy: Dictionary = _kv(str(_opts["policy"]))
-			if sweep_key in ["heal_below", "summon", "interrupt", "focus"]:
+			var policy: Dictionary = base_policy.duplicate()
+			if sweep_key in ["heal_below", "summon", "interrupt", "focus", "react", "kick_miss", "think", "potion_below"]:
 				policy[sweep_key] = float(v)
 			var label: String = enemy + ("" if sweep_key == "" else " %s=%s" % [sweep_key, v])
 			var results: Array[Dictionary] = []

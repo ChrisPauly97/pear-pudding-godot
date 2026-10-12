@@ -7,6 +7,7 @@ const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
 const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
+const _GearTooltip = preload("res://game_logic/items/GearTooltip.gd")
 const _BaseOverlay = preload("res://scenes/ui/BaseOverlay.gd")
 const _SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 
@@ -122,16 +123,24 @@ func _make_weapon_row(wid: String, weapon: WeaponData, level: int, sm: _SaveMana
 		var eq_lbl := _UiUtil.make_label("[E]", int(_ref * 0.022), Color(0.4, 1.0, 0.5), HORIZONTAL_ALIGNMENT_LEFT,
 				name_row)
 
+	# GID-187 / TID-792: band, item level and the level requirement (red when the player is below it).
+	var mult: float = sm.gear.mult(wid)
+	var tip: Dictionary = _GearTooltip.build(weapon, level, sm.level, str(sm.gear.roll_of(wid)["rarity"]), mult)
+	var req_ok: bool = bool(tip["level_ok"])
+	_UiUtil.make_label("  %s  ·  %s" % [tip["band_line"], tip["requires_line"]], int(_ref * 0.018),
+			Color(0.7, 0.7, 0.7) if req_ok else Color(1.0, 0.45, 0.4), HORIZONTAL_ALIGNMENT_LEFT, outer)
+
 	# Current stats
-	var cur_lbl := _UiUtil.make_label("  Current: %s" % UpgradeDefs.get_display_string(weapon, level),
+	var cur_lbl := _UiUtil.make_label("  Current: %s" % _GearTooltip.summary(weapon, level, sm.level, mult),
 			int(_ref * 0.020), Color(0.9, 1.0, 0.7), HORIZONTAL_ALIGNMENT_LEFT, outer)
+	cur_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 	# Next-level preview or max label
 	if level < UpgradeDefs.MAX_LEVEL:
 		var next_lbl := Label.new()
 		next_lbl.text = "  Next (+%d): %s  |  Cost: %d coins, %d essence" % [
 			level + 1,
-			UpgradeDefs.get_display_string(weapon, level + 1),
+			_GearTooltip.summary(weapon, level + 1, sm.level, mult),
 			UpgradeDefs.cost_coins(level),
 			UpgradeDefs.cost_essence(level),
 		]

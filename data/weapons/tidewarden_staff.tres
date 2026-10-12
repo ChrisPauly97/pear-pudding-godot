@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://vavgdgwj15wb"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_tidewarden_staff"]
+
+[resource]
+script = ExtResource("1_tidewarden_staff")
+id = "tidewarden_staff"
+display_name = "Tidewarden Staff"
+description = "A staff of driftwood and coral that calms every current it touches."
+slot = "weapon"
+battle_effect_type = ""
+stats = {
+"spell_power": 36,
+"spirit": 11,
+"mastery:verdant": 14,
+"spell_crit": 19
+}
+swing_speed = 3.2
+band = "heroic"
+item_level = 46
+level_req = 46
+rarity = "epic"

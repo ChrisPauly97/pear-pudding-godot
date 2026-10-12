@@ -245,6 +245,119 @@ WeaponRegistry.get_by_slot(slot: String) -> Array[String] # filter by slot field
 | `starting_armor` | Grants `battle_effect_value` armor (`hero.apply_status("armor", value)`) at battle start. Shares the single `"armor"` status key with the Maiteln companion's `hero_armor` passive — whichever applies later (equipment before companion) overwrites rather than stacks. |
 | `offhand_atk` (off-hand slot only, GID-135 / TID-545) | **Real time:** sets `RealtimeCombat.offhand_damage[PLAYER]` to `battle_effect_value` — the off-hand swings on its own `offhand_swing` `CombatTuning` timer, independent of the main hand. **Turn-based:** there is no off-hand swing timer, so it instead adds a smaller always-on bonus, `UpgradeDefs.offhand_turnbased_bonus(value)` = `max(1, value / 2)`, to `hero.attack` for the whole fight. `BattleModifiers._apply_equipment_effects` picks the turn-based path only when `battle_mode` doesn't start with `"realtime"`, so the two never double-count. |
 
+### Gear Stats (GID-187 / TID-788)
+
+Items can carry hand-made stat ratings in `WeaponData.stats` (and an item dict's `stats`), summed and converted by
+pure `game_logic/items/GearStats.gd`. **Stats are boosts to the cards** (spec Identity "not a stat bar"; user
+2026-10-11) — only Stamina / Armor / Intellect touch the hero directly.
+
+| Stat id | Effect | Mode | Hook |
+|---|---|---|---|
+| `stamina` | + max HP (points) | both | `GearStats.apply` |
+| `armor` | + hero armor (points) | both | `GearStats.apply` (`add_armor`) |
+| `intellect` | + max mana (cost units, `hero.bonus_mana`) | both | `GearStats.apply` |
+| `spell_power` | + % power of magic damage / heal cards | real time | `PlayerCaster.modify_power` |
+| `attack_power` | + % hero swings, Strike and physical damage / heal cards | real time | `modify_power`, `RealtimeCombat._resolve_swing` |
+| `spell_crit` / `phys_crit` | + crit chance of magic / physical cards (phys: also hero swings) | real time | same |
+| `haste` | draws and technique returns ÷ (1 + haste) | real time | `RealtimeCombat` draw timer, `PlayerCaster._after_technique` |
+| `spirit` | × (1 + spirit) mana regen | real time | `RealtimeCombat._regen_mult` |
+| `command` | + % Ally swing damage | real time | `_resolve_swing` |
+| `leech` | heal the hero for % of damage dealt (fractions carry) | both | `DamageResolver.leech` |
+| `block` | chance a hit on the hero keeps `block_mult` (0.5) | both | `DamageResolver.blocked` |
+| `mastery:<school>` | + % that school's damage (`school_power`) | both | `GearStats.apply` |
+| `resist:<school>` | − % that school's damage taken (capped with other sources) | both | `BattleSetup.school_resist_sources` |
+
+Percent stats convert at the fight's player level: `stat_rating_base` (1.0) × (1 + `stat_rating_growth` (0.1) ×
+(level − 1)) rating per 1 %, each capped at `stat_pct_cap` (0.5) — CombatTuning "Gear stats" group. So 10 rating
+is 10 % at level 1 but ~3.4 % at level 30: old gear fades. `BattleSetup.apply_gear(player, items, realtime,
+player_level, tune)` applies stats for the sim and the game (`BattleModifiers` passes `sm.level`; the game uses
+default tuning for the conversion). Converted values live on `PlayerState.gear` (`gear_stat(id)`).
+The legacy single `battle_effect_type` still applies alongside; TID-789 moves items onto `stats`.
+
+### Gear Curve (GID-187 / TID-789)
+
+Items are hand-made (fixed stats). `game_logic/items/GearCurve.gd` defines the curve every item is validated against
+(`tests/unit/test_gear_curve.gd` runs `validate()` over the whole registry):
+
+| Band | Levels | Shape |
+|---|---|---|
+| basic | 1-9 | one primary stat |
+| fine | 10-19 | primary + 1 secondary |
+| superior | 20-34 | primary + 2; mastery / resist / leech / block open |
+| heroic | 35-49 | primary + 3 |
+| legendary | 50-60 | primary + 3 (stats only; unique effects are out of scope) |
+
+Primary: stamina, armor, intellect, attack_power, spell_power. Secondary: spell_crit, phys_crit, haste, spirit,
+command (+ advanced from superior). Budget = `SLOT_WEIGHT[slot]` × (6 + 1.2 × item level) × `RARITY_BUDGET[rarity]`,
+cost = Σ rating × `STAT_COST` (armor 2, intellect 6, mastery 0.8, resist 0.6, leech / block 1.5, others 1), within
+±20 %. `deck_inject` / `offhand_atk` items are weapon mechanics: stats only have a ceiling. `WeaponData` carries
+`band`, `item_level`, `level_req`, `rarity`; blacksmith upgrades scale stats +10 % per level
+(`UpgradeDefs.scaled_stats`).
+
+### Gear Tooltips and Comparison (GID-187 / TID-792)
+
+`game_logic/items/GearTooltip.gd` is the pure formatter; the scene side is `scenes/ui/GearInspect.gd`.
+
+| Function | Returns |
+|---|---|
+| `build(w, upgrade_level, player_level, rarity = "", mult = 1.0)` | Dict: `name` (+N suffix), `rarity` (roll id, else authored), `band_line` ("Fine · item level 12"), `level_req`, `level_ok`, `requires_line` ("Requires level 10 (you are level 8)" when unmet), `stat_lines`, `stats`, `mechanic_line`, `lines` |
+| `stat_line(id, rating, player_level)` | "+12 Haste (3.1 %)" (percent via `GearStats.pct` at the level) or "+6 Stamina (+6 max HP)" (flat) |
+| `summary(w, upgrade_level, player_level, mult)` | One-line stat summary for compact rows, legacy mechanic line appended |
+| `compare(candidate, cand_lvl, equipped, eq_lvl, player_level)` | Per-stat delta in display units (% points / points), zero deltas dropped; `null` equipped = all gains |
+| `delta_rows(deltas)` | `[{"text": "+1.5 % Haste", "gain": bool}]` for green / red lines |
+| `sheet_lines(entries, player_level)` | Character-sheet totals: ratings summed across equipped items, % of the total (cap applies to the total) |
+
+- The mechanic line shows for any non-empty `battle_effect_type` (deck_inject, offhand_atk, and the legacy starting-* types, so no effect goes unshown).
+- The level requirement is flagged red in the picker row, the inspect popup and the Blacksmith row.
+- **CharacterScene**: the picker row shows `summary` and the requirement; hover (Shift) and long-press on every row (equipped ones too) open the inspect popup (`GearInspect.fill`): the item's details, and for an unworn item the equipped item plus green / red deltas. The "Gear stats" block under the slots is `GearInspect.fill_sheet`. Equipping an item above the player's level (`level_req > SaveManager.level`) is refused with a toast ("Too advanced"); the Equip button stays enabled so the refusal is explained.
+- **BlacksmithScene**: each weapon row shows band / item level / requirement, the current stat summary and the next-level summary.
+- Upgrade level comes from `GearInspect.upgrade_level_of` (weapon slot only; other slots never upgrade). Stats use `UpgradeDefs.scaled_stats`; the roll multiplier only affects the legacy battle values.
+- Tests: `tests/unit/test_gear_tooltip.gd`.
+### Gear Catalogue (GID-187 / TID-790)
+
+Hand-made gear in `data/weapons/*.tres` (95 items; `WeaponRegistry` preloads each one). Every item passes
+`GearCurve.validate()`, checked by `tests/unit/test_gear_curve.gd`. Each slot has two items per band that differ in
+stat focus: an **A** tank / defence piece (Stamina, Armor, block, spirit, resist) and a **B** caster / striker piece
+(Intellect or Spell / Attack Power with Haste, crit, mastery). Weapons are five per band, one per swing class: dagger
+1.8, wand 2.2, blade 2.6, staff 3.2, axe 3.6. Dagger, blade and axe use Attack Power; wand and staff use Spell Power.
+A items sit at the low end of their band and B items at the high end. Weapons are spread across the band.
+
+| Band | Levels | Rarity | Weapon | Armor | Helmet | Shoulders | Boots | Offhand | Ring | Trinket | Items |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| basic | 1-9 | common | 5 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 19 |
+| fine | 10-19 | common / rare | 5 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 19 |
+| superior | 20-34 | rare | 5 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 19 |
+| heroic | 35-49 | epic | 5 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 19 |
+| legendary | 50-60 | legendary | 5 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 19 |
+
+Shape rules: Basic items carry one primary stat (Stamina or Armor for armour slots, Attack / Spell Power for weapons
+and some trinkets). Fine items add one secondary. Superior and above add two or three, and open mastery, resist,
+leech and block. Mastery of each school (light, dark, verdant, rift) appears on at least one Superior-or-higher item.
+Resist, leech and block pieces start at Superior. Legendary items have lore names (Saimtar, Maiteln, Eldar, Larik,
+Blancogov, Madrian, Farsyth) and stats only.
+
+Chest drops, shops and boss rewards draw from the whole registry, so the catalogue widens every equipment pool.
+Helmets and boots are visible on the paper doll, as are armour, shoulders, weapons, off-hands and trinkets. Each has a
+`GEAR_VISUALS` entry in `game_logic/character/PaperDollVisuals.gd` (re-exported by `PaperDoll`), which
+`test_paper_doll` requires. Rings are not drawn.
+
+### Gear Sources (GID-187 / TID-791)
+
+Every source asks pure `game_logic/items/GearDrops.gd` what to hand out, so a player who plays normally stays on the
+curve:
+
+| Source | Rule |
+|---|---|
+| Chests (`ChestLoot._maybe_drop_equipment`) | `pick(level)`: zone level capped at the player's; wearable (level_req ≤ level), item level ≥ level − 4; slots ≥ 2 bands behind (or empty) first; unowned first |
+| Boss weapon fallback (`BattleScene`) | weapon `candidates` at the player's level, unowned first |
+| Co-op loot roll (`CoopActivities`) | `candidates` at the winner's level |
+| Shop (`ShopScene`) | `shop_stock`: wearable, item level ≥ level − 9; priced by stat budget (`price`) |
+| Quests (`SideQuests` gear_choice) | authored picks; `test_gear_drops` asserts they are wearable at the quest's level |
+
+Grants record the item's authored rarity and item level (`authored_roll`); random rarity / ilvl / affix rolls are
+retired (old saved rolls still read; their affixes still apply). `expected_loadout(level)` is the per-slot best
+wearable item — what the balance profiles (TID-778) wear.
+
 ### SaveManager Equipment Fields
 
 | Field | Type | Description |

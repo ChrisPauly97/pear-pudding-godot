@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://7tkxbx9ku32u"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_verdant_locket"]
+
+[resource]
+script = ExtResource("1_verdant_locket")
+id = "verdant_locket"
+display_name = "Verdant Locket"
+description = "A green-enamelled locket that smells of wet moss."
+slot = "trinket"
+battle_effect_type = ""
+stats = {
+"intellect": 2,
+"mastery:verdant": 8,
+"haste": 7
+}
+band = "superior"
+item_level = 33
+level_req = 33
+rarity = "rare"

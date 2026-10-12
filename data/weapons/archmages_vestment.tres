@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://o5ahd9yv9ctl"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_archmages_vestment"]
+
+[resource]
+script = ExtResource("1_archmages_vestment")
+id = "archmages_vestment"
+display_name = "Archmage's Vestment"
+description = "A layered vestment that hums when the wearer casts."
+slot = "armor"
+battle_effect_type = ""
+stats = {
+"intellect": 6,
+"haste": 11,
+"spell_crit": 14,
+"spirit": 19
+}
+band = "heroic"
+item_level = 48
+level_req = 48
+rarity = "epic"

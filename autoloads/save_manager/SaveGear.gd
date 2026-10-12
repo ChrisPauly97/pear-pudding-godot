@@ -10,6 +10,7 @@ const _SaveManager = preload("res://autoloads/SaveManager.gd")
 const _GearRolls = preload("res://game_logic/items/GearRolls.gd")
 const _WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const _WeaponData = preload("res://data/WeaponData.gd")
+const _GearDrops = preload("res://game_logic/items/GearDrops.gd")
 
 var _save: _SaveManager
 
@@ -54,9 +55,11 @@ func grant(item_id: String, roll: Dictionary) -> String:
 
 ## A fresh drop roll for `item_id` from a source of `tier`. A convert affix (GID-181 / TID-754)
 ## can only roll on a weapon.
-static func roll_for(item_id: String, tier: int, level: int, rng: RandomNumberGenerator) -> Dictionary:
-	var w: _WeaponData = _WeaponRegistry.get_weapon(item_id)
-	return _GearRolls.roll(tier, level, rng, w != null and w.slot == "weapon")
+## GID-187 / TID-791: gear is hand-made, so a drop records the item's authored rarity and item
+## level; the random rarity / ilvl / affix rolls are retired (old saved rolls still read).
+static func roll_for(item_id: String, _tier: int = 1, _level: int = 1,
+		_rng: RandomNumberGenerator = null) -> Dictionary:
+	return _GearDrops.authored_roll(item_id)
 
 
 ## HUD line for a granted drop: "Found: Rare Iron Helm (ilvl 5)!" etc. A school affix

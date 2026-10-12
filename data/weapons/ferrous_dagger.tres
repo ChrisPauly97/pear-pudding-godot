@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://4ops6nmuj1ip"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_ferrous_dagger"]
+
+[resource]
+script = ExtResource("1_ferrous_dagger")
+id = "ferrous_dagger"
+display_name = "Ferrous Dagger"
+description = "A narrow blade of good Larik steel, quick in the hand."
+slot = "weapon"
+battle_effect_type = ""
+stats = {
+"attack_power": 11,
+"phys_crit": 6
+}
+swing_speed = 1.8
+band = "fine"
+item_level = 10
+level_req = 10
+rarity = "common"

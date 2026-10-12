@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://qyp5k25ebivs"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_veilsteel_blade"]
+
+[resource]
+script = ExtResource("1_veilsteel_blade")
+id = "veilsteel_blade"
+display_name = "Veilsteel Blade"
+description = "A blade of grey steel that drinks a little life from every cut."
+slot = "weapon"
+battle_effect_type = ""
+stats = {
+"attack_power": 23,
+"haste": 9,
+"leech": 8
+}
+swing_speed = 2.6
+band = "superior"
+item_level = 28
+level_req = 28
+rarity = "rare"

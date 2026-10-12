@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://5nhnnypodvd3"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_scale_bib"]
+
+[resource]
+script = ExtResource("1_scale_bib")
+id = "scale_bib"
+display_name = "Scale Bib"
+description = "A sewn apron of iron scales over a leather shirt."
+slot = "armor"
+battle_effect_type = ""
+stats = {
+"armor": 8
+}
+band = "basic"
+item_level = 8
+level_req = 8
+rarity = "common"

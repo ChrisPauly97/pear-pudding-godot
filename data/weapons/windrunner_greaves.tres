@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://shalazreyv2n"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_windrunner_greaves"]
+
+[resource]
+script = ExtResource("1_windrunner_greaves")
+id = "windrunner_greaves"
+display_name = "Windrunner Greaves"
+description = "Greaves that make a sprinter's stride of every step."
+slot = "boots"
+battle_effect_type = ""
+stats = {
+"spell_power": 22,
+"mastery:rift": 9,
+"haste": 6,
+"spell_crit": 13
+}
+band = "heroic"
+item_level = 48
+level_req = 48
+rarity = "epic"

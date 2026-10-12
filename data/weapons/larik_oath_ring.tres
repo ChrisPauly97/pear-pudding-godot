@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://ryjax0hfgu4x"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_larik_oath_ring"]
+
+[resource]
+script = ExtResource("1_larik_oath_ring")
+id = "larik_oath_ring"
+display_name = "Larik Oath Ring"
+description = "A ring carved with the oath of Larik's first garrison."
+slot = "ring"
+battle_effect_type = ""
+stats = {
+"stamina": 23,
+"spirit": 5,
+"command": 6,
+"block": 10
+}
+band = "legendary"
+item_level = 51
+level_req = 51
+rarity = "legendary"

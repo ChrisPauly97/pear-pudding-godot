@@ -13,6 +13,7 @@ const _LootRoll = preload("res://game_logic/net/LootRoll.gd")
 const _GearRolls = preload("res://game_logic/items/GearRolls.gd")
 const _SaveGear = preload("res://autoloads/save_manager/SaveGear.gd")
 const _ZoneLevels = preload("res://game_logic/world/ZoneLevels.gd")
+const _GearDrops = preload("res://game_logic/items/GearDrops.gd")
 const _WorldItemScene = preload("res://scenes/world/entities/WorldItem.tscn")
 const _WorldItem = preload("res://scenes/world/entities/WorldItem.gd")
 
@@ -20,10 +21,6 @@ const _WorldItem = preload("res://scenes/world/entities/WorldItem.gd")
 ## (only while no treasure hunt is active).
 const MAP_FRAGMENT_CHANCE: float = 0.20
 const EQUIPMENT_SLOTS: Array[String] = ["weapon", "armor", "ring", "trinket", "offhand", "shoulders", "helmet", "boots"]
-## The starter weapon never drops.
-const _STARTER_WEAPON: String = "rusty_dagger"
-## Share of equipment drops that re-roll an item you already own (TID-538).
-const UPGRADE_DROP_CHANCE: float = 0.3
 
 var _world: _WorldScene = null
 
@@ -123,33 +120,26 @@ func _spawn_item() -> _WorldItem:
 	_world._entity_root.add_child(item)
 	return item
 
-## With probability `chance`, grants one random equipment piece with a rarity /
-## item-level roll (TID-538: chest `tier`, zone `level`). Usually an item the
-## player doesn't own; sometimes (UPGRADE_DROP_CHANCE, or when everything is
-## owned) one they do, which upgrades its roll if the new one is better.
+## With probability `chance`, grants one equipment piece on the gear curve (GID-187 / TID-791,
+## `GearDrops.pick`): wearable, near the zone level, a slot that has fallen behind first, unowned
+## when possible.
 func _maybe_drop_equipment(chance: float, tier: int = 1, level: int = 1) -> void:
 	if randf() >= chance:
 		return
 	var sm := SceneManager.save_manager
-	var unowned: Array[String] = []
-	var owned_ids: Array[String] = []
+	# GID-187 / TID-791: an item the player can wear near their level, behind slots first.
+	var owned: Array[String] = []
+	var equipped: Dictionary = {}
 	for slot: String in EQUIPMENT_SLOTS:
-		var owned: Array[String] = sm.get_owned_by_slot(slot)
-		for eid: String in WeaponRegistry.get_by_slot(slot):
-			if eid == _STARTER_WEAPON:
-				continue
-			if owned.has(eid):
-				owned_ids.append(eid)
-			else:
-				unowned.append(eid)
-	var pool: Array[String] = unowned
-	if unowned.is_empty() or (not owned_ids.is_empty() and randf() < UPGRADE_DROP_CHANCE):
-		pool = owned_ids
-	if pool.is_empty():
-		return
-	var picked: String = pool[randi() % pool.size()]
+		owned.append_array(sm.get_owned_by_slot(slot))
+		equipped[slot] = sm.get_equipped_by_slot(slot)
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
+	# The zone's level, capped at the player's (never an item they can't wear); 1 = unknown zone.
+	var drop_level: int = sm.level if level <= 1 else mini(level, sm.level)
+	var picked: String = _GearDrops.pick(drop_level, owned, equipped, rng)
+	if picked == "":
+		return
 	var roll: Dictionary = _SaveGear.roll_for(picked, tier, level, rng)
 	var result: String = sm.gear.grant(picked, roll)
 	if result == "":

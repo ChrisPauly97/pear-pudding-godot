@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://k0u97taav406"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_warding_codex"]
+
+[resource]
+script = ExtResource("1_warding_codex")
+id = "warding_codex"
+display_name = "Warding Codex"
+description = "A codex of wards, its margins lit by a constant ember."
+slot = "offhand"
+battle_effect_type = ""
+stats = {
+"spell_power": 16,
+"spell_crit": 4,
+"haste": 11
+}
+band = "superior"
+item_level = 33
+level_req = 33
+rarity = "rare"

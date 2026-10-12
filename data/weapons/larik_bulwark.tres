@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://6yaimou6icud"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_larik_bulwark"]
+
+[resource]
+script = ExtResource("1_larik_bulwark")
+id = "larik_bulwark"
+display_name = "Larik Bulwark"
+description = "A tower shield with the town's crest painted on the face."
+slot = "offhand"
+battle_effect_type = ""
+stats = {
+"armor": 5,
+"command": 2,
+"block": 6
+}
+band = "superior"
+item_level = 21
+level_req = 21
+rarity = "rare"

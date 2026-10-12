@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://c08wqg6jdu35"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_warded_greathelm"]
+
+[resource]
+script = ExtResource("1_warded_greathelm")
+id = "warded_greathelm"
+display_name = "Warded Greathelm"
+description = "A closed helm with a rune etched across the brow."
+slot = "helmet"
+battle_effect_type = ""
+stats = {
+"stamina": 14,
+"block": 2,
+"spirit": 11
+}
+band = "superior"
+item_level = 21
+level_req = 21
+rarity = "rare"

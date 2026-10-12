@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://msp6rqr96yx5"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_militia_shortsword"]
+
+[resource]
+script = ExtResource("1_militia_shortsword")
+id = "militia_shortsword"
+display_name = "Militia Shortsword"
+description = "Issued to Madrian's watch and never once sharpened."
+slot = "weapon"
+battle_effect_type = ""
+stats = {
+"attack_power": 12
+}
+swing_speed = 2.6
+band = "basic"
+item_level = 5
+level_req = 5
+rarity = "common"

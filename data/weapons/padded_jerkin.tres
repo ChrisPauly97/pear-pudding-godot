@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://6g0bn46c9n8p"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_padded_jerkin"]
+
+[resource]
+script = ExtResource("1_padded_jerkin")
+id = "padded_jerkin"
+display_name = "Padded Jerkin"
+description = "Quilted linen, stiff with old sweat and better than nothing."
+slot = "armor"
+battle_effect_type = ""
+stats = {
+"stamina": 8
+}
+band = "basic"
+item_level = 2
+level_req = 2
+rarity = "common"

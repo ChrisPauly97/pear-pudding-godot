@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://tu6bucms7eny"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_tome_of_saimtar"]
+
+[resource]
+script = ExtResource("1_tome_of_saimtar")
+id = "tome_of_saimtar"
+display_name = "Tome of Saimtar"
+description = "A tome that records the deeds of the hero who first held it."
+slot = "offhand"
+battle_effect_type = ""
+stats = {
+"spell_power": 31,
+"spell_crit": 9,
+"haste": 10,
+"spirit": 17
+}
+band = "legendary"
+item_level = 59
+level_req = 59
+rarity = "legendary"

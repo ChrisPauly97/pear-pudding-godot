@@ -20,6 +20,8 @@ const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
 const CombatTuning = preload("res://game_logic/battle/CombatTuning.gd")
 const DamageResolver = preload("res://game_logic/battle/DamageResolver.gd")
 const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
+const GearStats = preload("res://game_logic/items/GearStats.gd")
+const FightConditions = preload("res://game_logic/battle/FightConditions.gd")
 
 const PLAYER: int = 0
 ## The first (original) enemy. Adds get later indices.
@@ -340,7 +342,8 @@ func _tick_resources(side: int, delta: float, events: Array[Dictionary]) -> void
 		_mana_carry[side] = 0.0
 	_last_mana[side] = h.mana
 	_draw_timer[side] += delta
-	var interval: float = tune.get_f("draw_interval") * (player_draw_mult if side == PLAYER else 1.0)
+	var interval: float = tune.get_f("draw_interval") * (player_draw_mult if side == PLAYER else 1.0) \
+			/ (1.0 + p.gear_stat("haste"))  # GID-187 / TID-788: haste draws faster
 	if _draw_timer[side] >= interval:
 		_draw_timer[side] -= interval
 		if p.hand.size() < tune.get_i("hand_cap") + (player_hand_bonus if side == PLAYER else 0):
@@ -351,7 +354,8 @@ func _tick_resources(side: int, delta: float, events: Array[Dictionary]) -> void
 func _regen_mult(side: int) -> float:
 	if side != PLAYER:
 		return 1.0
-	return tune.get_f("fighting_regen_mult") if auto_attack else 1.0
+	var spirit: float = 1.0 + state.players[side].gear_stat("spirit")  # GID-187 / TID-788
+	return spirit * (tune.get_f("fighting_regen_mult") if auto_attack else 1.0)
 
 ## Per-side "combat round" pulse (TID-547): runs the turn-based upkeep real time
 ## doesn't already own via a continuous clock (status-effect decay, first-card
@@ -378,8 +382,10 @@ func _run_round_upkeep(side: int) -> void:
 		c.start_turn()
 		_tick_card_status(p, c)
 	_tick_hero_status(p)
-	if state.battlefield_biome == BattlefieldRules.BIOME_DESERT and not state.is_night:
-		_scorch_leftmost(p)
+	if FightConditions.scorch_active(state):
+		var dead: CardInstance = FightConditions.scorch_leftmost(p, tune)
+		if dead != null and focus_target == dead:
+			focus_target = null
 
 ## Poison damage-then-decay and freeze decay, mirroring BattleFx._tick_statuses_on_card.
 ## Unlike the turn-based original, a card poisoned to 0 HP is swept off the board —
@@ -417,21 +423,6 @@ func _tick_hero_status(p: PlayerState) -> void:
 			hero.clear_status("poison")
 		else:
 			hero.apply_status("poison", nv)
-
-## Desert biome rule: damage `p`'s own leftmost minion, mirroring
-## BattleModifiers._apply_desert_scorch() for this side only (each side pulses on
-## its own round timer in real time, rather than both boards on every turn end).
-func _scorch_leftmost(p: PlayerState) -> void:
-	for si in range(5):
-		var c: CardInstance = p.board.slots[si]
-		if c != null:
-			DamageResolver.deal(p, c, 1, DamageSchools.PHYSICAL, tune)
-			if not c.is_alive():
-				p.board.remove_card(c)
-				p.discard.append(c)
-				if focus_target == c:
-					focus_target = null
-			return
 
 func _tick_swings(delta: float, events: Array[Dictionary]) -> void:
 	var live: Dictionary = {}
@@ -684,13 +675,19 @@ func _resolve_swing(attacker: CardInstance, dmg: int, target: CardInstance, targ
 		from_side: int) -> bool:
 	var opp: PlayerState = state.players[target_side]
 	var d: int = BattlefieldRules.modify_damage(dmg, state.battlefield_biome)
+	var src: PlayerState = state.players[from_side]  # the attacking side: its school power (TID-754)
+	var chance: float = tune.get_f("crit_chance" if from_side == PLAYER else "enemy_crit_chance")
 	if from_side != PLAYER:
 		d = _gap_scaled(d, from_side)
-	var crit: bool = d > 0 and rng.randf() < tune.get_f("crit_chance" if from_side == PLAYER else "enemy_crit_chance")
+	elif attacker == null:  # GID-187 / TID-788: a hero swing is the weapon side
+		d = GearStats.boost(d, src.gear_stat("attack_power"))
+		chance += src.gear_stat("phys_crit")
+	else:  # an Ally card's swing
+		d = GearStats.boost(d, src.gear_stat("command"))
+	var crit: bool = d > 0 and rng.randf() < chance
 	if crit:
 		d = maxi(d + 1, roundi(float(d) * tune.get_f("crit_mult")))
 	var school: String = DamageSchools.school_of(attacker)
-	var src: PlayerState = state.players[from_side]  # the attacking side: its school power (TID-754)
 	if attacker == null:
 		# A hero swing: an enemy hero's swing hits as its school (TID-751), the player's as the
 		# weapon's school (a convert affix, TID-754; physical otherwise).
@@ -777,7 +774,8 @@ func heavy_damage(side: int = ENEMY) -> int:
 func _gap_scaled(dmg: int, side: int) -> int:
 	if dmg <= 0:
 		return dmg
-	var x: float = float(dmg) * tune.gap_mult(_level_of(side), _level_of(PLAYER))
+	var x: float = float(dmg) * tune.gap_mult(_level_of(side), _level_of(PLAYER)) \
+			* tune.enemy_dmg_growth(_level_of(side))
 	var whole: int = floori(x)
 	return whole + (1 if rng.randf() < x - float(whole) else 0)
 

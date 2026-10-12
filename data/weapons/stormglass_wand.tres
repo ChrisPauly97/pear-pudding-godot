@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://59n4bktbyemc"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_stormglass_wand"]
+
+[resource]
+script = ExtResource("1_stormglass_wand")
+id = "stormglass_wand"
+display_name = "Stormglass Wand"
+description = "A wand of clouded glass that crackles before a storm."
+slot = "weapon"
+battle_effect_type = ""
+stats = {
+"spell_power": 31,
+"spell_crit": 9,
+"haste": 13,
+"mastery:light": 17
+}
+swing_speed = 2.2
+band = "heroic"
+item_level = 39
+level_req = 39
+rarity = "epic"

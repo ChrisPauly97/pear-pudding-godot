@@ -6,8 +6,15 @@
 script = ExtResource("1_iron_shield")
 id = "iron_shield"
 display_name = "Iron Shield"
-description = "A sturdy buckler. Your hero starts each battle with 40 HP instead of 30."
-battle_effect_type = "starting_hp"
+description = "A sturdy buckler."
+battle_effect_type = ""
 battle_effect_value = 10
 injected_card_id = ""
 injected_card_count = 0
+stats = {
+"stamina": 10
+}
+band = "basic"
+item_level = 3
+level_req = 3
+rarity = "common"

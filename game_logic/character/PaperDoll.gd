@@ -128,40 +128,8 @@ const LOOK_OPTIONS: Dictionary = {"skin": SKIN_TONES, "hair": HAIR_COLOURS}
 
 ## Item id → how it draws. `style` picks the draw routine; colours are the
 ## item's palette (`main`, optional `trim`).
-const GEAR_VISUALS: Dictionary = {
-	# Armour — replaces the shirt on the torso (and sleeves where noted).
-	"leather_vest": {"style": "vest", "main": Color8(138, 80, 62), "trim": Color8(84, 54, 38)},
-	"chainmail": {"style": "mail", "main": Color8(139, 155, 180), "trim": Color8(82, 96, 124)},
-	"warded_cloak": {"style": "cloak", "main": Color8(49, 65, 82), "trim": Color8(250, 203, 62)},
-	# Shoulders.
-	"leather_pauldrons": {"style": "pauldron", "main": Color8(138, 80, 62), "trim": Color8(84, 54, 38)},
-	"iron_pauldrons": {"style": "plate", "main": Color8(123, 137, 148), "trim": Color8(82, 96, 124)},
-	"spiked_spaulders": {"style": "spiked", "main": Color8(72, 59, 58), "trim": Color8(211, 191, 169)},
-	# Main hand.
-	"rusty_dagger": {"style": "dagger", "main": Color8(189, 108, 74), "trim": Color8(84, 54, 38)},
-	"dusk_blade": {"style": "sword", "main": Color8(192, 203, 220), "trim": Color8(95, 45, 86)},
-	"berserker_axe": {"style": "axe", "main": Color8(139, 155, 180), "trim": Color8(84, 54, 38)},
-	"dawn_staff": {"style": "staff", "main": Color8(104, 70, 48), "trim": Color8(250, 203, 62)},
-	"ember_wand": {"style": "wand", "main": Color8(84, 54, 38), "trim": Color8(228, 110, 51)},
-	"mana_crystal": {"style": "crystal", "main": Color8(86, 152, 204), "trim": Color8(192, 203, 220)},
-	"iron_shield": {"style": "shield", "main": Color8(123, 137, 148), "trim": Color8(84, 54, 38)},
-	# Off hand.
-	"buckler": {"style": "buckler", "main": Color8(104, 70, 48), "trim": Color8(139, 155, 180)},
-	"parrying_dagger": {"style": "dagger", "main": Color8(192, 203, 220), "trim": Color8(84, 54, 38)},
-	"arcane_focus": {"style": "orb", "main": Color8(146, 86, 190), "trim": Color8(247, 134, 151)},
-	# Helmets (TID-563) — drawn over the hair; row 0 of the frame is spare for a crest.
-	"leather_cap": {"style": "cap", "main": Color8(72, 59, 58), "trim": Color8(181, 128, 87)},
-	"iron_helm": {"style": "helm", "main": Color8(123, 137, 148), "trim": Color8(82, 96, 124)},
-	"hooded_cowl": {"style": "cowl", "main": Color8(61, 115, 79), "trim": Color8(38, 72, 56)},
-	# Boots (TID-563) — replace the boot colour; the style adds a shaft, plates or spurs.
-	"travel_boots": {"style": "boots", "main": Color8(49, 43, 46), "trim": Color8(181, 128, 87)},
-	"iron_greaves": {"style": "greaves", "main": Color8(72, 59, 58), "trim": Color8(139, 155, 180)},
-	"spurred_boots": {"style": "spurred", "main": Color8(49, 43, 46), "trim": Color8(192, 203, 220)},
-	# Trinkets — small accents on the belt or neck.
-	"bone_charm": {"style": "necklace", "main": Color8(226, 182, 148)},
-	"ember_flask": {"style": "flask", "main": Color8(218, 78, 56), "trim": Color8(123, 137, 148)},
-	"lucky_coin": {"style": "coin", "main": Color8(250, 203, 62)},
-}
+const _PaperDollVisuals = preload("res://game_logic/character/PaperDollVisuals.gd")
+const GEAR_VISUALS: Dictionary = _PaperDollVisuals.GEAR_VISUALS
 
 static var _frames_cache: Dictionary = {}  # look key → SpriteFrames
 

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://sclprss1w08e"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_greatwarden_boots"]
+
+[resource]
+script = ExtResource("1_greatwarden_boots")
+id = "greatwarden_boots"
+display_name = "Greatwarden Boots"
+description = "Boots of tough hide and iron that brace the wearer against any shove."
+slot = "boots"
+battle_effect_type = ""
+stats = {
+"stamina": 17,
+"spirit": 3,
+"haste": 5,
+"block": 8
+}
+band = "heroic"
+item_level = 36
+level_req = 36
+rarity = "epic"

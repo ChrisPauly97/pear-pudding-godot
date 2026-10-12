@@ -26,8 +26,10 @@ const FIGHTS_SAME: int = 20
 const FIGHTS_UP: int = 40
 ## Targets (user, 2026-10-08).
 const SAME_MIN: float = 0.97
-const UP_MEAN_MIN: float = 0.65
-const UP_MEAN_MAX: float = 0.85
+## GID-187 / TID-787 (user, 2026-10-11): these cells are the bare hero, now a floor — the typical
+## player is held to ~75-85 % one level up in BalanceCoverage; the bare hero's mean sits lower.
+const UP_MEAN_MIN: float = 0.45
+const UP_MEAN_MAX: float = 0.80
 ## Drift guards against the baseline: win rate ± points, median length ± fraction.
 const DRIFT_WIN: float = 0.10
 const DRIFT_SECONDS: float = 0.25
@@ -39,18 +41,19 @@ const DRIFT_SECONDS: float = 0.25
 ## biome, chosen from a 60-fight grid where the default deck is neither saturated nor dead (the old
 ## pooled cells paired a 100 % cell with a 0 % cell, so a pooled rate said nothing). Each is the
 ## biome's most informative enemy at its level gap. GID-186 re-picked desert / scorched /
-## mountains after every type took its fight tier from its level (the old cells saturated).
+## mountains after every type took its fight tier from its level (the old cells saturated); TID-787
+## moved every cell to one level up (the larger level-gap penalty made +2 cells walls).
 const BIOME_ROSTERS: Array = [
-	["grasslands", [["martarquas_scout", 9, 7]]],
-	["forest", [["bog_hag", 8, 6]]],
-	["desert", [["cactus_worm", 8, 6]]],
-	["scorched", [["scorched_revenant", 8, 6]]],
-	["mountains", [["mountain_troll", 8, 7]]],
+	["grasslands", [["martarquas_scout", 8, 7]]],
+	["forest", [["bog_hag", 8, 7]]],
+	["desert", [["cactus_worm", 8, 7]]],
+	["scorched", [["scorched_revenant", 8, 7]]],
+	["mountains", [["mountain_troll", 7, 6]]],
 ]
 ## Matchup cells: [enemy type, enemy level, player level, weak school, resisted school]
 ## (EnemyRegistry profile: cactus worm is weak to dark and resists verdant).
 const MATCHUPS: Array = [
-	["cactus_worm", 8, 6, "dark", "verdant"],
+	["cactus_worm", 8, 7, "dark", "verdant"],
 ]
 ## Fights per roster enemy / per matchup side (fixed seeds 1..n, same for every deck).
 const SCHOOL_FIGHTS: int = 14

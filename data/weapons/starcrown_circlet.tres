@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://r1g7edqrsmoy"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_starcrown_circlet"]
+
+[resource]
+script = ExtResource("1_starcrown_circlet")
+id = "starcrown_circlet"
+display_name = "Starcrown Circlet"
+description = "A silver crown set with pale stars that wink when spells are cast."
+slot = "helmet"
+battle_effect_type = ""
+stats = {
+"intellect": 5,
+"haste": 8,
+"spell_crit": 10,
+"spirit": 16
+}
+band = "heroic"
+item_level = 48
+level_req = 48
+rarity = "epic"

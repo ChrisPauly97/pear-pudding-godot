@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://cnjnqf47l41b"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_ash_wand"]
+
+[resource]
+script = ExtResource("1_ash_wand")
+id = "ash_wand"
+display_name = "Ash Wand"
+description = "Pale ash cut in a dry spring and bound with copper wire."
+slot = "weapon"
+battle_effect_type = ""
+stats = {
+"spell_power": 12,
+"spell_crit": 8
+}
+swing_speed = 2.2
+band = "fine"
+item_level = 12
+level_req = 12
+rarity = "common"

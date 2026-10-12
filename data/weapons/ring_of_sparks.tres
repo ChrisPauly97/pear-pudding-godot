@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://5fhcacucvt9x"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_ring_of_sparks"]
+
+[resource]
+script = ExtResource("1_ring_of_sparks")
+id = "ring_of_sparks"
+display_name = "Ring of Sparks"
+description = "A thin silver ring that crackles when worn near magic."
+slot = "ring"
+battle_effect_type = ""
+stats = {
+"spell_power": 10,
+"spell_crit": 5
+}
+band = "fine"
+item_level = 18
+level_req = 18
+rarity = "rare"

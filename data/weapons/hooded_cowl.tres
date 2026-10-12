@@ -6,9 +6,16 @@
 script = ExtResource("1_hooded_cowl")
 id = "hooded_cowl"
 display_name = "Hooded Cowl"
-description = "A deep, weather-stained hood that hides the eyes. Your hero starts each battle with 1 extra mana."
+description = "A deep, weather-stained hood that hides the eyes."
 slot = "helmet"
-battle_effect_type = "starting_mana"
+battle_effect_type = ""
 battle_effect_value = 1
 injected_card_id = ""
 injected_card_count = 0
+stats = {
+"intellect": 1
+}
+band = "basic"
+item_level = 1
+level_req = 1
+rarity = "common"

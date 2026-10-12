@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://cqsl97nziz5v"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_warding_lexicon"]
+
+[resource]
+script = ExtResource("1_warding_lexicon")
+id = "warding_lexicon"
+display_name = "Warding Lexicon"
+description = "A thick lexicon of wards whose pages turn themselves."
+slot = "offhand"
+battle_effect_type = ""
+stats = {
+"spell_power": 22,
+"mastery:dark": 9,
+"spell_crit": 6,
+"haste": 13
+}
+band = "heroic"
+item_level = 48
+level_req = 48
+rarity = "epic"

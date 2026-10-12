@@ -6,9 +6,16 @@
 script = ExtResource("1_spiked_spaulders")
 id = "spiked_spaulders"
 display_name = "Spiked Spaulders"
-description = "Blackened spaulders studded with spikes. Your hero gains +1 attack."
+description = "Blackened spaulders studded with spikes."
 slot = "shoulders"
-battle_effect_type = "passive_atk"
+battle_effect_type = ""
 battle_effect_value = 1
 injected_card_id = ""
 injected_card_count = 0
+stats = {
+"attack_power": 10
+}
+band = "basic"
+item_level = 7
+level_req = 7
+rarity = "common"

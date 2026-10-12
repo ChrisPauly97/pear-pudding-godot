@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://cbqy69b83frm"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_tempered_dirk"]
+
+[resource]
+script = ExtResource("1_tempered_dirk")
+id = "tempered_dirk"
+display_name = "Tempered Dirk"
+description = "A dirk folded and tempered until the edge sings."
+slot = "weapon"
+battle_effect_type = ""
+stats = {
+"attack_power": 17,
+"phys_crit": 5,
+"haste": 11
+}
+swing_speed = 1.8
+band = "superior"
+item_level = 20
+level_req = 20
+rarity = "rare"

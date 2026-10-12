@@ -42,12 +42,13 @@ func test_new_slots_are_persisted() -> void:
 
 
 func test_registry_has_three_of_each() -> void:
-	assert_eq(WeaponRegistry.get_by_slot("helmet").size(), 3)
-	assert_eq(WeaponRegistry.get_by_slot("boots").size(), 3)
+	# The three legacy pieces plus the TID-790 catalogue's ten (two per band).
+	assert_eq(WeaponRegistry.get_by_slot("helmet").size(), 13)
+	assert_eq(WeaponRegistry.get_by_slot("boots").size(), 13)
 	for slot: String in ["helmet", "boots"]:
 		for id: String in WeaponRegistry.get_by_slot(slot):
 			var w: WeaponData = WeaponRegistry.get_weapon(id)
-			assert_true(w.battle_effect_type != "" and w.battle_effect_value > 0, "%s has no effect" % id)
+			assert_false(w.stats.is_empty(), "%s has no stats" % id)  # GID-187 / TID-789: stats replace the effect
 
 
 func test_new_game_adopts_the_pending_appearance() -> void:

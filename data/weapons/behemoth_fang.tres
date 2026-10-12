@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://k7ow9upbnfhv"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_behemoth_fang"]
+
+[resource]
+script = ExtResource("1_behemoth_fang")
+id = "behemoth_fang"
+display_name = "Behemoth Fang"
+description = "A curved fang from a great beast, still carrying its bite."
+slot = "trinket"
+battle_effect_type = ""
+stats = {
+"attack_power": 14,
+"command": 2,
+"leech": 4,
+"phys_crit": 9
+}
+band = "heroic"
+item_level = 36
+level_req = 36
+rarity = "epic"

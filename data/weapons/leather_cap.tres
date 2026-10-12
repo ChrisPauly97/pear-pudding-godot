@@ -6,9 +6,16 @@
 script = ExtResource("1_leather_cap")
 id = "leather_cap"
 display_name = "Leather Cap"
-description = "A scuffed leather cap laced under the chin. Your hero starts each battle with 3 extra HP."
+description = "A scuffed leather cap laced under the chin."
 slot = "helmet"
-battle_effect_type = "starting_hp"
+battle_effect_type = ""
 battle_effect_value = 3
 injected_card_id = ""
 injected_card_count = 0
+stats = {
+"stamina": 6
+}
+band = "basic"
+item_level = 1
+level_req = 1
+rarity = "common"

@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://j57r5t93mqbx"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_amber_pendant"]
+
+[resource]
+script = ExtResource("1_amber_pendant")
+id = "amber_pendant"
+display_name = "Amber Pendant"
+description = "A fly-caught amber drop on a cord, said to bring luck."
+slot = "trinket"
+battle_effect_type = ""
+stats = {
+"intellect": 2,
+"haste": 3
+}
+band = "fine"
+item_level = 18
+level_req = 18
+rarity = "rare"

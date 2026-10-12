@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://8o9u7z5dysrt"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_apprentice_wand"]
+
+[resource]
+script = ExtResource("1_apprentice_wand")
+id = "apprentice_wand"
+display_name = "Apprentice's Wand"
+description = "A hazel stick with a chipped chalk rune, still warm from the tutor's hand."
+slot = "weapon"
+battle_effect_type = ""
+stats = {
+"spell_power": 9
+}
+swing_speed = 2.2
+band = "basic"
+item_level = 3
+level_req = 3
+rarity = "common"

@@ -5,6 +5,8 @@ extends Control
 const _ZoneLevels = preload("res://game_logic/world/ZoneLevels.gd")
 const GameState = preload("res://game_logic/battle/GameState.gd")
 const _BattleSetup = preload("res://game_logic/battle/BattleSetup.gd")
+const _EncounterSetup = preload("res://game_logic/battle/EncounterSetup.gd")
+const _FightConditions = preload("res://game_logic/battle/FightConditions.gd")
 const _BattleNet = preload("res://scenes/battle/net/BattleNet.gd")
 const _BattleNetSync = preload("res://scenes/battle/BattleNetSync.gd")
 const _BattleModifiers = preload("res://scenes/battle/modules/BattleModifiers.gd")
@@ -23,6 +25,7 @@ const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
+const _GearDrops = preload("res://game_logic/items/GearDrops.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
 const SkillRegistry = preload("res://autoloads/SkillRegistry.gd")
 const SkillData = preload("res://data/SkillData.gd")
@@ -65,14 +68,6 @@ const _PVP_RECONNECT_GRACE_SECONDS: float = 45.0
 const _BATTLEFIELD_BANNER_DURATION: float = 3.0
 const TUTORIAL_DURATION: float = 8.0
 
-## World-encounter ambush handicaps (GID-113 / TID-421, TID-422). Mirrors
-## `wounded_pride`'s shape: sets both `health` and `max_health` so the
-## handicap survives the whole match instead of being healed away by the
-## first heal card. `player_ambush`/`enemy_ambush` are mutually exclusive by
-## construction (EnemyNPC.engage() derives them from different alert-state
-## values) so only one branch below ever fires.
-const _AMBUSH_HP_PCT: float = 0.2
-const _AMBUSH_HP_MIN: int = 10
 
 var enemy_data: Dictionary = {}
 ## Set by SceneManager when the battle is fought over the live (frozen) world
@@ -514,8 +509,7 @@ func _setup_solo_battle() -> void:
 	# Emboldened Foe gambit: set bonus before build_deck so it is applied to the draw_deck
 	# and persists for boss phase-2 rebuild via PlayerState.minion_attack_bonus.
 	var _gambit_id: String = str(enemy_data.get("gambit_id", ""))
-	if _gambit_id == "emboldened_foe":
-		_state.players[1].minion_attack_bonus = 1
+	_state.players[1].minion_attack_bonus = _FightConditions.enemy_minion_attack_bonus(_gambit_id)
 	# Deck (trait-shaped, tier-scaled) + opening hand, pack on the board (TID-541),
 	# boss HP and zone-level HP — shared with the balance sim (GID-176 / TID-714).
 	var enemy_deck: Array[String] = []
@@ -529,8 +523,7 @@ func _setup_solo_battle() -> void:
 
 	# Blighted zone buff: non-blight-heart enemies get +5 HP in blighted chunks.
 	if bool(enemy_data.get("is_blighted", false)) and not enemy_data.has("blight_heart_id"):
-		_state.players[1].hero.health += 5
-		_state.players[1].hero.max_health += 5
+		_FightConditions.apply_blight(_state.players[1])
 		GameBus.hud_message_requested.emit("The blight empowers your foe…")
 
 	# Apply remaining gambit handicaps now that all decks and HP are set.
@@ -943,7 +936,7 @@ func _on_turn_ended(player_idx: int) -> void:
 	var snap_sot := _fx.snapshot()
 	_fx.process_start_of_turn_statuses(player_idx)
 	# Desert biome rule: leftmost minion on each board takes 1 damage at turn start (daytime only).
-	if _state.battlefield_biome == BattlefieldRules.BIOME_DESERT and not _state.is_night:
+	if _FightConditions.scorch_active(_state):
 		modifiers._apply_desert_scorch()
 	# Grow snow-discount tracking array to match player count.
 	while _snow_discount_used.size() <= player_idx:
@@ -1091,22 +1084,12 @@ func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 func _check_boss_phase2() -> void:
 	if _boss_phase2_triggered:
 		return
-	if not bool(enemy_data.get("is_boss", false)):
-		return
 	var p2_raw: Array = enemy_data.get("phase2_deck", [])
-	if p2_raw.is_empty():
-		return
-	var enemy_hero := _state.players[1].hero
-	if enemy_hero.health > enemy_hero.max_health / 2:
+	# GID-187 / TID-782: the swap itself is shared with the balance sim (BattleSetup).
+	if not _EncounterSetup.boss_phase2_due(_state.players[1], bool(enemy_data.get("is_boss", false)), p2_raw):
 		return
 	_boss_phase2_triggered = true
-	var p2_deck: Array[String] = []
-	p2_deck.assign(p2_raw)
-	var p2_enemy_type: String = str(enemy_data.get("enemy_type", ""))
-	var p2_tier: int = 4 if bool(enemy_data.get("is_boss", false)) else EnemyRegistry.get_difficulty_tier(p2_enemy_type)
-	_state.players[1].build_deck(p2_deck, p2_tier)
-	_state.players[1].school_profile = EnemyRegistry.get_school_profile(p2_enemy_type, 2)  # TID-751
-	_state.players[1].draw_opening_hand(4)
+	_EncounterSetup.enter_boss_phase2(_state.players[1], str(enemy_data.get("enemy_type", "")), p2_raw)
 	_refresh_all()
 	_result_ui.show_phase2_banner()
 
@@ -1194,11 +1177,14 @@ func _show_standard_victory() -> void:
 			if WeaponRegistry.has_weapon(pid):
 				weapon_pool.append(pid)
 		if weapon_pool.is_empty():
-			var all_ids: Array[String] = WeaponRegistry.get_all_ids()
+			# GID-187 / TID-791: a weapon on the gear curve for the player's level, unowned first.
 			var owned_w: Array[String] = SceneManager.save_manager.get_owned_by_slot("weapon")
-			for wid in all_ids:
+			var curve: Array[String] = _GearDrops.candidates(SceneManager.save_manager.level, "weapon")
+			for wid: String in curve:
 				if not owned_w.has(wid):
 					weapon_pool.append(wid)
+			if weapon_pool.is_empty():
+				weapon_pool = curve
 		var weapon_reward_id: String = ""
 		if not weapon_pool.is_empty():
 			weapon_reward_id = weapon_pool[randi() % weapon_pool.size()]

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://pzcpxyf7b1s6"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_wraithwing_spaulders"]
+
+[resource]
+script = ExtResource("1_wraithwing_spaulders")
+id = "wraithwing_spaulders"
+display_name = "Wraithwing Spaulders"
+description = "Spaulders of grey feather and light steel that rustle in the wind of a blade."
+slot = "shoulders"
+battle_effect_type = ""
+stats = {
+"attack_power": 26,
+"mastery:light": 9,
+"phys_crit": 8,
+"haste": 15
+}
+band = "heroic"
+item_level = 48
+level_req = 48
+rarity = "epic"

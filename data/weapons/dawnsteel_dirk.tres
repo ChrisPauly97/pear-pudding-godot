@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://ybt9tjiq14gg"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_dawnsteel_dirk"]
+
+[resource]
+script = ExtResource("1_dawnsteel_dirk")
+id = "dawnsteel_dirk"
+display_name = "Dawnsteel Dirk"
+description = "A slim dirk of pale steel that gleams in the first light."
+slot = "weapon"
+battle_effect_type = ""
+stats = {
+"attack_power": 28,
+"phys_crit": 7,
+"haste": 9,
+"leech": 11
+}
+swing_speed = 1.8
+band = "heroic"
+item_level = 35
+level_req = 35
+rarity = "epic"

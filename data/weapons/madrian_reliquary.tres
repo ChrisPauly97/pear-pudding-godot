@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://qg67nw4p969x"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_madrian_reliquary"]
+
+[resource]
+script = ExtResource("1_madrian_reliquary")
+id = "madrian_reliquary"
+display_name = "Madrian Reliquary"
+description = "A reliquary holding a single relic of the old town, still warm to the touch."
+slot = "trinket"
+battle_effect_type = ""
+stats = {
+"attack_power": 23,
+"command": 5,
+"leech": 6,
+"phys_crit": 12
+}
+band = "legendary"
+item_level = 51
+level_req = 51
+rarity = "legendary"

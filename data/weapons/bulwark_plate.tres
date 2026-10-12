@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://vl85unoy8p4v"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_bulwark_plate"]
+
+[resource]
+script = ExtResource("1_bulwark_plate")
+id = "bulwark_plate"
+display_name = "Bulwark Plate"
+description = "Full plate on a riveted hauberk, built to stand in a breach."
+slot = "armor"
+battle_effect_type = ""
+stats = {
+"stamina": 29,
+"spirit": 9,
+"block": 8,
+"resist:physical": 20
+}
+band = "heroic"
+item_level = 36
+level_req = 36
+rarity = "epic"

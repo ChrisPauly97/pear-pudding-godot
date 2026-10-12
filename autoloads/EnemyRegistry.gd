@@ -481,7 +481,7 @@ static func _ensure_loaded() -> void:
 			"signature_card": "sig_pathfinder", "capture_condition": "win_by_turn", "capture_param": 5,
 		},
 		"scarab_swarm": {
-			"rt_hp_mult": 0.75,  # GID-186: real-time balance vs its level band
+			"rt_hp_mult": 0.7,  # GID-186: real-time balance vs its level band
 			"display_name": "Scarab Queen",
 			"schools": {"resist": ["physical"], "weak": ["verdant", "rift"]},
 			"deck": ["scarab", "scarab", "scarab", "scarab", "scarab", "scarab", "scarab", "scarab",

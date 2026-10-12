@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://gclab05py733"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_river_pebble"]
+
+[resource]
+script = ExtResource("1_river_pebble")
+id = "river_pebble"
+display_name = "River Pebble"
+description = "A smooth grey stone pressed into a pocket, a small comfort on long roads."
+slot = "trinket"
+battle_effect_type = ""
+stats = {
+"stamina": 8
+}
+band = "basic"
+item_level = 8
+level_req = 8
+rarity = "common"

@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://mle7e43tb61r"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_sigil_tile"]
+
+[resource]
+script = ExtResource("1_sigil_tile")
+id = "sigil_tile"
+display_name = "Warding Sigil Tile"
+description = "A slate tile scrawled with a warding mark that hums faintly when touched."
+slot = "offhand"
+battle_effect_type = ""
+stats = {
+"spell_power": 9
+}
+band = "basic"
+item_level = 8
+level_req = 8
+rarity = "common"

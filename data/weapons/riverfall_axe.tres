@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://2u3u0b408rh1"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_riverfall_axe"]
+
+[resource]
+script = ExtResource("1_riverfall_axe")
+id = "riverfall_axe"
+display_name = "Riverfall Axe"
+description = "A heavy axe ground on river stones until it runs like water."
+slot = "weapon"
+battle_effect_type = ""
+stats = {
+"attack_power": 27,
+"phys_crit": 9,
+"command": 16
+}
+swing_speed = 3.6
+band = "superior"
+item_level = 34
+level_req = 34
+rarity = "rare"

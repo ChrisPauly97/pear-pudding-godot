@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://3w77fxccfwhg"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_reinforced_pauldrons"]
+
+[resource]
+script = ExtResource("1_reinforced_pauldrons")
+id = "reinforced_pauldrons"
+display_name = "Reinforced Pauldrons"
+description = "Leather caps with a riveted iron rim."
+slot = "shoulders"
+battle_effect_type = ""
+stats = {
+"armor": 4,
+"spirit": 5
+}
+band = "fine"
+item_level = 11
+level_req = 11
+rarity = "common"
