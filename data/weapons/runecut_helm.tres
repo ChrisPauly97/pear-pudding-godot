@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://ixtojsi2g9kt"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_runecut_helm"]
+
+[resource]
+script = ExtResource("1_runecut_helm")
+id = "runecut_helm"
+display_name = "Runecut Helm"
+description = "Cut with old runes that warm when blood is spilled."
+slot = "helmet"
+battle_effect_type = ""
+stats = {
+"stamina": 26,
+"block": 5,
+"spirit": 12,
+"resist:dark": 18
+}
+band = "heroic"
+item_level = 40
+level_req = 40
+rarity = "epic"

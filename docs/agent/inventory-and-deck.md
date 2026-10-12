@@ -315,7 +315,7 @@ cost = Σ rating × `STAT_COST` (armor 2, intellect 6, mastery 0.8, resist 0.6, 
 - Tests: `tests/unit/test_gear_tooltip.gd`.
 ### Gear Catalogue (GID-187 / TID-790)
 
-Hand-made gear in `data/weapons/*.tres` (95 items; `WeaponRegistry` preloads each one). Every item passes
+Hand-made gear in `data/weapons/*.tres` (137 items; `WeaponRegistry` preloads each one). Every item passes
 `GearCurve.validate()`, checked by `tests/unit/test_gear_curve.gd`. Each slot has two items per band that differ in
 stat focus: an **A** tank / defence piece (Stamina, Armor, block, spirit, resist) and a **B** caster / striker piece
 (Intellect or Spell / Attack Power with Haste, crit, mastery). Weapons are five per band, one per swing class: dagger
@@ -336,6 +336,13 @@ leech and block. Mastery of each school (light, dark, verdant, rift) appears on 
 Resist, leech and block pieces start at Superior. Legendary items have lore names (Saimtar, Maiteln, Eldar, Larik,
 Blancogov, Madrian, Farsyth) and stats only.
 
+**Fill-in tiers (GID-187 / TID-793).** Two items per band left 7-12 level holes in every non-weapon slot (11 → 18,
+21 → 33, 36 → 48, 51 → 59), so a player wore items far below their level. 42 items at item level 14, 25, 29, 40, 44
+and 55 (prefixes Riveted, Steelbound, Wardwoven, Runecut, Wardenguard, Starforged + Hauberk / Helm / Pauldrons /
+Boots / Shield / Ring / Charm) each copy a same-band item's stat mix scaled to their budget and reuse its paper-doll
+look. Now every slot has a wearable item within `GearDrops.DROP_BELOW` (4) levels of every level from 12
+(`test_gear_power`).
+
 Chest drops, shops and boss rewards draw from the whole registry, so the catalogue widens every equipment pool.
 Helmets and boots are visible on the paper doll, as are armour, shoulders, weapons, off-hands and trinkets. Each has a
 `GEAR_VISUALS` entry in `game_logic/character/PaperDollVisuals.gd` (re-exported by `PaperDoll`), which
@@ -348,7 +355,7 @@ curve:
 
 | Source | Rule |
 |---|---|
-| Chests (`ChestLoot._maybe_drop_equipment`) | `pick(level)`: zone level capped at the player's; wearable (level_req ≤ level), item level ≥ level − 4; slots ≥ 2 bands behind (or empty) first; unowned first |
+| Chests (`ChestLoot._maybe_drop_equipment`) | chance `LootRoll.equipment_chance(tier, behind)` (15 % / treasure room 40 %, ×2 catch-up while a slot is behind, TID-793); `pick(level)`: zone level capped at the player's; wearable (level_req ≤ level), item level ≥ level − 4; behind slots (empty, or item level more than `PITY_BEHIND` 8 under the player) first; unowned first |
 | Boss weapon fallback (`BattleScene`) | weapon `candidates` at the player's level, unowned first |
 | Co-op loot roll (`CoopActivities`) | `candidates` at the winner's level |
 | Shop (`ShopScene`) | `shop_stock`: wearable, item level ≥ level − 9; priced by stat budget (`price`) |
@@ -357,6 +364,22 @@ curve:
 Grants record the item's authored rarity and item level (`authored_roll`); random rarity / ilvl / affix rolls are
 retired (old saved rolls still read; their affixes still apply). `expected_loadout(level)` is the per-slot best
 wearable item — what the balance profiles (TID-778) wear.
+
+### Item power and the gear supply (GID-187 / TID-793)
+
+Gear carries most of a player's growth past level 8 (user target: ~60 % of a level-30 player's power). Besides its
+stats, every worn stat item adds **item power** by its item level (`GearCurve.gear_power` / `items_power`, applied
+in real time by `BattleSetup.apply_gear` to `PlayerState.gear_power` (outgoing damage, beside `level_power`) and
+`gear_hp_power` (max HP, applied by `RealtimeCombat` after the level HP growth)). Each item contributes its slot's
+share of a full loadout (`SLOT_WEIGHT` / 5.7) × (1 + 0.1 × blacksmith upgrades) × ln(enemy growth at its item level /
+growth at `power_from_level`); the sum is raised by `gear_track` / `gear_hp_track` (0.7). A full on-curve loadout of
+level-L items gives growth(L) ^ 0.7. Rarity is not counted (it already buys stat budget). Enemy power stays tied to
+level (user, 2026-10-12): see `balance-sim.md` → Gear power and enemy threat.
+
+`game_logic/items/GearSupply.gd` levels a simulated player 1 → 60 through `GearDrops.pick`, wearing every
+upgrade, at `TARGET_DROPS_PER_HOUR` (4 gear drops per hour of play from every source, over `XpCurve.minutes_for`).
+At that rate the worn loadout stays ≥ 0.85 of the curve from level 20 (measured ≥ 0.89; ≥ 0.95 from 26).
+The real rate depends on how many chests a player opens per hour, which nothing measures yet.
 
 ### SaveManager Equipment Fields
 

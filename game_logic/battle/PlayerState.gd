@@ -37,6 +37,12 @@ var school_power: Dictionary = {}
 ## Outgoing damage multiplier from the hero's level, every school (real time: `CombatTuning.hero_level_power`,
 ## set by RealtimeCombat for the player side). 1.0 = none. Not serialized.
 var level_power: float = 1.0
+## Outgoing damage multiplier from worn gear's item levels (real time: `GearCurve.gear_power`, set by
+## `BattleSetup.apply_gear`, GID-187 / TID-793). 1.0 = none. Not serialized.
+var gear_power: float = 1.0
+## Max-HP multiplier from worn gear's item levels (`GearCurve.gear_power` on `gear_hp_track`), applied
+## by RealtimeCombat after the level HP growth (TID-793). 1.0 = none. Not serialized.
+var gear_hp_power: float = 1.0
 ## Converted gear stats for this fight (GID-187 / TID-788, `GearStats.apply`): flat stats as ints,
 ## percent / school stats as fractions. Read with `gear_stat`. Not serialized.
 var gear: Dictionary = {}

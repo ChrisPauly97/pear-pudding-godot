@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://x4bljfbz5kqe"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_starforged_boots"]
+
+[resource]
+script = ExtResource("1_starforged_boots")
+id = "starforged_boots"
+display_name = "Starforged Boots"
+description = "Forged under the falling stars, light as a held breath."
+slot = "boots"
+battle_effect_type = ""
+stats = {
+"spell_power": 30,
+"haste": 9,
+"spell_crit": 10,
+"spirit": 16
+}
+band = "legendary"
+item_level = 55
+level_req = 55
+rarity = "legendary"

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://c63z3qxm8u9n"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_wardenguard_hauberk"]
+
+[resource]
+script = ExtResource("1_wardenguard_hauberk")
+id = "wardenguard_hauberk"
+display_name = "Wardenguard Hauberk"
+description = "Gilded and blessed for the wardens of the high passes."
+slot = "armor"
+battle_effect_type = ""
+stats = {
+"intellect": 6,
+"haste": 11,
+"spell_crit": 13,
+"spirit": 18
+}
+band = "heroic"
+item_level = 44
+level_req = 44
+rarity = "epic"

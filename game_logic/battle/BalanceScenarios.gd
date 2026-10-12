@@ -49,6 +49,8 @@ const JOINER_SLACK: float = 0.07
 ## [enemy type, player level, enemy level].
 const CONDITION_CELLS: Array = [["duelist_adept", 14, 14], ["rift_echo", 20, 20]]
 const CONDITION_FIGHTS: int = 32
+## TID-793: condition cells fight with the level's expected gear (`BalanceCoverage.cell_cfg` `geared`).
+const GEARED: Dictionary = {"geared": true}
 ## Largest allowed swing (win rate, either way) of one condition against no battlefield.
 const CONDITION_MAX_SWING: float = 0.25
 ## One school's favoured environment may lower its matched-deck win rate by at most this.
@@ -144,18 +146,24 @@ static func measure_conditions(tune: Dictionary = {}) -> Dictionary:
 		var t: String = str(c[0])
 		var pl: int = int(c[1])
 		var el: int = int(c[2])
-		var base: Dictionary = _cell(t, pl, el, CONDITION_FIGHTS, "", tune)
+		var base: Dictionary = _cell(t, pl, el, CONDITION_FIGHTS, "", tune, GEARED)
 		for cond: Array in CONDITIONS:
-			var r: Dictionary = _cell(t, pl, el, CONDITION_FIGHTS, "", tune, cond[1] as Dictionary)
+			var r: Dictionary = _cell(t, pl, el, CONDITION_FIGHTS, "", tune, _geared(cond[1] as Dictionary))
 			out["condition/%s/%s@%d" % [str(cond[0]), t, el]] = {"kind": "condition", "win_rate": r["win_rate"],
 				"median_s": r["median_s"], "base": base["win_rate"], "n": r["n"]}
 		for se: Array in SCHOOL_ENVS:
 			var school: String = str(se[0])
-			var school_base: Dictionary = _cell(t, pl, el, CONDITION_FIGHTS, school, tune, {}, BattleSetup.MATCHED_SWAP)
-			var r2: Dictionary = _cell(t, pl, el, CONDITION_FIGHTS, school, tune, se[1] as Dictionary,
+			var school_base: Dictionary = _cell(t, pl, el, CONDITION_FIGHTS, school, tune, GEARED,
+				BattleSetup.MATCHED_SWAP)
+			var r2: Dictionary = _cell(t, pl, el, CONDITION_FIGHTS, school, tune, _geared(se[1] as Dictionary),
 				BattleSetup.MATCHED_SWAP)
 			out["school/%s/%s/%s@%d" % [school, _env_label(se[1] as Dictionary), t, el]] = {"kind": "school",
 				"win_rate": r2["win_rate"], "median_s": r2["median_s"], "base": school_base["win_rate"], "n": r2["n"]}
+	return out
+
+static func _geared(env: Dictionary) -> Dictionary:
+	var out: Dictionary = env.duplicate()
+	out["geared"] = true
 	return out
 
 ## A short label for an environment cfg ("day", "night", "biome2"...).

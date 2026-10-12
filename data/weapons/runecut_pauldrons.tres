@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://n6hpaanjr81p"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_runecut_pauldrons"]
+
+[resource]
+script = ExtResource("1_runecut_pauldrons")
+id = "runecut_pauldrons"
+display_name = "Runecut Pauldrons"
+description = "Cut with old runes that warm when blood is spilled."
+slot = "shoulders"
+battle_effect_type = ""
+stats = {
+"armor": 11,
+"spirit": 7,
+"block": 7,
+"resist:rift": 16
+}
+band = "heroic"
+item_level = 40
+level_req = 40
+rarity = "epic"

@@ -100,8 +100,9 @@ func test_joiner_not_due_is_not_joined() -> void:
 
 func test_boss_fight_swaps_to_phase2_at_half_hp() -> void:
 	# barrow_king at its low end, same level, the coverage cell's player (seed 1 wins; the boss
-	# is worn below half health before the fight ends, so it swaps).
-	var cfg: Dictionary = BalanceCoverage.cell_cfg(BOSS, 20, 20, 1, "", {}, {"is_boss": true})
+	# is worn below half health before the fight ends, so it swaps). Geared: past level 8 a naked
+	# hero no longer keeps pace (TID-793).
+	var cfg: Dictionary = BalanceCoverage.cell_cfg(BOSS, 20, 20, 1, "", {}, {"is_boss": true, "geared": true})
 	var stats: Dictionary = BalanceFight.run(cfg)
 	assert_eq(int(stats["phase2"]), 1, "a boss fight that reaches half health swaps to phase 2")
 

@@ -172,6 +172,7 @@ func _init_side(i: int, level: int) -> void:
 	h.mana_scale = MANA_SCALE
 	if i == PLAYER:
 		_grow_hero_hp(h, level)
+		_scale_hero_hp(h, p.gear_hp_power)
 		p.level_power = tune.hero_level_power(level)
 	else:
 		_gap_enemy_hp(h, level)
@@ -765,9 +766,13 @@ static func is_heavy(card: CardInstance) -> bool:
 
 ## Damage a landed heavy blow deals (a share of your max HP; armor soaks it).
 ## Heavy blows from a low-level enemy land softer (CombatTuning.level_scale, TID-720).
+## GID-187 / TID-793: the share is of your max HP *before* gear's item-level HP (`gear_hp_power`),
+## grown like the enemy's swings (`enemy_dmg_growth`), so gear HP protects against heavies too.
 func heavy_damage(side: int = ENEMY) -> int:
-	return maxi(1, roundi(float(state.players[PLAYER].hero.max_health) * tune.get_f("heavy_frac")
-			* tune.level_scale(_level_of(side)) * tune.gap_mult(_level_of(side), _level_of(PLAYER))))
+	var p: PlayerState = state.players[PLAYER]
+	var base_hp: float = float(p.hero.max_health) / maxf(0.01, p.gear_hp_power)
+	return maxi(1, roundi(base_hp * tune.get_f("heavy_frac") * tune.level_scale(_level_of(side))
+			* tune.gap_mult(_level_of(side), _level_of(PLAYER)) * tune.enemy_dmg_growth(_level_of(side))))
 
 ## An enemy side's swing damage after the level gap: the fractional part lands
 ## as a seeded chance, so small integer hits still feel the gap (TID-718).
@@ -787,6 +792,15 @@ func _grow_hero_hp(h: HeroState, level: int) -> void:
 		return
 	var frac: float = float(h.health) / float(h.max_health)
 	h.max_health += extra
+	h.health = clampi(roundi(frac * float(h.max_health)), 1 if h.health > 0 else 0, h.max_health)
+
+## GID-187 / TID-793: worn gear's max-HP multiplier (`PlayerState.gear_hp_power`); current HP keeps
+## its fraction, as in `_grow_hero_hp`.
+func _scale_hero_hp(h: HeroState, mult: float) -> void:
+	if is_equal_approx(mult, 1.0) or h.max_health <= 0:
+		return
+	var frac: float = float(h.health) / float(h.max_health)
+	h.max_health = maxi(1, roundi(float(h.max_health) * mult))
 	h.health = clampi(roundi(frac * float(h.max_health)), 1 if h.health > 0 else 0, h.max_health)
 
 ## An enemy's hero gains `enemy_hp_per_level` × max HP per level above 1 (on top

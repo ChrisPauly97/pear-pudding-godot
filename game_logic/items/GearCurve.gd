@@ -11,6 +11,8 @@ extends RefCounted
 
 const _GearStats = preload("res://game_logic/items/GearStats.gd")
 const _WeaponData = preload("res://data/WeaponData.gd")
+const _CombatTuning = preload("res://game_logic/battle/CombatTuning.gd")
+const _WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 
 ## [id, min level, max level, max secondary stats, school / special secondaries allowed].
 const BANDS: Array = [
@@ -117,3 +119,40 @@ static func validate(w: _WeaponData) -> Array[String]:
 	if not mechanic and c < b * (1.0 - BUDGET_TOLERANCE) - 0.001:
 		out.append("%s: stats cost %.1f under budget %.1f" % [w.id, c, b])
 	return out
+
+## GID-187 / TID-793: the outgoing damage multiplier worn gear gives (real time): every stat item
+## stands for the enemy growth of its item level (`CombatTuning.item_power_log`), weighted by its
+## slot's share of a full loadout and its blacksmith upgrades (+10 % each), and the sum is raised
+## by `gear_track`. Rarity is left out: it already buys a bigger stat budget, and the catalogue's
+## rarity rises with its bands, so counting it here too overshoots the curve at the top. A full
+## on-curve loadout of level-L items gives about growth(L) ^ gear_track; an empty or old one, less.
+## `worn`: [[WeaponData, upgrade level], ...].
+## `track_key` "gear_hp_track" gives the max-HP multiplier instead.
+static func gear_power(worn: Array, tune: _CombatTuning = null, track_key: String = "gear_track") -> float:
+	var t: _CombatTuning = tune if tune != null else _CombatTuning.new()
+	var track: float = t.get_f(track_key)
+	if track <= 0.0:
+		return 1.0
+	return exp(track * power_log(worn, t))
+
+## `gear_power` of equipped `items` ([{id, level (blacksmith upgrade)}], as `BattleSetup.apply_gear` takes).
+static func items_power(items: Array[Dictionary], tune: _CombatTuning = null,
+		track_key: String = "gear_track") -> float:
+	var worn: Array = []
+	for item: Dictionary in items:
+		worn.append([_WeaponRegistry.get_weapon(str(item.get("id", ""))), int(item.get("level", 0))])
+	return gear_power(worn, tune, track_key)
+
+## Sum over `worn` of each item's share of the loadout power (see `gear_power`), before `gear_track`.
+static func power_log(worn: Array, tune: _CombatTuning) -> float:
+	var total_w: float = 0.0
+	for k: Variant in SLOT_WEIGHT:
+		total_w += float(SLOT_WEIGHT[k])
+	var sum: float = 0.0
+	for pair: Array in worn:
+		var w: _WeaponData = pair[0] as _WeaponData
+		if w == null or w.stats.is_empty():
+			continue
+		var upgrade: float = 1.0 + 0.10 * float(maxi(0, int(pair[1])))
+		sum += float(SLOT_WEIGHT.get(slot_of(w), 0.5)) / total_w * upgrade * tune.item_power_log(w.item_level)
+	return sum

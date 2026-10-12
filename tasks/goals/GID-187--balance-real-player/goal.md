@@ -45,7 +45,7 @@ and co-op — and retune against that player instead.
 | TID-785 | Turn-based sim and bands | agent | cancelled | — |
 | TID-786 | Real-time co-op scaling (2-4 heroes) | agent | todo | TID-778 |
 | TID-787 | Retune against profiles | agent | done | TID-779, TID-780, TID-781, TID-782, TID-784 |
-| TID-793 | Enemy threat scaling and the 60 % gear share | agent | todo | TID-787 |
+| TID-793 | Enemy threat scaling and the 60 % gear share | agent | done | TID-787 |
 
 Order: gear curve 788 → 789 → 790 → 791 (792 alongside), then 778 → 779 → 787 (biggest effect), then 780-782,
 784, then 783 and 786.
@@ -54,7 +54,7 @@ Order: gear curve 788 → 789 → 790 → 791 (792 alongside), then 778 → 779 
 
 - [ ] Gear bands Basic → Legendary with hand-made, on-budget items in every slot; drops / quests / vendors / crafting
   follow the curve; tooltips show stats and comparisons
-- [ ] Gear supplies ~60 % of a level-30 typical player's power (measured: profile with vs without gear)
+- [x] Gear supplies ~60 % of a level-30 typical player's power (measured: profile with vs without gear; 0.66, TID-793)
 - [ ] Gating cells fight as a typical player of their level; the bare hero stays as a floor check
 - [ ] Gear, skills and card upgrades each measurably help; none dominates
 - [ ] Weather / biome / night / scorch / Attuned / blight run through one code path in the sim and the game, with

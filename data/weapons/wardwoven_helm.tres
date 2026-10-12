@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://57bzouc3pmoe"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_wardwoven_helm"]
+
+[resource]
+script = ExtResource("1_wardwoven_helm")
+id = "wardwoven_helm"
+display_name = "Wardwoven Helm"
+description = "Woven with faint warding threads that hum near danger."
+slot = "helmet"
+battle_effect_type = ""
+stats = {
+"intellect": 3,
+"mastery:light": 11,
+"haste": 12
+}
+band = "superior"
+item_level = 29
+level_req = 29
+rarity = "rare"

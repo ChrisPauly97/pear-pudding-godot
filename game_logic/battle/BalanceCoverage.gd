@@ -78,18 +78,19 @@ const MONOTONIC_SLACK: float = 0.15
 ## against it with `school`'s tag removed (`untag_school`), so the matchup is the only change.
 ## Magic schools bring a school-heavy deck (SCHOOL_SWAP Allies swapped for school cards: two
 ## cards barely register); physical is the default deck. Levels sit where the untagged fight is
-## neither won nor lost every time, so the matchup has room to show.
-const SCHOOL_MATRIX: Array = [
-	["physical", "weak", "sand_stalker", 15, 14],
-	["physical", "resist", "scarab_swarm", 14, 14],
-	["physical", "resist", "wraith", 9, 8],
-	["light", "weak", "spectre_haunt", 16, 14],
-	["light", "resist", "duelist_champion", 23, 20],
-	["dark", "weak", "mountain_troll", 16, 14],
-	["dark", "resist", "bog_hag", 8, 6],
-	["verdant", "weak", "martarquas_scout", 11, 9],
-	["verdant", "resist", "forest_shade", 9, 7],
-	["rift", "weak", "mimic", 17, 14],
+## neither won nor lost every time, so the matchup has room to show. Cells wear the level's expected
+## gear (`geared`, TID-793).
+const SCHOOL_MATRIX: Array = [  # levels re-picked for geared cells (TID-793, 8-fight screen)
+	["physical", "weak", "sand_stalker", 13, 12],
+	["physical", "resist", "scarab_swarm", 18, 17],
+	["physical", "resist", "wraith", 13, 11],
+	["light", "weak", "spectre_haunt", 22, 20],
+	["light", "resist", "duelist_champion", 20, 18],
+	["dark", "weak", "mountain_troll", 19, 17],
+	["dark", "resist", "bog_hag", 13, 11],
+	["verdant", "weak", "martarquas_scout", 10, 8],
+	["verdant", "resist", "forest_shade", 9, 8],
+	["rift", "weak", "mimic", 16, 14],
 	["rift", "resist", "duelist_novice", 10, 8],
 ]
 const SCHOOL_SWAP: int = 6
@@ -162,7 +163,8 @@ static func neutral_school(type: String) -> String:
 	return ""
 
 ## One fight's config. `school` "" = the default deck, else the school-matched deck with `swap`
-## Allies swapped. `extra` keys are merged in last (e.g. `untag_school`, `is_boss`).
+## Allies swapped. `extra` keys are merged in last (e.g. `untag_school`, `is_boss`); `geared: true`
+## adds the level's expected gear (`BalanceProfiles.gear_cfg`, TID-793).
 static func cell_cfg(type: String, player_level: int, enemy_level: int, fight_seed: int, school: String = "",
 		tune: Dictionary = {}, extra: Dictionary = {}, swap: int = BattleSetup.MATCHED_SWAP) -> Dictionary:
 	var learned: Array = BalanceBands.ladder_learned(player_level)
@@ -173,6 +175,9 @@ static func cell_cfg(type: String, player_level: int, enemy_level: int, fight_se
 	if not tune.is_empty():
 		cfg["tuning"] = tune
 	cfg.merge(extra, true)
+	if bool(cfg.get("geared", false)):  # TID-793: the curve's expected gear, deck unchanged
+		cfg.erase("geared")
+		cfg.merge(BalanceProfiles.gear_cfg(player_level), true)
 	return cfg
 
 ## {win_rate, median_s, n} over `fights` seeded fights of one cell (`cell_cfg` arguments).
@@ -242,9 +247,10 @@ static func measure_schools(tune: Dictionary = {}) -> Dictionary:
 		var pl: int = int(row[4])
 		out["%s/%s/%s@%d" % [school, str(row[1]), enemy, el]] = {"school": school, "kind": str(row[1]),
 			"enemy": enemy, "same": el == pl,
-			"rate": float(run_cell(enemy, pl, el, SCHOOL_FIGHTS, school, tune, {}, SCHOOL_SWAP)["win_rate"]),
-			"untagged": float(run_cell(enemy, pl, el, SCHOOL_FIGHTS, school, tune, {"untag_school": school},
-				SCHOOL_SWAP)["win_rate"])}
+			"rate": float(run_cell(enemy, pl, el, SCHOOL_FIGHTS, school, tune, {"geared": true},
+				SCHOOL_SWAP)["win_rate"]),
+			"untagged": float(run_cell(enemy, pl, el, SCHOOL_FIGHTS, school, tune, {"untag_school": school,
+				"geared": true}, SCHOOL_SWAP)["win_rate"])}
 	return out
 
 ## Failures of the school matrix (empty = pass).

@@ -26,6 +26,9 @@ const FIT_WEIGHTS: Dictionary = {
 	"spell_crit": 0.6, "leech": 0.5, "spirit": 0.3, "intellect": 1.5, "stamina": 0.3, "armor": 0.5,
 	"block": 0.3, "resist": 0.2, "mastery": 0.8,
 }
+## A worn item more than this many item levels under the player's level marks its slot as behind
+## (drops fill it first).
+const PITY_BEHIND: int = 8
 ## Items within this many item levels of the slot's best wearable one are considered.
 const FIT_WINDOW: int = 5
 
@@ -113,22 +116,14 @@ static func fit(w: _WeaponData, magic_type: String) -> float:
 		total += float(FIT_WEIGHTS.get(kind, 0.5)) * float(w.stats[k])
 	return total
 
-## Index of a band id in GearCurve.BANDS (-1 unknown).
-static func band_index(band_id: String) -> int:
-	for i: int in _GearCurve.BANDS.size():
-		if str(_GearCurve.BANDS[i][0]) == band_id:
-			return i
-	return -1
-
-## Slots more than one band behind the player's level band: empty, or wearing an item whose
-## band is two or more below. `equipped` = {slot: item id}.
+## Slots that fell behind the player's level: empty (from level 10), or wearing an item more than
+## PITY_BEHIND item levels under it (GID-187 / TID-793: by item level, not band, now that every slot
+## has an item every few levels). `equipped` = {slot: item id}.
 static func behind_slots(level: int, equipped: Dictionary) -> Array[String]:
-	var current: int = band_index(str(_GearCurve.band_for_level(level)[0]))
 	var out: Array[String] = []
 	for s: String in SLOTS:
 		var w: _WeaponData = _WeaponRegistry.get_weapon(str(equipped.get(s, "")))
-		var have: int = band_index(w.band) if w != null else -1
-		if have < current - 1 or (w == null and current >= 1):
+		if (w == null and level >= 10) or (w != null and w.item_level < level - PITY_BEHIND):
 			out.append(s)
 	return out
 

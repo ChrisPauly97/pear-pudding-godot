@@ -323,7 +323,7 @@ godot --headless --path . -s tests/balance_coverage.gd -- --section world_high -
 ### Tuning (all real time)
 
 - **Hero level power:** `CombatTuning.hero_level_power(L)` = (`enemy_hp_growth(L)` / growth(`power_from_level`))
-  ^ `power_track` past `power_from_level` (8), 1.0 up to it; `power_track` 0.8. Stored on
+  ^ `power_track` past `power_from_level` (8), 1.0 up to it; `power_track` 0.8 (0.3 since TID-793: gear carries the rest). Stored on
   `PlayerState.level_power` by `RealtimeCombat` (player side only), multiplied into every outgoing hit in
   `DamageResolver.power_mult` (swings, spells, Allies). About 1.4x at L12, 2.4x at L20, 5.5x at L40.
 - **Every type's fight tier comes from its level** (`BattleSetup.base_tier` = 1, `enemy_tier` raises it per 10
@@ -546,4 +546,29 @@ checks; the **bare hero** is a floor.
 | `bosses` | typical | ≥ 40 % (high-end floors) | — |
 
 Tuning: `gap_damage` 0.3, `gap_hp` 0.2. Gear is picked for the build (`GearDrops.expected_loadout(level,
-magic_type)`). Gear share at level 30 is ~7 % (target 60 %): enemy threat does not scale, see TID-793.
+magic_type)`). Gear share at level 30 was ~7 % (target 60 %); TID-793 below.
+
+## Gear power and enemy threat (GID-187 / TID-793)
+
+Target (user): gear ≈ 60 % of a level-30 player's power; enemy power is tied to **level, not gear** (user,
+2026-10-12): drops have to keep the player close enough to geared.
+
+| Piece | What |
+|---|---|
+| Hero level power | `power_track` 0.8 → **0.3** (damage past level 8 from levels alone) |
+| Item power | `gear_track` 0.7 (damage) and `gear_hp_track` 0.7 (max HP): `GearCurve.gear_power` by worn item level, see `inventory-and-deck.md` → Item power |
+| Enemy threat | `enemy_dmg_growth(L)` = growth(L − `enemy_dmg_lag`) ^ `enemy_dmg_track` (0.7, lag 4): enemy swings, minion swings and spells grow like the HP of a hero wearing items 4 levels below the enemy's level (the drop window). Level only. |
+| Heavy blows | a share of the hero's max HP **before** gear HP, times `enemy_dmg_growth` (`RealtimeCombat.heavy_damage`): gear HP now protects against heavies too (before, a heavy was a share of whatever max HP the hero had, so HP gear did nothing against it) |
+| Gear supply | 42 fill-in items (every slot within 4 levels of every level from 12); pity by item level; chest catch-up chance; `GearSupply` sim (4 drops / hour keeps ≥ 0.85 of the curve) |
+| Cells | `schools` and `conditions` cells wear the level's expected gear (`cell_cfg` `geared: true`, `BalanceProfiles.gear_cfg`); the school matrix levels were re-picked (8-fight screen) where the geared untagged fight is mid-rate |
+| Content | `rival_isfig_2` `rt_hp_mult` 1.4 → 1.25, `scarab_swarm` 0.7 → 0.6 (L24 walls) |
+
+Measured (`BalanceProfiles.gear_share`, 4 fights × 4 magic types): **0.66 at level 30** (duelist champion), 0.84 at 46
+(frost wendigo). Every section passes: world_low +0 100 % / +1 81 %, world_high 100 / 88 %, range (bare) +1 55 %,
+bosses 100 % (median 31-49 s), same-level medians ~30 s. Core bands pass at the existing baseline (no rewrite).
+
+Why the first attempts failed: with enemy damage on the pure level curve, the catalogue's holes (a level-30 player
+wore item level 18 armour) left typical players 30-40 % short of it, and cells at 12-14 and 24-26 became walls.
+Coupling enemy threat to the typical loadout fixed the bands but tied enemies to gear, which the user rejected.
+Filling the catalogue, adding the 4-level lag (the drop window) and fixing the heavy base made the level-only
+curve work.

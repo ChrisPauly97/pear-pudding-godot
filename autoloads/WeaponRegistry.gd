@@ -124,6 +124,49 @@ const _W_MAITELN_LANTERN_ROD := preload("res://data/weapons/maiteln_lantern_rod.
 const _W_ELDARS_SUNDERBLADE := preload("res://data/weapons/eldars_sunderblade.tres")
 const _W_LARIK_STARLIGHT_STAFF := preload("res://data/weapons/larik_starlight_staff.tres")
 const _W_BLANCOGOV_THUNDERBRAND := preload("res://data/weapons/blancogov_thunderbrand.tres")
+# GID-187 / TID-793: fill-in tiers so every slot has an item within ~4 levels of the curve.
+const _W_RIVETED_HAUBERK := preload("res://data/weapons/riveted_hauberk.tres")
+const _W_STEELBOUND_HAUBERK := preload("res://data/weapons/steelbound_hauberk.tres")
+const _W_WARDWOVEN_HAUBERK := preload("res://data/weapons/wardwoven_hauberk.tres")
+const _W_RUNECUT_HAUBERK := preload("res://data/weapons/runecut_hauberk.tres")
+const _W_WARDENGUARD_HAUBERK := preload("res://data/weapons/wardenguard_hauberk.tres")
+const _W_STARFORGED_HAUBERK := preload("res://data/weapons/starforged_hauberk.tres")
+const _W_RIVETED_HELM := preload("res://data/weapons/riveted_helm.tres")
+const _W_STEELBOUND_HELM := preload("res://data/weapons/steelbound_helm.tres")
+const _W_WARDWOVEN_HELM := preload("res://data/weapons/wardwoven_helm.tres")
+const _W_RUNECUT_HELM := preload("res://data/weapons/runecut_helm.tres")
+const _W_WARDENGUARD_HELM := preload("res://data/weapons/wardenguard_helm.tres")
+const _W_STARFORGED_HELM := preload("res://data/weapons/starforged_helm.tres")
+const _W_RIVETED_PAULDRONS := preload("res://data/weapons/riveted_pauldrons.tres")
+const _W_STEELBOUND_PAULDRONS := preload("res://data/weapons/steelbound_pauldrons.tres")
+const _W_WARDWOVEN_PAULDRONS := preload("res://data/weapons/wardwoven_pauldrons.tres")
+const _W_RUNECUT_PAULDRONS := preload("res://data/weapons/runecut_pauldrons.tres")
+const _W_WARDENGUARD_PAULDRONS := preload("res://data/weapons/wardenguard_pauldrons.tres")
+const _W_STARFORGED_PAULDRONS := preload("res://data/weapons/starforged_pauldrons.tres")
+const _W_RIVETED_BOOTS := preload("res://data/weapons/riveted_boots.tres")
+const _W_STEELBOUND_BOOTS := preload("res://data/weapons/steelbound_boots.tres")
+const _W_WARDWOVEN_BOOTS := preload("res://data/weapons/wardwoven_boots.tres")
+const _W_RUNECUT_BOOTS := preload("res://data/weapons/runecut_boots.tres")
+const _W_WARDENGUARD_BOOTS := preload("res://data/weapons/wardenguard_boots.tres")
+const _W_STARFORGED_BOOTS := preload("res://data/weapons/starforged_boots.tres")
+const _W_RIVETED_SHIELD := preload("res://data/weapons/riveted_shield.tres")
+const _W_STEELBOUND_SHIELD := preload("res://data/weapons/steelbound_shield.tres")
+const _W_WARDWOVEN_SHIELD := preload("res://data/weapons/wardwoven_shield.tres")
+const _W_RUNECUT_SHIELD := preload("res://data/weapons/runecut_shield.tres")
+const _W_WARDENGUARD_SHIELD := preload("res://data/weapons/wardenguard_shield.tres")
+const _W_STARFORGED_SHIELD := preload("res://data/weapons/starforged_shield.tres")
+const _W_RIVETED_RING := preload("res://data/weapons/riveted_ring.tres")
+const _W_STEELBOUND_RING := preload("res://data/weapons/steelbound_ring.tres")
+const _W_WARDWOVEN_RING := preload("res://data/weapons/wardwoven_ring.tres")
+const _W_RUNECUT_RING := preload("res://data/weapons/runecut_ring.tres")
+const _W_WARDENGUARD_RING := preload("res://data/weapons/wardenguard_ring.tres")
+const _W_STARFORGED_RING := preload("res://data/weapons/starforged_ring.tres")
+const _W_RIVETED_CHARM := preload("res://data/weapons/riveted_charm.tres")
+const _W_STEELBOUND_CHARM := preload("res://data/weapons/steelbound_charm.tres")
+const _W_WARDWOVEN_CHARM := preload("res://data/weapons/wardwoven_charm.tres")
+const _W_RUNECUT_CHARM := preload("res://data/weapons/runecut_charm.tres")
+const _W_WARDENGUARD_CHARM := preload("res://data/weapons/wardenguard_charm.tres")
+const _W_STARFORGED_CHARM := preload("res://data/weapons/starforged_charm.tres")
 
 static var _weapons: Dictionary = {}  # id -> WeaponData
 static var _loaded: bool = false
@@ -165,6 +208,48 @@ static func _ensure_loaded() -> void:
 		_W_AEGIS_OF_BLANCOGOV, _W_TOME_OF_SAIMTAR, _W_LARIK_OATH_RING, _W_STARFALL_BAND,
 		_W_MADRIAN_RELIQUARY, _W_RIFT_SHARD_PENDANT, _W_SAIMTARS_LAST_WORD, _W_MAITELN_LANTERN_ROD,
 		_W_ELDARS_SUNDERBLADE, _W_LARIK_STARLIGHT_STAFF, _W_BLANCOGOV_THUNDERBRAND,
+		_W_RIVETED_HAUBERK,
+		_W_STEELBOUND_HAUBERK,
+		_W_WARDWOVEN_HAUBERK,
+		_W_RUNECUT_HAUBERK,
+		_W_WARDENGUARD_HAUBERK,
+		_W_STARFORGED_HAUBERK,
+		_W_RIVETED_HELM,
+		_W_STEELBOUND_HELM,
+		_W_WARDWOVEN_HELM,
+		_W_RUNECUT_HELM,
+		_W_WARDENGUARD_HELM,
+		_W_STARFORGED_HELM,
+		_W_RIVETED_PAULDRONS,
+		_W_STEELBOUND_PAULDRONS,
+		_W_WARDWOVEN_PAULDRONS,
+		_W_RUNECUT_PAULDRONS,
+		_W_WARDENGUARD_PAULDRONS,
+		_W_STARFORGED_PAULDRONS,
+		_W_RIVETED_BOOTS,
+		_W_STEELBOUND_BOOTS,
+		_W_WARDWOVEN_BOOTS,
+		_W_RUNECUT_BOOTS,
+		_W_WARDENGUARD_BOOTS,
+		_W_STARFORGED_BOOTS,
+		_W_RIVETED_SHIELD,
+		_W_STEELBOUND_SHIELD,
+		_W_WARDWOVEN_SHIELD,
+		_W_RUNECUT_SHIELD,
+		_W_WARDENGUARD_SHIELD,
+		_W_STARFORGED_SHIELD,
+		_W_RIVETED_RING,
+		_W_STEELBOUND_RING,
+		_W_WARDWOVEN_RING,
+		_W_RUNECUT_RING,
+		_W_WARDENGUARD_RING,
+		_W_STARFORGED_RING,
+		_W_RIVETED_CHARM,
+		_W_STEELBOUND_CHARM,
+		_W_WARDWOVEN_CHARM,
+		_W_RUNECUT_CHARM,
+		_W_WARDENGUARD_CHARM,
+		_W_STARFORGED_CHARM,
 	], "WeaponRegistry")
 
 ## Returns the WeaponData for the given id, or null if not found.

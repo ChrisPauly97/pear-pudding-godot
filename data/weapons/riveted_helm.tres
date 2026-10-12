@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://7r8qhqqe2ljb"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_riveted_helm"]
+
+[resource]
+script = ExtResource("1_riveted_helm")
+id = "riveted_helm"
+display_name = "Riveted Helm"
+description = "Stitched with riveted strips for the long road north."
+slot = "helmet"
+battle_effect_type = ""
+stats = {
+"intellect": 3,
+"haste": 6
+}
+band = "fine"
+item_level = 14
+level_req = 14
+rarity = "rare"

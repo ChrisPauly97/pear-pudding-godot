@@ -30,6 +30,7 @@ const WeaponData = preload("res://data/WeaponData.gd")
 const SkillMods = preload("res://game_logic/battle/SkillMods.gd")
 const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
 const GearStats = preload("res://game_logic/items/GearStats.gd")
+const GearCurve = preload("res://game_logic/items/GearCurve.gd")
 const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
 const FightConditions = preload("res://game_logic/battle/FightConditions.gd")
 const FightStart = preload("res://game_logic/battle/FightStart.gd")
@@ -75,6 +76,8 @@ static func apply_gear(player: PlayerState, items: Array[Dictionary], realtime: 
 		if w != null and not w.stats.is_empty():  # hand-made stats, scaled by blacksmith upgrades (TID-789)
 			stat_items.append({"stats": UpgradeDefs.scaled_stats(w, int(item.get("level", 0)))})
 	GearStats.apply(player, GearStats.totals(stat_items), player_level, tune)
+	player.gear_power = GearCurve.items_power(items, tune) if realtime else 1.0  # TID-793, like level power
+	player.gear_hp_power = GearCurve.items_power(items, tune, "gear_hp_track") if realtime else 1.0
 	for item: Dictionary in items:
 		var weapon: WeaponData = WeaponRegistry.get_weapon(str(item.get("id", "")))
 		if weapon == null:

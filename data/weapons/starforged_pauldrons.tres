@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://kuinegkg9ejo"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_starforged_pauldrons"]
+
+[resource]
+script = ExtResource("1_starforged_pauldrons")
+id = "starforged_pauldrons"
+display_name = "Starforged Pauldrons"
+description = "Forged under the falling stars, light as a held breath."
+slot = "shoulders"
+battle_effect_type = ""
+stats = {
+"attack_power": 35,
+"phys_crit": 11,
+"haste": 12,
+"command": 18
+}
+band = "legendary"
+item_level = 55
+level_req = 55
+rarity = "legendary"

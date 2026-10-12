@@ -62,7 +62,8 @@ func test_enemy_spell_scale_by_level() -> void:
 	var lvl: int = CombatTuning.new().get_i("enemy_full_level")
 	var full: RealtimeCombat = BattleSetup.build({"seed": 5, "player_level": lvl, "enemy_level": lvl})["rt"]
 	assert_lt(BattleSetup.enemy_spell_scale(low, RealtimeCombat.ENEMY), 1.0)
-	assert_almost_eq(BattleSetup.enemy_spell_scale(full, RealtimeCombat.ENEMY), 1.0, 0.001)
+	# Full strength, times the level growth of enemy hits (TID-793).
+	assert_almost_eq(BattleSetup.enemy_spell_scale(full, RealtimeCombat.ENEMY), full.tune.enemy_dmg_growth(lvl), 0.001)
 
 func test_same_seed_same_setup() -> void:
 	var a: Dictionary = BattleSetup.build({"seed": 9, "learned": ALL})

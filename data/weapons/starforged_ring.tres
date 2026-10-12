@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://4p7oy40ymjm0"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_starforged_ring"]
+
+[resource]
+script = ExtResource("1_starforged_ring")
+id = "starforged_ring"
+display_name = "Starforged Ring"
+description = "Forged under the falling stars, light as a held breath."
+slot = "ring"
+battle_effect_type = ""
+stats = {
+"spell_power": 25,
+"mastery:verdant": 11,
+"spell_crit": 7,
+"haste": 14
+}
+band = "legendary"
+item_level = 55
+level_req = 55
+rarity = "legendary"

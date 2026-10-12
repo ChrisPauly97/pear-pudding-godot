@@ -66,6 +66,21 @@ static func cfg(level: int, magic_type: String, kind: String = "typical") -> Dic
 	out["gear"] = gear
 	return out
 
+## GID-187 / TID-793: just the gear keys of a level-`level` profile (`GearDrops.expected_loadout`, no
+## build preference): for cells that keep their own deck but should not fight naked past Chapter 1,
+## now that gear carries most of a player's growth.
+static func gear_cfg(level: int) -> Dictionary:
+	var out: Dictionary = {}
+	var gear: Array = []
+	var loadout: Dictionary = GearDrops.expected_loadout(level)
+	for slot: String in loadout:
+		if slot == "weapon" or slot == "offhand":
+			out[slot] = str(loadout[slot])
+		else:
+			gear.append({"id": str(loadout[slot])})
+	out["gear"] = gear
+	return out
+
 ## The skill nodes a player of `magic_type` with `points` takes: their first branch row by row
 ## (prerequisites first), then the second; nodes that cost the other magic's currency are skipped.
 static func skill_build(magic_type: String, points: int) -> Array[String]:

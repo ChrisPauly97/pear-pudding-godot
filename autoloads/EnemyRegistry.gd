@@ -481,7 +481,7 @@ static func _ensure_loaded() -> void:
 			"signature_card": "sig_pathfinder", "capture_condition": "win_by_turn", "capture_param": 5,
 		},
 		"scarab_swarm": {
-			"rt_hp_mult": 0.7,  # GID-186: real-time balance vs its level band
+			"rt_hp_mult": 0.6,  # GID-186 0.7 (TID-787 0.7); TID-793: pack swings now grow with level
 			"display_name": "Scarab Queen",
 			"schools": {"resist": ["physical"], "weak": ["verdant", "rift"]},
 			"deck": ["scarab", "scarab", "scarab", "scarab", "scarab", "scarab", "scarab", "scarab",
@@ -573,7 +573,7 @@ static func _ensure_loaded() -> void:
 					+ "smiles as he challenges you to a duel — not out of malice, but to measure you."),
 		},
 		"rival_isfig_2": {
-			"rt_hp_mult": 1.4,  # GID-186: real-time balance vs its level band
+			"rt_hp_mult": 1.25,  # GID-186 1.4; TID-793: typical profiles bring magic decks it is not weak to
 			"attack_school": "rift",
 			"display_name": "Isfig the Pursuing",
 			"schools": {"resist": ["rift"], "weak": ["dark", "physical"]},

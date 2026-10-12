@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://eb4zs5mjebir"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_runecut_charm"]
+
+[resource]
+script = ExtResource("1_runecut_charm")
+id = "runecut_charm"
+display_name = "Runecut Charm"
+description = "Cut with old runes that warm when blood is spilled."
+slot = "trinket"
+battle_effect_type = ""
+stats = {
+"attack_power": 16,
+"command": 2,
+"leech": 5,
+"phys_crit": 10
+}
+band = "heroic"
+item_level = 40
+level_req = 40
+rarity = "epic"
