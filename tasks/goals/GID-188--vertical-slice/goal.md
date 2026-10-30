@@ -28,7 +28,7 @@ world (Dig)**. Out-of-slice systems are hidden behind one gate, never deleted, s
 |----|------|------|--------|------------|
 | TID-794 | Slice gate + SliceRules table | agent | done | — |
 | TID-795 | Fit starter-zone content to levels 1–10, slice boss + completion screen | agent | done | TID-794 |
-| TID-796 | Capture moment polish (card reveal, deck-impact callout) | agent | todo | TID-794 |
+| TID-796 | Capture moment polish (card reveal, deck-impact callout) | agent | done | TID-794 |
 | TID-797 | Combat feel polish pass (hit-stop, impact, cast-bar readability) | agent | todo | TID-794 |
 | TID-798 | First-30-minutes walkthrough audit + fixes | agent | todo | TID-795 |
 | TID-799 | Playtest telemetry for fun metrics (AppLog) | agent | todo | TID-794 |

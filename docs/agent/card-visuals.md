@@ -91,6 +91,11 @@ move. Durations × the battle speed scale.
     local caster's hand panel rect before `play_card`, then `CardMotion.cast_spell` lifts a face ghost to the
     screen centre (×1.3), holds, sparks, and dissolves. Fire-and-forget; never delays resolution.
 
+- **Capture reveal** (GID-188 / TID-796) — `scenes/ui/CaptureReveal.gd` on the soulbind victory card
+  (`BattleResultUI.show_soulbind`): a card back rises, flips edge-on to the captured card's face (frame, art, name,
+  atk / hp badges), a glow pulses in the card's branch colour (gold without a branch; half peak under Reduce
+  Flashing) and settles, then "Added to your collection — slot it into your deck at the Deck Table." fades in.
+
 ### Illustrations
 `tools/generate_cards.py` draws the 32×32 card art: creature portraits cropped from
 `tools/generate_characters.py` sprites and one rune per spell branch — dawn, dusk, ember, ash, and (TID-639)
