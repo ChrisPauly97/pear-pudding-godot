@@ -68,6 +68,16 @@ func _on_diagnostics() -> void:
     overlay.closed.connect(overlay.queue_free)
 ```
 
+### Playtest report (GID-188 / TID-799)
+
+- `game_logic/PlaytestMetrics.gd` (pure) keeps one save-backed Dictionary, `SaveManager.playtest`: `play_s`,
+  `sessions`, `first` (event → play time of first occurrence), `count`, `last` (quit point).
+- `SaveManager.playtest_log` (`autoloads/save_manager/SavePlaytest.gd`) records fight / win / loss / capture /
+  level / learn / quest / slice_complete from GameBus, deck edits from `InventoryScene._commit_deck`, sessions from
+  `new_game` and `SceneManager.continue_game`; play time ticks each second outside the main menu.
+- Diagnostics → **Playtest** shows `PlaytestMetrics.summary()`; **Copy** puts it on the clipboard for the tester to
+  send. Nothing leaves the device on its own.
+
 ## Integrations with Other Features
 
 - **GameBus** — `AppLog` connects to signals in `_ready()`. Adding a new signal to GameBus and wanting it logged only requires a new `connect` call in `AppLog._ready()`.

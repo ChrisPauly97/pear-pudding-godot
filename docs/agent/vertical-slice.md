@@ -26,6 +26,8 @@ Out-of-slice systems are hidden, never deleted.
 | Boss | `StarterZone.barrow_king_awake` → `SliceRules.boss_quest` | The Barrow King (L10) wakes after `old_bones` (Dig), not `sealed_crypt` (Phase) |
 | Ending | `BattleVictory` (Barrow King win) → `GameBus.narration_overlay_requested` | "Demo Complete" pages; closing sets `slice_complete` |
 
+| Telemetry | `PlaytestMetrics` / `SaveManager.playtest_log`, Diagnostics → Playtest | Time to first fight / win / capture / deck edit, counters, quit point, time to Demo Complete |
+
 No hard region edge: levels 6–10 need the Chapter 1 road camps near Maykalene, so the world stays open and the
 slice is bounded by level, ladder and quests. Chunk generation is threaded: if a later change gates world content,
 pass the slice flag in as a pure input rather than reading `ProjectSettings` from worker code.

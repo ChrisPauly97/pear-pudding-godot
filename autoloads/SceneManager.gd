@@ -463,6 +463,7 @@ func continue_game() -> void:
 		start_new_game()
 		return
 	_apply_audio_settings()
+	save_manager.playtest_log.note_session()  # GID-188 / TID-799
 	map_stack.assign(save_manager.map_stack)
 	door_stack.assign(save_manager.door_stack)
 	current_map = save_manager.current_map

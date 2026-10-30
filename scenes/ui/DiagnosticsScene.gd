@@ -51,6 +51,8 @@ func _ready() -> void:
 	var prev_btn := _UiUtil.make_button("Last Session Log", Vector2(_vh * 0.3, _vh * 0.06), int(_vh * 0.026),
 			Callable(), hbox)
 	prev_btn.pressed.connect(func() -> void: _toggle_prev_log(prev_btn))
+	# GID-188 / TID-799: the playtest report (fun metrics for this save); Copy exports it.
+	_UiUtil.make_button("Playtest", Vector2(_vh * 0.18, _vh * 0.06), int(_vh * 0.026), _show_playtest, hbox)
 
 	# Copy whatever is shown (live or last-session log) so it can be pasted into
 	# a bug report straight from the phone.
@@ -74,6 +76,12 @@ func _populate() -> void:
 		_rich.append_text(
 			"[color=#888888][%.1fs][/color] [color=%s][%s][/color] %s\n" % [ts, col, level, msg]
 		)
+
+func _show_playtest() -> void:
+	_rich.clear()
+	_rich.append_text("[color=#ffd966]Playtest report[/color]\n")
+	for line: String in SceneManager.save_manager.playtest_log.report():
+		_rich.add_text(line + "\n")
 
 func _on_clear() -> void:
 	AppLog.clear()

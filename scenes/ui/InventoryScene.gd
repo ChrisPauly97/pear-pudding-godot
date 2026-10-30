@@ -2,6 +2,7 @@
 # BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 extends "res://scenes/ui/CardBrowserOverlay.gd"
 
+const _PlaytestMetrics = preload("res://game_logic/PlaytestMetrics.gd")
 const CardRegistry      = preload("res://autoloads/CardRegistry.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const VeterancyUtil     = preload("res://game_logic/VeterancyUtil.gd")
@@ -1078,6 +1079,7 @@ func _maybe_bark() -> void:
 
 func _commit_deck() -> void:
 	SceneManager.save_manager.set_active_deck(_working_deck)
+	SceneManager.save_manager.playtest_log.note(_PlaytestMetrics.DECK_EDIT)  # GID-188 / TID-799
 
 func _on_undo() -> void:
 	if not _undo.can_undo():

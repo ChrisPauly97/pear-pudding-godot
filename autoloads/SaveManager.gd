@@ -26,6 +26,7 @@ const _SaveBounties = preload("res://autoloads/save_manager/SaveBounties.gd")
 const _SaveQuests = preload("res://autoloads/save_manager/SaveQuests.gd")
 const _SaveLoadouts = preload("res://autoloads/save_manager/SaveLoadouts.gd")
 const _SaveSpire = preload("res://autoloads/save_manager/SaveSpire.gd")
+const _SavePlaytest = preload("res://autoloads/save_manager/SavePlaytest.gd")
 const _SaveSiege = preload("res://autoloads/save_manager/SaveSiege.gd")
 const _SaveMailbox = preload("res://autoloads/save_manager/SaveMailbox.gd")
 const _SaveProfessions = preload("res://autoloads/save_manager/SaveProfessions.gd")
@@ -98,6 +99,7 @@ const PERSISTED_FIELDS: Dictionary = {
 	"quick_slots": ["", ""], "hero_hp_frac": 1.0, "foods": {},
 	"profession_xp": {}, "materials": {}, "well_fed": {},
 	"captured_signatures": [], "cantrip_cooldowns": {}, "dug_mounds": [],
+	"playtest": {},  # GID-188 / TID-799: PlaytestMetrics (SavePlaytest)
 	"blight_cleansed_hearts": [], "discovered_landmarks": [],
 	"collected_mana_wells": [], "last_saved": "",
 }
@@ -126,6 +128,7 @@ var spire: _SaveSpire
 var town_siege: _SaveSiege
 var mailbox: _SaveMailbox
 var professions: _SaveProfessions  # profession skill + materials (GID-182)
+var playtest_log: _SavePlaytest  # playtest fun metrics over `playtest` (GID-188 / TID-799)
 
 var active_slot: int = 1
 
@@ -309,6 +312,8 @@ var packs_since_legendary: int = 0
 
 # Bag capacity: max card slots (common cards share one slot per template; rare+ each take one slot).
 var bag_size: int = IsoConst.BAG_SIZE_DEFAULT
+## PlaytestMetrics record: play time, first-time stamps, counters, last event (TID-799).
+var playtest: Dictionary = {}
 
 # Currently equipped companion id ("" = none)
 var active_companion: String = ""
@@ -404,8 +409,10 @@ func _init() -> void:
 	town_siege = _SaveSiege.new(self)
 	mailbox = _SaveMailbox.new(self)
 	professions = _SaveProfessions.new(self)
+	playtest_log = _SavePlaytest.new(self)
 
 func _ready() -> void:
+	playtest_log.start()
 	var timer := Timer.new()
 	timer.wait_time = SAVE_INTERVAL
 	timer.autostart = true
@@ -654,6 +661,8 @@ func new_game(head_start: bool = false) -> void:
 	starting_deck_copy.assign(player_deck)
 	loadouts = [{"name": "Deck 1", "cards": starting_deck_copy}]
 	active_loadout = 0
+	playtest = {}
+	playtest_log.note_session()
 	# settings intentionally preserved across new games so volume prefs persist
 	# world_seed and starting_biome are set by SceneManager.start_new_game_with_biome
 	# before new_game() is called, so do not reset them here.
