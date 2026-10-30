@@ -32,4 +32,4 @@ world (Dig)**. Out-of-slice systems are hidden behind one gate, never deleted, s
 | TID-797 | Combat feel polish pass (hit-stop, impact, cast-bar readability) | agent | done | TID-794 |
 | TID-798 | First-30-minutes walkthrough audit + fixes | agent | done | TID-795 |
 | TID-799 | Playtest telemetry for fun metrics (AppLog) | agent | done | TID-794 |
-| TID-800 | Android build + performance check of the slice | agent | todo | TID-795 |
+| TID-800 | Android build + performance check of the slice | agent | done | TID-795 |

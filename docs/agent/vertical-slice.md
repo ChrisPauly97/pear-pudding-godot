@@ -36,6 +36,11 @@ No hard region edge: levels 6–10 need the Chapter 1 road camps near Maykalene,
 slice is bounded by level, ladder and quests. Chunk generation is threaded: if a later change gates world content,
 pass the slice flag in as a pure input rather than reading `ProjectSettings` from worker code.
 
+## Performance & Android (TID-800)
+
+Headless profile: the slice matches the full game (p50 6.89 ms both). The Android preset's exported pack contains
+the slice scripts and boots standalone with no script errors. The signed APK builds in CI on push to main.
+
 ## Tests
 
 - `tests/unit/test_slice_rules.gd`. `tests/runner.gd` sets `SliceRules.override = 0`, so every other suite
