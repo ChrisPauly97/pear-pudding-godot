@@ -331,6 +331,15 @@ never add a separate level check. See `docs/agent/starter-zone-and-training.md`.
 
 ---
 
+## Vertical Slice: SliceRules Is the Gate
+
+The shipped build is the vertical slice (GID-188): project setting `pear_pudding/slice_mode` = true.
+`game_logic/SliceRules.gd` is the one table of what it keeps (ladder rows, menu entries, level cap, battle mode);
+gate new out-of-slice entry points with `SliceRules.active()` / its `allows_*` helpers, never a separate list.
+`tests/runner.gd` turns it off (suites test the full game). See `docs/agent/vertical-slice.md`.
+
+---
+
 ## Constants: IsoConst Is the Source of Truth
 
 All tile/size constants (`TILE_GRASS`, `TILE_SIZE`, `CHUNK_SIZE`, etc.) live in `autoloads/IsoConst.gd`. Reference as `IsoConst.TILE_SIZE`. Never add copies elsewhere.
@@ -748,4 +757,5 @@ Agent-owned feature docs. Each covers Key Features, How It Works, Integrations, 
 | [docs/agent/professions.md](docs/agent/professions.md) | Professions (Alchemy, Cooking, Crafting): ProfessionDefs materials/recipes/XP, gathering + drops, stations, cooking buffs, alchemy, gear crafting, Master Artisan trainer, Character block (GID-182) |
 | [docs/agent/legends-pear-pudding.md](docs/agent/legends-pear-pudding.md) | Secret Pear Pudding legend: townsfolk tales, Old Tales journal, riddle spots, Bottomless Pudding (GID-153) |
 | [docs/agent/damage-schools.md](docs/agent/damage-schools.md) | Damage schools (physical + magic types), resist/weak/immune profiles, DamageSchools.mult knobs in CombatTuning (GID-181) |
+| [docs/agent/vertical-slice.md](docs/agent/vertical-slice.md) | Vertical slice gate: SliceRules table, what is in/out, how tests run it (GID-188) |
 | [docs/human/story.md](docs/human/story.md) | Story bible: characters, chapters, NPC dialogue, map specs (human-owned) |

@@ -2,6 +2,7 @@ extends "res://scenes/ui/BaseOverlay.gd"
 
 const _GraphicsQuality = preload("res://game_logic/GraphicsQuality.gd")
 const _RendererOptIn = preload("res://game_logic/RendererOptIn.gd")
+const _SliceRules = preload("res://game_logic/SliceRules.gd")
 
 
 # Keybindings capture state
@@ -149,6 +150,14 @@ func _build_ui() -> void:
 	# TID-530: end the turn automatically once nothing is playable (turn-based, solo).
 	_add_toggle_row(vbox, "Auto End Turn", bool(SceneManager.save_manager.get_setting("auto_end_turn", true)),
 		func(on: bool) -> void: SceneManager.save_manager.set_setting("auto_end_turn", on))
+
+	# GID-188: the shipped build is the vertical slice; this opts the device into
+	# everything (co-op, every trainer unlock, turn-based mode). Only shown when the
+	# build ships the slice.
+	if bool(ProjectSettings.get_setting(_SliceRules.SETTING, false)):
+		vbox.add_child(_UiUtil.make_separator())
+		_add_toggle_row(vbox, "Full Game (beyond the demo)", _SliceRules.full_game_enabled(),
+			func(on: bool) -> void: _SliceRules.set_full_game(on))
 
 	# — Keybindings (desktop only) —
 	if not (OS.has_feature("mobile") or OS.has_feature("android")):

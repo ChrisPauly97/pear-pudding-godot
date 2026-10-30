@@ -18,6 +18,7 @@ const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const _TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
 const _XpCurve = preload("res://game_logic/progression/XpCurve.gd")
 const _CombatOnboarding = preload("res://game_logic/battle/CombatOnboarding.gd")
+const _SliceRules = preload("res://game_logic/SliceRules.gd")
 const _HeroVitality = preload("res://game_logic/HeroVitality.gd")
 const _SaveGarden = preload("res://autoloads/save_manager/SaveGarden.gd")
 const _SaveGear = preload("res://autoloads/save_manager/SaveGear.gd")
@@ -1528,7 +1529,8 @@ func _grant_ladder_cards() -> Array[String]:
 ## The Battle Mode to fight in: the setting, except that a player who hasn't
 ## learned minions yet (no hand) always fights in real time (GID-141 / TID-588).
 func battle_mode() -> String:
-	return _CombatOnboarding.battle_mode(str(get_setting("battle_mode", DEFAULT_BATTLE_MODE)), learned_abilities)
+	var setting: String = _SliceRules.battle_mode(str(get_setting("battle_mode", DEFAULT_BATTLE_MODE)))
+	return _CombatOnboarding.battle_mode(setting, learned_abilities)
 
 ## True when ladder entry `id` (UnlockLadder) is usable — learned, or not a
 ## ladder entry at all.
