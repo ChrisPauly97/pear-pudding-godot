@@ -6,6 +6,9 @@ extends "res://tests/framework/test_case.gd"
 const SliceRules = preload("res://game_logic/SliceRules.gd")
 const UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
+const SideQuests = preload("res://game_logic/quests/SideQuests.gd")
+const StarterZone = preload("res://game_logic/world/StarterZone.gd")
+const XpCurve = preload("res://game_logic/progression/XpCurve.gd")
 
 
 func after_each() -> void:
@@ -83,3 +86,80 @@ func test_full_game_turns_the_slice_off() -> void:
 	SliceRules._full_game = 0
 	assert_true(SliceRules.active(), "Full Game off: the shipped slice")
 	SliceRules._full_game = was
+
+
+func test_xp_stops_at_the_level_cap() -> void:
+	var sm: SaveManagerScript = SaveManagerScript.new()
+	SliceRules.override = 1
+	sm.add_xp(XpCurve.xp_to_reach(SliceRules.LEVEL_CAP + 5))
+	assert_eq(sm.level, SliceRules.LEVEL_CAP, "level stops at the cap")
+	assert_eq(sm.xp, XpCurve.xp_to_reach(SliceRules.LEVEL_CAP), "XP stops at the cap")
+	SliceRules.override = 0
+	sm.add_xp(XpCurve.xp_to_reach(SliceRules.LEVEL_CAP + 5))
+	assert_gt(sm.level, SliceRules.LEVEL_CAP, "full game keeps levelling")
+	sm.free()
+
+
+func test_out_of_slice_quests_are_not_offered() -> void:
+	SliceRules.override = 1
+	for id: String in ["sealed_crypt", "board_by_the_well", "after_dark", "into_the_rift"]:
+		assert_false(SliceRules.allows_quest(SideQuests.def(id)), "%s is outside the slice" % id)
+	for id: String in ["rats_in_grain", "old_bones"]:
+		assert_true(SliceRules.allows_quest(SideQuests.def(id)), "%s is in the slice" % id)
+	var completed: Array = ["old_bones"]
+	assert_true(SideQuests.offers_for("gravedigger_madrian", 60, {}, {}, completed).is_empty(),
+			"the Gravedigger has nothing past Dig in the slice")
+	SliceRules.override = 0
+	assert_false(SideQuests.offers_for("gravedigger_madrian", 60, {}, {}, completed).is_empty(),
+			"full game offers The Sealed Crypt")
+
+
+func test_every_slice_quest_is_finishable() -> void:
+	SliceRules.override = 1
+	for q: Dictionary in SideQuests.all():
+		if not SliceRules.allows_quest(q):
+			continue
+		for o: Dictionary in SideQuests.objectives(q):
+			if str(o.get("type", "")) == "learn":
+				assert_has(SliceRules.LADDER, str(o.get("target", "")), "%s learn target" % str(q["id"]))
+
+
+func test_barrow_king_is_the_slice_boss() -> void:
+	assert_eq(str(StarterZone.BARROW_KING["enemy_type"]), SliceRules.BOSS_ENEMY_TYPE)
+	assert_lte(int(StarterZone.BARROW_KING["level"]), SliceRules.LEVEL_CAP)
+	SliceRules.override = 1
+	assert_true(StarterZone.barrow_king_awake([SliceRules.BOSS_QUEST], []), "wakes after the Dig quest")
+	assert_false(StarterZone.barrow_king_awake([SliceRules.BOSS_QUEST], [str(StarterZone.BARROW_KING["id"])]))
+	SliceRules.override = 0
+	assert_false(StarterZone.barrow_king_awake([SliceRules.BOSS_QUEST], []), "full game: needs the crypt")
+	assert_true(SideQuests.def(SliceRules.BOSS_QUEST).size() > 0, "boss quest exists")
+
+
+func test_slice_quests_never_need_a_hidden_npc() -> void:
+	SliceRules.override = 1
+	for q: Dictionary in SideQuests.all():
+		if not SliceRules.allows_quest(q):
+			continue
+		assert_true(SliceRules.allows_npc(str(q.get("giver", ""))), "%s giver spawns" % str(q["id"]))
+		assert_true(SliceRules.allows_npc(SideQuests.turn_in_npc(q)), "%s turn-in spawns" % str(q["id"]))
+		for o: Dictionary in SideQuests.objectives(q):
+			if str(o.get("type", "")) == "talk":
+				assert_true(SliceRules.allows_npc(str(o.get("target", ""))), "%s talk target" % str(q["id"]))
+
+
+func test_slice_hides_stations_and_the_biome_picker() -> void:
+	SliceRules.override = 1
+	assert_false(SliceRules.allows_stations())
+	assert_false(SliceRules.shows_biome_picker())
+	assert_false(SliceRules.allows_npc("crafter_madrian"))
+	SliceRules.override = 0
+	assert_true(SliceRules.allows_stations())
+	assert_true(SliceRules.shows_biome_picker())
+	assert_true(SliceRules.allows_npc("crafter_madrian"))
+
+
+func test_slice_skips_the_gambit_picker() -> void:
+	SliceRules.override = 1
+	assert_false(SliceRules.allows_gambits())
+	SliceRules.override = 0
+	assert_true(SliceRules.allows_gambits())

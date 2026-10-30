@@ -19,8 +19,10 @@ const _DATA: Dictionary = {
 	},
 	"mana": {
 		"title": "Mana",
-		"body": ("Mana is your battle resource. You start each game with 1 mana and gain 1 more each turn, up to a "
-				+ "maximum of 10. Play cards whose cost fits within your available mana each turn."),
+		# GID-188 / TID-798: real-time is the default (spec); the old turn-based text misled new players.
+		"body": ("Mana is your battle resource. You start every fight with a full pool, which grows as you level "
+				+ "up, and it refills a little every second. A card's gems are its cost (100 mana each): spend "
+				+ "mana on the cards that matter, then let it recover."),
 	},
 	"card_rarity": {
 		"title": "Card Rarity",

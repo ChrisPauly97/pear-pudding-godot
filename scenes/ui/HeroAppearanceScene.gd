@@ -12,6 +12,7 @@ extends Control
 
 signal closed
 
+const _SliceRules = preload("res://game_logic/SliceRules.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _PaperDoll = preload("res://game_logic/character/PaperDoll.gd")
 
@@ -131,6 +132,9 @@ func _on_continue() -> void:
 		closed.emit()
 		return
 	SaveManager.pending_appearance = _choice.duplicate()
+	if not _SliceRules.shows_biome_picker():  # GID-188: the slice starts in the grasslands
+		SceneManager.start_new_game_with_biome(_SliceRules.START_BIOME)
+		return
 	get_tree().change_scene_to_file("res://scenes/ui/BiomeSelectionScene.tscn")
 
 

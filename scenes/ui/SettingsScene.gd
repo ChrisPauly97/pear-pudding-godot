@@ -1,5 +1,6 @@
 extends "res://scenes/ui/BaseOverlay.gd"
 
+const _FramesLayout = preload("res://scenes/battle/modules/FramesLayout.gd")
 const _GraphicsQuality = preload("res://game_logic/GraphicsQuality.gd")
 const _RendererOptIn = preload("res://game_logic/RendererOptIn.gd")
 const _SliceRules = preload("res://game_logic/SliceRules.gd")
@@ -145,6 +146,14 @@ func _build_ui() -> void:
 	_add_option_row(vbox, "Battle Mode", ["Turn-based", "Real-time", "Real-time (slow)"], mode_idx,
 		func(idx: int) -> void:
 			SceneManager.save_manager.set_setting("battle_mode", modes[idx])
+	)
+
+	# GID-189: real-time battle layout — the classic arena or WoW-style unit frames (next fight).
+	var layout_idx: int = maxi(0, _FramesLayout.MODES.find(str(SceneManager.save_manager.get_setting(
+			_FramesLayout.SETTING, _FramesLayout.CLASSIC))))
+	_add_option_row(vbox, "Battle Layout", _FramesLayout.MODE_LABELS, layout_idx,
+		func(idx: int) -> void:
+			SceneManager.save_manager.set_setting(_FramesLayout.SETTING, _FramesLayout.MODES[idx])
 	)
 
 	# TID-530: end the turn automatically once nothing is playable (turn-based, solo).

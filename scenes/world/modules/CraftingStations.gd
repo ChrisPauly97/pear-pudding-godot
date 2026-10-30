@@ -5,6 +5,7 @@
 ## them. Created by `WorldScene._ensure_world_modules()` as `crafting_stations`.
 extends Node
 
+const _SliceRules = preload("res://game_logic/SliceRules.gd")
 const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const _StationSites = preload("res://game_logic/professions/StationSites.gd")
 const _RealmLayout = preload("res://game_logic/world/RealmLayout.gd")
@@ -19,7 +20,7 @@ var _panel: Control = null
 ## Overworld ("main"): every stitched town's stations, at their world tiles.
 func spawn_overworld() -> void:
 	_clear()
-	if _world.map_name != "main":
+	if _world.map_name != "main" or not _SliceRules.allows_stations():
 		return
 	for town: String in _RealmLayout.town_names():
 		for site: Dictionary in _StationSites.sites_in(town):
@@ -29,6 +30,8 @@ func spawn_overworld() -> void:
 ## Player-home interior: the home stations, at their home tiles.
 func spawn_home() -> void:
 	_clear()
+	if not _SliceRules.allows_stations():
+		return
 	for site: Dictionary in _StationSites.sites_in(""):
 		_spawn(site, site["tile"] as Vector2i)
 

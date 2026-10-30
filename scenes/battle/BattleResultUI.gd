@@ -7,6 +7,8 @@ const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
 const UiFx = preload("res://scenes/ui/UiFx.gd")
+const _CaptureReveal = preload("res://scenes/ui/CaptureReveal.gd")
+const _BattleJuice = preload("res://scenes/battle/BattleJuice.gd")
 
 const _BOSS_BANNER_DURATION: float = 2.5
 const _COUNT_UP_DURATION: float = 0.5
@@ -272,6 +274,11 @@ func show_soulbind(reward_card_id: String, sig_card_id: String, condition_text_a
 	var stmpl: Dictionary = CardRegistry.get_template(sig_card_id)
 	var sig_lbl := _UiUtil.make_label("Signature captured: " + str(stmpl.get("name", sig_card_id)), int(_vh * 0.032),
 			Color(0.9, 0.5, 1.0), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	# GID-188 / TID-796: the captured card itself flips up, then points at the Deck Table.
+	var reveal: _CaptureReveal = _CaptureReveal.new()
+	reveal.setup(sig_card_id, _vh)
+	reveal.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	vbox.add_child(reveal)
 
 	_add_tip_label(vbox, tip_text)
 
@@ -301,6 +308,7 @@ func show_soulbind(reward_card_id: String, sig_card_id: String, condition_text_a
 	UiFx.attach(btn)
 
 	_parent.add_child(overlay)
+	reveal.play(_BattleJuice.reduce_flashing())
 
 func show_victory_boss(reward_cards: Array[String], weapon_reward_id: String = "",
 		rarities: Array[String] = [], stats_list: Array[Dictionary] = [],

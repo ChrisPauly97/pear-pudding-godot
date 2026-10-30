@@ -9,6 +9,7 @@
 ## outside the plain world state (battles, pickers, pause).
 extends Node
 
+const _SliceRules = preload("res://game_logic/SliceRules.gd")
 const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const _WorldHUD = preload("res://scenes/world/WorldHUD.gd")
 const _LoadoutSwapRow = preload("res://scenes/ui/LoadoutSwapRow.gd")
@@ -53,7 +54,7 @@ func _nearby_enemy_type() -> String:
 		return ""
 	if not SceneManager.is_in_world() or not SceneManager.accepts_engage():
 		return ""
-	if not bool(SceneManager.save_manager.get_setting("auto_skip_gambits", false)):
+	if not bool(SceneManager.save_manager.get_setting("auto_skip_gambits", false)) and _SliceRules.allows_gambits():
 		return ""
 	return _hostile_type_in_reach()
 

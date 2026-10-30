@@ -15,6 +15,7 @@ extends RefCounted
 
 const _ZoneLevels = preload("res://game_logic/world/ZoneLevels.gd")
 const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
+const _SliceRules = preload("res://game_logic/SliceRules.gd")
 
 ## Seconds before a fallen camp slot refills.
 const CAMP_RESPAWN_S: float = 45.0
@@ -88,9 +89,11 @@ const CRYPT_DOOR_LOCAL := Vector2i(24, 53)
 const BARROW_KING := {"id": "barrow_king_madrian", "enemy_type": "barrow_king", "tile": Vector2i(-13, 22),
 	"level": 10, "requires_quest": "sealed_crypt"}  # top of Chapter 1 (L1–10)
 
-## True when the Barrow King should stand at his crypt.
+## True when the Barrow King should stand at his crypt. In the vertical slice he is
+## the final boss and wakes after the Dig quest instead (SliceRules.boss_quest).
 static func barrow_king_awake(completed_quests: Array, defeated: Array) -> bool:
-	return completed_quests.has(str(BARROW_KING["requires_quest"])) and not defeated.has(str(BARROW_KING["id"]))
+	var quest: String = _SliceRules.boss_quest(str(BARROW_KING["requires_quest"]))
+	return completed_quests.has(quest) and not defeated.has(str(BARROW_KING["id"]))
 
 ## [key, Madrian-local tile, axis, offset] for every graveyard prop. `axis` "" =
 ## camera-facing billboard (headstones); "x" / "z" = a flat panel running along

@@ -107,6 +107,15 @@ jobs:
               exit 1
             fi
           done
+          # GID-189: the real-time battle again with the opt-in frames layout.
+          BATTLE_LAYOUT=frames godot --headless --path . -s tests/realtime_battle_smoke.gd 2>&1 \
+            | tee /tmp/realtime_battle_smoke_frames.log
+          ERRORS=$(grep -A2 "SCRIPT ERROR" /tmp/realtime_battle_smoke_frames.log || true)
+          if [ -n "$ERRORS" ]; then
+            echo "::error::realtime_battle_smoke (frames) logged runtime script errors:"
+            echo "$ERRORS"
+            exit 1
+          fi
 
       # GID-176 / TID-717: the user's balance targets (same level ~100 %, one level
       # up ~75 %) plus drift from tests/data/balance_baseline.json. Seeded, ~30 s.

@@ -14,6 +14,9 @@ const SPARKS: int = 7
 ## Impact colours: your hits (warm gold) and the enemy's (red).
 const PLAYER_HIT := Color(1.0, 0.85, 0.45)
 const ENEMY_HIT := Color(1.0, 0.35, 0.3)
+## GID-188 / TID-797: an enemy cast bar turns red past this fraction — the Kick
+## window is closing.
+const CAST_URGENT: float = 0.66
 
 ## Leans `tok` back and swells it as its swing (`frac` 0..1) comes round. The
 ## player leans left (away from the enemy), enemies lean right. No-op mid-lunge.
@@ -76,6 +79,14 @@ static func _spark(layer: Node, pos: Vector2, vh: float, tint: Color, delay: flo
 	tw.tween_property(s, "position", to, SLASH_TIME).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	tw.tween_property(s, "modulate:a", 0.0, SLASH_TIME)
 	tw.chain().tween_callback(s.queue_free)
+
+## An enemy cast bar's label; a free cast (Heavy Blow) shows no "(0)" cost (BID-110).
+static func cast_label(card_name: String, cost: int) -> String:
+	return "Casting %s (%d)" % [card_name, cost] if cost > 0 else "Casting %s" % card_name
+
+## Tint for an enemy cast bar at `frac` (0..1): white, then red once urgent.
+static func cast_urgency_tint(frac: float) -> Color:
+	return Color.WHITE if frac < CAST_URGENT else Color(1.0, 0.45, 0.4)
 
 ## Thin at both ends, full in the middle.
 static func _taper() -> Curve:

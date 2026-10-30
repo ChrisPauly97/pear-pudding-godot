@@ -5,6 +5,7 @@ extends Node
 ## Every state change, after it is applied. `from == to` for a map reload.
 signal state_changed(from: State, to: State)
 
+const _SliceRules = preload("res://game_logic/SliceRules.gd")
 const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const _SatchelLines = preload("res://game_logic/inventory/SatchelLines.gd")
 const _BiomeDef = preload("res://game_logic/world/BiomeDef.gd")
@@ -463,6 +464,7 @@ func continue_game() -> void:
 		start_new_game()
 		return
 	_apply_audio_settings()
+	save_manager.playtest_log.note_session()  # GID-188 / TID-799
 	map_stack.assign(save_manager.map_stack)
 	door_stack.assign(save_manager.door_stack)
 	current_map = save_manager.current_map
@@ -690,7 +692,8 @@ func _on_enemy_engaged(enemy_data: Dictionary) -> void:
 	# Skip picker on resume (pending_battle_enemy_data already set from a prior session)
 	# or when the player has enabled auto-skip via the "Don't ask again" checkbox.
 	var is_resume: bool = not save_manager.pending_battle_enemy_data.is_empty()
-	var auto_skip: bool = bool(save_manager.get_setting("auto_skip_gambits", false))
+	var auto_skip: bool = (bool(save_manager.get_setting("auto_skip_gambits", false))
+			or not _SliceRules.allows_gambits())
 	if is_resume or auto_skip:
 		_start_battle(enemy_data)
 		return
@@ -805,6 +808,17 @@ func _in_world_battle_eligible(networked: bool) -> bool:
 		return false
 	var world: Node = get_tree().current_scene
 	return world != null and world.get("_camera") is Camera3D
+
+## The world held for the current battle (frozen in place or detached), or null (GID-189).
+func held_world() -> Node:
+	return _saved_world_scene if is_instance_valid(_saved_world_scene) else null
+
+## World entity ids of the current battle's enemies: the engaged one, then any that joined.
+func battle_enemy_ids() -> Array[String]:
+	var out: Array[String] = [_current_battle_enemy_id]
+	for d: Dictionary in _joined_enemies:
+		out.append(str(d.get("id", "")))
+	return out
 
 ## True when a solo fight started now would be fought in place — world entities
 ## that start one (EnemyNPC, BlightHeart) then stay visible until it ends

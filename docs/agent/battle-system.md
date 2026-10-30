@@ -1326,3 +1326,29 @@ speed; BattleScene multiplies by `_speed_scale`, `FAST_SPEED_SCALE` = 0.45).
 
 Targets for GID-135: AI turn ≲ 1 s of fixed wait (TID-529), no blocking gambit/result
 modals on routine fights (TID-528/531), queued input during animations (TID-530).
+
+## Hit feel (GID-139 / TID-580, tunable since GID-188 / TID-797)
+
+`BattleRealtime.hit_feel(strength)` pauses the real-time battle clock for a hit-stop and shakes the scene; sizes are
+the CombatTuning "Hit feel" knobs (`feel_stop_1..3`, `feel_shake_1..3`). Strength 1 = your swing, 2 = proc / crit /
+interrupt / combo card, 3 = full combo, free cast or the killing blow. `taken_feel()` shakes lightly
+(`feel_taken_shake`) when an enemy swing hits the hero, without a hit-stop. Enemy cast bars turn red past
+`SwingFx.CAST_URGENT` (66 %). All follow Settings > Screen Shake; presentation only, so balance is unaffected.
+
+## Frames layout (GID-189, opt-in)
+
+Settings › Battle › **Battle Layout** (`battle_layout`: `classic` default | `frames`) picks the real-time screen.
+Frames (`scenes/battle/modules/FramesLayout.gd`, owned by `RealtimeVisuals`, built only when enabled):
+
+- Hero tokens become unit frames: you top-left, the target top-right (portrait outermost, its cast bar inside,
+  "Casting Heavy Blow" with no "(0)" for free casts); adds stack down the right. Board rows become rows of small unit
+  frames (scale `UNIT_SCALE`) under each frame — the same panels, so taps, drops and focus work unchanged. The Ally
+  row is hidden while minions are locked. Pause / Effects sit bottom-left; warnings show on a plate top-centre.
+  Placement is pure (`frames_layout`) and re-applied every frame.
+- In-place fights: `focus_world()` (via `SceneManager.held_world()` / `battle_enemy_ids()`) dims other world enemies,
+  hides world name tags, and slides the frozen camera so the fight is centred; swings lunge the fighters' **sprite
+  children** (a frozen physics body won't redraw if moved); hits and hero damage numbers land on the sprites
+  (`token_center` → `hero_point`, `BattleFx.hero_point_fn`); a red ellipse marks the target. All restored when the
+  battle's visuals leave the tree; the world camera re-follows the player on thaw.
+- The player cast bar lives in `PlayerCastBar.gd` (both layouts).
+- Tests: `test_frames_layout`; CI runs `realtime_battle_smoke` again with `BATTLE_LAYOUT=frames`.

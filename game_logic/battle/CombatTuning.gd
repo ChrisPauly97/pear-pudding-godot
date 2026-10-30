@@ -81,6 +81,16 @@ const DEFS: Array = [
 	["combo_refund", "Mana back per charge a card spends", 60.0, 0.0, 200.0, 5.0, "Momentum"],
 	["proc_chance", "Free-cast chance per skill hit", 0.15, 0.0, 1.0, 0.01, "Momentum"],
 	["auto_proc_chance", "Free-cast chance per auto-attack hit", 0.025, 0.0, 1.0, 0.01, "Momentum"],
+	# GID-139 / TID-580, knobs since GID-188 / TID-797: presentation only (the clock pauses during a
+	# hit-stop, so fights keep their outcome). Strength 1 = a hit, 2 = proc / crit / interrupt / combo,
+	# 3 = full combo, free cast or the killing blow. All follow Settings > Screen Shake.
+	["feel_stop_1", "Hit-stop on a hit (s)", 0.045, 0.0, 0.3, 0.005, "Hit feel"],
+	["feel_stop_2", "Hit-stop on a big moment (s)", 0.08, 0.0, 0.3, 0.005, "Hit feel"],
+	["feel_stop_3", "Hit-stop on a finisher (s)", 0.12, 0.0, 0.4, 0.005, "Hit feel"],
+	["feel_shake_1", "Shake on a hit (px)", 2.5, 0.0, 20.0, 0.5, "Hit feel"],
+	["feel_shake_2", "Shake on a big moment (px)", 5.0, 0.0, 20.0, 0.5, "Hit feel"],
+	["feel_shake_3", "Shake on a finisher (px)", 8.0, 0.0, 30.0, 0.5, "Hit feel"],
+	["feel_taken_shake", "Shake when an enemy swing hits you (px)", 3.0, 0.0, 20.0, 0.5, "Hit feel"],
 	["round_seconds", "Status/upkeep pulse per side (s)", 6.0, 1.0, 15.0, 0.5, "Status effects"],
 	["potion_cooldown", "Quick-slot potion cooldown (s)", 20.0, 0.0, 90.0, 1.0, "Consumables"],
 	# GID-181 / TID-748: damage-school matchup multipliers (DamageSchools.mult). Read by
