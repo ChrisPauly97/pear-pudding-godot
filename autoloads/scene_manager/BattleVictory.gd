@@ -30,6 +30,7 @@ const _EnemyNPC = preload("res://scenes/world/entities/EnemyNPC.gd")
 const _GearRolls = preload("res://game_logic/items/GearRolls.gd")
 const _VeterancyUtil = preload("res://game_logic/VeterancyUtil.gd")
 const _SaveGear = preload("res://autoloads/save_manager/SaveGear.gd")
+const _SliceRules = preload("res://game_logic/SliceRules.gd")
 const _MaterialDrops = preload("res://game_logic/professions/MaterialDrops.gd")
 
 ## Chain pulls (GID-135 / TID-532): a pursuing enemy this close to the hero when an
@@ -228,6 +229,10 @@ func _on_battle_won(result: Dictionary) -> void:
 	if enemy_type == "martarquas_warleader":
 		_sm.save_manager.set_story_flag("chapter2_warcamp_cleared")
 		_show_chapter2_cliffhanger()
+	# GID-188: the slice boss ends the demo (same overlay as the chapter endings).
+	if enemy_type == _SliceRules.BOSS_ENEMY_TYPE and _SliceRules.active():
+		GameBus.narration_overlay_requested.emit(_SliceRules.COMPLETE_PAGES, _SliceRules.COMPLETE_TITLE,
+				_SliceRules.COMPLETE_FLAG)
 
 ## Floating "+coins / +xp / card" toast over the fight location (GID-135 /
 ## TID-531). Only ever called from `_restore_world`'s post-swap callback — see

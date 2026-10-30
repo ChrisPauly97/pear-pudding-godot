@@ -37,6 +37,7 @@ extends RefCounted
 
 const _StarterZone = preload("res://game_logic/world/StarterZone.gd")
 const _XpCurve = preload("res://game_logic/progression/XpCurve.gd")
+const _SliceRules = preload("res://game_logic/SliceRules.gd")
 
 ## GID-177 / TID-722: every camp (Madrian's and the Chapter 1 road camps) runs a
 ## repeatable **bonus objective** — no giver: walking into the camp starts it
@@ -322,6 +323,8 @@ static func can_offer(q: Dictionary, level: int, flags: Dictionary, active: Dict
 	if active.has(id) or (completed.has(id) and not is_repeatable(q)):
 		return false
 	if level < int(q.get("min_level", 1)):
+		return false
+	if not _SliceRules.allows_quest(q):  # GID-188: out-of-slice quests are never offered
 		return false
 	var req: String = str(q.get("req_flag", ""))
 	if req != "" and not bool(flags.get(req, false)):

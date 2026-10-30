@@ -1563,7 +1563,7 @@ func add_redemption_points(amount: int) -> void:
 	GameBus.redemption_points_changed.emit(redemption_points)
 
 func add_xp(amount: int) -> void:
-	xp += amount
+	xp = _SliceRules.capped_xp(xp + amount, _XpCurve.xp_to_reach(_SliceRules.LEVEL_CAP))  # GID-188 level cap
 	var new_level: int = _compute_level(xp)
 	if new_level > level:
 		skill_points += _XpCurve.skill_points_at(new_level) - _XpCurve.skill_points_at(level)

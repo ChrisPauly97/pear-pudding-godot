@@ -17,8 +17,26 @@ const FULL_GAME_PATH: String = "user://full_game.cfg"
 const _CFG_SECTION: String = "game"
 const _CFG_KEY: String = "full_game"
 
-## Highest player level the slice reaches (enforced by TID-795).
+## Highest player level the slice reaches: XP stops at it (TID-795). Real pacing,
+## not compressed (user, 2026-10-30): about 4.5 h to level 10 on XpCurve.
 const LEVEL_CAP: int = 10
+
+## The slice boss: the Barrow King (StarterZone.BARROW_KING, level 10). Outside the
+## slice he waits for "The Sealed Crypt", which needs Ghost Phase; in the slice he
+## wakes once the Dig quest is turned in.
+const BOSS_ENEMY_TYPE: String = "barrow_king"
+const BOSS_QUEST: String = "old_bones"
+## Story flag set when the player closes the completion screen.
+const COMPLETE_FLAG: String = "slice_complete"
+const COMPLETE_TITLE: String = "Demo Complete"
+const COMPLETE_PAGES: Array[String] = [
+	("The Barrow King falls, and the old graveyard is quiet at last. Madrian sleeps safe tonight — "
+		+ "for now."),
+	("Every enemy you beat could become a card, and every card changes the next fight. That is the heart "
+		+ "of Pear Pudding."),
+	("Thank you for playing the demo. The road south, Ghost Phase, the rifts and the rest of Saimtar's "
+		+ "tale are waiting: turn on Settings > Full Game to keep going with this character."),
+]
 
 ## UnlockLadder rows a slice player can learn. Everything else stays off the
 ## trainers' lists. Strike is free from the start and is not a ladder row.
@@ -70,6 +88,29 @@ static func set_full_game(on: bool, path: String = FULL_GAME_PATH) -> Error:
 ## True when ladder row `id` is in play (always, outside the slice).
 static func allows_ladder(id: String) -> bool:
 	return not active() or LADDER.has(id)
+
+## The quest that wakes the Barrow King (`outside` = the full game's).
+static func boss_quest(outside: String) -> String:
+	return BOSS_QUEST if active() else outside
+
+## `xp` clamped to the slice's level cap (unchanged outside the slice).
+static func capped_xp(xp: int, xp_at_cap: int) -> int:
+	return mini(xp, xp_at_cap) if active() else xp
+
+## True when side quest `q` belongs to the slice: offered at or below the level cap,
+## and every row it asks the player to learn is on the slice ladder (always, outside).
+static func allows_quest(q: Dictionary) -> bool:
+	if not active():
+		return true
+	if int(q.get("min_level", 1)) > LEVEL_CAP:
+		return false
+	var objectives: Array = q.get("objectives", [])
+	for o: Variant in objectives:
+		var od: Dictionary = o
+		var kind: String = str(od.get("type", ""))
+		if kind == "rift_tier" or (kind == "learn" and not LADDER.has(str(od.get("target", "")))):
+			return false
+	return true
 
 ## True when main-menu entry `id` is shown (always, outside the slice).
 static func allows_menu(id: String) -> bool:

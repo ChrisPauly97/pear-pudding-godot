@@ -21,9 +21,14 @@ Out-of-slice systems are hidden, never deleted.
 | Full Game | Settings toggle → `SliceRules.set_full_game()` (per device, `user://full_game.cfg`) | Turns the slice off on this device, live; the main menu re-applies on Settings close. Shown only when the build ships the slice |
 | HUD | (indirect) | Mount / Phase buttons are already gated on `has_learned`, so the ladder gate hides them |
 
-Planned (TID-795): level cap enforcement, Madrian + starter camps only (other towns, sea/rivers, caves, rifts
-hidden), slice boss + completion screen. Chunk generation is threaded: pass the slice flag in as a pure input
-rather than reading `ProjectSettings` from worker code.
+| Level cap | `SaveManager.add_xp` → `SliceRules.capped_xp` | XP stops at level 10 (`LEVEL_CAP`). Real pacing, ~4.5 h (no compression, user decision) |
+| Quests | `SideQuests.can_offer` → `SliceRules.allows_quest` | Quests above the cap, with a `learn` target off the slice ladder, or a `rift_tier` objective are never offered |
+| Boss | `StarterZone.barrow_king_awake` → `SliceRules.boss_quest` | The Barrow King (L10) wakes after `old_bones` (Dig), not `sealed_crypt` (Phase) |
+| Ending | `BattleVictory` (Barrow King win) → `GameBus.narration_overlay_requested` | "Demo Complete" pages; closing sets `slice_complete` |
+
+No hard region edge: levels 6–10 need the Chapter 1 road camps near Maykalene, so the world stays open and the
+slice is bounded by level, ladder and quests. Chunk generation is threaded: if a later change gates world content,
+pass the slice flag in as a pure input rather than reading `ProjectSettings` from worker code.
 
 ## Tests
 

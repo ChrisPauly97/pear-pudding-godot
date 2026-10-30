@@ -18,6 +18,8 @@ world (Dig)**. Out-of-slice systems are hidden behind one gate, never deleted, s
 - **Out (hidden):** co-op, PvP, map editor, turn-based / puzzle / scripted modes, skill tree, bounties, night hunts,
   Phase, rifts / Spire, packs, professions, riding, deck-rule rows (tech slot, hand size, quick draw, redraw), other
   towns, sea / rivers / caves, Chapters 1–2 past the intro.
+- **Pacing (user, 2026-10-30): not compressed** — ~4.5 h to level 10; fun is judged on the first 30 min via
+  telemetry (TID-799). No hard region edge (levels 6–10 use the Chapter 1 road camps).
 - Single source of truth: `game_logic/SliceRules.gd`; on/off via project setting `pear_pudding/slice_mode`.
 
 ## Tasks
@@ -25,7 +27,7 @@ world (Dig)**. Out-of-slice systems are hidden behind one gate, never deleted, s
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-794 | Slice gate + SliceRules table | agent | done | — |
-| TID-795 | Fit starter-zone content to levels 1–10, slice boss + completion screen | agent | todo | TID-794 |
+| TID-795 | Fit starter-zone content to levels 1–10, slice boss + completion screen | agent | done | TID-794 |
 | TID-796 | Capture moment polish (card reveal, deck-impact callout) | agent | todo | TID-794 |
 | TID-797 | Combat feel polish pass (hit-stop, impact, cast-bar readability) | agent | todo | TID-794 |
 | TID-798 | First-30-minutes walkthrough audit + fixes | agent | todo | TID-795 |
