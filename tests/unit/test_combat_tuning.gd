@@ -6,6 +6,7 @@ const GameState = preload("res://game_logic/battle/GameState.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const _BattleRealtime = preload("res://scenes/battle/modules/BattleRealtime.gd")
+const _SwingFx = preload("res://scenes/battle/modules/SwingFx.gd")
 const CombatTuning = preload("res://game_logic/battle/CombatTuning.gd")
 
 ## Default tuning — what every RealtimeCombat below runs with.
@@ -121,3 +122,20 @@ func test_default_swing_rhythm() -> void:
 		t += 0.05
 	assert_almost_eq(float(first.get(1, 0.0)) - float(first.get(0, 0.0)), _tune.get_f("enemy_swing_delay"), 0.06,
 			"enemy's first swing trails the player's")
+
+
+## GID-188 / TID-797: hit feel is tunable, and bigger moments never land lighter.
+func test_hit_feel_knobs_scale_with_the_moment() -> void:
+	for key: String in ["feel_stop_1", "feel_stop_2", "feel_stop_3", "feel_shake_1", "feel_shake_2",
+			"feel_shake_3", "feel_taken_shake"]:
+		assert_true(_tune.has_key(key), "%s is a knob" % key)
+	assert_lte(_tune.get_f("feel_stop_1"), _tune.get_f("feel_stop_2"))
+	assert_lte(_tune.get_f("feel_stop_2"), _tune.get_f("feel_stop_3"))
+	assert_lte(_tune.get_f("feel_shake_1"), _tune.get_f("feel_shake_2"))
+	assert_lte(_tune.get_f("feel_shake_2"), _tune.get_f("feel_shake_3"))
+	assert_lt(_tune.get_f("feel_stop_3"), 0.2, "a hit-stop stays a blink, not a pause")
+
+
+func test_enemy_cast_bar_turns_red_as_the_kick_window_closes() -> void:
+	assert_eq(_SwingFx.cast_urgency_tint(0.2), Color.WHITE)
+	assert_ne(_SwingFx.cast_urgency_tint(0.9), Color.WHITE)

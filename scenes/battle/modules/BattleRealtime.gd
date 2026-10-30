@@ -41,8 +41,6 @@ const DamageSchools = preload("res://game_logic/battle/DamageSchools.gd")
 const _SchoolFeedback = preload("res://game_logic/battle/SchoolFeedback.gd")
 ## Settings key holding the tuning panel's overrides (per device).
 const TUNING_SETTING: String = "combat_tuning"
-## Hit feel per strength: [hit-stop seconds, shake pixels] (TID-580).
-const _HIT_FEEL: Array = [[0.0, 0.0], [0.045, 2.5], [0.08, 5.0], [0.12, 8.0]]
 
 var rt: RealtimeCombat = null
 ## The player's casting rules (GCD, cast bar, combo, techniques — GID-176 /
@@ -216,6 +214,7 @@ func on_ally_hit_enemy_hero(side: int = RealtimeCombat.ENEMY) -> void:
 	var cut: CardInstance = rt.interrupt_enemy_cast(side)
 	if cut != null:
 		_visuals.toast("Interrupted %s!" % cut.name)
+		hit_feel(2)
 
 ## Called after any successful local card play. A cast's GCD already started
 ## when the cast began, so its resolution doesn't restart it.
@@ -272,6 +271,7 @@ func _on_caster_event(kind: String, data: Dictionary) -> void:
 		"interrupt":
 			toast("Interrupted %s!" % str(data.get("name", "")))
 			note_skill_used("interrupt")
+			hit_feel(2)  # TID-797: a well-timed Kick should land
 		"dazed":
 			toast("Dazed!")
 		"fizzled":
@@ -308,15 +308,26 @@ func modifiers_companion() -> String:
 	return _battle.modifiers._active_companion()
 
 ## GID-139 / TID-580: hit feel — a brief hit-stop and a shake, scaled by how big
-## the moment is (1 = a hit, 2 = a proc / combo card, 3 = a full-combo or free
-## card). Both follow the Screen Shake setting.
+## the moment is (1 = a hit, 2 = a proc / crit / interrupt / combo card, 3 = a
+## full combo, free card or the killing blow). Sizes are CombatTuning "Hit feel"
+## knobs (TID-797). Both follow the Screen Shake setting.
 func hit_feel(strength: int) -> void:
-	if not bool(SceneManager.save_manager.get_setting("screen_shake", true)):
+	if rt == null or strength <= 0 or not bool(SceneManager.save_manager.get_setting("screen_shake", true)):
 		return
-	var f: Array = _HIT_FEEL[clampi(strength, 0, _HIT_FEEL.size() - 1)]
-	_hitstop_left = maxf(_hitstop_left, float(f[0]))
-	if float(f[1]) > 0.0:
-		_battle._fx.trigger_shake(float(f[1]), 0.12 + 0.04 * float(strength))
+	var s: int = clampi(strength, 1, 3)
+	_hitstop_left = maxf(_hitstop_left, rt.tune.get_f("feel_stop_%d" % s))
+	var px: float = rt.tune.get_f("feel_shake_%d" % s)
+	if px > 0.0:
+		_battle._fx.trigger_shake(px, 0.12 + 0.04 * float(s))
+
+## TID-797: an enemy swing on the hero — a small shake, no hit-stop (the enemy's
+## rhythm shouldn't stall the player's).
+func taken_feel() -> void:
+	if rt == null or not bool(SceneManager.save_manager.get_setting("screen_shake", true)):
+		return
+	var px: float = rt.tune.get_f("feel_taken_shake")
+	if px > 0.0:
+		_battle._fx.trigger_shake(px, 0.12)
 
 ## Hero token for `side` (onboarding spotlights), or null.
 func token(side: int) -> Control:
@@ -474,10 +485,13 @@ func _process(delta: float) -> void:
 		# board can rebuild straight away without awaiting the tween.
 		_battle._animate_deaths_from_snapshot(snap)
 	_battle._refresh_all()
+	var won: bool = _battle._state.is_game_over() and _battle._state.winner() == RealtimeCombat.PLAYER
 	for ev: Dictionary in swings:
 		_animate_swing(ev)
 		if int(ev.get("side", -1)) == RealtimeCombat.PLAYER:
-			hit_feel(1)
+			hit_feel(3 if won else 1)  # TID-797: the killing blow lands heaviest
+		elif ev.get("target") == null and int(ev.get("target_side", -1)) == RealtimeCombat.PLAYER:
+			taken_feel()
 	_battle._check_game_over()
 
 ## Lunge the attacker (hero token or enemy unit) at its target.

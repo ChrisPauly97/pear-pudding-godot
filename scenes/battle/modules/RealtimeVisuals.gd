@@ -420,13 +420,13 @@ func _update_enemy_cast(rt: RealtimeCombat, side: int) -> void:
 	if ui.is_empty():
 		return
 	var c: CardInstance = rt.casting[side] as CardInstance
-	var box: Control = ui["box"]
-	box.visible = c != null
+	(ui["box"] as Control).visible = c != null
 	if c == null:
 		return
-	var cost: int = _battle._state.players[side].effective_cost(c)
-	(ui["label"] as Label).text = "Casting %s (%d)" % [c.name, cost]
-	(ui["bar"] as ProgressBar).value = clampf(1.0 - rt.cast_remaining[side] / rt.tune.get_f("enemy_cast"), 0.0, 1.0)
+	(ui["label"] as Label).text = "Casting %s (%d)" % [c.name, _battle._state.players[side].effective_cost(c)]
+	var bar := ui["bar"] as ProgressBar
+	bar.value = clampf(1.0 - rt.cast_remaining[side] / rt.tune.get_f("enemy_cast"), 0.0, 1.0)
+	bar.modulate = _SwingFx.cast_urgency_tint(bar.value)  # TID-797: red as the Kick window closes
 
 ## Lunge a hero token toward `target_pos` and back.
 func lunge_token(side: int, target_pos: Vector2) -> void:
