@@ -5,6 +5,7 @@ extends Node
 ## Every state change, after it is applied. `from == to` for a map reload.
 signal state_changed(from: State, to: State)
 
+const _SliceRules = preload("res://game_logic/SliceRules.gd")
 const _UnlockLadder = preload("res://game_logic/progression/UnlockLadder.gd")
 const _SatchelLines = preload("res://game_logic/inventory/SatchelLines.gd")
 const _BiomeDef = preload("res://game_logic/world/BiomeDef.gd")
@@ -691,7 +692,8 @@ func _on_enemy_engaged(enemy_data: Dictionary) -> void:
 	# Skip picker on resume (pending_battle_enemy_data already set from a prior session)
 	# or when the player has enabled auto-skip via the "Don't ask again" checkbox.
 	var is_resume: bool = not save_manager.pending_battle_enemy_data.is_empty()
-	var auto_skip: bool = bool(save_manager.get_setting("auto_skip_gambits", false))
+	var auto_skip: bool = (bool(save_manager.get_setting("auto_skip_gambits", false))
+			or not _SliceRules.allows_gambits())
 	if is_resume or auto_skip:
 		_start_battle(enemy_data)
 		return

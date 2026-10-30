@@ -26,6 +26,10 @@ Out-of-slice systems are hidden, never deleted.
 | Boss | `StarterZone.barrow_king_awake` → `SliceRules.boss_quest` | The Barrow King (L10) wakes after `old_bones` (Dig), not `sealed_crypt` (Phase) |
 | Ending | `BattleVictory` (Barrow King win) → `GameBus.narration_overlay_requested` | "Demo Complete" pages; closing sets `slice_complete` |
 
+| New Game | `HeroAppearanceScene` → `SliceRules.shows_biome_picker` | No biome picker / Head Start toggle; starts in the grasslands (`START_BIOME`) |
+| Idle trainers / stations | `ChunkRenderer` (`allows_npc`, `HIDDEN_NPCS`), `CraftingStations` (`allows_stations`) | Master Artisan, Bounty Master, Rift Warden, Stablemaster and profession stations not spawned |
+| Gambits | `SceneManager._on_enemy_engaged`, `SwapDeckPrompt` → `allows_gambits` | Fights start without the gambit picker |
+| Dev tools | `BattleRealtime` → `shows_dev_tools` | ⚙ Tune button and T key hidden |
 | Telemetry | `PlaytestMetrics` / `SaveManager.playtest_log`, Diagnostics → Playtest | Time to first fight / win / capture / deck edit, counters, quit point, time to Demo Complete |
 
 No hard region edge: levels 6–10 need the Chapter 1 road camps near Maykalene, so the world stays open and the

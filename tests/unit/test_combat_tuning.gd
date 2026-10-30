@@ -139,3 +139,10 @@ func test_hit_feel_knobs_scale_with_the_moment() -> void:
 func test_enemy_cast_bar_turns_red_as_the_kick_window_closes() -> void:
 	assert_eq(_SwingFx.cast_urgency_tint(0.2), Color.WHITE)
 	assert_ne(_SwingFx.cast_urgency_tint(0.9), Color.WHITE)
+
+
+## GID-188 / TID-798: a level-1 player can't Kick or Guard, so the warning doesn't tell them to.
+func test_heavy_blow_tip_names_only_learned_answers() -> void:
+	assert_eq(_BattleRealtime.heavy_blow_tip([]), "Heavy Blow incoming — brace yourself!")
+	assert_eq(_BattleRealtime.heavy_blow_tip(["kick"]), "Heavy Blow incoming — Kick it!")
+	assert_eq(_BattleRealtime.heavy_blow_tip(["kick", "guard"]), "Heavy Blow incoming — Kick it or Guard!")

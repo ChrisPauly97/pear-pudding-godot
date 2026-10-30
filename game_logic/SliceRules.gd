@@ -49,8 +49,18 @@ const LADDER: Array[String] = [
 	"feat_dig",
 ]
 
+## Trainer NPCs with nothing to offer in the slice (their rows and quests are all cut):
+## not spawned, so the town square doesn't advertise systems the player can't use
+## (TID-798 walkthrough). Ids are the stitched-town entity ids.
+const HIDDEN_NPCS: Array[String] = [
+	"crafter_madrian", "bounty_master_madrian", "rift_warden_madrian", "stable_master",
+]
+
 ## Main-menu entries the slice shows.
 const MENU: Array[String] = ["continue", "new_game", "settings", "diagnostics", "quit"]
+
+## The world the slice starts in: grasslands, no biome picker (BiomeDef id 0).
+const START_BIOME: int = 0
 
 ## The only battle mode the slice offers (Settings > Battle Mode is ignored).
 const BATTLE_MODE: String = "realtime"
@@ -111,6 +121,27 @@ static func allows_quest(q: Dictionary) -> bool:
 		if kind == "rift_tier" or (kind == "learn" and not LADDER.has(str(od.get("target", "")))):
 			return false
 	return true
+
+## True when NPC entity `id` spawns (always, outside the slice).
+static func allows_npc(id: String) -> bool:
+	return not active() or not HIDDEN_NPCS.has(id)
+
+## Profession stations (cooking fire, alchemy table, workbench) spawn only in the full game.
+static func allows_stations() -> bool:
+	return not active()
+
+## The pre-fight gambit picker (optional handicaps) is cut from the slice: one less
+## decision before the core loop (TID-798). Fights start straight away.
+static func allows_gambits() -> bool:
+	return not active()
+
+## The ⚙ Tune combat-tuning panel is a developer tool: not shown to slice players.
+static func shows_dev_tools() -> bool:
+	return not active()
+
+## True when New Game goes through the biome picker (never in the slice).
+static func shows_biome_picker() -> bool:
+	return not active()
 
 ## True when main-menu entry `id` is shown (always, outside the slice).
 static func allows_menu(id: String) -> bool:

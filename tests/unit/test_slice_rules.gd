@@ -133,3 +133,33 @@ func test_barrow_king_is_the_slice_boss() -> void:
 	SliceRules.override = 0
 	assert_false(StarterZone.barrow_king_awake([SliceRules.BOSS_QUEST], []), "full game: needs the crypt")
 	assert_true(SideQuests.def(SliceRules.BOSS_QUEST).size() > 0, "boss quest exists")
+
+
+func test_slice_quests_never_need_a_hidden_npc() -> void:
+	SliceRules.override = 1
+	for q: Dictionary in SideQuests.all():
+		if not SliceRules.allows_quest(q):
+			continue
+		assert_true(SliceRules.allows_npc(str(q.get("giver", ""))), "%s giver spawns" % str(q["id"]))
+		assert_true(SliceRules.allows_npc(SideQuests.turn_in_npc(q)), "%s turn-in spawns" % str(q["id"]))
+		for o: Dictionary in SideQuests.objectives(q):
+			if str(o.get("type", "")) == "talk":
+				assert_true(SliceRules.allows_npc(str(o.get("target", ""))), "%s talk target" % str(q["id"]))
+
+
+func test_slice_hides_stations_and_the_biome_picker() -> void:
+	SliceRules.override = 1
+	assert_false(SliceRules.allows_stations())
+	assert_false(SliceRules.shows_biome_picker())
+	assert_false(SliceRules.allows_npc("crafter_madrian"))
+	SliceRules.override = 0
+	assert_true(SliceRules.allows_stations())
+	assert_true(SliceRules.shows_biome_picker())
+	assert_true(SliceRules.allows_npc("crafter_madrian"))
+
+
+func test_slice_skips_the_gambit_picker() -> void:
+	SliceRules.override = 1
+	assert_false(SliceRules.allows_gambits())
+	SliceRules.override = 0
+	assert_true(SliceRules.allows_gambits())

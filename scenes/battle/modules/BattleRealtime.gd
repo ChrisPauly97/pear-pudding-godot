@@ -15,6 +15,7 @@
 ## `_ensure_battle_modules()`. Reach the scene as `_battle.<name>`.
 extends Node
 
+const _SliceRules = preload("res://game_logic/SliceRules.gd")
 const _SwingFx = preload("res://scenes/battle/modules/SwingFx.gd")
 const _BattleScene = preload("res://scenes/battle/BattleScene.gd")
 const RealtimeCombat = preload("res://game_logic/battle/RealtimeCombat.gd")
@@ -139,9 +140,9 @@ func _build_ui() -> void:
 	_strip.name = "RealtimeActionStrip"
 	_strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# Combat tuning panel (TID-549): top-left with pause / Effects; T on desktop.
-	var tune_parent: Control = _battle.get_node("SidePanel") as Control
-	_UiUtil.make_button("⚙ Tune", Vector2(vh * 0.14, vh * 0.055), int(_battle._font(0.022)), open_tuning,
-			tune_parent)
+	if _SliceRules.shows_dev_tools():  # GID-188: hidden from slice players
+		_UiUtil.make_button("⚙ Tune", Vector2(vh * 0.14, vh * 0.055), int(_battle._font(0.022)), open_tuning,
+				_battle.get_node("SidePanel") as Control)
 
 ## Enemy level-equivalent for mana until zone levels land (TID-536): tier 1 → 1, each tier +3.
 static func enemy_level_for_tier(tier: int) -> int:
@@ -190,7 +191,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	var k := event as InputEventKey
 	if rt == null or k == null or not k.pressed or k.echo:
 		return
-	if k.keycode == KEY_T:
+	if k.keycode == KEY_T and _SliceRules.shows_dev_tools():
 		open_tuning()
 		get_viewport().set_input_as_handled()
 	elif k.keycode == KEY_R and redraw != null and redraw.can_press():
@@ -319,6 +320,17 @@ func hit_feel(strength: int) -> void:
 	var px: float = rt.tune.get_f("feel_shake_%d" % s)
 	if px > 0.0:
 		_battle._fx.trigger_shake(px, 0.12 + 0.04 * float(s))
+
+## TID-798: the Heavy Blow warning names only the answers the player has learned.
+static func heavy_blow_tip(learned: Array) -> String:
+	var answers: Array[String] = []
+	if learned.has("kick"):
+		answers.append("Kick it")
+	if learned.has("guard"):
+		answers.append("Guard")
+	if answers.is_empty():
+		return "Heavy Blow incoming — brace yourself!"
+	return "Heavy Blow incoming — %s!" % " or ".join(answers)
 
 ## TID-797: an enemy swing on the hero — a small shake, no hit-stop (the enemy's
 ## rhythm shouldn't stall the player's).
@@ -470,7 +482,7 @@ func _process(delta: float) -> void:
 				if rt.enemy_sides().size() > 1 and not _battle._state.is_game_over():
 					_visuals.toast("An enemy falls — keep fighting!")
 			"enemy_heavy_start":
-				_visuals.toast("Heavy Blow incoming — Kick it or Guard!")
+				_visuals.toast(heavy_blow_tip(SceneManager.save_manager.learned_abilities))
 			"enemy_heavy_hit":
 				var heavy_dmg: int = int(ev.get("damage", 0))
 				var heavy_outcome: String = str(ev.get("outcome", ""))

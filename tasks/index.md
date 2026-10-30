@@ -191,7 +191,7 @@
 | [GID-185](goals/GID-185--unlocks-grant-cards/goal.md) | Unlocks Grant Cards & Expand the Deck | done | 3 / 3 |
 | [GID-186](goals/GID-186--balance-coverage/goal.md) | Balance Coverage — Every Level, School and Resistance | done | 1 / 1 |
 | [GID-187](goals/GID-187--balance-real-player/goal.md) | Balance the Real Player | done | 15 / 15 |
-| [GID-188](goals/GID-188--vertical-slice/goal.md) | Vertical Slice — Prove the Core Loop | in progress | 5 / 7 |
+| [GID-188](goals/GID-188--vertical-slice/goal.md) | Vertical Slice — Prove the Core Loop | in progress | 6 / 7 |
 
 ## Backlog
 
@@ -204,6 +204,7 @@ files in `tasks/archive/backlog/`.
 | [BID-055](backlog/BID-055--worldscene-god-object.md) | `WorldScene.gd` god-object decomposition, slice 1/3 done (co-op/net cluster folded into `CoopSession.gd`, line-ceiling guardrail added); original 9154/401 census was stale — see file's Progress section for real numbers and slices 2-3 (`_spawn_*`, `_start_*`); spawn position now in `SpawnPoint.gd` | code-smell | GID-123 research |
 | [BID-081](backlog/BID-081--no-water-in-towns.md) | No water in named maps / towns; no bridges | content-gap | GID-152 research |
 | [BID-089](backlog/BID-089--no-battle-ui-profiler.md) | No profiler for battle / UI / save paths | doc-gap | GID-164 research |
+| [BID-110](backlog/BID-110--first-fight-polish.md) | First-fight polish: double tutorial popup, "(0)" Heavy Blow cost, toast readability | polish | GID-188 / TID-798 |
 | [BID-097](backlog/BID-097--spell-resolver-in-scenes.md) | `SpellEffectResolver` is core logic living in `scenes/` (used by balance sim) | code-smell | GID-181 research |
 | [BID-100](backlog/BID-100--env-school-boost-resume.md) | Battlefield school boost lost on resumed mid-fight battles | code-smell | GID-181 / TID-755 |
 | [BID-102](backlog/BID-102--mono-school-decks-uneven.md) | Pure mono-school decks still uneven (light/verdant 36 % on bog hag) | balance | GID-184 / TID-773 |

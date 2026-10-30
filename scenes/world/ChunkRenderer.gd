@@ -2,6 +2,7 @@
 # BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 extends Node3D
 
+const _SliceRules = preload("res://game_logic/SliceRules.gd")
 const GrassBlades   = preload("res://scenes/world/GrassBlades.gd")
 const TerrainMath   = preload("res://game_logic/TerrainMath.gd")
 const BiomeDef      = preload("res://game_logic/world/BiomeDef.gd")
@@ -622,6 +623,8 @@ func _spawn_entities(world_scene: _WorldScene) -> void:
 			continue
 		var show_flag: String = str(n_data.get("show_flag_key", ""))
 		if show_flag != "" and not SceneManager.save_manager.get_story_flag(show_flag):
+			continue
+		if not _SliceRules.allows_npc(str(n_data.get("id", ""))):  # GID-188: idle trainers stay out
 			continue
 		var _npc_type_str: String = str(n_data.get("npc_type", ""))
 		var scene_to_use: PackedScene

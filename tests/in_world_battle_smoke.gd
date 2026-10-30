@@ -10,6 +10,7 @@
 ## Exit code 0 = pass, 1 = fail.
 extends SceneTree
 
+const _SliceRules = preload("res://game_logic/SliceRules.gd")
 const _WORLD_SCENE_PATH: String = "res://scenes/world/WorldScene.tscn"
 const _SceneFlow = preload("res://game_logic/SceneFlow.gd")
 const _RewardToastFx = preload("res://scenes/world/RewardToastFx.gd")
@@ -223,6 +224,7 @@ func _check_add_joins(sm: Node, save_manager: Object, fails: Array[String]) -> v
 ## Two enemies engaging back to back with the gambit picker on must give ONE
 ## picker and one battle — never a battle stacked on a battle.
 func _check_double_engage(sm: Node, save_manager: Object, fails: Array[String]) -> void:
+	_SliceRules.override = 0  # GID-188: the gambit picker is full-game only
 	save_manager.call("set_setting", "auto_skip_gambits", false)
 	var data := {"enemy_type": "undead_basic", "is_boss": false,
 		"enemy_deck": ["ghost", "ghost", "skeleton", "skeleton", "ghost", "ghost"]}
@@ -247,3 +249,4 @@ func _check_double_engage(sm: Node, save_manager: Object, fails: Array[String]) 
 	if int(sm.call("current_state")) != _SceneFlow.State.WORLD or current_scene.get("_camera") == null:
 		fails.append("did not return to the world after the double-engage fight")
 	save_manager.call("set_setting", "auto_skip_gambits", true)
+	_SliceRules.override = -1
