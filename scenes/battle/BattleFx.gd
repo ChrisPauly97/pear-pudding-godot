@@ -18,6 +18,8 @@ const _STATUS_EFFECTS: Array[String] = ["poison", "armor", "freeze", "stun"]
 const _STATUS_COLORS: Array[Color] = [Color.GREEN, Color.CORNFLOWER_BLUE, Color.CYAN, Color.YELLOW]
 const _STATUS_ABBREVS: Array[String] = ["P", "A", "F", "S"]
 
+## GID-189 frames layout: (is_enemy, frame centre) -> where a hero hit lands (its world sprite).
+var hero_point_fn: Callable = Callable()
 var _state: GameState
 var _vh: float
 var _float_layer: CanvasLayer
@@ -177,7 +179,8 @@ func _update_status_icons_impl(hbox: HBoxContainer, entity: Object) -> void:
 
 func pos_of_hero(is_enemy: bool) -> Vector2:
 	var hv: Control = _enemy_hero_view if is_enemy else _player_hero_view
-	return hv.get_global_rect().get_center()
+	var c: Vector2 = hv.get_global_rect().get_center()
+	return hero_point_fn.call(is_enemy, c) if hero_point_fn.is_valid() else c
 
 func snapshot() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []

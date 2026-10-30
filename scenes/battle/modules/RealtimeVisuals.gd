@@ -20,6 +20,8 @@ const _AllySlotLocks = preload("res://scenes/battle/modules/AllySlotLocks.gd")
 const _DeckPile = preload("res://scenes/battle/modules/DeckPile.gd")
 const _SwingFx = preload("res://scenes/battle/modules/SwingFx.gd")
 const _SchoolPips = preload("res://scenes/battle/modules/SchoolPips.gd")
+const _PlayerCastBar = preload("res://scenes/battle/modules/PlayerCastBar.gd")
+const _FramesLayout = preload("res://scenes/battle/modules/FramesLayout.gd")
 
 const READY_COLOR := Color(0.35, 1.0, 0.45)
 const CHARGING_COLOR := Color(0.45, 0.75, 1.0)
@@ -41,9 +43,9 @@ var _tokens: Dictionary = {}
 var _token_home: Dictionary = {}
 var _token_bars: Dictionary = {}
 var _token_casts: Dictionary = {}
-var _cast_panel: PanelContainer
-var _cast_lbl: Label
-var _cast_bar: ProgressBar
+var _cast: _PlayerCastBar
+## GID-189: the opt-in frames layout (Settings › Battle Layout), else null (classic).
+var _frames_layout: _FramesLayout = null
 ## BattleRealtime's cooldown / auto-attack / target box, placed bottom-right.
 var _strip: Control = null
 ## Ring around your current target (focused minion, else the targeted enemy token).
@@ -65,15 +67,13 @@ func build(enemy_type: String, is_boss: bool) -> void:
 	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_battle.add_child(_root)
+	_frames_layout = _FramesLayout.new(_battle, _root) if _FramesLayout.enabled() else null
 	_tokens[RealtimeCombat.PLAYER] = _make_token(
 			_PaperDoll.idle_texture(_PaperDoll.gear_of(SaveManager), _PaperDoll.appearance_of(SaveManager)),
 			_battle._player_hero_view, RealtimeCombat.PLAYER)
 	_tokens[RealtimeCombat.ENEMY] = _make_token(_SpriteRegistry.enemy_texture(enemy_type, false, is_boss),
 			_battle._enemy_hero_view, RealtimeCombat.ENEMY, enemy_type)
-	var cast := _make_cast_panel(CHARGING_COLOR)
-	_cast_panel = cast["panel"]
-	_cast_lbl = cast["label"]
-	_cast_bar = cast["bar"]
+	_cast = _PlayerCastBar.new(_battle, _root, CHARGING_COLOR, _make_bar(_battle._vh * 0.02, CHARGING_COLOR))
 	_setup_arena()
 	# Draws fly out of a visible pile, slower than turn-based deals (GID-178 / TID-725).
 	_pile = _DeckPile.new(_root, _battle._view.card_size(), int(_battle._vh * 0.022))
@@ -81,6 +81,8 @@ func build(enemy_type: String, is_boss: bool) -> void:
 	_battle._card_motion.deal_time_mult = 1.7
 	_battle.get_viewport().size_changed.connect(apply_layout)
 	apply_layout.call_deferred()
+	if _frames_layout != null:
+		_frames_layout.focus_world.call_deferred()
 
 ## Diagonal arena: the hero strips move into the tokens, both boards leave the
 ## stacked VBoxes and become free-placed diagonal rows over the arena, and the
@@ -109,6 +111,8 @@ func _setup_arena() -> void:
 func apply_layout() -> void:
 	if _root == null:
 		return
+	if _frames_layout != null:
+		return _frames_layout.apply(_tokens, add_rows, _token_home)
 	var vp: Vector2 = _battle.get_viewport().get_visible_rect().size
 	var vh: float = vp.y
 	# The arena spans the whole width (centred in the scene); the hand sits below it.
@@ -237,6 +241,8 @@ func _make_token(tex: Texture2D, hero_view: PanelContainer, side: int, enemy_typ
 		_token_casts[side] = {"box": cast_box, "label": cl, "bar": cb}
 	_tokens[side] = panel
 	_root.add_child(panel)
+	if _frames_layout != null:
+		_frames_layout.adopt_token(side, panel)
 	return panel
 
 func _make_bar(h: float, tint: Color) -> ProgressBar:
@@ -249,20 +255,6 @@ func _make_bar(h: float, tint: Color) -> ProgressBar:
 	bar.modulate = tint
 	return bar
 
-func _make_cast_panel(tint: Color) -> Dictionary:
-	var vh: float = _battle._vh
-	var panel := PanelContainer.new()
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.custom_minimum_size = Vector2(vh * 0.5, 0.0)
-	panel.add_theme_stylebox_override("panel", _UiUtil.make_style(Color(0.05, 0.05, 0.09, 0.9), 6, tint, 2))
-	var vbox := _UiUtil.make_vbox(int(vh * 0.004), panel)
-	var lbl := _UiUtil.make_label("", int(_battle._font(0.022)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
-	var bar := _make_bar(vh * 0.02, tint)
-	vbox.add_child(bar)
-	panel.visible = false
-	_root.add_child(panel)
-	return {"panel": panel, "label": lbl, "bar": bar}
-
 ## Per-frame: token placement + bars, unit readiness / wind-up, cast bars.
 func update(rt: RealtimeCombat, player_cast: Dictionary) -> void:
 	if _root == null:
@@ -272,7 +264,7 @@ func update(rt: RealtimeCombat, player_cast: Dictionary) -> void:
 		if not tok.has_meta("lunging"):
 			tok.global_position = _token_home.get(side, tok.global_position)
 		(_token_bars[side] as ProgressBar).value = rt.hero_swing_fraction(int(side))
-		_SwingFx.wind_up(tok, rt.hero_swing_fraction(int(side)), int(side) == RealtimeCombat.PLAYER)
+		if _frames_layout == null: _SwingFx.wind_up(tok, rt.hero_swing_fraction(int(side)), int(side) == 0)
 		# A fallen enemy's token greys out.
 		if int(side) != RealtimeCombat.PLAYER:
 			tok.modulate = Color.WHITE if rt.is_alive(int(side)) else Color(0.45, 0.45, 0.45, 0.8)
@@ -281,8 +273,10 @@ func update(rt: RealtimeCombat, player_cast: Dictionary) -> void:
 	_update_units(rt, RealtimeCombat.ENEMY, _battle._enemy_board_view)
 	for side: Variant in add_rows.keys():
 		_update_units(rt, int(side), add_rows[side] as Control)
-	_update_player_cast(player_cast)
-	if _slot_locks != null:
+	_cast.update(player_cast)
+	if _frames_layout != null:
+		_frames_layout.update(rt, _slot_locks != null, _tokens, add_rows, _token_home)
+	elif _slot_locks != null:
 		_slot_locks.update()
 	_token_frames.observe(rt)
 	_place_strip(_battle.get_viewport().get_visible_rect().size, _battle._vh * 0.015)
@@ -328,9 +322,10 @@ func update_hand_sweep(frac: float) -> void:
 		shade.global_position = Vector2(r.position.x, r.position.y + top)
 		shade.size = Vector2(r.size.x, r.size.y - top)
 
-## Covers your empty Ally slots with "Locked · Lv N" plates until minions are learned.
+## Covers your empty Ally slots with "Locked · Lv N" plates until minions are learned
+## (frames layout: the Ally row just stays hidden).
 func lock_ally_slots(level: int) -> void:
-	_slot_locks = _AllySlotLocks.new(_battle, _root, level)
+	_slot_locks = _AllySlotLocks.new(_battle, _root, level)  # plates are built in update(), classic only
 
 func _update_focus_ring(rt: RealtimeCombat) -> void:
 	if _focus_ring == null:
@@ -357,7 +352,8 @@ func token(side: int) -> Control:
 
 func token_center(side: int) -> Vector2:
 	var tok: PanelContainer = _tokens.get(side) as PanelContainer
-	return tok.get_global_rect().get_center() if tok != null else _battle._fx.pos_of_hero(side != RealtimeCombat.PLAYER)
+	var c: Vector2 = tok.get_global_rect().get_center() if tok != null else _battle._fx.pos_of_hero(side != 0)
+	return _frames_layout.hero_point(side, c) if _frames_layout != null else c
 
 func _update_units(rt: RealtimeCombat, side: int, board_view: Control) -> void:
 	var board_slots: Array = _battle._state.players[side].board.slots
@@ -402,19 +398,6 @@ func _wind_up(panel: Control, frac: float) -> void:
 	panel.scale = Vector2.ONE * (1.0 + 0.08 * w)
 	panel.modulate = Color.WHITE.lerp(Color(1.3, 0.6, 0.55), w)
 
-func _update_player_cast(cast: Dictionary) -> void:
-	if cast.is_empty():
-		_cast_panel.visible = false
-		return
-	_cast_panel.visible = true
-	_cast_lbl.text = "Casting %s  (%d mana)" % [str(cast["name"]), int(cast["cost"])]
-	_cast_bar.value = float(cast["fraction"])
-	var hand_r: Rect2 = _battle._player_hand_view.get_global_rect()
-	var sz: Vector2 = _cast_panel.get_combined_minimum_size()
-	_cast_panel.size = sz
-	_cast_panel.global_position = Vector2(hand_r.get_center().x - sz.x * 0.5,
-			hand_r.position.y - sz.y - _battle._vh * 0.01)
-
 func _update_enemy_cast(rt: RealtimeCombat, side: int) -> void:
 	var ui: Dictionary = _token_casts.get(side, {})
 	if ui.is_empty():
@@ -423,7 +406,7 @@ func _update_enemy_cast(rt: RealtimeCombat, side: int) -> void:
 	(ui["box"] as Control).visible = c != null
 	if c == null:
 		return
-	(ui["label"] as Label).text = "Casting %s (%d)" % [c.name, _battle._state.players[side].effective_cost(c)]
+	(ui["label"] as Label).text = _SwingFx.cast_label(c.name, _battle._state.players[side].effective_cost(c))
 	var bar := ui["bar"] as ProgressBar
 	bar.value = clampf(1.0 - rt.cast_remaining[side] / rt.tune.get_f("enemy_cast"), 0.0, 1.0)
 	bar.modulate = _SwingFx.cast_urgency_tint(bar.value)  # TID-797: red as the Kick window closes
@@ -431,6 +414,8 @@ func _update_enemy_cast(rt: RealtimeCombat, side: int) -> void:
 ## Lunge a hero token toward `target_pos` and back.
 func lunge_token(side: int, target_pos: Vector2) -> void:
 	var tok: PanelContainer = _tokens.get(side) as PanelContainer
+	if _frames_layout != null:
+		return _frames_layout.lunge(side)  # frames stay put; the world sprite swings
 	if tok == null or tok.has_meta("lunging"):
 		return
 	tok.set_meta("lunging", true)
@@ -456,6 +441,8 @@ func target_pos(target: CardInstance, target_side: int) -> Vector2:
 
 ## Short floating message above the hand (fizzles, etc.).
 func toast(text: String) -> void:
+	if _frames_layout != null:
+		return _frames_layout.toast(text)
 	var lbl := _UiUtil.make_label(text, int(_battle._font(0.026)), Color(1.0, 0.7, 0.4), HORIZONTAL_ALIGNMENT_CENTER,
 			_root)
 	lbl.add_theme_color_override("font_shadow_color", Color.BLACK)

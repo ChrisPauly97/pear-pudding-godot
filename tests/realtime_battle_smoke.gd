@@ -40,6 +40,9 @@ func _run() -> bool:
 	var save_manager: Object = scene_manager.get("save_manager")
 	save_manager.call("set_setting", "battle_mode", "realtime")
 	save_manager.call("set_setting", "auto_skip_gambits", true)
+	# GID-189: CI runs this smoke twice, the second time with BATTLE_LAYOUT=frames.
+	var layout: String = OS.get_environment("BATTLE_LAYOUT")
+	save_manager.call("set_setting", "battle_layout", layout if layout != "" else "classic")
 	save_manager.set("realtime_fights", 99)  # past the onboarding ramp; checked separately below
 	# GID-141: Mend / Kick are trainer-taught; this player has learned them (and the hand).
 	(save_manager.get("learned_abilities") as Array).append_array(
@@ -406,7 +409,11 @@ func _check_diagonal_layout(battle: Node, fails: Array[String]) -> void:
 			var c := child as Control
 			if c == null or not c.visible:
 				continue
-			if not (c.position.x > prev.x and c.position.y > prev.y):
+			# GID-189 frames layout: slots are a left-to-right row of small unit frames instead.
+			var frames: bool = OS.get_environment("BATTLE_LAYOUT") == "frames"
+			if frames and not (c.position.x > prev.x and (prev.y == -INF or is_equal_approx(c.position.y, prev.y))):
+				fails.append("%s unit frames are not a left-to-right row" % key)
+			elif not frames and not (c.position.x > prev.x and c.position.y > prev.y):
 				fails.append("%s slots are not on a top-left → bottom-right diagonal" % key)
 				break
 			prev = c.position

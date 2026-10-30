@@ -809,6 +809,17 @@ func _in_world_battle_eligible(networked: bool) -> bool:
 	var world: Node = get_tree().current_scene
 	return world != null and world.get("_camera") is Camera3D
 
+## The world held for the current battle (frozen in place or detached), or null (GID-189).
+func held_world() -> Node:
+	return _saved_world_scene if is_instance_valid(_saved_world_scene) else null
+
+## World entity ids of the current battle's enemies: the engaged one, then any that joined.
+func battle_enemy_ids() -> Array[String]:
+	var out: Array[String] = [_current_battle_enemy_id]
+	for d: Dictionary in _joined_enemies:
+		out.append(str(d.get("id", "")))
+	return out
+
 ## True when a solo fight started now would be fought in place — world entities
 ## that start one (EnemyNPC, BlightHeart) then stay visible until it ends
 ## instead of freeing themselves on engage (see `free_after_battle`).
