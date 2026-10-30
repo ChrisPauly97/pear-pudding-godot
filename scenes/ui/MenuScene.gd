@@ -6,6 +6,7 @@ const MultiplayerLobbyScene = preload("res://scenes/ui/MultiplayerLobbyScene.gd"
 const UiFx = preload("res://scenes/ui/UiFx.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _GraphicsQuality = preload("res://game_logic/GraphicsQuality.gd")
+const _SliceRules = preload("res://game_logic/SliceRules.gd")
 ## GID-143 / TID-606: key art behind the menu — an in-engine capture of Madrian at
 ## twilight (tools/capture_menu_keyart.gd), slowly panning; still on Low graphics.
 const _KEYART := preload("res://assets/textures/ui/menu_keyart.jpg")
@@ -29,14 +30,18 @@ func _ready() -> void:
 
 	_continue_btn = _add_btn("Continue", _on_continue)
 	_add_btn("New Game", _on_start)
-	_add_btn("Co-op (Beta)", _on_coop)
-	_add_btn("Achievements", _on_achievements)
-	_add_btn("Map Editor", _on_editor)
+	var coop_btn := _add_btn("Co-op (Beta)", _on_coop)
+	var achievements_btn := _add_btn("Achievements", _on_achievements)
+	var editor_btn := _add_btn("Map Editor", _on_editor)
 	_add_btn("Settings", _on_settings)
 	_add_btn("Diagnostics", _on_diagnostics)
 	_add_btn("Quit", _on_quit)
 
 	_continue_btn.visible = SceneManager.save_manager.has_save()
+	# GID-188: the vertical slice hides everything outside the core loop.
+	coop_btn.visible = _SliceRules.allows_menu("coop")
+	achievements_btn.visible = _SliceRules.allows_menu("achievements")
+	editor_btn.visible = _SliceRules.allows_menu("map_editor")
 
 	_layout()
 	_animate_title()

@@ -8,8 +8,10 @@ extends SceneTree
 
 const _WORLD_SCENE_PATH: String = "res://scenes/world/WorldScene.tscn"
 const _SceneFlow = preload("res://game_logic/SceneFlow.gd")
+const _SliceRules = preload("res://game_logic/SliceRules.gd")
 
 func _initialize() -> void:
+	_SliceRules.override = 0  # GID-188: turn-based input is full-game, outside the slice
 	_go()
 
 func _go() -> void:

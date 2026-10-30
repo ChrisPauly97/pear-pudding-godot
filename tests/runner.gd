@@ -15,6 +15,7 @@
 extends SceneTree
 
 const _TestCase = preload("res://tests/framework/test_case.gd")
+const _SliceRules = preload("res://game_logic/SliceRules.gd")
 
 
 func _initialize() -> void:
@@ -23,6 +24,8 @@ func _initialize() -> void:
 	var total_pending := 0
 
 	print("\n===== Pear Pudding TCG — Unit Tests =====\n")
+	# GID-188: suites test the full game; slice suites force it back on themselves.
+	_SliceRules.override = 0
 
 	var dir := DirAccess.open("res://tests/unit")
 	var files: Array[String] = []

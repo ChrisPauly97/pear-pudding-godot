@@ -191,6 +191,7 @@
 | [GID-185](goals/GID-185--unlocks-grant-cards/goal.md) | Unlocks Grant Cards & Expand the Deck | done | 3 / 3 |
 | [GID-186](goals/GID-186--balance-coverage/goal.md) | Balance Coverage — Every Level, School and Resistance | done | 1 / 1 |
 | [GID-187](goals/GID-187--balance-real-player/goal.md) | Balance the Real Player | done | 15 / 15 |
+| [GID-188](goals/GID-188--vertical-slice/goal.md) | Vertical Slice — Prove the Core Loop | in progress | 1 / 7 |
 
 ## Backlog
 

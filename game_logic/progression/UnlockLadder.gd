@@ -17,6 +17,7 @@
 extends RefCounted
 
 const TechniqueDefs = preload("res://game_logic/battle/TechniqueDefs.gd")
+const SliceRules = preload("res://game_logic/SliceRules.gd")
 
 ## Trainer ids → display names. Each is a Madrian NPC (TID-590).
 const TRAINERS: Dictionary = {
@@ -289,13 +290,17 @@ static func locked_message(id: String) -> String:
 		str(def(id).get("title", id)), trainer_name(trainer_for(id)), level_req(id)]
 
 static func can_learn(id: String, level: int, coins: int, learned: Array) -> bool:
-	return has(id) and not learned.has(id) and level >= level_req(id) and coins >= cost(id)
+	return (has(id) and SliceRules.allows_ladder(id) and not learned.has(id)
+			and level >= level_req(id) and coins >= cost(id))
+
+## The available-at / pending / for-trainer lists skip rows outside the vertical slice
+## (`SliceRules.allows_ladder`, GID-188).
 
 ## Entries that become available at exactly `level`, in ladder order.
 static func available_at(level: int) -> Array[String]:
 	var out: Array[String] = []
 	for row: Dictionary in LADDER:
-		if level_req(str(row["id"])) == level:
+		if level_req(str(row["id"])) == level and SliceRules.allows_ladder(str(row["id"])):
 			out.append(str(row["id"]))
 	return out
 
@@ -304,7 +309,7 @@ static func pending(level: int, learned: Array) -> Array[String]:
 	var out: Array[String] = []
 	for row: Dictionary in LADDER:
 		var id: String = str(row["id"])
-		if not learned.has(id) and level >= level_req(id):
+		if not learned.has(id) and level >= level_req(id) and SliceRules.allows_ladder(id):
 			out.append(id)
 	return out
 
@@ -312,7 +317,7 @@ static func pending(level: int, learned: Array) -> Array[String]:
 static func for_trainer(trainer: String) -> Array[String]:
 	var out: Array[String] = []
 	for row: Dictionary in LADDER:
-		if str(row["trainer"]) == trainer:
+		if str(row["trainer"]) == trainer and SliceRules.allows_ladder(str(row["id"])):
 			out.append(str(row["id"]))
 	return out
 
