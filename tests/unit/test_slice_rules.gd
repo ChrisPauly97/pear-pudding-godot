@@ -63,3 +63,23 @@ func test_slice_forces_real_time_battles() -> void:
 	SliceRules.override = 1
 	assert_eq(sm.battle_mode(), SliceRules.BATTLE_MODE, "slice ignores the setting")
 	sm.free()
+
+
+func test_full_game_toggle_round_trips_per_device() -> void:
+	var path: String = "user://test_full_game.cfg"
+	assert_false(SliceRules.full_game_enabled(path), "off when no file")
+	assert_eq(SliceRules.set_full_game(true, path), OK)
+	assert_true(SliceRules.full_game_enabled(path), "on after enabling")
+	assert_eq(SliceRules.set_full_game(false, path), OK)
+	assert_false(SliceRules.full_game_enabled(path), "off after disabling")
+	assert_false(FileAccess.file_exists(path), "disabling removes the file")
+
+
+func test_full_game_turns_the_slice_off() -> void:
+	SliceRules.override = -1
+	var was: int = SliceRules._full_game
+	SliceRules._full_game = 1
+	assert_false(SliceRules.active(), "Full Game on: the slice is off")
+	SliceRules._full_game = 0
+	assert_true(SliceRules.active(), "Full Game off: the shipped slice")
+	SliceRules._full_game = was

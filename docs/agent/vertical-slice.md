@@ -18,6 +18,7 @@ Out-of-slice systems are hidden, never deleted.
 | Ladder | `UnlockLadder.available_at` / `pending` / `for_trainer` / `can_learn` | Only `SliceRules.LADDER` rows (Mend, Kick, Allies, spells, companion, Dig) appear at trainers or can be learned |
 | Menu | `MenuScene._ready` | Co-op, Achievements, Map Editor hidden |
 | Battle mode | `SaveManager.battle_mode()` → `SliceRules.battle_mode()` | Always real time; the Settings choice is ignored |
+| Full Game | Settings toggle → `SliceRules.set_full_game()` (per device, `user://full_game.cfg`) | Turns the slice off on this device, live; the main menu re-applies on Settings close. Shown only when the build ships the slice |
 | HUD | (indirect) | Mount / Phase buttons are already gated on `has_learned`, so the ladder gate hides them |
 
 Planned (TID-795): level cap enforcement, Madrian + starter camps only (other towns, sea/rivers, caves, rifts

@@ -39,7 +39,9 @@ setting on, gates in UnlockLadder / MenuScene / SaveManager.battle_mode, runner 
 - `MenuScene`: Co-op, Achievements, Map Editor hidden in the slice.
 - `SaveManager.battle_mode()`: real time in the slice.
 - `tests/runner.gd`: `SliceRules.override = 0`. `tests/battle_input_flow_smoke.gd`: same (turn-based input).
-- `tests/unit/test_slice_rules.gd` (7 tests). Full suite 3641 pass; smoke tests green except the known
+- Settings "Full Game (beyond the demo)" toggle: per-device opt-out of the slice (`SliceRules.full_game_enabled` /
+  `set_full_game`, `user://full_game.cfg`, so the menu can read it before a save loads); menu re-applies on close.
+- `tests/unit/test_slice_rules.gd` (9 tests). Full suite 3643 pass; smoke tests green except the known
   `inventory_tiles_smoke` failures (BID-106, unchanged).
 
 ## Documentation Updates
